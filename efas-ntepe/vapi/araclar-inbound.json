@@ -1,0 +1,29 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "randevu_olustur",
+      "description": "Arayan müşteri satış danışmanıyla görüşme/ziyaret için gün ve saati NET olarak onayladıktan sonra randevuyu CRM'e kaydeder. Tarih ve saat İstanbul saatidir.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "randevu_tarihi": { "type": "string", "description": "Randevu günü, YYYY-AA-GG (örn. 2026-10-08). 'yarın', 'cumartesi' gibi ifadeleri bugünün tarihine göre çevir." },
+          "randevu_saati": { "type": "string", "description": "Randevu saati, 24 saat biçiminde SS:DD (örn. 14:00)." },
+          "ad_soyad": { "type": "string", "description": "Müşterinin adı soyadı." },
+          "iletisim_telefonu": { "type": "string", "description": "Sadece arayan numara gizliyse ya da müşteri farklı bir numara verdiyse." },
+          "randevu_tipi": { "type": "string", "enum": ["ofis_ziyareti", "proje_gezisi", "online_gorusme"] },
+          "ilgilendigi_daire": { "type": "string", "enum": ["1+1", "2+1 A Tipi", "2+1 Ebeveyn Banyolu", "2+1 Bağımsız Mutfaklı", "belirsiz"] },
+          "odeme_tercihi": { "type": "string", "enum": ["nakit", "vadeli", "kredi", "kredi_karti", "belirsiz"] },
+          "not": { "type": "string", "description": "Danışmana kısa not: oturum/yatırım, bütçe, özel istekler." }
+        },
+        "required": ["randevu_tarihi", "randevu_saati", "ad_soyad"]
+      }
+    },
+    "server": { "url": "https://N8N_ALANINIZ/webhook/efas-ntepe-inbound", "timeoutSeconds": 20 },
+    "messages": [
+      { "type": "request-start", "content": "Hemen sisteme kaydediyorum, bir saniye lütfen." },
+      { "type": "request-failed", "content": "Sistemde küçük bir sorun oldu; talebinizi not aldım, danışmanımız sizi arayıp teyit edecek." }
+    ]
+  },
+  { "type": "endCall" }
+]

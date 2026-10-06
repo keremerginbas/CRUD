@@ -1,0 +1,108 @@
+// ================================================================
+//  EFAS N-TEPE — AYARLAR
+//  Bu node 6 workflow'da da var. Değerleri HEPSİNDE aynı tutun.
+// ================================================================
+const AYARLAR = {
+  PROJE_ADI: 'EFAS N-TEPE',
+  PROJE_TELEFON: '444 24 53',
+
+  // Bitrix24 gelen webhook adresi — sonu "/" ile bitmeli.
+  // Bitrix > Geliştirici kaynakları > Diğer > Gelen webhook (yetki: CRM)
+  BITRIX_WEBHOOK: 'https://BITRIX_ALANINIZ/rest/KULLANICI_ID/WEBHOOK_KODU/',
+
+  // Vapi (API anahtarı "Vapi API" adlı Header Auth credential'ında durur)
+  VAPI_API: 'https://api.vapi.ai',
+  VAPI_OUTBOUND_ASISTAN_ID: 'OUTBOUND_ASISTAN_ID_BURAYA', // EFAS N-TEPE - OUTBOUND asistanının ID'si
+  VAPI_INBOUND_ASISTAN_ID: 'INBOUND_ASISTAN_ID_BURAYA', // sadece 00-Kurulum kontrolü için
+
+  // Aramaların yapılacağı numaralar (Vapi'deki Phone Numbers ile birebir aynı)
+  ARAYAN_NUMARALAR: ['+905337436876', '+905337437088', '+908503465993'],
+
+  // 04-Olay ve Mesaj Merkezi webhook adresi (n8n'deki "Production URL")
+  OLAY_WEBHOOK_URL: 'https://N8N_ALANINIZ/webhook/efas-ntepe-olay',
+
+  // Bitrix lead statüleri
+  STATU: {
+    YAPAY_ZEKA: 'UC_3W9EXO', // EFAS N-TEPE YAPAY ZEKA  → arama kuyruğu
+    OLUMSUZ: 'UC_PTDA4Y', // EFAS N-TEPE OLUMSUZ
+    RANDEVU: 'UC_ML92HM', // YAPAY ZEKA RANDEVU OLUŞTURANLAR
+    INBOUND_YENI: 'NEW', // inbound'da randevu almayan YENİ arayanlar için açılacak lead statüsü
+  },
+
+  // 00-Kurulum workflow'unun oluşturduğu lead alanları
+  ALAN: {
+    DENEME: 'UF_CRM_EFAS_AI_TRY', // kaçıncı arama
+    SONRAKI: 'UF_CRM_EFAS_AI_NEXT', // bir sonraki arama zamanı
+    SONUC: 'UF_CRM_EFAS_AI_RES', // son sonuç (ARANIYOR, ULASILAMADI, TEKRAR_ARA, RANDEVU, OLUMSUZ...)
+    CAGRI: 'UF_CRM_EFAS_AI_CALL', // son Vapi call ID
+    RANDEVU: 'UF_CRM_EFAS_AI_APPT', // randevu tarihi
+  },
+
+  // ---- Outbound kapasite ----
+  // Günlük kapasite ≈ (60 / tur aralığı dk) × TUR_BASINA_MAX_ARAMA × çalışma saati
+  //   3 dk, 3 arama, 9 saat → ~540/gün  |  3 dk, 6 arama (HAT_BASINA_ESZAMANLI: 2) → ~1080/gün
+  TUR_BASINA_MAX_ARAMA: 3, // her turda en fazla kaç arama başlasın
+  HAT_BASINA_ESZAMANLI: 1, // bir numaradan aynı anda kaç arama (SIP hattı izin veriyorsa 2+)
+
+  // ---- Outbound arama kuralları ----
+  MAX_DENEME: 3, // ulaşılamayan / kararsız lead en fazla kaç kez aransın
+  TEKRAR_ARA_EK_HAK: 2, // müşteri "sonra arayın" dediyse tanınacak ek arama hakkı
+  ULASILAMADI_TEKRAR_DK: 120, // açmayan / meşgul → kaç dakika sonra tekrar
+  KARARSIZ_TEKRAR_DK: 1440, // görüştü ama karar vermedi → kaç dakika sonra tekrar
+  HATA_TEKRAR_DK: 15, // Vapi araması başlatılamazsa
+  KILIT_DK: 30, // arama sürerken lead'in tekrar seçilmemesi için kilit
+  OLUMSUZA_TASIMA_TUR_LIMITI: 20, // bir turda en fazla kaç "hakkı biten" lead kapatılsın
+
+  // Saatler İstanbul saatidir. GUNLER: 1=Pazartesi ... 7=Pazar
+  ARAMA_SAATLERI: { GUNLER: [1, 2, 3, 4, 5, 6], BASLA: '10:00', BITIS: '19:00' },
+  RANDEVU_SAATLERI: { GUNLER: [1, 2, 3, 4, 5, 6, 7], BASLA: '10:00', BITIS: '18:00' },
+  RANDEVU_MAX_GUN: 30, // en fazla kaç gün sonrasına randevu verilsin
+
+  // ---- Sorumlu atama ----
+  // Doluysa randevular bu Bitrix kullanıcı ID'lerine sırayla dağıtılır (ör. [12, 45]).
+  // Boşsa lead'in mevcut sorumlusu korunur ve randevu görevi ona açılır.
+  RANDEVU_SORUMLU_IDLERI: [],
+  // Inbound'da yeni açılan lead'ler bu kullanıcılara dağıtılır; boşsa VARSAYILAN_SORUMLU_ID
+  INBOUND_SORUMLU_IDLERI: [],
+  VARSAYILAN_SORUMLU_ID: '',
+  // Yeni lead kaynağı (Bitrix > CRM > Ayarlar > Kaynaklar). 'CALL' = Çağrı
+  INBOUND_KAYNAK_ID: 'CALL',
+
+  // ---- SMS (Netgsm, "Netgsm SMS" Basic Auth credential: kullanıcı kodu + şifre) ----
+  SMS: {
+    AKTIF: false,
+    API_URL: 'https://api.netgsm.com.tr/sms/rest/v2/send',
+    BASLIK: 'SMS_BASLIGINIZ', // Netgsm'de onaylı gönderici başlığı
+    IYS_FILTRE_TICARI: '11', // tanıtım SMS'i: 11 = bireysel İYS onayı olanlara gider, 12 = tacir
+    METIN: {
+      randevu:
+        'Sayın {ad}, EFAS N-Tepe Yaşamkent ziyaret randevunuz {tarih} olarak oluşturuldu. Danışmanımız konum için sizi arayacak. Bilgi: {telefon} XRE Beştepe',
+      tanitim:
+        "EFAS N-Tepe Yaşamkent'te 3.150.000 TL'den başlayan fiyatlarla 1+1 daire sahibi olun. Sizi aradık ulaşamadık. Bilgi ve randevu: {telefon} XRE Beştepe",
+      bilgi: '',
+    },
+  },
+
+  // ---- WhatsApp (Meta WhatsApp Cloud API, "WhatsApp API" Header Auth credential: Bearer token) ----
+  // Şablonlar Meta Business Manager'da onaylı olmalı. {{1}} = ad, {{2}} = randevu tarihi
+  WHATSAPP: {
+    AKTIF: false,
+    API_URL: 'https://graph.facebook.com/v21.0',
+    TELEFON_NUMARASI_ID: 'WHATSAPP_PHONE_NUMBER_ID',
+    DIL: 'tr',
+    SABLON: {
+      randevu: { ad: 'efas_randevu_teyit', parametreler: ['ad', 'tarih'] },
+      tanitim: { ad: 'efas_tanitim', parametreler: ['ad'] },
+      bilgi: { ad: 'efas_bilgi', parametreler: ['ad'] },
+    },
+  },
+
+  // ---- Telegram (rapor grubu; "EFAS Telegram Bot" credential'ı, bot gruba eklenmeli) ----
+  TELEGRAM: {
+    AKTIF: false,
+    CHAT_ID: '-100GRUP_ID', // grup ID'si (eksi ile başlar)
+    ANLIK_RANDEVU_BILDIRIMI: true, // her randevuda gruba anlık mesaj
+  },
+};
+
+return [{ json: AYARLAR }];

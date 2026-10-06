@@ -1,0 +1,100 @@
+{
+  "analysisPlan": {
+    "summaryPlan": {
+      "enabled": true,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Sen bir çağrı merkezi kalite uzmanısın. Aşağıdaki gayrimenkul satış görüşmesini TÜRKÇE ve en fazla 3 cümleyle özetle: müşterinin ilgisi, ihtiyacı (daire tipi, bütçe, oturum/yatırım), itirazları ve sonuç (randevu varsa gün ve saati)."
+        },
+        {
+          "role": "user",
+          "content": "Transkript:\n\n{{transcript}}\n\nBitiş nedeni: {{endedReason}}"
+        }
+      ]
+    },
+    "structuredDataPlan": {
+      "enabled": true,
+      "schema": {
+        "type": "object",
+        "properties": {
+          "sonuc": {
+            "type": "string",
+            "enum": [
+              "randevu",
+              "olumsuz",
+              "tekrar_ara",
+              "kararsiz",
+              "ulasilamadi"
+            ]
+          },
+          "olumsuz_nedeni": {
+            "type": "string",
+            "enum": [
+              "ilgilenmiyor",
+              "butce_uygun_degil",
+              "konum_uygun_degil",
+              "baska_yerden_aldi",
+              "yanlis_numara",
+              "aranmak_istemiyor",
+              "diger"
+            ]
+          },
+          "randevu_tarihi": {
+            "type": "string",
+            "description": "YYYY-AA-GG, konuşmada netse"
+          },
+          "randevu_saati": {
+            "type": "string",
+            "description": "SS:DD, konuşmada netse"
+          },
+          "ilgilendigi_daire": {
+            "type": "string",
+            "enum": [
+              "1+1",
+              "2+1 A Tipi",
+              "2+1 Ebeveyn Banyolu",
+              "2+1 Bağımsız Mutfaklı",
+              "belirsiz"
+            ]
+          },
+          "odeme_tercihi": {
+            "type": "string",
+            "enum": [
+              "nakit",
+              "vadeli",
+              "kredi",
+              "kredi_karti",
+              "belirsiz"
+            ]
+          },
+          "amac": {
+            "type": "string",
+            "enum": [
+              "oturum",
+              "yatirim",
+              "belirsiz"
+            ]
+          },
+          "not": {
+            "type": "string",
+            "description": "Satış danışmanı için tek cümlelik not"
+          }
+        },
+        "required": [
+          "sonuc"
+        ]
+      },
+      "messages": [
+        {
+          "role": "system",
+          "content": "Bir gayrimenkul satış aramasının (biz müşteriyi aradık) transkriptinden yapılandırılmış veri çıkarıyorsun. Sadece şemaya uyan JSON döndür.\n\nsonuc kuralları:\n- randevu: müşteri belirli bir gün ve saat için görüşmeye NET onay verdi.\n- olumsuz: ilgilenmiyor, bütçe/konum uymuyor, başka yerden aldı, yanlış numara ya da aranmak istemiyor.\n- tekrar_ara: şu an müsait değil, başka zaman aranmak istiyor.\n- kararsiz: konuştu ama net karar ya da randevu yok.\n- ulasilamadi: karşı taraf hiç konuşmadı; telesekreter, sesli mesaj ya da operatör anonsu.\n\nŞema:\n{{schema}}"
+        },
+        {
+          "role": "user",
+          "content": "Transkript:\n\n{{transcript}}\n\nBitiş nedeni: {{endedReason}}"
+        }
+      ]
+    }
+  }
+}
