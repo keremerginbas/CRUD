@@ -26,7 +26,7 @@ const AYARLAR = {
     YAPAY_ZEKA: 'UC_3W9EXO', // EFAS N-TEPE YAPAY ZEKA  → arama kuyruğu
     OLUMSUZ: 'UC_PTDA4Y', // EFAS N-TEPE OLUMSUZ
     RANDEVU: 'UC_ML92HM', // YAPAY ZEKA RANDEVU OLUŞTURANLAR
-    INBOUND_YENI: 'NEW', // inbound'da randevu almayan YENİ arayanlar için açılacak lead statüsü
+    INBOUND_YENI: 'UC_PQDHUK', // EFAS İÇİN GELEN → inbound'da randevu almayan YENİ arayanlar
   },
 
   // 00-Kurulum workflow'unun oluşturduğu lead alanları

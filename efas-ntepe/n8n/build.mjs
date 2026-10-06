@@ -2,6 +2,7 @@
 // EFAS N-TEPE n8n workflow'larını üretir.
 //   node build.mjs                      → workflows/*.json (n8n'e içe aktarılacak dosyalar)
 //   node build.mjs --test <ayar.json>   → test için: AYARLAR'ı ezer, zamanlayıcıyı webhook yapar
+//   node build.mjs --ayar <ayar.json>   → hazir/*.json: AYARLAR'ı gerçek değerlerle doldurur (git'e girmez)
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join, resolve } from 'node:path';
@@ -10,16 +11,20 @@ import { fileURLToPath } from 'node:url';
 const KOK = dirname(fileURLToPath(import.meta.url));
 const oku = (p) => readFileSync(join(KOK, p), 'utf8');
 
-const testIdx = process.argv.indexOf('--test');
-const TEST = testIdx > -1 ? JSON.parse(readFileSync(resolve(process.argv[testIdx + 1]), 'utf8')) : null;
-const CIKTI = TEST ? join(KOK, '..', 'test', '.build') : join(KOK, 'workflows');
+const argDosya = (bayrak) => {
+  const i = process.argv.indexOf(bayrak);
+  return i > -1 ? JSON.parse(readFileSync(resolve(process.argv[i + 1]), 'utf8')) : null;
+};
+const TEST = argDosya('--test');
+const AYAR = TEST || argDosya('--ayar');
+const CIKTI = TEST ? join(KOK, '..', 'test', '.build') : AYAR ? join(KOK, 'hazir') : join(KOK, 'workflows');
 
 const LIB = oku('src/lib.js');
 let AYARLAR_KODU = oku('src/ayarlar.js');
-if (TEST) {
+if (AYAR) {
   AYARLAR_KODU = AYARLAR_KODU.replace(
     'return [{ json: AYARLAR }];',
-    `const birlestir = (h, k) => { for (const [a, v] of Object.entries(k)) h[a] = v && typeof v === 'object' && !Array.isArray(v) && h[a] && typeof h[a] === 'object' ? birlestir(h[a], v) : v; return h; };\nbirlestir(AYARLAR, ${JSON.stringify(TEST)});\nreturn [{ json: AYARLAR }];`
+    `const birlestir = (h, k) => { for (const [a, v] of Object.entries(k)) h[a] = v && typeof v === 'object' && !Array.isArray(v) && h[a] && typeof h[a] === 'object' ? birlestir(h[a], v) : v; return h; };\nbirlestir(AYARLAR, ${JSON.stringify(AYAR)});\nreturn [{ json: AYARLAR }];`
   );
 }
 const kod = (dosya) => `${LIB}\n${oku(`src/nodes/${dosya}`)}`;

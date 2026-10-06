@@ -295,7 +295,7 @@ once = (await durum()).comments.length;
 await inbound(rapor(inCall('in-3', '+905557770001'), { analysis: { summary: 'Fiyat bilgisi aldı.', structuredData: { sonuc: 'bilgi_aldi', musteri_adi: 'Ayşe Kaya' } }, artifact: { messages: konusma('Hoş geldiniz', 'Fiyat öğrenmek istiyorum') } }));
 s = await bekleKadar((x) => x.comments.length > once);
 const ayse = Object.values(s.leads).find((x) => x.ID !== '120' && x.PHONE?.[0]?.VALUE === '+905557770001');
-kontrol('başka projenin lead\'i olan arayan → yeni EFAS lead (NEW) + dönüş görevi', ayse?.STATUS_ID === 'NEW' && String(ayse.ASSIGNED_BY_ID) === '21' && s.todos.some((t) => t.ownerId === ayse.ID && t.title.includes('dönüş')), ayse);
+kontrol('başka projenin lead\'i olan arayan → yeni EFAS lead (EFAS İÇİN GELEN) + dönüş görevi', ayse?.STATUS_ID === 'UC_PQDHUK' && String(ayse.ASSIGNED_BY_ID) === '21' && s.todos.some((t) => t.ownerId === ayse.ID && t.title.includes('dönüş')), ayse);
 kontrol('diğer projenin lead\'ine dokunulmadı', s.leads['120'].STATUS_ID === 'UC_TOPRAKTAN' && !s.comments.some((c) => c.leadId === '120'));
 
 once = s.comments.length;

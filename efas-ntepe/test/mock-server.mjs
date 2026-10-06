@@ -58,6 +58,7 @@ function hataYanit(kod, aciklama) {
 
 const STATUSES = [
   { STATUS_ID: 'NEW', NAME: 'Yeni' },
+  { STATUS_ID: 'UC_PQDHUK', NAME: 'EFAS İÇİN GELEN' },
   { STATUS_ID: 'UC_3W9EXO', NAME: 'EFAS N-TEPE YAPAY ZEKA' },
   { STATUS_ID: 'UC_PTDA4Y', NAME: 'EFAS N-TEPE OLUMSUZ' },
   { STATUS_ID: 'UC_ML92HM', NAME: 'YAPAY ZEKA RANDEVU OLUŞTURANLAR' },

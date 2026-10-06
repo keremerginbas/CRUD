@@ -103,7 +103,7 @@ Bir lead'i baştan aratmak için `_TRY` ve `_NEXT` alanlarını temizleyip lead'
 ### Inbound (03)
 Arayan numara Bitrix'te aranır ve **bu projeye ait** en yeni lead seçilir. Başka projenin lead'ine dokunulmaz.
 - **Randevu:** Lead güncellenir ya da yeni lead açılır → `UC_ML92HM` + görev.
-- **Bilgi aldı / sonra aranmak istiyor:** Sorumluya "müşteriye dönüş yapın" görevi açılır. Yeni arayansa `NEW` statüsünde lead açılır.
+- **Bilgi aldı / sonra aranmak istiyor:** Sorumluya "müşteriye dönüş yapın" görevi açılır. Yeni arayansa **EFAS İÇİN GELEN** (`UC_PQDHUK`) statüsünde lead açılır.
 - **Olumsuz:** Kuyruktaki lead `UC_PTDA4Y`'ye taşınır.
 
 ## Günde 1.000 arama
