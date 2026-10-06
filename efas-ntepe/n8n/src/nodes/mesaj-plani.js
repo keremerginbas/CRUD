@@ -3,6 +3,25 @@ const A = $('AYARLAR').first().json;
 const olaylar = ($('Olay Webhook').first().json.body || {}).olaylar || [];
 const out = [];
 
+const xml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const cdata = (s) => String(s || '').replace(/]]>/g, ']]]]><![CDATA[>');
+const smsXml = (metin, no) =>
+  [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<CORPORATESMS>',
+    '  <HEADER>',
+    `    <USERNAME>${xml(A.SMS.KULLANICI)}</USERNAME>`,
+    `    <PASSWORD>${xml(A.SMS.SIFRE)}</PASSWORD>`,
+    `    <SMSHEADER><![CDATA[${cdata(A.SMS.BASLIK)}]]></SMSHEADER>`,
+    '    <SMSTYPE>UC</SMSTYPE>',
+    '    <SENDTYPE>1:N</SENDTYPE>',
+    '  </HEADER>',
+    '  <SMS>',
+    `    <SMS_MESSAGE><![CDATA[${cdata(metin)}]]></SMS_MESSAGE>`,
+    `    <NUMBERS>${no}</NUMBERS>`,
+    '  </SMS>',
+    '</CORPORATESMS>',
+  ].join('\n');
 const html = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const mobil = (t) => {
   const e = telefonNormalize(t);
@@ -39,12 +58,7 @@ for (const o of olaylar) {
       leadId: o.leadId || '',
       telefon: tel,
       ad: o.ad || '',
-      govde: {
-        msgheader: A.SMS.BASLIK,
-        encoding: 'TR',
-        iysfilter: o.mesaj === 'tanitim' ? A.SMS.IYS_FILTRE_TICARI : '',
-        messages: [{ msg: doldur(smsMetni, o), no: tel.slice(3) }],
-      },
+      govde: smsXml(doldur(smsMetni, o), tel.slice(3)), // numara 5XXXXXXXXX
     });
   }
 

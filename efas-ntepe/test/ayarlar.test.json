@@ -6,7 +6,7 @@
   "RANDEVU_SORUMLU_IDLERI": [7, 9],
   "INBOUND_SORUMLU_IDLERI": [21],
   "VARSAYILAN_SORUMLU_ID": "5",
-  "SMS": { "AKTIF": true, "API_URL": "http://127.0.0.1:8787/netgsm/sms", "BASLIK": "XRE TEST" },
+  "SMS": { "AKTIF": true, "API_URL": "http://127.0.0.1:8787/sms-xml", "KULLANICI": "sms-user", "SIFRE": "sms-pass", "BASLIK": "XRE TEST" },
   "WHATSAPP": { "AKTIF": true, "API_URL": "http://127.0.0.1:8787/wa", "TELEFON_NUMARASI_ID": "PNID" },
   "TELEGRAM": { "AKTIF": true, "CHAT_ID": "-100123" }
 }

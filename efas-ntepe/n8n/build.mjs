@@ -475,7 +475,7 @@ sunucu({
 {
   const wf = new Workflow(`${ON}04 Olay ve Mesaj Merkezi`);
   wf.not(
-    "## 04 · Olay ve Mesaj Merkezi\n01/02/03 workflow'ları her olayı buraya gönderir (OLAY_WEBHOOK_URL).\n\n1. Olaylar **efas_ntepe_olaylar** veri tablosuna yazılır (raporun kaynağı)\n2. Müşteriye mesaj:\n   • randevu → SMS + WhatsApp teyidi\n   • ilk aramada ulaşılamadı → tanıtım SMS + WhatsApp (İYS!)\n   • görüştü, karar vermedi / bilgi istedi → WhatsApp bilgi\n3. Her randevu Telegram grubuna anlık düşer\n\nKanallar AYARLAR'da SMS/WHATSAPP/TELEGRAM → AKTIF ile açılır.",
+    "## 04 · Olay ve Mesaj Merkezi\n01/02/03 workflow'ları her olayı buraya gönderir (OLAY_WEBHOOK_URL).\n\n1. Olaylar **efas_ntepe_olaylar** veri tablosuna yazılır (raporun kaynağı)\n2. Müşteriye mesaj:\n   • randevu → SMS + WhatsApp teyidi\n   • ilk aramada ulaşılamadı → tanıtım SMS + WhatsApp (İYS onayı olanlara!)\n   • görüştü, karar vermedi / bilgi istedi → WhatsApp bilgi\n3. Her randevu Telegram grubuna anlık düşer\n\nKanallar AYARLAR'da SMS/WHATSAPP/TELEGRAM → AKTIF ile açılır.",
     [-60, -380],
     560,
     320
@@ -496,21 +496,20 @@ sunucu({
     options: {},
   });
   const sms = wf.ekle(
-    'Netgsm: SMS Gönder',
+    'SMS Gönder (XML)',
     HTTP,
     4.2,
     [1340, -160],
     {
       method: 'POST',
       url: "={{ $('AYARLAR').first().json.SMS.API_URL }}",
-      authentication: 'genericCredentialType',
-      genericAuthType: 'httpBasicAuth',
       sendBody: true,
-      specifyBody: 'json',
-      jsonBody: '={{ JSON.stringify($json.govde) }}',
+      contentType: 'raw',
+      rawContentType: 'text/xml; charset=UTF-8',
+      body: '={{ $json.govde }}',
       options: { timeout: 20000 },
     },
-    { credentials: { httpBasicAuth: { id: 'EfasNetgsmSms', name: 'Netgsm SMS' } }, onError: 'continueRegularOutput' }
+    { onError: 'continueRegularOutput' }
   );
   const wa = wf.ekle(
     'WhatsApp: Şablon Gönder',

@@ -69,12 +69,13 @@ const AYARLAR = {
   // Yeni lead kaynağı (Bitrix > CRM > Ayarlar > Kaynaklar). 'CALL' = Çağrı
   INBOUND_KAYNAK_ID: 'CALL',
 
-  // ---- SMS (Netgsm, "Netgsm SMS" Basic Auth credential: kullanıcı kodu + şifre) ----
+  // ---- SMS (CORPORATESMS XML servisi; mevcut SMS workflow'unuzdaki adres ve bilgiler) ----
   SMS: {
     AKTIF: false,
-    API_URL: 'https://api.netgsm.com.tr/sms/rest/v2/send',
-    BASLIK: 'SMS_BASLIGINIZ', // Netgsm'de onaylı gönderici başlığı
-    IYS_FILTRE_TICARI: '11', // tanıtım SMS'i: 11 = bireysel İYS onayı olanlara gider, 12 = tacir
+    API_URL: 'SMS_API_ADRESI', // XML'in POST edildiği adres
+    KULLANICI: 'SMS_KULLANICI_ADI',
+    SIFRE: 'SMS_SIFRE',
+    BASLIK: 'XRE', // onaylı gönderici başlığı
     METIN: {
       randevu:
         'Sayın {ad}, EFAS N-Tepe Yaşamkent ziyaret randevunuz {tarih} olarak oluşturuldu. Danışmanımız konum için sizi arayacak. Bilgi: {telefon} XRE Beştepe',

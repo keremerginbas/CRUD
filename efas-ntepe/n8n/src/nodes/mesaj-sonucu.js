@@ -4,7 +4,10 @@ return $input.all().map((item, i) => {
   const plan = $('Mesaj Planı').itemMatching(i).json;
   const r = item.json || {};
   let ok;
-  if (plan.kanal === 'sms') ok = !r.error && String(r.code ?? r.data ?? '').trim().startsWith('00');
+  if (plan.kanal === 'sms') {
+    const yanit = typeof r.data === 'string' ? r.data : JSON.stringify(r);
+    ok = !r.error && !/hata|error|fail|invalid|geçersiz|yetkisiz|unauthori[sz]ed|denied/i.test(yanit);
+  }
   else ok = !r.error && !!(r.messages && r.messages[0] && r.messages[0].id);
   const hata = r.error ? (typeof r.error === 'string' ? r.error : r.error.message || JSON.stringify(r.error)) : ok ? '' : JSON.stringify(r);
   return {

@@ -199,8 +199,9 @@ const sunucu = http.createServer((req, res) => {
       res.end(JSON.stringify(veri));
     };
     let govde = {};
+    const xmlMi = /xml/i.test(req.headers['content-type'] || '');
     try {
-      govde = ham ? JSON.parse(ham) : {};
+      govde = ham && !xmlMi ? JSON.parse(ham) : {};
     } catch (e) {
       return gonder(400, { error: 'invalid json' });
     }
@@ -228,12 +229,13 @@ const sunucu = http.createServer((req, res) => {
       if (r.__hata) return gonder(400, { error: r.error, error_description: r.error_description });
       return gonder(200, r);
     }
-    // Netgsm SMS (REST v2) — Basic auth
-    if (url.pathname === '/netgsm/sms') {
-      if (req.headers.authorization !== `Basic ${Buffer.from('netgsm-user:netgsm-pass').toString('base64')}`)
-        return gonder(401, { code: '30', description: 'auth' });
-      S.sms.push(govde);
-      return gonder(200, { code: '00', jobid: `J${S.sms.length}`, description: 'queued' });
+    // CORPORATESMS XML servisi
+    if (url.pathname === '/sms-xml') {
+      const al = (etiket) => ((new RegExp(`<${etiket}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${etiket}>`).exec(ham) || [])[1] || '');
+      res.writeHead(200, { 'content-type': 'text/plain' });
+      if (al('USERNAME') !== 'sms-user' || al('PASSWORD') !== 'sms-pass') return res.end('HATA: Kullanici adi veya sifre hatali');
+      S.sms.push({ baslik: al('SMSHEADER'), msg: al('SMS_MESSAGE'), no: al('NUMBERS'), tip: al('SMSTYPE') });
+      return res.end(`ID:${S.sms.length}`);
     }
     // WhatsApp Cloud API
     const wm = /^\/wa\/([^/]+)\/messages$/.exec(url.pathname);

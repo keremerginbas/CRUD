@@ -20,7 +20,7 @@ flowchart LR
   W2 & W3 -->|statü, görev, yorum| B
   W1 & W2 & W3 -->|olaylar| W4[04 Olay ve<br/>Mesaj Merkezi]
   W4 --> T[(efas_ntepe_olaylar<br/>veri tablosu)]
-  W4 --> S[Netgsm SMS] & WA[WhatsApp] & TG[Telegram grubu]
+  W4 --> S[SMS servisi] & WA[WhatsApp] & TG[Telegram grubu]
   T --> W5[05 Günlük Rapor] --> TG
 ```
 
@@ -31,7 +31,7 @@ flowchart LR
 | `n8n/workflows/` | **İçe aktarılacak 6 workflow** (00–05) |
 | `vapi/` | Asistan promptları, araç tanımları, Structured Output şemaları, WhatsApp şablonları ([kurulum](vapi/README.md)) |
 | `n8n/src/` | Code node kaynakları. `node n8n/build.mjs` workflow JSON'larını bunlardan üretir |
-| `test/` | Gerçek n8n üzerinde uçtan uca test (sahte Bitrix/Vapi/Netgsm/WhatsApp/Telegram sunucusu) |
+| `test/` | Gerçek n8n üzerinde uçtan uca test (sahte Bitrix/Vapi/SMS/WhatsApp/Telegram sunucusu) |
 
 ## Kurulum (sırayla)
 
@@ -45,7 +45,6 @@ flowchart LR
 | Ad (aynen) | Tür | Değer |
 |---|---|---|
 | `Vapi API` | Header Auth | Name `Authorization`, Value `Bearer <Vapi private key>` |
-| `Netgsm SMS` | Basic Auth | Netgsm kullanıcı kodu + API şifresi. SMS henüz açılmayacaksa boş değerlerle oluşturun; 04'ün aktif edilebilmesi için gerekli |
 | `WhatsApp API` | Header Auth | Name `Authorization`, Value `Bearer <Meta kalıcı token>`. Henüz yoksa geçici değerle oluşturun |
 | `EFAS Telegram Bot` | Telegram API | BotFather token'ı *(bot rapor grubuna eklenmeli)* |
 
@@ -119,8 +118,8 @@ Günlük kapasite ≈ (60 ÷ tur dakikası) × `TUR_BASINA_MAX_ARAMA` × çalı�
 Maliyet: dashboard'daki ~$0,08/dk ile günde 1.000 arama kabaca **$40–80/gün** eder. Gerçek tutar ulaşma oranına ve konuşma süresine bağlıdır ve Telegram raporunda her gün görünür. Vapi bakiyesini buna göre yükleyin.
 
 ## SMS, WhatsApp ve Telegram
-- **SMS (Netgsm REST v2):** `SMS.AKTIF: true`, `BASLIK` = Netgsm'de onaylı gönderici başlığı. Metinler `SMS.METIN` içinde; `{ad}`, `{tarih}`, `{telefon}` yer tutucuları kullanılabilir.
-  ⚖️ Tanıtım SMS'i **ticari elektronik ileti**dir. `IYS_FILTRE_TICARI: '11'` ile yalnızca İYS'de onayı olan numaralara gider. Randevu teyidi bilgilendirme amaçlı olduğu için filtresiz gönderilir.
+- **SMS (CORPORATESMS XML servisi):** AYARLAR > `SMS` içine `API_URL`, `KULLANICI`, `SIFRE`, `BASLIK` girip `AKTIF: true` yapın. Metinler `SMS.METIN` içinde; `{ad}`, `{tarih}`, `{telefon}` yer tutucuları kullanılabilir.
+  ⚖️ Tanıtım SMS'i **ticari elektronik ileti**dir. Yalnızca İYS'de onayı olan numaralara gönderilmelidir. Randevu teyidi bilgilendirme amaçlıdır.
 - **WhatsApp (Meta Cloud API):** `WHATSAPP.AKTIF: true` ve `TELEFON_NUMARASI_ID`. Şablonlar Meta'da onaylı olmalı ([şablon metinleri](vapi/README.md#4-whatsapp-şablonları-meta-business-manager)). Pazarlama şablonları için de İYS/opt-in kuralları geçerlidir.
 - **Telegram:** Botu gruba ekleyin. Grup ID'sini (`-100…`) `TELEGRAM.CHAT_ID`'ye yazıp `AKTIF: true` yapın. Rapor saatleri 05'teki cron ifadesindedir (`30 13,19 * * *`).
 
@@ -152,7 +151,7 @@ node n8n/build.mjs                  # src/ → n8n/workflows/*.json
 node test/lib.test.mjs              # yardımcı fonksiyon testleri
 # Uçtan uca test (yerel n8n ≥ 2.x gerekir):
 node n8n/build.mjs --test test/ayarlar.test.json   # test/.build/ (adresler sahte sunucuya)
-node test/mock-server.mjs &                        # sahte Bitrix/Vapi/Netgsm/WhatsApp/Telegram :8787
+node test/mock-server.mjs &                        # sahte Bitrix/Vapi/SMS/WhatsApp/Telegram :8787
 # test/.build/*.json'u n8n'e import + publish edin; credential'lar için test/credentials.test.json
 node test/e2e.mjs                                  # 70 kontrol
 ```
