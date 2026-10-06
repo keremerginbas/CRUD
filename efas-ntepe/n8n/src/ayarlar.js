@@ -69,10 +69,10 @@ const AYARLAR = {
   // Yeni lead kaynağı (Bitrix > CRM > Ayarlar > Kaynaklar). 'CALL' = Çağrı
   INBOUND_KAYNAK_ID: 'CALL',
 
-  // ---- SMS (CORPORATESMS XML servisi; mevcut SMS workflow'unuzdaki adres ve bilgiler) ----
+  // ---- SMS (Erccell CORPORATESMS XML servisi) ----
   SMS: {
     AKTIF: false,
-    API_URL: 'SMS_API_ADRESI', // XML'in POST edildiği adres
+    API_URL: 'https://gateway.erccell.com.tr/corporatesms/sendsms/', // Erccell
     KULLANICI: 'SMS_KULLANICI_ADI',
     SIFRE: 'SMS_SIFRE',
     BASLIK: 'XRE', // onaylı gönderici başlığı

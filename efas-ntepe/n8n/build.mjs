@@ -505,7 +505,7 @@ sunucu({
       url: "={{ $('AYARLAR').first().json.SMS.API_URL }}",
       sendBody: true,
       contentType: 'raw',
-      rawContentType: 'text/xml; charset=UTF-8',
+      rawContentType: 'text/xml',
       body: '={{ $json.govde }}',
       options: { timeout: 20000 },
     },
