@@ -9,6 +9,15 @@ const leadler = $('Bitrix: Kuyruktaki Leadler')
   .all()
   .flatMap((i) => (Array.isArray(i.json.result) ? i.json.result : []));
 
+// 1b) Telefonu bağlı kişide olan (tekrarlayan) lead'ler için kişi telefonları
+const kisiTel = {};
+for (const i of $('Bitrix: Kişi Telefonları').all()) {
+  for (const k of Array.isArray(i.json.result) ? i.json.result : []) {
+    kisiTel[String(k.ID)] = leadTelefonu(k);
+  }
+}
+const telefonBul = (lead) => leadTelefonu(lead) || (lead.CONTACT_ID ? kisiTel[String(lead.CONTACT_ID)] : null) || null;
+
 // 2) Vapi numaralarını ID'ye eşle
 const numaraId = {};
 for (const i of $('Vapi: Telefon Numaraları').all()) {
@@ -62,7 +71,9 @@ for (const lead of leadler) {
 
   const sonuc = String(lead[F.SONUC] || '');
   const limit = aramaLimiti(A, sonuc);
-  const telefon = leadTelefonu(lead);
+  const telefon = telefonBul(lead);
+  // Kişi kaydı bu turda okunamadıysa (ilk 50 dışında) kapatma, sonraki turda bakılır
+  if (!telefon && lead.CONTACT_ID && !(String(lead.CONTACT_ID) in kisiTel)) continue;
 
   if (!telefon || deneme >= limit) {
     if (kapatilan >= Number(A.OLUMSUZA_TASIMA_TUR_LIMITI)) continue;
@@ -70,7 +81,7 @@ for (const lead of leadler) {
     const neden = telefon ? 'ULASILAMADI' : 'GECERSIZ_NUMARA';
     const aciklama = telefon
       ? `${deneme} aramada sonuç alınamadı (son durum: ${sonuc || '-'}).`
-      : 'Lead üzerinde geçerli bir telefon numarası yok.';
+      : 'Lead\'de ve bağlı kişide geçerli bir telefon numarası yok.';
     cmd[`kapat_${lead.ID}`] = bitrixKomut('crm.lead.update', {
       id: lead.ID,
       fields: { STATUS_ID: A.STATU.OLUMSUZ, [F.SONUC]: neden, [F.DENEME]: 0, [F.SONRAKI]: '' },

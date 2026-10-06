@@ -128,7 +128,9 @@ await post(`${MOCK}/__reset`, {
     { ID: 108, PHONE: telefonLead('05321111108'), STATUS_ID: AI, [F.DENEME]: '1', [F.SONUC]: 'ULASILAMADI', [F.SONRAKI]: gecmis },
     { ID: 109, PHONE: telefonLead('05321111109'), STATUS_ID: 'NEW' },
     { ID: 110, PHONE: telefonLead('05321111101'), STATUS_ID: AI },
+    { ID: 116, NAME: 'KAAN', LAST_NAME: 'İNCE', STATUS_ID: AI, CONTACT_ID: '9001' },
   ],
+  contacts: [{ ID: '9001', PHONE: telefonLead('+90 505 035 29 40') }],
 });
 r = await kuyruk();
 kontrol('tur 1 çalıştı', r.status === 200, r.text.slice(0, 300));
@@ -142,7 +144,7 @@ kontrol('107 kilitlendi (deneme 4, ARANIYOR_TA, ek hak korunur)', String(s.leads
 kontrol('104 geçersiz numara → OLUMSUZ', s.leads['104'].STATUS_ID === OLUMSUZ && s.leads['104'][F.SONUC] === 'GECERSIZ_NUMARA');
 kontrol('105 hakkı bitti → OLUMSUZ', s.leads['105'].STATUS_ID === OLUMSUZ && s.leads['105'][F.SONUC] === 'ULASILAMADI');
 kontrol('106 (bekleyen) ve 109 (başka statü) dokunulmadı', s.leads['106'][F.DENEME] === '1' && s.leads['109'][F.SONUC] === undefined);
-kontrol('sayfalama: crm.lead.list 3 sayfa', s.requests.filter((q) => q.metod === 'crm.lead.list').length === 3, s.requests.filter((q) => q.metod === 'crm.lead.list').length);
+kontrol('sayfalama: crm.lead.list 4 sayfa', s.requests.filter((q) => q.metod === 'crm.lead.list').length === 4, s.requests.filter((q) => q.metod === 'crm.lead.list').length);
 kontrol('call ID lead\'e yazıldı', s.leads['107'][F.CAGRI] === 'call-1' && s.leads['108'][F.CAGRI] === 'call-2', [s.leads['107'][F.CAGRI], s.leads['108'][F.CAGRI]]);
 
 await post(`${MOCK}/__config`, { activeCalls: [] });
@@ -160,7 +162,8 @@ kontrol('101 call ID yazıldı', !!call101, s.leads['101']);
 r = await kuyruk();
 s = await durum();
 cagrilar = s.requests.filter((q) => q.metod === 'POST /call').map((q) => q.body).slice(5);
-kontrol('tur 3: yalnızca 110 aranır (diğerleri kilitli)', cagrilar.map((c) => c.assistantOverrides.variableValues.lead_id).join() === '110', cagrilar.map((c) => c.assistantOverrides.variableValues.lead_id));
+kontrol('tur 3: 110 ve telefonu bağlı kişide olan 116 aranır', cagrilar.map((c) => c.assistantOverrides.variableValues.lead_id).join() === '110,116', cagrilar.map((c) => c.assistantOverrides.variableValues.lead_id));
+kontrol('116 kişi kaydındaki numaradan arandı', cagrilar.find((c) => c.assistantOverrides.variableValues.lead_id === '116')?.customer.number === '+905050352940');
 
 console.log('\n=== B) Outbound araçlar (görüşme sırasında) ===');
 r = await outbound(
@@ -325,7 +328,7 @@ console.log('\n=== F) Günlük rapor (05) ===');
 await bekle(1500); // son olayların tabloya yazılmasını bekle
 const rapor1 = await raporAl();
 const fark = (k) => rapor1[k] - rapor0[k];
-kontrol('rapor: 5 arama, 1 başlatılamayan', fark('arama') === 5 && fark('hata') === 1, { arama: fark('arama'), hata: fark('hata') });
+kontrol('rapor: 6 arama, 1 başlatılamayan', fark('arama') === 6 && fark('hata') === 1, { arama: fark('arama'), hata: fark('hata') });
 kontrol('rapor: 4 randevu (101, 113 teyit, inbound yeni, 103 inbound)', fark('randevu') === 4, fark('randevu'));
 kontrol('rapor: inbound görüşmeler sayıldı', fark('inbound') >= 3, fark('inbound'));
 kontrol('rapor: ulaşılan / ulaşılamayan', fark('ulasilan') >= 5 && fark('ulasilamayan') === 3, { ulasilan: fark('ulasilan'), ulasilamayan: fark('ulasilamayan') });

@@ -108,7 +108,7 @@ const HTTP = 'n8n-nodes-base.httpRequest';
 const VAPI_CRED = { httpHeaderAuth: { id: 'EfasVapiApiCredential', name: 'Vapi API' } };
 const BITRIX = "={{ $('AYARLAR').first().json.BITRIX_WEBHOOK }}";
 const VAPI = "={{ $('AYARLAR').first().json.VAPI_API }}";
-const LEAD_ALANLARI = "['ID', 'STATUS_ID', 'NAME', 'LAST_NAME', 'PHONE', 'ASSIGNED_BY_ID'].concat(Object.values($('AYARLAR').first().json.ALAN))";
+const LEAD_ALANLARI = "['ID', 'STATUS_ID', 'NAME', 'LAST_NAME', 'PHONE', 'CONTACT_ID', 'ASSIGNED_BY_ID'].concat(Object.values($('AYARLAR').first().json.ALAN))";
 
 const codeNode = (wf, ad, pos, js) => wf.ekle(ad, 'n8n-nodes-base.code', 2, pos, { jsCode: js });
 const ayarlarNode = (wf, pos) => codeNode(wf, 'AYARLAR', pos, AYARLAR_KODU);
@@ -331,6 +331,15 @@ const dosyalar = {};
     },
     { executeOnce: true, retryOnFail: true, maxTries: 3, waitBetweenTries: 3000 }
   );
+  const telsiz = codeNode(wf, 'Telefonsuz Leadler', [660, 220], kod('telefonsuz-leadler.js'));
+  const kisiler = bitrixPost(
+    wf,
+    'Bitrix: Kişi Telefonları',
+    [880, 220],
+    'crm.contact.list',
+    "={{ JSON.stringify({ filter: { ID: $json.kisiIdleri.length ? $json.kisiIdleri : [0] }, select: ['ID', 'PHONE'] }) }}",
+    { executeOnce: true, onError: 'continueRegularOutput', alwaysOutputData: true }
+  );
   const num = vapiGet(wf, 'Vapi: Telefon Numaraları', [880, 0], '/phone-number', [['limit', '100']]);
   const cagri = vapiGet(wf, 'Vapi: Aktif Çağrılar', [1100, 0], '/call', [
     ['createdAtGt', "={{ $('Zaman Kontrolü').first().json.aktifCagriBaslangic }}"],
@@ -366,7 +375,7 @@ const dosyalar = {};
   const kapat = codeNode(wf, 'Kapatılanlar', [1980, 220], kod('kapatilanlar.js'));
   const kapatOlay = olayBildir(wf, 'Olay Bildir (Kapatılan)', [2200, 220], '$json.olaylar');
 
-  wf.zincir(tetik, ay, zaman, leadler, num, cagri, asistanlar, sec, kilit, ayir, baslat);
+  wf.zincir(tetik, ay, zaman, leadler, telsiz, kisiler, num, cagri, asistanlar, sec, kilit, ayir, baslat);
   wf.bagla(kilit, kapat);
   wf.zincir(kapat, kapatOlay);
   wf.bagla(baslat, ok, 0);

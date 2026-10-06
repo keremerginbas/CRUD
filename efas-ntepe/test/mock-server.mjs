@@ -21,6 +21,7 @@ function sifirla(seed = {}) {
     telegram: [],
     userfields: [],
     activeCalls: seed.activeCalls || [],
+    contacts: seed.contacts || [],
     failNumbers: seed.failNumbers || [],
     pageSize: seed.pageSize || 50,
     phoneNumbers: seed.phoneNumbers || [
@@ -85,6 +86,11 @@ function bitrix(metod, p) {
       const r = { result: sayfa, total: list.length };
       if (start + S.pageSize < list.length) r.next = start + S.pageSize;
       return r;
+    }
+    case 'crm.contact.list': {
+      const f = p.filter || {};
+      const ids = (Array.isArray(f.ID) ? f.ID : typeof f.ID === 'object' ? Object.values(f.ID) : [f.ID]).map(String);
+      return { result: (S.contacts || []).filter((c) => ids.includes(String(c.ID))) };
     }
     case 'crm.lead.get': {
       const l = S.leads.get(String(p.id));

@@ -186,7 +186,7 @@
         "url": "={{ $('AYARLAR').first().json.BITRIX_WEBHOOK }}crm.lead.list.json",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ filter: { ID: ($json.result && $json.result.LEAD && $json.result.LEAD.length) ? $json.result.LEAD : [0] }, select: ['ID', 'STATUS_ID', 'NAME', 'LAST_NAME', 'PHONE', 'ASSIGNED_BY_ID'].concat(Object.values($('AYARLAR').first().json.ALAN)), order: { ID: 'DESC' } }) }}",
+        "jsonBody": "={{ JSON.stringify({ filter: { ID: ($json.result && $json.result.LEAD && $json.result.LEAD.length) ? $json.result.LEAD : [0] }, select: ['ID', 'STATUS_ID', 'NAME', 'LAST_NAME', 'PHONE', 'CONTACT_ID', 'ASSIGNED_BY_ID'].concat(Object.values($('AYARLAR').first().json.ALAN)), order: { ID: 'DESC' } }) }}",
         "options": {
           "timeout": 30000
         }
