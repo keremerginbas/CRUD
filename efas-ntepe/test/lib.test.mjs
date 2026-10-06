@@ -90,6 +90,16 @@ t('Vapi mesaj çözümleme', () => {
   assert.equal(m.maliyet, 0.12);
   const k = L.vapiMesajCoz({ message: { type: 'end-of-call-report', transcript: 'AI: Merhaba\nUser: Evet benim', call: {} } });
   assert.equal(k.ulasildi, true);
+  const so = L.vapiMesajCoz({
+    message: {
+      type: 'end-of-call-report',
+      analysis: { summary: 'English summary' },
+      artifact: { structuredOutputs: { 'id-1': { name: 'efas_ntepe_sonuc', result: { sonuc: 'kararsiz', ozet: 'Türkçe özet' } } } },
+      call: {},
+    },
+  });
+  assert.equal(so.yapi.sonuc, 'kararsiz');
+  assert.equal(so.ozet, 'Türkçe özet');
   const tc = L.vapiMesajCoz({ message: { type: 'tool-calls', toolCallList: [{ id: 'x', function: { name: 'a', arguments: '{"b":1}' } }] } });
   assert.deepEqual(tc.toolCalls, [{ id: 'x', ad: 'a', arg: { b: 1 } }]);
 });

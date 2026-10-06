@@ -227,7 +227,7 @@ function vapiMesajCoz(body) {
   const sd = msg.analysis && msg.analysis.structuredData;
   if (sd && typeof sd === 'object') yapi = sd;
   else {
-    const so = artifact.structuredOutputs || msg.structuredOutputs;
+    const so = artifact.structuredOutputs || (call.artifact && call.artifact.structuredOutputs) || msg.structuredOutputs;
     if (so && typeof so === 'object') {
       for (const v of Object.values(so)) {
         if (!v) continue;
@@ -263,7 +263,8 @@ function vapiMesajCoz(body) {
     endedReason,
     sure: Math.round(sure || 0),
     maliyet: Number(msg.cost) || 0,
-    ozet: (msg.analysis && msg.analysis.summary) || msg.summary || '',
+    // Türkçe özet tercih edilir: Structured Output'taki "ozet" alanı, yoksa Vapi özeti
+    ozet: (typeof yapi.ozet === 'string' && yapi.ozet.trim()) || (msg.analysis && msg.analysis.summary) || msg.summary || '',
     yapi,
     kayit,
     transkript,

@@ -10,8 +10,10 @@ En kolay yol, çalışan Türkçe ses ayarlarını (Soniox STT, GPT-5 Mini, Leah
 4. **Tools:** Tools sayfasında [`araclar-outbound.json`](araclar-outbound.json) içindeki 3 fonksiyonu oluşturun (`randevu_olustur`, `geri_arama_planla`, `olumsuz_kaydet`). Her birinin Server URL'i: `https://N8N_ALANINIZ/webhook/efas-ntepe-outbound`. Sonra asistanın Tools sekmesinde bu 3 aracı ve **End Call** aracını seçin. Kopyaladığınız asistandan gelen Topraktan araçlarını kaldırın.
 5. **Advanced > Server URL:** `https://N8N_ALANINIZ/webhook/efas-ntepe-outbound`
    **Server Messages:** sadece `end-of-call-report` seçili kalsın. Diğer mesaj tipleri n8n'i gereksiz yere tetikler.
-6. **Analysis:** [`analiz-outbound.json`](analiz-outbound.json) dosyasındaki özet istemi (Summary prompt), yapılandırılmış veri şeması (Structured Data schema) ve istemi girin. Özet Türkçe olur ve sonuç (`sonuc`) n8n'e bu yolla gelir.
-   Structured Outputs kullanıyorsanız aynı alan adlarıyla (`sonuc`, `olumsuz_nedeni`, …) tek bir obje çıktısı tanımlayın; n8n iki biçimi de okur.
+6. **Analysis > Structured Outputs:**
+   - Kopyalamadan gelen **topraktan_call_result**'ı bu asistandan **kaldırın**. Kaldırma işlemi sadece bu asistandan yapılsın, çıktının kendisini silmeyin; Topraktan kullanıyor.
+   - **Add Field** > yeni çıktı: ad `efas_ntepe_sonuc`, tür **Object**. Şema ve açıklama [`yapilandirilmis-cikti-outbound.json`](yapilandirilmis-cikti-outbound.json) dosyasında; `schema` kısmını JSON sekmesine yapıştırın.
+   - n8n görüşmenin sonucunu (`sonuc`, `olumsuz_nedeni`, …) ve lead'e yazılan Türkçe özeti (`ozet`) bu çıktıdan okur.
 7. Önerilen ayarlar: Max duration 600 sn, Silence timeout 20–30 sn, Voicemail detection açık.
 8. Asistanın adı tam olarak **`EFAS N-TEPE - OUTBOUND`** olsun. n8n asistanı bu adla bulur, ID girmeniz gerekmez. Farklı bir ad verirseniz AYARLAR > `VAPI_OUTBOUND_ASISTAN` alanına o adı ya da ID'yi yazın.
 
@@ -22,7 +24,7 @@ Outbound ile aynı adımlar, şu farklarla:
 - First message: `Merhabalar, XRE Beştepe, EFAS N-Tepe Yaşamkent'e hoş geldiniz. Ben Selin, size nasıl yardımcı olabilirim?`
 - Tools: [`araclar-inbound.json`](araclar-inbound.json) (yalnızca `randevu_olustur` ve End Call), URL `…/webhook/efas-ntepe-inbound`
 - Server URL: `https://N8N_ALANINIZ/webhook/efas-ntepe-inbound`
-- Analysis: [`analiz-inbound.json`](analiz-inbound.json)
+- Analysis: `topraktan_call_result`'ı kaldırın, [`yapilandirilmis-cikti-inbound.json`](yapilandirilmis-cikti-inbound.json) ile `efas_ntepe_inbound_sonuc` çıktısını ekleyin.
 
 ## 3. Telefon numaraları
 Phone Numbers'da **+90 533 743 68 76**, **+90 533 743 70 88** ve **+90 850 346 59 93** numaralarını açın. Inbound Settings > Assistant alanında **EFAS N-TEPE - INBOUND**'u seçin. Numaranın kendi Server URL alanı boş kalsın.

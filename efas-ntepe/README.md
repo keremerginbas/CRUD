@@ -29,7 +29,7 @@ flowchart LR
 | Klasör | İçerik |
 |---|---|
 | `n8n/workflows/` | **İçe aktarılacak 6 workflow** (00–05) |
-| `vapi/` | Asistan promptları, araç tanımları, analiz şemaları, WhatsApp şablonları ([kurulum](vapi/README.md)) |
+| `vapi/` | Asistan promptları, araç tanımları, Structured Output şemaları, WhatsApp şablonları ([kurulum](vapi/README.md)) |
 | `n8n/src/` | Code node kaynakları. `node n8n/build.mjs` workflow JSON'larını bunlardan üretir |
 | `test/` | Gerçek n8n üzerinde uçtan uca test (sahte Bitrix/Vapi/Netgsm/WhatsApp/Telegram sunucusu) |
 
@@ -69,7 +69,7 @@ flowchart LR
 3. Son node'daki `rapor` alanında ❌ satırı kalmayana kadar düzeltin.
 
 ### 5. Vapi
-[vapi/README.md](vapi/README.md) adımlarını uygulayın: iki asistan, araçlar, Server URL ve analiz ayarları. Ardından 3 numaranın inbound asistanını EFAS yapın.
+[vapi/README.md](vapi/README.md) adımlarını uygulayın: iki asistan, araçlar, Server URL ve Structured Output. Ardından 3 numaranın inbound asistanını EFAS yapın.
 
 > ⚠️ Bu 3 numara şu an **TOPRAKTAN CITY** asistanlarına bağlı. Inbound atamasını değiştirdiğinizde bu numaraları geri arayan Topraktan müşterileri EFAS asistanına düşer.
 

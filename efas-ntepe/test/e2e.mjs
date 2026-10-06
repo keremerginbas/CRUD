@@ -103,7 +103,7 @@ kontrol('kurulum raporu üretildi', kurulum.length > 10, r.text.slice(0, 300));
 kontrol('kurulum raporunda hata yok', !kurulum.some((x) => x.startsWith('❌')), kurulum.filter((x) => !x.startsWith('✅')));
 kontrol('5 Bitrix alanı oluşturuldu', kurulum.filter((x) => /Lead alanı .* oluşturuldu/.test(x)).length === 5);
 kontrol('pn-3 inbound asistanı EFAS değil uyarısı', kurulum.some((x) => x.startsWith('⚠️') && x.includes('+908503465993')));
-kontrol('olay tablosu ve olay webhook\'u hazır', kurulum.some((x) => x.includes('Olay tablosu hazır')) && kurulum.some((x) => x.includes('webhook\'u yanıt veriyor')));
+kontrol('olay tablosu ve olay webhook\'u hazır', kurulum.some((x) => x.includes('Olay tablosu hazır')) && kurulum.some((x) => x.includes('Olay ve Mesaj Merkezi yanıt veriyor')));
 r = await post(`${N8N}/webhook/test-efas-kurulum`, {});
 kontrol('ikinci kurulumda alanlar "zaten vardı"', (r.json?.satirlar || []).filter((x) => x.includes('zaten vardı')).length === 5, r.json?.satirlar);
 const rapor0 = await raporAl();

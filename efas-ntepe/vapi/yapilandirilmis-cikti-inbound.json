@@ -1,0 +1,94 @@
+{
+  "name": "efas_ntepe_inbound_sonuc",
+  "description": "EFAS N-Tepe projesine gelen (müşteri bizi aradı) telefon görüşmesinin sonucu. Transkripte göre doldur.",
+  "type": "object",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "sonuc": {
+        "type": "string",
+        "enum": [
+          "randevu",
+          "bilgi_aldi",
+          "tekrar_ara",
+          "olumsuz",
+          "yanlis_arama",
+          "diger"
+        ],
+        "description": "randevu: arayan belirli bir gün ve saat için görüşmeye NET onay verdi. bilgi_aldi: bilgi aldı, randevu almadı. tekrar_ara: danışmanın kendisini aramasını istedi. olumsuz: ilgilenmediğini söyledi. yanlis_arama: yanlış numarayı aradı. diger: satış dışı konu (mevcut müşteri, ödeme, şikâyet vb.)."
+      },
+      "olumsuz_nedeni": {
+        "type": "string",
+        "enum": [
+          "ilgilenmiyor",
+          "butce_uygun_degil",
+          "konum_uygun_degil",
+          "baska_yerden_aldi",
+          "yanlis_numara",
+          "aranmak_istemiyor",
+          "diger"
+        ],
+        "description": "Sadece sonuc=olumsuz ise doldur."
+      },
+      "musteri_adi": {
+        "type": "string",
+        "description": "Arayanın adı soyadı, söylediyse."
+      },
+      "randevu_tarihi": {
+        "type": "string",
+        "description": "YYYY-AA-GG; sadece randevu konuşulduysa ve tarih netse."
+      },
+      "randevu_saati": {
+        "type": "string",
+        "description": "SS:DD; sadece randevu konuşulduysa ve saat netse."
+      },
+      "geri_arama_zamani": {
+        "type": "string",
+        "description": "Ne zaman aranmak istediği, söylediği gibi."
+      },
+      "ilgilendigi_daire": {
+        "type": "string",
+        "enum": [
+          "1+1",
+          "2+1 A Tipi",
+          "2+1 Ebeveyn Banyolu",
+          "2+1 Bağımsız Mutfaklı",
+          "belirsiz"
+        ],
+        "description": "Müşterinin ilgilendiği daire tipi."
+      },
+      "odeme_tercihi": {
+        "type": "string",
+        "enum": [
+          "nakit",
+          "vadeli",
+          "kredi",
+          "kredi_karti",
+          "belirsiz"
+        ],
+        "description": "Müşterinin ödeme tercihi."
+      },
+      "amac": {
+        "type": "string",
+        "enum": [
+          "oturum",
+          "yatirim",
+          "belirsiz"
+        ],
+        "description": "Oturmak için mi yatırım için mi."
+      },
+      "talep_notu": {
+        "type": "string",
+        "description": "Arayanın talebi, tek cümle."
+      },
+      "ozet": {
+        "type": "string",
+        "description": "Görüşmenin TÜRKÇE, en fazla 3 cümlelik özeti: müşterinin ilgisi, ihtiyacı (daire tipi, bütçe, oturum/yatırım), itirazları ve sonuç (randevu varsa gün ve saati)."
+      }
+    },
+    "required": [
+      "sonuc",
+      "ozet"
+    ]
+  }
+}
