@@ -13,11 +13,11 @@ En kolay yol, çalışan Türkçe ses ayarlarını (Soniox STT, GPT-5 Mini, Leah
 6. **Analysis:** [`analiz-outbound.json`](analiz-outbound.json) dosyasındaki özet istemi (Summary prompt), yapılandırılmış veri şeması (Structured Data schema) ve istemi girin. Özet Türkçe olur ve sonuç (`sonuc`) n8n'e bu yolla gelir.
    Structured Outputs kullanıyorsanız aynı alan adlarıyla (`sonuc`, `olumsuz_nedeni`, …) tek bir obje çıktısı tanımlayın; n8n iki biçimi de okur.
 7. Önerilen ayarlar: Max duration 600 sn, Silence timeout 20–30 sn, Voicemail detection açık.
-8. Asistan ID'sini (URL'deki UUID) n8n'de **AYARLAR > VAPI_OUTBOUND_ASISTAN_ID** alanına yazın.
+8. Asistanın adı tam olarak **`EFAS N-TEPE - OUTBOUND`** olsun. n8n asistanı bu adla bulur, ID girmeniz gerekmez. Farklı bir ad verirseniz AYARLAR > `VAPI_OUTBOUND_ASISTAN` alanına o adı ya da ID'yi yazın.
 
 ## 2. Inbound asistanı
 Outbound ile aynı adımlar, şu farklarla:
-- Kaynak olarak **TOPRAKTAN CITY - INBOUND**'u kopyalayın, adı `EFAS N-TEPE - INBOUND` olsun.
+- Kaynak olarak **TOPRAKTAN CITY - INBOUND**'u kopyalayın, adı tam olarak `EFAS N-TEPE - INBOUND` olsun.
 - Prompt: [`inbound-sistem-promptu.md`](inbound-sistem-promptu.md)
 - First message: `Merhabalar, XRE Beştepe, EFAS N-Tepe Yaşamkent'e hoş geldiniz. Ben Selin, size nasıl yardımcı olabilirim?`
 - Tools: [`araclar-inbound.json`](araclar-inbound.json) (yalnızca `randevu_olustur` ve End Call), URL `…/webhook/efas-ntepe-inbound`

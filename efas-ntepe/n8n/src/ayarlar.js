@@ -12,14 +12,15 @@ const AYARLAR = {
 
   // Vapi (API anahtarı "Vapi API" adlı Header Auth credential'ında durur)
   VAPI_API: 'https://api.vapi.ai',
-  VAPI_OUTBOUND_ASISTAN_ID: 'OUTBOUND_ASISTAN_ID_BURAYA', // EFAS N-TEPE - OUTBOUND asistanının ID'si
-  VAPI_INBOUND_ASISTAN_ID: 'INBOUND_ASISTAN_ID_BURAYA', // sadece 00-Kurulum kontrolü için
+  // Asistanın Vapi'deki ADI ya da ID'si. Ad yazılırsa sistem ID'yi kendisi bulur.
+  VAPI_OUTBOUND_ASISTAN: 'EFAS N-TEPE - OUTBOUND',
+  VAPI_INBOUND_ASISTAN: 'EFAS N-TEPE - INBOUND', // sadece 00-Kurulum kontrolü için
 
   // Aramaların yapılacağı numaralar (Vapi'deki Phone Numbers ile birebir aynı)
   ARAYAN_NUMARALAR: ['+905337436876', '+905337437088', '+908503465993'],
 
-  // 04-Olay ve Mesaj Merkezi webhook adresi (n8n'deki "Production URL")
-  OLAY_WEBHOOK_URL: 'https://N8N_ALANINIZ/webhook/efas-ntepe-olay',
+  // 04-Olay ve Mesaj Merkezi webhook adresi. Boş bırakılırsa n8n adresinizden otomatik bulunur.
+  OLAY_WEBHOOK_URL: '',
 
   // Bitrix lead statüleri
   STATU: {
@@ -104,5 +105,12 @@ const AYARLAR = {
     ANLIK_RANDEVU_BILDIRIMI: true, // her randevuda gruba anlık mesaj
   },
 };
+
+// OLAY_WEBHOOK_URL boşsa bu n8n'in kendi adresinden türet (…/webhook-waiting/ID → …/webhook/efas-ntepe-olay)
+if (!AYARLAR.OLAY_WEBHOOK_URL) {
+  try {
+    AYARLAR.OLAY_WEBHOOK_URL = String($execution.resumeUrl).replace(/\/webhook-waiting\/.*$/, '/webhook/efas-ntepe-olay');
+  } catch (e) {}
+}
 
 return [{ json: AYARLAR }];

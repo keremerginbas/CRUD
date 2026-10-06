@@ -375,6 +375,15 @@ function randevuKomutlari({ A, leadId, yeniLead, tarih, arg, callId, sorumlu, yo
   return { cmd, anaKomut, ref };
 }
 
+// Vapi asistanını ID'si ya da adıyla bulur (büyük/küçük harf, tire ve boşluk farkı önemsiz)
+function asistanBul(liste, deger) {
+  const d = String(deger || '').trim();
+  if (!d) return null;
+  const norm = (s) => String(s || '').toLocaleLowerCase('tr-TR').replace(/[\u2010-\u2015]/g, '-').replace(/\s+/g, ' ').trim();
+  const l = (Array.isArray(liste) ? liste : []).filter((a) => a && a.id);
+  return l.find((a) => a.id === d) || l.find((a) => norm(a.name) === norm(d)) || (/^[0-9a-f-]{36}$/i.test(d) ? { id: d, name: d } : null);
+}
+
 // Ad soyadı Bitrix NAME / LAST_NAME'e böl
 function adSoyadBol(s) {
   const p = String(s || '').trim().split(/\s+/).filter(Boolean);

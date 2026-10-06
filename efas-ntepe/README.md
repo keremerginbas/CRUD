@@ -45,8 +45,8 @@ flowchart LR
 | Ad (aynen) | Tür | Değer |
 |---|---|---|
 | `Vapi API` | Header Auth | Name `Authorization`, Value `Bearer <Vapi private key>` |
-| `Netgsm SMS` | Basic Auth | Netgsm kullanıcı kodu + API şifresi *(SMS açılacaksa)* |
-| `WhatsApp API` | Header Auth | Name `Authorization`, Value `Bearer <Meta kalıcı token>` *(WhatsApp açılacaksa)* |
+| `Netgsm SMS` | Basic Auth | Netgsm kullanıcı kodu + API şifresi. SMS henüz açılmayacaksa boş değerlerle oluşturun; 04'ün aktif edilebilmesi için gerekli |
+| `WhatsApp API` | Header Auth | Name `Authorization`, Value `Bearer <Meta kalıcı token>`. Henüz yoksa geçici değerle oluşturun |
 | `EFAS Telegram Bot` | Telegram API | BotFather token'ı *(bot rapor grubuna eklenmeli)* |
 
 ### 3. Workflow'ları içe aktarın
@@ -55,8 +55,8 @@ flowchart LR
 | Ayar | Ne yazılır |
 |---|---|
 | `BITRIX_WEBHOOK` | 1. adımdaki adres (sonu `/`) |
-| `VAPI_OUTBOUND_ASISTAN_ID` / `VAPI_INBOUND_ASISTAN_ID` | 5. adımda oluşturulan asistanların ID'leri |
-| `OLAY_WEBHOOK_URL` | 04 workflow'undaki webhook'un Production URL'i (`…/webhook/efas-ntepe-olay`) |
+| `VAPI_OUTBOUND_ASISTAN` / `VAPI_INBOUND_ASISTAN` | Asistanın Vapi'deki **adı** (varsayılan `EFAS N-TEPE - OUTBOUND` / `- INBOUND`) ya da ID'si. Aynı adı verirseniz değiştirmeniz gerekmez |
+| `OLAY_WEBHOOK_URL` | Boş bırakın; n8n kendi adresinden bulur. Farklı bir adres gerekiyorsa 04'teki webhook'un Production URL'ini yazın |
 | `RANDEVU_SORUMLU_IDLERI` | Boşsa randevu lead'in **mevcut sorumlusuna** gider. `[12, 45]` gibi doldurulursa randevular bu Bitrix kullanıcılarına sırayla dağıtılır |
 | `INBOUND_SORUMLU_IDLERI`, `VARSAYILAN_SORUMLU_ID` | Inbound'da yeni açılan lead'lerin sorumluları |
 | `SMS`, `WHATSAPP`, `TELEGRAM` | Kanal bilgileri. `AKTIF: true` ile açılır |

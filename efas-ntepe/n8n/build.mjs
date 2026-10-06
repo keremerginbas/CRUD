@@ -21,7 +21,34 @@ const CIKTI = TEST ? join(KOK, '..', 'test', '.build') : AYAR ? join(KOK, 'hazir
 
 const LIB = oku('src/lib.js');
 let AYARLAR_KODU = oku('src/ayarlar.js');
-if (AYAR) {
+// "KEY: değer," satırını (iç içe anahtarlar için ilgili bloğun içinde) yeni değerle değiştirir
+function ayarYaz(kod, yol, deger) {
+  let bas = 0;
+  let girinti = '  ';
+  for (const [i, anahtar] of yol.entries()) {
+    const re = new RegExp(`\\n${girinti}${anahtar}: `, 'g');
+    re.lastIndex = bas;
+    const m = re.exec(kod);
+    if (!m) throw new Error(`AYARLAR'da bulunamadı: ${yol.join('.')}`);
+    bas = m.index + m[0].length;
+    if (i < yol.length - 1) girinti += '  ';
+  }
+  const son = kod.indexOf(',', bas);
+  const satirSonu = kod.indexOf('\n', bas);
+  if (son < 0 || son > satirSonu) throw new Error(`AYARLAR'da tek satırlık değer değil: ${yol.join('.')}`);
+  return kod.slice(0, bas) + JSON.stringify(deger) + kod.slice(son);
+}
+function ayarlariYaz(kod, nesne, yol = []) {
+  for (const [k, v] of Object.entries(nesne)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) kod = ayarlariYaz(kod, v, [...yol, k]);
+    else kod = ayarYaz(kod, [...yol, k], v);
+  }
+  return kod;
+}
+
+if (AYAR && !TEST) {
+  AYARLAR_KODU = ayarlariYaz(AYARLAR_KODU, AYAR);
+} else if (TEST) {
   AYARLAR_KODU = AYARLAR_KODU.replace(
     'return [{ json: AYARLAR }];',
     `const birlestir = (h, k) => { for (const [a, v] of Object.entries(k)) h[a] = v && typeof v === 'object' && !Array.isArray(v) && h[a] && typeof h[a] === 'object' ? birlestir(h[a], v) : v; return h; };\nbirlestir(AYARLAR, ${JSON.stringify(AYAR)});\nreturn [{ json: AYARLAR }];`
@@ -309,14 +336,15 @@ const dosyalar = {};
     ['createdAtGt', "={{ $('Zaman Kontrolü').first().json.aktifCagriBaslangic }}"],
     ['limit', '100'],
   ]);
-  const sec = codeNode(wf, 'Aranacakları Seç', [1320, 0], kod('aranacaklari-sec.js'));
-  const kilit = bitrixBatch(wf, 'Bitrix: Kilitle / Kapat', [1540, 0]);
-  const ayir = codeNode(wf, 'Aramaları Ayır', [1760, 0], kod('aramalari-ayir.js'));
+  const asistanlar = vapiGet(wf, 'Vapi: Asistanlar', [1320, 0], '/assistant', [['limit', '100']]);
+  const sec = codeNode(wf, 'Aranacakları Seç', [1540, 0], kod('aranacaklari-sec.js'));
+  const kilit = bitrixBatch(wf, 'Bitrix: Kilitle / Kapat', [1760, 0]);
+  const ayir = codeNode(wf, 'Aramaları Ayır', [1980, 0], kod('aramalari-ayir.js'));
   const baslat = wf.ekle(
     'Vapi: Aramayı Başlat',
     HTTP,
     4.2,
-    [1980, 0],
+    [2200, 0],
     {
       method: 'POST',
       url: `${VAPI}/call`,
@@ -329,16 +357,16 @@ const dosyalar = {};
     },
     { credentials: VAPI_CRED, onError: 'continueErrorOutput' }
   );
-  const ok = codeNode(wf, 'Başlatılan Aramalar', [2220, -100], kod('baslatilan-aramalar.js'));
-  const okBx = bitrixBatch(wf, 'Bitrix: Çağrı ID Yaz', [2440, -100]);
-  const okOlay = olayBildir(wf, 'Olay Bildir (Başlayan)', [2660, -100], "$('Başlatılan Aramalar').first().json.olaylar");
-  const hata = codeNode(wf, 'Başlatılamayan Aramalar', [2220, 120], kod('baslatilamayan-aramalar.js'));
-  const hataBx = bitrixBatch(wf, 'Bitrix: Hata Yaz', [2440, 120]);
-  const hataOlay = olayBildir(wf, 'Olay Bildir (Hata)', [2660, 120], "$('Başlatılamayan Aramalar').first().json.olaylar");
-  const kapat = codeNode(wf, 'Kapatılanlar', [1760, 220], kod('kapatilanlar.js'));
-  const kapatOlay = olayBildir(wf, 'Olay Bildir (Kapatılan)', [1980, 220], '$json.olaylar');
+  const ok = codeNode(wf, 'Başlatılan Aramalar', [2440, -100], kod('baslatilan-aramalar.js'));
+  const okBx = bitrixBatch(wf, 'Bitrix: Çağrı ID Yaz', [2660, -100]);
+  const okOlay = olayBildir(wf, 'Olay Bildir (Başlayan)', [2880, -100], "$('Başlatılan Aramalar').first().json.olaylar");
+  const hata = codeNode(wf, 'Başlatılamayan Aramalar', [2440, 120], kod('baslatilamayan-aramalar.js'));
+  const hataBx = bitrixBatch(wf, 'Bitrix: Hata Yaz', [2660, 120]);
+  const hataOlay = olayBildir(wf, 'Olay Bildir (Hata)', [2880, 120], "$('Başlatılamayan Aramalar').first().json.olaylar");
+  const kapat = codeNode(wf, 'Kapatılanlar', [1980, 220], kod('kapatilanlar.js'));
+  const kapatOlay = olayBildir(wf, 'Olay Bildir (Kapatılan)', [2200, 220], '$json.olaylar');
 
-  wf.zincir(tetik, ay, zaman, leadler, num, cagri, sec, kilit, ayir, baslat);
+  wf.zincir(tetik, ay, zaman, leadler, num, cagri, asistanlar, sec, kilit, ayir, baslat);
   wf.bagla(kilit, kapat);
   wf.zincir(kapat, kapatOlay);
   wf.bagla(baslat, ok, 0);

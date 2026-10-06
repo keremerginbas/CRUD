@@ -25,6 +25,7 @@ if (!yanit || yanit.error || !yanit.result) {
 const numaralar = $('Vapi: Telefon Numaraları').all().map((i) => i.json).filter((n) => n && n.id);
 const asistanlar = $('Vapi: Asistanlar').all().map((i) => i.json).filter((a) => a && a.id);
 const asistanAdi = (id) => (asistanlar.find((a) => a.id === id) || {}).name || id || '-';
+const inboundAsistan = asistanBul(asistanlar, A.VAPI_INBOUND_ASISTAN);
 
 if (!numaralar.length) s.push('❌ Vapi telefon numaraları okunamadı. "Vapi API" credential\'ını kontrol edin.');
 for (const ham of A.ARAYAN_NUMARALAR) {
@@ -34,17 +35,18 @@ for (const ham of A.ARAYAN_NUMARALAR) {
     if (numaralar.length) s.push(`❌ ${ham} Vapi'de bulunamadı`);
     continue;
   }
-  const inboundOk = n.assistantId === A.VAPI_INBOUND_ASISTAN_ID;
+  const inboundOk = !!inboundAsistan && n.assistantId === inboundAsistan.id;
   s.push(`${inboundOk ? '✅' : '⚠️'} ${ham} → Vapi ID ${n.id} | gelen çağrı asistanı: ${asistanAdi(n.assistantId)}${inboundOk ? '' : ' (EFAS inbound asistanı değil)'}`);
 }
 
 for (const [etiketi, id] of [
-  ['Outbound', A.VAPI_OUTBOUND_ASISTAN_ID],
-  ['Inbound', A.VAPI_INBOUND_ASISTAN_ID],
+  ['Outbound', A.VAPI_OUTBOUND_ASISTAN],
+  ['Inbound', A.VAPI_INBOUND_ASISTAN],
 ]) {
-  const a = asistanlar.find((x) => x.id === id);
+  const bulunan = asistanBul(asistanlar, id);
+  const a = bulunan && asistanlar.find((x) => x.id === bulunan.id);
   if (!a) {
-    if (asistanlar.length) s.push(`❌ ${etiketi} asistanı (${id}) Vapi'de bulunamadı`);
+    if (asistanlar.length) s.push(`❌ ${etiketi} asistanı "${id}" Vapi'de bulunamadı`);
     continue;
   }
   const url = (a.server && a.server.url) || a.serverUrl || '';
@@ -58,7 +60,7 @@ for (const [etiketi, id] of [
 const tablo = $('Tablo: Olay Tablosu').first().json || {};
 s.push(tablo.id && !tablo.error ? `✅ Olay tablosu hazır: ${tablo.name || 'efas_ntepe_olaylar'}` : `❌ Olay tablosu oluşturulamadı (n8n Data Tables): ${kisalt(JSON.stringify(tablo.error || tablo), 200)}`);
 const olayTest = $('Olay Merkezi Testi').first().json || {};
-s.push(olayTest.error ? `❌ OLAY_WEBHOOK_URL'e ulaşılamadı — 04 workflow'u aktif mi? (${kisalt(JSON.stringify(olayTest.error), 200)})` : '✅ 04 Olay ve Mesaj Merkezi webhook\'u yanıt veriyor');
+s.push(olayTest.error ? `❌ ${A.OLAY_WEBHOOK_URL} adresine ulaşılamadı — 04 workflow'u aktif mi? (${kisalt(JSON.stringify(olayTest.error), 200)})` : `✅ 04 Olay ve Mesaj Merkezi yanıt veriyor (${A.OLAY_WEBHOOK_URL})`);
 s.push(`ℹ️ SMS ${A.SMS.AKTIF ? 'AÇIK' : 'kapalı'} · WhatsApp ${A.WHATSAPP.AKTIF ? 'AÇIK' : 'kapalı'} · Telegram ${A.TELEGRAM.AKTIF ? 'AÇIK' : 'kapalı'}`);
 
 return [{ json: { rapor: s.join('\n'), satirlar: s } }];

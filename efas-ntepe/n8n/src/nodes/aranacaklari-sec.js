@@ -44,6 +44,12 @@ while (hatlar.some((h) => h.bos > 0)) {
 }
 const kapasite = Math.min(yuvalar.length, Number(A.TUR_BASINA_MAX_ARAMA) || yuvalar.length);
 
+// 4) Outbound asistanı (ad ya da ID ile)
+const asistan = asistanBul(
+  $('Vapi: Asistanlar').all().map((i) => i.json),
+  A.VAPI_OUTBOUND_ASISTAN
+);
+
 const cmd = {};
 const olaylar = [];
 const adaylar = [];
@@ -87,6 +93,10 @@ for (const lead of leadler) {
 
 adaylar.sort((a, b) => a.oncelik - b.oncelik || a.zaman - b.zaman || Number(a.lead.ID) - Number(b.lead.ID));
 
+if (adaylar.length && kapasite && !asistan) {
+  throw new Error(`Vapi'de "${A.VAPI_OUTBOUND_ASISTAN}" adlı/ID'li asistan bulunamadı. AYARLAR > VAPI_OUTBOUND_ASISTAN değerini kontrol edin.`);
+}
+
 const aramalar = [];
 const kullanilanTelefon = new Set();
 for (const a of adaylar) {
@@ -119,7 +129,7 @@ for (const a of adaylar) {
     deneme: yeniDeneme,
     limit: a.limit,
     vapiBody: {
-      assistantId: A.VAPI_OUTBOUND_ASISTAN_ID,
+      assistantId: asistan.id,
       phoneNumberId: hat.id,
       customer: ad ? { number: a.telefon, name: kisalt(ad, 40) } : { number: a.telefon },
       name: kisalt(`EFAS #${id} ${yeniDeneme}/${a.limit}`, 40),
