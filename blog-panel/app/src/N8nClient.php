@@ -8,7 +8,7 @@ final class N8nClient
     public function __construct(private string $webhookUrl, private string $secret)
     {
         if ($webhookUrl === '' || $secret === '') {
-            throw new \RuntimeException('n8n webhook adresi veya gizli anahtar tanımlı değil (Ayarlar).');
+            throw new \RuntimeException('n8n webhook adresi veya gizli anahtar kayıtlı değil. Ayarlar sayfasında girip "Ayarları kaydet" butonuna basın.');
         }
     }
 

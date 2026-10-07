@@ -13,7 +13,7 @@ final class WhmClient
         private bool $verifySsl = true,
     ) {
         if ($host === '' || $token === '') {
-            throw new \RuntimeException('WHM bağlantı bilgileri eksik (Ayarlar sayfası).');
+            throw new \RuntimeException('WHM adresi veya API token kayıtlı değil. Ayarlar sayfasında bilgileri girip "Ayarları kaydet" butonuna basın.');
         }
     }
 

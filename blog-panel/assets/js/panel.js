@@ -27,6 +27,11 @@
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     e.preventDefault();
+    const form = btn.closest('form');
+    if (form && form.dataset.dirty && btn.dataset.action.startsWith('test_')) {
+      toast('Test kayıtlı ayarları kullanır. Önce sayfanın altındaki "Kaydet" butonuna basın, sonra tekrar test edin.', false);
+      return;
+    }
     if (btn.dataset.confirm && !confirm(btn.dataset.confirm)) return;
     const label = btn.textContent;
     btn.disabled = true;
@@ -56,6 +61,10 @@
     } finally {
       input.disabled = false;
     }
+  });
+
+  document.querySelectorAll('form.form').forEach((f) => {
+    f.addEventListener('input', () => { f.dataset.dirty = '1'; });
   });
 
   document.querySelectorAll('[data-confirm-submit]').forEach((btn) => {
