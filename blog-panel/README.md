@@ -62,6 +62,8 @@ Panelde **Ayarlar > WHM bağlantısı** bölümüne `https://sunucu.alanadiniz.c
 
 > Varsayılan model `claude-opus-5-5` (effort: `medium`). Ret durumunda istek otomatik olarak uygun bir modele yönlendirilir (`fallbacks: "default"`). Maliyeti düşürmek isterseniz iki Claude düğümündeki Code adımlarında `model` değerini `claude-sonnet-5-5` yapabilirsiniz.
 
+> **OpenAI ile kullanmak isterseniz:** `n8n/blog-generator-workflow-openai.json` dosyasını içe aktarın. Claude düğümleri yerine n8n'in hazır **OpenAI** credential'ını kullanır (Authentication: OpenAI). Model adı *Konu İsteği Oluştur* düğümünün en üstündeki `MODEL` satırından değiştirilir. Webhook yolu `blog-panel-generate-openai` olduğu için iki workflow aynı anda aktif olabilir; panelde hangisinin Production URL'sini girerseniz o kullanılır.
+
 ### 5. Cron
 cPanel > **Cron Jobs**:
 ```
