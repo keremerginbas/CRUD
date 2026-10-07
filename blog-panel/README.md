@@ -77,6 +77,25 @@ cPanel > **Cron Jobs**:
 3. **Yayın bağlantısını test et** ile yazma/WordPress erişimini doğrulayın.
 4. Anahtarı açın (aktif). İlk yazıyı hemen görmek için **Şimdi paylaş**.
 
+#### Sitenin kendi blog tasarımıyla yayın (site şablonu)
+Sitenizde zaten bir blog bölümü varsa (ör. `/blog/yazi.html` sayfaları ve `rehber.html` listesi), yeni yazılar aynı tasarımla oraya eklenebilir:
+
+1. Blog klasörüne (ör. `public_html/blog/`) iki şablon dosyası koyun:
+   - `_sablon-yazi.html` — mevcut bir yazının kopyası; başlık, açıklama, içerik vb. yerine aşağıdaki yer tutucular yazılır.
+   - `_sablon-kart.html` — liste sayfasındaki tek bir yazı kartının HTML'i, yer tutucularla.
+2. Liste sayfasında (ör. `rehber.html`) yeni kartların ekleneceği yere şu satırı ekleyin: `<!-- blog-panel:liste -->`
+3. Domain ayarlarında **Blog klasörü** = `blog`, **Liste sayfası** = `rehber.html` yapıp **Yayın bağlantısını test et**'e basın.
+
+Panel yalnızca yeni `{slug}.html` dosyasını yazar, liste sayfasına işaretin altına kart ekler ve kökteki `sitemap.xml` / `rss.xml` varsa yeni adresi ekler. Sitenizin diğer dosyalarına dokunmaz; işaret ya da şablon eksikse hiçbir şey yazmadan durur.
+
+| Yer tutucu | Değer |
+|---|---|
+| `{{title}}`, `{{meta_title}}`, `{{meta_description}}`, `{{excerpt}}` | Başlık ve açıklamalar |
+| `{{url}}`, `{{relative_url}}`, `{{slug}}`, `{{list_url}}` | Tam adres, `blog/slug.html`, slug, liste sayfası adresi |
+| `{{date}}`, `{{date_long}}`, `{{date_iso}}`, `{{reading_minutes}}` | `07.10.2026`, `7 Ekim 2026`, ISO tarih, okuma süresi |
+| `{{focus_keyword}}`, `{{keywords}}`, `{{tags}}` | Anahtar kelimeler |
+| `{{content}}`, `{{faq}}`, `{{jsonld}}`, `{{related}}` | Yazı HTML'i, SSS bölümü, JSON-LD `<script>`, diğer yazılar listesi (ham HTML) |
+
 #### WordPress siteleri
 - WP Admin > Kullanıcılar > Profil > **Uygulama Şifreleri** ile şifre oluşturun (Editör veya Yönetici rolü).
 - Yoast/Rank Math meta alanlarının dolması için `wordpress/blog-panel-seo-meta.php` dosyasını sitenin `wp-content/mu-plugins/` klasörüne yükleyin.

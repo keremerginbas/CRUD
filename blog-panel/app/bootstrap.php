@@ -27,3 +27,4 @@ if (!is_file($configFile)) {
 }
 
 BlogPanel\App::boot(require $configFile);
+BlogPanel\Schema::migrate(BlogPanel\App::db());

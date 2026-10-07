@@ -7,39 +7,7 @@ $blogUrl = StaticPublisher::blogUrl($domain);
 $siteUrl = 'https://' . $domain['domain'] . '/';
 $lang = $domain['language'] ?: 'tr';
 $published = date('c', strtotime($post['published_at'] ?? 'now'));
-$graph = [
-    [
-        '@type' => 'BlogPosting',
-        'headline' => $post['title'],
-        'description' => $post['meta_description'],
-        'datePublished' => $published,
-        'dateModified' => $published,
-        'mainEntityOfPage' => $url,
-        'url' => $url,
-        'inLanguage' => $lang,
-        'keywords' => $post['keywords'],
-        'author' => ['@type' => 'Organization', 'name' => $domain['domain'], 'url' => $siteUrl],
-        'publisher' => ['@type' => 'Organization', 'name' => $domain['domain'], 'url' => $siteUrl],
-    ],
-    [
-        '@type' => 'BreadcrumbList',
-        'itemListElement' => [
-            ['@type' => 'ListItem', 'position' => 1, 'name' => 'Ana Sayfa', 'item' => $siteUrl],
-            ['@type' => 'ListItem', 'position' => 2, 'name' => 'Blog', 'item' => $blogUrl],
-            ['@type' => 'ListItem', 'position' => 3, 'name' => $post['title'], 'item' => $url],
-        ],
-    ],
-];
-if (!empty($post['faq'])) {
-    $graph[] = [
-        '@type' => 'FAQPage',
-        'mainEntity' => array_map(static fn ($f) => [
-            '@type' => 'Question', 'name' => $f['question'],
-            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $f['answer']],
-        ], $post['faq']),
-    ];
-}
-$jsonLd = json_encode(['@context' => 'https://schema.org', '@graph' => $graph], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG);
+$jsonLd = BlogPanel\Publisher\StaticRenderer::jsonLd($domain, $post, $url);
 ?><!doctype html>
 <html lang="<?= e($lang) ?>">
 <head>

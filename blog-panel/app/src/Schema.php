@@ -40,6 +40,7 @@ final class Schema
                 wp_status VARCHAR(16) NOT NULL DEFAULT 'publish',
                 static_dir VARCHAR(64) NOT NULL DEFAULT 'blog',
                 static_extra_head TEXT NULL,
+                list_page VARCHAR(255) NULL,
                 niche VARCHAR(255) NULL,
                 target_audience VARCHAR(255) NULL,
                 language VARCHAR(8) NOT NULL DEFAULT 'tr',
@@ -101,6 +102,17 @@ final class Schema
             'CREATE INDEX idx_posts_domain ON posts (domain_id, status)',
             'CREATE INDEX idx_domains_next ON domains (is_active, next_post_at)',
         ];
+    }
+
+    /** Kurulu veritabanını güncel şemaya taşır (eksik sütunları ekler). */
+    public static function migrate(Database $db): void
+    {
+        $cols = $db->driver === 'sqlite'
+            ? array_column($db->all('PRAGMA table_info(domains)'), 'name')
+            : array_column($db->all('SHOW COLUMNS FROM domains'), 'Field');
+        if ($cols && !in_array('list_page', $cols, true)) {
+            $db->pdo->exec('ALTER TABLE domains ADD COLUMN list_page VARCHAR(255) NULL');
+        }
     }
 
     public static function install(Database $db): void

@@ -153,3 +153,4 @@ table.compact td { padding: 7px 14px; font-size: 13.5px; }
   .grid-2 { grid-template-columns: 1fr; }
   .filters { flex-wrap: wrap; }
 }
+.inline-form { display: inline; margin: 0; }

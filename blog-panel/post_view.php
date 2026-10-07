@@ -6,6 +6,12 @@ use BlogPanel\App;
 use BlogPanel\Auth;
 
 Auth::require();
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['do'] ?? '') === 'delete') {
+    csrf_check();
+    App::db()->run('DELETE FROM posts WHERE id = ?', [(int) ($_GET['id'] ?? 0)]);
+    flash('ok', 'Yazı kaydı panelden silindi. Sitedeki dosyayı File Manager üzerinden ayrıca silin.');
+    redirect('posts.php');
+}
 $post = App::db()->one('SELECT p.*, d.domain FROM posts p JOIN domains d ON d.id = p.domain_id WHERE p.id = ?', [(int) ($_GET['id'] ?? 0)]);
 if (!$post) {
     http_response_code(404);
@@ -23,7 +29,13 @@ require __DIR__ . '/app/views/layout_top.php';
     <h1><?= e($post['title']) ?></h1>
     <p class="muted"><?= e($post['domain']) ?> · <?= status_badge($post['status']) ?> · <?= e(fmt_date($post['published_at'] ?: $post['created_at'])) ?></p>
   </div>
-  <?php if ($post['remote_url']): ?><div class="actions"><a class="btn" href="<?= e($post['remote_url']) ?>" target="_blank" rel="noopener">Sitede görüntüle ↗</a></div><?php endif; ?>
+  <div class="actions">
+    <?php if ($post['remote_url']): ?><a class="btn" href="<?= e($post['remote_url']) ?>" target="_blank" rel="noopener">Sitede görüntüle ↗</a><?php endif; ?>
+    <form method="post" class="inline-form">
+      <?= csrf_field() ?>
+      <button class="btn btn-danger" type="submit" name="do" value="delete" data-confirm-submit="Yazı kaydı panelden silinsin mi? Sitedeki dosya silinmez.">Kaydı sil</button>
+    </form>
+  </div>
 </div>
 <?php if ($post['error']): ?><div class="alert alert-err"><?= e($post['error']) ?></div><?php endif; ?>
 

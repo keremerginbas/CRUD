@@ -148,5 +148,45 @@ $d2 = DomainService::find($id2);
 check(str_contains(BlogPanel\Publisher\PublisherFactory::for($d2)->test($d2), 'makaleler'), 'farklı klasörde (makaleler) yazma testi geçti');
 check(str_contains((string) file_get_contents("$tmp/docroot/blog/index.html"), StaticPublisher::MARKER), 'panelin ürettiği dosyalar işaretli (sonraki yayınlarda üzerine yazılabilir)');
 
+// 10) Site şablonu: yazı sitenin kendi tasarımıyla /blog/ altına, kart rehber.html'e
+$root3 = "$tmp/docroot3";
+mkdir("$root3/blog", 0777, true);
+file_put_contents("$root3/blog/llm-bilgi-tabani-rag.html", '<html>mevcut yazı</html>');
+file_put_contents("$root3/blog/_sablon-yazi.html", "<!doctype html><html lang=\"tr\"><head><title>{{meta_title}}</title><meta name=\"description\" content=\"{{meta_description}}\"><link rel=\"canonical\" href=\"{{url}}\">{{jsonld}}</head>"
+    . "<body><header class=\"site-header\">XRE MENÜ</header><article><h1>{{title}}</h1><time datetime=\"{{date_iso}}\">{{date_long}}</time>{{content}}{{faq}}</article><footer>XRE FOOTER</footer></body></html>");
+file_put_contents("$root3/blog/_sablon-kart.html", '<article class="article-card"><a href="{{relative_url}}">{{title}}</a><p>{{excerpt}}</p></article>');
+$rehber = "<html><body><div class=\"articles-grid\">\n<!-- blog-panel:liste -->\n<article class=\"article-card\"><a href=\"blog/llm-bilgi-tabani-rag.html\">LLM</a></article></div></body></html>";
+file_put_contents("$root3/rehber.html", $rehber);
+file_put_contents("$root3/sitemap.xml", "<?xml version=\"1.0\"?>\n<urlset>\n  <url><loc>https://site3.com/</loc></url>\n</urlset>\n");
+file_put_contents("$root3/rss.xml", "<?xml version=\"1.0\"?><rss><channel><title>x</title><item><title>eski</title></item></channel></rss>");
+BlogPanel\Schema::migrate(App::db());
+BlogPanel\Schema::migrate(App::db());
+$id3 = App::db()->insert('domains', [
+    'domain' => 'site3.com', 'docroot' => $root3, 'publish_method' => 'static_local', 'static_dir' => 'blog', 'list_page' => 'rehber.html',
+    'language' => 'tr', 'post_interval_days' => 3, 'publish_hour' => 10, 'created_at' => $now, 'updated_at' => $now,
+]);
+$d3 = DomainService::find($id3);
+check(str_contains(BlogPanel\Publisher\PublisherFactory::for($d3)->test($d3), 'liste sayfası hazır'), 'site şablonu ve liste sayfası testte tanındı');
+App::db()->update('domains', ['is_active' => 0], 'id = :id', ['id' => $id2]);
+App::db()->update('domains', ['next_post_at' => date('Y-m-d H:i:s', time() - 60), 'is_active' => 1], 'id = :id', ['id' => $id3]);
+Scheduler::run();
+$sent = json_decode((string) file_get_contents("$tmp/n8n-last.json"), true);
+$res = JobService::handleCallback(['job_id' => $sent['body']['job_id'], 'token' => $sent['body']['token'], 'status' => 'success', 'article' => $article]);
+check($res['ok'] === true && $res['url'] === 'https://site3.com/blog/otel-nevresim-takimi-secimi.html', 'yazı sitenin /blog/ klasörüne .html olarak yayınlandı');
+$page = (string) file_get_contents("$root3/blog/otel-nevresim-takimi-secimi.html");
+check(str_contains($page, 'XRE MENÜ') && str_contains($page, 'XRE FOOTER') && str_contains($page, '<h1>Otel Nevresim Takımı Seçerken') && preg_match('~<time datetime="\\d{4}-\\d{2}-\\d{2}T[^"]+">\\d{1,2} \\p{L}+ \\d{4}</time>~u', $page), 'sayfa sitenin şablonuyla (menü/footer) üretildi, Türkçe karakterler sağlam');
+check(str_contains($page, '"@type":"BlogPosting"') && str_contains($page, 'href="https://site3.com/blog/otel-nevresim-takimi-secimi.html"') && str_contains($page, StaticPublisher::MARKER) && !str_contains($page, '{{'), 'canonical, JSON-LD ve işaret eklendi; boş yer tutucu kalmadı');
+$reh = (string) file_get_contents("$root3/rehber.html");
+check(strpos($reh, 'otel-nevresim-takimi-secimi.html') > strpos($reh, '<!-- blog-panel:liste -->') && strpos($reh, 'otel-nevresim') < strpos($reh, 'llm-bilgi-tabani-rag'), 'rehber.html listesine yeni kart en üste eklendi, eski kartlar duruyor');
+check(file_get_contents("$root3/blog/llm-bilgi-tabani-rag.html") === '<html>mevcut yazı</html>' && !is_file("$root3/blog/index.html") && !is_file("$root3/blog/.htaccess"), 'sitenin mevcut blog dosyalarına dokunulmadı');
+check(substr_count((string) file_get_contents("$root3/sitemap.xml"), 'otel-nevresim-takimi-secimi.html') === 1 && str_contains((string) file_get_contents("$root3/rss.xml"), '<title>Otel Nevresim'), 'sitemap.xml ve rss.xml güncellendi');
+file_put_contents("$root3/rehber.html", str_replace('<!-- blog-panel:liste -->', '', $reh));
+App::db()->update('domains', ['next_post_at' => date('Y-m-d H:i:s', time() - 60)], 'id = :id', ['id' => $id3]);
+Scheduler::run();
+$sent = json_decode((string) file_get_contents("$tmp/n8n-last.json"), true);
+$before = glob("$root3/blog/*");
+$res = JobService::handleCallback(['job_id' => $sent['body']['job_id'], 'token' => $sent['body']['token'], 'status' => 'success', 'article' => ['title' => 'Başka yazı'] + $article]);
+check($res['ok'] === false && str_contains($res['message'], 'blog-panel:liste') && glob("$root3/blog/*") === $before, 'liste işareti silinirse yazı yayınlanmadı, hiçbir dosya yazılmadı');
+
 proc_terminate($server);
 echo "\nTüm testler başarılı. (geçici klasör: $tmp)\n";

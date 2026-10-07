@@ -38,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'wp_status'          => $in('wp_status', 'publish'),
         'static_dir'         => $in('static_dir', 'blog') ?: 'blog',
         'static_extra_head'  => (string) ($_POST['static_extra_head'] ?? ''),
+        'list_page'          => trim($in('list_page'), '/') ?: null,
         'niche'              => $in('niche'),
         'target_audience'    => $in('target_audience'),
         'language'           => $in('language', 'tr') ?: 'tr',
@@ -53,6 +54,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     if (!isset(PublisherFactory::METHODS[$data['publish_method']])) {
         $errors[] = 'Geçersiz yayın yöntemi.';
+    }
+    if ($data['list_page'] !== null && (!preg_match('~^[a-z0-9_./-]+$~i', $data['list_page']) || str_contains($data['list_page'], '..'))) {
+        $errors[] = 'Liste sayfası yalnızca site içindeki bir dosya yolu olabilir (ör. rehber.html).';
     }
     if (!preg_match('~^[a-z0-9_-]+$~i', $data['static_dir'])) {
         $errors[] = 'Blog klasörü yalnızca harf, rakam, - ve _ içerebilir.';
@@ -96,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $d = $domain ?? [
     'id' => 0, 'domain' => '', 'cpanel_user' => '', 'docroot' => '', 'publish_method' => 'static', 'wp_url' => '', 'wp_user' => '',
-    'wp_app_password' => '', 'wp_category_id' => '', 'wp_status' => 'publish', 'static_dir' => 'blog', 'static_extra_head' => '',
+    'wp_app_password' => '', 'wp_category_id' => '', 'wp_status' => 'publish', 'static_dir' => 'blog', 'static_extra_head' => '', 'list_page' => '',
     'niche' => '', 'target_audience' => '', 'language' => 'tr', 'tone' => '', 'seed_keywords' => '', 'extra_instructions' => '',
     'post_interval_days' => App::settings()->int('default_interval_days'), 'publish_hour' => App::settings()->int('default_publish_hour'),
     'is_active' => 0, 'next_post_at' => null, 'last_post_at' => null,
@@ -172,7 +176,12 @@ require __DIR__ . '/app/views/layout_top.php';
           <label>Blog klasörü <input name="static_dir" value="<?= e($d['static_dir']) ?>"></label>
         </div>
         <label>Docroot <input name="docroot" value="<?= e($d['docroot']) ?>" placeholder="/home/kullanici/public_html"></label>
-        <small>Yazılar <code>https://<?= e($d['domain'] ?: 'domain.com') ?>/<?= e($d['static_dir'] ?: 'blog') ?>/yazi-basligi</code> adresinde yayınlanır; index, sitemap.xml ve feed.xml otomatik güncellenir.</small>
+        <small>Yazılar <code>https://<?= e($d['domain'] ?: 'domain.com') ?>/<?= e($d['static_dir'] ?: 'blog') ?>/yazi-basligi</code> adresinde yayınlanır; index, sitemap.xml ve feed.xml otomatik güncellenir.
+          Klasörde <code>_sablon-yazi.html</code> varsa yazılar <strong>sitenin kendi tasarımıyla</strong> <code>.../yazi-basligi.html</code> olarak yazılır (bkz. README).</small>
+        <label>Liste sayfası (site şablonu için, isteğe bağlı)
+          <input name="list_page" value="<?= e((string) ($d['list_page'] ?? '')) ?>" placeholder="rehber.html">
+          <small>Yeni yazı kartı bu sayfadaki <code>&lt;!-- blog-panel:liste --&gt;</code> satırının altına eklenir.</small>
+        </label>
         <label>Ek &lt;head&gt; kodu (site CSS'i, Analytics vb.)
           <textarea name="static_extra_head" rows="4" class="mono" placeholder='<link rel="stylesheet" href="/css/site.css">'><?= e($d['static_extra_head']) ?></textarea>
         </label>
