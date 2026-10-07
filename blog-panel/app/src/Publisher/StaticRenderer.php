@@ -19,7 +19,7 @@ final class StaticRenderer
     public static function sitemap(array $domain, array $posts): string
     {
         $base = StaticPublisher::blogUrl($domain);
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n<!-- " . StaticPublisher::MARKER . " -->\n" . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n";
         $xml .= '  <url><loc>' . self::x($base) . '</loc><changefreq>daily</changefreq></url>' . "\n";
         foreach ($posts as $p) {
             $xml .= '  <url><loc>' . self::x($base . $p['slug']) . '</loc><lastmod>' . date('Y-m-d', strtotime($p['published_at'] ?? 'now')) . "</lastmod></url>\n";
@@ -30,7 +30,7 @@ final class StaticRenderer
     public static function feed(array $domain, array $posts): string
     {
         $base = StaticPublisher::blogUrl($domain);
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n<rss version=\"2.0\"><channel>\n";
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n<!-- " . StaticPublisher::MARKER . " -->\n<rss version=\"2.0\"><channel>\n";
         $xml .= '<title>' . self::x($domain['domain'] . ' Blog') . '</title><link>' . self::x($base) . '</link><description>' . self::x($domain['niche'] ?? '') . "</description>\n";
         foreach (array_slice($posts, 0, 20) as $p) {
             $url = $base . $p['slug'];
@@ -42,7 +42,7 @@ final class StaticRenderer
 
     public static function htaccess(): string
     {
-        return "# Blog Panel tarafından oluşturuldu\nOptions -Indexes\nDirectoryIndex index.html\n<IfModule mod_rewrite.c>\nRewriteEngine On\n"
+        return "# Blog Panel tarafından oluşturuldu (" . StaticPublisher::MARKER . ")\nOptions -Indexes\nDirectoryIndex index.html\n<IfModule mod_rewrite.c>\nRewriteEngine On\n"
             . "RewriteCond %{REQUEST_FILENAME} !-f\nRewriteCond %{REQUEST_FILENAME} !-d\nRewriteCond %{REQUEST_FILENAME}.html -f\nRewriteRule ^(.+?)/?$ $1.html [L]\n</IfModule>\n";
     }
 

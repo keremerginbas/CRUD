@@ -30,6 +30,7 @@ use BlogPanel\App;
 use BlogPanel\Database;
 use BlogPanel\DomainService;
 use BlogPanel\JobService;
+use BlogPanel\Publisher\StaticPublisher;
 use BlogPanel\Scheduler;
 
 // 2) Sahte n8n sunucusu: gelen isteği dosyaya yazar
@@ -121,6 +122,31 @@ $sent = json_decode((string) file_get_contents("$tmp/n8n-last.json"), true);
 $res = JobService::handleCallback(['job_id' => $sent['body']['job_id'], 'token' => $sent['body']['token'], 'status' => 'success', 'article' => $article]);
 check(str_ends_with($res['url'], 'otel-nevresim-takimi-secimi-2'), 'aynı slug gelince -2 eklendi');
 check(substr_count((string) file_get_contents("$tmp/docroot/blog/sitemap.xml"), '<url>') === 3, 'sitemap 2 yazı + blog ana sayfasını içeriyor');
+
+// 9) Mevcut (panel dışı) blog klasörü korunmalı
+mkdir("$tmp/docroot2/blog", 0777, true);
+file_put_contents("$tmp/docroot2/blog/index.html", '<html>eski blog</html>');
+$id2 = App::db()->insert('domains', [
+    'domain' => 'eski-blog.com', 'docroot' => "$tmp/docroot2", 'publish_method' => 'static_local', 'static_dir' => 'blog',
+    'language' => 'tr', 'post_interval_days' => 3, 'publish_hour' => 10, 'created_at' => $now, 'updated_at' => $now,
+]);
+$d2 = DomainService::find($id2);
+try {
+    BlogPanel\Publisher\PublisherFactory::for($d2)->test($d2);
+    check(false, 'mevcut blog klasöründe test reddedildi');
+} catch (RuntimeException $e) {
+    check(str_contains($e->getMessage(), 'index.html') && !is_file("$tmp/docroot2/blog/.blogpanel-test.txt"), 'mevcut blog klasöründe test hiçbir şey yazmadan uyardı');
+}
+App::db()->update('domains', ['next_post_at' => date('Y-m-d H:i:s', time() - 60), 'is_active' => 1], 'id = :id', ['id' => $id2]);
+App::db()->update('domains', ['is_active' => 0], 'id = :id', ['id' => $id]);
+Scheduler::run();
+$sent = json_decode((string) file_get_contents("$tmp/n8n-last.json"), true);
+$res = JobService::handleCallback(['job_id' => $sent['body']['job_id'], 'token' => $sent['body']['token'], 'status' => 'success', 'article' => $article]);
+check($res['ok'] === false && file_get_contents("$tmp/docroot2/blog/index.html") === '<html>eski blog</html>' && count(glob("$tmp/docroot2/blog/*")) === 1, 'yayın da reddedildi, eski blog dosyaları olduğu gibi duruyor');
+App::db()->update('domains', ['static_dir' => 'makaleler'], 'id = :id', ['id' => $id2]);
+$d2 = DomainService::find($id2);
+check(str_contains(BlogPanel\Publisher\PublisherFactory::for($d2)->test($d2), 'makaleler'), 'farklı klasörde (makaleler) yazma testi geçti');
+check(str_contains((string) file_get_contents("$tmp/docroot/blog/index.html"), StaticPublisher::MARKER), 'panelin ürettiği dosyalar işaretli (sonraki yayınlarda üzerine yazılabilir)');
 
 proc_terminate($server);
 echo "\nTüm testler başarılı. (geçici klasör: $tmp)\n";

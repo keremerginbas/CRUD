@@ -37,4 +37,17 @@ final class WhmFileWriter implements FileWriter
             'fallback' => 1,
         ]);
     }
+
+    public function read(string $dir, string $file): ?string
+    {
+        try {
+            $res = $this->whm->uapi($this->cpUser, 'Fileman', 'get_file_content', ['dir' => $dir, 'file' => $file]);
+        } catch (\RuntimeException $e) {
+            if (preg_match('/exist|no such file|not found|bulunamad|mevcut de/i', $e->getMessage())) {
+                return null;
+            }
+            throw $e;
+        }
+        return (string) ($res['data']['content'] ?? '');
+    }
 }

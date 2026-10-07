@@ -44,6 +44,8 @@ $jsonLd = json_encode(['@context' => 'https://schema.org', '@graph' => $graph], 
 <html lang="<?= e($lang) ?>">
 <head>
 <meta charset="utf-8">
+<!-- <?= BlogPanel\Publisher\StaticPublisher::MARKER ?> -->
+<meta name="generator" content="Blog Panel">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($post['meta_title'] ?: $post['title']) ?></title>
 <meta name="description" content="<?= e($post['meta_description']) ?>">

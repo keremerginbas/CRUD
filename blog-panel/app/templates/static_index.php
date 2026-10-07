@@ -10,6 +10,8 @@ $desc = $domain['niche'] ? $domain['niche'] . ' hakkında güncel rehberler, ipu
 <html lang="<?= e($lang) ?>">
 <head>
 <meta charset="utf-8">
+<!-- <?= BlogPanel\Publisher\StaticPublisher::MARKER ?> -->
+<meta name="generator" content="Blog Panel">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= e($title) ?></title>
 <meta name="description" content="<?= e(mb_substr($desc, 0, 160)) ?>">

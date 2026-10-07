@@ -23,4 +23,17 @@ final class LocalFileWriter implements FileWriter
         }
         @chmod($path, 0644);
     }
+
+    public function read(string $dir, string $file): ?string
+    {
+        $path = rtrim($dir, '/') . '/' . $file;
+        if (!is_file($path)) {
+            return null;
+        }
+        $content = file_get_contents($path);
+        if ($content === false) {
+            throw new \RuntimeException("Dosya okunamadı: $path");
+        }
+        return $content;
+    }
 }

@@ -9,6 +9,11 @@ namespace BlogPanel\Publisher;
  */
 final class StaticPublisher implements PublisherInterface
 {
+    /** Panelin ürettiği her dosyada bulunan işaret; işaretsiz dosyaların üzerine yazılmaz. */
+    public const MARKER = 'blog-panel:generated';
+
+    private const MANAGED_FILES = ['index.html', 'sitemap.xml', 'feed.xml', '.htaccess'];
+
     public function __construct(private FileWriter $writer)
     {
     }
@@ -36,6 +41,7 @@ final class StaticPublisher implements PublisherInterface
         $dir = $docroot . '/' . $dirName;
 
         $this->writer->ensureDir($docroot, $dirName);
+        $this->assertOwned($dir, [$post['slug'] . '.html', ...self::MANAGED_FILES]);
         $this->writer->write($dir, $post['slug'] . '.html', StaticRenderer::post($domain, $post, $publishedPosts));
         $this->writer->write($dir, 'index.html', StaticRenderer::index($domain, $publishedPosts));
         $this->writer->write($dir, 'sitemap.xml', StaticRenderer::sitemap($domain, $publishedPosts));
@@ -50,7 +56,27 @@ final class StaticPublisher implements PublisherInterface
         $docroot = rtrim((string) $domain['docroot'], '/');
         $dirName = trim($domain['static_dir'] ?: 'blog', '/');
         $this->writer->ensureDir($docroot, $dirName);
+        $this->assertOwned($docroot . '/' . $dirName, self::MANAGED_FILES);
         $this->writer->write($docroot . '/' . $dirName, '.blogpanel-test.txt', 'ok ' . date('c'));
         return "Yazma testi başarılı: $docroot/$dirName";
+    }
+
+    /** Klasörde panel dışında oluşturulmuş bir dosya varsa hiçbir şey yazmadan durur. */
+    private function assertOwned(string $dir, array $files): void
+    {
+        $foreign = [];
+        foreach ($files as $file) {
+            $content = $this->writer->read($dir, $file);
+            if ($content !== null && !str_contains($content, self::MARKER)) {
+                $foreign[] = $file;
+            }
+        }
+        if ($foreign) {
+            throw new \RuntimeException(sprintf(
+                '%s klasöründe panel dışında oluşturulmuş dosya var (%s); mevcut içeriği bozmamak için hiçbir şey yazılmadı. Domain ayarlarından farklı bir "Blog klasörü" seçin.',
+                $dir,
+                implode(', ', $foreign)
+            ));
+        }
     }
 }

@@ -8,4 +8,7 @@ interface FileWriter
     public function ensureDir(string $parent, string $name): void;
 
     public function write(string $dir, string $file, string $content): void;
+
+    /** Dosya içeriğini döner; dosya yoksa null. */
+    public function read(string $dir, string $file): ?string;
 }
