@@ -53,13 +53,22 @@ const semaIn = semaGuncelle(soIn, SONUC_ACIKLAMA_IN);
 const raOut = randevuAraci(out);
 const raIn = randevuAraci(inn);
 
+// Konuşma zamanlaması ve gürültü engelleme (panelde sıfırlanmış olsa bile düzeltilir); ses dili Türkçe
+const konusma = (a) => ({
+  voice: { ...a.voice, language: 'tr' },
+  startSpeakingPlan: { waitSeconds: 0.3, transcriptionEndpointingPlan: { onPunctuationSeconds: 0.1, onNoPunctuationSeconds: 0.8, onNumberSeconds: 0.6 } },
+  stopSpeakingPlan: { numWords: 1, voiceSeconds: 0.3, backoffSeconds: 1 },
+  backgroundSpeechDenoisingPlan: { smartDenoisingPlan: { enabled: true } },
+  backgroundSound: 'off',
+});
 const outGovde = {
   firstMessage: ACILIS,
   model: { ...sistem(out, PROMPT_OUT), toolIds: [...new Set([...(out.model.toolIds || []), aracId])] },
+  ...konusma(out),
 };
-const inGovde = { firstMessage: ACILIS, model: sistem(inn, PROMPT_IN) };
+const inGovde = { firstMessage: ACILIS, model: sistem(inn, PROMPT_IN), ...konusma(inn) };
 
-const kontrol = (m) => ({ tarih: m.includes('{{"now"'), tekrarYok: m.includes('SADECE BİR KEZ'), yatirimSorusuYok: m.includes('SORMA') });
+const kontrol = (m) => ({ tarih: m.includes('{{"now"'), tekrarYok: m.includes('SADECE BİR KEZ'), yatirimSorusuYok: m.includes('SORMA'), acilisDogru: ACILIS.startsWith("Merhabalar, ben İksre Project'ten Selin") });
 
 return [
   { json: { yol: 'assistant', id: out.id, ad: 'outbound', govde: outGovde, kontrol: { ...kontrol(PROMPT_OUT), musteriAdi: PROMPT_OUT.includes('{{musteri_adi}}'), satisaAktar: outGovde.model.toolIds.includes(aracId) } } },

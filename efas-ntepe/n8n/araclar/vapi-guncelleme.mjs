@@ -70,7 +70,7 @@ ekle(
 );
 ekle('Not', 'n8n-nodes-base.stickyNote', 1, [0, -300], {
   content:
-    '## Vapi güncellemesi (tek seferlik)\n• Outbound + inbound prompt: açılış bir kez söylenir, "kimsin" sorusuna kısa cevap, "yatırım mı" sorusu yok, bilgi isteyen satışa aktarılır\n• Outbound\'a **satisa_aktar** aracı eklenir (yoksa oluşturulur)\n• **randevu_olustur** araçları: gün/saat sorulmaz, randevu saatsiz açılır\n• Structured Output\'lar: **bilgi_istiyor** ve saatsiz randevu tanımı\n\nCredential: **efas ntepe vapi** (farklıysa HTTP node\'larında seçin) → **Execute workflow**.\n"Güncellemeleri Hazırla" çıktısındaki kontrol alanları hep **true** olmalı.',
+    '## Vapi güncellemesi (tek seferlik)\n• Outbound + inbound prompt: açılış bir kez söylenir, "kimsin" sorusuna kısa cevap, "yatırım mı" sorusu yok, bilgi isteyen satışa aktarılır\n• Outbound\'a **satisa_aktar** aracı eklenir (yoksa oluşturulur)\n• **randevu_olustur** araçları: gün/saat sorulmaz, randevu saatsiz açılır\n• Structured Output\'lar: **bilgi_istiyor** ve saatsiz randevu tanımı\n• İki asistanda açılış cümlesi, Türkçe ses dili, konuşma zamanlaması ve gürültü engelleme yeniden ayarlanır\n\nCredential: **efas ntepe vapi** (farklıysa HTTP node\'larında seçin) → **Execute workflow**.\n"Güncellemeleri Hazırla" çıktısındaki kontrol alanları hep **true** olmalı.',
   height: 280,
   width: 560,
 });
