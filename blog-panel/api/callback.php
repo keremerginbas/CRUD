@@ -31,8 +31,9 @@ if (!is_array($data)) {
 ignore_user_abort(true);
 set_time_limit(300);
 try {
-    $result = JobService::handleCallback($data);
-    json_response($result, $result['ok'] ? 200 : 422);
+    // Sonuç (başarılı yayın ya da kaydedilen hata) işlendiyse 200 döner; aksi halde
+    // n8n isteği tekrar dener ve ikinci deneme "iş zaten sonuçlanmış" (409) alır.
+    json_response(JobService::handleCallback($data));
 } catch (CallbackException $e) {
     json_response(['ok' => false, 'error' => $e->getMessage()], $e->getCode() ?: 400);
 }
