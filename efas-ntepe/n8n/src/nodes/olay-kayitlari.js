@@ -12,7 +12,7 @@ return olaylar.map((o) => {
       lead_id: String(o.leadId || ''),
       telefon: String(o.telefon || ''),
       ad: kisalt(o.ad, 120),
-      sonuc: String(o.sonuc || (o.tur === 'randevu' ? (o.teyit ? 'teyit' : 'kesin') : '')),
+      sonuc: String(o.sonuc || (o.tur === 'randevu' ? (o.talep ? 'talep' : o.teyit ? 'teyit' : 'kesin') : '')),
       detay: kisalt([o.tarih, o.detay].filter(Boolean).join(' | '), 500),
       sure_sn: Number(o.sure) || 0,
       maliyet: Number(o.maliyet) || 0,

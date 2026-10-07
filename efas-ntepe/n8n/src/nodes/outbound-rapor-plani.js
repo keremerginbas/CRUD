@@ -59,7 +59,7 @@ if (aracIsledi) {
   const p = randevuKomutlari({
     A,
     leadId: id,
-    tarih: k.tarih || pencereyeTasi(dakikaEkle(simdi, 60), A.ARAMA_SAATLERI),
+    tarih: k.tarih,
     arg: { ...y, ad_soyad: isimDuzelt([lead.NAME, lead.LAST_NAME].filter(Boolean).join(' ')) },
     callId: m.callId,
     sorumlu: siradakiSorumlu(A, lead.ASSIGNED_BY_ID),
@@ -70,8 +70,8 @@ if (aracIsledi) {
   });
   delete p.cmd.r_not; // rapor yorumu aşağıda zaten ekleniyor
   Object.assign(cmd, p.cmd);
-  baslik = 'randevu konuşuldu, saat sisteme işlenemedi → TEYİT EDİLMELİ';
-  olaylar.push(olay('randevu', { ...temel, teyit: true, randevu: k.tarih ? trIso(k.tarih) : undefined, tarih: k.tarih ? trMetin(k.tarih) : 'teyit edilecek' }));
+  baslik = k.tarih ? 'randevu konuşuldu, araç çağrılmadı → SAAT TEYİT EDİLMELİ' : 'randevu istedi → gün/saat satış temsilcisince belirlenecek';
+  olaylar.push(olay('randevu', { ...temel, ...randevuOlayi(k.tarih), teyit: !!k.tarih, mesaj: k.tarih ? undefined : 'randevu_talep' }));
 } else if (deneme >= limit) {
   olumsuzaTasi('SONUCSUZ', `${deneme} görüşmede sonuç alınamadı`);
 } else if (y.sonuc === 'tekrar_ara') {

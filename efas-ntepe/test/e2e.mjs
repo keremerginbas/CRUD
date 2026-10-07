@@ -198,9 +198,21 @@ kontrol('randevu teyit WhatsApp şablonu', wa101?.template.name === 'efas_randev
 const tg101 = s.telegram.find((t) => t.text.includes('Yeni randevu'));
 kontrol('Telegram grubuna anlık randevu bildirimi', tg101?.chat_id === '-100123' && tg101.text.includes('Ahmet Yılmaz') && tg101.text.includes('/crm/lead/details/101/') && !tg101.text.includes('n8n'), tg101);
 
+await post(`${MOCK}/__lead`, { ID: 118, NAME: 'ECE', LAST_NAME: 'TAN', PHONE: telefonLead('05321111118'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR', ASSIGNED_BY_ID: '12482' });
+r = await outbound(arac(outCall('c118', 118, '+905321111118'), 'randevu_olustur', { ad_soyad: 'Ece Tan', tercih_edilen_zaman: 'cumartesi öğleden sonra' }));
+l = await lead(118);
+s = await durum();
+const todo118 = s.todos.find((t) => t.ownerId === '118');
+kontrol('gün/saat SORULMADAN randevu → "Randevunuz oluşturuldu" yanıtı', r.json?.results?.[0]?.result.includes('Randevunuz oluşturuldu') && r.json.results[0].result.includes('SORMA'), r.json);
+kontrol('saatsiz randevu: RANDEVU statüsü, randevu tarihi boş, RANDEVU_TALEP, satışçıya atandı', l.STATUS_ID === RANDEVU && l[F.RANDEVU] === '' && l[F.SONUC] === 'RANDEVU_TALEP' && ['7', '9'].includes(String(l.ASSIGNED_BY_ID)), l);
+kontrol('satışçıya "GÜN/SAAT BELİRLEYİN" görevi (15 dk içinde) + müşterinin tercihi', todo118?.title.includes('GÜN/SAAT BELİRLEYİN') && new Date(todo118.deadline) < new Date(Date.now() + 20 * 60000) && todo118.description.includes('cumartesi öğleden sonra'), todo118);
+s = await bekleKadar((x) => x.telegram.some((t) => t.text.includes('Ece Tan')) && x.sms.some((m) => m.no === '5321111118'));
+kontrol('Telegram: saatsiz randevu bildirimi', s.telegram.some((t) => t.text.includes('Ece Tan') && t.text.includes('Gün/saat belirlenmedi')), s.telegram.at(-1));
+kontrol('SMS: randevu talebiniz alındı', s.sms.find((m) => m.no === '5321111118')?.msg.includes('randevu talebiniz alındı'), s.sms.find((m) => m.no === '5321111118'));
 r = await outbound(arac(outCall('call-x3', 103, '+905321111103'), 'randevu_olustur', { randevu_tarihi: yarin, randevu_saati: '22:00' }));
-kontrol('ziyaret saati dışı randevu reddedildi', r.json?.results?.[0]?.result.includes('ziyaret saatlerimizin dışında'), r.json);
-kontrol('103 statüsü değişmedi', (await lead(103)).STATUS_ID === AI);
+l = await lead(103);
+kontrol('müşteri geçersiz saat söylese de randevu reddedilmez, saatsiz açılır', r.json?.results?.[0]?.result.includes('Randevunuz oluşturuldu') && l[F.SONUC] === 'RANDEVU_TALEP', [r.json, l]);
+await post(`${MOCK}/__lead`, { ...l, STATUS_ID: AI, [F.SONUC]: 'ARANIYOR', [F.RANDEVU]: '' });
 
 r = await outbound(arac(outCall('call-x3', 103, '+905321111103'), 'geri_arama_planla', { tarih: yarin, saat: '11:30', not: 'Toplantıda' }));
 l = await lead(103);
@@ -365,7 +377,7 @@ await bekle(1500); // son olayların tabloya yazılmasını bekle
 const rapor1 = await raporAl();
 const fark = (k) => rapor1[k] - rapor0[k];
 kontrol('rapor: 6 arama, 1 başlatılamayan', fark('arama') === 6 && fark('hata') === 1, { arama: fark('arama'), hata: fark('hata') });
-kontrol('rapor: 4 randevu (101, 113 teyit, inbound yeni, 103 inbound)', fark('randevu') === 4, fark('randevu'));
+kontrol('rapor: 6 randevu (101, 118 saatsiz, 103 saatsiz, 113 teyit, inbound yeni, 103 inbound)', fark('randevu') === 6, fark('randevu'));
 kontrol('rapor: inbound görüşmeler sayıldı', fark('inbound') >= 3, fark('inbound'));
 kontrol('rapor: ulaşılan / ulaşılamayan', fark('ulasilan') >= 5 && fark('ulasilamayan') === 3, { ulasilan: fark('ulasilan'), ulasilamayan: fark('ulasilamayan') });
 kontrol('rapor: olumsuzlar sayıldı', fark('olumsuz') >= 6, fark('olumsuz'));

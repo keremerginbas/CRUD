@@ -38,7 +38,7 @@ for (const o of olaylar) {
       metin: [
         `🎉 <b>Yeni randevu</b> — ${o.yon === 'inbound' ? 'gelen arama' : 'yapay zeka araması'}`,
         `👤 ${html(o.ad || '-')} · ${html(o.telefon || '-')}`,
-        `📅 ${html(o.tarih || '-')}${o.teyit ? ' ⚠️ <i>saat teyit edilmeli</i>' : ''}`,
+        o.talep ? '📅 <i>Gün/saat belirlenmedi — satış temsilcisi arayacak</i>' : `📅 ${html(o.tarih || '-')}${o.teyit ? ' ⚠️ <i>saat teyit edilmeli</i>' : ''}`,
         o.detay ? `🏠 ${html(o.detay)}` : '',
         o.leadId && bitrixAdresi ? `🔗 ${bitrixAdresi}/crm/lead/details/${o.leadId}/` : '',
       ]

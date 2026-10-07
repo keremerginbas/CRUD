@@ -15,11 +15,16 @@ const CRED = { httpHeaderAuth: { id: '5Pl6muHFf8RtSDsb', name: 'efas ntepe vapi'
 const arac = JSON.parse(oku('../../vapi/araclar-outbound.json')).find((t) => t.function?.name === 'satisa_aktar');
 arac.server.url = `${N8N_ADRESI}/webhook/efas-ntepe-outbound`;
 const sonucAciklama = JSON.parse(oku('../../vapi/yapilandirilmis-cikti-outbound.json')).schema.properties.sonuc.description;
+const sonucAciklamaIn = JSON.parse(oku('../../vapi/yapilandirilmis-cikti-inbound.json')).schema.properties.sonuc.description;
+const randevuFn = (dosya) => JSON.parse(oku(`../../vapi/${dosya}`)).find((t) => t.function?.name === 'randevu_olustur').function;
 
 const kod = oku('vapi-guncelleme-kod.js')
   .replace('__PROMPT_OUT__', JSON.stringify(oku('../../vapi/outbound-sistem-promptu.md')))
   .replace('__PROMPT_IN__', JSON.stringify(oku('../../vapi/inbound-sistem-promptu.md')))
-  .replace('__SONUC_ACIKLAMA__', JSON.stringify(sonucAciklama));
+  .replace('__SONUC_ACIKLAMA__', JSON.stringify(sonucAciklama))
+  .replace('__SONUC_ACIKLAMA_IN__', JSON.stringify(sonucAciklamaIn))
+  .replace('__RANDEVU_OUT__', JSON.stringify(randevuFn('araclar-outbound.json'), null, 2))
+  .replace('__RANDEVU_IN__', JSON.stringify(randevuFn('araclar-inbound.json'), null, 2));
 
 const uuid = (s) => {
   const h = createHash('sha1').update(`vapi-guncelleme|${s}`).digest('hex');
@@ -65,7 +70,7 @@ ekle(
 );
 ekle('Not', 'n8n-nodes-base.stickyNote', 1, [0, -300], {
   content:
-    '## Vapi güncellemesi (tek seferlik)\n• Outbound + inbound prompt: açılış bir kez söylenir, "kimsin" sorusuna kısa cevap, "yatırım mı" sorusu yok, bilgi isteyen satışa aktarılır\n• Outbound\'a **satisa_aktar** aracı eklenir (yoksa oluşturulur)\n• efas_ntepe_sonuc\'a **bilgi_istiyor** sonucu eklenir\n\nCredential: **efas ntepe vapi** (farklıysa HTTP node\'larında seçin) → **Execute workflow**.\n"Güncellemeleri Hazırla" çıktısındaki kontrol alanları hep **true** olmalı.',
+    '## Vapi güncellemesi (tek seferlik)\n• Outbound + inbound prompt: açılış bir kez söylenir, "kimsin" sorusuna kısa cevap, "yatırım mı" sorusu yok, bilgi isteyen satışa aktarılır\n• Outbound\'a **satisa_aktar** aracı eklenir (yoksa oluşturulur)\n• **randevu_olustur** araçları: gün/saat sorulmaz, randevu saatsiz açılır\n• Structured Output\'lar: **bilgi_istiyor** ve saatsiz randevu tanımı\n\nCredential: **efas ntepe vapi** (farklıysa HTTP node\'larında seçin) → **Execute workflow**.\n"Güncellemeleri Hazırla" çıktısındaki kontrol alanları hep **true** olmalı.',
   height: 280,
   width: 560,
 });

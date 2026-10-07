@@ -17,7 +17,6 @@ m.toolCalls.forEach((tc, i) => {
   if (tc.ad !== 'randevu_olustur') return sonuc(`Bilinmeyen araç: ${tc.ad}`);
 
   const k = randevuKontrol(tc.arg, A, simdi);
-  if (k.hata) return sonuc(k.hata);
 
   const telefon = m.telefon || telefonNormalize(tc.arg.iletisim_telefonu);
   if (!lead && !telefon) {
@@ -55,10 +54,8 @@ m.toolCalls.forEach((tc, i) => {
   });
   Object.assign(cmd, p.cmd);
   kritik[tc.id] = p.anaKomut;
-  olaylar.push(olay('randevu', { _tc: tc.id, yon: 'inbound', leadId: lead ? String(lead.ID) : '', telefon, ad: adSoyad, randevu: trIso(k.tarih), tarih: trMetin(k.tarih), detay: bilgiSatiri(tc.arg.ilgilendigi_daire, tc.arg.odeme_tercihi), callId: m.callId, mesaj: 'randevu' }));
-  return sonuc(
-    `Randevu kaydedildi: ${trMetin(k.tarih)}. Müşteriye günü ve saati tekrar teyit et; danışmanımızın randevudan önce arayıp konum bilgisini paylaşacağını söyle.`
-  );
+  olaylar.push(olay('randevu', { _tc: tc.id, yon: 'inbound', leadId: lead ? String(lead.ID) : '', telefon, ad: adSoyad, detay: bilgiSatiri(tc.arg.ilgilendigi_daire, tc.arg.odeme_tercihi), callId: m.callId, ...randevuOlayi(k.tarih) }));
+  return sonuc(randevuYaniti(k.tarih));
 });
 
 return [{ json: { cmd, sonuclar, kritik, olaylar, kayitVar: Object.keys(cmd).length > 0 } }];

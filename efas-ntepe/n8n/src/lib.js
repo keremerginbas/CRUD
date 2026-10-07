@@ -298,18 +298,16 @@ function aramaLimiti(A, sonuc) {
   return Number(A.MAX_DENEME) + (tekrarAraIsaretli(sonuc) ? Number(A.TEKRAR_ARA_EK_HAK) : 0);
 }
 
-// randevu_olustur argümanlarını doğrular → { tarih } | { hata }
+// randevu_olustur: asistan gün/saat SORMAZ. Müşteri kendiliğinden geçerli bir gün ve saat söylediyse o kullanılır;
+// yoksa (ya da saat geçersizse) randevu SAATSİZ açılır, satış temsilcisi müşteriyi arayıp saati belirler → { tarih: Date|null }
 function randevuKontrol(arg, A, simdi) {
   const tarih = trTarihSaatCoz(arg.randevu_tarihi, arg.randevu_saati);
-  if (!tarih)
-    return { hata: 'Tarih veya saat anlaşılamadı. randevu_tarihi YYYY-AA-GG, randevu_saati SS:DD formatında olmalı. Müşteriyle günü ve saati netleştirip aracı tekrar çağır.' };
-  if (tarih.getTime() < simdi.getTime() + 30 * 60000)
-    return { hata: 'Bu tarih/saat geçmişte veya çok yakın. Müşteriye ileri bir gün ve saat öner, anlaşınca aracı tekrar çağır.' };
-  if (tarih.getTime() > simdi.getTime() + Number(A.RANDEVU_MAX_GUN) * 86400000)
-    return { hata: `Randevu en fazla ${A.RANDEVU_MAX_GUN} gün sonrasına verilebiliyor. Daha yakın bir tarih öner.` };
-  if (!pencereIcinde(tarih, A.RANDEVU_SAATLERI))
-    return { hata: `Bu saat ziyaret saatlerimizin dışında. Ziyaret saatleri: ${pencereMetni(A.RANDEVU_SAATLERI)}. Bu aralıkta bir saat öner, anlaşınca aracı tekrar çağır.` };
-  return { tarih };
+  if (!tarih) return { tarih: null };
+  const gecerli =
+    tarih.getTime() >= simdi.getTime() + 30 * 60000 &&
+    tarih.getTime() <= simdi.getTime() + Number(A.RANDEVU_MAX_GUN) * 86400000 &&
+    pencereIcinde(tarih, A.RANDEVU_SAATLERI);
+  return { tarih: gecerli ? tarih : null };
 }
 
 const ETIKET = {
@@ -333,23 +331,27 @@ function randevuKomutlari({ A, leadId, yeniLead, tarih, arg, callId, sorumlu, yo
   const F = A.ALAN;
   const cmd = {};
   const ad = kisalt(arg.ad_soyad, 80);
+  // tarih yoksa: SAATSİZ randevu talebi → temsilci 15 dk içinde arayıp gün/saati belirler
+  const gorevZamani = tarih || pencereyeTasi(dakikaEkle(new Date(), 15), A.ARAMA_SAATLERI);
+  const durum = !tarih ? 'randevu oluşturuldu (GÜN/SAAT BELİRLENMEDİ)' : teyitGerekli ? 'randevu konuşuldu (SAAT TEYİT EDİLMELİ)' : 'randevu oluşturuldu';
   const detay = [
-    `${A.PROJE_ADI} — yapay zeka ${yon} görüşmesinde ${teyitGerekli ? 'randevu konuşuldu (SAAT TEYİT EDİLMELİ)' : 'randevu oluşturuldu'}.`,
-    `Randevu: ${trMetin(tarih)}`,
+    `${A.PROJE_ADI} — yapay zeka ${yon} görüşmesinde ${durum}.`,
+    tarih ? `Randevu: ${trMetin(tarih)}` : 'Randevu: gün ve saat belirlenmedi — müşteriyi arayıp birlikte belirleyin.',
+    arg.tercih_edilen_zaman ? `Müşterinin tercih ettiği zaman: ${kisalt(arg.tercih_edilen_zaman, 200)}` : '',
     `Tür: ${etiket(arg.randevu_tipi || 'ofis_ziyareti')}`,
     ad ? `Müşteri: ${ad}` : '',
     telefon ? `Telefon: ${telefon}` : '',
     arg.ilgilendigi_daire ? `İlgilendiği daire: ${arg.ilgilendigi_daire}` : '',
     arg.odeme_tercihi ? `Ödeme tercihi: ${arg.odeme_tercihi}` : '',
     arg.not ? `Not: ${kisalt(arg.not, 500)}` : '',
-    'Randevudan önce müşteriyi arayıp konum bilgisini paylaşın.',
+    tarih ? 'Randevudan önce müşteriyi arayıp konum bilgisini paylaşın.' : '',
     callId ? `Vapi Call ID: ${callId}` : '',
   ].filter(Boolean);
 
   const alanlar = {
     STATUS_ID: A.STATU.RANDEVU,
-    [F.RANDEVU]: trIso(tarih),
-    [F.SONUC]: teyitGerekli ? 'RANDEVU_TEYIT' : 'RANDEVU',
+    [F.RANDEVU]: tarih ? trIso(tarih) : '',
+    [F.SONUC]: !tarih ? 'RANDEVU_TALEP' : teyitGerekli ? 'RANDEVU_TEYIT' : 'RANDEVU',
     [F.CAGRI]: callId || undefined,
     [F.DENEME]: 0,
     [F.SONRAKI]: '',
@@ -371,11 +373,11 @@ function randevuKomutlari({ A, leadId, yeniLead, tarih, arg, callId, sorumlu, yo
   cmd[`${onEk}todo`] = bitrixKomut('crm.activity.todo.add', {
     ownerTypeId: 1,
     ownerId: ref,
-    deadline: trIso(tarih),
-    title: kisalt(`${A.PROJE_ADI} ${teyitGerekli ? 'randevu TEYİDİ' : 'randevu'} — ${ad || telefon || ''}`, 250),
+    deadline: trIso(gorevZamani),
+    title: kisalt(`${A.PROJE_ADI} ${!tarih ? 'randevu — GÜN/SAAT BELİRLEYİN' : teyitGerekli ? 'randevu TEYİDİ' : 'randevu'} — ${ad || telefon || ''}`, 250),
     description: detay.join('\n'),
     responsibleId: sorumlu || undefined,
-    pingOffsets: [1440, 60],
+    pingOffsets: tarih ? [1440, 60] : [0],
   });
   cmd[`${onEk}not`] = bitrixKomut('crm.timeline.comment.add', {
     fields: { ENTITY_ID: ref, ENTITY_TYPE: 'lead', COMMENT: `📅 ${detay.join('\n')}` },
@@ -464,6 +466,20 @@ function olay(tur, alanlar) {
   const o = { tur, zaman: new Date().toISOString(), ...alanlar };
   for (const k of Object.keys(o)) if (o[k] === undefined || o[k] === null) delete o[k];
   return o;
+}
+
+// Randevu olayının tarih alanları (saatsiz randevuda "talep")
+function randevuOlayi(tarih) {
+  return tarih
+    ? { randevu: trIso(tarih), tarih: trMetin(tarih), mesaj: 'randevu' }
+    : { talep: true, tarih: 'gün/saat belirlenmedi — satış temsilcisi arayacak', mesaj: 'randevu_talep' };
+}
+
+// randevu_olustur aracının asistana dönen cevabı
+function randevuYaniti(tarih) {
+  return tarih
+    ? `Randevu kaydedildi: ${trMetin(tarih)}. Müşteriye "Randevunuz oluşturuldu" de; satış temsilcimizin randevudan önce arayıp konum bilgisini paylaşacağını söyle, teşekkür et ve görüşmeyi kapat.`
+    : 'Randevu kaydedildi. Müşteriye "Randevunuz oluşturuldu, satış temsilcimiz sizi arayıp gün ve saati birlikte belirleyecek." de, teşekkür et ve görüşmeyi kapat. Gün veya saat SORMA.';
 }
 
 // Çağrı raporu yorumu

@@ -22,7 +22,6 @@ m.toolCalls.forEach((tc, i) => {
 
   if (tc.ad === 'randevu_olustur') {
     const k = randevuKontrol(tc.arg, A, simdi);
-    if (k.hata) return sonuc(k.hata);
     const arg = { ...tc.arg, ad_soyad: tc.arg.ad_soyad || isimDuzelt([lead.NAME, lead.LAST_NAME].filter(Boolean).join(' ')) };
     const p = randevuKomutlari({
       A,
@@ -37,10 +36,8 @@ m.toolCalls.forEach((tc, i) => {
     });
     Object.assign(cmd, p.cmd);
     kritik[tc.id] = p.anaKomut;
-    olaylar.push(olay('randevu', { _tc: tc.id, yon: 'outbound', leadId: id, telefon: m.telefon, ad: arg.ad_soyad, randevu: trIso(k.tarih), tarih: trMetin(k.tarih), detay: bilgiSatiri(arg.ilgilendigi_daire, arg.odeme_tercihi), callId: m.callId, mesaj: 'randevu' }));
-    return sonuc(
-      `Randevu kaydedildi: ${trMetin(k.tarih)}. Müşteriye günü ve saati tekrar teyit et; danışmanımızın randevudan önce arayıp konum bilgisini paylaşacağını söyle.`
-    );
+    olaylar.push(olay('randevu', { _tc: tc.id, yon: 'outbound', leadId: id, telefon: m.telefon, ad: arg.ad_soyad, detay: bilgiSatiri(arg.ilgilendigi_daire, arg.odeme_tercihi), callId: m.callId, ...randevuOlayi(k.tarih) }));
+    return sonuc(randevuYaniti(k.tarih));
   }
 
   if (tc.ad === 'geri_arama_planla') {

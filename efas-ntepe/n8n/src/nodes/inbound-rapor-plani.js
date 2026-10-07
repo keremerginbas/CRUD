@@ -60,7 +60,7 @@ if (aracIsledi) {
     A,
     leadId: leadRef,
     yeniLead: lead ? null : yeniLeadAlanlari(A.STATU.RANDEVU, 'RANDEVU_TEYIT', sorumlu),
-    tarih: k.tarih || pencereyeTasi(dakikaEkle(simdi, 60), A.ARAMA_SAATLERI),
+    tarih: k.tarih,
     arg: { ...y, ad_soyad: adSoyad },
     callId: m.callId,
     sorumlu,
@@ -72,8 +72,8 @@ if (aracIsledi) {
   delete p.cmd.r_not;
   Object.assign(cmd, p.cmd);
   leadRef = p.ref;
-  baslik = 'randevu konuşuldu, saat sisteme işlenemedi → TEYİT EDİLMELİ';
-  olaylar.push(olay('randevu', { ...temel, teyit: true, randevu: k.tarih ? trIso(k.tarih) : undefined, tarih: k.tarih ? trMetin(k.tarih) : 'teyit edilecek' }));
+  baslik = k.tarih ? 'randevu konuşuldu, araç çağrılmadı → SAAT TEYİT EDİLMELİ' : 'randevu istedi → gün/saat satış temsilcisince belirlenecek';
+  olaylar.push(olay('randevu', { ...temel, ...randevuOlayi(k.tarih), teyit: !!k.tarih, mesaj: k.tarih ? undefined : 'randevu_talep' }));
 } else if (y.sonuc === 'olumsuz' || y.sonuc === 'yanlis_arama') {
   if (!lead) return []; // tanımadığımız biri yanlış aradıysa kayıt açma
   baslik = y.sonuc === 'yanlis_arama' ? 'yanlış arama' : `olumsuz — ${etiket(y.olumsuz_nedeni)}`;

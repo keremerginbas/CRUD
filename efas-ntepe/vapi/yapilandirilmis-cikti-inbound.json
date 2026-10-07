@@ -15,7 +15,7 @@
           "yanlis_arama",
           "diger"
         ],
-        "description": "randevu: arayan belirli bir gün ve saat için görüşmeye NET onay verdi. bilgi_aldi: bilgi aldı, randevu almadı. tekrar_ara: danışmanın kendisini aramasını istedi. olumsuz: ilgilenmediğini söyledi. yanlis_arama: yanlış numarayı aradı. diger: satış dışı konu (mevcut müşteri, ödeme, şikâyet vb.)."
+        "description": "randevu: arayan randevu / projeyi yerinde görmek istediğini söyledi (gün ve saat gerekmez). bilgi_aldi: bilgi aldı ya da satış temsilcisinin kendisini arayıp bilgi vermesini istedi, randevu istemedi. tekrar_ara: danışmanın kendisini aramasını istedi. olumsuz: ilgilenmediğini söyledi. yanlis_arama: yanlış numarayı aradı. diger: satış dışı konu (mevcut müşteri, ödeme, şikâyet vb.)."
       },
       "olumsuz_nedeni": {
         "type": "string",

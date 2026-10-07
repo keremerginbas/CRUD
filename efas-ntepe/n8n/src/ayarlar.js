@@ -79,6 +79,8 @@ const AYARLAR = {
     METIN: {
       randevu:
         'Sayın {ad}, Yeni Yaşamkent EFAS N-Tepe ziyaret randevunuz {tarih} olarak oluşturuldu. Danışmanımız konum için sizi arayacak. Bilgi: {telefon} XRE Project',
+      randevu_talep:
+        'Sayın {ad}, Yeni Yaşamkent EFAS N-Tepe randevu talebiniz alındı. Satış temsilcimiz gün ve saati belirlemek için sizi arayacak. Bilgi: {telefon} XRE Project',
       tanitim:
         "Yeni Yaşamkent EFAS N-Tepe'de 3.150.000 TL'den başlayan fiyatlarla 1+1 daire sahibi olun. Sizi aradık ulaşamadık. Bilgi ve randevu: {telefon} XRE Project",
       bilgi: '',
@@ -94,6 +96,7 @@ const AYARLAR = {
     DIL: 'tr',
     SABLON: {
       randevu: { ad: 'efas_randevu_teyit', parametreler: ['ad', 'tarih'] },
+      randevu_talep: { ad: 'efas_randevu_talep', parametreler: ['ad'] },
       tanitim: { ad: 'efas_tanitim', parametreler: ['ad'] },
       bilgi: { ad: 'efas_bilgi', parametreler: ['ad'] },
     },
