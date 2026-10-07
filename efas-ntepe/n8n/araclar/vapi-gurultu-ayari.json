@@ -1,0 +1,83 @@
+{
+  "name": "EFAS N-TEPE | Vapi Gürültü Ayarı (tek seferlik)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "7b1c2f0e-1a11-4c8a-9a01-000000000001",
+      "name": "Başlat",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Çevre gürültüsü ayarı: Krisp gürültü engelleme açılır; asistan ancak müşteri en az 1 KELİME söyleyince susar\n// (kelimesiz ses — trafik, TV, rüzgâr — konuşmayı kesmez).\nconst GOVDE = {\n  \"backgroundSpeechDenoisingPlan\": {\n    \"smartDenoisingPlan\": {\n      \"enabled\": true\n    }\n  },\n  \"stopSpeakingPlan\": {\n    \"numWords\": 1,\n    \"voiceSeconds\": 0.3,\n    \"backoffSeconds\": 1\n  }\n};\nreturn [\n  { json: { asistan: \"outbound\", id: \"010eabaa-0838-42b0-af4d-ba3a30a8373d\", govde: GOVDE } },\n  { json: { asistan: \"inbound\", id: \"b723ba5d-b1f4-4c97-bc5a-65a71317d85e\", govde: GOVDE } },\n];\n"
+      },
+      "id": "7b1c2f0e-1a11-4c8a-9a01-000000000002",
+      "name": "Ayarlar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.vapi.ai/assistant/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.govde) }}",
+        "options": {}
+      },
+      "id": "7b1c2f0e-1a11-4c8a-9a01-000000000003",
+      "name": "Vapi: Asistanı Güncelle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Başlat": {
+      "main": [
+        [
+          {
+            "node": "Ayarlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ayarlar": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Asistanı Güncelle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
