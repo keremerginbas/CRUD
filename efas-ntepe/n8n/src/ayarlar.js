@@ -78,9 +78,9 @@ const AYARLAR = {
     BASLIK: 'XRE', // onaylı gönderici başlığı
     METIN: {
       randevu:
-        'Sayın {ad}, EFAS N-Tepe Yaşamkent ziyaret randevunuz {tarih} olarak oluşturuldu. Danışmanımız konum için sizi arayacak. Bilgi: {telefon} XRE Beştepe',
+        'Sayın {ad}, Yeni Yaşamkent EFAS N-Tepe ziyaret randevunuz {tarih} olarak oluşturuldu. Danışmanımız konum için sizi arayacak. Bilgi: {telefon} XRE Project',
       tanitim:
-        "EFAS N-Tepe Yaşamkent'te 3.150.000 TL'den başlayan fiyatlarla 1+1 daire sahibi olun. Sizi aradık ulaşamadık. Bilgi ve randevu: {telefon} XRE Beştepe",
+        "Yeni Yaşamkent EFAS N-Tepe'de 3.150.000 TL'den başlayan fiyatlarla 1+1 daire sahibi olun. Sizi aradık ulaşamadık. Bilgi ve randevu: {telefon} XRE Project",
       bilgi: '',
     },
   },
