@@ -1,0 +1,375 @@
+{
+  "name": "Blog Panel – AI SEO Blog Üretici",
+  "nodes": [
+    {
+      "id": "646fd01a-77a6-4f29-a25c-0d15ffc79dde",
+      "name": "Panel Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "69b73730-171a-496d-be74-14e82d4e6763",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "blog-panel-generate",
+        "authentication": "headerAuth",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "blog-panel-secret",
+          "name": "Blog Panel Secret"
+        }
+      }
+    },
+    {
+      "id": "c866a102-f643-4d08-a27e-2bd2e2d32096",
+      "name": "İşi Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Panelden gelen isteği doğrular. Bağlantı testi ise akışı durdurur.\nconst body = $input.first().json.body || {};\nif (body.test) {\n  return [];\n}\nif (!body.job_id || !body.token || !body.callback_url || !body.domain) {\n  throw new Error('Eksik payload: job_id, token, callback_url ve domain zorunlu.');\n}\nreturn [{ json: body }];\n"
+      }
+    },
+    {
+      "id": "1eb80997-cede-488a-81b1-812f9b016e7b",
+      "name": "Siteyi Getir",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        300
+      ],
+      "parameters": {
+        "url": "={{ $json.domain.site_url }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "outputPropertyName": "html"
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "32dc20df-727a-4891-b339-92bcc8ffc3b1",
+      "name": "Konu İsteği Oluştur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Site metnini çıkarır ve Claude'a gidecek \"konu analizi\" isteğini hazırlar.\nconst job = $('İşi Hazırla').first().json;\nconst html = String($input.first().json.html || '');\nconst pick = (re) => { const m = html.match(re); return m ? m[1].replace(/\\s+/g, ' ').trim() : ''; };\nconst siteTitle = pick(/<title[^>]*>([\\s\\S]*?)<\\/title>/i);\nconst siteDesc = pick(/<meta[^>]+name=[\"']description[\"'][^>]+content=[\"']([^\"']*)[\"']/i);\nconst siteText = html\n  .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n  .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/&nbsp;|&#160;/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim()\n  .slice(0, 6000);\n\nconst LANGS = { tr: 'Türkçe', en: 'English', de: 'Deutsch', ar: 'Arabic', ru: 'Russian' };\nconst d = job.domain;\nconst language = LANGS[d.language] || d.language;\n\nconst system = `Sen deneyimli bir SEO içerik stratejistisin. Görevin, sana tanıtılan web sitesi için yayınlanacak BİR SONRAKİ blog yazısının konusunu ve planını belirlemek.\n\nKonu seçerken:\n- Sitenin gerçekte ne sattığını / sunduğunu site metninden ve sektör bilgisinden çıkar; konu bu işle doğrudan ilgili olsun ve potansiyel müşteriyi siteye çeksin.\n- Gerçekçi sıralama şansı olan, arama niyeti net, uzun kuyruklu (long-tail) bir odak anahtar kelime seç. Çok genel, aşırı rekabetçi kelimelerden kaçın.\n- Daha önce yazılmış başlıklarla aynı veya çok benzer konuyu tekrar etme (yamyamlaşma / keyword cannibalization olmasın).\n- Bugünün tarihini dikkate al; mevsimsel veya güncel bir ihtiyaç varsa değerlendir.\n- Hedef anahtar kelimeler verilmişse onlara veya yakın varyasyonlarına öncelik ver, ama her yazıda farklı bir açı seç.\n- Taslak (outline) 4-7 adet H2 içersin; her H2 kullanıcının gerçek bir sorusunu yanıtlasın.\n- internal_links alanına yalnızca sana verilen mevcut yazı listesinden konuyla ilgili olanları (en fazla 3) koy; liste boşsa boş dizi döndür. URL uydurma.\n- Tüm metin alanlarını ${language} yaz.`;\n\nconst user = JSON.stringify({\n  bugun: job.content_rules.current_date,\n  site: { url: d.site_url, baslik: siteTitle, aciklama: siteDesc, metin_ozeti: siteText || '(site metni alınamadı)' },\n  sektor: d.niche, hedef_kitle: d.target_audience, dil: language, ton: d.tone,\n  hedef_anahtar_kelimeler: d.seed_keywords, ek_talimatlar: d.extra_instructions,\n  daha_once_yazilan_basliklar: job.recent_titles,\n  mevcut_yazilar_ic_link_icin: job.internal_links,\n  minimum_kelime: job.content_rules.min_word_count,\n}, null, 2);\n\nconst schema = {\n  type: 'object',\n  additionalProperties: false,\n  required: ['topic', 'title_idea', 'focus_keyword', 'secondary_keywords', 'search_intent', 'target_word_count', 'outline', 'internal_links', 'rationale'],\n  properties: {\n    topic: { type: 'string' },\n    title_idea: { type: 'string' },\n    focus_keyword: { type: 'string' },\n    secondary_keywords: { type: 'array', items: { type: 'string' } },\n    search_intent: { type: 'string', enum: ['informational', 'commercial', 'transactional', 'navigational'] },\n    target_word_count: { type: 'integer' },\n    outline: {\n      type: 'array',\n      items: {\n        type: 'object', additionalProperties: false, required: ['h2', 'h3'],\n        properties: { h2: { type: 'string' }, h3: { type: 'array', items: { type: 'string' } } },\n      },\n    },\n    internal_links: {\n      type: 'array',\n      items: {\n        type: 'object', additionalProperties: false, required: ['title', 'url'],\n        properties: { title: { type: 'string' }, url: { type: 'string' } },\n      },\n    },\n    rationale: { type: 'string' },\n  },\n};\n\nreturn [{\n  json: {\n    job,\n    claude_request: {\n      model: 'claude-opus-5-5',\n      max_tokens: 16000,\n      fallbacks: 'default',\n      output_config: { effort: 'medium', format: { type: 'json_schema', schema } },\n      system,\n      messages: [{ role: 'user', content: user }],\n    },\n  },\n}];\n"
+      }
+    },
+    {
+      "id": "64249ead-c5ce-498f-940f-da69e81e51ca",
+      "name": "Claude: Konu Analizi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "anthropic-beta",
+              "value": "server-side-fallback-2026-07-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.claude_request) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anthropic-api-key",
+          "name": "Anthropic API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "702c54dc-3386-486d-b2a3-1a3d7d3d3169",
+      "name": "Makale İsteği Oluştur",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "jsCode": "function parseClaude(resp) {\n  if (!resp || resp.error) {\n    const err = resp && resp.error;\n    throw new Error('Claude API hatası: ' + (typeof err === 'string' ? err : JSON.stringify(err || resp)).slice(0, 600));\n  }\n  if (resp.stop_reason === 'refusal') {\n    throw new Error('Claude isteği reddetti: ' + JSON.stringify(resp.stop_details || {}));\n  }\n  if (resp.stop_reason === 'max_tokens') {\n    throw new Error('Yanıt max_tokens sınırında kesildi.');\n  }\n  const text = (resp.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n  try {\n    return JSON.parse(text);\n  } catch (e) {\n    throw new Error('Claude yanıtı JSON değil: ' + text.slice(0, 300));\n  }\n}\n\n// Konu analizini okur ve \"makale yaz\" isteğini hazırlar.\nconst prev = $('Konu İsteği Oluştur').first().json;\nconst job = prev.job;\ntry {\n  const topic = parseClaude($input.first().json);\n  const LANGS = { tr: 'Türkçe', en: 'English', de: 'Deutsch', ar: 'Arabic', ru: 'Russian' };\n  const d = job.domain;\n  const language = LANGS[d.language] || d.language;\n  const minWords = Math.max(job.content_rules.min_word_count, topic.target_word_count || 0);\n\n  const system = `Sen alanında uzman, SEO konusunda deneyimli bir içerik yazarısın. Verilen plana göre yayına hazır bir blog yazısı yazacaksın.\n\nDil ve üslup:\n- Yazının tamamını ${language} yaz. Ton: ${d.tone}.\n- Okuyucuya doğrudan, pratik ve somut bilgi ver; örnekler, adımlar, kontrol listeleri kullan. Dolgu cümle, klişe giriş (\"Günümüzde...\", \"Bu yazımızda...\") ve abartılı pazarlama dili kullanma.\n- Doğrulanamayan istatistik, araştırma, alıntı, fiyat, yasal hüküm veya marka iddiası UYDURMA. Emin olmadığın sayısal bilgi yerine genel ifade kullan.\n\ncontent_html kuralları:\n- Yalnızca şu HTML etiketleri: h2, h3, p, ul, ol, li, strong, em, a, table, thead, tbody, tr, th, td, blockquote. Markdown, h1, img, script, style, class/id kullanma.\n- Başlık (h1) ayrı alandadır; content_html bir giriş paragrafı (<p>) ile başlasın ve odak anahtar kelime ilk 100 kelime içinde doğal biçimde geçsin.\n- Plandaki H2/H3 yapısını kullan; her H2 altında en az iki dolu paragraf veya liste olsun.\n- En az ${minWords} kelime yaz.\n- Odak anahtar kelimeyi doğal yoğunlukta (yaklaşık %1) kullan, ikincil kelimeleri alt başlık ve paragraflara serpiştir; anahtar kelime doldurma yapma.\n- Plandaki iç linkleri ilgili cümlenin içinde <a href=\"URL\">anlamlı bağlantı metni</a> olarak kullan. Başka URL uydurma; sitenin ana sayfası gerekiyorsa \"/\" kullanabilirsin.\n- Sonuç bölümünde okuru sitenin hizmetine/ürününe yönlendiren kısa bir çağrı (CTA) olsun.\n- SSS bölümünü content_html içine KOYMA; faq alanına yaz.\n\nDiğer alanlar:\n- title: ilgi çekici, odak anahtar kelimeyi içeren başlık (en fazla 70 karakter).\n- meta_title: 50-60 karakter, odak anahtar kelime başa yakın.\n- meta_description: 140-155 karakter, odak anahtar kelimeyi ve bir eylem çağrısını içersin.\n- slug: küçük harf, Türkçe karakter içermeyen, tirelerle ayrılmış 3-6 kelime, odak anahtar kelimeyi içersin.\n- excerpt: 1-2 cümlelik özet.\n- faq: 4-6 soru; cevaplar 40-70 kelime, kendi başına anlaşılır.\n- tags: 3-6 kısa etiket.`;\n\n  const user = JSON.stringify({\n    site: d.site_url, sektor: d.niche, hedef_kitle: d.target_audience,\n    ek_talimatlar: d.extra_instructions,\n    konu: topic.topic, baslik_onerisi: topic.title_idea,\n    odak_anahtar_kelime: topic.focus_keyword, ikincil_anahtar_kelimeler: topic.secondary_keywords,\n    arama_niyeti: topic.search_intent, taslak: topic.outline, ic_linkler: topic.internal_links,\n    minimum_kelime: minWords,\n  }, null, 2);\n\n  const schema = {\n    type: 'object',\n    additionalProperties: false,\n    required: ['title', 'slug', 'meta_title', 'meta_description', 'focus_keyword', 'secondary_keywords', 'excerpt', 'content_html', 'faq', 'tags'],\n    properties: {\n      title: { type: 'string' },\n      slug: { type: 'string' },\n      meta_title: { type: 'string' },\n      meta_description: { type: 'string' },\n      focus_keyword: { type: 'string' },\n      secondary_keywords: { type: 'array', items: { type: 'string' } },\n      excerpt: { type: 'string' },\n      content_html: { type: 'string' },\n      faq: {\n        type: 'array',\n        items: {\n          type: 'object', additionalProperties: false, required: ['question', 'answer'],\n          properties: { question: { type: 'string' }, answer: { type: 'string' } },\n        },\n      },\n      tags: { type: 'array', items: { type: 'string' } },\n    },\n  };\n\n  return [{\n    json: {\n      ok: true,\n      job,\n      topic,\n      claude_request: {\n        model: 'claude-opus-5-5',\n        max_tokens: 16000,\n        fallbacks: 'default',\n        output_config: { effort: 'medium', format: { type: 'json_schema', schema } },\n        system,\n        messages: [{ role: 'user', content: user }],\n      },\n    },\n  }];\n} catch (e) {\n  return [{ json: { ok: false, job, error: 'Konu analizi: ' + e.message } }];\n}\n"
+      }
+    },
+    {
+      "id": "95e3199f-7710-44d0-bfec-05551aaa1e87",
+      "name": "Konu OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "d630ba11-8dd0-413e-af69-73bbd1147c2e",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "9b28e427-501e-4db0-ba47-244d620a653d",
+      "name": "Claude: Makale Yaz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "anthropic-beta",
+              "value": "server-side-fallback-2026-07-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.claude_request) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "anthropic-api-key",
+          "name": "Anthropic API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "7185b795-c399-46fd-8bd1-5216d157683f",
+      "name": "Sonucu Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        300
+      ],
+      "parameters": {
+        "jsCode": "function parseClaude(resp) {\n  if (!resp || resp.error) {\n    const err = resp && resp.error;\n    throw new Error('Claude API hatası: ' + (typeof err === 'string' ? err : JSON.stringify(err || resp)).slice(0, 600));\n  }\n  if (resp.stop_reason === 'refusal') {\n    throw new Error('Claude isteği reddetti: ' + JSON.stringify(resp.stop_details || {}));\n  }\n  if (resp.stop_reason === 'max_tokens') {\n    throw new Error('Yanıt max_tokens sınırında kesildi.');\n  }\n  const text = (resp.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');\n  try {\n    return JSON.parse(text);\n  } catch (e) {\n    throw new Error('Claude yanıtı JSON değil: ' + text.slice(0, 300));\n  }\n}\n\n// Panele gönderilecek sonucu hazırlar (başarı veya hata).\nconst item = $input.first().json;\nlet job;\nlet payload;\nif (item.ok === false) {\n  job = item.job;\n  payload = { job_id: job.job_id, token: job.token, status: 'error', error: item.error };\n} else {\n  const prev = $('Makale İsteği Oluştur').first().json;\n  job = prev.job;\n  try {\n    const article = parseClaude(item);\n    article.focus_keyword = article.focus_keyword || prev.topic.focus_keyword;\n    payload = {\n      job_id: job.job_id,\n      token: job.token,\n      status: 'success',\n      article,\n      meta: { topic: prev.topic.topic, search_intent: prev.topic.search_intent, rationale: prev.topic.rationale },\n    };\n  } catch (e) {\n    payload = { job_id: job.job_id, token: job.token, status: 'error', error: 'Makale yazımı: ' + e.message };\n  }\n}\nreturn [{ json: { callback_url: job.callback_url, payload } }];\n"
+      }
+    },
+    {
+      "id": "e5b46703-4405-4ece-bd2f-e2547f278c29",
+      "name": "Panele Gönder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "blog-panel-secret",
+          "name": "Blog Panel Secret"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    }
+  ],
+  "connections": {
+    "Panel Webhook": {
+      "main": [
+        [
+          {
+            "node": "İşi Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "İşi Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Siteyi Getir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Siteyi Getir": {
+      "main": [
+        [
+          {
+            "node": "Konu İsteği Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Konu İsteği Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Claude: Konu Analizi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Konu Analizi": {
+      "main": [
+        [
+          {
+            "node": "Makale İsteği Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Makale İsteği Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Konu OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Konu OK?": {
+      "main": [
+        [
+          {
+            "node": "Claude: Makale Yaz",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Sonucu Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude: Makale Yaz": {
+      "main": [
+        [
+          {
+            "node": "Sonucu Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sonucu Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Panele Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "pinData": {},
+  "active": false
+}

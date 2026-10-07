@@ -1,0 +1,11 @@
+<?php
+declare(strict_types=1);
+
+namespace BlogPanel\Publisher;
+
+interface FileWriter
+{
+    public function ensureDir(string $parent, string $name): void;
+
+    public function write(string $dir, string $file, string $content): void;
+}
