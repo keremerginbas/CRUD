@@ -22,8 +22,39 @@ require __DIR__ . '/app/helpers.php';
 $configFile = getenv('BLOG_PANEL_CONFIG') ?: __DIR__ . '/config.php';
 $isCli = PHP_SAPI === 'cli';
 
+/** @return string[] eksik gereksinimler */
+function missing_requirements(string $driver = ''): array
+{
+    $missing = [];
+    if (PHP_VERSION_ID < 80100) {
+        $missing[] = 'PHP 8.1 veya üstü (şu an ' . PHP_VERSION . ')';
+    }
+    foreach (['pdo' => 'pdo', 'curl' => 'curl', 'mbstring' => 'mbstring', 'dom' => 'dom', 'json' => 'json'] as $ext => $label) {
+        if (!extension_loaded($ext)) {
+            $missing[] = "$label eklentisi";
+        }
+    }
+    if (!extension_loaded('sodium') && !extension_loaded('openssl')) {
+        $missing[] = 'sodium veya openssl eklentisi';
+    }
+    if ($driver === 'sqlite' && !extension_loaded('pdo_sqlite')) {
+        $missing[] = 'pdo_sqlite eklentisi (SQLite için)';
+    }
+    if ($driver === 'mysql' && !extension_loaded('pdo_mysql')) {
+        $missing[] = 'pdo_mysql eklentisi (MySQL için)';
+    }
+    if (!extension_loaded('pdo_sqlite') && !extension_loaded('pdo_mysql')) {
+        $missing[] = 'pdo_mysql veya pdo_sqlite eklentisi';
+    }
+    return $missing;
+}
+
 function do_install(array $in, string $configFile): void
 {
+    $missing = missing_requirements(($in['driver'] ?? 'mysql') === 'sqlite' ? 'sqlite' : 'mysql');
+    if ($missing) {
+        throw new RuntimeException('Sunucuda eksik: ' . implode(', ', $missing) . '. cPanel > Select PHP Version > Extensions bölümünden açın.');
+    }
     if (strlen($in['password'] ?? '') < 10) {
         throw new RuntimeException('Yönetici şifresi en az 10 karakter olmalı.');
     }
@@ -110,23 +141,27 @@ if (is_file($configFile)) {
     <p><a class="btn btn-primary" href="login.php">Giriş yap</a></p>
   <?php else: ?>
     <?php if ($error): ?><div class="alert alert-err"><?= e($error) ?></div><?php endif; ?>
+    <?php if ($missing = missing_requirements()): ?>
+      <div class="alert alert-warn">Sunucuda eksik: <?= e(implode(', ', $missing)) ?>. cPanel &gt; Select PHP Version &gt; Extensions bölümünden açın.</div>
+    <?php endif; ?>
+    <?php $driverSel = ($_POST['driver'] ?? 'mysql') === 'sqlite' ? 'sqlite' : 'mysql'; ?>
     <form method="post" class="form">
       <fieldset>
         <legend>Veritabanı</legend>
         <label>Sürücü
           <select name="driver" data-toggle-driver>
-            <option value="mysql">MySQL / MariaDB (önerilen)</option>
-            <option value="sqlite">SQLite (tek dosya)</option>
+            <option value="mysql" <?= $driverSel === 'mysql' ? 'selected' : '' ?>>MySQL / MariaDB</option>
+            <option value="sqlite" <?= $driverSel === 'sqlite' ? 'selected' : '' ?>>SQLite (tek dosya, ek veritabanı gerektirmez)</option>
           </select>
         </label>
-        <div data-mysql>
+        <div data-mysql <?= $driverSel === 'sqlite' ? 'hidden' : '' ?>>
           <div class="grid-2">
             <label>Sunucu <input name="host" value="localhost"></label>
             <label>Port <input name="port" value="3306" inputmode="numeric"></label>
           </div>
-          <label>Veritabanı adı <input name="name" placeholder="cpuser_blogpanel"></label>
+          <label>Veritabanı adı <input name="name" placeholder="cpuser_blogpanel" value="<?= e($_POST['name'] ?? '') ?>"></label>
           <div class="grid-2">
-            <label>Kullanıcı <input name="user" autocomplete="off"></label>
+            <label>Kullanıcı <input name="user" autocomplete="off" value="<?= e($_POST['user'] ?? '') ?>"></label>
             <label>Şifre <input name="pass" type="password" autocomplete="new-password"></label>
           </div>
         </div>

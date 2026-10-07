@@ -41,7 +41,7 @@ usleep(400000);
 $s = App::settings();
 $s->set('n8n_webhook_url', "http://127.0.0.1:$port/webhook/blog-panel-generate");
 check(strlen($s->get('n8n_secret')) === 48, 'n8n gizli anahtarı üretildi ve şifreli saklanıyor');
-check(str_starts_with((string) App::db()->value("SELECT value FROM settings WHERE name='n8n_secret'"), 'enc:'), 'gizli anahtar veritabanında şifreli');
+check(in_array(substr((string) App::db()->value("SELECT value FROM settings WHERE name='n8n_secret'"), 0, 4), ['enc:', 'gcm:'], true), 'gizli anahtar veritabanında şifreli');
 
 // 3) Domain ekle ve aktifleştir
 $now = Database::now();
