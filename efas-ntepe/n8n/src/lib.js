@@ -124,6 +124,16 @@ function leadTelefonu(lead) {
   return null;
 }
 
+// Lead'in EMAIL alanından ilk geçerli adres
+function leadEpostasi(lead) {
+  const liste = Array.isArray(lead && lead.EMAIL) ? lead.EMAIL : [];
+  for (const e of liste) {
+    const v = String((e && e.VALUE) || '').trim();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return v;
+  }
+  return '';
+}
+
 function bitrixTarih(v) {
   if (!v) return null;
   const d = new Date(v);

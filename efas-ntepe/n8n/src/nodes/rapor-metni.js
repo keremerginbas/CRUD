@@ -31,6 +31,8 @@ const smsOk = say((r) => r.tur === 'sms' && r.sonuc === 'ok');
 const smsHata = say((r) => r.tur === 'sms' && r.sonuc !== 'ok');
 const waOk = say((r) => r.tur === 'whatsapp' && r.sonuc === 'ok');
 const waHata = say((r) => r.tur === 'whatsapp' && r.sonuc !== 'ok');
+const epOk = say((r) => r.tur === 'eposta' && r.sonuc === 'ok');
+const epHata = say((r) => r.tur === 'eposta' && r.sonuc !== 'ok');
 const sureDk = Math.round(satirlar.filter((r) => r.tur === 'cagri_sonu').reduce((t, r) => t + (Number(r.sure_sn) || 0), 0) / 60);
 const maliyet = satirlar.filter((r) => r.tur === 'cagri_sonu').reduce((t, r) => t + (Number(r.maliyet) || 0), 0);
 const oran = outSon.length ? Math.round((100 * ulasilan) / outSon.length) : 0;
@@ -45,7 +47,7 @@ const metin = [
   `📅 Randevu: <b>${sayi(randevular.length)}</b> (outbound ${sayi(rOut)} · inbound ${sayi(randevular.length - rOut)}${teyit ? ` · teyit bekleyen ${sayi(teyit)}` : ''}${talep ? ` · saati belirlenecek ${sayi(talep)}` : ''})`,
   `📞 Bilgi isteyen (satışa devredilen): ${sayi(bilgi)}`,
   `🔁 Geri arama sözü: ${sayi(geriArama)} · ❌ Olumsuz: ${sayi(olumsuz)}`,
-  `💬 SMS: ${sayi(smsOk)}${smsHata ? ` (hata ${sayi(smsHata)})` : ''} · WhatsApp: ${sayi(waOk)}${waHata ? ` (hata ${sayi(waHata)})` : ''}`,
+  `💬 SMS: ${sayi(smsOk)}${smsHata ? ` (hata ${sayi(smsHata)})` : ''} · WhatsApp: ${sayi(waOk)}${waHata ? ` (hata ${sayi(waHata)})` : ''} · E-posta: ${sayi(epOk)}${epHata ? ` (hata ${sayi(epHata)})` : ''}`,
   `⏱ Konuşma: ${sayi(sureDk)} dk · 💰 Vapi: $${maliyet.toFixed(2)}`,
   `📋 Kuyrukta bekleyen lead: ${sayi(kuyruk.total)}`,
 ];

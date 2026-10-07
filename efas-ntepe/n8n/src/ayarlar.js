@@ -81,8 +81,8 @@ const AYARLAR = {
         'Sayın {ad}, Yeni Yaşamkent EFAS N-Tepe ziyaret randevunuz {tarih} olarak oluşturuldu. Danışmanımız konum için sizi arayacak. Bilgi: {telefon} XRE Project',
       randevu_talep:
         'Sayın {ad}, Yeni Yaşamkent EFAS N-Tepe randevu talebiniz alındı. Satış temsilcimiz gün ve saati belirlemek için sizi arayacak. Bilgi: {telefon} XRE Project',
-      tanitim:
-        "Yeni Yaşamkent EFAS N-Tepe'de 3.150.000 TL'den başlayan fiyatlarla 1+1 daire sahibi olun. Sizi aradık ulaşamadık. Bilgi ve randevu: {telefon} XRE Project",
+      // ilk aramada ulaşılamayan müşteriye
+      tanitim: "Efas Entepe projesi için sizi aradık, ulaşamadık. Fiyatlar 3.150.000 TL'den başlıyor. Detaylı bilgi: https://form.xre.com.tr/efas/",
       bilgi: '',
     },
   },
@@ -99,6 +99,28 @@ const AYARLAR = {
       randevu_talep: { ad: 'efas_randevu_talep', parametreler: ['ad'] },
       tanitim: { ad: 'efas_tanitim', parametreler: ['ad'] },
       bilgi: { ad: 'efas_bilgi', parametreler: ['ad'] },
+    },
+  },
+
+  // ---- E-posta ("EFAS SMTP" credential'ı; lead'in EMAIL alanındaki adrese) ----
+  // Ticari e-posta için İYS onayı gerekir. GONDEREN, SMTP hesabının adresi olmalı.
+  EPOSTA: {
+    AKTIF: false,
+    GONDEREN: 'XRE Project <info@xre.com.tr>',
+    // Afiş görselinin adresi. Boşsa 04 workflow'u görseli kendisi yayınlar: …/webhook/efas-ntepe-afis
+    GORSEL_URL: '',
+    FORM_URL: 'https://form.xre.com.tr/efas/',
+    PROJE_URL: 'https://xreproject.com/projeDetay/efas-n-tepe',
+    SABLON: {
+      tanitim: {
+        konu: 'Yeni Yaşamkent’te Özel Bir Yaşam Fırsatı XRE ile Sizi Bekliyor',
+        paragraflar: [
+          'Merhaba,',
+          'Yeni Yaşamkent’in en özel arsasında, ayrıcalıklı bir yaşam fırsatı XRE ile sizi bekliyor.',
+          'Modern mimarisi, güçlü lokasyonu ve avantajlı ödeme seçenekleriyle öne çıkan projede 3.150.000 TL’den başlayan fiyatlarla yeni bir yaşama adım atabilirsiniz. Kişiye özel ödeme planı ve kredi kartına taksit avantajıyla projeyi hem yaşam hem de yatırım için değerlendirebilirsiniz.',
+          'Detaylı bilgi almak ve güncel ödeme seçeneklerini öğrenmek için başvuru formunu doldurabilirsiniz:',
+        ],
+      },
     },
   },
 

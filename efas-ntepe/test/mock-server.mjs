@@ -3,6 +3,7 @@
 //   Vapi:   http://127.0.0.1:8787/vapi/...
 //   Kontrol: GET /__state, POST /__reset { leads, activeCalls, failNumbers, pageSize }
 import http from 'node:http';
+import net from 'node:net';
 
 const PORT = Number(process.env.MOCK_PORT || 8787);
 const VAPI_KEY = 'test-key';
@@ -19,6 +20,7 @@ function sifirla(seed = {}) {
     sms: [],
     whatsapp: [],
     telegram: [],
+    eposta: [],
     userfields: [],
     activeCalls: seed.activeCalls || [],
     contacts: seed.contacts || [],
@@ -266,3 +268,58 @@ const sunucu = http.createServer((req, res) => {
 });
 
 sunucu.listen(PORT, '127.0.0.1', () => console.log(`mock hazır :${PORT}`));
+
+// Basit SMTP sunucusu (e-posta testi): 127.0.0.1:2525, kullanıcı smtp-user / smtp-pass
+const SMTP_PORT = Number(process.env.SMTP_PORT || 2525);
+net
+  .createServer((soket) => {
+    let veriModu = false;
+    let tampon = '';
+    let posta = { from: '', to: [], data: '' };
+    const yaz = (s) => soket.write(s + '\r\n');
+    yaz('220 mock-smtp');
+    soket.on('data', (parca) => {
+      tampon += parca.toString('utf8');
+      while (true) {
+        if (veriModu) {
+          const son = tampon.indexOf('\r\n.\r\n');
+          if (son < 0) return;
+          posta.data = tampon.slice(0, son);
+          tampon = tampon.slice(son + 5);
+          veriModu = false;
+          S.eposta.push(posta);
+          posta = { from: '', to: [], data: '' };
+          yaz('250 OK queued');
+          continue;
+        }
+        const i = tampon.indexOf('\r\n');
+        if (i < 0) return;
+        const satir = tampon.slice(0, i);
+        tampon = tampon.slice(i + 2);
+        const komut = satir.split(' ')[0].toUpperCase();
+        if (komut === 'EHLO') soket.write('250-mock-smtp\r\n250 AUTH PLAIN LOGIN\r\n');
+        else if (komut === 'HELO') yaz('250 mock-smtp');
+        else if (komut === 'AUTH') {
+          const p = satir.split(' ');
+          if (p[1] === 'PLAIN') {
+            const [, u, pw] = Buffer.from(p[2] || '', 'base64').toString().split('\0');
+            yaz(u === 'smtp-user' && pw === 'smtp-pass' ? '235 OK' : '535 auth failed');
+          } else yaz('504 unsupported');
+        } else if (komut === 'MAIL') {
+          posta.from = satir;
+          yaz('250 OK');
+        } else if (komut === 'RCPT') {
+          posta.to.push((/<([^>]+)>/.exec(satir) || [])[1] || satir);
+          yaz('250 OK');
+        } else if (komut === 'DATA') {
+          veriModu = true;
+          yaz('354 go');
+        } else if (komut === 'QUIT') {
+          yaz('221 bye');
+          soket.end();
+        } else yaz('250 OK');
+      }
+    });
+    soket.on('error', () => {});
+  })
+  .listen(SMTP_PORT, '127.0.0.1');

@@ -484,7 +484,7 @@ sunucu({
 {
   const wf = new Workflow(`${ON}04 Olay ve Mesaj Merkezi`);
   wf.not(
-    "## 04 · Olay ve Mesaj Merkezi\n01/02/03 workflow'ları her olayı buraya gönderir (OLAY_WEBHOOK_URL).\n\n1. Olaylar **efas_ntepe_olaylar** veri tablosuna yazılır (raporun kaynağı)\n2. Müşteriye mesaj:\n   • randevu → SMS + WhatsApp teyidi\n   • ilk aramada ulaşılamadı → tanıtım SMS + WhatsApp (İYS onayı olanlara!)\n   • görüştü, karar vermedi / bilgi istedi → WhatsApp bilgi\n3. Her randevu Telegram grubuna anlık düşer\n\nKanallar AYARLAR'da SMS/WHATSAPP/TELEGRAM → AKTIF ile açılır.",
+    "## 04 · Olay ve Mesaj Merkezi\n01/02/03 workflow'ları her olayı buraya gönderir (OLAY_WEBHOOK_URL).\n\n1. Olaylar **efas_ntepe_olaylar** veri tablosuna yazılır (raporun kaynağı)\n2. Müşteriye mesaj:\n   • randevu → SMS + WhatsApp teyidi\n   • ilk aramada ulaşılamadı → tanıtım SMS + WhatsApp + e-posta (afişli; İYS onayı olanlara!)\n   • görüştü, karar vermedi / bilgi istedi → WhatsApp bilgi\n3. Her randevu Telegram grubuna anlık düşer\n\nKanallar AYARLAR'da SMS/WHATSAPP/EPOSTA/TELEGRAM → AKTIF ile açılır.\nE-posta için \"EFAS SMTP\" credential'ını seçin. Afiş: GET …/webhook/efas-ntepe-afis",
     [-60, -380],
     560,
     320
@@ -500,6 +500,7 @@ sunucu({
         { conditions: kosul(wf.ad, 'k1', '={{ $json.kanal }}', ESITTIR, 'sms'), renameOutput: true, outputKey: 'SMS' },
         { conditions: kosul(wf.ad, 'k2', '={{ $json.kanal }}', ESITTIR, 'whatsapp'), renameOutput: true, outputKey: 'WhatsApp' },
         { conditions: kosul(wf.ad, 'k3', '={{ $json.kanal }}', ESITTIR, 'telegram'), renameOutput: true, outputKey: 'Telegram' },
+        { conditions: kosul(wf.ad, 'k4', '={{ $json.kanal }}', ESITTIR, 'eposta'), renameOutput: true, outputKey: 'E-posta' },
       ],
     },
     options: {},
@@ -538,15 +539,54 @@ sunucu({
     { credentials: { httpHeaderAuth: { id: 'EfasWhatsAppApi', name: 'WhatsApp API' } }, onError: 'continueRegularOutput' }
   );
   const tg = telegramNode(wf, 'Telegram: Anlık Bildirim', [1340, 160]);
+  const ep = wf.ekle(
+    'E-posta Gönder',
+    'n8n-nodes-base.emailSend',
+    2.1,
+    [1340, 320],
+    {
+      fromEmail: "={{ $('AYARLAR').first().json.EPOSTA.GONDEREN }}",
+      toEmail: '={{ $json.alici }}',
+      subject: '={{ $json.konu }}',
+      emailFormat: 'both',
+      text: '={{ $json.metin }}',
+      html: '={{ $json.html }}',
+      options: { appendAttribution: false },
+    },
+    { credentials: { smtp: { id: 'EfasSmtp', name: 'EFAS SMTP' } }, onError: 'continueRegularOutput' }
+  );
   const sonuc = codeNode(wf, 'Mesaj Sonuçları', [1580, -80], kod('mesaj-sonucu.js'));
+
+  // E-postadaki afiş görseli bu webhook'tan yayınlanır: GET …/webhook/efas-ntepe-afis
+  const afisWh = wf.ekle(
+    'Afiş Webhook',
+    'n8n-nodes-base.webhook',
+    2,
+    [0, 520],
+    { httpMethod: 'GET', path: 'efas-ntepe-afis', responseMode: 'responseNode', options: {} },
+    { webhookId: uuid('webhook', 'efas-ntepe-afis') }
+  );
+  const afis = codeNode(
+    wf,
+    'Afiş Görseli',
+    [220, 520],
+    `// efas-ntepe/eposta/efas-afis.jpg (build sırasında gömülür)\nconst AFIS = '${readFileSync(join(KOK, '..', 'eposta', 'efas-afis.jpg')).toString('base64')}';\nreturn [{ json: {}, binary: { data: { data: AFIS, mimeType: 'image/jpeg', fileName: 'efas-afis.jpg', fileExtension: 'jpg' } } }];\n`
+  );
+  const afisYanit = wf.ekle('Afişi Döndür', 'n8n-nodes-base.respondToWebhook', 1.1, [440, 520], {
+    respondWith: 'binary',
+    options: { responseHeaders: { entries: [{ name: 'Cache-Control', value: 'public, max-age=86400' }] } },
+  });
+  wf.zincir(afisWh, afis, afisYanit);
   const tablo2 = tabloEkle(wf, 'Tablo: Mesajları Kaydet', [1800, -80]);
 
   wf.zincir(wh, ay, kayit, tablo, plan, kanal);
   wf.bagla(kanal, sms, 0);
   wf.bagla(kanal, wa, 1);
   wf.bagla(kanal, tg, 2);
+  wf.bagla(kanal, ep, 3);
   wf.bagla(sms, sonuc);
   wf.bagla(wa, sonuc);
+  wf.bagla(ep, sonuc);
   wf.zincir(sonuc, tablo2);
   dosyalar['04-olay-ve-mesaj-merkezi.json'] = wf.json();
 }

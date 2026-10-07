@@ -94,6 +94,7 @@ const raporAl = async () => {
     bilgi: sayiAl(/satışa devredilen\): ([\d.]+)/),
     sms: sayiAl(/SMS: ([\d.]+)/),
     whatsapp: sayiAl(/WhatsApp: ([\d.]+)/),
+    eposta: sayiAl(/E-posta: ([\d.]+)/),
   };
 };
 
@@ -129,7 +130,7 @@ await post(`${MOCK}/__reset`, {
     { ID: 107, PHONE: telefonLead('05321111107'), STATUS_ID: AI, [F.DENEME]: '3', [F.SONUC]: 'TEKRAR_ARA', [F.SONRAKI]: gecmis },
     { ID: 108, PHONE: telefonLead('05321111108'), STATUS_ID: AI, [F.DENEME]: '1', [F.SONUC]: 'ULASILAMADI', [F.SONRAKI]: gecmis },
     { ID: 109, PHONE: telefonLead('05321111109'), STATUS_ID: 'NEW' },
-    { ID: 110, PHONE: telefonLead('05321111101'), STATUS_ID: AI },
+    { ID: 110, PHONE: telefonLead('05321111101'), EMAIL: [{ VALUE: 'musteri110@ornek.com', VALUE_TYPE: 'WORK' }], STATUS_ID: AI },
     { ID: 116, NAME: 'KAAN', LAST_NAME: 'İNCE', STATUS_ID: AI, CONTACT_ID: '9001' },
   ],
   contacts: [{ ID: '9001', PHONE: telefonLead('+90 505 035 29 40') }],
@@ -271,10 +272,18 @@ once = s.comments.length;
 await outbound(rapor(outCall('call-6', 110, '+905321111101'), { artifact: { messages: konusma('Merhabalar', 'Aradığınız kişiye şu anda ulaşılamıyor, lütfen daha sonra tekrar deneyiniz') } }));
 s = await bekleKadar((x) => x.comments.length > once);
 kontrol('operatör anonsu = ulaşılamadı', s.leads['110'][F.SONUC] === 'ULASILAMADI', s.leads['110']);
-s = await bekleKadar((x) => x.sms.some((m) => m.msg.includes('3.150.000')));
+s = await bekleKadar((x) => x.sms.some((m) => m.msg.includes('3.150.000')) && x.whatsapp.some((m) => m.template.name === 'efas_tanitim'));
 const tanitim = s.sms.find((m) => m.msg.includes('3.150.000'));
 kontrol('ilk aramada ulaşılamayana tanıtım SMS\'i', tanitim?.no === '5321111101', tanitim);
 kontrol('tanıtım WhatsApp şablonu', s.whatsapp.some((m) => m.template.name === 'efas_tanitim'));
+kontrol('tanıtım SMS metni: "Efas Entepe projesi için sizi aradık, ulaşamadık…" + form linki', tanitim?.msg.startsWith('Efas Entepe projesi için sizi aradık, ulaşamadık.') && tanitim.msg.includes('https://form.xre.com.tr/efas/'), tanitim?.msg);
+s = await bekleKadar((x) => x.eposta.length > 0);
+const ep110 = s.eposta.find((e) => e.to.includes('musteri110@ornek.com'));
+const epData = ep110 ? ep110.data.replace(/=\r\n/g, '') : '';
+kontrol('tanıtım e-postası lead\'in adresine gitti (afiş + form + proje linki)', !!ep110 && /Subject: .*(Ya=C5=9Famkent|Yaşamkent|=\?UTF-8\?)/i.test(epData) && epData.includes('efas-ntepe-afis') && epData.includes('form.xre.com.tr/efas') && epData.includes('efas-n-tepe'), epData.slice(0, 400));
+r = await fetch(`${N8N}/webhook/efas-ntepe-afis`);
+const afisBoyut = (await r.arrayBuffer()).byteLength;
+kontrol('afiş görseli n8n webhook\'undan yayınlanıyor (image/jpeg)', r.status === 200 && /image\/jpeg/.test(r.headers.get('content-type') || '') && afisBoyut > 50000, [r.status, r.headers.get('content-type'), afisBoyut]);
 kontrol('4. denemede ulaşılamayan 107\'ye tanıtım gitmedi', !s.sms.some((m) => m.no === '5321111107'));
 
 const yeniLeadler = [
@@ -382,7 +391,7 @@ kontrol('rapor: inbound görüşmeler sayıldı', fark('inbound') >= 3, fark('in
 kontrol('rapor: ulaşılan / ulaşılamayan', fark('ulasilan') >= 5 && fark('ulasilamayan') === 3, { ulasilan: fark('ulasilan'), ulasilamayan: fark('ulasilamayan') });
 kontrol('rapor: olumsuzlar sayıldı', fark('olumsuz') >= 6, fark('olumsuz'));
 kontrol('rapor: bilgi isteyenler sayıldı (117, 119, inbound Ayşe, 106)', fark('bilgi') === 4, fark('bilgi'));
-kontrol('rapor: SMS ve WhatsApp sayıları', fark('sms') === (await durum()).sms.length && fark('whatsapp') === (await durum()).whatsapp.length, { sms: fark('sms'), whatsapp: fark('whatsapp') });
+kontrol('rapor: SMS, WhatsApp ve e-posta sayıları', fark('sms') === (await durum()).sms.length && fark('whatsapp') === (await durum()).whatsapp.length && fark('eposta') === (await durum()).eposta.length, { sms: fark('sms'), whatsapp: fark('whatsapp'), eposta: fark('eposta') });
 kontrol('rapor: günün randevu listesi', rapor1.metin.includes('Bugünün randevuları') && rapor1.metin.includes('Ahmet Yılmaz'));
 console.log('\n--- Örnek Telegram raporu ---\n' + rapor1.metin.replace(/<[^>]+>/g, '') + '\n---');
 

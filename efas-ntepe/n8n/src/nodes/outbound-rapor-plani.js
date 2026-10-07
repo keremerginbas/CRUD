@@ -22,7 +22,7 @@ const alanlar = { [F.CAGRI]: m.callId || undefined };
 const olaylar = [];
 let baslik;
 let mesaj; // müşteriye gidecek SMS/WhatsApp türü
-const temel = { yon: 'outbound', leadId: id, telefon: m.telefon, ad: isimDuzelt([lead.NAME, lead.LAST_NAME].filter(Boolean).join(' ')), callId: m.callId };
+const temel = { yon: 'outbound', leadId: id, telefon: m.telefon, eposta: leadEpostasi(lead) || undefined, ad: isimDuzelt([lead.NAME, lead.LAST_NAME].filter(Boolean).join(' ')), callId: m.callId };
 
 const olumsuzaTasi = (neden, aciklama) => {
   Object.assign(alanlar, { STATUS_ID: A.STATU.OLUMSUZ, [F.SONUC]: neden, [F.DENEME]: 0, [F.SONRAKI]: '', ASSIGNED_BY_ID: siradakiSorumlu(A, lead.ASSIGNED_BY_ID) || undefined });

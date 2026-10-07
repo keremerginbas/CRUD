@@ -1,4 +1,4 @@
-// Olaylara göre müşteriye SMS / WhatsApp ve gruba anlık Telegram mesajlarını hazırlar
+// Olaylara göre müşteriye SMS / WhatsApp / e-posta ve gruba anlık Telegram mesajlarını hazırlar
 const A = $('AYARLAR').first().json;
 const olaylar = ($('Olay Webhook').first().json.body || {}).olaylar || [];
 const out = [];
@@ -31,6 +31,28 @@ const degerler = (o) => ({ ad: o.ad || 'Değerli müşterimiz', tarih: o.tarih |
 const doldur = (metin, o) => metin.replace(/\{(ad|tarih|telefon)\}/g, (_, k) => degerler(o)[k]);
 const bitrixAdresi = (/^(https?:\/\/[^/]+)/.exec(A.BITRIX_WEBHOOK || '') || [])[1] || '';
 
+// Afiş görseli: ayarda adres yoksa 04 workflow'unun kendi afiş webhook'u
+const gorselUrl = (A.EPOSTA && A.EPOSTA.GORSEL_URL) || String(A.OLAY_WEBHOOK_URL || '').replace(/efas-ntepe-olay$/, 'efas-ntepe-afis');
+const epostaHtml = (sablon) => {
+  const E = A.EPOSTA;
+  const p = (t) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#2b2b2b">${html(t)}</p>`;
+  const buton = (url, yazi) =>
+    `<a href="${html(url)}" style="display:inline-block;margin:4px 6px 4px 0;padding:12px 22px;background:#a8742e;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold;font-size:15px">${html(yazi)}</a>`;
+  return [
+    '<!doctype html><html><body style="margin:0;padding:0;background:#f4f1ec">',
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ec"><tr><td align="center" style="padding:20px 10px">',
+    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;overflow:hidden;font-family:Arial,Helvetica,sans-serif">',
+    gorselUrl ? `<tr><td><a href="${html(E.FORM_URL)}"><img src="${html(gorselUrl)}" width="600" alt="Yeni Yaşamkent - EFAS En Tepe, 3.150.000 TL'den başlayan fiyatlarla" style="display:block;width:100%;height:auto;border:0"></a></td></tr>` : '',
+    '<tr><td style="padding:28px 28px 8px">',
+    ...sablon.paragraflar.map(p),
+    `<p style="margin:0 0 18px">${buton(E.FORM_URL, 'Başvuru Formu')}${buton(E.PROJE_URL, 'Proje Detayı')}</p>`,
+    `<p style="margin:0 0 6px;font-size:15px;color:#2b2b2b">📞 <a href="tel:${html(String(A.PROJE_TELEFON).replace(/\s/g, ''))}" style="color:#a8742e;font-weight:bold;text-decoration:none">${html(A.PROJE_TELEFON)}</a></p>`,
+    '</td></tr>',
+    '<tr><td style="padding:16px 28px 24px;font-size:12px;color:#8a8a8a">XRE Project · X Real Estate Global</td></tr>',
+    '</table></td></tr></table></body></html>',
+  ].join('');
+};
+
 for (const o of olaylar) {
   if (o.tur === 'randevu' && A.TELEGRAM.AKTIF && A.TELEGRAM.ANLIK_RANDEVU_BILDIRIMI) {
     out.push({
@@ -58,6 +80,21 @@ for (const o of olaylar) {
       ]
         .filter(Boolean)
         .join('\n'),
+    });
+  }
+
+  const eSablon = A.EPOSTA && A.EPOSTA.SABLON && A.EPOSTA.SABLON[o.mesaj];
+  if (A.EPOSTA && A.EPOSTA.AKTIF && eSablon && o.eposta) {
+    out.push({
+      kanal: 'eposta',
+      mesaj: o.mesaj,
+      leadId: o.leadId || '',
+      telefon: o.telefon || '',
+      ad: o.ad || '',
+      alici: o.eposta,
+      konu: eSablon.konu,
+      html: epostaHtml(eSablon),
+      metin: [...eSablon.paragraflar, A.EPOSTA.FORM_URL, A.EPOSTA.PROJE_URL, A.PROJE_TELEFON].join('\n\n'),
     });
   }
 
