@@ -23,8 +23,8 @@ final class SeoAnalyzer
         preg_match_all('~<a\s[^>]*href=~i', $a['content_html'], $links);
         $firstPara = preg_match('~<p\b[^>]*>(.*?)</p>~is', $a['content_html'], $m) ? self::lower(strip_tags($m[1])) : '';
         $kwCount = $kw !== '' ? mb_substr_count($lowerText, $kw) : 0;
-        $kwWords = max(1, count(preg_split('/\s+/u', $kw)));
-        $density = $words > 0 ? round($kwCount * $kwWords / $words * 100, 2) : 0.0;
+        // Yoast vb. araçlardaki gibi: geçiş sayısı / toplam kelime (çok kelimeli ifadeler şişirilmez)
+        $density = $words > 0 ? round($kwCount / $words * 100, 2) : 0.0;
         $kwSlug = $kw !== '' ? slugify($kw) : '';
 
         $checks = [
