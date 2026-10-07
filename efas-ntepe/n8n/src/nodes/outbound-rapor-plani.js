@@ -25,7 +25,7 @@ let mesaj; // müşteriye gidecek SMS/WhatsApp türü
 const temel = { yon: 'outbound', leadId: id, telefon: m.telefon, ad: isimDuzelt([lead.NAME, lead.LAST_NAME].filter(Boolean).join(' ')), callId: m.callId };
 
 const olumsuzaTasi = (neden, aciklama) => {
-  Object.assign(alanlar, { STATUS_ID: A.STATU.OLUMSUZ, [F.SONUC]: neden, [F.DENEME]: 0, [F.SONRAKI]: '' });
+  Object.assign(alanlar, { STATUS_ID: A.STATU.OLUMSUZ, [F.SONUC]: neden, [F.DENEME]: 0, [F.SONRAKI]: '', ASSIGNED_BY_ID: siradakiSorumlu(A, lead.ASSIGNED_BY_ID) || undefined });
   baslik = `OLUMSUZ — ${aciklama}`;
   olaylar.push(olay('olumsuz', { ...temel, sonuc: neden, detay: aciklama }));
 };
@@ -46,6 +46,13 @@ if (aracIsledi) {
 } else if (y.sonuc === 'olumsuz') {
   const neden = ETIKET[y.olumsuz_nedeni] ? y.olumsuz_nedeni : 'diger';
   olumsuzaTasi(`OLUMSUZ:${neden}`, etiket(neden));
+} else if (y.sonuc === 'bilgi_istiyor') {
+  // Randevu istemedi ama bilgi istedi → satış temsilcisine devret
+  const sorumlu = siradakiSorumlu(A, lead.ASSIGNED_BY_ID);
+  Object.assign(cmd, bilgiKomutlari({ A, leadId: id, sorumlu, yon: 'outbound', telefon: m.telefon, ad: temel.ad, ozet: m.ozet, callId: m.callId, onEk: 'b_' }));
+  baslik = '📞 BİLGİ İSTİYOR → satış temsilcisine devredildi, arama görevi açıldı';
+  olaylar.push(olay('bilgi', { ...temel, detay: bilgiSatiri(y.ilgilendigi_daire, y.odeme_tercihi) }));
+  mesaj = 'bilgi';
 } else if (y.sonuc === 'randevu') {
   // Randevu konuşulmuş ama araç çağrılmamış/başarısız → satış ekibi saati teyit etsin
   const k = randevuKontrol(y, A, simdi);
@@ -55,7 +62,7 @@ if (aracIsledi) {
     tarih: k.tarih || pencereyeTasi(dakikaEkle(simdi, 60), A.ARAMA_SAATLERI),
     arg: { ...y, ad_soyad: isimDuzelt([lead.NAME, lead.LAST_NAME].filter(Boolean).join(' ')) },
     callId: m.callId,
-    sorumlu: sorumluSec(A.RANDEVU_SORUMLU_IDLERI, id, lead.ASSIGNED_BY_ID),
+    sorumlu: siradakiSorumlu(A, lead.ASSIGNED_BY_ID),
     yon: 'outbound',
     onEk: 'r_',
     telefon: m.telefon,
@@ -77,7 +84,7 @@ if (aracIsledi) {
 }
 if (aracIsledi && /^TEKRAR_ARA/.test(sonucAlan) && deneme <= 1) mesaj = 'bilgi';
 
-if (!cmd.r_upd) {
+if (!cmd.r_upd && !cmd.b_upd) {
   cmd.upd = bitrixKomut('crm.lead.update', { id, fields: alanlar, params: { REGISTER_SONET_EVENT: 'N' } });
 }
 cmd.rapor = bitrixKomut('crm.timeline.comment.add', {

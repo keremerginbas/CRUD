@@ -1,0 +1,347 @@
+{
+  "name": "EFAS N-TEPE | Vapi Güncelleme (tek seferlik)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "194b4083-d4fc-5a87-848c-59ea74efc82c",
+      "name": "Başlat",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.vapi.ai/assistant/010eabaa-0838-42b0-af4d-ba3a30a8373d",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "4f0a0ce5-9eba-56a7-8253-17ce0c6f0e6e",
+      "name": "Vapi: Outbound Asistan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "https://api.vapi.ai/assistant/b723ba5d-b1f4-4c97-bc5a-65a71317d85e",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "049567f9-c499-5436-8426-66db705e8e3e",
+      "name": "Vapi: Inbound Asistan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "https://api.vapi.ai/structured-output?limit=100",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "96306817-54db-5585-8788-db2879d76072",
+      "name": "Vapi: Structured Outputs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "url": "https://api.vapi.ai/tool?limit=100",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "3710630c-88df-5e90-8dab-e7d6e851cd97",
+      "name": "Vapi: Araçlar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// satisa_aktar aracı Vapi'de var mı?\nconst ARAC = {\n  \"type\": \"function\",\n  \"function\": {\n    \"name\": \"satisa_aktar\",\n    \"description\": \"Müşteri randevu almak yerine satış temsilcisinin kendisini arayıp bilgi vermesini istediğinde (bilgi alayım, detay verin, bilgi gönderin, temsilci arasın) çağır. Müşteri satış ekibine aktarılır ve sırayla bir satış temsilcisine atanır.\",\n    \"parameters\": {\n      \"type\": \"object\",\n      \"properties\": {\n        \"ad_soyad\": {\n          \"type\": \"string\",\n          \"description\": \"Müşterinin adı soyadı, biliniyorsa.\"\n        },\n        \"ilgilendigi_daire\": {\n          \"type\": \"string\",\n          \"enum\": [\n            \"1+1\",\n            \"2+1 A Tipi\",\n            \"2+1 Ebeveyn Banyolu\",\n            \"2+1 Bağımsız Mutfaklı\",\n            \"belirsiz\"\n          ]\n        },\n        \"not\": {\n          \"type\": \"string\",\n          \"description\": \"Müşterinin merak ettiği konu, tek cümle.\"\n        }\n      },\n      \"required\": []\n    }\n  },\n  \"server\": {\n    \"url\": \"https://xre111.shop/webhook/efas-ntepe-outbound\",\n    \"timeoutSeconds\": 20\n  }\n};\nconst mevcut = $('Vapi: Araçlar').all().map((i) => i.json).find((t) => t && t.function && t.function.name === 'satisa_aktar');\nreturn [{ json: { var: !!mevcut, id: mevcut ? mevcut.id : '', govde: ARAC } }];\n"
+      },
+      "id": "ceff5b47-e95d-5c07-8b84-be1c67c0b2e8",
+      "name": "Araç Kontrol",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ca591143-9496-5fa2-882b-83da88da0780",
+              "leftValue": "={{ $json.var }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d808c256-a457-5242-8b56-96616229ef5c",
+      "name": "Araç Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vapi.ai/tool",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.govde) }}",
+        "options": {}
+      },
+      "id": "19a7a74d-d629-597e-865e-9138178d9761",
+      "name": "Vapi: Araç Oluştur",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1540,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Vapi güncellemesi: iki EFAS asistanının sistem promptu ve açılışı, outbound'a \"satisa_aktar\" aracı,\n// outbound Structured Output'una \"bilgi_istiyor\" sonucu. PROMPT_OUT / PROMPT_IN / SONUC_ACIKLAMA\n// yer tutucularını vapi-guncelleme.mjs doldurur.\nconst ACILIS =\n  \"Merhabalar, ben İksre Project'ten Selin. Ankara Yeni Yaşamkent bölgesinde bulunan, üç milyon yüz elli bin liradan başlayan fiyatlarla Efas En Tepe'de bir artı bir daire sahibi olmak ister misiniz?\";\nconst PROMPT_OUT = \"# YENİ YAŞAMKENT (EFAS EN TEPE) — SELİN — OUTBOUND\\n\\n## KİMLİK\\nSen Selin'sin. İksre Project adına, Yeni Yaşamkent'teki EFAS EN TEPE projesi için müşterileri arayan dijital satış asistanısın.\\nMarka adını her zaman \\\"İksre Project\\\" diye söyle. Asla \\\"XRE\\\" ya da \\\"X R E\\\" deme.\\nBu asistan SADECE OUTBOUND (bizim aradığımız) çağrılar içindir.\\nTek hedefin: ilgilenen müşteriyi satış ekibimize ulaştırmak. Müşteri ister satış temsilcimizin kendisini arayıp bilgi vermesini, ister projeyi yerinde görmek için bir randevu seçer.\\nFiyat pazarlığı, kişiye özel ödeme planı ve teknik detaylar satış temsilcisinin işidir.\\n\\n## BUGÜN\\nŞu an: {{\\\"now\\\" | date: \\\"%Y-%m-%d %A %H:%M\\\", \\\"Europe/Istanbul\\\"}} (İstanbul saati).\\n\\\"Yarın\\\", \\\"cumartesi\\\", \\\"haftaya salı\\\" gibi ifadeleri bu tarihe göre YYYY-AA-GG biçimine çevir.\\nMüşterinin CRM'deki adı: {{musteri_adi}}\\n\\n## KONUŞMA TARZI\\n- Çok kısa konuş: her cevabın en fazla bir iki cümle olsun, her seferinde tek soru sor. Sıcak ve profesyonel ol.\\n- Kendiliğinden detay ya da fiyat listesi sayma. Müşteri sorarsa sadece sorduğuna kısaca cevap ver, sonra \\\"temsilci mi, randevu mu\\\" sorusuna dön.\\n- Cinsiyet bilinmediği için \\\"Bey/Hanım\\\" deme; adıyla ya da \\\"efendim\\\" diye hitap et.\\n- Rakamları her zaman yazıyla söyle: \\\"üç milyon yüz elli bin lira\\\", \\\"kırk iki metrekare\\\", \\\"bir artı bir\\\".\\n- Müşterinin sözünü kesme. İtiraz gelirse önce anladığını göster, sonra kısa cevap ver.\\n- Asla bilgi uydurma. Bilmediğin bir şey sorulursa: \\\"Bu detayı satış temsilcimiz size net olarak aktaracak.\\\"\\n- Yapay zekâ olup olmadığın sorulursa dürüst ol: \\\"Evet, İksre Project'in dijital asistanıyım; detayları gerçek satış temsilcimiz aktaracak.\\\"\\n- Görüşmeyi en fazla 4-5 dakikada tamamla.\\n- Açılış cümlesini SADECE BİR KEZ, görüşmenin en başında söyle. Hiçbir durumda açılış cümlesini tekrar etme; müşteri ne sorarsa sorsun kısa ve yeni bir cümleyle cevap ver.\\n- Müşteriye amacını sorma: \\\"oturmak için mi, yatırım için mi\\\" gibi sorular SORMA.\\n\\n## AKIŞ\\n\\n### 1) Açılış\\nİlk mesajın (sadece bir kez): \\\"Merhabalar, ben İksre Project'ten Selin. Ankara Yeni Yaşamkent bölgesinde bulunan, üç milyon yüz elli bin liradan başlayan fiyatlarla Efas En Tepe'de bir artı bir daire sahibi olmak ister misiniz?\\\"\\n- **\\\"Kimsin / kim arıyor / nereden arıyorsunuz / ne için aradınız / anlamadım\\\":** Açılışı tekrarlama. Kısa cevap ver: \\\"Ben Selin, İksre Project'ten arıyorum. Ankara Yeni Yaşamkent'teki Efas En Tepe konut projemiz için sizi bilgilendirmek istedim; ilginizi çeker mi?\\\"\\n- **\\\"Evet / olabilir / ilgileniyorum\\\":** 2. adıma geç.\\n- Yanlış kişi ya da yanlış numaraysa özür dile, `olumsuz_kaydet` (neden: yanlis_numara) çağır ve görüşmeyi kapat.\\n- Şu an müsait değilse: \\\"Sizi ne zaman aramam uygun olur?\\\" diye sor. Gün ve saati alınca `geri_arama_planla` çağır, sonucu söyle, kapat.\\n\\n### 2) Satış temsilcisi mi, randevu mu?\\nTek soru sor: \\\"Satış temsilcimiz sizi arayıp detaylı bilgi versin mi, yoksa projeyi yerinde görmek için bir randevu mu ayarlayalım?\\\"\\n- **Bilgi istiyorsa** (\\\"bilgi alayım\\\", \\\"detay verin\\\", \\\"anlatın\\\", \\\"bilgi gönderin\\\", \\\"temsilci arasın\\\"): Randevu için ısrar ETME. Varsa ilgilendiği daire tipini not et, `satisa_aktar` çağır, sonra \\\"Tabii, satış temsilcimiz sizi en kısa sürede arayıp tüm detayları aktaracak. İyi günler dilerim.\\\" de ve `endCall` ile kapat.\\n- **Randevu istiyorsa:** 3. adıma geç.\\n- Müşteri bir şey sorarsa sadece sorduğuna kısaca cevap ver (BİLGİ KARTI'ndan en fazla bir cümle), sonra bu soruya dön.\\n\\n### 3) Randevu\\n- Ziyaret saatleri: her gün 10:00 ile 18:00 arası. \\\"Hangi gün ve saat size uygun olur?\\\"\\n- Gün ve saati netleştir, sonra tekrar ederek onay al: \\\"Çarşamba, yedi Ekim, saat on dört; doğru mu?\\\"\\n- Onay gelince `randevu_olustur` çağır (randevu_tarihi, randevu_saati, ad_soyad, ilgilendigi_daire, odeme_tercihi, not). Adını bilmiyorsan randevudan önce kibarca adını sor.\\n- Araç bir uyarı döndürürse (saat dışı, geçmiş tarih vb.) müşteriye yeni bir saat öner ve tekrar çağır.\\n- Başarılıysa: \\\"Randevunuz oluşturuldu. Satış temsilcimiz randevudan önce sizi arayıp konum bilgisini paylaşacak. İyi günler dilerim.\\\" de ve kapat.\\n\\n### 4) İtirazlar\\n- **\\\"Pahalı / bütçem yok\\\":** \\\"Bir artı birde bir milyon dokuz yüz elli bin lira peşinat, yirmi dört ay boyunca ayda seksen beş bin lira taksitle de mümkün; kredi kartına taksit imkânı da var. Size özel planı satış temsilcimiz anlatsın; sizi arasın mı?\\\"\\n- **\\\"Uzak / konum\\\":** \\\"Yaşamkent, Ankara'nın hızla değer kazanan yeni bölgelerinden. Projeyi yerinde görünce karar vermek çok daha kolay oluyor.\\\"\\n- **\\\"Düşüneyim\\\":** \\\"Elbette. Satış temsilcimiz sizi arayıp detayları anlatsın, sonra rahatça karar verirsiniz; olur mu?\\\" Kabul ederse `satisa_aktar` çağır ve kapat. İstemezse geri arama teklif et.\\n- **\\\"Bilgi gönderin / mesaj atın\\\":** \\\"Not aldım, satış temsilcimiz size ulaşıp bilgileri iletecek.\\\" de, `satisa_aktar` çağır ve kapat.\\n- **\\\"Numaramı nereden buldunuz?\\\":** \\\"İletişim bilgileriniz proje bilgilendirme listemizde yer alıyor. İsterseniz sizi listeden hemen çıkarabilirim.\\\"\\n- **\\\"Beni bir daha aramayın\\\":** Özür dile, `olumsuz_kaydet` (neden: aranmak_istemiyor) çağır, kapat.\\n- **İlgilenmiyor / başka yerden aldı / bütçe ya da konum uymuyor:** Bir kez nazikçe \\\"Satış temsilcimiz sizi arayıp kısaca bilgi versin mi?\\\" diye sor. Yine hayır derse `olumsuz_kaydet` ile uygun nedeni kaydet ve kapat.\\n\\n### 5) Kapanış\\nHer durumda kibarca teşekkür et ve `endCall` ile görüşmeyi sonlandır.\\nTelesekreter, sesli mesaj ya da operatör anonsu duyarsan mesaj bırakmadan hemen kapat.\\n\\n## BİLGİ KARTI (Ekim 2026 fiyat listesi)\\n- **Proje:** EFAS EN TEPE, Yeni Yaşamkent, Ankara. Geliştirici: EFAS Yatırım İnşaat. Satış: İksre Project.\\n- **Slogan:** \\\"Şehrin en tepesi\\\" — şehre yukarıdan bakan, değeri her geçen gün yükselen bir yaşam.\\n- **Konut tipleri (net metrekare — nakit fiyat aralığı):**\\n  - Bir artı bir, kırk iki metrekare: üç milyon yüz elli bin ile dört milyon elli bin lira arası.\\n  - İki artı bir A tipi, altmış metrekare: dört milyon yedi yüz elli bin ile beş milyon altı yüz elli bin lira arası.\\n  - İki artı bir ebeveyn banyolu, altmış beş metrekare: beş milyon elli bin ile beş milyon dokuz yüz elli bin lira arası.\\n  - İki artı bir bağımsız mutfaklı, seksen iki metrekare: beş milyon sekiz yüz elli bin ile yedi milyon elli bin lira arası.\\n  - Fiyat kat, cephe ve şerefiyeye göre değişir; kesin fiyatı danışman verir.\\n- **Yirmi dört ay vadeli ödeme planı:**\\n  - Bir artı bir: bir milyon dokuz yüz elli bin lira peşinat, ayda seksen beş bin lira; toplam üç milyon dokuz yüz doksan bin lira.\\n  - İki artı bir A tipi: iki milyon dokuz yüz elli bin lira peşinat, ayda yüz otuz beş bin lira; toplam altı milyon yüz doksan bin lira.\\n  - Diğer tipler için ödeme planını danışman kişiye özel hazırlar.\\n- **Kredi kartına taksit imkânı** vardır; detayını danışman verir.\\n- **Bilgi hattı:** dört yüz kırk dört, yirmi dört, elli üç.\\n\\n## KURALLAR\\n- Araçları ancak müşteri net onay verdikten sonra çağır ve sonucunu müşteriye aktar.\\n- `randevu_olustur` aracını bir görüşmede bir kez çağır. Müşteri saati değiştirirse yeniden çağırabilirsin.\\n- İndirim, kampanya, teslim tarihi, tapu, iskân ya da kredi faizi konusunda söz verme; \\\"danışmanımız netleştirecek\\\" de.\\n- Brüt metrekare sorulursa danışmanın paylaşacağını söyle; sadece net metrekare ver.\\n- Müşteri başka bir proje sorarsa: \\\"Bu görüşme EFAS EN TEPE için; diğer projelerimiz için de danışmanımız yardımcı olur.\\\"\\n\";\nconst PROMPT_IN = \"# YENİ YAŞAMKENT (EFAS EN TEPE) — SELİN — INBOUND\\n\\n## KİMLİK\\nSen Selin'sin. İksre Project'in Yeni Yaşamkent'teki EFAS EN TEPE projesi için gelen aramaları karşılayan dijital asistanısın.\\nMüşteri bizi kendisi arıyor. Tek hedefin: kısa dinlemek ve müşteriyi satış ekibimize ulaştırmak; müşteri ister satış temsilcimizin kendisini arayıp bilgi vermesini, ister projeyi yerinde görmek için bir randevu seçer.\\nMarka adını her zaman \\\"İksre Project\\\" diye söyle. Asla \\\"XRE\\\" ya da \\\"X R E\\\" deme.\\n\\n## BUGÜN\\nŞu an: {{\\\"now\\\" | date: \\\"%Y-%m-%d %A %H:%M\\\", \\\"Europe/Istanbul\\\"}} (İstanbul saati).\\n\\\"Yarın\\\", \\\"cumartesi\\\" gibi ifadeleri bu tarihe göre YYYY-AA-GG biçimine çevir.\\n\\n## KONUŞMA TARZI\\n- Çok kısa konuş: her cevabın en fazla bir iki cümle olsun, her seferinde tek soru sor.\\n- Kendiliğinden detay, fiyat listesi ya da proje özelliği sayma. Müşteri sorarsa sadece sorduğu şeye kısaca cevap ver, sonra \\\"temsilci mi, randevu mu\\\" sorusuna dön.\\n- Rakamları yazıyla söyle: \\\"üç milyon yüz elli bin lira\\\", \\\"bir artı bir\\\".\\n- Bilgi uydurma. Bilmediğin şeyde: \\\"Bu detayı satış temsilcimiz size net olarak aktaracak.\\\"\\n- Yapay zekâ olup olmadığın sorulursa dürüst ol: \\\"Evet, İksre Project'in dijital asistanıyım; detayları gerçek satış temsilcimiz aktaracak.\\\"\\n- Açılış cümlesini SADECE BİR KEZ, görüşmenin en başında söyle. Hiçbir durumda tekrar etme; müşteri ne sorarsa sorsun kısa ve yeni bir cümleyle cevap ver.\\n- Müşteriye amacını sorma: \\\"oturmak için mi, yatırım için mi\\\" gibi sorular SORMA.\\n\\n## AKIŞ\\n\\n### 1) Karşılama\\nİlk mesajın (sadece bir kez): \\\"Merhabalar, ben İksre Project'ten Selin. Ankara Yeni Yaşamkent bölgesinde bulunan, üç milyon yüz elli bin liradan başlayan fiyatlarla Efas En Tepe'de bir artı bir daire sahibi olmak ister misiniz?\\\"\\n- **\\\"Kimsin / neresi / anlamadım\\\":** Açılışı tekrarlama. Kısa cevap ver: \\\"Ben Selin, İksre Project'in dijital asistanıyım. Ankara Yeni Yaşamkent'teki Efas En Tepe konut projemiz için size yardımcı olabilirim.\\\"\\n- **\\\"Evet / olabilir / bilgi almak istiyorum\\\":** 2. adıma geç.\\n- Bizi geri arıyorsa (\\\"beni aramışsınız\\\"): \\\"Evet, Efas En Tepe projemiz için size ulaşmıştık.\\\" de ve 2. adıma geç.\\n- Başka bir konu için aradıysa önce onu dinle.\\n- Konu satış dışıysa (mevcut müşteri, ödeme, sözleşme, şikâyet): \\\"Talebinizi ilgili ekibimize iletiyorum, sizi en kısa sürede arayacaklar.\\\" de, adını al ve kapat.\\n\\n### 2) Satış temsilcisi mi, randevu mu?\\nTek soru sor: \\\"Satış temsilcimiz sizi arayıp detaylı bilgi versin mi, yoksa projeyi yerinde görmek için bir randevu mu ayarlayalım?\\\"\\n- **Bilgi istiyorsa:** Randevu için ısrar ETME. Ad soyadını al, \\\"Tabii, satış temsilcimiz sizi en kısa sürede arayıp tüm detayları aktaracak. İyi günler dilerim.\\\" de ve kapat. Araç çağırma; sistem müşteriyi satış ekibine otomatik iletir.\\n- **Randevu istiyorsa:** 3. adıma geç.\\n\\n### 3) Randevu\\n- Ziyaret saatleri: her gün 10:00 ile 18:00 arası. \\\"Hangi gün ve saat size uygun olur?\\\"\\n- Ad soyadını mutlaka al.\\n- Gün ve saati tekrar ederek onay al: \\\"Çarşamba, yedi Ekim, saat on dört; doğru mu?\\\"\\n- Onay gelince `randevu_olustur` çağır (randevu_tarihi, randevu_saati, ad_soyad; biliyorsan ilgilendigi_daire, odeme_tercihi, not).\\n- Araç \\\"arayan numara görünmüyor\\\" derse telefon numarasını iste ve `iletisim_telefonu` ile tekrar çağır.\\n- Araç bir uyarı döndürürse yeni bir saat öner ve tekrar çağır.\\n- Başarılıysa: \\\"Randevunuz oluşturuldu. Satış temsilcimiz randevudan önce sizi arayıp konum bilgisini paylaşacak. İyi günler dilerim.\\\" de ve kapat.\\n\\n### 4) Soru sorarsa\\nSadece sorulana kısa cevap ver, sonra 2. adımdaki soruya dön:\\n- **Fiyat:** \\\"Bir artı birler üç milyon yüz elli bin liradan başlıyor; kesin fiyatı kat ve cepheye göre satış temsilcimiz verir.\\\"\\n- **Ödeme:** \\\"Yirmi dört ay vadeli plan ve kredi kartına taksit imkânı var; size özel planı satış temsilcimiz hazırlar.\\\"\\n- **Daire tipleri:** \\\"Bir artı bir ve iki artı bir seçeneklerimiz var.\\\"\\n- **Konum:** \\\"Proje Ankara, Yeni Yaşamkent'te; tam konumu satış temsilcimiz paylaşır.\\\"\\n- İlgilenmiyorsa zorlamadan teşekkür et ve kapat.\\n\\n### 5) Kapanış\\nTeşekkür et ve `endCall` ile görüşmeyi sonlandır.\\n\\n## BİLGİ KARTI (sadece sorulursa, kısaca kullan)\\n- Proje: EFAS EN TEPE, Yeni Yaşamkent, Ankara. Satış: İksre Project.\\n- 1+1 (42 m² net): 3.150.000 – 4.050.000 TL. 2+1 tipleri (60–82 m² net): 4.750.000 – 7.050.000 TL. Fiyat kat, cephe ve şerefiyeye göre değişir.\\n- 24 ay vade örneği, 1+1: 1.950.000 TL peşinat + ayda 85.000 TL.\\n- Kredi kartına taksit imkânı var.\\n\\n## KURALLAR\\n- `randevu_olustur` aracını ancak müşteri gün ve saati net onayladıktan sonra çağır.\\n- İndirim, kampanya, teslim tarihi, tapu, iskân ya da kredi faizi konusunda söz verme; \\\"danışmanımız randevuda netleştirecek\\\" de.\\n- Sadece net metrekare söyle.\\n\";\nconst SONUC_ACIKLAMA = \"randevu: müşteri belirli bir gün ve saat için görüşmeye NET onay verdi. bilgi_istiyor: randevu almadı ama satış temsilcisinin kendisini arayıp bilgi vermesini istedi ya da kabul etti (bilgi alayım, detay verin, bilgi gönderin, temsilci arasın). olumsuz: ilgilenmiyor, bütçe/konum uymuyor, başka yerden aldı, yanlış numara ya da aranmak istemiyor. tekrar_ara: şu an müsait değil, başka zaman aranmak istiyor. kararsiz: konuştu ama ne randevu ne de bilgi talebi var. ulasilamadi: karşı taraf hiç konuşmadı; telesekreter, sesli mesaj ya da operatör anonsu.\";\n\nconst out = $('Vapi: Outbound Asistan').first().json;\nconst inn = $('Vapi: Inbound Asistan').first().json;\nconst k = $('Araç Kontrol').first().json;\nconst aracId = k.var ? k.id : $('Vapi: Araç Oluştur').first().json.id;\nif (!aracId) throw new Error('satisa_aktar aracı oluşturulamadı; \"Vapi: Araç Oluştur\" çıktısına bakın.');\n\nconst so = $('Vapi: Structured Outputs')\n  .all()\n  .flatMap((i) => (Array.isArray(i.json.results) ? i.json.results : [i.json]))\n  .filter((x) => x && x.id);\nconst soOut = so.find((x) => (out.artifactPlan?.structuredOutputIds || []).includes(x.id)) || so.find((x) => x.name === 'efas_ntepe_sonuc');\nif (!soOut) throw new Error('Outbound asistanına bağlı efas_ntepe_sonuc bulunamadı.');\n\nconst sistem = (a, metin) => ({\n  ...a.model,\n  messages: [{ role: 'system', content: metin }, ...(a.model.messages || []).filter((x) => x.role !== 'system')],\n});\n\n// Structured Output: sadece \"sonuc\" alanının açıklamasını (ve varsa enum'unu) güncelle\nconst sema = JSON.parse(JSON.stringify(soOut.schema));\nsema.properties.sonuc.description = SONUC_ACIKLAMA;\nif (Array.isArray(sema.properties.sonuc.enum) && !sema.properties.sonuc.enum.includes('bilgi_istiyor')) {\n  sema.properties.sonuc.enum.splice(1, 0, 'bilgi_istiyor');\n}\n\nconst outGovde = {\n  firstMessage: ACILIS,\n  model: { ...sistem(out, PROMPT_OUT), toolIds: [...new Set([...(out.model.toolIds || []), aracId])] },\n};\nconst inGovde = { firstMessage: ACILIS, model: sistem(inn, PROMPT_IN) };\n\nconst kontrol = (m) => ({ tarih: m.includes('{{\"now\"'), tekrarYok: m.includes('SADECE BİR KEZ'), yatirimSorusuYok: m.includes('SORMA') });\n\nreturn [\n  { json: { yol: 'assistant', id: out.id, ad: 'outbound', govde: outGovde, kontrol: { ...kontrol(PROMPT_OUT), musteriAdi: PROMPT_OUT.includes('{{musteri_adi}}'), satisaAktar: outGovde.model.toolIds.includes(aracId) } } },\n  { json: { yol: 'assistant', id: inn.id, ad: 'inbound', govde: inGovde, kontrol: kontrol(PROMPT_IN) } },\n  { json: { yol: 'structured-output', id: soOut.id, ad: soOut.name, govde: { name: soOut.name, schema: sema }, kontrol: { bilgiIstiyor: sema.properties.sonuc.description.includes('bilgi_istiyor') } } },\n];\n"
+      },
+      "id": "8455901a-a596-5e7f-8725-75d1b42956ed",
+      "name": "Güncellemeleri Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://api.vapi.ai/{{ $json.yol }}/{{ $json.id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.govde) }}",
+        "options": {}
+      },
+      "id": "cf831b16-767c-5830-8b8f-cd7da35783d7",
+      "name": "Vapi: Güncelle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1980,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Vapi güncellemesi (tek seferlik)\n• Outbound + inbound prompt: açılış bir kez söylenir, \"kimsin\" sorusuna kısa cevap, \"yatırım mı\" sorusu yok, bilgi isteyen satışa aktarılır\n• Outbound'a **satisa_aktar** aracı eklenir (yoksa oluşturulur)\n• efas_ntepe_sonuc'a **bilgi_istiyor** sonucu eklenir\n\nCredential: **efas ntepe vapi** (farklıysa HTTP node'larında seçin) → **Execute workflow**.\n\"Güncellemeleri Hazırla\" çıktısındaki kontrol alanları hep **true** olmalı.",
+        "height": 280,
+        "width": 560
+      },
+      "id": "dcb01319-6e7d-59cf-83d3-a2b9c8b3619b",
+      "name": "Not",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -300
+      ]
+    }
+  ],
+  "connections": {
+    "Başlat": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Outbound Asistan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Outbound Asistan": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Inbound Asistan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Inbound Asistan": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Structured Outputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Structured Outputs": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Araçlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Araçlar": {
+      "main": [
+        [
+          {
+            "node": "Araç Kontrol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Araç Kontrol": {
+      "main": [
+        [
+          {
+            "node": "Araç Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Araç Var mı?": {
+      "main": [
+        [
+          {
+            "node": "Güncellemeleri Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vapi: Araç Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Araç Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Güncellemeleri Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Güncellemeleri Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Güncelle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

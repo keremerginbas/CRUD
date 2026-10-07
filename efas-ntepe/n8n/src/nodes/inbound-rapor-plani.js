@@ -55,9 +55,7 @@ if (aracIsledi) {
 } else if (y.sonuc === 'randevu') {
   // Randevu konuşulmuş ama araç çağrılmamış/başarısız → teyit görevi
   const k = randevuKontrol(y, A, simdi);
-  const sorumlu = lead
-    ? sorumluSec(A.RANDEVU_SORUMLU_IDLERI, lead.ID, lead.ASSIGNED_BY_ID)
-    : sorumluSec(A.RANDEVU_SORUMLU_IDLERI.length ? A.RANDEVU_SORUMLU_IDLERI : A.INBOUND_SORUMLU_IDLERI, telefon || m.callId, A.VARSAYILAN_SORUMLU_ID);
+  const sorumlu = siradakiSorumlu(A, lead ? lead.ASSIGNED_BY_ID : '');
   const p = randevuKomutlari({
     A,
     leadId: leadRef,
@@ -83,7 +81,14 @@ if (aracIsledi) {
     const neden = ETIKET[y.olumsuz_nedeni] ? y.olumsuz_nedeni : 'diger';
     cmd.upd = bitrixKomut('crm.lead.update', {
       id: leadRef,
-      fields: { STATUS_ID: A.STATU.OLUMSUZ, [F.SONUC]: `OLUMSUZ:${neden}`, [F.DENEME]: 0, [F.SONRAKI]: '', [F.CAGRI]: m.callId || undefined },
+      fields: {
+        STATUS_ID: A.STATU.OLUMSUZ,
+        [F.SONUC]: `OLUMSUZ:${neden}`,
+        [F.DENEME]: 0,
+        [F.SONRAKI]: '',
+        [F.CAGRI]: m.callId || undefined,
+        ASSIGNED_BY_ID: siradakiSorumlu(A, lead.ASSIGNED_BY_ID) || undefined,
+      },
     });
     baslik += ' → lead OLUMSUZ statüsüne taşındı';
     olaylar.push(olay('olumsuz', { ...temel, sonuc: `OLUMSUZ:${neden}`, detay: etiket(neden) }));
@@ -91,11 +96,17 @@ if (aracIsledi) {
 } else {
   // Bilgi aldı / sonra aranmak istiyor / diğer → satış ekibi dönüş yapsın
   mesaj = 'bilgi';
-  if (lead) {
+  const satisa = y.sonuc !== 'diger'; // satış dışı konu (mevcut müşteri, şikâyet) satış sırasına girmez
+  if (lead && satisa && [A.STATU.YAPAY_ZEKA, A.STATU.OLUMSUZ].includes(lead.STATUS_ID)) {
+    // Arama kuyruğundaki / olumsuzdaki lead bilgi istiyor → satış temsilcisine devret
+    Object.assign(cmd, bilgiKomutlari({ A, leadId: leadRef, sorumlu: siradakiSorumlu(A, lead.ASSIGNED_BY_ID), yon: 'inbound', telefon, ad: adSoyad, ozet: m.ozet, callId: m.callId, onEk: 'b_' }));
+    baslik = '📞 BİLGİ İSTİYOR → satış temsilcisine devredildi, arama görevi açıldı';
+    olaylar.push(olay('bilgi', { ...temel, detay: bilgiSatiri(y.ilgilendigi_daire) }));
+  } else if (lead) {
     takipGorevi(leadRef, lead.ASSIGNED_BY_ID);
     baslik = 'randevu oluşmadı — sorumluya dönüş görevi açıldı';
   } else {
-    const sorumlu = sorumluSec(A.INBOUND_SORUMLU_IDLERI, telefon || m.callId, A.VARSAYILAN_SORUMLU_ID);
+    const sorumlu = siradakiSorumlu(A);
     cmd.yeni = bitrixKomut('crm.lead.add', {
       fields: yeniLeadAlanlari(A.STATU.INBOUND_YENI, 'INBOUND_BILGI', sorumlu),
       params: { REGISTER_SONET_EVENT: 'Y' },
@@ -103,6 +114,7 @@ if (aracIsledi) {
     leadRef = '$result[yeni]';
     takipGorevi(leadRef, sorumlu);
     baslik = 'yeni arayan — lead açıldı, sorumluya dönüş görevi verildi';
+    if (satisa) olaylar.push(olay('bilgi', { ...temel, detay: bilgiSatiri(y.ilgilendigi_daire) }));
   }
 }
 

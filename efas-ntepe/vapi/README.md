@@ -7,7 +7,7 @@ En kolay yol, çalışan Türkçe ses ayarlarını (Soniox STT, GPT-5 Mini, Leah
 1. Dashboard > Assistants > **TOPRAKTAN CITY - OUTBOUND** > `⋮` > **Duplicate** → adı `EFAS N-TEPE - OUTBOUND` yapın.
 2. **System prompt:** [`outbound-sistem-promptu.md`](outbound-sistem-promptu.md) dosyasının tamamını yapıştırın.
 3. **First message:** `Merhabalar, ben İksre Project'ten Selin. Ankara Yeni Yaşamkent bölgesinde bulunan, üç milyon yüz elli bin liradan başlayan fiyatlarla Efas En Tepe'de bir artı bir daire sahibi olmak ister misiniz?` (n8n her aramada aynı cümleyi gönderir).
-4. **Tools:** Tools sayfasında [`araclar-outbound.json`](araclar-outbound.json) içindeki 3 fonksiyonu oluşturun (`randevu_olustur`, `geri_arama_planla`, `olumsuz_kaydet`). Her birinin Server URL'i: `https://N8N_ALANINIZ/webhook/efas-ntepe-outbound`. Sonra asistanın Tools sekmesinde bu 3 aracı ve **End Call** aracını seçin. Kopyaladığınız asistandan gelen Topraktan araçlarını kaldırın.
+4. **Tools:** Tools sayfasında [`araclar-outbound.json`](araclar-outbound.json) içindeki 4 fonksiyonu oluşturun (`randevu_olustur`, `satisa_aktar`, `geri_arama_planla`, `olumsuz_kaydet`). Her birinin Server URL'i: `https://N8N_ALANINIZ/webhook/efas-ntepe-outbound`. Sonra asistanın Tools sekmesinde bu 4 aracı ve **End Call** aracını seçin. Kopyaladığınız asistandan gelen Topraktan araçlarını kaldırın.
 5. **Advanced > Server URL:** `https://N8N_ALANINIZ/webhook/efas-ntepe-outbound`
    **Server Messages:** sadece `end-of-call-report` seçili kalsın. Diğer mesaj tipleri n8n'i gereksiz yere tetikler.
 6. **Analysis > Structured Outputs:**

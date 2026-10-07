@@ -168,11 +168,18 @@ function metinHash(s) {
   return Math.abs(h);
 }
 
-// Listeden deterministik sorumlu seçimi (sıralı dağıtım)
-function sorumluSec(liste, tohum, varsayilan) {
-  const temiz = (Array.isArray(liste) ? liste : []).map(String).filter(Boolean);
-  if (temiz.length) return temiz[metinHash(tohum) % temiz.length];
-  return varsayilan ? String(varsayilan) : '';
+// Satış ekibine SIRAYLA dağıtım (round-robin). Sıra workflow'un statik verisinde tutulur;
+// yalnızca yayındaki (aktif) workflow çalışmalarında kalıcıdır. Liste boşsa varsayılan sorumlu döner.
+function siradakiSorumlu(A, varsayilan) {
+  const liste = (Array.isArray(A.SATIS_SORUMLU_IDLERI) ? A.SATIS_SORUMLU_IDLERI : []).map(String).filter(Boolean);
+  if (!liste.length) return String(varsayilan || A.VARSAYILAN_SORUMLU_ID || '');
+  let sd = null;
+  try {
+    sd = $getWorkflowStaticData('global');
+  } catch (e) {}
+  const i = sd ? Number(sd.satisSirasi) || 0 : 0;
+  if (sd) sd.satisSirasi = (i + 1) % liste.length;
+  return liste[i % liste.length];
 }
 
 function kisalt(s, n) {
@@ -374,6 +381,38 @@ function randevuKomutlari({ A, leadId, yeniLead, tarih, arg, callId, sorumlu, yo
     fields: { ENTITY_ID: ref, ENTITY_TYPE: 'lead', COMMENT: `📅 ${detay.join('\n')}` },
   });
   return { cmd, anaKomut, ref };
+}
+
+// "Bilgi istiyor" → lead satış statüsüne geçer, satış temsilcisine atanır ve hemen arama görevi açılır
+function bilgiKomutlari({ A, leadId, sorumlu, yon, telefon, ad, ozet, callId, onEk }) {
+  const F = A.ALAN;
+  const t = pencereyeTasi(dakikaEkle(new Date(), 15), A.ARAMA_SAATLERI);
+  const alanlar = { STATUS_ID: A.STATU.BILGI, [F.SONUC]: 'BILGI_ISTIYOR', [F.DENEME]: 0, [F.SONRAKI]: '', [F.CAGRI]: callId || undefined };
+  if (sorumlu) alanlar.ASSIGNED_BY_ID = sorumlu;
+  return {
+    [`${onEk}upd`]: bitrixKomut('crm.lead.update', { id: leadId, fields: alanlar }),
+    [`${onEk}todo`]: bitrixKomut('crm.activity.todo.add', {
+      ownerTypeId: 1,
+      ownerId: leadId,
+      deadline: trIso(t),
+      title: kisalt(`${A.PROJE_ADI} — BİLGİ İSTİYOR, müşteriyi arayın (${ad || telefon || ''})`, 250),
+      description: [
+        `Müşteri yapay zeka ${yon} görüşmesinde proje hakkında bilgi istedi. Satış temsilcisi olarak müşteriyi arayıp bilgi verin ve randevu teklif edin.`,
+        ad ? `Müşteri: ${ad}` : '',
+        telefon ? `Telefon: ${telefon}` : '',
+        ozet ? `Özet: ${kisalt(ozet, 1000)}` : '',
+        callId ? `Vapi Call ID: ${callId}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      responsibleId: sorumlu || undefined,
+    }),
+  };
+}
+
+// "belirsiz" gibi boş anlamlı değerleri ayıklayıp birleştirir
+function bilgiSatiri(...degerler) {
+  return degerler.filter((v) => v && !/^(belirsiz|bilinmiyor|-)$/i.test(String(v).trim())).join(' · ');
 }
 
 // Vapi asistanını ID'si ya da adıyla bulur (büyük/küçük harf, tire ve boşluk farkı önemsiz)

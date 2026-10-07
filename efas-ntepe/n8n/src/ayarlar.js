@@ -28,6 +28,7 @@ const AYARLAR = {
     OLUMSUZ: 'UC_PTDA4Y', // EFAS N-TEPE OLUMSUZ
     RANDEVU: 'UC_ML92HM', // YAPAY ZEKA RANDEVU OLUŞTURANLAR
     INBOUND_YENI: 'UC_PQDHUK', // EFAS İÇİN GELEN → inbound'da randevu almayan YENİ arayanlar
+    BILGI: 'UC_PQDHUK', // "bilgi istiyorum" diyenler → satış temsilcisi arasın (EFAS İÇİN GELEN)
   },
 
   // 00-Kurulum workflow'unun oluşturduğu lead alanları
@@ -60,11 +61,10 @@ const AYARLAR = {
   RANDEVU_MAX_GUN: 30, // en fazla kaç gün sonrasına randevu verilsin
 
   // ---- Sorumlu atama ----
-  // Doluysa randevular bu Bitrix kullanıcı ID'lerine sırayla dağıtılır (ör. [12, 45]).
-  // Boşsa lead'in mevcut sorumlusu korunur ve randevu görevi ona açılır.
-  RANDEVU_SORUMLU_IDLERI: [],
-  // Inbound'da yeni açılan lead'ler bu kullanıcılara dağıtılır; boşsa VARSAYILAN_SORUMLU_ID
-  INBOUND_SORUMLU_IDLERI: [],
+  // Satış temsilcilerinin Bitrix kullanıcı ID'leri (ör. [12, 45, 78]).
+  // Randevu, OLUMSUZ ve "bilgi istiyor" sonuçlarında lead bu kişilere SIRAYLA atanır.
+  // Boşsa lead'in mevcut sorumlusu korunur (yeni inbound lead'lerde VARSAYILAN_SORUMLU_ID).
+  SATIS_SORUMLU_IDLERI: [],
   VARSAYILAN_SORUMLU_ID: '',
   // Yeni lead kaynağı (Bitrix > CRM > Ayarlar > Kaynaklar). 'CALL' = Çağrı
   INBOUND_KAYNAK_ID: 'CALL',

@@ -84,7 +84,7 @@ for (const lead of leadler) {
       : 'Lead\'de ve bağlı kişide geçerli bir telefon numarası yok.';
     cmd[`kapat_${lead.ID}`] = bitrixKomut('crm.lead.update', {
       id: lead.ID,
-      fields: { STATUS_ID: A.STATU.OLUMSUZ, [F.SONUC]: neden, [F.DENEME]: 0, [F.SONRAKI]: '' },
+      fields: { STATUS_ID: A.STATU.OLUMSUZ, [F.SONUC]: neden, [F.DENEME]: 0, [F.SONRAKI]: '', ASSIGNED_BY_ID: siradakiSorumlu(A, lead.ASSIGNED_BY_ID) || undefined },
     });
     cmd[`not_${lead.ID}`] = bitrixKomut('crm.timeline.comment.add', {
       fields: {

@@ -47,6 +47,20 @@ for (const o of olaylar) {
     });
   }
 
+  if (o.tur === 'bilgi' && A.TELEGRAM.AKTIF && A.TELEGRAM.ANLIK_RANDEVU_BILDIRIMI) {
+    out.push({
+      kanal: 'telegram',
+      metin: [
+        `📞 <b>Bilgi istiyor</b> — satış temsilcisine devredildi (${o.yon === 'inbound' ? 'gelen arama' : 'yapay zeka araması'})`,
+        `👤 ${html(o.ad || '-')} · ${html(o.telefon || '-')}`,
+        o.detay ? `🏠 ${html(o.detay)}` : '',
+        o.leadId && /^\d+$/.test(o.leadId) && bitrixAdresi ? `🔗 ${bitrixAdresi}/crm/lead/details/${o.leadId}/` : '',
+      ]
+        .filter(Boolean)
+        .join('\n'),
+    });
+  }
+
   const tel = mobil(o.telefon);
   if (!o.mesaj || !tel) continue;
 

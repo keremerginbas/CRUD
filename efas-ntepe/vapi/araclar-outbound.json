@@ -7,21 +7,71 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "randevu_tarihi": { "type": "string", "description": "Randevu günü, YYYY-AA-GG (örn. 2026-10-08). 'yarın', 'cumartesi' gibi ifadeleri bugünün tarihine göre çevir." },
-          "randevu_saati": { "type": "string", "description": "Randevu saati, 24 saat biçiminde SS:DD (örn. 14:00)." },
-          "ad_soyad": { "type": "string", "description": "Müşterinin adı soyadı." },
-          "randevu_tipi": { "type": "string", "enum": ["ofis_ziyareti", "proje_gezisi", "online_gorusme"], "description": "Görüşme türü; belirtilmediyse ofis_ziyareti." },
-          "ilgilendigi_daire": { "type": "string", "enum": ["1+1", "2+1 A Tipi", "2+1 Ebeveyn Banyolu", "2+1 Bağımsız Mutfaklı", "belirsiz"] },
-          "odeme_tercihi": { "type": "string", "enum": ["nakit", "vadeli", "kredi", "kredi_karti", "belirsiz"] },
-          "not": { "type": "string", "description": "Danışmana kısa not: oturum/yatırım, bütçe, özel istekler." }
+          "randevu_tarihi": {
+            "type": "string",
+            "description": "Randevu günü, YYYY-AA-GG (örn. 2026-10-08). 'yarın', 'cumartesi' gibi ifadeleri bugünün tarihine göre çevir."
+          },
+          "randevu_saati": {
+            "type": "string",
+            "description": "Randevu saati, 24 saat biçiminde SS:DD (örn. 14:00)."
+          },
+          "ad_soyad": {
+            "type": "string",
+            "description": "Müşterinin adı soyadı."
+          },
+          "randevu_tipi": {
+            "type": "string",
+            "enum": [
+              "ofis_ziyareti",
+              "proje_gezisi",
+              "online_gorusme"
+            ],
+            "description": "Görüşme türü; belirtilmediyse ofis_ziyareti."
+          },
+          "ilgilendigi_daire": {
+            "type": "string",
+            "enum": [
+              "1+1",
+              "2+1 A Tipi",
+              "2+1 Ebeveyn Banyolu",
+              "2+1 Bağımsız Mutfaklı",
+              "belirsiz"
+            ]
+          },
+          "odeme_tercihi": {
+            "type": "string",
+            "enum": [
+              "nakit",
+              "vadeli",
+              "kredi",
+              "kredi_karti",
+              "belirsiz"
+            ]
+          },
+          "not": {
+            "type": "string",
+            "description": "Danışmana kısa not: oturum/yatırım, bütçe, özel istekler."
+          }
         },
-        "required": ["randevu_tarihi", "randevu_saati"]
+        "required": [
+          "randevu_tarihi",
+          "randevu_saati"
+        ]
       }
     },
-    "server": { "url": "https://N8N_ALANINIZ/webhook/efas-ntepe-outbound", "timeoutSeconds": 20 },
+    "server": {
+      "url": "https://N8N_ALANINIZ/webhook/efas-ntepe-outbound",
+      "timeoutSeconds": 20
+    },
     "messages": [
-      { "type": "request-start", "content": "Hemen sisteme kaydediyorum, bir saniye lütfen." },
-      { "type": "request-failed", "content": "Sistemde küçük bir sorun oldu; talebinizi not aldım, danışmanımız sizi arayıp teyit edecek." }
+      {
+        "type": "request-start",
+        "content": "Hemen sisteme kaydediyorum, bir saniye lütfen."
+      },
+      {
+        "type": "request-failed",
+        "content": "Sistemde küçük bir sorun oldu; talebinizi not aldım, danışmanımız sizi arayıp teyit edecek."
+      }
     ]
   },
   {
@@ -32,14 +82,64 @@
       "parameters": {
         "type": "object",
         "properties": {
-          "tarih": { "type": "string", "description": "Tekrar arama günü, YYYY-AA-GG." },
-          "saat": { "type": "string", "description": "Tekrar arama saati, SS:DD." },
-          "not": { "type": "string", "description": "Kısa not (örn. toplantıdaydı)." }
+          "tarih": {
+            "type": "string",
+            "description": "Tekrar arama günü, YYYY-AA-GG."
+          },
+          "saat": {
+            "type": "string",
+            "description": "Tekrar arama saati, SS:DD."
+          },
+          "not": {
+            "type": "string",
+            "description": "Kısa not (örn. toplantıdaydı)."
+          }
         },
-        "required": ["tarih", "saat"]
+        "required": [
+          "tarih",
+          "saat"
+        ]
       }
     },
-    "server": { "url": "https://N8N_ALANINIZ/webhook/efas-ntepe-outbound", "timeoutSeconds": 20 }
+    "server": {
+      "url": "https://N8N_ALANINIZ/webhook/efas-ntepe-outbound",
+      "timeoutSeconds": 20
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "satisa_aktar",
+      "description": "Müşteri randevu almak yerine satış temsilcisinin kendisini arayıp bilgi vermesini istediğinde (bilgi alayım, detay verin, bilgi gönderin, temsilci arasın) çağır. Müşteri satış ekibine aktarılır ve sırayla bir satış temsilcisine atanır.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_soyad": {
+            "type": "string",
+            "description": "Müşterinin adı soyadı, biliniyorsa."
+          },
+          "ilgilendigi_daire": {
+            "type": "string",
+            "enum": [
+              "1+1",
+              "2+1 A Tipi",
+              "2+1 Ebeveyn Banyolu",
+              "2+1 Bağımsız Mutfaklı",
+              "belirsiz"
+            ]
+          },
+          "not": {
+            "type": "string",
+            "description": "Müşterinin merak ettiği konu, tek cümle."
+          }
+        },
+        "required": []
+      }
+    },
+    "server": {
+      "url": "https://N8N_ALANINIZ/webhook/efas-ntepe-outbound",
+      "timeoutSeconds": 20
+    }
   },
   {
     "type": "function",
@@ -51,14 +151,32 @@
         "properties": {
           "neden": {
             "type": "string",
-            "enum": ["ilgilenmiyor", "butce_uygun_degil", "konum_uygun_degil", "baska_yerden_aldi", "yanlis_numara", "aranmak_istemiyor", "diger"]
+            "enum": [
+              "ilgilenmiyor",
+              "butce_uygun_degil",
+              "konum_uygun_degil",
+              "baska_yerden_aldi",
+              "yanlis_numara",
+              "aranmak_istemiyor",
+              "diger"
+            ]
           },
-          "aciklama": { "type": "string", "description": "Müşterinin kendi ifadesiyle kısa açıklama." }
+          "aciklama": {
+            "type": "string",
+            "description": "Müşterinin kendi ifadesiyle kısa açıklama."
+          }
         },
-        "required": ["neden"]
+        "required": [
+          "neden"
+        ]
       }
     },
-    "server": { "url": "https://N8N_ALANINIZ/webhook/efas-ntepe-outbound", "timeoutSeconds": 20 }
+    "server": {
+      "url": "https://N8N_ALANINIZ/webhook/efas-ntepe-outbound",
+      "timeoutSeconds": 20
+    }
   },
-  { "type": "endCall" }
+  {
+    "type": "endCall"
+  }
 ]

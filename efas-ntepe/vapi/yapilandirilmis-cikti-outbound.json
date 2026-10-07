@@ -9,12 +9,13 @@
         "type": "string",
         "enum": [
           "randevu",
+          "bilgi_istiyor",
           "olumsuz",
           "tekrar_ara",
           "kararsiz",
           "ulasilamadi"
         ],
-        "description": "randevu: müşteri belirli bir gün ve saat için görüşmeye NET onay verdi. olumsuz: ilgilenmiyor, bütçe/konum uymuyor, başka yerden aldı, yanlış numara ya da aranmak istemiyor. tekrar_ara: şu an müsait değil, başka zaman aranmak istiyor. kararsiz: konuştu ama net karar ya da randevu yok. ulasilamadi: karşı taraf hiç konuşmadı; telesekreter, sesli mesaj ya da operatör anonsu."
+        "description": "randevu: müşteri belirli bir gün ve saat için görüşmeye NET onay verdi. bilgi_istiyor: randevu almadı ama satış temsilcisinin kendisini arayıp bilgi vermesini istedi ya da kabul etti (bilgi alayım, detay verin, bilgi gönderin, temsilci arasın). olumsuz: ilgilenmiyor, bütçe/konum uymuyor, başka yerden aldı, yanlış numara ya da aranmak istemiyor. tekrar_ara: şu an müsait değil, başka zaman aranmak istiyor. kararsiz: konuştu ama ne randevu ne de bilgi talebi var. ulasilamadi: karşı taraf hiç konuşmadı; telesekreter, sesli mesaj ya da operatör anonsu."
       },
       "olumsuz_nedeni": {
         "type": "string",

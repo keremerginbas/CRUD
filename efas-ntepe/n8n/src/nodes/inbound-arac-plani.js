@@ -28,10 +28,9 @@ m.toolCalls.forEach((tc, i) => {
   let sorumlu;
   let yeniLead = null;
   if (lead) {
-    sorumlu = sorumluSec(A.RANDEVU_SORUMLU_IDLERI, lead.ID, lead.ASSIGNED_BY_ID);
+    sorumlu = siradakiSorumlu(A, lead.ASSIGNED_BY_ID);
   } else {
-    const liste = A.RANDEVU_SORUMLU_IDLERI.length ? A.RANDEVU_SORUMLU_IDLERI : A.INBOUND_SORUMLU_IDLERI;
-    sorumlu = sorumluSec(liste, telefon, A.VARSAYILAN_SORUMLU_ID);
+    sorumlu = siradakiSorumlu(A);
     yeniLead = {
       TITLE: kisalt(`${A.PROJE_ADI} | Inbound Yapay Zeka | ${adSoyad || telefon}`, 250),
       ...adSoyadBol(adSoyad),
@@ -56,7 +55,7 @@ m.toolCalls.forEach((tc, i) => {
   });
   Object.assign(cmd, p.cmd);
   kritik[tc.id] = p.anaKomut;
-  olaylar.push(olay('randevu', { _tc: tc.id, yon: 'inbound', leadId: lead ? String(lead.ID) : '', telefon, ad: adSoyad, randevu: trIso(k.tarih), tarih: trMetin(k.tarih), detay: [tc.arg.ilgilendigi_daire, tc.arg.odeme_tercihi].filter(Boolean).join(' · '), callId: m.callId, mesaj: 'randevu' }));
+  olaylar.push(olay('randevu', { _tc: tc.id, yon: 'inbound', leadId: lead ? String(lead.ID) : '', telefon, ad: adSoyad, randevu: trIso(k.tarih), tarih: trMetin(k.tarih), detay: bilgiSatiri(tc.arg.ilgilendigi_daire, tc.arg.odeme_tercihi), callId: m.callId, mesaj: 'randevu' }));
   return sonuc(
     `Randevu kaydedildi: ${trMetin(k.tarih)}. Müşteriye günü ve saati tekrar teyit et; danışmanımızın randevudan önce arayıp konum bilgisini paylaşacağını söyle.`
   );

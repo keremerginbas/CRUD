@@ -7,6 +7,7 @@ const N8N = process.env.N8N_URL || 'http://127.0.0.1:5678';
 const AI = 'UC_3W9EXO';
 const OLUMSUZ = 'UC_PTDA4Y';
 const RANDEVU = 'UC_ML92HM';
+const BILGI = 'UC_PQDHUK';
 const F = { DENEME: 'UF_CRM_EFAS_AI_TRY', SONRAKI: 'UF_CRM_EFAS_AI_NEXT', SONUC: 'UF_CRM_EFAS_AI_RES', CAGRI: 'UF_CRM_EFAS_AI_CALL', RANDEVU: 'UF_CRM_EFAS_AI_APPT' };
 
 let gecen = 0;
@@ -90,6 +91,7 @@ const raporAl = async () => {
     inbound: sayiAl(/inbound\): ([\d.]+)/),
     randevu: sayiAl(/Randevu: <b>([\d.]+)<\/b>/),
     olumsuz: sayiAl(/Olumsuz: ([\d.]+)/),
+    bilgi: sayiAl(/satışa devredilen\): ([\d.]+)/),
     sms: sayiAl(/SMS: ([\d.]+)/),
     whatsapp: sayiAl(/WhatsApp: ([\d.]+)/),
   };
@@ -143,6 +145,7 @@ kontrol('tur 1: asistan ve E.164 numara', cagrilar[0]?.assistantId === 'asst-out
 kontrol('107 kilitlendi (deneme 4, ARANIYOR_TA, ek hak korunur)', String(s.leads['107'][F.DENEME]) === '4' && s.leads['107'][F.SONUC] === 'ARANIYOR_TA' && new Date(s.leads['107'][F.SONRAKI]) > new Date(), s.leads['107']);
 kontrol('104 geçersiz numara → OLUMSUZ', s.leads['104'].STATUS_ID === OLUMSUZ && s.leads['104'][F.SONUC] === 'GECERSIZ_NUMARA');
 kontrol('105 hakkı bitti → OLUMSUZ', s.leads['105'].STATUS_ID === OLUMSUZ && s.leads['105'][F.SONUC] === 'ULASILAMADI');
+kontrol('OLUMSUZ\'a taşınanlar satış ekibine SIRAYLA atandı (104 ve 105 farklı kişi)', ['7', '9'].includes(String(s.leads['104'].ASSIGNED_BY_ID)) && ['7', '9'].includes(String(s.leads['105'].ASSIGNED_BY_ID)) && s.leads['104'].ASSIGNED_BY_ID !== s.leads['105'].ASSIGNED_BY_ID, [s.leads['104'].ASSIGNED_BY_ID, s.leads['105'].ASSIGNED_BY_ID]);
 kontrol('106 (bekleyen) ve 109 (başka statü) dokunulmadı', s.leads['106'][F.DENEME] === '1' && s.leads['109'][F.SONUC] === undefined);
 kontrol('sayfalama: crm.lead.list 4 sayfa', s.requests.filter((q) => q.metod === 'crm.lead.list').length === 4, s.requests.filter((q) => q.metod === 'crm.lead.list').length);
 kontrol('call ID lead\'e yazıldı', s.leads['107'][F.CAGRI] === 'call-1' && s.leads['108'][F.CAGRI] === 'call-2', [s.leads['107'][F.CAGRI], s.leads['108'][F.CAGRI]]);
@@ -208,6 +211,22 @@ r = await outbound({
 });
 l = await lead(108);
 kontrol('olumsuz kaydedildi (aranmak istemiyor)', l.STATUS_ID === OLUMSUZ && l[F.SONUC] === 'OLUMSUZ:aranmak_istemiyor' && r.json.results[0].result.includes('bir daha aranmayacak'), [l, r.json]);
+kontrol('olumsuz lead satış temsilcisine atandı', ['7', '9'].includes(String(l.ASSIGNED_BY_ID)), l.ASSIGNED_BY_ID);
+
+await post(`${MOCK}/__lead`, { ID: 117, NAME: 'SELİM', LAST_NAME: 'KOÇ', PHONE: telefonLead('05321111117'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR', ASSIGNED_BY_ID: '12482' });
+await post(`${MOCK}/__lead`, { ID: 119, PHONE: telefonLead('05321111119'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR', ASSIGNED_BY_ID: '12482' });
+await bekle(1500); // sıra sayacı çalışma bitince kaydedilir; gerçekte görüşmeler arasında saniyeler var
+r = await outbound(arac(outCall('c117', 117, '+905321111117'), 'satisa_aktar', { ilgilendigi_daire: '1+1', not: 'Ödeme planını merak ediyor' }));
+l = await lead(117);
+s = await durum();
+const todo117 = s.todos.find((t) => t.ownerId === '117');
+kontrol('satisa_aktar → BİLGİ statüsü, satış temsilcisine atandı', r.json?.results?.[0]?.result.includes('satış ekibine aktarıldı') && l.STATUS_ID === BILGI && l[F.SONUC] === 'BILGI_ISTIYOR' && ['7', '9'].includes(String(l.ASSIGNED_BY_ID)), [r.json, l]);
+kontrol('satış temsilcisine "bilgi istiyor" arama görevi', todo117?.title.includes('BİLGİ İSTİYOR') && todo117.responsibleId === String(l.ASSIGNED_BY_ID) && todo117.description.includes('Ödeme planını'), todo117);
+s = await bekleKadar((x) => x.telegram.some((t) => t.text.includes('Bilgi istiyor')));
+const tg117 = s.telegram.find((t) => t.text.includes('Bilgi istiyor'));
+kontrol('Telegram grubuna "bilgi istiyor" bildirimi', tg117?.text.includes('Selim Koç') && tg117.text.includes('/crm/lead/details/117/'), tg117);
+const tgRandevu = s.telegram.find((t) => t.text.includes('Yeni randevu'));
+kontrol('Telegram\'da "belirsiz" yazmaz', !s.telegram.some((t) => t.text.includes('belirsiz')), tgRandevu);
 
 r = await outbound(arac(outCall('call-yok', 99999, '+905320000000'), 'randevu_olustur', { randevu_tarihi: yarin, randevu_saati: '12:00' }));
 kontrol('bilinmeyen lead → nazik yanıt', r.json?.results?.[0]?.result.includes('bulunamadı'), r.json);
@@ -283,6 +302,17 @@ await outbound(rapor(outCall('c115', 115, '+905321111115'), { artifact: { messag
 s = await bekleKadar((x) => x.comments.length > once);
 kontrol('Structured Outputs formatı da okunur (tekrar_ara)', s.leads['115'][F.SONUC] === 'TEKRAR_ARA', s.leads['115']);
 
+once = (await durum()).comments.length;
+await outbound(rapor(outCall('c119', 119, '+905321111119'), { artifact: { messages: konusma('Merhaba', 'Bilgi alayım', 'Temsilcimiz arasın mı?', 'Olur'), structuredOutputs: { 'so-1': { name: 'efas_ntepe_sonuc', result: { sonuc: 'bilgi_istiyor', ozet: 'Bilgi istedi.' } } } } }));
+s = await bekleKadar((x) => x.comments.length > once);
+kontrol('araç çağrılmadan "bilgi_istiyor" → BİLGİ statüsü + satış temsilcisi + görev', s.leads['119'].STATUS_ID === BILGI && ['7', '9'].includes(String(s.leads['119'].ASSIGNED_BY_ID)) && s.todos.some((t) => t.ownerId === '119' && t.title.includes('BİLGİ İSTİYOR')), s.leads['119']);
+once = s.comments.length;
+await outbound(rapor(outCall('c117', 117, '+905321111117'), { artifact: { messages: konusma('Merhaba', 'Bilgi alayım'), structuredOutputs: { 'so-1': { name: 'efas_ntepe_sonuc', result: { sonuc: 'bilgi_istiyor' } } } } }));
+s = await bekleKadar((x) => x.comments.length > once);
+kontrol('satisa_aktar ile işlenen 117 için ikinci görev açılmadı', s.todos.filter((t) => t.ownerId === '117').length === 1 && s.comments.at(-1).text.includes('görüşme sırasında kaydedildi'), s.comments.at(-1));
+const sirali = ['101', '108', '117'].map((id) => String(s.leads[id].ASSIGNED_BY_ID));
+kontrol('02\'de art arda atamalar sırayla dönüyor (101 → 108 → 117: 7 ↔ 9)', sirali.every((x, i) => i === 0 || x !== sirali[i - 1]), sirali);
+
 console.log('\n=== D) Inbound ===');
 await post(`${MOCK}/__lead`, { ID: 120, NAME: 'Ayşe', PHONE: telefonLead('+905557770001'), STATUS_ID: 'UC_TOPRAKTAN', ASSIGNED_BY_ID: '44' });
 r = await inbound(arac(inCall('in-1', '+905559990001'), 'randevu_olustur', { randevu_tarihi: yarin, randevu_saati: '11:00', ad_soyad: 'mehmet demir', ilgilendigi_daire: '1+1' }));
@@ -299,7 +329,7 @@ once = (await durum()).comments.length;
 await inbound(rapor(inCall('in-3', '+905557770001'), { analysis: { summary: 'Fiyat bilgisi aldı.', structuredData: { sonuc: 'bilgi_aldi', musteri_adi: 'Ayşe Kaya' } }, artifact: { messages: konusma('Hoş geldiniz', 'Fiyat öğrenmek istiyorum') } }));
 s = await bekleKadar((x) => x.comments.length > once);
 const ayse = Object.values(s.leads).find((x) => x.ID !== '120' && x.PHONE?.[0]?.VALUE === '+905557770001');
-kontrol('başka projenin lead\'i olan arayan → yeni EFAS lead (EFAS İÇİN GELEN) + dönüş görevi', ayse?.STATUS_ID === 'UC_PQDHUK' && String(ayse.ASSIGNED_BY_ID) === '21' && s.todos.some((t) => t.ownerId === ayse.ID && t.title.includes('dönüş')), ayse);
+kontrol('başka projenin lead\'i olan arayan → yeni EFAS lead (EFAS İÇİN GELEN) + dönüş görevi', ayse?.STATUS_ID === 'UC_PQDHUK' && ['7', '9'].includes(String(ayse.ASSIGNED_BY_ID)) && s.todos.some((t) => t.ownerId === ayse.ID && t.title.includes('dönüş')), ayse);
 kontrol('diğer projenin lead\'ine dokunulmadı', s.leads['120'].STATUS_ID === 'UC_TOPRAKTAN' && !s.comments.some((c) => c.leadId === '120'));
 
 once = s.comments.length;
@@ -318,6 +348,11 @@ await inbound(rapor(inCall('in-6', '+905321111102'), { analysis: { structuredDat
 s = await bekleKadar((x) => x.comments.length > once);
 kontrol('kuyruktaki lead inbound olumsuz → OLUMSUZ', s.leads['102'].STATUS_ID === OLUMSUZ && s.leads['102'][F.SONUC] === 'OLUMSUZ:ilgilenmiyor', s.leads['102']);
 
+once = s.comments.length;
+await inbound(rapor(inCall('in-7', '+905321111106'), { analysis: { structuredData: { sonuc: 'bilgi_aldi', musteri_adi: 'Deniz Ak' } }, artifact: { messages: konusma('Hoş geldiniz', 'Bilgi almak istiyorum') } }));
+s = await bekleKadar((x) => x.comments.length > once);
+kontrol('kuyruktaki lead inbound "bilgi" → BİLGİ statüsü + satış temsilcisi', s.leads['106'].STATUS_ID === BILGI && ['7', '9'].includes(String(s.leads['106'].ASSIGNED_BY_ID)) && s.todos.some((t) => t.ownerId === '106' && t.title.includes('BİLGİ İSTİYOR')), s.leads['106']);
+
 console.log('\n=== E) Diğer mesaj tipleri ===');
 const bas = Date.now();
 const istekler = (await durum()).requests.length;
@@ -334,6 +369,7 @@ kontrol('rapor: 4 randevu (101, 113 teyit, inbound yeni, 103 inbound)', fark('ra
 kontrol('rapor: inbound görüşmeler sayıldı', fark('inbound') >= 3, fark('inbound'));
 kontrol('rapor: ulaşılan / ulaşılamayan', fark('ulasilan') >= 5 && fark('ulasilamayan') === 3, { ulasilan: fark('ulasilan'), ulasilamayan: fark('ulasilamayan') });
 kontrol('rapor: olumsuzlar sayıldı', fark('olumsuz') >= 6, fark('olumsuz'));
+kontrol('rapor: bilgi isteyenler sayıldı (117, 119, inbound Ayşe, 106)', fark('bilgi') === 4, fark('bilgi'));
 kontrol('rapor: SMS ve WhatsApp sayıları', fark('sms') === (await durum()).sms.length && fark('whatsapp') === (await durum()).whatsapp.length, { sms: fark('sms'), whatsapp: fark('whatsapp') });
 kontrol('rapor: günün randevu listesi', rapor1.metin.includes('Bugünün randevuları') && rapor1.metin.includes('Ahmet Yılmaz'));
 console.log('\n--- Örnek Telegram raporu ---\n' + rapor1.metin.replace(/<[^>]+>/g, '') + '\n---');

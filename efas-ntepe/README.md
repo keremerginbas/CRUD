@@ -56,8 +56,9 @@ flowchart LR
 | `BITRIX_WEBHOOK` | 1. adımdaki adres (sonu `/`) |
 | `VAPI_OUTBOUND_ASISTAN` / `VAPI_INBOUND_ASISTAN` | Asistanın Vapi'deki **adı** (varsayılan `EFAS N-TEPE - OUTBOUND` / `- INBOUND`) ya da ID'si. Aynı adı verirseniz değiştirmeniz gerekmez |
 | `OLAY_WEBHOOK_URL` | Boş bırakın; n8n kendi adresinden bulur. Farklı bir adres gerekiyorsa 04'teki webhook'un Production URL'ini yazın |
-| `RANDEVU_SORUMLU_IDLERI` | Boşsa randevu lead'in **mevcut sorumlusuna** gider. `[12, 45]` gibi doldurulursa randevular bu Bitrix kullanıcılarına sırayla dağıtılır |
-| `INBOUND_SORUMLU_IDLERI`, `VARSAYILAN_SORUMLU_ID` | Inbound'da yeni açılan lead'lerin sorumluları |
+| `SATIS_SORUMLU_IDLERI` | Satış temsilcilerinin Bitrix kullanıcı ID'leri, ör. `[12, 45, 78]`. **Randevu, OLUMSUZ ve "bilgi istiyor"** sonuçlarında lead bu kişilere **sırayla** atanır. Boşsa lead'in mevcut sorumlusu korunur |
+| `VARSAYILAN_SORUMLU_ID` | Liste boşken inbound'da yeni açılan lead'lerin sorumlusu |
+| `STATU.BILGI` | "Bilgi istiyorum" diyen müşterinin taşınacağı statü (varsayılan `UC_PQDHUK` EFAS İÇİN GELEN) |
 | `SMS`, `WHATSAPP`, `TELEGRAM` | Kanal bilgileri. `AKTIF: true` ile açılır |
 | `ARAMA_SAATLERI` | Varsayılan: Pzt–Cmt 10:00–19:00 |
 | `RANDEVU_SAATLERI` | Varsayılan: her gün 10:00–18:00. Prompttaki saatle aynı olmalı |

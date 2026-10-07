@@ -1,4 +1,4 @@
-// Outbound görüşme sırasında çağrılan araçlar (randevu / geri arama / olumsuz)
+// Outbound görüşme sırasında çağrılan araçlar (randevu / satışa aktar / geri arama / olumsuz)
 const A = $('AYARLAR').first().json;
 const F = A.ALAN;
 const m = $('Mesajı Çöz').first().json;
@@ -30,14 +30,14 @@ m.toolCalls.forEach((tc, i) => {
       tarih: k.tarih,
       arg,
       callId: m.callId,
-      sorumlu: sorumluSec(A.RANDEVU_SORUMLU_IDLERI, id, lead.ASSIGNED_BY_ID),
+      sorumlu: siradakiSorumlu(A, lead.ASSIGNED_BY_ID),
       yon: 'outbound',
       onEk,
       telefon: m.telefon,
     });
     Object.assign(cmd, p.cmd);
     kritik[tc.id] = p.anaKomut;
-    olaylar.push(olay('randevu', { _tc: tc.id, yon: 'outbound', leadId: id, telefon: m.telefon, ad: arg.ad_soyad, randevu: trIso(k.tarih), tarih: trMetin(k.tarih), detay: [arg.ilgilendigi_daire, arg.odeme_tercihi].filter(Boolean).join(' · '), callId: m.callId, mesaj: 'randevu' }));
+    olaylar.push(olay('randevu', { _tc: tc.id, yon: 'outbound', leadId: id, telefon: m.telefon, ad: arg.ad_soyad, randevu: trIso(k.tarih), tarih: trMetin(k.tarih), detay: bilgiSatiri(arg.ilgilendigi_daire, arg.odeme_tercihi), callId: m.callId, mesaj: 'randevu' }));
     return sonuc(
       `Randevu kaydedildi: ${trMetin(k.tarih)}. Müşteriye günü ve saati tekrar teyit et; danışmanımızın randevudan önce arayıp konum bilgisini paylaşacağını söyle.`
     );
@@ -70,6 +70,25 @@ m.toolCalls.forEach((tc, i) => {
     );
   }
 
+  if (tc.ad === 'satisa_aktar') {
+    const ad = isimDuzelt(tc.arg.ad_soyad || [lead.NAME, lead.LAST_NAME].filter(Boolean).join(' '));
+    const p = bilgiKomutlari({
+      A,
+      leadId: id,
+      sorumlu: siradakiSorumlu(A, lead.ASSIGNED_BY_ID),
+      yon: 'outbound',
+      telefon: m.telefon,
+      ad,
+      ozet: bilgiSatiri(tc.arg.ilgilendigi_daire, tc.arg.not),
+      callId: m.callId,
+      onEk,
+    });
+    Object.assign(cmd, p);
+    kritik[tc.id] = `${onEk}upd`;
+    olaylar.push(olay('bilgi', { _tc: tc.id, yon: 'outbound', leadId: id, telefon: m.telefon, ad, detay: bilgiSatiri(tc.arg.ilgilendigi_daire, tc.arg.not), callId: m.callId, mesaj: 'bilgi' }));
+    return sonuc('Kaydedildi; müşteri satış ekibine aktarıldı. Müşteriye satış temsilcimizin en kısa sürede arayıp detayları aktaracağını söyle, teşekkür et ve görüşmeyi kapat.');
+  }
+
   if (tc.ad === 'olumsuz_kaydet') {
     const neden = ETIKET[tc.arg.neden] ? tc.arg.neden : 'diger';
     cmd[`${onEk}upd`] = bitrixKomut('crm.lead.update', {
@@ -80,6 +99,7 @@ m.toolCalls.forEach((tc, i) => {
         [F.DENEME]: 0,
         [F.SONRAKI]: '',
         [F.CAGRI]: m.callId || undefined,
+        ASSIGNED_BY_ID: siradakiSorumlu(A, lead.ASSIGNED_BY_ID) || undefined,
       },
     });
     cmd[`${onEk}not`] = bitrixKomut('crm.timeline.comment.add', {

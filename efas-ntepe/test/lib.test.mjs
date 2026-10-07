@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 
 const kaynak = readFileSync(new URL('../n8n/src/lib.js', import.meta.url), 'utf8');
 const L = new Function(
-  `${kaynak}; return { trIso, trMetin, trGun, trTarihSaatCoz, pencereIcinde, pencereyeTasi, telefonNormalize, telefonVaryantlari, qs, sorumluSec, isimDuzelt, adSoyadBol, vapiMesajCoz, aramaLimiti, pencereMetni };`
+  `${kaynak}; return { trIso, trMetin, trGun, trTarihSaatCoz, pencereIcinde, pencereyeTasi, telefonNormalize, telefonVaryantlari, qs, siradakiSorumlu, isimDuzelt, adSoyadBol, vapiMesajCoz, aramaLimiti, pencereMetni };`
 )();
 
 const t = (ad, fn) => {
@@ -60,9 +60,9 @@ t('Bitrix batch sorgu kodlaması (http_build_query)', () => {
 });
 
 t('sorumlu seçimi ve isimler', () => {
-  assert.equal(L.sorumluSec([], '12', '3'), '3');
-  assert.ok(['7', '9'].includes(L.sorumluSec([7, 9], '12', '3')));
-  assert.equal(L.sorumluSec([7, 9], '12', '3'), L.sorumluSec([7, 9], '12', '3')); // deterministik
+  assert.equal(L.siradakiSorumlu({ SATIS_SORUMLU_IDLERI: [] }, '3'), '3');
+  assert.equal(L.siradakiSorumlu({ SATIS_SORUMLU_IDLERI: [], VARSAYILAN_SORUMLU_ID: '5' }), '5');
+  assert.equal(L.siradakiSorumlu({ SATIS_SORUMLU_IDLERI: [7, 9] }, '3'), '7'); // statik veri yoksa ilk kişi
   assert.equal(L.isimDuzelt('İSMAİL IŞIK'), 'İsmail Işık');
   assert.deepEqual(L.adSoyadBol('Ayşe Nur Kaya'), { NAME: 'Ayşe Nur', LAST_NAME: 'Kaya' });
 });
