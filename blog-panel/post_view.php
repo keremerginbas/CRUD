@@ -6,6 +6,24 @@ use BlogPanel\App;
 use BlogPanel\Auth;
 
 Auth::require();
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['do'] ?? '') === 'unpublish') {
+    csrf_check();
+    $row = App::db()->one('SELECT * FROM posts WHERE id = ?', [(int) ($_GET['id'] ?? 0)]);
+    $domainRow = $row ? App::db()->one('SELECT * FROM domains WHERE id = ?', [$row['domain_id']]) : null;
+    if ($row && $domainRow) {
+        try {
+            $remaining = App::db()->all("SELECT title, slug, excerpt, published_at, remote_url FROM posts WHERE domain_id = ? AND status = 'published' AND id <> ? ORDER BY published_at DESC", [$row['domain_id'], $row['id']]);
+            $message = BlogPanel\Publisher\PublisherFactory::for($domainRow)->unpublish($domainRow, $row, $remaining);
+            App::db()->run('DELETE FROM posts WHERE id = ?', [$row['id']]);
+            BlogPanel\Logger::info('publish', "{$domainRow['domain']}: \"{$row['title']}\" siteden kaldırıldı. $message");
+            flash('ok', "Yazı siteden kaldırıldı ve kaydı silindi. $message");
+            redirect('posts.php');
+        } catch (Throwable $e) {
+            flash('err', 'Siteden kaldırılamadı: ' . $e->getMessage());
+            redirect('post_view.php?id=' . (int) $row['id']);
+        }
+    }
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['do'] ?? '') === 'delete') {
     csrf_check();
     App::db()->run('DELETE FROM posts WHERE id = ?', [(int) ($_GET['id'] ?? 0)]);
@@ -33,7 +51,10 @@ require __DIR__ . '/app/views/layout_top.php';
     <?php if ($post['remote_url']): ?><a class="btn" href="<?= e($post['remote_url']) ?>" target="_blank" rel="noopener">Sitede görüntüle ↗</a><?php endif; ?>
     <form method="post" class="inline-form">
       <?= csrf_field() ?>
-      <button class="btn btn-danger" type="submit" name="do" value="delete" data-confirm-submit="Yazı kaydı panelden silinsin mi? Sitedeki dosya silinmez.">Kaydı sil</button>
+      <?php if ($post['status'] === 'published'): ?>
+        <button class="btn btn-danger" type="submit" name="do" value="unpublish" data-confirm-submit="Yazı siteden kaldırılsın mı? Dosyası silinir, liste/sitemap/RSS kayıtları temizlenir ve panel kaydı silinir.">Siteden kaldır</button>
+      <?php endif; ?>
+      <button class="btn" type="submit" name="do" value="delete" data-confirm-submit="Yalnızca panel kaydı silinsin mi? Sitedeki dosya olduğu gibi kalır.">Yalnızca kaydı sil</button>
     </form>
   </div>
 </div>

@@ -188,5 +188,29 @@ $before = glob("$root3/blog/*");
 $res = JobService::handleCallback(['job_id' => $sent['body']['job_id'], 'token' => $sent['body']['token'], 'status' => 'success', 'article' => ['title' => 'Başka yazı'] + $article]);
 check($res['ok'] === false && str_contains($res['message'], 'blog-panel:liste') && glob("$root3/blog/*") === $before, 'liste işareti silinirse yazı yayınlanmadı, hiçbir dosya yazılmadı');
 
+// 11) Siteden kaldır: site şablonu (dosya elle silinmiş olsa bile kart/sitemap/rss temizlenir)
+file_put_contents("$root3/rehber.html", $reh);
+$sitePost = App::db()->one("SELECT * FROM posts WHERE domain_id = ? AND status = 'published'", [$id3]);
+$d3 = DomainService::find($id3);
+unlink("$root3/blog/" . basename((string) parse_url($sitePost['remote_url'], PHP_URL_PATH)));
+$msg = BlogPanel\Publisher\PublisherFactory::for($d3)->unpublish($d3, $sitePost, []);
+$reh2 = (string) file_get_contents("$root3/rehber.html");
+check(!str_contains($reh2, 'otel-nevresim-takimi-secimi.html') && str_contains($reh2, 'llm-bilgi-tabani-rag.html') && str_contains($reh2, '<!-- blog-panel:liste -->'), 'kaldırınca rehber.html kartı silindi, diğer kartlar ve işaret duruyor');
+check(!str_contains((string) file_get_contents("$root3/sitemap.xml"), 'otel-nevresim') && str_contains((string) file_get_contents("$root3/sitemap.xml"), 'https://site3.com/') && !str_contains((string) file_get_contents("$root3/rss.xml"), 'otel-nevresim') && str_contains((string) file_get_contents("$root3/rss.xml"), 'eski'), 'sitemap ve rss kaydı temizlendi, eskiler duruyor');
+check(str_contains($msg, 'zaten yoktu') && is_file("$root3/blog/llm-bilgi-tabani-rag.html"), 'dosya önceden silinmişse de temizlik yapıldı: ' . $msg);
+try {
+    BlogPanel\Publisher\PublisherFactory::for($d3)->unpublish($d3, ['remote_url' => 'https://site3.com/blog/llm-bilgi-tabani-rag.html'] + $sitePost, []);
+    check(false, 'panel dışı dosya silinmedi');
+} catch (RuntimeException $e) {
+    check(is_file("$root3/blog/llm-bilgi-tabani-rag.html"), 'panelin oluşturmadığı yazı silinmeye çalışılınca reddedildi');
+}
+// Panel şablonu: iki yazıdan biri kaldırılınca liste yeniden üretilir
+$panelPosts = App::db()->all("SELECT * FROM posts WHERE domain_id = ? AND status = 'published' ORDER BY id", [$id]);
+$d1 = DomainService::find($id);
+$msg = BlogPanel\Publisher\PublisherFactory::for($d1)->unpublish($d1, $panelPosts[0], [$panelPosts[1]]);
+check(!is_file("$tmp/docroot/blog/{$panelPosts[0]['slug']}.html") && is_file("$tmp/docroot/blog/{$panelPosts[1]['slug']}.html") && !str_contains((string) file_get_contents("$tmp/docroot/blog/index.html"), '"' . $panelPosts[0]['slug'] . '"') && substr_count((string) file_get_contents("$tmp/docroot/blog/sitemap.xml"), '<url>') === 2, 'panel şablonunda yazı silindi, liste ve sitemap kalan yazıyla yenilendi');
+$msg = BlogPanel\Publisher\PublisherFactory::for($d1)->unpublish($d1, $panelPosts[1], []);
+check(!is_file("$tmp/docroot/blog/index.html") && !is_file("$tmp/docroot/blog/.htaccess"), 'son yazı da kaldırılınca panel dosyaları temizlendi');
+
 proc_terminate($server);
 echo "\nTüm testler başarılı. (geçici klasör: $tmp)\n";

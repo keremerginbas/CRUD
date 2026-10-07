@@ -13,6 +13,12 @@ interface PublisherInterface
      */
     public function publish(array $domain, array $post, array $publishedPosts): array;
 
+    /**
+     * Yayınlanmış yazıyı siteden kaldırır, kısa bir açıklama döner.
+     * @param list<array> $remainingPosts bu domainin kalan yayınlanmış yazıları
+     */
+    public function unpublish(array $domain, array $post, array $remainingPosts): string;
+
     /** Bağlantıyı dener, kısa bir açıklama döner; hata varsa exception atar. */
     public function test(array $domain): string;
 }

@@ -130,6 +130,76 @@ final class StaticPublisher implements PublisherInterface
         return ['remote_id' => $post['slug'], 'url' => $url];
     }
 
+    public function unpublish(array $domain, array $post, array $remainingPosts): string
+    {
+        $docroot = rtrim((string) $domain['docroot'], '/');
+        $url = (string) ($post['remote_url'] ?? '');
+        $path = (string) parse_url($url, PHP_URL_PATH);
+        if ($docroot === '' || !preg_match('~^/([a-z0-9_-]+)/([a-z0-9_.-]+)$~i', $path, $m)) {
+            throw new \RuntimeException('Yazının adresinden dosya yolu çıkarılamadı: ' . $url);
+        }
+        [$dirName, $name] = [$m[1], $m[2]];
+        $siteTemplate = str_ends_with($name, '.html');
+        $file = $siteTemplate ? $name : $name . '.html';
+        $dir = "$docroot/$dirName";
+
+        $content = $this->writer->read($dir, $file);
+        if ($content !== null && !str_contains($content, self::MARKER)) {
+            throw new \RuntimeException("$dirName/$file panel tarafından oluşturulmamış; silinmedi.");
+        }
+        $notes = [];
+        if ($content !== null) {
+            $this->writer->delete($dir, $file);
+            $notes[] = "$dirName/$file silindi";
+        } else {
+            $notes[] = "$dirName/$file zaten yoktu";
+        }
+
+        if ($siteTemplate) {
+            $listPage = trim((string) ($domain['list_page'] ?? ''), '/');
+            if ($listPage !== '') {
+                [$listDir, $listFile] = $this->split($docroot, $listPage);
+                $list = $this->writer->read($listDir, $listFile);
+                $pattern = '~<article\b(?:(?!<article\b).)*?' . preg_quote("$dirName/$file", '~') . '.*?</article>\s*~s';
+                if ($list !== null && preg_match($pattern, $list)) {
+                    $this->writer->write($listDir, $listFile, (string) preg_replace($pattern, '', $list, 1));
+                    $notes[] = "$listPage kartı kaldırıldı";
+                }
+            }
+            $this->removeFromXml($docroot, 'sitemap.xml', '~\s*<url>(?:(?!</url>).)*?<loc>' . preg_quote(htmlspecialchars($url, ENT_XML1), '~') . '</loc>.*?</url>~s', $notes);
+            $this->removeFromXml($docroot, 'rss.xml', '~<item>(?:(?!</item>).)*?<link>' . preg_quote(htmlspecialchars($url, ENT_XML1), '~') . '</link>.*?</item>\s*~s', $notes);
+        } else {
+            // Panel şablonu: aynı klasördeki kalan yazılarla liste, sitemap ve RSS'i yeniden üret
+            $folderDomain = ['static_dir' => $dirName] + $domain;
+            $prefix = self::blogUrl($folderDomain);
+            $left = array_values(array_filter($remainingPosts, static fn ($p) => str_starts_with((string) ($p['remote_url'] ?? ''), $prefix)));
+            if ($left) {
+                $this->writer->write($dir, 'index.html', StaticRenderer::index($folderDomain, $left));
+                $this->writer->write($dir, 'sitemap.xml', StaticRenderer::sitemap($folderDomain, $left));
+                $this->writer->write($dir, 'feed.xml', StaticRenderer::feed($folderDomain, $left));
+                $notes[] = "$dirName/ listesi güncellendi";
+            } else {
+                foreach ([...self::MANAGED_FILES, '.blogpanel-test.txt'] as $f) {
+                    $c = $this->writer->read($dir, $f);
+                    if ($c !== null && ($f === '.blogpanel-test.txt' || str_contains($c, self::MARKER))) {
+                        $this->writer->delete($dir, $f);
+                    }
+                }
+                $notes[] = "$dirName/ klasöründe başka yazı kalmadığı için panel dosyaları temizlendi (boş klasörü File Manager'dan silebilirsiniz)";
+            }
+        }
+        return implode('; ', $notes) . '.';
+    }
+
+    private function removeFromXml(string $docroot, string $file, string $pattern, array &$notes): void
+    {
+        $xml = $this->writer->read($docroot, $file);
+        if ($xml !== null && preg_match($pattern, $xml)) {
+            $this->writer->write($docroot, $file, (string) preg_replace($pattern, '', $xml, 1));
+            $notes[] = "$file güncellendi";
+        }
+    }
+
     private function appendToSitemap(string $docroot, string $url, array $post): void
     {
         $xml = $this->writer->read($docroot, 'sitemap.xml');

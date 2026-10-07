@@ -24,6 +24,14 @@ final class LocalFileWriter implements FileWriter
         @chmod($path, 0644);
     }
 
+    public function delete(string $dir, string $file): void
+    {
+        $path = rtrim($dir, '/') . '/' . $file;
+        if (is_file($path) && !unlink($path)) {
+            throw new \RuntimeException("Dosya silinemedi: $path");
+        }
+    }
+
     public function read(string $dir, string $file): ?string
     {
         $path = rtrim($dir, '/') . '/' . $file;

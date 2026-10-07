@@ -11,4 +11,7 @@ interface FileWriter
 
     /** Dosya içeriğini döner; dosya yoksa null. */
     public function read(string $dir, string $file): ?string;
+
+    /** Dosyayı siler (WHM'de çöp kutusuna taşır); yoksa sessizce geçer. */
+    public function delete(string $dir, string $file): void;
 }

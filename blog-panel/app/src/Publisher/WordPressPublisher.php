@@ -47,6 +47,21 @@ final class WordPressPublisher implements PublisherInterface
         return ['remote_id' => (string) $r['json']['id'], 'url' => (string) ($r['json']['link'] ?? '')];
     }
 
+    public function unpublish(array $domain, array $post, array $remainingPosts): string
+    {
+        if (empty($post['remote_id'])) {
+            return 'WordPress yazı kimliği yok; sitede silinecek bir şey bulunamadı.';
+        }
+        $r = $this->api($domain, 'DELETE', 'posts/' . (int) $post['remote_id']);
+        if ($r['status'] === 404 || $r['status'] === 410) {
+            return 'Yazı WordPress\'te zaten yok.';
+        }
+        if ($r['status'] < 200 || $r['status'] >= 300) {
+            throw new \RuntimeException("WordPress yazısı silinemedi (HTTP {$r['status']}): " . mb_substr($r['json']['message'] ?? $r['body'], 0, 200));
+        }
+        return 'Yazı WordPress\'te çöp kutusuna taşındı.';
+    }
+
     public function test(array $domain): string
     {
         $r = $this->api($domain, 'GET', 'users/me?context=edit');
