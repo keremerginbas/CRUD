@@ -145,9 +145,7 @@ for (const a of adaylar) {
       customer: ad ? { number: a.telefon, name: kisalt(ad, 40) } : { number: a.telefon },
       name: kisalt(`EFAS #${id} ${yeniDeneme}/${a.limit}`, 40),
       assistantOverrides: {
-        firstMessage: ad
-          ? `Merhabalar, ben İksre Project'ten Selin. ${ad} ile mi görüşüyorum?`
-          : "Merhabalar, ben İksre Project'ten Selin. Yeni Yaşamkent'teki EFAS N-Tepe projemizde üç milyon yüz elli bin liradan başlayan fiyatlarla bir artı bir daire sahibi olmak ister misiniz?",
+        firstMessage: "Merhabalar, ben İksre Project'ten Selin. Ankara Yeni Yaşamkent bölgesinde bulunan, üç milyon yüz elli bin liradan başlayan fiyatlarla Efas En Tepe'de bir artı bir daire sahibi olmak ister misiniz?",
         variableValues: { lead_id: id, musteri_adi: ad, deneme: String(yeniDeneme) },
       },
     },

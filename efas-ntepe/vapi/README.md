@@ -6,7 +6,7 @@ En kolay yol, çalışan Türkçe ses ayarlarını (Soniox STT, GPT-5 Mini, Leah
 ## 1. Outbound asistanı
 1. Dashboard > Assistants > **TOPRAKTAN CITY - OUTBOUND** > `⋮` > **Duplicate** → adı `EFAS N-TEPE - OUTBOUND` yapın.
 2. **System prompt:** [`outbound-sistem-promptu.md`](outbound-sistem-promptu.md) dosyasının tamamını yapıştırın.
-3. **First message:** `Merhabalar, ben İksre Project'ten Selin.` yazın. Arama başına gerçek açılış cümlesini n8n gönderir (isimliyse "… Ahmet Yılmaz ile mi görüşüyorum?", isimsizse doğrudan 3.150.000 TL'lik 1+1 teklifi).
+3. **First message:** `Merhabalar, ben İksre Project'ten Selin. Ankara Yeni Yaşamkent bölgesinde bulunan, üç milyon yüz elli bin liradan başlayan fiyatlarla Efas En Tepe'de bir artı bir daire sahibi olmak ister misiniz?` (n8n her aramada aynı cümleyi gönderir).
 4. **Tools:** Tools sayfasında [`araclar-outbound.json`](araclar-outbound.json) içindeki 3 fonksiyonu oluşturun (`randevu_olustur`, `geri_arama_planla`, `olumsuz_kaydet`). Her birinin Server URL'i: `https://N8N_ALANINIZ/webhook/efas-ntepe-outbound`. Sonra asistanın Tools sekmesinde bu 3 aracı ve **End Call** aracını seçin. Kopyaladığınız asistandan gelen Topraktan araçlarını kaldırın.
 5. **Advanced > Server URL:** `https://N8N_ALANINIZ/webhook/efas-ntepe-outbound`
    **Server Messages:** sadece `end-of-call-report` seçili kalsın. Diğer mesaj tipleri n8n'i gereksiz yere tetikler.
@@ -21,7 +21,7 @@ En kolay yol, çalışan Türkçe ses ayarlarını (Soniox STT, GPT-5 Mini, Leah
 Outbound ile aynı adımlar, şu farklarla:
 - Kaynak olarak **TOPRAKTAN CITY - INBOUND**'u kopyalayın, adı tam olarak `EFAS N-TEPE - INBOUND` olsun.
 - Prompt: [`inbound-sistem-promptu.md`](inbound-sistem-promptu.md)
-- First message: `Merhabalar, İksre Project, Yeni Yaşamkent'e hoş geldiniz. Ben Selin, size nasıl yardımcı olabilirim?`
+- First message: `Merhabalar, ben İksre Project'ten Selin. Ankara Yeni Yaşamkent bölgesinde bulunan, üç milyon yüz elli bin liradan başlayan fiyatlarla Efas En Tepe'de bir artı bir daire sahibi olmak ister misiniz?`
 - Tools: [`araclar-inbound.json`](araclar-inbound.json) (yalnızca `randevu_olustur` ve End Call), URL `…/webhook/efas-ntepe-inbound`
 - Server URL: `https://N8N_ALANINIZ/webhook/efas-ntepe-inbound`
 - Analysis: `topraktan_call_result`'ı kaldırın, [`yapilandirilmis-cikti-inbound.json`](yapilandirilmis-cikti-inbound.json) ile `efas_ntepe_inbound_sonuc` çıktısını ekleyin.
