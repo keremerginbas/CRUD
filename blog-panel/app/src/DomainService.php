@@ -18,6 +18,13 @@ final class DomainService
         $interval = max(1, App::settings()->int('default_interval_days'));
         $hour = App::settings()->int('default_publish_hour');
 
+        $panelHost = self::panelHost();
+        $remote = self::withoutPanel($remote, $panelHost, realpath(APP_ROOT) ?: APP_ROOT);
+        // Daha önce eklenmiş panel kaydını temizle
+        if ($panelHost !== '') {
+            $db->run('DELETE FROM domains WHERE domain = ? AND is_active = 0 AND NOT EXISTS (SELECT 1 FROM posts p WHERE p.domain_id = domains.id)', [$panelHost]);
+        }
+
         foreach ($remote as $d) {
             $existing = $db->one('SELECT id FROM domains WHERE domain = ?', [$d['domain']]);
             if ($existing) {
@@ -36,6 +43,18 @@ final class DomainService
         }
         Logger::info('whm', "Senkronizasyon: $added yeni, $updated güncellendi.");
         return ['added' => $added, 'updated' => $updated, 'total' => count($remote)];
+    }
+
+    public static function panelHost(): string
+    {
+        return strtolower((string) parse_url(App::settings()->get('panel_base_url'), PHP_URL_HOST));
+    }
+
+    /** Panelin kendi (sub)domainini listeden çıkarır; ona blog yazılmaz. */
+    public static function withoutPanel(array $remote, string $panelHost, string $panelRoot): array
+    {
+        return array_values(array_filter($remote, static fn ($d) => $d['domain'] !== $panelHost
+            && (realpath($d['docroot']) ?: $d['docroot']) !== $panelRoot));
     }
 
     public static function find(int $id): ?array
