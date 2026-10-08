@@ -1,0 +1,108 @@
+{
+  "name": "EFAS N-TEPE | SMS Testi (tek seferlik)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "5a1b2c3d-0000-4000-8000-000000000001",
+      "name": "Başlat",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1) TEST_NUMARA'ya kendi cep numaranızı yazın, 2) Execute workflow.\n//    Telefonunuza en fazla 3 SMS gelir; hangisi geldiyse o biçim doğrudur.\nconst TEST_NUMARA = '05XXXXXXXXX';\nconst KULLANICI = \"SMS_KULLANICI_ADI\";\nconst SIFRE = \"SMS_SIFRE\";\nconst BASLIK = \"XRE\";\nconst API_URL = 'https://gateway.erccell.com.tr/corporatesms/sendsms/';\n\nconst rakam = TEST_NUMARA.replace(/\\D/g, '');\nconst yerel = rakam.slice(-10);\nif (!/^5\\d{9}$/.test(yerel)) throw new Error('TEST_NUMARA geçerli bir cep numarası olmalı (ör. 05321234567).');\nconst x = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst govde = (no, bicim) =>\n  [\n    '<?xml version=\"1.0\" encoding=\"UTF-8\"?>',\n    '<CORPORATESMS>',\n    '  <HEADER>',\n    `    <USERNAME>${x(KULLANICI)}</USERNAME>`,\n    `    <PASSWORD>${x(SIFRE)}</PASSWORD>`,\n    `    <SMSHEADER><![CDATA[${BASLIK}]]></SMSHEADER>`,\n    '    <SMSTYPE>UC</SMSTYPE>',\n    '    <SENDTYPE>1:N</SENDTYPE>',\n    '  </HEADER>',\n    '  <SMS>',\n    `    <SMS_MESSAGE><![CDATA[EFAS SMS testi - bicim ${bicim}]]></SMS_MESSAGE>`,\n    `    <NUMBERS>${no}</NUMBERS>`,\n    '  </SMS>',\n    '</CORPORATESMS>',\n  ].join('\\n');\n\nreturn [\n  { bicim: '5', numara: yerel },\n  { bicim: '05', numara: '0' + yerel },\n  { bicim: '905', numara: '90' + yerel },\n].map((t) => ({ json: { ...t, url: API_URL, govde: govde(t.numara, t.bicim) } }));\n"
+      },
+      "id": "5a1b2c3d-0000-4000-8000-000000000002",
+      "name": "Test Ayarları",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/xml",
+        "body": "={{ $json.govde }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "5a1b2c3d-0000-4000-8000-000000000003",
+      "name": "Erccell: SMS Gönder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        0
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Her biçim için Erccell yanıtı. Telefona gelen SMS'in \"bicim\" değerini ve RESULT kodunu not edin.\nreturn $input.all().map((item, i) => {\n  const t = $('Test Ayarları').itemMatching(i).json;\n  const yanit = typeof item.json.data === 'string' ? item.json.data : JSON.stringify(item.json);\n  return { json: { bicim: t.bicim, numara: t.numara, RESULT: (/<RESULT>([^<]*)<\\/RESULT>/i.exec(yanit) || [])[1] || '', yanit } };\n});\n"
+      },
+      "id": "5a1b2c3d-0000-4000-8000-000000000004",
+      "name": "Sonuçlar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Başlat": {
+      "main": [
+        [
+          {
+            "node": "Test Ayarları",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Test Ayarları": {
+      "main": [
+        [
+          {
+            "node": "Erccell: SMS Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Erccell: SMS Gönder": {
+      "main": [
+        [
+          {
+            "node": "Sonuçlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

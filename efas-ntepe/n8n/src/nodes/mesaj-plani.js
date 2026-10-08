@@ -5,6 +5,12 @@ const out = [];
 
 const xml = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const cdata = (s) => String(s || '').replace(/]]>/g, ']]]]><![CDATA[>');
+// +905321234567 → AYARLAR.SMS.NUMARA_BICIMI'ne göre 5321234567 / 05321234567 / 905321234567
+const smsNumarasi = (e164) => {
+  const yerel = e164.slice(3);
+  const b = String(A.SMS.NUMARA_BICIMI || '5');
+  return b === '905' ? '90' + yerel : b === '05' ? '0' + yerel : yerel;
+};
 const smsXml = (metin, no) =>
   [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -109,7 +115,7 @@ for (const o of olaylar) {
       leadId: o.leadId || '',
       telefon: tel,
       ad: o.ad || '',
-      govde: smsXml(doldur(smsMetni, o), tel.slice(3)), // numara 5XXXXXXXXX
+      govde: smsXml(doldur(smsMetni, o), smsNumarasi(tel)),
     });
   }
 
