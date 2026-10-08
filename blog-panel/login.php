@@ -18,11 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Giriş · Blog Panel</title>
-<link rel="stylesheet" href="assets/css/panel.css">
+<link rel="stylesheet" href="assets/css/panel.css?v=2">
 </head>
 <body class="auth-page">
 <main class="auth-card">
-  <div class="brand"><span class="logo">B</span> Blog Panel</div>
+  <div class="brand"><span class="logo"><?= icon('spark') ?></span><span>Blog Panel<small>Otomatik SEO yayın</small></span></div>
   <?php if ($error): ?><div class="alert alert-err"><?= e($error) ?></div><?php endif; ?>
   <form method="post" class="form">
     <?= csrf_field() ?>

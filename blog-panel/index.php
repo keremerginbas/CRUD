@@ -15,6 +15,10 @@ $stats = [
     'Ort. SEO puanı' => (int) round((float) $db->value("SELECT AVG(seo_score) FROM posts WHERE status = 'published'")),
     'Son 7 gün hata' => (int) $db->value("SELECT COUNT(*) FROM jobs WHERE status = 'failed' AND created_at >= ?", [date('Y-m-d H:i:s', strtotime('-7 days'))]),
 ];
+$statIcons = [
+    'Aktif domain' => ['globe', 'info'], 'Bu ay yayınlanan' => ['send', 'ok'], 'Devam eden iş' => ['clock', 'warn'],
+    'Ort. SEO puanı' => ['trend', 'violet'], 'Son 7 gün hata' => ['alert', 'err'],
+];
 $upcoming = $db->all('SELECT id, domain, next_post_at, publish_method FROM domains WHERE is_active = 1 ORDER BY next_post_at ASC LIMIT 10');
 $recent = $db->all("SELECT p.id, p.title, p.seo_score, p.status, p.remote_url, p.created_at, d.domain FROM posts p JOIN domains d ON d.id = p.domain_id ORDER BY p.id DESC LIMIT 10");
 $lastRun = App::settings()->get('scheduler_last_run');
@@ -40,7 +44,8 @@ require __DIR__ . '/app/views/layout_top.php';
 
 <section class="stats">
   <?php foreach ($stats as $label => $value): ?>
-    <div class="stat"><span class="stat-label"><?= e($label) ?></span><span class="stat-value"><?= e((string) $value) ?></span></div>
+    <?php [$ico, $tone] = $statIcons[$label] ?? ['activity', 'info']; ?>
+    <div class="stat stat-<?= $tone ?>"><span class="stat-icon"><?= icon($ico) ?></span><span class="stat-label"><?= e($label) ?></span><span class="stat-value"><?= e((string) $value) ?></span></div>
   <?php endforeach; ?>
 </section>
 

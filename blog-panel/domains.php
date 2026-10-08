@@ -73,7 +73,7 @@ require __DIR__ . '/app/views/layout_top.php';
         <?= $d['last_job_status'] ? status_badge($d['last_job_status']) : '' ?>
       </td>
       <td><?= e(explode(' (', PublisherFactory::METHODS[$d['publish_method']] ?? $d['publish_method'])[0]) ?></td>
-      <td><?= (int) $d['post_interval_days'] ?> günde 1</td>
+      <td class="nowrap"><?= (int) $d['post_interval_days'] ?> günde 1</td>
       <td><?= $d['is_active'] ? e(fmt_date($d['next_post_at'])) : '<span class="muted">—</span>' ?></td>
       <td><?= e(fmt_date($d['last_post_at'])) ?></td>
       <td><?= (int) $d['post_count'] ?></td>
