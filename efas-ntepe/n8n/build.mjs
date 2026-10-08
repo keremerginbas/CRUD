@@ -33,9 +33,25 @@ function ayarYaz(kod, yol, deger) {
     bas = m.index + m[0].length;
     if (i < yol.length - 1) girinti += '  ';
   }
-  const son = kod.indexOf(',', bas);
+  // Değerin sonu: dizi/obje ve tırnak içindeki virgüller atlanarak ilk üst düzey virgül
   const satirSonu = kod.indexOf('\n', bas);
-  if (son < 0 || son > satirSonu) throw new Error(`AYARLAR'da tek satırlık değer değil: ${yol.join('.')}`);
+  let son = -1;
+  let derinlik = 0;
+  let tirnak = null;
+  for (let i = bas; i < satirSonu; i++) {
+    const c = kod[i];
+    if (tirnak) {
+      if (c === '\\') i++;
+      else if (c === tirnak) tirnak = null;
+    } else if (c === '"' || c === "'" || c === '`') tirnak = c;
+    else if (c === '[' || c === '{') derinlik++;
+    else if (c === ']' || c === '}') derinlik--;
+    else if (c === ',' && derinlik === 0) {
+      son = i;
+      break;
+    }
+  }
+  if (son < 0) throw new Error(`AYARLAR'da tek satırlık değer değil: ${yol.join('.')}`);
   return kod.slice(0, bas) + JSON.stringify(deger) + kod.slice(son);
 }
 function ayarlariYaz(kod, nesne, yol = []) {
@@ -48,6 +64,15 @@ function ayarlariYaz(kod, nesne, yol = []) {
 
 if (AYAR && !TEST) {
   AYARLAR_KODU = ayarlariYaz(AYARLAR_KODU, AYAR);
+  // Yazılan AYARLAR kodu derlenebilmeli ve değerler birebir oturmalı
+  const sonuc = new Function('$execution', AYARLAR_KODU)({ resumeUrl: '' })[0].json;
+  const kontrol = (h, k, yol = []) => {
+    for (const [a, v] of Object.entries(k)) {
+      if (v && typeof v === 'object' && !Array.isArray(v)) kontrol(h[a], v, [...yol, a]);
+      else if (JSON.stringify(h[a]) !== JSON.stringify(v)) throw new Error(`AYARLAR yazılamadı: ${[...yol, a].join('.')}`);
+    }
+  };
+  kontrol(sonuc, AYAR);
 } else if (TEST) {
   AYARLAR_KODU = AYARLAR_KODU.replace(
     'return [{ json: AYARLAR }];',
