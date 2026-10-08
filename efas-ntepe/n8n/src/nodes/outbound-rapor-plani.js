@@ -112,4 +112,9 @@ else olaylar.unshift(
   })
 );
 
-return [{ json: { cmd, karar: baslik, olaylar } }];
+// Ses kaydı ayrı bir yorumda dosya olarak eklenir (Ses Kaydı Hazırla → İndir → Bitrix)
+const ses = m.kayit && id
+  ? { leadRef: String(id), url: m.kayit, dosyaAdi: `efas-outbound-${trIso(simdi).slice(0, 16).replace(/[^0-9]/g, '')}`, baslik: `🎧 Görüşme ses kaydı (yapay zeka araması, ${sureMetni(m.sure)})` }
+  : null;
+
+return [{ json: { cmd, karar: baslik, olaylar, ses } }];

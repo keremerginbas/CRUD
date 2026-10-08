@@ -426,6 +426,20 @@ function sunucu({ ad, dosya, path, aciklama, leadBul, aracPlani, raporPlani }) {
   wf.bagla(varMi, aracYanit, 1);
   wf.zincir(aracBx, aracYanit, yanitla, aracOlay);
   wf.zincir(rapor, raporBx, raporOlay);
+  // Ses kaydı: indir → lead'e dosya olarak yorum
+  const sesHazir = codeNode(wf, 'Ses Kaydı Hazırla', [2280, 360], kod('ses-kaydi-hazirla.js'));
+  const sesIndir = wf.ekle(
+    'Ses Kaydını İndir',
+    HTTP,
+    4.2,
+    [2500, 360],
+    { url: '={{ $json.url }}', options: { response: { response: { responseFormat: 'file', outputPropertyName: 'data' } }, timeout: 60000 } },
+    { onError: 'continueRegularOutput', retryOnFail: true, maxTries: 3, waitBetweenTries: 5000 }
+  );
+  const sesYorum = codeNode(wf, 'Ses Kaydı Yorumu', [2720, 360], kod('ses-kaydi-yorumu.js'));
+  const sesBx = bitrixPost(wf, 'Bitrix: Ses Kaydını Ekle', [2940, 360], 'crm.timeline.comment.add', '={{ JSON.stringify($json.govde) }}', { onError: 'continueRegularOutput' });
+  wf.bagla(raporBx, sesHazir);
+  wf.zincir(sesHazir, sesIndir, sesYorum, sesBx);
   dosyalar[dosya] = wf.json();
 }
 
@@ -591,6 +605,11 @@ sunucu({
   wf.bagla(wa, sonuc);
   wf.bagla(ep, sonuc);
   wf.zincir(sonuc, tablo2);
+  // Gönderilen mesajlar lead'e yorum olarak düşer
+  const mYorum = codeNode(wf, 'Mesaj Yorumları', [1800, 120], kod('mesaj-yorumlari.js'));
+  const mYorumBx = bitrixBatch(wf, 'Bitrix: Mesaj Yorumları', [2020, 120], { onError: 'continueRegularOutput' });
+  wf.bagla(sonuc, mYorum);
+  wf.zincir(mYorum, mYorumBx);
   dosyalar['04-olay-ve-mesaj-merkezi.json'] = wf.json();
 }
 

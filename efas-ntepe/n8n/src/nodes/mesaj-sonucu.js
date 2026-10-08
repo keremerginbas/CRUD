@@ -36,5 +36,6 @@ return $input.all().map((item, i) => {
       sure_sn: 0,
       maliyet: 0,
     },
+    pairedItem: { item: i },
   };
 });

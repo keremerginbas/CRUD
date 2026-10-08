@@ -98,6 +98,7 @@ for (const o of olaylar) {
       telefon: o.telefon || '',
       ad: o.ad || '',
       alici: o.eposta,
+      icerik: `Konu: ${eSablon.konu}`,
       konu: eSablon.konu,
       html: epostaHtml(eSablon),
       metin: [...eSablon.paragraflar, A.EPOSTA.FORM_URL, A.EPOSTA.PROJE_URL, A.PROJE_TELEFON].join('\n\n'),
@@ -115,6 +116,7 @@ for (const o of olaylar) {
       leadId: o.leadId || '',
       telefon: tel,
       ad: o.ad || '',
+      icerik: doldur(smsMetni, o),
       govde: smsXml(doldur(smsMetni, o), smsNumarasi(tel)),
     });
   }
@@ -128,6 +130,7 @@ for (const o of olaylar) {
       leadId: o.leadId || '',
       telefon: tel,
       ad: o.ad || '',
+      icerik: `Şablon: ${sablon.ad}${p.length ? ` (${p.map((x) => x.text).join(', ')})` : ''}`,
       govde: {
         messaging_product: 'whatsapp',
         to: tel.slice(1),

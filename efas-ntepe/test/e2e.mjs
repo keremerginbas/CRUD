@@ -75,7 +75,7 @@ const rapor = (callObj, ek = {}) => ({
   durationSeconds: 75,
   endedReason: 'customer-ended-call',
   ...ek,
-  artifact: { messages: [], recordingUrl: 'https://kayit.example/x.wav', ...(ek.artifact || {}) },
+  artifact: { messages: [], recordingUrl: 'http://127.0.0.1:8787/kayit/x.mp3', ...(ek.artifact || {}) },
 });
 const konusma = (...satirlar) => satirlar.map((m, i) => ({ role: i % 2 ? 'user' : 'bot', message: m }));
 
@@ -264,7 +264,7 @@ let once = await sayiYorum();
 r = await outbound(rapor(outCall(call101, 101, '+905321111101'), { analysis: { summary: 'Müşteri yarın 14:00 için randevu aldı.', structuredData: { sonuc: 'randevu' } }, artifact: { messages: konusma('Merhaba', 'Evet benim', 'Randevu?', 'Olur') } }));
 kontrol('rapor hemen 200 döner', r.status === 200);
 s = await bekleKadar((x) => x.comments.length > once);
-kontrol('araçla işlenen randevuya sadece rapor eklendi', s.leads['101'].STATUS_ID === RANDEVU && s.comments.at(-1).text.includes('görüşme sırasında kaydedildi') && s.comments.at(-1).text.includes('Ses kaydı'), s.comments.at(-1));
+kontrol('araçla işlenen randevuya sadece rapor eklendi', s.leads['101'].STATUS_ID === RANDEVU && s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında'))?.text.includes('görüşme sırasında kaydedildi') && s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')).text.includes('Ses kaydı'), s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')));
 kontrol('ikinci (teyit) görevi açılmadı', s.todos.filter((t) => t.ownerId === '101').length === 1);
 
 once = s.comments.length;
@@ -288,6 +288,12 @@ kontrol('tanıtım e-postası lead\'in adresine gitti (afiş + form + proje link
 r = await fetch(`${N8N}/webhook/efas-ntepe-afis`);
 const afisBoyut = (await r.arrayBuffer()).byteLength;
 kontrol('afiş görseli n8n webhook\'undan yayınlanıyor (image/jpeg)', r.status === 200 && /image\/jpeg/.test(r.headers.get('content-type') || '') && afisBoyut > 50000, [r.status, r.headers.get('content-type'), afisBoyut]);
+s = await bekleKadar((x) => ['💬 SMS gönderildi', '📧 E-posta gönderildi', '🟢 WhatsApp gönderildi'].every((b) => x.comments.some((c) => c.leadId === '110' && c.text.startsWith(b))));
+const smsYorum = s.comments.find((c) => c.leadId === '110' && c.text.startsWith('💬 SMS'));
+kontrol('gönderilen SMS / e-posta / WhatsApp lead\'e yorum olarak düştü', smsYorum?.text.includes('Efas Entepe projesi için sizi aradık') && s.comments.some((c) => c.leadId === '110' && c.text.includes('musteri110@ornek.com')), s.comments.filter((c) => c.leadId === '110').map((c) => c.text.slice(0, 80)));
+s = await bekleKadar((x) => x.comments.some((c) => c.leadId === '110' && c.files?.length));
+const sesYorum = s.comments.find((c) => c.leadId === '110' && c.files?.length);
+kontrol('görüşme ses kaydı lead\'e dosya olarak yorumlandı', sesYorum?.text.startsWith('🎧 Görüşme ses kaydı') && /\.mp3$/.test(sesYorum.files[0].ad) && sesYorum.files[0].boyut === 4096, sesYorum);
 kontrol('4. denemede ulaşılamayan 107\'ye tanıtım gitmedi', !s.sms.some((m) => m.no === '905321111107'));
 
 const yeniLeadler = [
@@ -343,7 +349,7 @@ kontrol('araç çağrılmadan "bilgi_istiyor" → BİLGİ statüsü + satış te
 once = s.comments.length;
 await outbound(rapor(outCall('c117', 117, '+905321111117'), { artifact: { messages: konusma('Merhaba', 'Bilgi alayım'), structuredOutputs: { 'so-1': { name: 'efas_ntepe_sonuc', result: { sonuc: 'bilgi_istiyor' } } } } }));
 s = await bekleKadar((x) => x.comments.length > once);
-kontrol('satisa_aktar ile işlenen 117 için ikinci görev açılmadı', s.todos.filter((t) => t.ownerId === '117').length === 1 && s.comments.at(-1).text.includes('görüşme sırasında kaydedildi'), s.comments.at(-1));
+kontrol('satisa_aktar ile işlenen 117 için ikinci görev açılmadı', s.todos.filter((t) => t.ownerId === '117').length === 1 && s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında'))?.text.includes('görüşme sırasında kaydedildi'), s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')));
 const sirali = ['101', '108', '117'].map((id) => String(s.leads[id].ASSIGNED_BY_ID));
 kontrol('02\'de art arda atamalar sırayla dönüyor (101 → 108 → 117: 7 ↔ 9)', sirali.every((x, i) => i === 0 || x !== sirali[i - 1]), sirali);
 
@@ -369,7 +375,7 @@ kontrol('diğer projenin lead\'ine dokunulmadı', s.leads['120'].STATUS_ID === '
 once = s.comments.length;
 await inbound(rapor(inCall('in-1', '+905559990001'), { analysis: { summary: 'Randevu aldı.', structuredData: { sonuc: 'randevu' } }, artifact: { messages: konusma('Hoş geldiniz', 'Randevu istiyorum') } }));
 s = await bekleKadar((x) => x.comments.length > once);
-kontrol('araçla randevu alan inbound → sadece rapor', s.comments.at(-1).leadId === yeni?.ID && s.comments.at(-1).text.includes('görüşme sırasında oluşturuldu') && s.todos.filter((t) => t.ownerId === yeni?.ID).length === 1, s.comments.at(-1));
+kontrol('araçla randevu alan inbound → sadece rapor', s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında'))?.leadId === yeni?.ID && s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')).text.includes('görüşme sırasında oluşturuldu') && s.todos.filter((t) => t.ownerId === yeni?.ID).length === 1, s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')));
 
 const istekOnce = (await durum()).requests.length;
 await inbound(rapor(inCall('in-5', '+905559990005'), { endedReason: 'customer-ended-call', artifact: { messages: [] } }));

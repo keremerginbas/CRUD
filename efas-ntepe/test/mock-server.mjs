@@ -121,7 +121,7 @@ function bitrix(metod, p) {
     case 'crm.timeline.comment.add': {
       const f = p.fields || {};
       if (!S.leads.has(String(f.ENTITY_ID))) return hataYanit('', 'Owner not found');
-      S.comments.push({ leadId: String(f.ENTITY_ID), text: f.COMMENT });
+      S.comments.push({ leadId: String(f.ENTITY_ID), text: f.COMMENT, files: (Array.isArray(f.FILES) ? f.FILES : Object.values(f.FILES || {})).map((x) => ({ ad: x[0], boyut: Buffer.from(String(x[1] || ''), 'base64').length })) });
       return { result: S.comments.length };
     }
     case 'crm.activity.todo.add': {
@@ -243,6 +243,11 @@ const sunucu = http.createServer((req, res) => {
       if (bm[1] !== 'batch') S.requests.push({ api: 'bitrix', metod: bm[1], params, hata: r.__hata ? r.error_description : undefined });
       if (r.__hata) return gonder(400, { error: r.error, error_description: r.error_description });
       return gonder(200, r);
+    }
+    // Vapi ses kaydı (test)
+    if (url.pathname.startsWith('/kayit/')) {
+      res.writeHead(200, { 'content-type': 'audio/mpeg' });
+      return res.end(Buffer.alloc(4096, 7));
     }
     // CORPORATESMS XML servisi
     if (url.pathname === '/sms-xml') {

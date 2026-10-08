@@ -124,4 +124,9 @@ cmd.rapor = bitrixKomut('crm.timeline.comment.add', {
 
 olaylar.unshift(olay('cagri_sonu', { ...temel, sonuc: y.sonuc || 'diger', sure: m.sure, maliyet: m.maliyet, detay: baslik, mesaj }));
 
-return [{ json: { cmd, karar: baslik, olaylar } }];
+// Ses kaydı ayrı bir yorumda dosya olarak eklenir (Ses Kaydı Hazırla → İndir → Bitrix)
+const ses = m.kayit && leadRef
+  ? { leadRef: String(leadRef), url: m.kayit, dosyaAdi: `efas-inbound-${trIso(simdi).slice(0, 16).replace(/[^0-9]/g, '')}`, baslik: `🎧 Görüşme ses kaydı (gelen arama, ${sureMetni(m.sure)})` }
+  : null;
+
+return [{ json: { cmd, karar: baslik, olaylar, ses } }];
