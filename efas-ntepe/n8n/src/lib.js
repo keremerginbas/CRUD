@@ -209,6 +209,8 @@ function argumanCoz(a) {
 }
 
 const ULASILAMADI_NEDEN_RE = /did-not-answer|customer-busy|voicemail|no-answer|failed-to-connect|unanswered|declined|rejected|not-reachable|unavailable/i;
+// Müşteriye hiç ulaşmadan hat/operatör tarafında düşen çağrı (ör. SIP 503 service unavailable)
+const HAT_HATASI_RE = /sip-5\d\d|vapifault|pipeline-error|providerfault(?![\w.-]*sip-4\d\d)/i;
 const OPERATOR_ANONS_RE = /ulaşılamıyor|ulasilamiyor|şu an kapalı|telefonu kapalı|kapsama alanı|meşgul|sesli mesaj|sinyal sesinden|tekrar deneyiniz|kullanılmamaktadır|abonesine/i;
 
 // Vapi sunucu mesajını tek tip nesneye çevirir
@@ -267,6 +269,7 @@ function vapiMesajCoz(body) {
   const endedReason = msg.endedReason || call.endedReason || '';
   const anlamliKonusma = kullanici.filter((t) => !OPERATOR_ANONS_RE.test(t));
   const ulasildi = !ULASILAMADI_NEDEN_RE.test(endedReason) && anlamliKonusma.length > 0;
+  const hatHatasi = HAT_HATASI_RE.test(endedReason) && !anlamliKonusma.length && !(Number(msg.durationSeconds) > 0);
 
   return {
     tip: msg.type || '',
@@ -286,6 +289,7 @@ function vapiMesajCoz(body) {
     kayit,
     transkript,
     ulasildi,
+    hatHatasi,
     telefonVaryantlari: telefonVaryantlari(telefonNormalize((call.customer && call.customer.number) || (msg.customer && msg.customer.number))),
   };
 }

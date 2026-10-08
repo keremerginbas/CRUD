@@ -39,6 +39,11 @@ if (aracIsledi) {
   baslik = `sonuç görüşme sırasında kaydedildi (${sonucAlan})`;
 } else if (!kuyrukta) {
   baslik = `rapor (lead ${lead.STATUS_ID} statüsünde, statüye dokunulmadı)`;
+} else if (m.hatHatasi) {
+  // Çağrı müşteriye ulaşmadan hatta düştü: deneme hakkı yakılmaz, tanıtım mesajı gitmez, kısa süre sonra tekrar
+  const t = pencereyeTasi(dakikaEkle(simdi, Number(A.HATA_TEKRAR_DK)), A.ARAMA_SAATLERI);
+  Object.assign(alanlar, { [F.SONRAKI]: trIso(t), [F.SONUC]: 'HAT_HATASI', [F.DENEME]: Math.max(0, deneme - 1) });
+  baslik = `⚠️ Hat hatası (${m.arananNumara || 'hat'}: ${m.endedReason}) — deneme sayılmadı, sonraki arama: ${trMetin(t)}`;
 } else if (!m.ulasildi || y.sonuc === 'ulasilamadi') {
   if (deneme >= limit) olumsuzaTasi('ULASILAMADI', `${deneme} denemede ulaşılamadı`);
   else tekrarPlanla(Number(A.ULASILAMADI_TEKRAR_DK), ta ? 'ULASILAMADI_TA' : 'ULASILAMADI', '📵 Ulaşılamadı');
@@ -91,7 +96,8 @@ cmd.rapor = bitrixKomut('crm.timeline.comment.add', {
   fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: raporYorumu({ A, m, yon: 'outbound', baslik }) },
 });
 
-olaylar.unshift(
+if (m.hatHatasi && !aracIsledi && kuyrukta) olaylar.unshift(olay('arama_hatasi', { ...temel, deneme, detay: baslik }));
+else olaylar.unshift(
   olay('cagri_sonu', {
     ...temel,
     sonuc: m.ulasildi && y.sonuc !== 'ulasilamadi' ? 'ulasildi' : 'ulasilamadi',

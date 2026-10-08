@@ -292,8 +292,17 @@ const yeniLeadler = [
   { ID: 113, NAME: 'Elif', PHONE: telefonLead('05321111113'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR', ASSIGNED_BY_ID: '3' },
   { ID: 114, PHONE: telefonLead('05321111114'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
   { ID: 115, PHONE: telefonLead('05321111115'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
+  { ID: 117, PHONE: telefonLead('05321111117'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
 ];
 for (const yl of yeniLeadler) await post(`${MOCK}/__lead`, yl);
+
+once = (await durum()).comments.length;
+const smsOnce117 = (await durum()).sms.length;
+await outbound(rapor(outCall('c117', 117, '+905321111117'), { endedReason: 'call.in-progress.error-providerfault-outbound-sip-503-service-unavailable', durationSeconds: 0, artifact: { messages: [] } }));
+s = await bekleKadar((x) => x.comments.length > once);
+kontrol('SIP 503 hat hatası → deneme sayılmaz, kısa süre sonra tekrar, kuyrukta kalır', s.leads['117'].STATUS_ID === AI && s.leads['117'][F.SONUC] === 'HAT_HATASI' && String(s.leads['117'][F.DENEME]) === '0' && !!s.leads['117'][F.SONRAKI], s.leads['117']);
+await new Promise((ok) => setTimeout(ok, 3000));
+kontrol('hat hatasında müşteriye tanıtım SMS\'i gitmez', !(await durum()).sms.slice(smsOnce117).some((m) => m.no === '905321111117'));
 
 once = (await durum()).comments.length;
 await outbound(rapor(outCall('c111', 111, '+905321111111'), { endedReason: 'customer-busy', durationSeconds: 0 }));
@@ -385,7 +394,7 @@ console.log('\n=== F) Günlük rapor (05) ===');
 await bekle(1500); // son olayların tabloya yazılmasını bekle
 const rapor1 = await raporAl();
 const fark = (k) => rapor1[k] - rapor0[k];
-kontrol('rapor: 6 arama, 1 başlatılamayan', fark('arama') === 6 && fark('hata') === 1, { arama: fark('arama'), hata: fark('hata') });
+kontrol('rapor: 6 arama, 2 başlatılamayan (1 Vapi hatası + 1 SIP 503 hat hatası)', fark('arama') === 6 && fark('hata') === 2, { arama: fark('arama'), hata: fark('hata') });
 kontrol('rapor: 6 randevu (101, 118 saatsiz, 103 saatsiz, 113 teyit, inbound yeni, 103 inbound)', fark('randevu') === 6, fark('randevu'));
 kontrol('rapor: inbound görüşmeler sayıldı', fark('inbound') >= 3, fark('inbound'));
 kontrol('rapor: ulaşılan / ulaşılamayan', fark('ulasilan') >= 5 && fark('ulasilamayan') === 3, { ulasilan: fark('ulasilan'), ulasilamayan: fark('ulasilamayan') });
