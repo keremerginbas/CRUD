@@ -118,7 +118,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "function parseAI(resp) {\n  if (!resp || resp.error) {\n    const err = resp && resp.error;\n    throw new Error('OpenAI API hatası: ' + (typeof err === 'string' ? err : JSON.stringify(err || resp)).slice(0, 600));\n  }\n  const choice = (resp.choices || [])[0];\n  if (!choice) {\n    throw new Error('OpenAI boş yanıt döndü.');\n  }\n  if (choice.message && choice.message.refusal) {\n    throw new Error('OpenAI isteği reddetti: ' + choice.message.refusal);\n  }\n  if (choice.finish_reason === 'length') {\n    throw new Error('Yanıt uzunluk sınırında kesildi.');\n  }\n  const text = (choice.message && choice.message.content) || '';\n  try {\n    return JSON.parse(text);\n  } catch (e) {\n    throw new Error('OpenAI yanıtı JSON değil: ' + text.slice(0, 300));\n  }\n}\n\n// Konu analizini okur ve \"makale yaz\" isteğini hazırlar.\nconst prev = $('Konu İsteği Oluştur').first().json;\nconst job = prev.job;\ntry {\n  const topic = parseAI($input.first().json);\n  const LANGS = { tr: 'Türkçe', en: 'English', de: 'Deutsch', ar: 'Arabic', ru: 'Russian' };\n  const d = job.domain;\n  const language = LANGS[d.language] || d.language;\n  const minWords = Math.max(job.content_rules.min_word_count, topic.target_word_count || 0);\n\n  const system = `Sen alanında uzman, SEO konusunda deneyimli bir içerik yazarısın. Verilen plana göre yayına hazır bir blog yazısı yazacaksın.\n\nDil ve üslup:\n- Yazının tamamını ${language} yaz. Ton: ${d.tone}.\n- Okuyucuya doğrudan, pratik ve somut bilgi ver; örnekler, adımlar, kontrol listeleri kullan. Dolgu cümle, klişe giriş (\"Günümüzde...\", \"Bu yazımızda...\") ve abartılı pazarlama dili kullanma.\n- Doğrulanamayan istatistik, araştırma, alıntı, fiyat, yasal hüküm veya marka iddiası UYDURMA. Emin olmadığın sayısal bilgi yerine genel ifade kullan.\n\ncontent_html kuralları:\n- Yalnızca şu HTML etiketleri: h2, h3, p, ul, ol, li, strong, em, a, table, thead, tbody, tr, th, td, blockquote. Markdown, h1, img, script, style, class/id kullanma.\n- Başlık (h1) ayrı alandadır; content_html bir giriş paragrafı (<p>) ile başlasın ve odak anahtar kelime ilk 100 kelime içinde doğal biçimde geçsin.\n- Plandaki H2/H3 yapısını kullan; her H2 altında en az iki dolu paragraf veya liste olsun.\n- En az ${minWords} kelime yaz.\n- Odak anahtar kelimeyi doğal yoğunlukta (yaklaşık %1) kullan, ikincil kelimeleri alt başlık ve paragraflara serpiştir; anahtar kelime doldurma yapma.\n- Plandaki iç linkleri ilgili cümlenin içinde <a href=\"URL\">anlamlı bağlantı metni</a> olarak kullan. Yalnızca 'ic_linkler' ve 'site_sayfalari' listesindeki adresleri birebir kullan; başka URL uydurma, uzantıyı (.html vb.) değiştirme.\n- Sonuç bölümünde okuru sitenin hizmetine/ürününe yönlendiren kısa bir çağrı (CTA) olsun; bağlantı için 'site_sayfalari' içindeki gerçek iletişim/teklif sayfasını kullan.\n- SSS bölümünü content_html içine KOYMA (SSS başlığı ya da \"aşağıdaki sorular\" gibi yönlendirme cümlesi de yazma); soruları yalnızca faq alanına yaz.\n- Sonuç bölümünü <h2> başlıklı normal paragraflarla yaz; blockquote kullanma.\n\nDiğer alanlar:\n- title: ilgi çekici, odak anahtar kelimeyi içeren başlık (en fazla 70 karakter).\n- meta_title: 50-60 karakter, odak anahtar kelime başa yakın.\n- meta_description: 140-155 karakter, odak anahtar kelimeyi ve bir eylem çağrısını içersin.\n- slug: küçük harf, Türkçe karakter içermeyen, tirelerle ayrılmış 3-6 kelime, odak anahtar kelimeyi içersin.\n- excerpt: 1-2 cümlelik özet.\n- faq: 4-6 soru; cevaplar 40-70 kelime, kendi başına anlaşılır.\n- tags: 3-6 kısa etiket.`;\n\n  const user = JSON.stringify({\n    site: d.site_url, sektor: d.niche, hedef_kitle: d.target_audience,\n    ek_talimatlar: d.extra_instructions,\n    konu: topic.topic, baslik_onerisi: topic.title_idea,\n    odak_anahtar_kelime: topic.focus_keyword, ikincil_anahtar_kelimeler: topic.secondary_keywords,\n    arama_niyeti: topic.search_intent, taslak: topic.outline, ic_linkler: topic.internal_links,\n    site_sayfalari: prev.site_pages || [],\n    minimum_kelime: minWords,\n  }, null, 2);\n\n  const schema = {\n    type: 'object',\n    additionalProperties: false,\n    required: ['title', 'slug', 'meta_title', 'meta_description', 'focus_keyword', 'secondary_keywords', 'excerpt', 'content_html', 'faq', 'tags'],\n    properties: {\n      title: { type: 'string' },\n      slug: { type: 'string' },\n      meta_title: { type: 'string' },\n      meta_description: { type: 'string' },\n      focus_keyword: { type: 'string' },\n      secondary_keywords: { type: 'array', items: { type: 'string' } },\n      excerpt: { type: 'string' },\n      content_html: { type: 'string' },\n      faq: {\n        type: 'array',\n        items: {\n          type: 'object', additionalProperties: false, required: ['question', 'answer'],\n          properties: { question: { type: 'string' }, answer: { type: 'string' } },\n        },\n      },\n      tags: { type: 'array', items: { type: 'string' } },\n    },\n  };\n\n  return [{\n    json: {\n      ok: true,\n      job,\n      topic,\n      ai_request: {\n        model: prev.ai_request.model,\n        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],\n        response_format: { type: 'json_schema', json_schema: { name: 'makale', strict: true, schema } },\n      },\n    },\n  }];\n} catch (e) {\n  return [{ json: { ok: false, job, error: 'Konu analizi: ' + e.message } }];\n}\n"
+        "jsCode": "function parseAI(resp) {\n  if (!resp || resp.error) {\n    const err = resp && resp.error;\n    throw new Error('OpenAI API hatası: ' + (typeof err === 'string' ? err : JSON.stringify(err || resp)).slice(0, 600));\n  }\n  const choice = (resp.choices || [])[0];\n  if (!choice) {\n    throw new Error('OpenAI boş yanıt döndü.');\n  }\n  if (choice.message && choice.message.refusal) {\n    throw new Error('OpenAI isteği reddetti: ' + choice.message.refusal);\n  }\n  if (choice.finish_reason === 'length') {\n    throw new Error('Yanıt uzunluk sınırında kesildi.');\n  }\n  const text = (choice.message && choice.message.content) || '';\n  try {\n    return JSON.parse(text);\n  } catch (e) {\n    throw new Error('OpenAI yanıtı JSON değil: ' + text.slice(0, 300));\n  }\n}\n\n// Konu analizini okur ve \"makale yaz\" isteğini hazırlar.\nconst prev = $('Konu İsteği Oluştur').first().json;\nconst job = prev.job;\ntry {\n  const topic = parseAI($input.first().json);\n  const LANGS = { tr: 'Türkçe', en: 'English', de: 'Deutsch', ar: 'Arabic', ru: 'Russian' };\n  const d = job.domain;\n  const language = LANGS[d.language] || d.language;\n  const minWords = Math.max(job.content_rules.min_word_count, topic.target_word_count || 0);\n\n  const system = `Sen alanında uzman, SEO konusunda deneyimli bir içerik yazarısın. Verilen plana göre yayına hazır bir blog yazısı yazacaksın.\n\nDil ve üslup:\n- Yazının tamamını ${language} yaz. Ton: ${d.tone}.\n- Okuyucuya doğrudan, pratik ve somut bilgi ver; örnekler, adımlar, kontrol listeleri kullan. Dolgu cümle, klişe giriş (\"Günümüzde...\", \"Bu yazımızda...\") ve abartılı pazarlama dili kullanma.\n- Doğrulanamayan istatistik, araştırma, alıntı, fiyat, yasal hüküm veya marka iddiası UYDURMA. Emin olmadığın sayısal bilgi yerine genel ifade kullan.\n\ncontent_html kuralları:\n- Yalnızca şu HTML etiketleri: h2, h3, p, ul, ol, li, strong, em, a, table, thead, tbody, tr, th, td, blockquote. Markdown, h1, img, script, style, class/id kullanma.\n- Başlık (h1) ayrı alandadır; content_html bir giriş paragrafı (<p>) ile başlasın ve odak anahtar kelime ilk 100 kelime içinde doğal biçimde geçsin.\n- Plandaki H2/H3 yapısını kullan; her H2 altında en az iki dolu paragraf veya liste olsun.\n- En az ${minWords} kelime yaz.\n- Odak anahtar kelimeyi doğal yoğunlukta (yaklaşık %1) kullan, ikincil kelimeleri alt başlık ve paragraflara serpiştir; anahtar kelime doldurma yapma.\n- Plandaki iç linkleri ilgili cümlenin içinde <a href=\"URL\">anlamlı bağlantı metni</a> olarak kullan. Yalnızca 'ic_linkler' ve 'site_sayfalari' listesindeki adresleri birebir kullan; başka URL uydurma, uzantıyı (.html vb.) değiştirme.\n- Sonuç bölümünde okuru sitenin hizmetine/ürününe yönlendiren kısa bir çağrı (CTA) olsun; bağlantı için 'site_sayfalari' içindeki gerçek iletişim/teklif sayfasını kullan.\n- SSS bölümünü content_html içine KOYMA (SSS başlığı ya da \"aşağıdaki sorular\" gibi yönlendirme cümlesi de yazma); soruları yalnızca faq alanına yaz.\n- Sonuç bölümünü <h2> başlıklı normal paragraflarla yaz; blockquote kullanma.\n\nDiğer alanlar:\n- title: ilgi çekici, odak anahtar kelimeyi içeren başlık (en fazla 70 karakter).\n- meta_title: 50-60 karakter, odak anahtar kelime başa yakın.\n- meta_description: 140-155 karakter, odak anahtar kelimeyi ve bir eylem çağrısını içersin.\n- slug: küçük harf, Türkçe karakter içermeyen, tirelerle ayrılmış 3-6 kelime, odak anahtar kelimeyi içersin.\n- excerpt: 1-2 cümlelik özet.\n- faq: 4-6 soru; cevaplar 40-70 kelime, kendi başına anlaşılır.\n- tags: 3-6 kısa etiket.\n- image_prompt: Yazının öne çıkan görseli için İNGİLİZCE, 1-3 cümlelik somut bir sahne tarifi. Yazının ana konusunu doğrudan anlatsın (ör. ilgili iş ortamı, nesneler, kişiler, ekran/arayüz hissi). Görselde yazı, harf, rakam, logo, marka adı veya filigran OLMASIN; gerçek kişi ya da marka taklidi yapma.\n- image_alt: Görseli Türkçe tarif eden, odak anahtar kelimeyi doğal biçimde içeren, en fazla 125 karakterlik alt metin (\"görsel\", \"resim\" diye başlama).`;\n\n  const user = JSON.stringify({\n    site: d.site_url, sektor: d.niche, hedef_kitle: d.target_audience,\n    ek_talimatlar: d.extra_instructions,\n    konu: topic.topic, baslik_onerisi: topic.title_idea,\n    odak_anahtar_kelime: topic.focus_keyword, ikincil_anahtar_kelimeler: topic.secondary_keywords,\n    arama_niyeti: topic.search_intent, taslak: topic.outline, ic_linkler: topic.internal_links,\n    site_sayfalari: prev.site_pages || [],\n    minimum_kelime: minWords,\n  }, null, 2);\n\n  const schema = {\n    type: 'object',\n    additionalProperties: false,\n    required: ['title', 'slug', 'meta_title', 'meta_description', 'focus_keyword', 'secondary_keywords', 'excerpt', 'content_html', 'faq', 'tags', 'image_prompt', 'image_alt'],\n    properties: {\n      title: { type: 'string' },\n      slug: { type: 'string' },\n      meta_title: { type: 'string' },\n      meta_description: { type: 'string' },\n      focus_keyword: { type: 'string' },\n      secondary_keywords: { type: 'array', items: { type: 'string' } },\n      excerpt: { type: 'string' },\n      content_html: { type: 'string' },\n      faq: {\n        type: 'array',\n        items: {\n          type: 'object', additionalProperties: false, required: ['question', 'answer'],\n          properties: { question: { type: 'string' }, answer: { type: 'string' } },\n        },\n      },\n      tags: { type: 'array', items: { type: 'string' } },\n      image_prompt: { type: 'string' },\n      image_alt: { type: 'string' },\n    },\n  };\n\n  return [{\n    json: {\n      ok: true,\n      job,\n      topic,\n      ai_request: {\n        model: prev.ai_request.model,\n        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],\n        response_format: { type: 'json_schema', json_schema: { name: 'makale', strict: true, schema } },\n      },\n    },\n  }];\n} catch (e) {\n  return [{ json: { ok: false, job, error: 'Konu analizi: ' + e.message } }];\n}\n"
       }
     },
     {
@@ -198,7 +198,7 @@
         300
       ],
       "parameters": {
-        "jsCode": "function parseAI(resp) {\n  if (!resp || resp.error) {\n    const err = resp && resp.error;\n    throw new Error('OpenAI API hatası: ' + (typeof err === 'string' ? err : JSON.stringify(err || resp)).slice(0, 600));\n  }\n  const choice = (resp.choices || [])[0];\n  if (!choice) {\n    throw new Error('OpenAI boş yanıt döndü.');\n  }\n  if (choice.message && choice.message.refusal) {\n    throw new Error('OpenAI isteği reddetti: ' + choice.message.refusal);\n  }\n  if (choice.finish_reason === 'length') {\n    throw new Error('Yanıt uzunluk sınırında kesildi.');\n  }\n  const text = (choice.message && choice.message.content) || '';\n  try {\n    return JSON.parse(text);\n  } catch (e) {\n    throw new Error('OpenAI yanıtı JSON değil: ' + text.slice(0, 300));\n  }\n}\n\n// Panele gönderilecek sonucu hazırlar (başarı veya hata).\nconst item = $input.first().json;\nlet job;\nlet payload;\nif (item.ok === false) {\n  job = item.job;\n  payload = { job_id: job.job_id, token: job.token, status: 'error', error: item.error };\n} else {\n  const prev = $('Makale İsteği Oluştur').first().json;\n  job = prev.job;\n  try {\n    const article = parseAI(item);\n    article.focus_keyword = article.focus_keyword || prev.topic.focus_keyword;\n    payload = {\n      job_id: job.job_id,\n      token: job.token,\n      status: 'success',\n      article,\n      meta: { topic: prev.topic.topic, search_intent: prev.topic.search_intent, rationale: prev.topic.rationale },\n    };\n  } catch (e) {\n    payload = { job_id: job.job_id, token: job.token, status: 'error', error: 'Makale yazımı: ' + e.message };\n  }\n}\nreturn [{ json: { callback_url: job.callback_url, payload } }];\n"
+        "jsCode": "// Görsel ayarları: hesabınızda erişiminiz olan görsel modeli ve kalite (low | medium | high)\nconst IMAGE_MODEL = 'gpt-image-1';\nconst IMAGE_QUALITY = 'medium';\n\nfunction parseAI(resp) {\n  if (!resp || resp.error) {\n    const err = resp && resp.error;\n    throw new Error('OpenAI API hatası: ' + (typeof err === 'string' ? err : JSON.stringify(err || resp)).slice(0, 600));\n  }\n  const choice = (resp.choices || [])[0];\n  if (!choice) {\n    throw new Error('OpenAI boş yanıt döndü.');\n  }\n  if (choice.message && choice.message.refusal) {\n    throw new Error('OpenAI isteği reddetti: ' + choice.message.refusal);\n  }\n  if (choice.finish_reason === 'length') {\n    throw new Error('Yanıt uzunluk sınırında kesildi.');\n  }\n  const text = (choice.message && choice.message.content) || '';\n  try {\n    return JSON.parse(text);\n  } catch (e) {\n    throw new Error('OpenAI yanıtı JSON değil: ' + text.slice(0, 300));\n  }\n}\n\n// Panele gönderilecek sonucu hazırlar (başarı veya hata).\nconst item = $input.first().json;\nlet job;\nlet payload;\nif (item.ok === false) {\n  job = item.job;\n  payload = { job_id: job.job_id, token: job.token, status: 'error', error: item.error };\n} else {\n  const prev = $('Makale İsteği Oluştur').first().json;\n  job = prev.job;\n  try {\n    const article = parseAI(item);\n    article.focus_keyword = article.focus_keyword || prev.topic.focus_keyword;\n    payload = {\n      job_id: job.job_id,\n      token: job.token,\n      status: 'success',\n      article,\n      meta: { topic: prev.topic.topic, search_intent: prev.topic.search_intent, rationale: prev.topic.rationale },\n    };\n  } catch (e) {\n    payload = { job_id: job.job_id, token: job.token, status: 'error', error: 'Makale yazımı: ' + e.message };\n  }\n}\nlet imageRequest = null;\nif (payload.status === 'success' && payload.article.image_prompt) {\n  imageRequest = {\n    model: IMAGE_MODEL,\n    prompt: 'Editorial header image for a blog article titled \"' + payload.article.title + '\". Scene: ' + payload.article.image_prompt\n      + ' Style: modern, clean, professional, high-quality photography or polished 3D illustration, soft natural light, landscape composition.'\n      + ' Absolutely no text, letters, numbers, captions, logos, brand names or watermarks anywhere in the image.',\n    size: '1536x1024',\n    quality: IMAGE_QUALITY,\n    output_format: 'webp',\n    output_compression: 80,\n    n: 1,\n  };\n}\nreturn [{ json: { callback_url: job.callback_url, payload, wants_image: !!imageRequest, image_request: imageRequest, image_alt: payload.article ? payload.article.image_alt : '' } }];\n"
       }
     },
     {
@@ -207,7 +207,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        1980,
+        2640,
         300
       ],
       "parameters": {
@@ -236,6 +236,86 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 5000
+    },
+    {
+      "id": "ff993883-bba8-48d4-a025-24850c8abed2",
+      "name": "Görsel gerekli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1980,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "90e3a836-327b-4b32-b328-214be348f5b8",
+              "leftValue": "={{ $json.wants_image }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "1e419d23-6e19-4e0f-a0c4-95452b0b4838",
+      "name": "OpenAI: Görsel Üret",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2200,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/images/generations",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.image_request) }}",
+        "options": {
+          "timeout": 300000,
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          }
+        }
+      },
+      "credentials": {
+        "openAiApi": {
+          "id": "openai-api",
+          "name": "OpenAI account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b7c12749-efab-44ed-a818-a82d783d4f77",
+      "name": "Görseli Ekle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2420,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// Üretilen görseli panele gidecek veriye ekler; görsel üretilemezse yazı görselsiz gider.\nconst prev = $('Sonucu Hazırla').first().json;\nconst resp = $input.first().json || {};\nconst payload = prev.payload;\nconst b64 = resp.data && resp.data[0] && resp.data[0].b64_json;\nif (b64) {\n  payload.image = { b64, alt: prev.image_alt || payload.article.title };\n} else {\n  const err = resp.error;\n  payload.image_error = 'Görsel üretilemedi: ' + (typeof err === 'string' ? err : JSON.stringify(err || resp)).slice(0, 400);\n}\nreturn [{ json: { callback_url: prev.callback_url, payload } }];\n"
+      }
     }
   ],
   "connections": {
@@ -335,6 +415,46 @@
       ]
     },
     "Sonucu Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Görsel gerekli mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Görsel gerekli mi?": {
+      "main": [
+        [
+          {
+            "node": "OpenAI: Görsel Üret",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Panele Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI: Görsel Üret": {
+      "main": [
+        [
+          {
+            "node": "Görseli Ekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Görseli Ekle": {
       "main": [
         [
           {

@@ -68,6 +68,9 @@ require __DIR__ . '/app/views/layout_top.php';
       <div class="serp-desc"><?= e($post['meta_description']) ?></div>
     </div>
     <article class="preview">
+      <?php if (!empty($post['image_url'])): ?>
+        <figure><img src="<?= e($post['image_url']) ?>" alt="<?= e($post['image_alt']) ?>" loading="lazy"><figcaption class="muted">Alt metin: <?= e($post['image_alt']) ?></figcaption></figure>
+      <?php endif; ?>
       <?php if ($post['excerpt']): ?><p class="lead"><?= e($post['excerpt']) ?></p><?php endif; ?>
       <?= $post['content_html'] /* HtmlSanitizer'dan geçmiş içerik */ ?>
       <?php if ($faq): ?>

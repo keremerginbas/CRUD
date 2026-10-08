@@ -95,6 +95,11 @@ Panel yalnızca yeni `{slug}.html` dosyasını yazar, liste sayfasına işaretin
 | `{{date}}`, `{{date_long}}`, `{{date_iso}}`, `{{reading_minutes}}` | `07.10.2026`, `7 Ekim 2026`, ISO tarih, okuma süresi |
 | `{{focus_keyword}}`, `{{keywords}}`, `{{tags}}` | Anahtar kelimeler |
 | `{{content}}`, `{{faq}}`, `{{jsonld}}`, `{{related}}` | Yazı HTML'i, SSS bölümü, JSON-LD `<script>`, diğer yazılar listesi (ham HTML) |
+| `{{image_url}}`, `{{image_alt}}`, `{{image_width}}`, `{{image_height}}` | Öne çıkan görsel |
+| `{{#image}}…{{/image}}` / `{{^image}}…{{/image}}` | İçerik yalnızca görsel varsa / yoksa yazılır |
+
+#### Öne çıkan görsel
+OpenAI workflow'u her yazı için konuya uygun, yazısız/logosuz bir görsel üretir (1536×1024 WebP) ve Türkçe alt metin yazar. Panel görseli `{blog klasörü}/img/{slug}.webp` olarak yükler (WHM'de geçici cPanel oturumu ile; API token'da *create-user-session* yetkisi gerekir), kapak, `og:image`, Twitter kartı ve JSON-LD'ye ekler. WordPress'te medya kütüphanesine yüklenip öne çıkan görsel yapılır. Görsel üretilemez veya yüklenemezse yazı görselsiz yayınlanır ve durum **İşler & Kayıtlar**'a yazılır. Model ve kalite *Sonucu Hazırla* düğümünün başındaki `IMAGE_MODEL` / `IMAGE_QUALITY` satırlarından değiştirilir.
 
 #### WordPress siteleri
 - WP Admin > Kullanıcılar > Profil > **Uygulama Şifreleri** ile şifre oluşturun (Editör veya Yönetici rolü).

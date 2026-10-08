@@ -24,6 +24,11 @@ final class LocalFileWriter implements FileWriter
         @chmod($path, 0644);
     }
 
+    public function writeBinary(string $dir, string $file, string $bytes, string $mime): void
+    {
+        $this->write($dir, $file, $bytes);
+    }
+
     public function delete(string $dir, string $file): void
     {
         $path = rtrim($dir, '/') . '/' . $file;

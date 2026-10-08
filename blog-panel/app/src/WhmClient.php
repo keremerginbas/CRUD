@@ -82,6 +82,64 @@ final class WhmClient
         return $res;
     }
 
+    /**
+     * İkili dosya (görsel) yükler: WHM'den geçici bir cPanel oturumu açar ve
+     * UAPI Fileman::upload_files'a multipart istek gönderir. Gerekli yetki: create-user-session.
+     */
+    public function uploadFile(string $cpUser, string $dir, string $filename, string $bytes, string $mime): void
+    {
+        $session = $this->call('create_user_session', ['user' => $cpUser, 'service' => 'cpaneld']);
+        $loginUrl = (string) ($session['data']['url'] ?? '');
+        $token = (string) ($session['data']['cp_security_token'] ?? '');
+        $parts = parse_url($loginUrl);
+        if ($loginUrl === '' || $token === '' || empty($parts['host'])) {
+            throw new \RuntimeException('cPanel oturumu açılamadı (API token\'da create-user-session yetkisi gerekli).');
+        }
+        $base = ($parts['scheme'] ?? 'https') . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+        $cookieFile = tempnam(sys_get_temp_dir(), 'bpcookie');
+        $tmpFile = tempnam(sys_get_temp_dir(), 'bpimg');
+        file_put_contents($tmpFile, $bytes);
+        try {
+            $common = [
+                CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 120, CURLOPT_CONNECTTIMEOUT => 15,
+                CURLOPT_COOKIEJAR => $cookieFile, CURLOPT_COOKIEFILE => $cookieFile, CURLOPT_USERAGENT => 'BlogPanel/1.0',
+            ];
+            if (!$this->verifySsl) {
+                $common[CURLOPT_SSL_VERIFYPEER] = false;
+                $common[CURLOPT_SSL_VERIFYHOST] = 0;
+            }
+            // 1) Oturum çerezini al
+            $ch = curl_init($loginUrl);
+            curl_setopt_array($ch, $common + [CURLOPT_FOLLOWLOCATION => false]);
+            if (curl_exec($ch) === false) {
+                throw new \RuntimeException('cPanel oturumuna bağlanılamadı: ' . curl_error($ch));
+            }
+            curl_close($ch);
+
+            // 2) Dosyayı yükle (aynı adlı dosyanın üzerine yazar)
+            $ch = curl_init($base . $token . '/execute/Fileman/upload_files');
+            curl_setopt_array($ch, $common + [
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => ['dir' => $dir, 'overwrite' => '1', 'file-1' => new \CURLFile($tmpFile, $mime, $filename)],
+            ]);
+            $resp = curl_exec($ch);
+            $err = curl_error($ch);
+            $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            curl_close($ch);
+            if ($resp === false) {
+                throw new \RuntimeException('Görsel yüklenemedi: ' . $err);
+            }
+            $json = json_decode((string) $resp, true);
+            if (!is_array($json) || (int) ($json['status'] ?? 0) !== 1) {
+                $msg = is_array($json) ? implode('; ', (array) ($json['errors'] ?? [])) : "HTTP $status";
+                throw new \RuntimeException('Görsel yüklenemedi: ' . ($msg ?: 'bilinmeyen hata'));
+            }
+        } finally {
+            @unlink($tmpFile);
+            @unlink($cookieFile);
+        }
+    }
+
     private function call(string $function, array $params = [], string $method = 'GET'): array
     {
         $params['api.version'] = 1;

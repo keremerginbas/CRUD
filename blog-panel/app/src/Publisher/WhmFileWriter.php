@@ -38,6 +38,12 @@ final class WhmFileWriter implements FileWriter
         ]);
     }
 
+    public function writeBinary(string $dir, string $file, string $bytes, string $mime): void
+    {
+        // save_file_content metin içindir (karakter dönüşümü yapar); görseller cPanel oturumuyla yüklenir
+        $this->whm->uploadFile($this->cpUser, $dir, $file, $bytes, $mime);
+    }
+
     public function delete(string $dir, string $file): void
     {
         // cPanel çöp kutusuna (~/.trash) taşır: yanlışlıkla silinen dosya File Manager'dan geri alınabilir

@@ -83,6 +83,8 @@ final class Schema
                 tags TEXT NULL,
                 seo_score INT NOT NULL DEFAULT 0,
                 seo_report TEXT NULL,
+                image_url VARCHAR(512) NULL,
+                image_alt VARCHAR(255) NULL,
                 status VARCHAR(16) NOT NULL DEFAULT 'pending',
                 error TEXT NULL,
                 remote_id VARCHAR(64) NULL,
@@ -112,6 +114,14 @@ final class Schema
             : array_column($db->all('SHOW COLUMNS FROM domains'), 'Field');
         if ($cols && !in_array('list_page', $cols, true)) {
             $db->pdo->exec('ALTER TABLE domains ADD COLUMN list_page VARCHAR(255) NULL');
+        }
+        $postCols = $db->driver === 'sqlite'
+            ? array_column($db->all('PRAGMA table_info(posts)'), 'name')
+            : array_column($db->all('SHOW COLUMNS FROM posts'), 'Field');
+        foreach (['image_url' => 'VARCHAR(512)', 'image_alt' => 'VARCHAR(255)'] as $col => $type) {
+            if ($postCols && !in_array($col, $postCols, true)) {
+                $db->pdo->exec("ALTER TABLE posts ADD COLUMN $col $type NULL");
+            }
         }
     }
 

@@ -64,7 +64,10 @@ final class StaticRenderer
                 'keywords' => $post['keywords'],
                 'author' => ['@type' => 'Organization', 'name' => $domain['domain'], 'url' => $siteUrl],
                 'publisher' => ['@type' => 'Organization', 'name' => $domain['domain'], 'url' => $siteUrl],
-            ],
+            ] + (!empty($post['image_url']) ? ['image' => [
+                '@type' => 'ImageObject', 'url' => $post['image_url'], 'caption' => $post['image_alt'] ?? '',
+                'width' => (int) ($post['image_width'] ?? 0), 'height' => (int) ($post['image_height'] ?? 0),
+            ]] : []),
             [
                 '@type' => 'BreadcrumbList',
                 'itemListElement' => [
@@ -131,7 +134,15 @@ final class StaticRenderer
             'focus_keyword' => $post['focus_keyword'] ?? '',
             'keywords' => $post['keywords'] ?? '',
             'tags' => implode(', ', (array) ($post['tags'] ?? [])),
+            'image_url' => $post['image_url'] ?? '',
+            'image_alt' => $post['image_alt'] ?? $post['title'],
+            'image_width' => (string) ($post['image_width'] ?? ''),
+            'image_height' => (string) ($post['image_height'] ?? ''),
         ];
+        // {{#image}}…{{/image}} yalnızca görsel varsa, {{^image}}…{{/image}} yalnızca yoksa kalır
+        $hasImage = !empty($post['image_url']);
+        $template = (string) preg_replace_callback('~\{\{([#^])image\}\}(.*?)\{\{/image\}\}~s',
+            static fn ($m) => ($m[1] === '#') === $hasImage ? $m[2] : '', $template);
         $replace = [];
         foreach ($escaped as $key => $value) {
             $replace['{{' . $key . '}}'] = e((string) $value);

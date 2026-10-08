@@ -9,6 +9,9 @@ interface FileWriter
 
     public function write(string $dir, string $file, string $content): void;
 
+    /** Görsel gibi ikili dosyaları bozmadan yazar. */
+    public function writeBinary(string $dir, string $file, string $bytes, string $mime): void;
+
     /** Dosya içeriğini döner; dosya yoksa null. */
     public function read(string $dir, string $file): ?string;
 

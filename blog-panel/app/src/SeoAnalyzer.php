@@ -40,6 +40,7 @@ final class SeoAnalyzer
             ['Anahtar kelime yoğunluğu %0,5 - %2,5', $density >= 0.5 && $density <= 2.5, 6, "%$density ($kwCount kez)"],
             ['İç/dış bağlantı var', count($links[0]) >= 1, 4, count($links[0]) . ' bağlantı'],
             ['SSS (FAQ) bölümü', count($a['faq']) >= 3, 6, count($a['faq']) . ' soru'],
+            ['Öne çıkan görsel ve alt metni', !empty($a['has_image']), 6, !empty($a['has_image']) ? 'var' : 'yok'],
         ];
 
         $total = 0;

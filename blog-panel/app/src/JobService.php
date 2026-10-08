@@ -95,7 +95,16 @@ final class JobService
         $postId = null;
         try {
             $article = self::normalizeArticle((array) ($data['article'] ?? []), $domain);
-            $seo = SeoAnalyzer::analyze($article, max(300, App::settings()->int('min_word_count')));
+            $image = null;
+            if (!empty($data['image_error'])) {
+                Logger::error('image', "{$domain['domain']}: " . mb_substr((string) $data['image_error'], 0, 500));
+            }
+            try {
+                $image = PostImage::fromPayload($data['image'] ?? null, $article['slug'], $article['image_alt'] ?: $article['title']);
+            } catch (\Throwable $e) {
+                Logger::error('image', "{$domain['domain']}: görsel kullanılamadı, yazı görselsiz yayınlanacak. " . $e->getMessage());
+            }
+            $seo = SeoAnalyzer::analyze($article + ['has_image' => (bool) $image], max(300, App::settings()->int('min_word_count')));
 
             $postId = $db->insert('posts', [
                 'domain_id' => $domain['id'], 'job_id' => $job['id'], 'title' => $article['title'], 'slug' => $article['slug'],
@@ -112,7 +121,7 @@ final class JobService
             }
 
             $now = Database::now();
-            $post = $article + ['id' => $postId, 'published_at' => $now];
+            $post = $article + ['id' => $postId, 'published_at' => $now, 'image' => $image];
             $published = $db->all("SELECT title, slug, excerpt, published_at FROM posts WHERE domain_id = ? AND status = 'published' ORDER BY published_at DESC", [$domain['id']]);
             array_unshift($published, ['title' => $post['title'], 'slug' => $post['slug'], 'excerpt' => $post['excerpt'], 'published_at' => $now]);
 
@@ -120,6 +129,7 @@ final class JobService
 
             $db->update('posts', [
                 'status' => 'published', 'remote_id' => $result['remote_id'], 'remote_url' => $result['url'], 'published_at' => $now,
+                'image_url' => $result['image_url'] ?? null, 'image_alt' => !empty($result['image_url']) ? $image['alt'] : null,
             ], 'id = :id', ['id' => $postId]);
             $db->update('jobs', ['status' => 'published', 'completed_at' => $now, 'error' => null], 'id = :id', ['id' => $job['id']]);
             $db->update('domains', [
@@ -128,7 +138,7 @@ final class JobService
             ], 'id = :id', ['id' => $domain['id']]);
             Logger::info('publish', "{$domain['domain']}: \"{$post['title']}\" yayınlandı (SEO {$seo['score']}) {$result['url']}");
 
-            return ['ok' => true, 'job_id' => (int) $job['id'], 'post_id' => $postId, 'url' => $result['url'], 'seo_score' => $seo['score']];
+            return ['ok' => true, 'job_id' => (int) $job['id'], 'post_id' => $postId, 'url' => $result['url'], 'image_url' => $result['image_url'] ?? null, 'seo_score' => $seo['score']];
         } catch (\Throwable $e) {
             if ($postId) {
                 $db->update('posts', ['status' => 'failed', 'error' => $e->getMessage()], 'id = :id', ['id' => $postId]);
@@ -174,6 +184,7 @@ final class JobService
             'excerpt'          => self::cut($excerpt, 300),
             'content_html'     => $html,
             'faq'              => $faq,
+            'image_alt'        => trim(strip_tags((string) ($a['image_alt'] ?? ''))),
             'tags'             => array_slice(array_values(array_filter(array_map(static fn ($t) => trim(strip_tags((string) $t)), (array) ($a['tags'] ?? [])))), 0, 8),
         ];
     }

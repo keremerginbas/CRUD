@@ -212,5 +212,35 @@ check(!is_file("$tmp/docroot/blog/{$panelPosts[0]['slug']}.html") && is_file("$t
 $msg = BlogPanel\Publisher\PublisherFactory::for($d1)->unpublish($d1, $panelPosts[1], []);
 check(!is_file("$tmp/docroot/blog/index.html") && !is_file("$tmp/docroot/blog/.htaccess"), 'son yazı da kaldırılınca panel dosyaları temizlendi');
 
+// 12) Öne çıkan görsel: site şablonu + panel şablonu, geçersiz görsel yazıyı engellemez
+$im = imagecreatetruecolor(1536, 1024);
+imagefill($im, 0, 0, imagecolorallocate($im, 33, 92, 243));
+ob_start(); imagewebp($im, null, 80); $webp = (string) ob_get_clean();
+file_put_contents("$root3/blog/_sablon-yazi.html", (string) file_get_contents("$root3/blog/_sablon-yazi.html") . '{{#image}}<meta property="og:image" content="{{image_url}}"><img class="kapak" src="{{image_url}}" alt="{{image_alt}}" width="{{image_width}}" height="{{image_height}}">{{/image}}{{^image}}<meta property="og:image" content="/logo.png">{{/image}}');
+file_put_contents("$root3/blog/_sablon-kart.html", '<article class="article-card">{{#image}}<a class="article-art" href="/{{relative_url}}"><img src="{{image_url}}" alt="{{image_alt}}"></a>{{/image}}{{^image}}<div class="article-art"><span>{x}</span></div>{{/image}}<h3>{{title}}</h3><a href="/{{relative_url}}">oku</a></article>');
+$runJob = function (int $domainId, array $extra) use ($tmp, $article) {
+    App::db()->update('domains', ['next_post_at' => date('Y-m-d H:i:s', time() - 60), 'is_active' => 1], 'id = :id', ['id' => $domainId]);
+    Scheduler::run();
+    $sent = json_decode((string) file_get_contents("$tmp/n8n-last.json"), true);
+    return JobService::handleCallback(['job_id' => $sent['body']['job_id'], 'token' => $sent['body']['token'], 'status' => 'success'] + $extra);
+};
+App::db()->update('domains', ['is_active' => 0], 'id > 0');
+$res = $runJob($id3, ['article' => ['title' => 'Görselli yazı', 'slug' => 'gorselli-yazi', 'image_alt' => 'yedek alt'] + $article, 'image' => ['b64' => base64_encode($webp), 'alt' => 'Otel nevresim takımı seçimi için kumaş örnekleri']]);
+check($res['ok'] && $res['image_url'] === 'https://site3.com/blog/img/gorselli-yazi.webp' && file_get_contents("$root3/blog/img/gorselli-yazi.webp") === $webp, 'görsel bozulmadan blog/img/gorselli-yazi.webp olarak yüklendi');
+$page = (string) file_get_contents("$root3/blog/gorselli-yazi.html");
+check(str_contains($page, '<img class="kapak" src="https://site3.com/blog/img/gorselli-yazi.webp" alt="Otel nevresim takımı seçimi için kumaş örnekleri" width="1536" height="1024">') && !str_contains($page, '/logo.png') && str_contains($page, '"image":{"@type":"ImageObject"'), 'sayfada kapak (alt/width/height), og:image ve JSON-LD görseli var');
+check(str_contains((string) file_get_contents("$root3/rehber.html"), '<a class="article-art" href="/blog/gorselli-yazi.html"><img src="https://site3.com/blog/img/gorselli-yazi.webp"'), 'rehber.html kartı görselli');
+$row = App::db()->one("SELECT * FROM posts WHERE slug = 'gorselli-yazi'");
+check($row['image_alt'] === 'Otel nevresim takımı seçimi için kumaş örnekleri' && str_contains((string) $row['seo_report'], 'Öne çıkan görsel'), 'görsel adresi/alt metni kaydedildi, SEO kontrolüne girdi');
+$res = $runJob($id3, ['article' => ['title' => 'Bozuk görselli yazı', 'slug' => 'bozuk-gorsel'] + $article, 'image' => ['b64' => base64_encode('bu bir resim değil'), 'alt' => 'x']]);
+$page = (string) file_get_contents("$root3/blog/bozuk-gorsel.html");
+check($res['ok'] && empty($res['image_url']) && str_contains($page, '/logo.png') && !str_contains($page, '{{'), 'geçersiz görsel yazıyı engellemedi; görselsiz şablon bölümü kullanıldı');
+$d3 = DomainService::find($id3);
+BlogPanel\Publisher\PublisherFactory::for($d3)->unpublish($d3, $row, []);
+check(!is_file("$root3/blog/img/gorselli-yazi.webp") && !is_file("$root3/blog/gorselli-yazi.html"), 'siteden kaldırınca görsel de silindi');
+$res = $runJob($id, ['article' => ['title' => 'Panel şablonlu görsel', 'slug' => 'panel-gorsel'] + $article, 'image' => ['b64' => base64_encode($webp), 'alt' => 'Kapak alt metni']]);
+$page = (string) file_get_contents("$tmp/docroot/blog/panel-gorsel.html");
+check($res['ok'] && is_file("$tmp/docroot/blog/img/panel-gorsel.webp") && str_contains($page, 'property="og:image" content="https://ornek-tekstil.com/blog/img/panel-gorsel.webp"') && str_contains($page, 'alt="Kapak alt metni" width="1536" height="1024"'), 'panel şablonunda da kapak görseli ve og:image var');
+
 proc_terminate($server);
 echo "\nTüm testler başarılı. (geçici klasör: $tmp)\n";

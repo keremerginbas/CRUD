@@ -53,6 +53,7 @@ final class StaticPublisher implements PublisherInterface
         $this->writer->ensureDir($docroot, $dirName);
 
         $postTemplate = $this->writer->read($dir, self::POST_TEMPLATE);
+        $post = $this->uploadImage($domain, $post, $dir);
         if ($postTemplate !== null) {
             return $this->publishWithSiteTemplate($domain, $post, $publishedPosts, $docroot, $dir, $postTemplate);
         }
@@ -64,7 +65,27 @@ final class StaticPublisher implements PublisherInterface
         $this->writer->write($dir, 'feed.xml', StaticRenderer::feed($domain, $publishedPosts));
         $this->writer->write($dir, '.htaccess', StaticRenderer::htaccess());
 
-        return ['remote_id' => $post['slug'], 'url' => self::postUrl($domain, $post['slug'])];
+        return ['remote_id' => $post['slug'], 'url' => self::postUrl($domain, $post['slug']), 'image_url' => $post['image_url'] ?? null];
+    }
+
+    /** Öne çıkan görseli {klasör}/img/{slug}.webp olarak yükler; başarısızsa yazı görselsiz devam eder. */
+    private function uploadImage(array $domain, array $post, string $dir): array
+    {
+        $image = $post['image'] ?? null;
+        if (!$image) {
+            return $post;
+        }
+        try {
+            $this->writer->ensureDir($dir, 'img');
+            $this->writer->writeBinary($dir . '/img', $image['filename'], $image['bytes'], $image['mime']);
+            $post['image_url'] = self::blogUrl($domain) . 'img/' . $image['filename'];
+            $post['image_alt'] = $image['alt'];
+            $post['image_width'] = $image['width'];
+            $post['image_height'] = $image['height'];
+        } catch (\Throwable $e) {
+            \BlogPanel\Logger::error('image', "{$domain['domain']}: görsel yüklenemedi, yazı görselsiz yayınlanıyor. " . $e->getMessage());
+        }
+        return $post;
     }
 
     public function test(array $domain): string
@@ -127,7 +148,7 @@ final class StaticPublisher implements PublisherInterface
         $this->appendToSitemap($docroot, $url, $post);
         $this->appendToRss($docroot, $url, $post);
 
-        return ['remote_id' => $post['slug'], 'url' => $url];
+        return ['remote_id' => $post['slug'], 'url' => $url, 'image_url' => $post['image_url'] ?? null];
     }
 
     public function unpublish(array $domain, array $post, array $remainingPosts): string
@@ -153,6 +174,12 @@ final class StaticPublisher implements PublisherInterface
             $notes[] = "$dirName/$file silindi";
         } else {
             $notes[] = "$dirName/$file zaten yoktu";
+        }
+
+        $imagePath = (string) parse_url((string) ($post['image_url'] ?? ''), PHP_URL_PATH);
+        if (preg_match('~^/' . preg_quote($dirName, '~') . '/img/([a-z0-9_.-]+\.(?:webp|png|jpe?g))$~i', $imagePath, $im)) {
+            $this->writer->delete("$dir/img", $im[1]);
+            $notes[] = "görsel silindi";
         }
 
         if ($siteTemplate) {

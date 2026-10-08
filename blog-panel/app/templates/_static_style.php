@@ -6,7 +6,7 @@
 .crumbs{font-size:14px;color:var(--muted)}.crumbs a{color:inherit}
 h1{font-size:2.1rem;line-height:1.25;margin:.4em 0 .2em}h2{font-size:1.5rem;margin-top:2em;line-height:1.3}h3{font-size:1.2rem;margin-top:1.6em}
 .meta{color:var(--muted);font-size:15px}.lead{font-size:1.1rem;color:var(--muted)}
-article img{max-width:100%;height:auto;border-radius:8px}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}td,th{border:1px solid var(--line);padding:8px 10px}
+article img{max-width:100%;height:auto;border-radius:8px}.cover{margin:16px 0 8px}.cover img{width:100%;aspect-ratio:3/2;object-fit:cover}table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}td,th{border:1px solid var(--line);padding:8px 10px}
 blockquote{margin:1.5em 0;padding:.5em 1em;border-left:4px solid var(--accent);background:var(--soft)}
 .faq details{border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:10px 0;background:var(--soft)}.faq summary{cursor:pointer;font-weight:600}
 .related{margin-top:48px;padding-top:24px;border-top:1px solid var(--line)}.related li{margin:6px 0}

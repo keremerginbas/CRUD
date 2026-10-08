@@ -28,6 +28,13 @@ $jsonLd = BlogPanel\Publisher\StaticRenderer::jsonLd($domain, $post, $url);
 <meta property="og:locale" content="<?= e($lang === 'tr' ? 'tr_TR' : $lang) ?>">
 <meta property="article:published_time" content="<?= e($published) ?>">
 <meta name="twitter:card" content="summary_large_image">
+<?php if (!empty($post['image_url'])): ?>
+<meta property="og:image" content="<?= e($post['image_url']) ?>">
+<meta property="og:image:width" content="<?= (int) $post['image_width'] ?>">
+<meta property="og:image:height" content="<?= (int) $post['image_height'] ?>">
+<meta property="og:image:alt" content="<?= e($post['image_alt']) ?>">
+<meta name="twitter:image" content="<?= e($post['image_url']) ?>">
+<?php endif; ?>
 <script type="application/ld+json"><?= $jsonLd ?></script>
 <?php require __DIR__ . '/_static_style.php'; ?>
 <?= $domain['static_extra_head'] ?? '' ?>
@@ -38,6 +45,9 @@ $jsonLd = BlogPanel\Publisher\StaticRenderer::jsonLd($domain, $post, $url);
   <article>
     <h1><?= e($post['title']) ?></h1>
     <p class="meta"><time datetime="<?= e($published) ?>"><?= e(date('d.m.Y', strtotime($published))) ?></time></p>
+    <?php if (!empty($post['image_url'])): ?>
+    <figure class="cover"><img src="<?= e($post['image_url']) ?>" alt="<?= e($post['image_alt']) ?>" width="<?= (int) $post['image_width'] ?>" height="<?= (int) $post['image_height'] ?>" fetchpriority="high" decoding="async"></figure>
+    <?php endif; ?>
     <?php if (!empty($post['excerpt'])): ?><p class="lead"><?= e($post['excerpt']) ?></p><?php endif; ?>
     <?= $post['content_html'] ?>
     <?php if (!empty($post['faq'])): ?>

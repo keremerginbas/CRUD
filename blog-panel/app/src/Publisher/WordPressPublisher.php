@@ -31,6 +31,10 @@ final class WordPressPublisher implements PublisherInterface
         if (!empty($domain['wp_category_id'])) {
             $body['categories'] = [(int) $domain['wp_category_id']];
         }
+        $media = !empty($post['image']) ? $this->uploadMedia($domain, $post) : null;
+        if ($media) {
+            $body['featured_media'] = $media['id'];
+        }
         $tagIds = $this->ensureTags($domain, $post['tags']);
         if ($tagIds) {
             $body['tags'] = $tagIds;
@@ -44,7 +48,30 @@ final class WordPressPublisher implements PublisherInterface
         if ($r['status'] < 200 || $r['status'] >= 300 || empty($r['json']['id'])) {
             throw new \RuntimeException("WordPress yazı oluşturulamadı (HTTP {$r['status']}): " . mb_substr($r['json']['message'] ?? $r['body'], 0, 300));
         }
-        return ['remote_id' => (string) $r['json']['id'], 'url' => (string) ($r['json']['link'] ?? '')];
+        return ['remote_id' => (string) $r['json']['id'], 'url' => (string) ($r['json']['link'] ?? ''), 'image_url' => $media['url'] ?? null];
+    }
+
+    /** Görseli medya kütüphanesine yükler, alt metnini yazar; başarısızsa yazı görselsiz yayınlanır. */
+    private function uploadMedia(array $domain, array $post): ?array
+    {
+        $image = $post['image'];
+        try {
+            $base = rtrim($domain['wp_url'] ?: 'https://' . $domain['domain'], '/');
+            $auth = ['basic_auth' => $domain['wp_user'] . ':' . str_replace(' ', '', App::crypto()->decrypt($domain['wp_app_password']))];
+            $r = Http::request('POST', $base . '/wp-json/wp/v2/media', [
+                'Content-Type' => $image['mime'],
+                'Content-Disposition' => 'attachment; filename="' . $image['filename'] . '"',
+            ], $image['bytes'], 120, $auth);
+            if (empty($r['json']['id'])) {
+                throw new \RuntimeException("HTTP {$r['status']}: " . mb_substr($r['json']['message'] ?? $r['body'], 0, 200));
+            }
+            $id = (int) $r['json']['id'];
+            $this->api($domain, 'POST', 'media/' . $id, ['alt_text' => $image['alt'], 'title' => $post['title']]);
+            return ['id' => $id, 'url' => (string) ($r['json']['source_url'] ?? '')];
+        } catch (\Throwable $e) {
+            \BlogPanel\Logger::error('image', "{$domain['domain']}: WordPress görseli yüklenemedi, yazı görselsiz yayınlanıyor. " . $e->getMessage());
+            return null;
+        }
     }
 
     public function unpublish(array $domain, array $post, array $remainingPosts): string
