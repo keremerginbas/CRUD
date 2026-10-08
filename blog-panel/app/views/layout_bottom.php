@@ -1,6 +1,6 @@
 </main>
 </div>
-<div class="toast-stack" data-toasts></div>
-<script src="assets/js/panel.js?v=2"></script>
+<div class="toast-stack" data-toasts aria-live="polite"></div>
+<?php require __DIR__ . '/scripts.php'; ?>
 </body>
 </html>

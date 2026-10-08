@@ -120,6 +120,18 @@ Ağ gerektirmeyen uçtan uca test (SQLite + sahte n8n + yerel statik yayın):
 php tests/smoke_test.php
 ```
 
+## Arayüz
+
+Panel koyu tema, indigo vurgu ve shadcn/ui tasarım belirteçleriyle Tailwind CSS'ten derlenir. Animasyonlar Motion (framer-motion'ın JS sürümü) ve GSAP + ScrollTrigger (paralaks), ikonlar Lucide, kutlama efekti canvas-confetti ile yapılır. Hepsi `assets/` altında hazır gelir; sunucuda Node gerekmez ve dışarıdan dosya çekilmez. Hareket azaltma tercihi açık olan cihazlarda animasyonlar kapanır.
+
+Tasarımı değiştirmek için:
+```
+cd ui
+npm install
+npm run build    # assets/css/app.css, assets/vendor/*, app/icons.php üretir
+```
+Kaynak stil `ui/src/app.css`, renk ve yazı tipi ayarları `ui/tailwind.config.js` içindedir. PHP'de yeni bir Lucide ikonu kullanmak için `icon('ikon-adi')` yazıp `npm run build` çalıştırın.
+
 ## Dosya yapısı
 
 ```
@@ -129,6 +141,9 @@ api/callback.php      n8n → panel sonuç teslimi
 cron/run.php          Zamanlayıcı
 app/src/              Servisler (WhmClient, JobService, Scheduler, SeoAnalyzer, Publisher/*)
 app/templates/        Statik blog sayfa şablonları
+app/views/            Panel yerleşimi (kenar menü, üst çubuk, script'ler)
+assets/               Derlenmiş CSS, panel.js ve kütüphaneler (vendor/)
+ui/                   Arayüz kaynakları ve derleme araçları (sunucuya yüklenmesi gerekmez)
 n8n/                  İçe aktarılacak n8n workflow'u
 wordpress/            WordPress SEO meta mu-plugin
 ```

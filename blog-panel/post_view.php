@@ -58,24 +58,25 @@ $pageTitle = $post['title'];
 $active = 'posts';
 require __DIR__ . '/app/views/layout_top.php';
 ?>
-<div class="page-head">
+<div class="page-head" data-head>
   <div>
+    <div class="eyebrow"><a href="posts.php">Yazılar</a></div>
     <h1><?= e($post['title']) ?></h1>
     <p class="muted"><?= e($post['domain']) ?> · <?= status_badge($post['status']) ?> · <?= e(fmt_date($post['published_at'] ?: $post['created_at'])) ?></p>
   </div>
   <div class="actions">
-    <?php if ($post['remote_url']): ?><a class="btn" href="<?= e($post['remote_url']) ?>" target="_blank" rel="noopener">Sitede görüntüle ↗</a><?php endif; ?>
+    <?php if ($post['remote_url']): ?><a class="btn" href="<?= e($post['remote_url']) ?>" target="_blank" rel="noopener"><?= icon('external-link') ?>Sitede görüntüle</a><?php endif; ?>
     <form method="post" class="inline-form">
       <?= csrf_field() ?>
       <?php if ($post['status'] === 'published'): ?>
-        <button class="btn" type="submit" name="do" value="rebuild" data-confirm-submit="Sayfa ve liste kartı güncel şablonla yeniden yazılsın mı? İçerik ve görsel değişmez.">Sayfayı yeniden oluştur</button>
-        <button class="btn btn-danger" type="submit" name="do" value="unpublish" data-confirm-submit="Yazı siteden kaldırılsın mı? Dosyası silinir, liste/sitemap/RSS kayıtları temizlenir ve panel kaydı silinir.">Siteden kaldır</button>
+        <button class="btn" type="submit" name="do" value="rebuild" data-confirm-submit="Sayfa ve liste kartı güncel şablonla yeniden yazılsın mı? İçerik ve görsel değişmez."><?= icon('refresh-cw') ?>Sayfayı yeniden oluştur</button>
+        <button class="btn btn-danger" type="submit" name="do" value="unpublish" data-danger data-confirm-submit="Yazı siteden kaldırılsın mı? Dosyası silinir, liste/sitemap/RSS kayıtları temizlenir ve panel kaydı silinir."><?= icon('trash-2') ?>Siteden kaldır</button>
       <?php endif; ?>
-      <button class="btn" type="submit" name="do" value="delete" data-confirm-submit="Yalnızca panel kaydı silinsin mi? Sitedeki dosya olduğu gibi kalır.">Yalnızca kaydı sil</button>
+      <button class="btn" type="submit" name="do" value="delete" data-confirm-submit="Yalnızca panel kaydı silinsin mi? Sitedeki dosya olduğu gibi kalır."><?= icon('x') ?>Yalnızca kaydı sil</button>
     </form>
   </div>
 </div>
-<?php if ($post['error']): ?><div class="alert alert-err"><?= e($post['error']) ?></div><?php endif; ?>
+<?php if ($post['error']): ?><div class="alert alert-err"><?= icon('circle-x') ?><?= e($post['error']) ?></div><?php endif; ?>
 
 <div class="grid-side gap">
   <section class="card">
@@ -97,7 +98,7 @@ require __DIR__ . '/app/views/layout_top.php';
     </article>
   </section>
   <aside class="card">
-    <h2>SEO puanı <?= seo_badge((int) $post['seo_score']) ?></h2>
+    <h2><?= icon('gauge') ?>SEO puanı <?= seo_badge((int) $post['seo_score']) ?></h2>
     <p class="muted"><?= (int) $seo['word_count'] ?> kelime · Odak: <strong><?= e($post['focus_keyword']) ?></strong></p>
     <ul class="checks">
       <?php foreach ($seo['checks'] as $c): ?>

@@ -32,11 +32,15 @@ $pageTitle = 'Domainler';
 $active = 'domains';
 require __DIR__ . '/app/views/layout_top.php';
 ?>
-<div class="page-head">
-  <h1>Domainler <span class="muted">(<?= count($domains) ?>)</span></h1>
+<div class="page-head" data-head>
+  <div>
+    <div class="eyebrow">Yayın hedefleri</div>
+    <h1>Domainler <span class="muted"><?= count($domains) ?></span></h1>
+    <p>Otomatik paylaşımı açın, sıklığı ve içerik stratejisini domain bazında yönetin.</p>
+  </div>
   <div class="actions">
-    <a class="btn" href="domain_edit.php">+ Elle ekle</a>
-    <button class="btn btn-primary" data-action="sync_whm">WHM'den senkronize et</button>
+    <a class="btn" href="domain_edit.php"><?= icon('plus') ?>Elle ekle</a>
+    <button class="btn btn-primary" data-action="sync_whm"><?= icon('refresh-cw') ?>WHM'den senkronize et</button>
   </div>
 </div>
 
@@ -47,7 +51,7 @@ require __DIR__ . '/app/views/layout_top.php';
     <option value="active" <?= $filter === 'active' ? 'selected' : '' ?>>Aktif</option>
     <option value="passive" <?= $filter === 'passive' ? 'selected' : '' ?>>Pasif</option>
   </select>
-  <button class="btn" type="submit">Filtrele</button>
+  <button class="btn" type="submit"><?= icon('search') ?>Filtrele</button>
 </form>
 
 <?php if (!$domains): ?>
@@ -72,14 +76,14 @@ require __DIR__ . '/app/views/layout_top.php';
         </label>
         <?= $d['last_job_status'] ? status_badge($d['last_job_status']) : '' ?>
       </td>
-      <td><?= e(explode(' (', PublisherFactory::METHODS[$d['publish_method']] ?? $d['publish_method'])[0]) ?></td>
+      <td class="nowrap"><?= e(explode(' (', PublisherFactory::METHODS[$d['publish_method']] ?? $d['publish_method'])[0]) ?></td>
       <td class="nowrap"><?= (int) $d['post_interval_days'] ?> günde 1</td>
       <td><?= $d['is_active'] ? e(fmt_date($d['next_post_at'])) : '<span class="muted">—</span>' ?></td>
       <td><?= e(fmt_date($d['last_post_at'])) ?></td>
       <td><?= (int) $d['post_count'] ?></td>
       <td class="right nowrap">
-        <button class="btn btn-sm" data-action="trigger" data-id="<?= (int) $d['id'] ?>" data-confirm="<?= e($d['domain']) ?> için şimdi yazı üretilsin mi?">Şimdi paylaş</button>
-        <a class="btn btn-sm btn-ghost" href="domain_edit.php?id=<?= (int) $d['id'] ?>">Düzenle</a>
+        <button class="btn btn-sm" data-action="trigger" data-id="<?= (int) $d['id'] ?>" data-confirm="<?= e($d['domain']) ?> için şimdi yazı üretilsin mi?"><?= icon('send') ?>Şimdi paylaş</button>
+        <a class="btn btn-sm btn-ghost" href="domain_edit.php?id=<?= (int) $d['id'] ?>"><?= icon('pencil') ?>Düzenle</a>
       </td>
     </tr>
   <?php endforeach; ?>

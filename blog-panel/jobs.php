@@ -15,7 +15,13 @@ $pageTitle = 'İşler & Kayıtlar';
 $active = 'jobs';
 require __DIR__ . '/app/views/layout_top.php';
 ?>
-<div class="page-head"><h1>İşler</h1></div>
+<div class="page-head" data-head>
+  <div>
+    <div class="eyebrow">Sistem</div>
+    <h1>İşler &amp; Kayıtlar</h1>
+    <p>Her yazı üretim işinin durumu ve panelin ayrıntılı kayıtları.</p>
+  </div>
+</div>
 <div class="card table-wrap">
 <table>
   <thead><tr><th>#</th><th>Domain</th><th>Tür</th><th>Durum</th><th>Oluşturma</th><th>Bitiş</th><th>Hata</th></tr></thead>
@@ -36,7 +42,7 @@ require __DIR__ . '/app/views/layout_top.php';
 </table>
 </div>
 
-<h2>Sistem kayıtları</h2>
+<h2 class="section-title"><?= icon('scroll-text') ?>Sistem kayıtları</h2>
 <div class="card table-wrap">
 <table class="compact">
   <tbody>

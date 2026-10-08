@@ -24,7 +24,13 @@ $pageTitle = 'Yazılar';
 $active = 'posts';
 require __DIR__ . '/app/views/layout_top.php';
 ?>
-<div class="page-head"><h1>Yazılar <span class="muted">(<?= $total ?>)</span></h1></div>
+<div class="page-head" data-head>
+  <div>
+    <div class="eyebrow">İçerik</div>
+    <h1>Yazılar <span class="muted"><?= $total ?></span></h1>
+    <p>AI'nın ürettiği ve sitelere yayınlanan tüm yazılar, SEO puanlarıyla.</p>
+  </div>
+</div>
 <form class="filters" method="get">
   <select name="domain" onchange="this.form.submit()">
     <option value="0">Tüm domainler</option>
@@ -38,7 +44,7 @@ require __DIR__ . '/app/views/layout_top.php';
   <?php foreach ($posts as $p): ?>
     <tr>
       <td><a href="post_view.php?id=<?= (int) $p['id'] ?>"><?= e($p['title']) ?></a>
-        <?php if ($p['remote_url']): ?><div class="sub"><a href="<?= e($p['remote_url']) ?>" target="_blank" rel="noopener">Sitede görüntüle ↗</a></div><?php endif; ?></td>
+        <?php if ($p['remote_url']): ?><div class="sub"><a href="<?= e($p['remote_url']) ?>" target="_blank" rel="noopener">Sitede görüntüle <?= icon('arrow-up-right') ?></a></div><?php endif; ?></td>
       <td><?= e($p['domain']) ?></td>
       <td><?= e($p['focus_keyword']) ?></td>
       <td><?= seo_badge((int) $p['seo_score']) ?></td>

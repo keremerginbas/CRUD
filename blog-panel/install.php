@@ -131,11 +131,21 @@ if (is_file($configFile)) {
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Blog Panel Kurulum</title>
-<link rel="stylesheet" href="assets/css/panel.css">
+<meta name="theme-color" content="#09090b">
+<link rel="stylesheet" href="assets/css/app.css?v=3">
 </head>
 <body class="auth-page">
+<div class="backdrop" aria-hidden="true">
+  <div class="bg-grid" data-parallax="0.12"></div>
+  <div class="blob blob-1" data-mouse="-40"></div>
+  <div class="blob blob-2" data-mouse="30"></div>
+  <div class="blob blob-3" data-mouse="-20"></div>
+  <div class="noise"></div>
+</div>
 <main class="auth-card wide">
-  <h1>Blog Panel Kurulumu</h1>
+  <div class="brand"><span class="logo"><?= icon('sparkles') ?></span><span>Blog Panel<small>Otomatik SEO yayın</small></span></div>
+  <h1>Kurulum</h1>
+  <p class="auth-sub">Veritabanını ve yönetici hesabını oluşturun.</p>
   <?php if ($done): ?>
     <div class="alert alert-ok">Kurulum tamamlandı. Güvenlik için <code>install.php</code> dosyasını silin.</div>
     <p><a class="btn btn-primary" href="login.php">Giriş yap</a></p>

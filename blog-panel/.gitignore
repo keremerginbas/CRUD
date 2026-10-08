@@ -1,3 +1,4 @@
 config.php
 storage/*
 !storage/.htaccess
+ui/node_modules/

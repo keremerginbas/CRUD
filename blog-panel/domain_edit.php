@@ -111,12 +111,15 @@ $pageTitle = $id ? $d['domain'] : 'Yeni domain';
 $active = 'domains';
 require __DIR__ . '/app/views/layout_top.php';
 ?>
-<div class="page-head">
-  <h1><?= e($pageTitle) ?></h1>
+<div class="page-head" data-head>
+  <div>
+    <div class="eyebrow"><a href="domains.php">Domainler</a></div>
+    <h1><?= e($pageTitle) ?></h1>
+  </div>
   <?php if ($id): ?>
   <div class="actions">
-    <button class="btn" data-action="test_publisher" data-id="<?= $id ?>">Yayın bağlantısını test et</button>
-    <button class="btn btn-primary" data-action="trigger" data-id="<?= $id ?>" data-confirm="Şimdi yazı üretilsin mi?">Şimdi paylaş</button>
+    <button class="btn" data-action="test_publisher" data-id="<?= $id ?>"><?= icon('plug-zap') ?>Yayın bağlantısını test et</button>
+    <button class="btn btn-primary" data-action="trigger" data-id="<?= $id ?>" data-confirm="Şimdi yazı üretilsin mi?"><?= icon('send') ?>Şimdi paylaş</button>
   </div>
   <?php endif; ?>
 </div>
@@ -127,7 +130,7 @@ require __DIR__ . '/app/views/layout_top.php';
   <?= csrf_field() ?>
   <div class="grid-2 gap">
     <section class="card">
-      <h2>Genel</h2>
+      <h2><?= icon('sliders-horizontal') ?>Genel</h2>
       <label>Domain <input name="domain" value="<?= e($d['domain']) ?>" required placeholder="ornek.com"></label>
       <label class="check"><input type="checkbox" name="is_active" value="1" <?= $d['is_active'] ? 'checked' : '' ?>> Otomatik paylaşım aktif</label>
       <div class="grid-2">
@@ -139,7 +142,7 @@ require __DIR__ . '/app/views/layout_top.php';
         <small>Boş bırakılırsa aktifleştirmede otomatik hesaplanır. Son paylaşım: <?= e(fmt_date($d['last_post_at'])) ?></small>
       </label>
 
-      <h2>İçerik stratejisi (AI'ya gönderilir)</h2>
+      <h2><?= icon('wand-sparkles') ?>İçerik stratejisi <span class="muted">· AI'ya gönderilir</span></h2>
       <label>Sektör / konu <input name="niche" value="<?= e($d['niche']) ?>" placeholder="ör. İstanbul'da ev tekstili toptan satış"></label>
       <label>Hedef kitle <input name="target_audience" value="<?= e($d['target_audience']) ?>" placeholder="ör. butik sahipleri, KOBİ'ler"></label>
       <div class="grid-2">
@@ -161,7 +164,7 @@ require __DIR__ . '/app/views/layout_top.php';
     </section>
 
     <section class="card">
-      <h2>Yayın yöntemi</h2>
+      <h2><?= icon('upload') ?>Yayın yöntemi</h2>
       <label>Yöntem
         <select name="publish_method" data-method-select>
           <?php foreach (PublisherFactory::METHODS as $key => $label): ?>
@@ -177,7 +180,7 @@ require __DIR__ . '/app/views/layout_top.php';
         </div>
         <label>Docroot <input name="docroot" value="<?= e($d['docroot']) ?>" placeholder="/home/kullanici/public_html"></label>
         <small>Yazılar <code>https://<?= e($d['domain'] ?: 'domain.com') ?>/<?= e($d['static_dir'] ?: 'blog') ?>/yazi-basligi</code> adresinde yayınlanır; index, sitemap.xml ve feed.xml otomatik güncellenir.
-          Klasörde <code>_sablon-yazi.html</code> varsa yazılar <strong>sitenin kendi tasarımıyla</strong> <code>.../yazi-basligi.html</code> olarak yazılır (bkz. README).</small>
+          Klasörde <code>_sablon-yazi.html</code> varsa yazılar <strong>sitenin kendi tasarımıyla</strong> <code>.../yazi-basligi.html</code> olarak yazılır; şablonda <code>&lt;!-- blog-panel:klasor --&gt;</code> varsa <code>.../yazi-basligi/</code> klasörüne (bkz. README).</small>
         <label>Liste sayfası (site şablonu için, isteğe bağlı)
           <input name="list_page" value="<?= e((string) ($d['list_page'] ?? '')) ?>" placeholder="rehber.html">
           <small>Yeni yazı kartı bu sayfadaki <code>&lt;!-- blog-panel:liste --&gt;</code> satırının altına eklenir.</small>
@@ -207,7 +210,7 @@ require __DIR__ . '/app/views/layout_top.php';
       </div>
 
       <?php if ($posts): ?>
-      <h2>Son yazılar</h2>
+      <h2><?= icon('newspaper') ?>Son yazılar</h2>
       <ul class="plain">
         <?php foreach ($posts as $p): ?>
           <li><?= status_badge($p['status']) ?> <?= seo_badge((int) $p['seo_score']) ?> <a href="post_view.php?id=<?= (int) $p['id'] ?>"><?= e($p['title']) ?></a></li>
@@ -218,9 +221,9 @@ require __DIR__ . '/app/views/layout_top.php';
   </div>
 
   <div class="form-actions">
-    <button class="btn btn-primary" type="submit">Kaydet</button>
+    <button class="btn btn-primary" type="submit"><?= icon('save') ?>Kaydet</button>
     <?php if ($id): ?>
-      <button class="btn btn-danger" type="submit" name="do" value="delete" data-confirm-submit="Domain panelden silinsin mi? Sitedeki yazılar silinmez.">Panelden sil</button>
+      <button class="btn btn-danger" type="submit" name="do" value="delete" data-confirm-submit="Domain panelden silinsin mi? Sitedeki yazılar silinmez."><?= icon('trash-2') ?>Panelden sil</button>
     <?php endif; ?>
   </div>
 </form>

@@ -48,37 +48,43 @@ $pageTitle = 'Ayarlar';
 $active = 'settings';
 require __DIR__ . '/app/views/layout_top.php';
 ?>
-<div class="page-head"><h1>Ayarlar</h1></div>
+<div class="page-head" data-head>
+  <div>
+    <div class="eyebrow">Yapılandırma</div>
+    <h1>Ayarlar</h1>
+    <p>WHM ve n8n bağlantıları, zamanlama ve içerik kalitesi kuralları.</p>
+  </div>
+</div>
 <form method="post" class="form" autocomplete="off">
   <?= csrf_field() ?>
   <div class="grid-2 gap">
     <section class="card">
-      <h2>WHM bağlantısı</h2>
+      <h2><?= icon('server') ?>WHM bağlantısı</h2>
       <label>WHM adresi <input name="whm_host" value="<?= e($s->get('whm_host')) ?>" placeholder="https://sunucu.alanadiniz.com:2087"></label>
       <div class="grid-2">
         <label>Kullanıcı <input name="whm_user" value="<?= e($s->get('whm_user')) ?>"></label>
         <label>API token <input name="whm_token" type="password" placeholder="<?= $secretSet('whm_token') ? '•••••• (kayıtlı)' : 'WHM > Manage API Tokens' ?>" autocomplete="new-password"></label>
       </div>
       <label class="check"><input type="checkbox" name="whm_verify_ssl" value="1" <?= $s->get('whm_verify_ssl') === '1' ? 'checked' : '' ?>> SSL sertifikasını doğrula</label>
-      <button class="btn" type="button" data-action="test_whm">WHM bağlantısını test et</button>
+      <button class="btn" type="button" data-action="test_whm"><?= icon('plug-zap') ?>WHM bağlantısını test et</button>
 
-      <h2>n8n</h2>
+      <h2><?= icon('workflow') ?>n8n</h2>
       <label>Webhook adresi (Production URL) <input name="n8n_webhook_url" value="<?= e($s->get('n8n_webhook_url')) ?>" placeholder="https://n8n.alanadiniz.com/webhook/blog-panel-generate"></label>
       <label>Gizli anahtar (X-Blog-Panel-Secret)
         <div class="input-group">
           <input name="n8n_secret" type="password" data-secret placeholder="<?= $secretSet('n8n_secret') ? '•••••• (kayıtlı)' : '' ?>" autocomplete="new-password">
-          <button class="btn" type="button" data-generate-secret>Üret</button>
-          <button class="btn" type="button" data-action="reveal_secret">Göster</button>
+          <button class="btn" type="button" data-generate-secret><?= icon('key-round') ?>Üret</button>
+          <button class="btn" type="button" data-action="reveal_secret"><?= icon('eye') ?>Göster</button>
         </div>
         <small>n8n'de "Header Auth" credential'ına aynı değeri girin.</small>
       </label>
       <label>Panel adresi (callback için) <input name="panel_base_url" value="<?= e($s->get('panel_base_url')) ?>" placeholder="https://panel.alanadiniz.com"></label>
       <small>n8n sonuçları <code><?= e(rtrim($s->get('panel_base_url'), '/') ?: 'https://panel...') ?>/api/callback.php</code> adresine gönderir.</small>
-      <p><button class="btn" type="button" data-action="test_n8n">n8n bağlantısını test et</button></p>
+      <p><button class="btn" type="button" data-action="test_n8n"><?= icon('plug-zap') ?>n8n bağlantısını test et</button></p>
     </section>
 
     <section class="card">
-      <h2>Zamanlama</h2>
+      <h2><?= icon('calendar-clock') ?>Zamanlama</h2>
       <div class="grid-2">
         <label>Varsayılan sıklık (gün) <input type="number" min="1" name="default_interval_days" value="<?= e($s->get('default_interval_days')) ?>"></label>
         <label>Varsayılan yayın saati <input type="number" min="0" max="23" name="default_publish_hour" value="<?= e($s->get('default_publish_hour')) ?>"></label>
@@ -88,27 +94,27 @@ require __DIR__ . '/app/views/layout_top.php';
         <label>Üst üste hata sınırı <input type="number" min="1" name="max_consecutive_fails" value="<?= e($s->get('max_consecutive_fails')) ?>"></label>
       </div>
 
-      <h2>İçerik kalitesi</h2>
+      <h2><?= icon('badge-check') ?>İçerik kalitesi</h2>
       <div class="grid-2">
         <label>Minimum kelime sayısı <input type="number" min="300" name="min_word_count" value="<?= e($s->get('min_word_count')) ?>"></label>
         <label>Yayın için min. SEO puanı <input type="number" min="0" max="100" name="min_seo_score" value="<?= e($s->get('min_seo_score')) ?>"></label>
       </div>
 
-      <h2>Cron</h2>
+      <h2><?= icon('timer') ?>Cron</h2>
       <p>cPanel &gt; Cron Jobs bölümüne ekleyin (15 dakikada bir):</p>
       <pre class="code">*/15 * * * * /usr/local/bin/php <?= e(__DIR__) ?>/cron/run.php &gt;/dev/null 2&gt;&amp;1</pre>
       <p class="muted">Son çalışma: <?= e(fmt_date($s->get('scheduler_last_run') ?: null)) ?></p>
     </section>
   </div>
-  <div class="form-actions"><button class="btn btn-primary" type="submit">Ayarları kaydet</button></div>
+  <div class="form-actions"><button class="btn btn-primary" type="submit"><?= icon('save') ?>Ayarları kaydet</button></div>
 </form>
 
 <form method="post" class="form card narrow">
   <?= csrf_field() ?>
   <input type="hidden" name="do" value="password">
-  <h2>Yönetici şifresi</h2>
+  <h2><?= icon('shield') ?>Yönetici şifresi</h2>
   <label>Mevcut şifre <input type="password" name="current_password" required autocomplete="current-password"></label>
   <label>Yeni şifre <input type="password" name="new_password" required minlength="10" autocomplete="new-password"></label>
-  <button class="btn" type="submit">Şifreyi değiştir</button>
+  <button class="btn" type="submit"><?= icon('lock-keyhole') ?>Şifreyi değiştir</button>
 </form>
 <?php require __DIR__ . '/app/views/layout_bottom.php'; ?>
