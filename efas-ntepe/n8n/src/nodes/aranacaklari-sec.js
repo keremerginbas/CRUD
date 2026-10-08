@@ -125,6 +125,8 @@ for (const a of adaylar) {
   cmd[`kilit_${id}`] = bitrixKomut('crm.lead.update', {
     id,
     fields: {
+      // Yeni yüklenen lead ilk kez aranınca EFAS N-TEPE ARADI statüsüne geçer
+      STATUS_ID: a.lead.STATUS_ID === A.STATU.YAPAY_ZEKA && A.STATU.ARADI ? A.STATU.ARADI : undefined,
       [F.DENEME]: yeniDeneme,
       [F.SONRAKI]: trIso(dakikaEkle(simdi, Number(A.KILIT_DK))),
       [F.SONUC]: tekrarAraIsaretli(oncekiSonuc) ? 'ARANIYOR_TA' : 'ARANIYOR',

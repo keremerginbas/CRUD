@@ -304,6 +304,18 @@ function pencereMetni(p) {
   return `${gunler} ${p.BASLA}-${p.BITIS}`;
 }
 
+// Outbound arama kuyruğundaki statüler
+function kuyrukStatuleri(A) {
+  const S = A.STATU;
+  return [S.YAPAY_ZEKA, S.ARADI, S.TEKRAR_ARANACAK, S.ACMAYANLAR].filter(Boolean);
+}
+// Kaçıncı denemede ulaşılamadıysa ona göre bekleme (dk); liste biterse son değer
+function ulasilamadiBekleme(A, deneme) {
+  const p = [].concat(A.ULASILAMADI_TEKRAR_DK).map(Number).filter((x) => x > 0);
+  if (!p.length) return 120;
+  return p[Math.min(Math.max(Number(deneme) || 1, 1), p.length) - 1];
+}
+
 // "_TA" işareti: müşteri bir kez "sonra arayın" dediyse ek arama hakkı kalıcı olur
 function tekrarAraIsaretli(sonuc) {
   return sonuc === 'TEKRAR_ARA' || /_TA$/.test(String(sonuc || ''));
@@ -463,7 +475,7 @@ function efasLeadSec(liste, A) {
   const F = A.ALAN;
   const dolu = (v) => v !== undefined && v !== null && v !== '' && v !== false;
   const efas = (Array.isArray(liste) ? liste : []).filter(
-    (l) => l && ([A.STATU.YAPAY_ZEKA, A.STATU.OLUMSUZ].includes(l.STATUS_ID) || dolu(l[F.SONUC]) || dolu(l[F.CAGRI]) || dolu(l[F.RANDEVU]))
+    (l) => l && ([...kuyrukStatuleri(A), A.STATU.OLUMSUZ].includes(l.STATUS_ID) || dolu(l[F.SONUC]) || dolu(l[F.CAGRI]) || dolu(l[F.RANDEVU]))
   );
   efas.sort((a, b) => Number(b.ID) - Number(a.ID));
   return efas[0] || null;

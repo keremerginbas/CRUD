@@ -39,5 +39,6 @@
   "EPOSTA": {
     "AKTIF": true,
     "GONDEREN": "XRE Test <test@xre.com.tr>"
-  }
+  },
+  "MAX_DENEME": 3
 }

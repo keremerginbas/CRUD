@@ -48,7 +48,7 @@ m.toolCalls.forEach((tc, i) => {
     const hedef = pencereyeTasi(t, A.ARAMA_SAATLERI);
     cmd[`${onEk}upd`] = bitrixKomut('crm.lead.update', {
       id,
-      fields: { [F.SONRAKI]: trIso(hedef), [F.SONUC]: 'TEKRAR_ARA', [F.CAGRI]: m.callId || undefined },
+      fields: { STATUS_ID: A.STATU.TEKRAR_ARANACAK || undefined, [F.SONRAKI]: trIso(hedef), [F.SONUC]: 'TEKRAR_ARA', [F.CAGRI]: m.callId || undefined },
       params: { REGISTER_SONET_EVENT: 'N' },
     });
     cmd[`${onEk}not`] = bitrixKomut('crm.timeline.comment.add', {

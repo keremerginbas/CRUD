@@ -77,7 +77,7 @@ if (aracIsledi) {
 } else if (y.sonuc === 'olumsuz' || y.sonuc === 'yanlis_arama') {
   if (!lead) return []; // tanımadığımız biri yanlış aradıysa kayıt açma
   baslik = y.sonuc === 'yanlis_arama' ? 'yanlış arama' : `olumsuz — ${etiket(y.olumsuz_nedeni)}`;
-  if (lead.STATUS_ID === A.STATU.YAPAY_ZEKA) {
+  if (kuyrukStatuleri(A).includes(lead.STATUS_ID)) {
     const neden = ETIKET[y.olumsuz_nedeni] ? y.olumsuz_nedeni : 'diger';
     cmd.upd = bitrixKomut('crm.lead.update', {
       id: leadRef,
@@ -97,7 +97,7 @@ if (aracIsledi) {
   // Bilgi aldı / sonra aranmak istiyor / diğer → satış ekibi dönüş yapsın
   mesaj = 'bilgi';
   const satisa = y.sonuc !== 'diger'; // satış dışı konu (mevcut müşteri, şikâyet) satış sırasına girmez
-  if (lead && satisa && [A.STATU.YAPAY_ZEKA, A.STATU.OLUMSUZ].includes(lead.STATUS_ID)) {
+  if (lead && satisa && [...kuyrukStatuleri(A), A.STATU.OLUMSUZ].includes(lead.STATUS_ID)) {
     // Arama kuyruğundaki / olumsuzdaki lead bilgi istiyor → satış temsilcisine devret
     Object.assign(cmd, bilgiKomutlari({ A, leadId: leadRef, sorumlu: siradakiSorumlu(A, lead.ASSIGNED_BY_ID), yon: 'inbound', telefon, ad: adSoyad, ozet: m.ozet, callId: m.callId, onEk: 'b_' }));
     baslik = '📞 BİLGİ İSTİYOR → satış temsilcisine devredildi, arama görevi açıldı';

@@ -64,6 +64,9 @@ const STATUSES = [
   { STATUS_ID: 'NEW', NAME: 'Yeni' },
   { STATUS_ID: 'UC_PQDHUK', NAME: 'EFAS İÇİN GELEN' },
   { STATUS_ID: 'UC_3W9EXO', NAME: 'EFAS N-TEPE YAPAY ZEKA' },
+  { STATUS_ID: 'UC_P8Z2WH', NAME: 'EFAS N-TEPE ARADI' },
+  { STATUS_ID: 'UC_LF04EU', NAME: 'EFAS N-TEPE TEKRAR ARANACAK' },
+  { STATUS_ID: 'UC_R94GLM', NAME: 'EFAS N-TEPE AÇMAYANLAR' },
   { STATUS_ID: 'UC_PTDA4Y', NAME: 'EFAS N-TEPE OLUMSUZ' },
   { STATUS_ID: 'UC_ML92HM', NAME: 'YAPAY ZEKA RANDEVU OLUŞTURANLAR' },
 ];
@@ -73,7 +76,10 @@ function bitrix(metod, p) {
     case 'crm.lead.list': {
       let list = [...S.leads.values()];
       const f = p.filter || {};
-      if (f.STATUS_ID) list = list.filter((l) => l.STATUS_ID === f.STATUS_ID);
+      if (f.STATUS_ID) {
+        const st = (Array.isArray(f.STATUS_ID) ? f.STATUS_ID : typeof f.STATUS_ID === 'object' ? Object.values(f.STATUS_ID) : [f.STATUS_ID]).map(String);
+        list = list.filter((l) => st.includes(l.STATUS_ID));
+      }
       if (f.ID !== undefined) {
         const ids = (Array.isArray(f.ID) ? f.ID : typeof f.ID === 'object' ? Object.values(f.ID) : [f.ID]).map(String);
         list = list.filter((l) => ids.includes(l.ID));

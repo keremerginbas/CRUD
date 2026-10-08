@@ -291,7 +291,7 @@ const dosyalar = {};
 {
   const wf = new Workflow(`${ON}01 Outbound Arama Kuyruğu`);
   wf.not(
-    '## 01 · Outbound Arama Kuyruğu\nHer **3 dakikada** bir çalışır (yalnızca ARAMA_SAATLERI içinde).\n\n• Bitrix\'te **EFAS N-TEPE YAPAY ZEKA** (UC_3W9EXO) statüsündeki lead\'leri okur\n• Boşta olan her numaraya (en fazla 3) bir lead verir, aramaları **aynı anda** başlatır\n• Aranan lead kilitlenir; sonucu **02 Outbound Vapi Sunucu** işler\n• Hakkı biten / numarası geçersiz lead\'leri **OLUMSUZ**\'a taşır\n• Başlayan aramaları 04 Olay Merkezi\'ne bildirir (rapor)\n\nKapasite: AYARLAR > TUR_BASINA_MAX_ARAMA ve HAT_BASINA_ESZAMANLI.\nBitrix\'te bu kuyruk için ayrıca otomasyon kuralı GEREKMEZ.',
+    '## 01 · Outbound Arama Kuyruğu\nHer **3 dakikada** bir çalışır (yalnızca ARAMA_SAATLERI içinde).\n\n• Bitrix\'te kuyruk statülerindeki lead\'leri okur: **YAPAY ZEKA** (UC_3W9EXO), **ARADI**, **TEKRAR ARANACAK**, **AÇMAYANLAR**\n• İlk kez aranan lead **ARADI**\'ya geçer; açmayan 1. kez **TEKRAR ARANACAK** (3 saat), sonra **AÇMAYANLAR** (3,5 saat, sonra ertesi gün)\n• Boşta olan her numaraya (en fazla 3) bir lead verir, aramaları **aynı anda** başlatır\n• Aranan lead kilitlenir; sonucu **02 Outbound Vapi Sunucu** işler\n• Hakkı biten / numarası geçersiz lead\'leri **OLUMSUZ**\'a taşır\n• Başlayan aramaları 04 Olay Merkezi\'ne bildirir (rapor)\n\nKapasite: AYARLAR > TUR_BASINA_MAX_ARAMA ve HAT_BASINA_ESZAMANLI.\nBitrix\'te bu kuyruk için ayrıca otomasyon kuralı GEREKMEZ.',
     [-60, -320],
     520,
     280
@@ -313,7 +313,7 @@ const dosyalar = {};
       url: `${BITRIX}crm.lead.list.json`,
       sendBody: true,
       specifyBody: 'json',
-      jsonBody: `={{ JSON.stringify({ filter: { STATUS_ID: $('AYARLAR').first().json.STATU.YAPAY_ZEKA }, select: ${LEAD_ALANLARI}, order: { ID: 'ASC' }, start: 0 }) }}`,
+      jsonBody: `={{ JSON.stringify({ filter: { STATUS_ID: ['YAPAY_ZEKA', 'ARADI', 'TEKRAR_ARANACAK', 'ACMAYANLAR'].map((k) => $('AYARLAR').first().json.STATU[k]).filter(Boolean) }, select: ${LEAD_ALANLARI}, order: { ID: 'ASC' }, start: 0 }) }}`,
       options: {
         pagination: {
           pagination: {
@@ -616,7 +616,7 @@ sunucu({
     'Bitrix: Kuyruk Sayısı',
     [440, 0],
     'crm.lead.list',
-    "={{ JSON.stringify({ filter: { STATUS_ID: $('AYARLAR').first().json.STATU.YAPAY_ZEKA }, select: ['ID'], start: 0 }) }}",
+    "={{ JSON.stringify({ filter: { STATUS_ID: ['YAPAY_ZEKA', 'ARADI', 'TEKRAR_ARANACAK', 'ACMAYANLAR'].map((k) => $('AYARLAR').first().json.STATU[k]).filter(Boolean) }, select: ['ID'], start: 0 }) }}",
     { executeOnce: true, onError: 'continueRegularOutput' }
   );
   const olaylar = wf.ekle(

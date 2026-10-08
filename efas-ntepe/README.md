@@ -2,7 +2,7 @@
 
 Bitrix24 + n8n + Vapi ile **EFAS N-Tepe Yaşamkent** projesi için uçtan uca otomasyon:
 
-- **Outbound:** Bitrix'te **EFAS N-TEPE YAPAY ZEKA** (`UC_3W9EXO`) statüsüne yüklenen lead'ler, **3 dakikada bir** turlarla **3 numaradan aynı anda** aranır.
+- **Outbound:** Bitrix'te **EFAS N-TEPE YAPAY ZEKA** (`UC_3W9EXO`) statüsüne yüklenen lead'ler (ve sonra geçtikleri ARADI / TEKRAR ARANACAK / AÇMAYANLAR statüleri), **3 dakikada bir** turlarla **3 numaradan aynı anda** aranır.
 - **Randevu:** Lead **YAPAY ZEKA RANDEVU OLUŞTURANLAR** (`UC_ML92HM`) statüsüne geçer. Sorumlusuna, randevu saatinde hatırlatmalı bir Bitrix görevi açılır.
 - **Olumsuz:** Lead **EFAS N-TEPE OLUMSUZ** (`UC_PTDA4Y`) statüsüne geçer, nedeni kaydedilir.
 - **Inbound:** Aynı 3 numarayı arayan kişi Bitrix'te bulunur ya da yeni lead olarak açılır; randevu alınır.
@@ -91,10 +91,12 @@ flowchart LR
 |---|---|
 | Randevu (görüşme sırasında `randevu_olustur`) | Statü `UC_ML92HM`, sorumluya görev açılır (1 gün ve 1 saat önce hatırlatma), müşteriye SMS + WhatsApp teyidi, Telegram'a anlık bildirim |
 | Randevu konuşuldu ama araç çağrılmadı | Statü `UC_ML92HM`, sorumluya **"randevu TEYİDİ"** görevi açılır (saat teyit edilmeli) |
+| İlk kez aranan lead | `UC_3W9EXO` → **EFAS N-TEPE ARADI** (`UC_P8Z2WH`) |
 | Olumsuz / yanlış numara / aranmak istemiyor | Statü `UC_PTDA4Y`, nedeni `UF_CRM_EFAS_AI_RES` alanına yazılır |
-| "Sonra arayın" (`geri_arama_planla`) | Kuyrukta kalır, istenen saatte aranır; lead'e +2 arama hakkı tanınır |
-| Açmadı / meşgul / operatör anonsu | 120 dk sonra tekrar aranır. İlk denemede tanıtım SMS'i ve WhatsApp'ı gider. 3. denemede de ulaşılamazsa `UC_PTDA4Y` |
-| Görüştü ama karar vermedi | 1 gün sonra tekrar aranır, WhatsApp bilgi mesajı gider. 3 görüşmede sonuç çıkmazsa `UC_PTDA4Y` |
+| "Sonra arayın" (`geri_arama_planla`) | **EFAS N-TEPE TEKRAR ARANACAK** (`UC_LF04EU`), istenen saatte aranır; lead'e +2 arama hakkı tanınır |
+| Açmadı / meşgul / operatör anonsu | 1. kez → **TEKRAR ARANACAK** (`UC_LF04EU`), 3 saat sonra; 2. kez → **AÇMAYANLAR** (`UC_R94GLM`), 3,5 saat sonra; 3. kez → ertesi gün. İlk denemede tanıtım SMS'i, WhatsApp'ı ve e-postası gider. 4. denemede de ulaşılamazsa `UC_PTDA4Y` + satışçıya (`ULASILAMADI_TEKRAR_DK`, `MAX_DENEME`) |
+| Hat hatası (SIP 503 vb., müşteriye ulaşmadan düştü) | Deneme sayılmaz, mesaj gitmez, 15 dk sonra tekrar |
+| Görüştü ama karar vermedi | **ARADI** (`UC_P8Z2WH`) statüsünde kalır, 1 gün sonra tekrar aranır, WhatsApp bilgi mesajı gider. 3 görüşmede sonuç çıkmazsa `UC_PTDA4Y` |
 | Numara geçersiz | `UC_PTDA4Y` (`GECERSIZ_NUMARA`) |
 
 **Lead alanları:** `UF_CRM_EFAS_AI_TRY` (deneme), `_NEXT` (sonraki arama), `_RES` (son sonuç), `_CALL` (Vapi call ID), `_APPT` (randevu).

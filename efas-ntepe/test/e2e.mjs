@@ -7,6 +7,9 @@ const N8N = process.env.N8N_URL || 'http://127.0.0.1:5678';
 const AI = 'UC_3W9EXO';
 const OLUMSUZ = 'UC_PTDA4Y';
 const RANDEVU = 'UC_ML92HM';
+const ARADI = 'UC_P8Z2WH';
+const TEKRAR_ARANACAK = 'UC_LF04EU';
+const ACMAYANLAR = 'UC_R94GLM';
 const BILGI = 'UC_PQDHUK';
 const F = { DENEME: 'UF_CRM_EFAS_AI_TRY', SONRAKI: 'UF_CRM_EFAS_AI_NEXT', SONUC: 'UF_CRM_EFAS_AI_RES', CAGRI: 'UF_CRM_EFAS_AI_CALL', RANDEVU: 'UF_CRM_EFAS_AI_APPT' };
 
@@ -138,6 +141,7 @@ await post(`${MOCK}/__reset`, {
 r = await kuyruk();
 kontrol('tur 1 çalıştı', r.status === 200, r.text.slice(0, 300));
 let s = await durum();
+kontrol('ilk kez aranan lead → EFAS N-TEPE ARADI statüsü', s.leads['108'].STATUS_ID === ARADI, s.leads['108'].STATUS_ID);
 let cagrilar = s.requests.filter((q) => q.metod === 'POST /call').map((q) => q.body);
 kontrol('tur 1: meşgul hat (pn-2) atlandı → 2 arama', cagrilar.length === 2, cagrilar.map((c) => c.phoneNumberId));
 kontrol('tur 1: önce müşterinin istediği geri arama (107), sonra tekrar deneme (108)', cagrilar[0]?.assistantOverrides.variableValues.lead_id === '107' && cagrilar[1]?.assistantOverrides.variableValues.lead_id === '108', cagrilar.map((c) => c.assistantOverrides.variableValues.lead_id));
@@ -217,7 +221,7 @@ await post(`${MOCK}/__lead`, { ...l, STATUS_ID: AI, [F.SONUC]: 'ARANIYOR', [F.RA
 
 r = await outbound(arac(outCall('call-x3', 103, '+905321111103'), 'geri_arama_planla', { tarih: yarin, saat: '11:30', not: 'Toplantıda' }));
 l = await lead(103);
-kontrol('geri arama kaydedildi', r.json?.results?.[0]?.result.startsWith('Geri arama kaydedildi') && l[F.SONUC] === 'TEKRAR_ARA' && l[F.SONRAKI] === `${yarin}T11:30:00+03:00`, [r.json, l]);
+kontrol('geri arama kaydedildi → TEKRAR ARANACAK statüsü', r.json?.results?.[0]?.result.startsWith('Geri arama kaydedildi') && l.STATUS_ID === TEKRAR_ARANACAK && l[F.SONUC] === 'TEKRAR_ARA' && l[F.SONRAKI] === `${yarin}T11:30:00+03:00`, [r.json, l]);
 
 r = await outbound({
   ...arac(outCall('call-2', 108, '+905321111108'), 'olumsuz_kaydet', { neden: 'aranmak_istemiyor', aciklama: 'Listeden çıkarın dedi' }),
@@ -266,12 +270,12 @@ kontrol('ikinci (teyit) görevi açılmadı', s.todos.filter((t) => t.ownerId ==
 once = s.comments.length;
 await outbound(rapor(outCall('call-1', 107, '+905321111107'), { endedReason: 'customer-did-not-answer', durationSeconds: 0 }));
 s = await bekleKadar((x) => x.comments.length > once);
-kontrol('107 açmadı → ULASILAMADI_TA, kuyrukta kalır (ek hak)', s.leads['107'].STATUS_ID === AI && s.leads['107'][F.SONUC] === 'ULASILAMADI_TA' && new Date(s.leads['107'][F.SONRAKI]) > new Date(Date.now() + 100 * 60000), s.leads['107']);
+kontrol('107 tekrar açmadı → AÇMAYANLAR, ULASILAMADI_TA, kuyrukta kalır (ek hak)', s.leads['107'].STATUS_ID === ACMAYANLAR && s.leads['107'][F.SONUC] === 'ULASILAMADI_TA' && new Date(s.leads['107'][F.SONRAKI]) > new Date(Date.now() + 100 * 60000), s.leads['107']);
 
 once = s.comments.length;
 await outbound(rapor(outCall('call-6', 110, '+905321111101'), { artifact: { messages: konusma('Merhabalar', 'Aradığınız kişiye şu anda ulaşılamıyor, lütfen daha sonra tekrar deneyiniz') } }));
 s = await bekleKadar((x) => x.comments.length > once);
-kontrol('operatör anonsu = ulaşılamadı', s.leads['110'][F.SONUC] === 'ULASILAMADI', s.leads['110']);
+kontrol('operatör anonsu = ulaşılamadı → ilk denemede TEKRAR ARANACAK, ~3 saat sonra', s.leads['110'][F.SONUC] === 'ULASILAMADI' && s.leads['110'].STATUS_ID === TEKRAR_ARANACAK && new Date(s.leads['110'][F.SONRAKI]) > new Date(Date.now() + 170 * 60000), s.leads['110']);
 s = await bekleKadar((x) => x.sms.some((m) => m.msg.includes('3.150.000')) && x.whatsapp.some((m) => m.template.name === 'efas_tanitim'));
 const tanitim = s.sms.find((m) => m.msg.includes('3.150.000'));
 kontrol('ilk aramada ulaşılamayana tanıtım SMS\'i', tanitim?.no === '905321111101', tanitim);
@@ -287,7 +291,7 @@ kontrol('afiş görseli n8n webhook\'undan yayınlanıyor (image/jpeg)', r.statu
 kontrol('4. denemede ulaşılamayan 107\'ye tanıtım gitmedi', !s.sms.some((m) => m.no === '905321111107'));
 
 const yeniLeadler = [
-  { ID: 111, PHONE: telefonLead('05321111111'), STATUS_ID: AI, [F.DENEME]: 3, [F.SONUC]: 'ARANIYOR' },
+  { ID: 111, PHONE: telefonLead('05321111111'), STATUS_ID: ACMAYANLAR, [F.DENEME]: 3, [F.SONUC]: 'ARANIYOR' },
   { ID: 112, PHONE: telefonLead('05321111112'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
   { ID: 113, NAME: 'Elif', PHONE: telefonLead('05321111113'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR', ASSIGNED_BY_ID: '3' },
   { ID: 114, PHONE: telefonLead('05321111114'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
@@ -325,7 +329,7 @@ await outbound(rapor(outCall('c114', 114, '+905321111114'), { artifact: { messag
 s = await bekleKadar((x) => x.comments.length > once);
 s = await bekleKadar((x) => x.whatsapp.some((m) => m.to === '905321111114'));
 kontrol('karar vermeyen 114\'e WhatsApp bilgi şablonu (SMS yok)', s.whatsapp.find((m) => m.to === '905321111114')?.template.name === 'efas_bilgi' && !s.sms.some((m) => m.no === '905321111114'));
-kontrol('114 yapılandırılmış veri yok → KARARSIZ, 1 gün sonra', s.leads['114'][F.SONUC] === 'KARARSIZ' && new Date(s.leads['114'][F.SONRAKI]) > new Date(Date.now() + 23 * 3600000), s.leads['114']);
+kontrol('114 yapılandırılmış veri yok → KARARSIZ, ARADI statüsü, 1 gün sonra', s.leads['114'][F.SONUC] === 'KARARSIZ' && s.leads['114'].STATUS_ID === ARADI && new Date(s.leads['114'][F.SONRAKI]) > new Date(Date.now() + 23 * 3600000), s.leads['114']);
 
 once = s.comments.length;
 await outbound(rapor(outCall('c115', 115, '+905321111115'), { artifact: { messages: konusma('Merhaba', 'Şimdi müsait değilim'), structuredOutputs: { 'so-1': { name: 'efas_sonuc', result: { sonuc: 'tekrar_ara' } } } } }));

@@ -24,7 +24,11 @@ const AYARLAR = {
 
   // Bitrix lead statüleri
   STATU: {
-    YAPAY_ZEKA: 'UC_3W9EXO', // EFAS N-TEPE YAPAY ZEKA  → arama kuyruğu
+    YAPAY_ZEKA: 'UC_3W9EXO', // EFAS N-TEPE YAPAY ZEKA  → yeni yüklenen, henüz aranmamış lead'ler
+    ARADI: 'UC_P8Z2WH', // EFAS N-TEPE ARADI → ilk arama yapıldı / görüşüldü ama karar yok
+    TEKRAR_ARANACAK: 'UC_LF04EU', // EFAS N-TEPE TEKRAR ARANACAK → ilk aramada açmadı ya da "sonra arayın" dedi
+    ACMAYANLAR: 'UC_R94GLM', // EFAS N-TEPE AÇMAYANLAR → 2+ kez açmadı
+    // Arama kuyruğu = YAPAY_ZEKA + ARADI + TEKRAR_ARANACAK + ACMAYANLAR (sıradaki arama zamanı gelenler aranır)
     OLUMSUZ: 'UC_PTDA4Y', // EFAS N-TEPE OLUMSUZ
     RANDEVU: 'UC_ML92HM', // YAPAY ZEKA RANDEVU OLUŞTURANLAR
     INBOUND_YENI: 'UC_PQDHUK', // EFAS İÇİN GELEN → inbound'da randevu almayan YENİ arayanlar
@@ -47,9 +51,12 @@ const AYARLAR = {
   HAT_BASINA_ESZAMANLI: 1, // bir numaradan aynı anda kaç arama (SIP hattı izin veriyorsa 2+)
 
   // ---- Outbound arama kuralları ----
-  MAX_DENEME: 3, // ulaşılamayan / kararsız lead en fazla kaç kez aransın
+  MAX_DENEME: 4, // ulaşılamayan / kararsız lead en fazla kaç kez aransın (sonra OLUMSUZ + satışçıya)
   TEKRAR_ARA_EK_HAK: 2, // müşteri "sonra arayın" dediyse tanınacak ek arama hakkı
-  ULASILAMADI_TEKRAR_DK: 120, // açmayan / meşgul → kaç dakika sonra tekrar
+  // Açmayan / meşgul → kaç dakika sonra tekrar. Sıra: 1. aramadan sonra, 2.'den sonra, 3.'den sonra...
+  //   1. açmadı → TEKRAR ARANACAK, 3 saat sonra | 2. açmadı → AÇMAYANLAR, 3,5 saat sonra | 3. açmadı → ertesi gün
+  //   (mesai dışına düşen zaman bir sonraki arama gününün başına kayar)
+  ULASILAMADI_TEKRAR_DK: [180, 210, 1440],
   KARARSIZ_TEKRAR_DK: 1440, // görüştü ama karar vermedi → kaç dakika sonra tekrar
   HATA_TEKRAR_DK: 15, // Vapi araması başlatılamazsa
   KILIT_DK: 30, // arama sürerken lead'in tekrar seçilmemesi için kilit

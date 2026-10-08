@@ -10,7 +10,7 @@ const simdi = new Date();
 const y = m.yapi || {};
 const id = String(lead.ID);
 const sonucAlan = String(lead[F.SONUC] || '');
-const kuyrukta = lead.STATUS_ID === A.STATU.YAPAY_ZEKA;
+const kuyrukta = kuyrukStatuleri(A).includes(lead.STATUS_ID);
 // Görüşme sırasında bir araç sonucu yazdıysa (randevu/geri arama/olumsuz) tekrar karar verme
 const aracIsledi = !!m.callId && String(lead[F.CAGRI] || '') === m.callId && !/^ARANIYOR/.test(sonucAlan);
 const ta = tekrarAraIsaretli(sonucAlan);
@@ -29,9 +29,9 @@ const olumsuzaTasi = (neden, aciklama) => {
   baslik = `OLUMSUZ — ${aciklama}`;
   olaylar.push(olay('olumsuz', { ...temel, sonuc: neden, detay: aciklama }));
 };
-const tekrarPlanla = (dk, sonuc, aciklama) => {
+const tekrarPlanla = (dk, sonuc, aciklama, statu) => {
   const t = pencereyeTasi(dakikaEkle(simdi, dk), A.ARAMA_SAATLERI);
-  Object.assign(alanlar, { [F.SONRAKI]: trIso(t), [F.SONUC]: sonuc });
+  Object.assign(alanlar, { [F.SONRAKI]: trIso(t), [F.SONUC]: sonuc, STATUS_ID: statu || undefined });
   baslik = `${aciklama} (deneme ${deneme}/${limit}) — sonraki arama: ${trMetin(t)}`;
 };
 
@@ -42,11 +42,14 @@ if (aracIsledi) {
 } else if (m.hatHatasi) {
   // Çağrı müşteriye ulaşmadan hatta düştü: deneme hakkı yakılmaz, tanıtım mesajı gitmez, kısa süre sonra tekrar
   const t = pencereyeTasi(dakikaEkle(simdi, Number(A.HATA_TEKRAR_DK)), A.ARAMA_SAATLERI);
-  Object.assign(alanlar, { [F.SONRAKI]: trIso(t), [F.SONUC]: 'HAT_HATASI', [F.DENEME]: Math.max(0, deneme - 1) });
+  const kalan = Math.max(0, deneme - 1);
+  // Hiç aranmamış sayılır → statü de geri alınır (ARADI → YAPAY ZEKA)
+  Object.assign(alanlar, { [F.SONRAKI]: trIso(t), [F.SONUC]: 'HAT_HATASI', [F.DENEME]: kalan, STATUS_ID: kalan === 0 && lead.STATUS_ID === A.STATU.ARADI ? A.STATU.YAPAY_ZEKA : undefined });
   baslik = `⚠️ Hat hatası (${m.arananNumara || 'hat'}: ${m.endedReason}) — deneme sayılmadı, sonraki arama: ${trMetin(t)}`;
 } else if (!m.ulasildi || y.sonuc === 'ulasilamadi') {
   if (deneme >= limit) olumsuzaTasi('ULASILAMADI', `${deneme} denemede ulaşılamadı`);
-  else tekrarPlanla(Number(A.ULASILAMADI_TEKRAR_DK), ta ? 'ULASILAMADI_TA' : 'ULASILAMADI', '📵 Ulaşılamadı');
+  // 1. kez açmadı → TEKRAR ARANACAK, 2+ → AÇMAYANLAR
+  else tekrarPlanla(ulasilamadiBekleme(A, deneme), ta ? 'ULASILAMADI_TA' : 'ULASILAMADI', '📵 Ulaşılamadı', deneme <= 1 ? A.STATU.TEKRAR_ARANACAK : A.STATU.ACMAYANLAR);
   if (deneme === 1) mesaj = 'tanitim'; // ilk aramada ulaşılamayana bir kez tanıtım SMS/WhatsApp'ı
 } else if (y.sonuc === 'olumsuz') {
   const neden = ETIKET[y.olumsuz_nedeni] ? y.olumsuz_nedeni : 'diger';
@@ -80,11 +83,11 @@ if (aracIsledi) {
 } else if (deneme >= limit) {
   olumsuzaTasi('SONUCSUZ', `${deneme} görüşmede sonuç alınamadı`);
 } else if (y.sonuc === 'tekrar_ara') {
-  tekrarPlanla(Number(A.KARARSIZ_TEKRAR_DK), 'TEKRAR_ARA', '🔁 Müşteri daha sonra aranmak istedi');
+  tekrarPlanla(Number(A.KARARSIZ_TEKRAR_DK), 'TEKRAR_ARA', '🔁 Müşteri daha sonra aranmak istedi', A.STATU.TEKRAR_ARANACAK);
   olaylar.push(olay('geri_arama', { ...temel, detay: 'görüşme sonu analizinden' }));
   mesaj = 'bilgi';
 } else {
-  tekrarPlanla(Number(A.KARARSIZ_TEKRAR_DK), ta ? 'KARARSIZ_TA' : 'KARARSIZ', '🤔 Görüşüldü, karar verilmedi');
+  tekrarPlanla(Number(A.KARARSIZ_TEKRAR_DK), ta ? 'KARARSIZ_TA' : 'KARARSIZ', '🤔 Görüşüldü, karar verilmedi', A.STATU.ARADI);
   if (deneme <= 1) mesaj = 'bilgi';
 }
 if (aracIsledi && /^TEKRAR_ARA/.test(sonucAlan) && deneme <= 1) mesaj = 'bilgi';
