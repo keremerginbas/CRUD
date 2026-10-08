@@ -218,6 +218,57 @@ final class StaticPublisher implements PublisherInterface
         return implode('; ', $notes) . '.';
     }
 
+    public function rebuild(array $domain, array $post, array $publishedPosts): string
+    {
+        $docroot = rtrim((string) $domain['docroot'], '/');
+        $path = (string) parse_url((string) ($post['remote_url'] ?? ''), PHP_URL_PATH);
+        if ($docroot === '' || !preg_match('~^/([a-z0-9_-]+)/([a-z0-9_.-]+)$~i', $path, $m)) {
+            throw new \RuntimeException('Yazının adresinden dosya yolu çıkarılamadı.');
+        }
+        [$dirName, $name] = [$m[1], $m[2]];
+        $dir = "$docroot/$dirName";
+        $folderDomain = ['static_dir' => $dirName] + $domain;
+
+        if (!str_ends_with($name, '.html')) {
+            $this->assertOwned($dir, [$name . '.html', 'index.html']);
+            $this->writer->write($dir, $name . '.html', StaticRenderer::post($folderDomain, $post, $publishedPosts));
+            $this->writer->write($dir, 'index.html', StaticRenderer::index($folderDomain, $publishedPosts));
+            return "$dirName/$name.html panel şablonuyla yeniden oluşturuldu.";
+        }
+
+        $template = $this->writer->read($dir, self::POST_TEMPLATE);
+        if ($template === null) {
+            throw new \RuntimeException("$dirName/" . self::POST_TEMPLATE . ' bulunamadı.');
+        }
+        $this->assertOwned($dir, [$name]);
+        $url = (string) $post['remote_url'];
+        $this->writer->write($dir, $name, StaticRenderer::fillTemplate($template, $folderDomain, $post, $publishedPosts, $url, true));
+        $notes = ["$dirName/$name yeniden oluşturuldu"];
+
+        $listPage = trim((string) ($domain['list_page'] ?? ''), '/');
+        $card = $this->writer->read($dir, self::CARD_TEMPLATE);
+        if ($listPage !== '' && $card !== null) {
+            [$listDir, $listFile] = $this->split($docroot, $listPage);
+            $list = $this->writer->read($listDir, $listFile);
+            if ($list !== null) {
+                $cardHtml = StaticRenderer::fillTemplate($card, $folderDomain, $post, $publishedPosts, $url, false);
+                $pattern = '~<article\b(?:(?!<article\b).)*?' . preg_quote("$dirName/$name", '~') . '.*?</article>~s';
+                if (preg_match($pattern, $list)) {
+                    $new = (string) preg_replace_callback($pattern, static fn () => $cardHtml, $list, 1);
+                } elseif (str_contains($list, self::LIST_MARKER)) {
+                    $new = str_replace(self::LIST_MARKER, self::LIST_MARKER . "\n" . $cardHtml, $list);
+                } else {
+                    $new = $list;
+                }
+                if ($new !== $list) {
+                    $this->writer->write($listDir, $listFile, $new);
+                    $notes[] = "$listPage kartı güncellendi";
+                }
+            }
+        }
+        return implode('; ', $notes) . '.';
+    }
+
     private function removeFromXml(string $docroot, string $file, string $pattern, array &$notes): void
     {
         $xml = $this->writer->read($docroot, $file);

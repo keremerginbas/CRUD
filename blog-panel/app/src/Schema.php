@@ -85,6 +85,8 @@ final class Schema
                 seo_report TEXT NULL,
                 image_url VARCHAR(512) NULL,
                 image_alt VARCHAR(255) NULL,
+                image_width INT NULL,
+                image_height INT NULL,
                 status VARCHAR(16) NOT NULL DEFAULT 'pending',
                 error TEXT NULL,
                 remote_id VARCHAR(64) NULL,
@@ -118,7 +120,7 @@ final class Schema
         $postCols = $db->driver === 'sqlite'
             ? array_column($db->all('PRAGMA table_info(posts)'), 'name')
             : array_column($db->all('SHOW COLUMNS FROM posts'), 'Field');
-        foreach (['image_url' => 'VARCHAR(512)', 'image_alt' => 'VARCHAR(255)'] as $col => $type) {
+        foreach (['image_url' => 'VARCHAR(512)', 'image_alt' => 'VARCHAR(255)', 'image_width' => 'INT', 'image_height' => 'INT'] as $col => $type) {
             if ($postCols && !in_array($col, $postCols, true)) {
                 $db->pdo->exec("ALTER TABLE posts ADD COLUMN $col $type NULL");
             }

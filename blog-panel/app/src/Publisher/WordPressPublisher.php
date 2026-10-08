@@ -89,6 +89,11 @@ final class WordPressPublisher implements PublisherInterface
         return 'Yazı WordPress\'te çöp kutusuna taşındı.';
     }
 
+    public function rebuild(array $domain, array $post, array $publishedPosts): string
+    {
+        throw new \RuntimeException('WordPress yazıları sitenin temasıyla gösterildiği için yeniden oluşturmaya gerek yok.');
+    }
+
     public function test(array $domain): string
     {
         $r = $this->api($domain, 'GET', 'users/me?context=edit');

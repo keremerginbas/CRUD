@@ -130,6 +130,7 @@ final class JobService
             $db->update('posts', [
                 'status' => 'published', 'remote_id' => $result['remote_id'], 'remote_url' => $result['url'], 'published_at' => $now,
                 'image_url' => $result['image_url'] ?? null, 'image_alt' => !empty($result['image_url']) ? $image['alt'] : null,
+                'image_width' => !empty($result['image_url']) ? $image['width'] : null, 'image_height' => !empty($result['image_url']) ? $image['height'] : null,
             ], 'id = :id', ['id' => $postId]);
             $db->update('jobs', ['status' => 'published', 'completed_at' => $now, 'error' => null], 'id = :id', ['id' => $job['id']]);
             $db->update('domains', [
@@ -146,6 +147,17 @@ final class JobService
             self::fail($job, 'Yayın hatası: ' . $e->getMessage());
             return ['ok' => false, 'job_id' => (int) $job['id'], 'message' => $e->getMessage()];
         }
+    }
+
+    /** Veritabanındaki yazı satırını yayıncıların beklediği biçime çevirir. */
+    public static function rowToPost(array $row): array
+    {
+        return [
+            'faq' => json_decode((string) $row['faq_json'], true) ?: [],
+            'tags' => array_values(array_filter(array_map('trim', explode(',', (string) $row['tags'])))),
+            'image_width' => $row['image_width'] ?? null ?: (!empty($row['image_url']) ? 1536 : null),
+            'image_height' => $row['image_height'] ?? null ?: (!empty($row['image_url']) ? 1024 : null),
+        ] + $row;
     }
 
     public static function normalizeArticle(array $a, array $domain): array

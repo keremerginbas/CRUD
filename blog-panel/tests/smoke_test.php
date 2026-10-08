@@ -242,5 +242,22 @@ $res = $runJob($id, ['article' => ['title' => 'Panel şablonlu görsel', 'slug' 
 $page = (string) file_get_contents("$tmp/docroot/blog/panel-gorsel.html");
 check($res['ok'] && is_file("$tmp/docroot/blog/img/panel-gorsel.webp") && str_contains($page, 'property="og:image" content="https://ornek-tekstil.com/blog/img/panel-gorsel.webp"') && str_contains($page, 'alt="Kapak alt metni" width="1536" height="1024"'), 'panel şablonunda da kapak görseli ve og:image var');
 
+// 13) Eski şablonla görselsiz çıkan yazı, şablon güncellenip "yeniden oluştur" ile görselli olur
+file_put_contents("$root3/blog/_sablon-yazi.html", "<html><head><title>{{meta_title}}</title></head><body><h1>{{title}}</h1>{{content}}</body></html>");
+file_put_contents("$root3/blog/_sablon-kart.html", '<article class="article-card"><div class="article-art"><span>{x}</span></div><h3>{{title}}</h3><a href="/{{relative_url}}">oku</a></article>');
+$res = $runJob($id3, ['article' => ['title' => 'Eski şablonlu yazı', 'slug' => 'eski-sablon'] + $article, 'image' => ['b64' => base64_encode($webp), 'alt' => 'Kapak alt']]);
+check($res['ok'] && is_file("$root3/blog/img/eski-sablon.webp") && !str_contains((string) file_get_contents("$root3/blog/eski-sablon.html"), 'eski-sablon.webp'), 'eski şablonda görsel yüklendi ama sayfada yok (sizin durumunuz)');
+file_put_contents("$root3/blog/_sablon-yazi.html", "<html><head><title>{{meta_title}}</title>{{#image}}<meta property=\"og:image\" content=\"{{image_url}}\">{{/image}}</head><body><h1>{{title}}</h1>{{#image}}<figure class=\"article-cover\"><img src=\"{{image_url}}\" alt=\"{{image_alt}}\" width=\"{{image_width}}\" height=\"{{image_height}}\"></figure>{{/image}}{{content}}</body></html>");
+file_put_contents("$root3/blog/_sablon-kart.html", '<article class="article-card">{{#image}}<a class="article-art" href="/{{relative_url}}"><img src="{{image_url}}" alt="{{image_alt}}"></a>{{/image}}{{^image}}<div class="article-art"><span>{x}</span></div>{{/image}}<h3>{{title}}</h3><a href="/{{relative_url}}">oku</a></article>');
+$row = App::db()->one("SELECT * FROM posts WHERE slug = 'eski-sablon'");
+$before = (string) file_get_contents("$root3/rehber.html");
+$msg = BlogPanel\Publisher\PublisherFactory::for(DomainService::find($id3))->rebuild(DomainService::find($id3), JobService::rowToPost($row), []);
+$page = (string) file_get_contents("$root3/blog/eski-sablon.html");
+$reh = (string) file_get_contents("$root3/rehber.html");
+check(str_contains($page, '<figure class="article-cover"><img src="https://site3.com/blog/img/eski-sablon.webp" alt="Kapak alt" width="1536" height="1024">') && str_contains($page, 'og:image') && str_contains($page, StaticPublisher::MARKER), 'yeniden oluşturunca sayfada kapak görseli ve og:image çıktı');
+$cardAt = static fn (string $h) => strrpos(substr($h, 0, (int) strpos($h, 'eski-sablon.html')), '<article');
+check(substr_count($reh, '<article') === substr_count($before, '<article') && $cardAt($reh) === $cardAt($before)
+    && str_contains($reh, '<img src="https://site3.com/blog/img/eski-sablon.webp"') && !str_contains(substr($reh, (int) $cardAt($reh), (int) strpos($reh, '</article>', (int) $cardAt($reh)) - (int) $cardAt($reh)), '{x}'), 'rehber.html kartı aynı yerde görselli kartla değişti, kopya oluşmadı: ' . $msg);
+
 proc_terminate($server);
 echo "\nTüm testler başarılı. (geçici klasör: $tmp)\n";

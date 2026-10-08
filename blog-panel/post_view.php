@@ -24,6 +24,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['do'] ?? '') === 'unpublish
         }
     }
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['do'] ?? '') === 'rebuild') {
+    csrf_check();
+    $row = App::db()->one('SELECT * FROM posts WHERE id = ?', [(int) ($_GET['id'] ?? 0)]);
+    $domainRow = $row ? App::db()->one('SELECT * FROM domains WHERE id = ?', [$row['domain_id']]) : null;
+    if ($row && $domainRow) {
+        try {
+            $published = App::db()->all("SELECT title, slug, excerpt, published_at, remote_url FROM posts WHERE domain_id = ? AND status = 'published' ORDER BY published_at DESC", [$row['domain_id']]);
+            $postData = BlogPanel\JobService::rowToPost($row);
+            $message = BlogPanel\Publisher\PublisherFactory::for($domainRow)->rebuild($domainRow, $postData, $published);
+            flash('ok', $message);
+        } catch (Throwable $e) {
+            flash('err', 'Yeniden oluşturulamadı: ' . $e->getMessage());
+        }
+        redirect('post_view.php?id=' . (int) $row['id']);
+    }
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['do'] ?? '') === 'delete') {
     csrf_check();
     App::db()->run('DELETE FROM posts WHERE id = ?', [(int) ($_GET['id'] ?? 0)]);
@@ -52,6 +68,7 @@ require __DIR__ . '/app/views/layout_top.php';
     <form method="post" class="inline-form">
       <?= csrf_field() ?>
       <?php if ($post['status'] === 'published'): ?>
+        <button class="btn" type="submit" name="do" value="rebuild" data-confirm-submit="Sayfa ve liste kartı güncel şablonla yeniden yazılsın mı? İçerik ve görsel değişmez.">Sayfayı yeniden oluştur</button>
         <button class="btn btn-danger" type="submit" name="do" value="unpublish" data-confirm-submit="Yazı siteden kaldırılsın mı? Dosyası silinir, liste/sitemap/RSS kayıtları temizlenir ve panel kaydı silinir.">Siteden kaldır</button>
       <?php endif; ?>
       <button class="btn" type="submit" name="do" value="delete" data-confirm-submit="Yalnızca panel kaydı silinsin mi? Sitedeki dosya olduğu gibi kalır.">Yalnızca kaydı sil</button>
