@@ -77,6 +77,7 @@ function bitrix(metod, p) {
       let list = [...S.leads.values()];
       const f = p.filter || {};
       for (const [k, v] of Object.entries(f)) if (k.startsWith('!')) list = list.filter((l) => String(l[k.slice(1)] ?? '') !== String(v ?? ''));
+      if (f.ASSIGNED_BY_ID !== undefined) list = list.filter((l) => String(l.ASSIGNED_BY_ID) === String(f.ASSIGNED_BY_ID));
       if (f.STATUS_ID) {
         const st = (Array.isArray(f.STATUS_ID) ? f.STATUS_ID : typeof f.STATUS_ID === 'object' ? Object.values(f.STATUS_ID) : [f.STATUS_ID]).map(String);
         list = list.filter((l) => st.includes(l.STATUS_ID));

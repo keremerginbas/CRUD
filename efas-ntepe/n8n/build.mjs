@@ -236,7 +236,7 @@ const telegramNode = (wf, ad, pos) =>
     {
       resource: 'message',
       operation: 'sendMessage',
-      chatId: "={{ $('AYARLAR').first().json.TELEGRAM.CHAT_ID }}",
+      chatId: "={{ $json.chatId || $('AYARLAR').first().json.TELEGRAM.CHAT_ID }}",
       text: '={{ $json.metin }}',
       additionalFields: { parse_mode: 'HTML', disable_web_page_preview: true, appendAttribution: false },
     },
@@ -619,7 +619,7 @@ sunucu({
 {
   const wf = new Workflow(`${ON}05 Günlük Rapor (Telegram)`);
   wf.not(
-    '## 05 · Günlük Rapor\nHer gün **13:30** (ara rapor) ve **19:30** (gün sonu) Telegram grubuna:\narama · aranan kişi · ulaşılan · randevu · olumsuz · SMS · WhatsApp · e-posta · konuşma süresi · Vapi maliyeti · **bugüne kadar aranan toplam kişi** · statü dağılımı + günün randevu listesi.\n\n**İstediğiniz an rapor:** tarayıcıda `…/webhook/efas-ntepe-rapor` adresini açın (rapor Telegram grubuna gider).\nSaatleri tetikleyicideki cron ifadesinden değiştirin.',
+    '## 05 · Günlük Rapor\nHer gün **13:30** (ara rapor) ve **20:00** (gün sonu) Telegram grubuna (ve RAPOR_EK_CHAT_IDLERI gruplarına):\narama · aranan kişi · ulaşılan · randevu · olumsuz · SMS · WhatsApp · e-posta · konuşma süresi · Vapi maliyeti · **bugüne kadar aranan toplam kişi** · statü dağılımı · **satış danışmanlarına düşenler** + günün randevu listesi.\n\n**İstediğiniz an rapor:** tarayıcıda `…/webhook/efas-ntepe-rapor` adresini açın (rapor Telegram grubuna gider).\nSaatleri tetikleyicideki cron ifadesinden değiştirin.',
     [-60, -300],
     480,
     240
@@ -627,7 +627,7 @@ sunucu({
   const tetik = TEST
     ? webhookNode(wf, 'Rapor Saati', [0, 0], 'test-efas-rapor', 'lastNode')
     : wf.ekle('Rapor Saati', 'n8n-nodes-base.scheduleTrigger', 1.2, [0, 0], {
-        rule: { interval: [{ field: 'cronExpression', expression: '30 13,19 * * *' }] },
+        rule: { interval: [{ field: 'cronExpression', expression: '30 13 * * *' }, { field: 'cronExpression', expression: '0 20 * * *' }] },
       });
   const ay = ayarlarNode(wf, [220, 0]);
   // İstendiği an rapor: tarayıcıda …/webhook/efas-ntepe-rapor adresini açın

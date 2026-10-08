@@ -140,6 +140,15 @@ function bitrixTarih(v) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+// Bitrix (utf8, 4 baytlık karakter desteklemiyor) emojileri ":f09fa496:" gibi bozar → BMP karşılıkları
+const BITRIX_EMOJI = { '🤖': '', '🎧': '♫', '💬': '✉', '📧': '✉', '🟢': '✆', '📅': '☑', '📞': '☎', '📵': '☎', '🔁': '↻', '🤔': '?', '🎉': '★', '👤': '', '🏠': '', '🔗': '' };
+function bitrixMetni(s) {
+  return String(s)
+    .replace(/[\u{10000}-\u{10FFFF}]\uFE0F?/gu, (e) => BITRIX_EMOJI[e.replace(/\uFE0F$/, '')] ?? '')
+    .replace(/^ +| +$/gm, '')
+    .replace(/ {2,}/g, ' ');
+}
+
 // PHP http_build_query eşdeğeri (Bitrix batch komutları için)
 function qs(obj, onEk) {
   const parcalar = [];
@@ -150,7 +159,7 @@ function qs(obj, onEk) {
       const ic = qs(v, anahtar);
       if (ic) parcalar.push(ic);
     } else {
-      const deger = v === null ? '' : v === true ? 'Y' : v === false ? 'N' : String(v);
+      const deger = v === null ? '' : v === true ? 'Y' : v === false ? 'N' : bitrixMetni(v);
       parcalar.push(`${encodeURIComponent(anahtar)}=${encodeURIComponent(deger)}`);
     }
   }

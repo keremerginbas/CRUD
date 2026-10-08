@@ -72,6 +72,8 @@ const AYARLAR = {
   // Randevu, OLUMSUZ ve "bilgi istiyor" sonuçlarında lead bu kişilere SIRAYLA atanır.
   // Boşsa lead'in mevcut sorumlusu korunur (yeni inbound lead'lerde VARSAYILAN_SORUMLU_ID).
   SATIS_SORUMLU_IDLERI: [],
+  // Rapordaki "satış danışmanlarına düşen" tablosu için adlar: [{ id: 12, ad: 'Ad Soyad' }, ...]
+  SATIS_DANISMAN_ADLARI: [],
   VARSAYILAN_SORUMLU_ID: '',
   // Yeni lead kaynağı (Bitrix > CRM > Ayarlar > Kaynaklar). 'CALL' = Çağrı
   INBOUND_KAYNAK_ID: 'CALL',
@@ -141,6 +143,8 @@ const AYARLAR = {
     AKTIF: false,
     CHAT_ID: '-100GRUP_ID', // grup ID'si (eksi ile başlar)
     ANLIK_RANDEVU_BILDIRIMI: true, // her randevuda gruba anlık mesaj
+    // Günlük rapor ayrıca bu gruplara da gider (ör. Talepler grubu): ['-100...']
+    RAPOR_EK_CHAT_IDLERI: [],
   },
 };
 

@@ -40,5 +40,15 @@
     "AKTIF": true,
     "GONDEREN": "XRE Test <test@xre.com.tr>"
   },
-  "MAX_DENEME": 3
+  "MAX_DENEME": 3,
+  "SATIS_DANISMAN_ADLARI": [
+    {
+      "id": 7,
+      "ad": "Test Danışman Yedi"
+    },
+    {
+      "id": 9,
+      "ad": "Test Danışman Dokuz"
+    }
+  ]
 }

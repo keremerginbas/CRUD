@@ -288,12 +288,13 @@ kontrol('tanıtım e-postası lead\'in adresine gitti (afiş + form + proje link
 r = await fetch(`${N8N}/webhook/efas-ntepe-afis`);
 const afisBoyut = (await r.arrayBuffer()).byteLength;
 kontrol('afiş görseli n8n webhook\'undan yayınlanıyor (image/jpeg)', r.status === 200 && /image\/jpeg/.test(r.headers.get('content-type') || '') && afisBoyut > 50000, [r.status, r.headers.get('content-type'), afisBoyut]);
-s = await bekleKadar((x) => ['💬 SMS gönderildi', '📧 E-posta gönderildi', '🟢 WhatsApp gönderildi'].every((b) => x.comments.some((c) => c.leadId === '110' && c.text.startsWith(b))));
-const smsYorum = s.comments.find((c) => c.leadId === '110' && c.text.startsWith('💬 SMS'));
+s = await bekleKadar((x) => ['✉ SMS gönderildi', '✉ E-posta gönderildi', '✆ WhatsApp gönderildi'].every((b) => x.comments.some((c) => c.leadId === '110' && c.text.startsWith(b))));
+const smsYorum = s.comments.find((c) => c.leadId === '110' && c.text.startsWith('✉ SMS'));
+kontrol('Bitrix yorumlarında 4 baytlık emoji yok (Bitrix bozuyor)', !s.comments.some((c) => /[\u{10000}-\u{10FFFF}]/u.test(c.text)), s.comments.find((c) => /[\u{10000}-\u{10FFFF}]/u.test(c.text))?.text.slice(0, 80));
 kontrol('gönderilen SMS / e-posta / WhatsApp lead\'e yorum olarak düştü', smsYorum?.text.includes('Efas Entepe projesi için sizi aradık') && s.comments.some((c) => c.leadId === '110' && c.text.includes('musteri110@ornek.com')), s.comments.filter((c) => c.leadId === '110').map((c) => c.text.slice(0, 80)));
 s = await bekleKadar((x) => x.comments.some((c) => c.leadId === '110' && c.files?.length));
 const sesYorum = s.comments.find((c) => c.leadId === '110' && c.files?.length);
-kontrol('görüşme ses kaydı lead\'e dosya olarak yorumlandı', sesYorum?.text.startsWith('🎧 Görüşme ses kaydı') && /\.mp3$/.test(sesYorum.files[0].ad) && sesYorum.files[0].boyut === 4096, sesYorum);
+kontrol('görüşme ses kaydı lead\'e dosya olarak yorumlandı', sesYorum?.text.startsWith('♫ Görüşme ses kaydı') && /\.mp3$/.test(sesYorum.files[0].ad) && sesYorum.files[0].boyut === 4096, sesYorum);
 kontrol('4. denemede ulaşılamayan 107\'ye tanıtım gitmedi', !s.sms.some((m) => m.no === '905321111107'));
 
 const yeniLeadler = [
@@ -410,7 +411,8 @@ kontrol('rapor: inbound görüşmeler sayıldı', fark('inbound') >= 3, fark('in
 kontrol('rapor: ulaşılan / ulaşılamayan', fark('ulasilan') >= 5 && fark('ulasilamayan') === 3, { ulasilan: fark('ulasilan'), ulasilamayan: fark('ulasilamayan') });
 kontrol('rapor: olumsuzlar sayıldı', fark('olumsuz') >= 6, fark('olumsuz'));
 kontrol('rapor: bilgi isteyenler sayıldı (117, 119, inbound Ayşe, 106)', fark('bilgi') === 4, fark('bilgi'));
-kontrol('rapor: bugüne kadar aranan toplam kişi ve statü dağılımı', /Bugüne kadar aranan kişi \(toplam\): <b>[1-9]/.test(rapor1.metin) && /hiç aranmamış \d+ · aradı \d+ · tekrar aranacak \d+ · açmayanlar [1-9]/.test(rapor1.metin) && /aranan kişi [1-9]/.test(rapor1.metin), rapor1.metin);
+kontrol('rapor: bugüne kadar aranan toplam kişi ve statü dağılımı', /bugüne kadar aranan kişi \(toplam\): <b>[1-9]/.test(rapor1.metin) && /hiç aranmamış \d+ · aradı \d+ · tekrar aranacak \d+ · açmayanlar [1-9]/.test(rapor1.metin) && /aranan kişi [1-9]/.test(rapor1.metin), rapor1.metin);
+kontrol('rapor: satış danışmanlarına düşenler (ad ile)', rapor1.metin.includes('Satış danışmanlarına düşen') && /Test Danışman (Yedi|Dokuz): 📅 \d+ · 📞 \d+ · ❌ \d+ · toplam [1-9]/.test(rapor1.metin), rapor1.metin.split('Satış danışmanlarına')[1]);
 kontrol('rapor: SMS, WhatsApp ve e-posta sayıları', fark('sms') === (await durum()).sms.length && fark('whatsapp') === (await durum()).whatsapp.length && fark('eposta') === (await durum()).eposta.length, { sms: fark('sms'), whatsapp: fark('whatsapp'), eposta: fark('eposta') });
 kontrol('rapor: günün randevu listesi', rapor1.metin.includes('Bugünün randevuları') && rapor1.metin.includes('Ahmet Yılmaz'));
 console.log('\n--- Örnek Telegram raporu ---\n' + rapor1.metin.replace(/<[^>]+>/g, '') + '\n---');

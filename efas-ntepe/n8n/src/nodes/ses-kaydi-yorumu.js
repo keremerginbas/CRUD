@@ -17,7 +17,7 @@ return [
         fields: {
           ENTITY_ID: s.leadId,
           ENTITY_TYPE: 'lead',
-          COMMENT: s.baslik,
+          COMMENT: bitrixMetni(s.baslik),
           FILES: [[`${s.dosyaAdi}.${uzanti}`, tampon.toString('base64')]],
         },
       },

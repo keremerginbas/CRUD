@@ -53,10 +53,23 @@ const metin = [
   `💬 SMS: ${sayi(smsOk)}${smsHata ? ` (hata ${sayi(smsHata)})` : ''} · WhatsApp: ${sayi(waOk)}${waHata ? ` (hata ${sayi(waHata)})` : ''} · E-posta: ${sayi(epOk)}${epHata ? ` (hata ${sayi(epHata)})` : ''}`,
   `⏱ Konuşma: ${sayi(sureDk)} dk · 💰 Vapi: $${maliyet.toFixed(2)}`,
   '',
-  `📈 Bugüne kadar aranan kişi (toplam): <b>${sayi(adet('toplamAranan'))}</b>`,
+  `📈 Bugün işlem gören (aranan) lead: <b>${sayi(adet('bugunAranan'))}</b> · bugüne kadar aranan kişi (toplam): <b>${sayi(adet('toplamAranan'))}</b>`,
   `📋 Kuyrukta bekleyen lead: ${sayi(kuyrukToplam)}`,
   `   hiç aranmamış ${sayi(adet('YAPAY_ZEKA'))} · aradı ${sayi(adet('ARADI'))} · tekrar aranacak ${sayi(adet('TEKRAR_ARANACAK'))} · açmayanlar ${sayi(adet('ACMAYANLAR'))}`,
 ];
+
+// Satış danışmanlarına düşenler
+const danismanlar = (Array.isArray(A.SATIS_SORUMLU_IDLERI) ? A.SATIS_SORUMLU_IDLERI : []).map(String).filter(Boolean).slice(0, 10);
+if (danismanlar.length) {
+  const adlar = {};
+  for (const d of Array.isArray(A.SATIS_DANISMAN_ADLARI) ? A.SATIS_DANISMAN_ADLARI : []) if (d && d.id) adlar[String(d.id)] = d.ad;
+  metin.push('', '<b>👥 Satış danışmanlarına düşen</b> (bugün: randevu / bilgi / olumsuz · toplam)');
+  const satirlarD = danismanlar.map((id) => ({ id, r: adet(`d${id}_r`), b: adet(`d${id}_b`), o: adet(`d${id}_o`), t: adet(`d${id}_t`) }));
+  satirlarD.sort((x, y) => y.r + y.b + y.o - (x.r + x.b + x.o) || y.t - x.t);
+  for (const d of satirlarD) {
+    metin.push(`• ${html(adlar[d.id] || `ID ${d.id}`)}: 📅 ${sayi(d.r)} · 📞 ${sayi(d.b)} · ❌ ${sayi(d.o)} · toplam ${sayi(d.t)}`);
+  }
+}
 
 if (randevular.length) {
   metin.push('', '<b>Bugünün randevuları</b>');
@@ -66,4 +79,5 @@ if (randevular.length) {
   if (randevular.length > 25) metin.push(`… ve ${randevular.length - 25} randevu daha`);
 }
 
-return [{ json: { metin: metin.join('\n') } }];
+const sohbetler = [...new Set([A.TELEGRAM.CHAT_ID, ...(Array.isArray(A.TELEGRAM.RAPOR_EK_CHAT_IDLERI) ? A.TELEGRAM.RAPOR_EK_CHAT_IDLERI : [])].map(String).filter((x) => x && x !== 'undefined'))];
+return sohbetler.map((chatId) => ({ json: { metin: metin.join('\n'), chatId } }));
