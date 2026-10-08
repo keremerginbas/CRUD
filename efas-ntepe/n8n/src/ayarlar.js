@@ -106,7 +106,7 @@ const AYARLAR = {
   // Ticari e-posta için İYS onayı gerekir. GONDEREN, SMTP hesabının adresi olmalı.
   EPOSTA: {
     AKTIF: false,
-    GONDEREN: 'XRE Project <info@xre.com.tr>',
+    GONDEREN: 'XRE Project <xre.project@xre.com.tr>',
     // Afiş görselinin adresi. Boşsa 04 workflow'u görseli kendisi yayınlar: …/webhook/efas-ntepe-afis
     GORSEL_URL: '',
     FORM_URL: 'https://form.xre.com.tr/efas/',
