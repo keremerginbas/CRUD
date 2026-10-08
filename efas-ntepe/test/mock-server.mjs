@@ -4,6 +4,7 @@
 //   Kontrol: GET /__state, POST /__reset { leads, activeCalls, failNumbers, pageSize }
 import http from 'node:http';
 import net from 'node:net';
+import zlib from 'node:zlib';
 
 const PORT = Number(process.env.MOCK_PORT || 8787);
 const VAPI_KEY = 'test-key';
@@ -240,10 +241,20 @@ const sunucu = http.createServer((req, res) => {
     // CORPORATESMS XML servisi
     if (url.pathname === '/sms-xml') {
       const al = (etiket) => ((new RegExp(`<${etiket}>(?:<!\\[CDATA\\[)?([\\s\\S]*?)(?:\\]\\]>)?</${etiket}>`).exec(ham) || [])[1] || '');
-      res.writeHead(200, { 'content-type': 'text/plain' });
-      if (al('USERNAME') !== 'sms-user' || al('PASSWORD') !== 'sms-pass') return res.end('HATA: Kullanici adi veya sifre hatali');
+      // Gerçek servis gibi: XML yanıt, istemci kabul ediyorsa brotli sıkıştırmalı; numara 905XXXXXXXXX değilse 081
+      const xml = (kod, ek = '') => `<?xml version="1.0" encoding="UTF-8"?><CORPORATESMS><RESULT>${kod}</RESULT>${ek}</CORPORATESMS>`;
+      const yanitla = (govde) => {
+        if (/\bbr\b/.test(req.headers['accept-encoding'] || '')) {
+          res.writeHead(200, { 'content-type': 'text/xml; charset=utf-8', 'content-encoding': 'br' });
+          return res.end(zlib.brotliCompressSync(govde));
+        }
+        res.writeHead(200, { 'content-type': 'text/xml; charset=utf-8' });
+        return res.end(govde);
+      };
+      if (al('USERNAME') !== 'sms-user' || al('PASSWORD') !== 'sms-pass') return yanitla(xml('002'));
+      if (!/^905\d{9}$/.test(al('NUMBERS'))) return yanitla(xml('081'));
       S.sms.push({ baslik: al('SMSHEADER'), msg: al('SMS_MESSAGE'), no: al('NUMBERS'), tip: al('SMSTYPE') });
-      return res.end(`ID:${S.sms.length}`);
+      return yanitla(xml('1', `<MSG_ID>${S.sms.length}</MSG_ID><MSG_COUNT>1</MSG_COUNT>`));
     }
     // WhatsApp Cloud API
     const wm = /^\/wa\/([^/]+)\/messages$/.exec(url.pathname);

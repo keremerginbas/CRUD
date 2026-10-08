@@ -513,6 +513,9 @@ sunucu({
     {
       method: 'POST',
       url: "={{ $('AYARLAR').first().json.SMS.API_URL }}",
+      // Erccell yanıtı brotli sıkıştırmalı gelince <RESULT> okunamıyordu; sıkıştırmasız iste
+      sendHeaders: true,
+      headerParameters: { parameters: [{ name: 'Accept-Encoding', value: 'identity' }] },
       sendBody: true,
       contentType: 'raw',
       rawContentType: 'text/xml',

@@ -77,9 +77,10 @@ const AYARLAR = {
     SIFRE: 'SMS_SIFRE',
     BASLIK: 'XRE', // onaylı gönderici başlığı
     // NUMBERS alanındaki numara biçimi: '5' → 5321234567 | '05' → 05321234567 | '905' → 905321234567
-    NUMARA_BICIMI: '5',
-    // Başarılı gönderimde Erccell'in döndürdüğü <RESULT> değer(ler)i. Boşsa yanıtta hata kelimesi yoksa başarılı sayılır.
-    BASARILI_KODLAR: [],
+    NUMARA_BICIMI: '905',
+    // Başarılı gönderimde Erccell'in döndürdüğü <RESULT> değer(ler)i (1 = gönderildi, 081 = numara hatalı).
+    // Boşsa yanıtta hata kelimesi yoksa başarılı sayılır.
+    BASARILI_KODLAR: ['1'],
     METIN: {
       randevu:
         'Sayın {ad}, Yeni Yaşamkent EFAS N-Tepe ziyaret randevunuz {tarih} olarak oluşturuldu. Danışmanımız konum için sizi arayacak. Bilgi: {telefon} XRE Project',

@@ -192,7 +192,7 @@ s = await durum();
 const todo101 = s.todos.find((t) => t.ownerId === '101');
 kontrol('sorumluya randevu görevi açıldı', todo101 && todo101.deadline === `${yarin}T14:00:00+03:00` && todo101.responsibleId === String(l.ASSIGNED_BY_ID) && todo101.description.includes('2+1 A Tipi'), todo101);
 s = await bekleKadar((x) => x.sms.length && x.whatsapp.length && x.telegram.some((t) => t.text.includes('Yeni randevu')));
-const sms101 = s.sms.find((m) => m.no === '5321111101');
+const sms101 = s.sms.find((m) => m.no === '905321111101');
 kontrol('randevu teyit SMS\'i (XML servisi)', sms101 && sms101.msg.includes('Ahmet Yılmaz') && sms101.msg.includes('14:00') && sms101.baslik === 'XRE TEST' && sms101.tip === 'UC', sms101);
 const wa101 = s.whatsapp.find((m) => m.to === '905321111101');
 kontrol('randevu teyit WhatsApp şablonu', wa101?.template.name === 'efas_randevu_teyit' && wa101.template.components[0].parameters[0].text === 'Ahmet Yılmaz' && wa101.telefonNumarasiId === 'PNID', wa101);
@@ -207,9 +207,9 @@ const todo118 = s.todos.find((t) => t.ownerId === '118');
 kontrol('gün/saat SORULMADAN randevu → "Randevunuz oluşturuldu" yanıtı', r.json?.results?.[0]?.result.includes('Randevunuz oluşturuldu') && r.json.results[0].result.includes('SORMA'), r.json);
 kontrol('saatsiz randevu: RANDEVU statüsü, randevu tarihi boş, RANDEVU_TALEP, satışçıya atandı', l.STATUS_ID === RANDEVU && l[F.RANDEVU] === '' && l[F.SONUC] === 'RANDEVU_TALEP' && ['7', '9'].includes(String(l.ASSIGNED_BY_ID)), l);
 kontrol('satışçıya "GÜN/SAAT BELİRLEYİN" görevi (15 dk içinde) + müşterinin tercihi', todo118?.title.includes('GÜN/SAAT BELİRLEYİN') && new Date(todo118.deadline) < new Date(Date.now() + 20 * 60000) && todo118.description.includes('cumartesi öğleden sonra'), todo118);
-s = await bekleKadar((x) => x.telegram.some((t) => t.text.includes('Ece Tan')) && x.sms.some((m) => m.no === '5321111118'));
+s = await bekleKadar((x) => x.telegram.some((t) => t.text.includes('Ece Tan')) && x.sms.some((m) => m.no === '905321111118'));
 kontrol('Telegram: saatsiz randevu bildirimi', s.telegram.some((t) => t.text.includes('Ece Tan') && t.text.includes('Gün/saat belirlenmedi')), s.telegram.at(-1));
-kontrol('SMS: randevu talebiniz alındı', s.sms.find((m) => m.no === '5321111118')?.msg.includes('randevu talebiniz alındı'), s.sms.find((m) => m.no === '5321111118'));
+kontrol('SMS: randevu talebiniz alındı', s.sms.find((m) => m.no === '905321111118')?.msg.includes('randevu talebiniz alındı'), s.sms.find((m) => m.no === '905321111118'));
 r = await outbound(arac(outCall('call-x3', 103, '+905321111103'), 'randevu_olustur', { randevu_tarihi: yarin, randevu_saati: '22:00' }));
 l = await lead(103);
 kontrol('müşteri geçersiz saat söylese de randevu reddedilmez, saatsiz açılır', r.json?.results?.[0]?.result.includes('Randevunuz oluşturuldu') && l[F.SONUC] === 'RANDEVU_TALEP', [r.json, l]);
@@ -274,7 +274,7 @@ s = await bekleKadar((x) => x.comments.length > once);
 kontrol('operatör anonsu = ulaşılamadı', s.leads['110'][F.SONUC] === 'ULASILAMADI', s.leads['110']);
 s = await bekleKadar((x) => x.sms.some((m) => m.msg.includes('3.150.000')) && x.whatsapp.some((m) => m.template.name === 'efas_tanitim'));
 const tanitim = s.sms.find((m) => m.msg.includes('3.150.000'));
-kontrol('ilk aramada ulaşılamayana tanıtım SMS\'i', tanitim?.no === '5321111101', tanitim);
+kontrol('ilk aramada ulaşılamayana tanıtım SMS\'i', tanitim?.no === '905321111101', tanitim);
 kontrol('tanıtım WhatsApp şablonu', s.whatsapp.some((m) => m.template.name === 'efas_tanitim'));
 kontrol('tanıtım SMS metni: "Efas Entepe projesi için sizi aradık, ulaşamadık…" + form linki', tanitim?.msg.startsWith('Efas Entepe projesi için sizi aradık, ulaşamadık.') && tanitim.msg.includes('https://form.xre.com.tr/efas/'), tanitim?.msg);
 s = await bekleKadar((x) => x.eposta.length > 0);
@@ -284,7 +284,7 @@ kontrol('tanıtım e-postası lead\'in adresine gitti (afiş + form + proje link
 r = await fetch(`${N8N}/webhook/efas-ntepe-afis`);
 const afisBoyut = (await r.arrayBuffer()).byteLength;
 kontrol('afiş görseli n8n webhook\'undan yayınlanıyor (image/jpeg)', r.status === 200 && /image\/jpeg/.test(r.headers.get('content-type') || '') && afisBoyut > 50000, [r.status, r.headers.get('content-type'), afisBoyut]);
-kontrol('4. denemede ulaşılamayan 107\'ye tanıtım gitmedi', !s.sms.some((m) => m.no === '5321111107'));
+kontrol('4. denemede ulaşılamayan 107\'ye tanıtım gitmedi', !s.sms.some((m) => m.no === '905321111107'));
 
 const yeniLeadler = [
   { ID: 111, PHONE: telefonLead('05321111111'), STATUS_ID: AI, [F.DENEME]: 3, [F.SONUC]: 'ARANIYOR' },
@@ -315,7 +315,7 @@ once = s.comments.length;
 await outbound(rapor(outCall('c114', 114, '+905321111114'), { artifact: { messages: konusma('Merhaba', 'Efendim', 'Projemiz...', 'Düşüneyim') } }));
 s = await bekleKadar((x) => x.comments.length > once);
 s = await bekleKadar((x) => x.whatsapp.some((m) => m.to === '905321111114'));
-kontrol('karar vermeyen 114\'e WhatsApp bilgi şablonu (SMS yok)', s.whatsapp.find((m) => m.to === '905321111114')?.template.name === 'efas_bilgi' && !s.sms.some((m) => m.no === '5321111114'));
+kontrol('karar vermeyen 114\'e WhatsApp bilgi şablonu (SMS yok)', s.whatsapp.find((m) => m.to === '905321111114')?.template.name === 'efas_bilgi' && !s.sms.some((m) => m.no === '905321111114'));
 kontrol('114 yapılandırılmış veri yok → KARARSIZ, 1 gün sonra', s.leads['114'][F.SONUC] === 'KARARSIZ' && new Date(s.leads['114'][F.SONRAKI]) > new Date(Date.now() + 23 * 3600000), s.leads['114']);
 
 once = s.comments.length;

@@ -65,6 +65,8 @@ const wf = {
       parameters: {
         method: 'POST',
         url: '={{ $json.url }}',
+        sendHeaders: true,
+        headerParameters: { parameters: [{ name: 'Accept-Encoding', value: 'identity' }] },
         sendBody: true,
         contentType: 'raw',
         rawContentType: 'text/xml',
