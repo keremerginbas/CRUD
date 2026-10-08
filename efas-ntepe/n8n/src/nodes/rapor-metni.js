@@ -6,7 +6,9 @@ const satirlar = $('Tablo: Bugünün Olayları')
   .all()
   .map((i) => i.json)
   .filter((r) => r && r.tur);
-const kuyruk = $('Bitrix: Kuyruk Sayısı').first().json || {};
+const sayim = (($('Bitrix: Statü Sayıları').first().json || {}).result || {}).result_total || {};
+const adet = (k) => Number(sayim[k]) || 0;
+const kuyrukToplam = ['YAPAY_ZEKA', 'ARADI', 'TEKRAR_ARANACAK', 'ACMAYANLAR'].reduce((t, k) => t + adet(k), 0);
 const simdi = new Date();
 const p = trParcalar(simdi);
 
@@ -16,6 +18,7 @@ const say = (f) => satirlar.filter(f).length;
 
 const arama = say((r) => r.tur === 'arama');
 const aramaHata = say((r) => r.tur === 'arama_hatasi');
+const arananKisi = new Set(satirlar.filter((r) => r.tur === 'arama').map((r) => r.lead_id || r.telefon)).size;
 const outSon = satirlar.filter((r) => r.tur === 'cagri_sonu' && r.yon === 'outbound');
 const ulasilan = outSon.filter((r) => r.sonuc === 'ulasildi').length;
 const ulasilamayan = outSon.length - ulasilan;
@@ -41,7 +44,7 @@ const metin = [
   `<b>📊 ${html(A.PROJE_ADI)} — Yapay Zeka ${p.saat < 17 ? 'Ara Rapor' : 'Gün Sonu Raporu'}</b>`,
   `${trMetin(simdi)} itibarıyla`,
   '',
-  `📞 Arama: <b>${sayi(arama)}</b>${aramaHata ? ` (başlatılamayan ${sayi(aramaHata)})` : ''}`,
+  `📞 Arama: <b>${sayi(arama)}</b> · aranan kişi ${sayi(arananKisi)}${aramaHata ? ` (başlatılamayan ${sayi(aramaHata)})` : ''}`,
   `✅ Ulaşılan: ${sayi(ulasilan)} · 📵 Ulaşılamayan: ${sayi(ulasilamayan)} · Ulaşma %${oran}`,
   `📥 Gelen arama (inbound): ${sayi(inbound)}`,
   `📅 Randevu: <b>${sayi(randevular.length)}</b> (outbound ${sayi(rOut)} · inbound ${sayi(randevular.length - rOut)}${teyit ? ` · teyit bekleyen ${sayi(teyit)}` : ''}${talep ? ` · saati belirlenecek ${sayi(talep)}` : ''})`,
@@ -49,7 +52,10 @@ const metin = [
   `🔁 Geri arama sözü: ${sayi(geriArama)} · ❌ Olumsuz: ${sayi(olumsuz)}`,
   `💬 SMS: ${sayi(smsOk)}${smsHata ? ` (hata ${sayi(smsHata)})` : ''} · WhatsApp: ${sayi(waOk)}${waHata ? ` (hata ${sayi(waHata)})` : ''} · E-posta: ${sayi(epOk)}${epHata ? ` (hata ${sayi(epHata)})` : ''}`,
   `⏱ Konuşma: ${sayi(sureDk)} dk · 💰 Vapi: $${maliyet.toFixed(2)}`,
-  `📋 Kuyrukta bekleyen lead: ${sayi(kuyruk.total)}`,
+  '',
+  `📈 Bugüne kadar aranan kişi (toplam): <b>${sayi(adet('toplamAranan'))}</b>`,
+  `📋 Kuyrukta bekleyen lead: ${sayi(kuyrukToplam)}`,
+  `   hiç aranmamış ${sayi(adet('YAPAY_ZEKA'))} · aradı ${sayi(adet('ARADI'))} · tekrar aranacak ${sayi(adet('TEKRAR_ARANACAK'))} · açmayanlar ${sayi(adet('ACMAYANLAR'))}`,
 ];
 
 if (randevular.length) {

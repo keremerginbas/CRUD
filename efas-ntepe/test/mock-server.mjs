@@ -76,6 +76,7 @@ function bitrix(metod, p) {
     case 'crm.lead.list': {
       let list = [...S.leads.values()];
       const f = p.filter || {};
+      for (const [k, v] of Object.entries(f)) if (k.startsWith('!')) list = list.filter((l) => String(l[k.slice(1)] ?? '') !== String(v ?? ''));
       if (f.STATUS_ID) {
         const st = (Array.isArray(f.STATUS_ID) ? f.STATUS_ID : typeof f.STATUS_ID === 'object' ? Object.values(f.STATUS_ID) : [f.STATUS_ID]).map(String);
         list = list.filter((l) => st.includes(l.STATUS_ID));
@@ -167,15 +168,19 @@ function referansCoz(deger, sonuclar) {
 function batch(p) {
   const result = {};
   const result_error = {};
+  const result_total = {};
   for (const [anahtar, komut] of Object.entries(p.cmd || {})) {
     const [metod, q = ''] = komut.split('?');
     const params = referansCoz(parseStr(q), result);
     const r = bitrix(metod, params);
     if (r.__hata) result_error[anahtar] = { error: r.error, error_description: r.error_description };
-    else result[anahtar] = r.result;
+    else {
+      result[anahtar] = r.result;
+      if (r.total !== undefined) result_total[anahtar] = r.total;
+    }
     S.requests.push({ api: 'bitrix-batch', metod, params, hata: r.__hata ? r.error_description : undefined });
   }
-  return { result: { result, result_error: Object.keys(result_error).length ? result_error : [], result_total: [], result_next: [] } };
+  return { result: { result, result_error: Object.keys(result_error).length ? result_error : [], result_total, result_next: [] } };
 }
 
 function vapi(req, yol, govde, url) {

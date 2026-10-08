@@ -171,8 +171,8 @@ const ifNode = (wf, ad, pos, sol, operator, sag) =>
 const yanitNode = (wf, ad, pos, respondWith) =>
   wf.ekle(ad, 'n8n-nodes-base.respondToWebhook', 1.1, pos, { respondWith, options: {} });
 
-const webhookNode = (wf, ad, pos, path, responseMode = 'responseNode') =>
-  wf.ekle(ad, 'n8n-nodes-base.webhook', 2, pos, { httpMethod: 'POST', path, responseMode, options: {} }, { webhookId: uuid('webhook', path) });
+const webhookNode = (wf, ad, pos, path, responseMode = 'responseNode', httpMethod = 'POST') =>
+  wf.ekle(ad, 'n8n-nodes-base.webhook', 2, pos, { httpMethod, path, responseMode, options: {} }, { webhookId: uuid('webhook', path) });
 
 const mesajTipiNode = (wf, pos) =>
   wf.ekle('Mesaj Tipi', 'n8n-nodes-base.switch', 3.2, pos, {
@@ -619,7 +619,7 @@ sunucu({
 {
   const wf = new Workflow(`${ON}05 Günlük Rapor (Telegram)`);
   wf.not(
-    '## 05 · Günlük Rapor\nHer gün **13:30** (ara rapor) ve **19:30** (gün sonu) Telegram grubuna:\narama · ulaşılan · randevu · olumsuz · SMS · WhatsApp · konuşma süresi · Vapi maliyeti · kuyrukta kalan + günün randevu listesi.\n\nSaatleri tetikleyicideki cron ifadesinden değiştirin.',
+    '## 05 · Günlük Rapor\nHer gün **13:30** (ara rapor) ve **19:30** (gün sonu) Telegram grubuna:\narama · aranan kişi · ulaşılan · randevu · olumsuz · SMS · WhatsApp · e-posta · konuşma süresi · Vapi maliyeti · **bugüne kadar aranan toplam kişi** · statü dağılımı + günün randevu listesi.\n\n**İstediğiniz an rapor:** tarayıcıda `…/webhook/efas-ntepe-rapor` adresini açın (rapor Telegram grubuna gider).\nSaatleri tetikleyicideki cron ifadesinden değiştirin.',
     [-60, -300],
     480,
     240
@@ -630,14 +630,10 @@ sunucu({
         rule: { interval: [{ field: 'cronExpression', expression: '30 13,19 * * *' }] },
       });
   const ay = ayarlarNode(wf, [220, 0]);
-  const kuyruk = bitrixPost(
-    wf,
-    'Bitrix: Kuyruk Sayısı',
-    [440, 0],
-    'crm.lead.list',
-    "={{ JSON.stringify({ filter: { STATUS_ID: ['YAPAY_ZEKA', 'ARADI', 'TEKRAR_ARANACAK', 'ACMAYANLAR'].map((k) => $('AYARLAR').first().json.STATU[k]).filter(Boolean) }, select: ['ID'], start: 0 }) }}",
-    { executeOnce: true, onError: 'continueRegularOutput' }
-  );
+  // İstendiği an rapor: tarayıcıda …/webhook/efas-ntepe-rapor adresini açın
+  const simdi = TEST ? null : webhookNode(wf, 'Şimdi Rapor Al', [0, 200], 'efas-ntepe-rapor', 'onReceived', 'GET');
+  const sayimKod = codeNode(wf, 'Sayım Komutları', [440, -160], kod('sayim-komutlari.js'));
+  const kuyruk = bitrixBatch(wf, 'Bitrix: Statü Sayıları', [440, 0], { executeOnce: true, onError: 'continueRegularOutput' });
   const olaylar = wf.ekle(
     'Tablo: Bugünün Olayları',
     'n8n-nodes-base.dataTable',
@@ -655,7 +651,8 @@ sunucu({
   );
   const metin = codeNode(wf, 'Rapor Metni', [880, 0], kod('rapor-metni.js'));
   const tg = telegramNode(wf, 'Telegram: Raporu Gönder', [1100, 0]);
-  wf.zincir(tetik, ay, kuyruk, olaylar, metin, tg);
+  wf.zincir(tetik, ay, sayimKod, kuyruk, olaylar, metin, tg);
+  if (simdi) wf.bagla(simdi, ay);
   dosyalar['05-gunluk-rapor-telegram.json'] = wf.json();
 }
 

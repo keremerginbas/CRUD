@@ -263,7 +263,7 @@ const sayiYorum = async () => (await durum()).comments.length;
 let once = await sayiYorum();
 r = await outbound(rapor(outCall(call101, 101, '+905321111101'), { analysis: { summary: 'Müşteri yarın 14:00 için randevu aldı.', structuredData: { sonuc: 'randevu' } }, artifact: { messages: konusma('Merhaba', 'Evet benim', 'Randevu?', 'Olur') } }));
 kontrol('rapor hemen 200 döner', r.status === 200);
-s = await bekleKadar((x) => x.comments.length > once);
+s = await bekleKadar((x) => x.comments.slice(once).some((c) => c.text.includes('görüşme sırasında')));
 kontrol('araçla işlenen randevuya sadece rapor eklendi', s.leads['101'].STATUS_ID === RANDEVU && s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında'))?.text.includes('görüşme sırasında kaydedildi') && s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')).text.includes('Ses kaydı'), s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')));
 kontrol('ikinci (teyit) görevi açılmadı', s.todos.filter((t) => t.ownerId === '101').length === 1);
 
@@ -348,7 +348,7 @@ s = await bekleKadar((x) => x.comments.length > once);
 kontrol('araç çağrılmadan "bilgi_istiyor" → BİLGİ statüsü + satış temsilcisi + görev', s.leads['119'].STATUS_ID === BILGI && ['7', '9'].includes(String(s.leads['119'].ASSIGNED_BY_ID)) && s.todos.some((t) => t.ownerId === '119' && t.title.includes('BİLGİ İSTİYOR')), s.leads['119']);
 once = s.comments.length;
 await outbound(rapor(outCall('c117', 117, '+905321111117'), { artifact: { messages: konusma('Merhaba', 'Bilgi alayım'), structuredOutputs: { 'so-1': { name: 'efas_ntepe_sonuc', result: { sonuc: 'bilgi_istiyor' } } } } }));
-s = await bekleKadar((x) => x.comments.length > once);
+s = await bekleKadar((x) => x.comments.slice(once).some((c) => c.text.includes('görüşme sırasında')));
 kontrol('satisa_aktar ile işlenen 117 için ikinci görev açılmadı', s.todos.filter((t) => t.ownerId === '117').length === 1 && s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında'))?.text.includes('görüşme sırasında kaydedildi'), s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')));
 const sirali = ['101', '108', '117'].map((id) => String(s.leads[id].ASSIGNED_BY_ID));
 kontrol('02\'de art arda atamalar sırayla dönüyor (101 → 108 → 117: 7 ↔ 9)', sirali.every((x, i) => i === 0 || x !== sirali[i - 1]), sirali);
@@ -374,7 +374,7 @@ kontrol('diğer projenin lead\'ine dokunulmadı', s.leads['120'].STATUS_ID === '
 
 once = s.comments.length;
 await inbound(rapor(inCall('in-1', '+905559990001'), { analysis: { summary: 'Randevu aldı.', structuredData: { sonuc: 'randevu' } }, artifact: { messages: konusma('Hoş geldiniz', 'Randevu istiyorum') } }));
-s = await bekleKadar((x) => x.comments.length > once);
+s = await bekleKadar((x) => x.comments.slice(once).some((c) => c.text.includes('görüşme sırasında')));
 kontrol('araçla randevu alan inbound → sadece rapor', s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında'))?.leadId === yeni?.ID && s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')).text.includes('görüşme sırasında oluşturuldu') && s.todos.filter((t) => t.ownerId === yeni?.ID).length === 1, s.comments.slice(once).find((c) => c.text.includes('görüşme sırasında')));
 
 const istekOnce = (await durum()).requests.length;
@@ -410,6 +410,7 @@ kontrol('rapor: inbound görüşmeler sayıldı', fark('inbound') >= 3, fark('in
 kontrol('rapor: ulaşılan / ulaşılamayan', fark('ulasilan') >= 5 && fark('ulasilamayan') === 3, { ulasilan: fark('ulasilan'), ulasilamayan: fark('ulasilamayan') });
 kontrol('rapor: olumsuzlar sayıldı', fark('olumsuz') >= 6, fark('olumsuz'));
 kontrol('rapor: bilgi isteyenler sayıldı (117, 119, inbound Ayşe, 106)', fark('bilgi') === 4, fark('bilgi'));
+kontrol('rapor: bugüne kadar aranan toplam kişi ve statü dağılımı', /Bugüne kadar aranan kişi \(toplam\): <b>[1-9]/.test(rapor1.metin) && /hiç aranmamış \d+ · aradı \d+ · tekrar aranacak \d+ · açmayanlar [1-9]/.test(rapor1.metin) && /aranan kişi [1-9]/.test(rapor1.metin), rapor1.metin);
 kontrol('rapor: SMS, WhatsApp ve e-posta sayıları', fark('sms') === (await durum()).sms.length && fark('whatsapp') === (await durum()).whatsapp.length && fark('eposta') === (await durum()).eposta.length, { sms: fark('sms'), whatsapp: fark('whatsapp'), eposta: fark('eposta') });
 kontrol('rapor: günün randevu listesi', rapor1.metin.includes('Bugünün randevuları') && rapor1.metin.includes('Ahmet Yılmaz'));
 console.log('\n--- Örnek Telegram raporu ---\n' + rapor1.metin.replace(/<[^>]+>/g, '') + '\n---');
