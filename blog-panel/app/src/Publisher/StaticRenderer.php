@@ -99,6 +99,9 @@ final class StaticRenderer
         $ts = strtotime($post['published_at'] ?? 'now');
         $words = count(preg_split('/\s+/u', trim(strip_tags($post['content_html']))) ?: []);
         $dir = trim((string) ($domain['static_dir'] ?: 'blog'), '/');
+        // Adres "/" ile bitiyorsa site klasör yapısını kullanır (/blog/{slug}/), diğer yazılara da öyle bağlanılır
+        $folder = str_ends_with($url, '/');
+        $link = static fn (string $slug) => '/' . $dir . '/' . $slug . ($folder ? '/' : '.html');
 
         $faq = '';
         if (!empty($post['faq'])) {
@@ -113,7 +116,7 @@ final class StaticRenderer
         if ($others) {
             $related = "<ul>\n";
             foreach ($others as $o) {
-                $related .= '<li><a href="/' . e($dir . '/' . $o['slug']) . '.html">' . e($o['title']) . "</a></li>\n";
+                $related .= '<li><a href="' . e($link($o['slug'])) . '">' . e($o['title']) . "</a></li>\n";
             }
             $related .= "</ul>\n";
         }
@@ -124,7 +127,7 @@ final class StaticRenderer
             'meta_description' => $post['meta_description'],
             'excerpt' => $post['excerpt'] ?? '',
             'url' => $url,
-            'relative_url' => $dir . '/' . $post['slug'] . '.html',
+            'relative_url' => ltrim($link($post['slug']), '/'),
             'slug' => $post['slug'],
             'list_url' => StaticPublisher::listUrl($domain),
             'date_iso' => date('c', $ts),
@@ -147,11 +150,27 @@ final class StaticRenderer
         foreach ($escaped as $key => $value) {
             $replace['{{' . $key . '}}'] = e((string) $value);
         }
-        $replace['{{content}}'] = $post['content_html'];
+        $content = $post['content_html'];
+        $toc = '';
+        if (str_contains($template, '{{toc}}')) {
+            // İçindekiler: id'siz her <h2>'ye bolum-N bağlantısı verilir
+            $n = 0;
+            $content = (string) preg_replace_callback('~<h2\b([^>]*)>(.*?)</h2>~is', static function ($m) use (&$n, &$toc) {
+                if (preg_match('~\bid\s*=~i', $m[1])) {
+                    return $m[0];
+                }
+                $id = 'bolum-' . ++$n;
+                $toc .= '<li><a href="#' . $id . '">' . e(trim(html_entity_decode(strip_tags($m[2]), ENT_QUOTES, 'UTF-8'))) . '</a></li>';
+                return '<h2 id="' . $id . '"' . $m[1] . '>' . $m[2] . '</h2>';
+            }, $content);
+            $toc = $toc !== '' ? '<ul>' . $toc . '</ul>' : '';
+        }
+        $replace['{{content}}'] = $content;
+        $replace['{{toc}}'] = $toc;
         $replace['{{faq}}'] = $faq;
         $replace['{{jsonld}}'] = '<script type="application/ld+json">' . self::jsonLd($domain, $post, $url) . '</script>';
         $replace['{{related}}'] = $related;
-        $html = strtr($template, $replace);
+        $html = str_replace(StaticPublisher::FOLDER_MARKER, '', strtr($template, $replace));
 
         if ($isPage) {
             $mark = '<!-- ' . StaticPublisher::MARKER . ' -->';

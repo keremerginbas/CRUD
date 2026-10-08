@@ -259,5 +259,26 @@ $cardAt = static fn (string $h) => strrpos(substr($h, 0, (int) strpos($h, 'eski-
 check(substr_count($reh, '<article') === substr_count($before, '<article') && $cardAt($reh) === $cardAt($before)
     && str_contains($reh, '<img src="https://site3.com/blog/img/eski-sablon.webp"') && !str_contains(substr($reh, (int) $cardAt($reh), (int) strpos($reh, '</article>', (int) $cardAt($reh)) - (int) $cardAt($reh)), '{x}'), 'rehber.html kartı aynı yerde görselli kartla değişti, kopya oluşmadı: ' . $msg);
 
+// 14) Klasör başına yazı (/blog/{slug}/index.html), <a> kartı ve kaldırma
+file_put_contents("$root3/blog/_sablon-yazi.html", "<!-- blog-panel:klasor --><html><head><link rel=\"canonical\" href=\"{{url}}\"></head><body><h1>{{title}}</h1>{{#image}}<img src=\"{{image_url}}\">{{/image}}{{content}}{{related}}</body></html>");
+file_put_contents("$root3/blog/_sablon-kart.html", '<a class="post-card" href="/{{relative_url}}"><h3>{{title}}</h3></a>');
+mkdir("$root3/blog/el-yapimi-yazi");
+file_put_contents("$root3/blog/el-yapimi-yazi/index.html", '<html>elle yazılmış</html>');
+$res = $runJob($id3, ['article' => ['title' => 'Klasörlü yazı', 'slug' => 'klasorlu-yazi'] + $article, 'image' => ['b64' => base64_encode($webp), 'alt' => 'Kapak']]);
+$page = (string) @file_get_contents("$root3/blog/klasorlu-yazi/index.html");
+$reh = (string) file_get_contents("$root3/rehber.html");
+check($res['ok'] && $res['url'] === 'https://site3.com/blog/klasorlu-yazi/' && str_contains($page, 'href="https://site3.com/blog/klasorlu-yazi/"') && !str_contains($page, 'blog-panel:klasor') && str_contains($page, StaticPublisher::MARKER)
+    && str_contains($page, 'blog/img/klasorlu-yazi.webp') && str_contains($page, 'href="/blog/eski-sablon/"'), 'yazı blog/klasorlu-yazi/index.html olarak yazıldı, adres /blog/klasorlu-yazi/');
+check(str_contains($reh, '<!-- blog-panel:kart blog/klasorlu-yazi/ --><a class="post-card" href="/blog/klasorlu-yazi/">') && str_contains((string) file_get_contents("$root3/sitemap.xml"), '<loc>https://site3.com/blog/klasorlu-yazi/</loc>'), 'liste kartı işaretli eklendi, sitemap güncellendi');
+$res = $runJob($id3, ['article' => ['title' => 'Elle yazılmış', 'slug' => 'el-yapimi-yazi'] + $article]);
+check(!$res['ok'] && file_get_contents("$root3/blog/el-yapimi-yazi/index.html") === '<html>elle yazılmış</html>', 'panel dışı klasördeki index.html ezilmedi');
+$row = App::db()->one("SELECT * FROM posts WHERE slug = 'klasorlu-yazi'");
+$d3 = DomainService::find($id3);
+$msg = BlogPanel\Publisher\PublisherFactory::for($d3)->rebuild($d3, JobService::rowToPost($row), []);
+$reh2 = (string) file_get_contents("$root3/rehber.html");
+check(substr_count($reh2, 'href="/blog/klasorlu-yazi/"') === 1 && is_file("$root3/blog/klasorlu-yazi/index.html"), 'klasörlü yazı yeniden oluşturuldu, kart kopyalanmadı: ' . $msg);
+$msg = BlogPanel\Publisher\PublisherFactory::for($d3)->unpublish($d3, $row, []);
+check(!is_file("$root3/blog/klasorlu-yazi/index.html") && !str_contains((string) file_get_contents("$root3/rehber.html"), 'klasorlu-yazi') && !str_contains((string) file_get_contents("$root3/sitemap.xml"), 'klasorlu-yazi/') && !is_file("$root3/blog/img/klasorlu-yazi.webp"), 'klasörlü yazı kaldırıldı (sayfa, kart, sitemap, görsel): ' . $msg);
+
 proc_terminate($server);
 echo "\nTüm testler başarılı. (geçici klasör: $tmp)\n";

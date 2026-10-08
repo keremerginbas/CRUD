@@ -14,6 +14,8 @@ namespace BlogPanel\Publisher;
  *    (ör. rehber.html) yeni yazının kartı "_sablon-kart.html" ile üretilip
  *    LIST_MARKER yorumunun hemen altına eklenir; kök dizindeki sitemap.xml ve
  *    rss.xml varsa yeni adres eklenir. Sitenin başka hiçbir dosyasına dokunulmaz.
+ *    Şablonda FOLDER_MARKER varsa yazı /{klasör}/{slug}/index.html olarak yazılır ve
+ *    adresi /{klasör}/{slug}/ olur (her yazının kendi klasörü olan siteler için).
  */
 final class StaticPublisher implements PublisherInterface
 {
@@ -23,6 +25,8 @@ final class StaticPublisher implements PublisherInterface
     public const POST_TEMPLATE = '_sablon-yazi.html';
     public const CARD_TEMPLATE = '_sablon-kart.html';
     public const LIST_MARKER = '<!-- blog-panel:liste -->';
+    public const FOLDER_MARKER = '<!-- blog-panel:klasor -->';
+    private const CARD_END = '<!-- /blog-panel:kart -->';
 
     private const MANAGED_FILES = ['index.html', 'sitemap.xml', 'feed.xml', '.htaccess'];
 
@@ -30,9 +34,9 @@ final class StaticPublisher implements PublisherInterface
     {
     }
 
-    public static function postUrl(array $domain, string $slug, bool $siteTemplate = false): string
+    public static function postUrl(array $domain, string $slug, bool $siteTemplate = false, bool $folder = false): string
     {
-        return self::blogUrl($domain) . $slug . ($siteTemplate ? '.html' : '');
+        return self::blogUrl($domain) . $slug . ($folder ? '/' : ($siteTemplate ? '.html' : ''));
     }
 
     public static function blogUrl(array $domain): string
@@ -44,7 +48,11 @@ final class StaticPublisher implements PublisherInterface
     public static function listUrl(array $domain): string
     {
         $page = trim((string) ($domain['list_page'] ?? ''), '/');
-        return $page !== '' ? 'https://' . $domain['domain'] . '/' . $page : self::blogUrl($domain);
+        // "blog/index.html" → https://site/blog/ (sitenin kanonik adresi)
+        if ($page === '') {
+            return self::blogUrl($domain);
+        }
+        return 'https://' . $domain['domain'] . '/' . preg_replace('~(^|/)index\.html?$~i', '$1', $page);
     }
 
     public function publish(array $domain, array $post, array $publishedPosts): array
@@ -94,7 +102,8 @@ final class StaticPublisher implements PublisherInterface
         $this->writer->ensureDir($docroot, $dirName);
 
         if ($this->writer->read($dir, self::POST_TEMPLATE) !== null) {
-            $notes = ["Site şablonu bulundu: $dirName/" . self::POST_TEMPLATE];
+            $folder = str_contains((string) $this->writer->read($dir, self::POST_TEMPLATE), self::FOLDER_MARKER);
+            $notes = ["Site şablonu bulundu: $dirName/" . self::POST_TEMPLATE . ($folder ? " (yazılar $dirName/{slug}/ klasörlerine yazılır)" : '')];
             $listPage = trim((string) ($domain['list_page'] ?? ''), '/');
             if ($listPage !== '') {
                 [$listDir, $listFile] = $this->split($docroot, $listPage);
@@ -121,9 +130,14 @@ final class StaticPublisher implements PublisherInterface
 
     private function publishWithSiteTemplate(array $domain, array $post, array $publishedPosts, string $docroot, string $dir, string $template): array
     {
-        $file = $post['slug'] . '.html';
-        $this->assertOwned($dir, [$file]);
-        $url = self::postUrl($domain, $post['slug'], true);
+        $folder = str_contains($template, self::FOLDER_MARKER);
+        if ($folder && strtolower($post['slug']) === 'img') {
+            throw new \RuntimeException('"img" adresi görseller için ayrılmış; yazı yayınlanmadı.');
+        }
+        [$postDir, $file] = $folder ? [$dir . '/' . $post['slug'], 'index.html'] : [$dir, $post['slug'] . '.html'];
+        $this->assertOwned($postDir, [$file]);
+        $url = self::postUrl($domain, $post['slug'], true, $folder);
+        $rel = ltrim((string) parse_url($url, PHP_URL_PATH), '/');
 
         // Önce liste sayfasını hazırla: işaret/şablon eksikse hiçbir şey yazmadan dur
         $listPage = trim((string) ($domain['list_page'] ?? ''), '/');
@@ -135,13 +149,16 @@ final class StaticPublisher implements PublisherInterface
             if ($list === null || $card === null || !str_contains($list, self::LIST_MARKER)) {
                 throw new \RuntimeException("Liste sayfası ($listPage), " . self::LIST_MARKER . ' işareti veya ' . self::CARD_TEMPLATE . ' eksik; yazı yayınlanmadı. "Yayın bağlantısını test et" ile kontrol edin.');
             }
-            if (!str_contains($list, self::dirName($domain) . '/' . $file)) {
-                $cardHtml = StaticRenderer::fillTemplate($card, $domain, $post, $publishedPosts, $url, false);
+            if (!str_contains($list, '/' . $rel)) {
+                $cardHtml = self::wrapCard($rel, StaticRenderer::fillTemplate($card, $domain, $post, $publishedPosts, $url, false));
                 $listUpdate = [$listDir, $listFile, str_replace(self::LIST_MARKER, self::LIST_MARKER . "\n" . $cardHtml, $list)];
             }
         }
 
-        $this->writer->write($dir, $file, StaticRenderer::fillTemplate($template, $domain, $post, $publishedPosts, $url, true));
+        if ($folder) {
+            $this->writer->ensureDir($dir, $post['slug']);
+        }
+        $this->writer->write($postDir, $file, StaticRenderer::fillTemplate($template, $domain, $post, $publishedPosts, $url, true));
         if ($listUpdate) {
             $this->writer->write(...$listUpdate);
         }
@@ -156,24 +173,19 @@ final class StaticPublisher implements PublisherInterface
         $docroot = rtrim((string) $domain['docroot'], '/');
         $url = (string) ($post['remote_url'] ?? '');
         $path = (string) parse_url($url, PHP_URL_PATH);
-        if ($docroot === '' || !preg_match('~^/([a-z0-9_-]+)/([a-z0-9_.-]+)$~i', $path, $m)) {
-            throw new \RuntimeException('Yazının adresinden dosya yolu çıkarılamadı: ' . $url);
-        }
-        [$dirName, $name] = [$m[1], $m[2]];
-        $siteTemplate = str_ends_with($name, '.html');
-        $file = $siteTemplate ? $name : $name . '.html';
-        $dir = "$docroot/$dirName";
+        [$dirName, $dir, $postDir, $file, $rel, $mode] = $this->locate($docroot, $path, $url);
+        $siteTemplate = $mode !== 'panel';
 
-        $content = $this->writer->read($dir, $file);
+        $content = $this->writer->read($postDir, $file);
         if ($content !== null && !str_contains($content, self::MARKER)) {
-            throw new \RuntimeException("$dirName/$file panel tarafından oluşturulmamış; silinmedi.");
+            throw new \RuntimeException("$rel panel tarafından oluşturulmamış; silinmedi.");
         }
         $notes = [];
         if ($content !== null) {
-            $this->writer->delete($dir, $file);
-            $notes[] = "$dirName/$file silindi";
+            $this->writer->delete($postDir, $file);
+            $notes[] = $mode === 'folder' ? "{$rel}index.html silindi (boş kalan $rel klasörünü File Manager'dan silebilirsiniz)" : "$rel silindi";
         } else {
-            $notes[] = "$dirName/$file zaten yoktu";
+            $notes[] = "$rel zaten yoktu";
         }
 
         $imagePath = (string) parse_url((string) ($post['image_url'] ?? ''), PHP_URL_PATH);
@@ -187,9 +199,9 @@ final class StaticPublisher implements PublisherInterface
             if ($listPage !== '') {
                 [$listDir, $listFile] = $this->split($docroot, $listPage);
                 $list = $this->writer->read($listDir, $listFile);
-                $pattern = '~<article\b(?:(?!<article\b).)*?' . preg_quote("$dirName/$file", '~') . '.*?</article>\s*~s';
-                if ($list !== null && preg_match($pattern, $list)) {
-                    $this->writer->write($listDir, $listFile, (string) preg_replace($pattern, '', $list, 1));
+                $new = $list !== null ? self::replaceCard($list, $rel, '') : null;
+                if ($new !== null) {
+                    $this->writer->write($listDir, $listFile, $new);
                     $notes[] = "$listPage kartı kaldırıldı";
                 }
             }
@@ -221,29 +233,27 @@ final class StaticPublisher implements PublisherInterface
     public function rebuild(array $domain, array $post, array $publishedPosts): string
     {
         $docroot = rtrim((string) $domain['docroot'], '/');
-        $path = (string) parse_url((string) ($post['remote_url'] ?? ''), PHP_URL_PATH);
-        if ($docroot === '' || !preg_match('~^/([a-z0-9_-]+)/([a-z0-9_.-]+)$~i', $path, $m)) {
-            throw new \RuntimeException('Yazının adresinden dosya yolu çıkarılamadı.');
-        }
-        [$dirName, $name] = [$m[1], $m[2]];
-        $dir = "$docroot/$dirName";
+        $url = (string) ($post['remote_url'] ?? '');
+        [$dirName, $dir, $postDir, $file, $rel, $mode] = $this->locate($docroot, (string) parse_url($url, PHP_URL_PATH), $url);
         $folderDomain = ['static_dir' => $dirName] + $domain;
 
-        if (!str_ends_with($name, '.html')) {
-            $this->assertOwned($dir, [$name . '.html', 'index.html']);
-            $this->writer->write($dir, $name . '.html', StaticRenderer::post($folderDomain, $post, $publishedPosts));
+        if ($mode === 'panel') {
+            $this->assertOwned($dir, [$file, 'index.html']);
+            $this->writer->write($dir, $file, StaticRenderer::post($folderDomain, $post, $publishedPosts));
             $this->writer->write($dir, 'index.html', StaticRenderer::index($folderDomain, $publishedPosts));
-            return "$dirName/$name.html panel şablonuyla yeniden oluşturuldu.";
+            return "$rel panel şablonuyla yeniden oluşturuldu.";
         }
 
         $template = $this->writer->read($dir, self::POST_TEMPLATE);
         if ($template === null) {
             throw new \RuntimeException("$dirName/" . self::POST_TEMPLATE . ' bulunamadı.');
         }
-        $this->assertOwned($dir, [$name]);
-        $url = (string) $post['remote_url'];
-        $this->writer->write($dir, $name, StaticRenderer::fillTemplate($template, $folderDomain, $post, $publishedPosts, $url, true));
-        $notes = ["$dirName/$name yeniden oluşturuldu"];
+        $this->assertOwned($postDir, [$file]);
+        if ($mode === 'folder') {
+            $this->writer->ensureDir($dir, basename($postDir));
+        }
+        $this->writer->write($postDir, $file, StaticRenderer::fillTemplate($template, $folderDomain, $post, $publishedPosts, $url, true));
+        $notes = ["$rel yeniden oluşturuldu"];
 
         $listPage = trim((string) ($domain['list_page'] ?? ''), '/');
         $card = $this->writer->read($dir, self::CARD_TEMPLATE);
@@ -251,10 +261,9 @@ final class StaticPublisher implements PublisherInterface
             [$listDir, $listFile] = $this->split($docroot, $listPage);
             $list = $this->writer->read($listDir, $listFile);
             if ($list !== null) {
-                $cardHtml = StaticRenderer::fillTemplate($card, $folderDomain, $post, $publishedPosts, $url, false);
-                $pattern = '~<article\b(?:(?!<article\b).)*?' . preg_quote("$dirName/$name", '~') . '.*?</article>~s';
-                if (preg_match($pattern, $list)) {
-                    $new = (string) preg_replace_callback($pattern, static fn () => $cardHtml, $list, 1);
+                $cardHtml = self::wrapCard($rel, StaticRenderer::fillTemplate($card, $folderDomain, $post, $publishedPosts, $url, false));
+                if (($replaced = self::replaceCard($list, $rel, $cardHtml . "\n")) !== null) {
+                    $new = $replaced;
                 } elseif (str_contains($list, self::LIST_MARKER)) {
                     $new = str_replace(self::LIST_MARKER, self::LIST_MARKER . "\n" . $cardHtml, $list);
                 } else {
@@ -267,6 +276,55 @@ final class StaticPublisher implements PublisherInterface
             }
         }
         return implode('; ', $notes) . '.';
+    }
+
+    /**
+     * Yayınlanmış bir yazının adres yolundan dosya konumunu çözer.
+     * /blog/slug → panel şablonu, /blog/slug.html → site şablonu, /blog/slug/ → klasör başına yazı.
+     *
+     * @return array{0:string,1:string,2:string,3:string,4:string,5:string} klasör adı, blog klasörü, yazı klasörü, dosya, göreli yol, biçim
+     */
+    private function locate(string $docroot, string $path, string $url): array
+    {
+        if ($docroot === '' || !preg_match('~^/([a-z0-9_-]+)/([a-z0-9_.-]+)(/?)$~i', $path, $m)) {
+            throw new \RuntimeException('Yazının adresinden dosya yolu çıkarılamadı: ' . $url);
+        }
+        [$dirName, $name] = [$m[1], $m[2]];
+        $dir = "$docroot/$dirName";
+        if ($m[3] === '/') {
+            if (!preg_match('~^[a-z0-9_-]+$~i', $name)) {
+                throw new \RuntimeException('Yazının adresinden dosya yolu çıkarılamadı: ' . $url);
+            }
+            return [$dirName, $dir, "$dir/$name", 'index.html', "$dirName/$name/", 'folder'];
+        }
+        if (str_ends_with($name, '.html')) {
+            return [$dirName, $dir, $dir, $name, "$dirName/$name", 'file'];
+        }
+        return [$dirName, $dir, $dir, $name . '.html', "$dirName/$name.html", 'panel'];
+    }
+
+    /** Kartı, sonradan bulunup güncellenebilmesi/kaldırılabilmesi için işaret yorumlarıyla sarar. */
+    private static function wrapCard(string $rel, string $html): string
+    {
+        return '<!-- blog-panel:kart ' . $rel . ' -->' . trim($html) . self::CARD_END;
+    }
+
+    /**
+     * Liste sayfasındaki kartı değiştirir ya da ('' ile) kaldırır; kart bulunamazsa null.
+     * İşaretli kartı arar; eski (işaretsiz) kartlarda yazı adresini içeren <article> bloğuna bakar.
+     */
+    private static function replaceCard(string $list, string $rel, string $replacement): ?string
+    {
+        $patterns = [
+            '~<!-- blog-panel:kart ' . preg_quote($rel, '~') . ' -->.*?' . preg_quote(self::CARD_END, '~') . '\s*~s',
+            '~<article\b(?:(?!<article\b).)*?' . preg_quote($rel, '~') . '.*?</article>\s*~s',
+        ];
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $list)) {
+                return (string) preg_replace_callback($pattern, static fn () => $replacement, $list, 1);
+            }
+        }
+        return null;
     }
 
     private function removeFromXml(string $docroot, string $file, string $pattern, array &$notes): void

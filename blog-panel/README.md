@@ -88,13 +88,16 @@ Sitenizde zaten bir blog bölümü varsa (ör. `/blog/yazi.html` sayfaları ve `
 
 Panel yalnızca yeni `{slug}.html` dosyasını yazar, liste sayfasına işaretin altına kart ekler ve kökteki `sitemap.xml` / `rss.xml` varsa yeni adresi ekler. Sitenizin diğer dosyalarına dokunmaz; işaret ya da şablon eksikse hiçbir şey yazmadan durur.
 
+**Her yazının kendi klasörü olan siteler** (`/blog/yazi-adi/index.html`, adres `/blog/yazi-adi/`): `_sablon-yazi.html` içine `<!-- blog-panel:klasor -->` satırını ekleyin. Liste sayfası bu durumda genelde `blog/index.html` olur. Örnek: `examples/vakifbarter/`.
+
 | Yer tutucu | Değer |
 |---|---|
 | `{{title}}`, `{{meta_title}}`, `{{meta_description}}`, `{{excerpt}}` | Başlık ve açıklamalar |
-| `{{url}}`, `{{relative_url}}`, `{{slug}}`, `{{list_url}}` | Tam adres, `blog/slug.html`, slug, liste sayfası adresi |
+| `{{url}}`, `{{relative_url}}`, `{{slug}}`, `{{list_url}}` | Tam adres, `blog/slug.html` (klasör düzeninde `blog/slug/`), slug, liste sayfası adresi |
 | `{{date}}`, `{{date_long}}`, `{{date_iso}}`, `{{reading_minutes}}` | `07.10.2026`, `7 Ekim 2026`, ISO tarih, okuma süresi |
 | `{{focus_keyword}}`, `{{keywords}}`, `{{tags}}` | Anahtar kelimeler |
 | `{{content}}`, `{{faq}}`, `{{jsonld}}`, `{{related}}` | Yazı HTML'i, SSS bölümü, JSON-LD `<script>`, diğer yazılar listesi (ham HTML) |
+| `{{toc}}` | İçindekiler: yazıdaki `<h2>` başlıklarına bağlantı veren `<ul>` (başlıklara `bolum-N` id'si verilir) |
 | `{{image_url}}`, `{{image_alt}}`, `{{image_width}}`, `{{image_height}}` | Öne çıkan görsel |
 | `{{#image}}…{{/image}}` / `{{^image}}…{{/image}}` | İçerik yalnızca görsel varsa / yoksa yazılır |
 
