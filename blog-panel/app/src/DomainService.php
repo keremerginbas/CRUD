@@ -26,10 +26,11 @@ final class DomainService
         }
 
         foreach ($remote as $d) {
-            $existing = $db->one('SELECT id FROM domains WHERE domain = ?', [$d['domain']]);
+            $existing = $db->one('SELECT id, docroot FROM domains WHERE domain = ?', [$d['domain']]);
             if ($existing) {
+                // Elle değiştirilmiş docroot korunur (ör. Node.js sitelerde /home/kullanici/uygulama/public)
                 $db->update('domains', [
-                    'cpanel_user' => $d['user'], 'docroot' => $d['docroot'], 'domain_type' => $d['domain_type'], 'updated_at' => $now,
+                    'cpanel_user' => $d['user'], 'docroot' => $existing['docroot'] ?: $d['docroot'], 'domain_type' => $d['domain_type'], 'updated_at' => $now,
                 ], 'id = :id', ['id' => $existing['id']]);
                 $updated++;
             } else {
