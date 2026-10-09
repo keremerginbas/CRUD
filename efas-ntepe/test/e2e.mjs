@@ -304,6 +304,7 @@ const yeniLeadler = [
   { ID: 114, PHONE: telefonLead('05321111114'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
   { ID: 115, PHONE: telefonLead('05321111115'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
   { ID: 117, PHONE: telefonLead('05321111117'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
+  { ID: 121, PHONE: telefonLead('05321111121'), STATUS_ID: AI, [F.DENEME]: 1, [F.SONUC]: 'ARANIYOR' },
 ];
 for (const yl of yeniLeadler) await post(`${MOCK}/__lead`, yl);
 
@@ -314,6 +315,12 @@ s = await bekleKadar((x) => x.comments.length > once);
 kontrol('SIP 503 hat hatası → deneme sayılmaz, kısa süre sonra tekrar, kuyrukta kalır', s.leads['117'].STATUS_ID === AI && s.leads['117'][F.SONUC] === 'HAT_HATASI' && String(s.leads['117'][F.DENEME]) === '0' && !!s.leads['117'][F.SONRAKI], s.leads['117']);
 await new Promise((ok) => setTimeout(ok, 3000));
 kontrol('hat hatasında müşteriye tanıtım SMS\'i gitmez', !(await durum()).sms.slice(smsOnce117).some((m) => m.no === '905321111117'));
+
+once = (await durum()).comments.length;
+await outbound(rapor(outCall('c121', 121, '+905321111121'), { endedReason: 'call.in-progress.error-sip-outbound-call-failed-to-connect', durationSeconds: 0, artifact: { messages: [] } }));
+s = await bekleKadar((x) => x.comments.length > once);
+kontrol('"failed-to-connect" de hat hatası sayılır (deneme sayılmaz, saat biri döner)', s.leads['121'].STATUS_ID === AI && s.leads['121'][F.SONUC] === 'HAT_HATASI' && String(s.leads['121'][F.DENEME]) === '0', s.leads['121']);
+await new Promise((ok) => setTimeout(ok, 3000));
 
 once = (await durum()).comments.length;
 await outbound(rapor(outCall('c111', 111, '+905321111111'), { endedReason: 'customer-busy', durationSeconds: 0 }));
@@ -405,7 +412,7 @@ console.log('\n=== F) Günlük rapor (05) ===');
 await bekle(1500); // son olayların tabloya yazılmasını bekle
 const rapor1 = await raporAl();
 const fark = (k) => rapor1[k] - rapor0[k];
-kontrol('rapor: 6 arama, 2 başlatılamayan (1 Vapi hatası + 1 SIP 503 hat hatası)', fark('arama') === 6 && fark('hata') === 2, { arama: fark('arama'), hata: fark('hata') });
+kontrol('rapor: 6 arama, 3 başlatılamayan (1 Vapi hatası + 2 hat hatası)', fark('arama') === 6 && fark('hata') === 3, { arama: fark('arama'), hata: fark('hata') });
 kontrol('rapor: 6 randevu (101, 118 saatsiz, 103 saatsiz, 113 teyit, inbound yeni, 103 inbound)', fark('randevu') === 6, fark('randevu'));
 kontrol('rapor: inbound görüşmeler sayıldı', fark('inbound') >= 3, fark('inbound'));
 kontrol('rapor: ulaşılan / ulaşılamayan', fark('ulasilan') >= 5 && fark('ulasilamayan') === 3, { ulasilan: fark('ulasilan'), ulasilamayan: fark('ulasilamayan') });

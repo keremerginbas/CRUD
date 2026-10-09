@@ -104,4 +104,16 @@ t('Vapi mesaj çözümleme', () => {
   assert.deepEqual(tc.toolCalls, [{ id: 'x', ad: 'a', arg: { b: 1 } }]);
 });
 
+t('hat hatası: müşteriye ulaşmadan hat/altyapı tarafında düşen çağrılar', () => {
+  const hatHatali = (endedReason) =>
+    L.vapiMesajCoz({ message: { type: 'end-of-call-report', endedReason, durationSeconds: 0, call: { id: 'h1' }, artifact: { messages: [] } } }).hatHatasi;
+  assert.equal(hatHatali('call.in-progress.error-providerfault-outbound-sip-503-service-unavailable'), true);
+  assert.equal(hatHatali('call.in-progress.error-sip-outbound-call-failed-to-connect'), true, 'call.in-progress.error- önekiyle başlayan her sebep hat hatası sayılmalı');
+  assert.equal(hatHatali('call.in-progress.error-vapifault-anything'), true);
+  // Müşteri-kaynaklı sebepler hat hatası SAYILMAMALI (deneme hakkı yakılmalı)
+  assert.equal(hatHatali('customer-did-not-answer'), false);
+  assert.equal(hatHatali('customer-busy'), false);
+  assert.equal(hatHatali('voicemail'), false);
+});
+
 console.log('lib testleri tamam');

@@ -218,8 +218,10 @@ function argumanCoz(a) {
 }
 
 const ULASILAMADI_NEDEN_RE = /did-not-answer|customer-busy|voicemail|no-answer|failed-to-connect|unanswered|declined|rejected|not-reachable|unavailable/i;
-// Müşteriye hiç ulaşmadan hat/operatör tarafında düşen çağrı (ör. SIP 503 service unavailable)
-const HAT_HATASI_RE = /sip-5\d\d|vapifault|pipeline-error|providerfault(?![\w.-]*sip-4\d\d)/i;
+// Müşteriye hiç ulaşmadan hat/altyapı tarafında düşen çağrı. Vapi'nin "call.in-progress.error-..."
+// öneki bu tür hataların hepsini kapsar (SIP 503, bağlanamadı, sağlayıcı hatası, vb.) — tek tek kod
+// saymak yerine önekle yakala.
+const HAT_HATASI_RE = /^call\.in-progress\.error-|sip-5\d\d|vapifault|pipeline-error|providerfault(?![\w.-]*sip-4\d\d)/i;
 const OPERATOR_ANONS_RE = /ulaşılamıyor|ulasilamiyor|şu an kapalı|telefonu kapalı|kapsama alanı|meşgul|sesli mesaj|sinyal sesinden|tekrar deneyiniz|kullanılmamaktadır|abonesine/i;
 
 // Vapi sunucu mesajını tek tip nesneye çevirir
