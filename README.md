@@ -1,70 +1,56 @@
-# Getting Started with Create React App
+# Exca Dijital — Kurumsal Web Sitesi
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Exca Dijital'in çok sayfalı, React (Create React App + React Router)
+tabanlı kurumsal web sitesi. Orijinal tek-sayfa HTML şablonundaki tüm
+tasarım dili, animasyonlar ve gerçek zamanlı WebGL (three.js) arka plan
+motoru korunarak ayrı sayfalara (Ana Sayfa, Hakkımızda, Hizmetler, Süreç,
+Projeler, Paketler, SSS, İletişim) bölündü.
 
-## Available Scripts
+## Çalıştırma
 
-In the project directory, you can run:
+```bash
+npm install
+npm start      # geliştirme sunucusu — http://localhost:3000
+npm run build  # production build — build/ klasörü
+```
 
-### `npm start`
+## Proje Yapısı
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+public/index.html         — three.js CDN script, meta/SEO etiketleri
+src/
+  engine/backgroundEngine.js — 6 sahneli WebGL arka plan motoru
+  styles/global.css          — tüm tasarım sistemi (tokens, bileşenler)
+  components/                — Layout, Nav, Footer, Counter, Testimonials...
+  hooks/                      — useReveal, useRotator, usePageTitle
+  pages/                      — Home, About, Services, Process, Portfolio,
+                                 Pricing, FAQ, Contact, NotFound
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Sayfalar
 
-### `npm test`
+| Yol | Sayfa |
+|---|---|
+| `/` | Ana Sayfa |
+| `/hakkimizda` | Hakkımızda |
+| `/hizmetler` | Hizmetler |
+| `/surec` | Süreç |
+| `/projeler` | Projeler |
+| `/paketler` | Paketler |
+| `/sss` | SSS |
+| `/iletisim` | İletişim |
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Kurumsal E-posta
 
-### `npm run build`
+`kurumsal@excadijital.com.tr` adresinin hosting panelinizde (cPanel/Plesk)
+nasıl kurulacağı, DNS/SPF/DKIM/DMARC ayarları dahil adım adım
+[`docs/E-POSTA-KURULUM-REHBERI.md`](./docs/E-POSTA-KURULUM-REHBERI.md)
+dosyasında anlatılmıştır.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Dağıtım (Deploy)
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+`npm run build` sonrası oluşan `build/` klasörü herhangi bir statik
+hosting'e (kendi hosting paneliniz, Netlify, Vercel vb.) yüklenebilir. Site
+istemci tarafında yönlendirme (client-side routing) kullandığından, hosting
+tarafında "tüm yolları `index.html`'e yönlendir" (SPA fallback) ayarının
+açık olması gerekir.

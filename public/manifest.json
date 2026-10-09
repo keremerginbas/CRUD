@@ -1,0 +1,9 @@
+{
+  "short_name": "Exca Dijital",
+  "name": "Exca Dijital — Markanızı Büyüten Dijital Deneyimler",
+  "icons": [],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#070B18",
+  "background_color": "#070B18"
+}
