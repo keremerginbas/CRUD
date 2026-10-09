@@ -8,6 +8,8 @@ const satirlar = $('Tablo: Bugünün Olayları')
   .filter((r) => r && r.tur);
 const sayim = (($('Bitrix: Statü Sayıları').first().json || {}).result || {}).result_total || {};
 const adet = (k) => Number(sayim[k]) || 0;
+// Bitrix'teki gerçek sayı olay tablosundakinden fazlaysa (olay tablosuna yazım aksadıysa) büyük olanı göster
+const buyuk = (olayTablosu, bitrix) => Math.max(Number(olayTablosu) || 0, adet(bitrix));
 const kuyrukToplam = ['YAPAY_ZEKA', 'ARADI', 'TEKRAR_ARANACAK', 'ACMAYANLAR'].reduce((t, k) => t + adet(k), 0);
 const simdi = new Date();
 const p = trParcalar(simdi);
@@ -24,12 +26,13 @@ const ulasilan = outSon.filter((r) => r.sonuc === 'ulasildi').length;
 const ulasilamayan = outSon.length - ulasilan;
 const inbound = say((r) => r.tur === 'cagri_sonu' && r.yon === 'inbound');
 const randevular = satirlar.filter((r) => r.tur === 'randevu');
+const randevuSayisi = buyuk(randevular.length, 'bugunRandevu');
 const teyit = randevular.filter((r) => r.sonuc === 'teyit').length;
 const talep = randevular.filter((r) => r.sonuc === 'talep').length;
 const rOut = randevular.filter((r) => r.yon === 'outbound').length;
-const olumsuz = say((r) => r.tur === 'olumsuz');
-const geriArama = say((r) => r.tur === 'geri_arama');
-const bilgi = say((r) => r.tur === 'bilgi');
+const olumsuz = buyuk(say((r) => r.tur === 'olumsuz'), 'bugunOlumsuz');
+const geriArama = buyuk(say((r) => r.tur === 'geri_arama'), 'bugunGeriArama');
+const bilgi = buyuk(say((r) => r.tur === 'bilgi'), 'bugunBilgi');
 const smsOk = say((r) => r.tur === 'sms' && r.sonuc === 'ok');
 const smsHata = say((r) => r.tur === 'sms' && r.sonuc !== 'ok');
 const waOk = say((r) => r.tur === 'whatsapp' && r.sonuc === 'ok');
@@ -47,7 +50,7 @@ const metin = [
   `📞 Arama: <b>${sayi(arama)}</b> · aranan kişi ${sayi(arananKisi)}${aramaHata ? ` (başlatılamayan ${sayi(aramaHata)})` : ''}`,
   `✅ Ulaşılan: ${sayi(ulasilan)} · 📵 Ulaşılamayan: ${sayi(ulasilamayan)} · Ulaşma %${oran}`,
   `📥 Gelen arama (inbound): ${sayi(inbound)}`,
-  `📅 Randevu: <b>${sayi(randevular.length)}</b> (outbound ${sayi(rOut)} · inbound ${sayi(randevular.length - rOut)}${teyit ? ` · teyit bekleyen ${sayi(teyit)}` : ''}${talep ? ` · saati belirlenecek ${sayi(talep)}` : ''})`,
+  `📅 Randevu: <b>${sayi(randevuSayisi)}</b>${randevuSayisi !== randevular.length ? ' ⚠️' : ''} (outbound ${sayi(rOut)} · inbound ${sayi(randevular.length - rOut)}${teyit ? ` · teyit bekleyen ${sayi(teyit)}` : ''}${talep ? ` · saati belirlenecek ${sayi(talep)}` : ''})`,
   `📞 Bilgi isteyen (satışa devredilen): ${sayi(bilgi)}`,
   `🔁 Geri arama sözü: ${sayi(geriArama)} · ❌ Olumsuz: ${sayi(olumsuz)}`,
   `💬 SMS: ${sayi(smsOk)}${smsHata ? ` (hata ${sayi(smsHata)})` : ''} · WhatsApp: ${sayi(waOk)}${waHata ? ` (hata ${sayi(waHata)})` : ''} · E-posta: ${sayi(epOk)}${epHata ? ` (hata ${sayi(epHata)})` : ''}`,

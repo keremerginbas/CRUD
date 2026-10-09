@@ -10,6 +10,11 @@ const p = trParcalar(new Date());
 const bugun = `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}T00:00:00+03:00`;
 const ai = { [`!${A.ALAN.CAGRI}`]: '' };
 cmd.bugunAranan = say({ ...ai, '>=DATE_MODIFY': bugun });
+// Randevu/Bilgi/Olumsuz/Geri-arama: olay tablosu yerine (ya da onunla karşılaştırmak için) doğrudan Bitrix'ten
+if (S.RANDEVU) cmd.bugunRandevu = say({ ...ai, STATUS_ID: S.RANDEVU, '>=DATE_MODIFY': bugun });
+if (S.BILGI) cmd.bugunBilgi = say({ ...ai, STATUS_ID: S.BILGI, '>=DATE_MODIFY': bugun });
+if (S.OLUMSUZ) cmd.bugunOlumsuz = say({ ...ai, STATUS_ID: S.OLUMSUZ, '>=DATE_MODIFY': bugun });
+cmd.bugunGeriArama = say({ ...ai, [A.ALAN.SONUC]: 'TEKRAR_ARA', '>=DATE_MODIFY': bugun });
 const danismanlar = (Array.isArray(A.SATIS_SORUMLU_IDLERI) ? A.SATIS_SORUMLU_IDLERI : []).map(String).filter(Boolean).slice(0, 10);
 for (const id of danismanlar) {
   for (const [k, st] of [['r', S.RANDEVU], ['b', S.BILGI], ['o', S.OLUMSUZ]]) {

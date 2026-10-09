@@ -86,6 +86,9 @@ function bitrix(metod, p) {
         const ids = (Array.isArray(f.ID) ? f.ID : typeof f.ID === 'object' ? Object.values(f.ID) : [f.ID]).map(String);
         list = list.filter((l) => ids.includes(l.ID));
       }
+      if (f['>=DATE_MODIFY']) list = list.filter((l) => new Date(l.DATE_MODIFY || 0) >= new Date(f['>=DATE_MODIFY']));
+      // UF_ ile başlayan tek değerli alanlara tam eşleşme (ör. SONUC alanı)
+      for (const [k, v] of Object.entries(f)) if (k.startsWith('UF_') && v !== undefined) list = list.filter((l) => String(l[k] ?? '') === String(v));
       const yon = (p.order && p.order.ID) === 'DESC' ? -1 : 1;
       list.sort((a, b) => yon * (Number(a.ID) - Number(b.ID)));
       const start = Number(p.start) || 0;
@@ -110,14 +113,14 @@ function bitrix(metod, p) {
     case 'crm.lead.update': {
       const l = S.leads.get(String(p.id));
       if (!l) return hataYanit('', 'Not found');
-      Object.assign(l, p.fields || {});
+      Object.assign(l, p.fields || {}, { DATE_MODIFY: new Date().toISOString() });
       return { result: true };
     }
     case 'crm.lead.add': {
       const id = String(S.nextLeadId++);
       const fields = { ...(p.fields || {}) };
       if (fields.PHONE && !Array.isArray(fields.PHONE)) fields.PHONE = Object.values(fields.PHONE);
-      S.leads.set(id, { ID: id, ...fields });
+      S.leads.set(id, { ID: id, DATE_MODIFY: new Date().toISOString(), ...fields });
       return { result: Number(id) };
     }
     case 'crm.timeline.comment.add': {
