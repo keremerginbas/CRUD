@@ -1,0 +1,22 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "randevu_olustur",
+      "description": "Müşteri Ankaport Hisse'ye ilgi gösterip randevu/geri dönüş istediğinde çağır. Gün ve saat SORMA; müşteri kendiliğinden geçerli bir gün/saat söylerse randevu_tarihi ve randevu_saati olarak gönder, söylemezse boş bırak.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "ad_soyad": { "type": "string", "description": "Müşterinin adı soyadı" },
+          "iletisim_telefonu": { "type": "string", "description": "Arayan numara görünmüyorsa müşteriden isteyip buraya yaz" },
+          "ilgilendigi_hisse": { "type": "string", "description": "İlgilendiği hisse büyüklüğü (ör. 10 m², 20 m²) — belirsizse boş bırak" },
+          "randevu_tarihi": { "type": "string", "description": "YYYY-AA-GG — müşteri kendiliğinden söylerse" },
+          "randevu_saati": { "type": "string", "description": "SS:DD — müşteri kendiliğinden söylerse" },
+          "not": { "type": "string", "description": "Danışmana iletilecek kısa not" }
+        },
+        "required": ["ad_soyad"]
+      }
+    },
+    "server": { "url": "https://N8N_ALANINIZ/webhook/ankaport-hisse-inbound" }
+  }
+]

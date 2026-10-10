@@ -1,0 +1,22 @@
+{
+  "BITRIX_WEBHOOK": "http://127.0.0.1:8787/rest/1/test/",
+  "VAPI_API": "http://127.0.0.1:8787/vapi",
+  "ARAYAN_NUMARA": "+905000000000",
+  "N8N_TABAN_URL": "http://127.0.0.1:5678",
+  "VARSAYILAN_SORUMLU_ID": "9",
+  "SMS": {
+    "AKTIF": true,
+    "API_URL": "http://127.0.0.1:8787/sms-xml",
+    "KULLANICI": "sms-user",
+    "SIFRE": "sms-pass",
+    "BASLIK": "XRE TEST"
+  },
+  "EPOSTA": {
+    "AKTIF": true,
+    "GONDEREN": "XRE Test <test@xre.com.tr>"
+  },
+  "TELEGRAM": {
+    "AKTIF": true,
+    "CHAT_ID": "-100TEST"
+  }
+}
