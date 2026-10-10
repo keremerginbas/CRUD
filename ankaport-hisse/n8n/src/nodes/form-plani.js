@@ -48,8 +48,8 @@ return [
       sorumluId: String(lead.ASSIGNED_BY_ID || ''),
       formTarihi: trMetin(bitrixTarih(lead.DATE_CREATE) || simdi),
       vapiBody: {
-        assistantId: '__ASISTAN_ID__', // build.mjs/vapi-guncelleme ile asistan ID'si çözülür
-        phoneNumberId: '__NUMARA_ID__',
+        assistantId: '2c5bb51e-f8fa-4edd-94c5-2a7a2a8ea6e8', // ANKAPORT HİSSE-OUTBOUND
+        phoneNumberId: '__NUMARA_ID__', // Vapi > Phone Numbers'da Ankaport'a özel numara oluşunca buraya yazılacak
         customer: { number: telefon, name: ad || undefined },
         name: kisalt(`Ankaport Hisse #${lead.ID} ${ad || telefon}`, 40),
         assistantOverrides: {
