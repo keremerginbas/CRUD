@@ -1,0 +1,4 @@
+test/.build/
+node_modules/
+n8n/hazir/
+n8n/ayarlar.local.json

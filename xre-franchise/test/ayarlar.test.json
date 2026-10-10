@@ -1,0 +1,27 @@
+{
+  "BITRIX_WEBHOOK": "http://127.0.0.1:8787/rest/1/test/",
+  "VAPI_API": "http://127.0.0.1:8787/vapi",
+  "ARAYAN_NUMARALAR": ["+905000000001", "+905000000002"],
+  "OLAY_WEBHOOK_URL": "http://127.0.0.1:5678/webhook/xre-franchise-outbound",
+  "STATU": {
+    "ARANACAK": "UC_ARANACAK",
+    "AI_GORUSTU": "UC_AIGORUSTU",
+    "ILGILENIYOR": "UC_ILGILENIYOR",
+    "VIDEO_GONDERILDI": "UC_VIDEOGONDERILDI",
+    "ASISTAN_ARAYACAK": "UC_ASISTANARAYACAK",
+    "SUNUM_YAPILDI": "UC_SUNUMYAPILDI",
+    "ERDAL_ONAYI": "UC_ERDALONAYI",
+    "SOZLESME": "UC_SOZLESME",
+    "FRANCHISE_ACILIS": "UC_FRANCHISEACILIS"
+  },
+  "FRANCHISE_ASISTAN_SORUMLU_ID": "9",
+  "WHATSAPP": {
+    "AKTIF": true,
+    "API_URL": "http://127.0.0.1:8787/wa",
+    "TELEFON_NUMARASI_ID": "test-numara-id"
+  },
+  "TELEGRAM": {
+    "AKTIF": true,
+    "CHAT_ID": "-100TEST"
+  }
+}
