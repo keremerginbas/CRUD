@@ -28,9 +28,9 @@ function sifirla(seed = {}) {
     failNumbers: seed.failNumbers || [],
     pageSize: seed.pageSize || 50,
     phoneNumbers: seed.phoneNumbers || [
-      { id: 'pn-1', number: '+905337436876', assistantId: 'asst-in' },
-      { id: 'pn-2', number: '+905337437088', assistantId: 'asst-in' },
-      { id: 'pn-3', number: '+908503465993', assistantId: 'asst-other' },
+      { id: 'pn-1', number: '+905337436014', assistantId: 'asst-in' },
+      { id: 'pn-2', number: '+905337435632', assistantId: 'asst-in' },
+      { id: 'pn-3', number: '+905337436876', assistantId: 'asst-other' },
       { id: 'pn-x', number: '+905337436902', assistantId: 'asst-other' },
     ],
   };

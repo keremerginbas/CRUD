@@ -1,0 +1,675 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "efas-yasamkent-form-lead",
+        "options": {}
+      },
+      "id": "91aab46a-27f7-4038-8177-604d3a082ea8",
+      "name": "Webhook - EFAS Yaşamkent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -880,
+        32
+      ],
+      "webhookId": "efas-yasamkent-form-lead-001"
+    },
+    {
+      "parameters": {
+        "amount": 15,
+        "unit": "seconds"
+      },
+      "id": "02574515-ba0a-4836-b363-b7d6c6cf64bb",
+      "name": "15sn Bekle (Kaynak Dolması İçin)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        -672,
+        32
+      ],
+      "webhookId": "efas-yasamkent-wait-15s-001"
+    },
+    {
+      "parameters": {
+        "url": "=https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.lead.get.json?id={{ ($json.body[\"document_id[2]\"] || $json.body[\"data[FIELDS][ID]\"] || $json.body[\"data[FIELDS_AFTER][ID]\"] || $json.query.id || $json.body.id || \"\").toString().replace(\"LEAD_\", \"\") }}",
+        "options": {}
+      },
+      "id": "f6bdd981-a0b3-4392-8019-3294a26553c0",
+      "name": "Lead Detayını Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -448,
+        32
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.status.list.json?filter[ENTITY_ID]=SOURCE",
+        "options": {}
+      },
+      "id": "d0c6ff0c-c5d9-409f-bb0e-f3cd2fc044ad",
+      "name": "Lead Kaynaklarını Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -208,
+        -128
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ (() => { const lead = $('Lead Detayını Çek').first().json.result || {}; const sources = $('Lead Kaynaklarını Çek').first().json.result || []; const source = sources.find(s => String(s.STATUS_ID) === String(lead.SOURCE_ID)); const normalize = (v) => String(v || '').toLocaleUpperCase('tr-TR').replace(/İ/g,'I').replace(/Ş/g,'S').replace(/Ğ/g,'G').replace(/Ü/g,'U').replace(/Ö/g,'O').replace(/Ç/g,'C'); const text = normalize([(source && source.NAME), lead.SOURCE_DESCRIPTION, lead.SOURCE_ID, lead.TITLE].filter(Boolean).join(' ')); return text.includes('EFAS') || String(lead.STATUS_ID) === 'UC_PQDHUK'; })() }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "271f9d6f-3228-436c-8765-4870492c833b",
+      "name": "EFAS Kaynağı mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.lead.update.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"id\": \"{{ $('Lead Detayını Çek').first().json.result.ID }}\",\n  \"fields\": {\n    \"STATUS_ID\": \"UC_PQDHUK\"\n  },\n  \"params\": {\n    \"REGISTER_SONET_EVENT\": \"Y\"\n  }\n}",
+        "options": {}
+      },
+      "id": "702c28f6-f21e-4e97-84b3-8e687f8a60e7",
+      "name": "Statüyü EFAS İçin Gelene Taşı",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        272,
+        32
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "url": "=https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.lead.get.json?id={{ $('Lead Detayını Çek').first().json.result.ID }}",
+        "options": {}
+      },
+      "id": "51454794-fbed-4d92-bced-49d18f2ab7b9",
+      "name": "Lead Detayını Yeniden Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        512,
+        32
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.result.CONTACT_ID && (!$json.result.PHONE || !$json.result.NAME) }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "d3021204-308c-4e8d-8468-56f846524f84",
+      "name": "Kişi Detayı Gerekli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        752,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.contact.get.json?id={{ $json.result.CONTACT_ID }}",
+        "options": {}
+      },
+      "id": "17f6df16-07c6-4872-96c9-625b25b0a4ad",
+      "name": "Kişi Detayını Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        992,
+        -112
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "jsCode": "const staticData = $getWorkflowStaticData('global');\nstaticData.efasProcessedLeads = staticData.efasProcessedLeads || {};\n\nlet lead = {};\ntry { lead = $('Lead Detayını Yeniden Çek').first().json.result || {}; } catch (e) {}\n\nlet contact = {};\ntry { contact = $('Kişi Detayını Çek').first().json.result || {}; } catch (e) {}\n\nlet webhook = {};\ntry { webhook = $('Webhook - EFAS Yaşamkent').first().json || {}; } catch (e) {}\n\nconst body = webhook.body || {};\nconst query = webhook.query || {};\n\nconst leadId = (\n  lead.ID ||\n  body[\"document_id[2]\"] ||\n  body[\"data[FIELDS][ID]\"] ||\n  body.id ||\n  query.id ||\n  \"0\"\n).toString().replace(\"LEAD_\", \"\");\n\nif (leadId === \"0\") return [];\n\n// Aynı lead için mükerrer webhook gelirse 1 saat içinde ikinci SMS'i engeller.\nconst now = Date.now();\nconst previousRun = staticData.efasProcessedLeads[leadId];\nif (previousRun && (now - previousRun) < 3600000) {\n  return [];\n}\nstaticData.efasProcessedLeads[leadId] = now;\n\nfunction titleCase(str) {\n  if (!str) return \"\";\n  return String(str)\n    .toLocaleLowerCase(\"tr-TR\")\n    .split(\" \")\n    .filter(Boolean)\n    .map(word =>\n      word.charAt(0).toLocaleUpperCase(\"tr-TR\") + word.slice(1)\n    )\n    .join(\" \");\n}\n\nfunction getFirstValue(value) {\n  if (!value) return \"\";\n  if (Array.isArray(value) && value[0]) {\n    return value[0].VALUE || value[0].value || \"\";\n  }\n  if (typeof value === \"object\") {\n    return value.VALUE || value.value || \"\";\n  }\n  return String(value);\n}\n\nfunction normalizeTurkeyPhone(rawPhone) {\n  let digits = String(rawPhone || \"\").replace(/\\D/g, \"\");\n\n  if (digits.startsWith(\"0090\")) digits = digits.slice(2);\n\n  if (digits.startsWith(\"90\") && digits.length === 12) {\n    return { e164: \"+\" + digits, sms: digits, valid: true };\n  }\n\n  if (digits.startsWith(\"0\") && digits.length === 11) {\n    digits = \"90\" + digits.slice(1);\n    return { e164: \"+\" + digits, sms: digits, valid: true };\n  }\n\n  if (digits.length === 10 && digits.startsWith(\"5\")) {\n    digits = \"90\" + digits;\n    return { e164: \"+\" + digits, sms: digits, valid: true };\n  }\n\n  return { e164: \"\", sms: digits, valid: false };\n}\n\nconst rawName =\n  lead.NAME ||\n  contact.NAME ||\n  body.name ||\n  body.NAME ||\n  body[\"data[FIELDS][NAME]\"] ||\n  \"\";\n\nconst rawLastName =\n  lead.LAST_NAME ||\n  contact.LAST_NAME ||\n  body.last_name ||\n  body.LAST_NAME ||\n  body[\"data[FIELDS][LAST_NAME]\"] ||\n  \"\";\n\nconst firstName = titleCase(String(rawName).trim());\nconst fullName = (\n  firstName + \" \" + titleCase(String(rawLastName).trim())\n).trim();\n\nconst rawPhone =\n  body[\"data[FIELDS][PHONE][0][VALUE]\"] ||\n  body[\"data[FIELDS][PHONE]\"] ||\n  body[\"PHONE[0][VALUE]\"] ||\n  body.phone ||\n  body.Phone ||\n  body.PHONE ||\n  body.telefon ||\n  body.Telefon ||\n  body.TELEFON ||\n  body.mobile ||\n  body.MOBILE ||\n  body.gsm ||\n  body.GSM ||\n  query.phone ||\n  query.PHONE ||\n  getFirstValue(lead.PHONE) ||\n  getFirstValue(contact.PHONE) ||\n  \"\";\n\nconst phone = normalizeTurkeyPhone(rawPhone);\n\nconst email =\n  body[\"data[FIELDS][EMAIL][0][VALUE]\"] ||\n  body[\"EMAIL[0][VALUE]\"] ||\n  body.email ||\n  body.Email ||\n  body.EMAIL ||\n  body.eposta ||\n  body.EPOSTA ||\n  query.email ||\n  getFirstValue(lead.EMAIL) ||\n  getFirstValue(contact.EMAIL) ||\n  \"\";\n\nconst sourceTitle =\n  lead.TITLE ||\n  body.title ||\n  body.TITLE ||\n  \"\";\n\nreturn [{\n  json: {\n    lead_id: leadId,\n    first_name: firstName,\n    full_name: fullName || \"Değerli Müşterimiz\",\n    raw_phone: rawPhone,\n    sms_phone: phone.sms,\n    phone_e164: phone.e164,\n    phone_valid: phone.valid,\n    phone_error: phone.valid\n      ? \"\"\n      : `Geçerli telefon numarası bulunamadı. Gelen değer: ${rawPhone || \"BOŞ\"}`,\n    email: email,\n    lead_title: sourceTitle,\n    status_id: lead.STATUS_ID || \"\",\n    project_name: \"EFAS Yaşamkent\"\n  }\n}];"
+      },
+      "id": "1f07ee44-41e1-4349-9d1a-17f1fbe2411f",
+      "name": "Başvuruyu Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $node[\"Başvuruyu Hazırla\"].json.phone_valid === true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "61b15e0e-f25a-4813-b95d-5cafe55ddb03",
+      "name": "Telefon Geçerli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gateway.erccell.com.tr/corporatesms/sendsms/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "text/xml"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/xml",
+        "body": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CORPORATESMS>\n    <HEADER>\n        <USERNAME>ERCCELL_KULLANICI_ADI</USERNAME>\n        <PASSWORD>ERCCELL_SIFRE</PASSWORD>\n        <SMSHEADER><![CDATA[XRE]]></SMSHEADER>\n        <SMSTYPE>UC</SMSTYPE>\n        <SENDTYPE>1:N</SENDTYPE>\n    </HEADER>\n    <SMS>\n        <SMS_MESSAGE><![CDATA[Merhaba {{ $node[\"Başvuruyu Hazırla\"].json.full_name }}, XRE Project EFAS Yaşamkent başvurunuz alınmıştır. Ekibimiz en kısa sürede sizinle iletişime geçecektir. https://xreproject.com/projeDetay/efas-n-tepe/]]></SMS_MESSAGE>\n        <NUMBERS>{{ $node[\"Başvuruyu Hazırla\"].json.sms_phone }}</NUMBERS>\n    </SMS>\n</CORPORATESMS>",
+        "options": {}
+      },
+      "id": "1f982959-9913-4690-93d3-b9c0f011e952",
+      "name": "SMS Gönder (Erccell) - EFAS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1760,
+        -48
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.timeline.comment.add",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"fields\": {\n    \"ENTITY_ID\": \"{{ $node[\"Başvuruyu Hazırla\"].json.lead_id }}\",\n    \"ENTITY_TYPE\": \"lead\",\n    \"COMMENT\": \"📱 Otomatik Bilgilendirme SMS'i Gönderildi:\\n\\nMerhaba {{ $node[\"Başvuruyu Hazırla\"].json.full_name }}, XRE Project EFAS Yaşamkent başvurunuz alınmıştır. Ekibimiz en kısa sürede sizinle iletişime geçecektir.\\nhttps://form.xre.com.tr/efas-ya%C5%9Famkent-form/\"\n  }\n}",
+        "options": {}
+      },
+      "id": "bba315f9-a9e2-49a9-b148-cdd04adf436b",
+      "name": "EFAS SMS Timeline Notu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2016,
+        -48
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botTELEGRAM_BOT_TOKEN/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    chat_id: \"-5509718023\",\n    text:\n      \"<b>XRE PROJECT — EFAS YAŞAMKENT</b>\\n\" +\n      \"<i>Form dolduruldu — SMS gönderildi ✅</i>\\n\\n\" +\n      \"👤 <b>Ad Soyad:</b> \" + ($node[\"Başvuruyu Hazırla\"].json.full_name || \"Değerli Müşterimiz\") + \"\\n\" +\n      \"📱 <b>Telefon:</b> \" + ($node[\"Başvuruyu Hazırla\"].json.phone_e164 || \"Belirtilmemiş\") + \"\\n\" +\n      \"✉️ <b>E-posta:</b> \" + ($node[\"Başvuruyu Hazırla\"].json.email || \"Belirtilmemiş\") + \"\\n\" +\n      \"🆔 <b>Lead ID:</b> \" + $node[\"Başvuruyu Hazırla\"].json.lead_id + \"\\n\" +\n      \"🏷️ <b>Statü:</b> EFAS İÇİN GELEN\\n\\n\" +\n      '<a href=\"https://xre.bitrix24.com.tr/crm/lead/details/' +\n      $node[\"Başvuruyu Hazırla\"].json.lead_id +\n      '/\">Bitrix kaydını aç</a>',\n    parse_mode: \"HTML\",\n    disable_web_page_preview: true\n  }\n}}",
+        "options": {}
+      },
+      "id": "3a2f35ba-c0ed-4bde-b67e-04ff5b0461e3",
+      "name": "Telegram - SMS Gönderildi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2016,
+        160
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.timeline.comment.add",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"fields\": {\n    \"ENTITY_ID\": \"{{ $node[\"Başvuruyu Hazırla\"].json.lead_id }}\",\n    \"ENTITY_TYPE\": \"lead\",\n    \"COMMENT\": \"⚠️ EFAS Yaşamkent otomatik SMS'i gönderilemedi. {{ $node[\"Başvuruyu Hazırla\"].json.phone_error }}\"\n  }\n}",
+        "options": {}
+      },
+      "id": "0b5f3143-d83d-40b8-a362-e6280fb74348",
+      "name": "Geçersiz Telefon Timeline Notu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1760,
+        320
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/botTELEGRAM_BOT_TOKEN/sendMessage",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n  {\n    chat_id: \"-5430653467\",\n    text:\n      \"<b>XRE PROJECT — EFAS YAŞAMKENT</b>\\n\" +\n      \"<i>Form dolduruldu — SMS GÖNDERİLEMEDİ ⚠️</i>\\n\\n\" +\n      \"👤 <b>Ad Soyad:</b> \" + ($node[\"Başvuruyu Hazırla\"].json.full_name || \"Değerli Müşterimiz\") + \"\\n\" +\n      \"📱 <b>Telefon (ham):</b> \" + ($node[\"Başvuruyu Hazırla\"].json.raw_phone || \"Belirtilmemiş\") + \"\\n\" +\n      \"✉️ <b>E-posta:</b> \" + ($node[\"Başvuruyu Hazırla\"].json.email || \"Belirtilmemiş\") + \"\\n\" +\n      \"🆔 <b>Lead ID:</b> \" + $node[\"Başvuruyu Hazırla\"].json.lead_id + \"\\n\\n\" +\n      \"❗ \" + ($node[\"Başvuruyu Hazırla\"].json.phone_error || \"Bilinmeyen hata\") + \"\\n\\n\" +\n      '<a href=\"https://xre.bitrix24.com.tr/crm/lead/details/' +\n      $node[\"Başvuruyu Hazırla\"].json.lead_id +\n      '/\">Bitrix kaydını aç</a>',\n    parse_mode: \"HTML\",\n    disable_web_page_preview: true\n  }\n}}",
+        "options": {}
+      },
+      "id": "1b87f622-928b-47b9-992c-991d83f88014",
+      "name": "Telegram - SMS Gönderilemedi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        2016,
+        400
+      ],
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vapi.ai/call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  assistantId: 'EFAS_NTEPE_INBOUND_ASSISTANT_ID',\n  phoneNumberId: '225a742e-6b26-424a-b9c6-b45e070c870e',\n  customer: {\n    number: $node[\"Başvuruyu Hazırla\"].json.phone_e164,\n    name: $node[\"Başvuruyu Hazırla\"].json.full_name || undefined\n  },\n  metadata: {\n    leadId: $node[\"Başvuruyu Hazırla\"].json.lead_id,\n    project: 'efas-yasamkent',\n    source: 'form'\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "a3c6d4e1-2f8a-4b5c-9d7e-1a2b3c4d5e6f",
+      "name": "Vapi Aramasını Başlat (EFAS Yaşamkent)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1760,
+        -240
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zIhaRE8nBbWH1bw6",
+          "name": "Vapi Header Auth"
+        }
+      },
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.timeline.comment.add",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: { ENTITY_ID: $node[\"Başvuruyu Hazırla\"].json.lead_id, ENTITY_TYPE: 'lead', COMMENT: ($json.id ? '🤖 Yapay zeka aranıyor (EFAS N-TEPE - INBOUND asistanı, +90 533 743 68 76 hattından). Call ID: ' + $json.id : '⚠️ Yapay zeka araması başlatılamadı: ' + JSON.stringify($json.message || $json)) } }) }}",
+        "options": {}
+      },
+      "id": "b4d7e5f2-3a9b-4c6d-8e1f-2b3c4d5e6f7a",
+      "name": "EFAS Yaşamkent AI Arama Notu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2016,
+        -240
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$node[\"Başvuruyu Hazırla\"].json.email }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "c5e8f6a3-4b0c-4d7e-9f2a-3c4d5e6f7a8b",
+      "name": "E-posta Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1760,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "XRE Project <xre.project@xre.com.tr>",
+        "toEmail": "={{ $node[\"Başvuruyu Hazırla\"].json.email }}",
+        "subject": "EFAS Yaşamkent Başvurunuz Alındı",
+        "emailFormat": "both",
+        "text": "=Merhaba {{ $node[\"Başvuruyu Hazırla\"].json.full_name }},\n\nXRE Project EFAS Yaşamkent başvurunuz alınmıştır. Ekibimiz en kısa sürede sizinle iletişime geçecektir.\n\nProje detayları: https://xreproject.com/projeDetay/efas-n-tepe/\n\nXRE'li günler dileriz.",
+        "html": "=<p>Merhaba {{ $node[\"Başvuruyu Hazırla\"].json.full_name }},</p><p>XRE Project <b>EFAS Yaşamkent</b> başvurunuz alınmıştır. Ekibimiz en kısa sürede sizinle iletişime geçecektir.</p><p><a href=\"https://xreproject.com/projeDetay/efas-n-tepe/\">Proje detayları</a></p><p>XRE'li günler dileriz.</p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "id": "d6f9a7b4-5c1d-4e8f-a03b-4d5e6f7a8b9c",
+      "name": "E-posta Gönder (EFAS Yaşamkent)",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        2016,
+        560
+      ],
+      "credentials": {
+        "smtp": {
+          "id": "EFAS_SMTP_CREDENTIAL",
+          "name": "XRE SMTP"
+        }
+      },
+      "continueOnFail": true,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.timeline.comment.add",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: { ENTITY_ID: $node[\"Başvuruyu Hazırla\"].json.lead_id, ENTITY_TYPE: 'lead', COMMENT: '✉️ Otomatik bilgilendirme e-postası gönderildi: ' + $node[\"Başvuruyu Hazırla\"].json.email } }) }}",
+        "options": {}
+      },
+      "id": "e7a0b8c5-6d2e-4f9a-b14c-5e6f7a8b9c0d",
+      "name": "EFAS Yaşamkent E-posta Notu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2272,
+        560
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "content": "## EFAS YAŞAMKENT — AI ARAMA + E-POSTA\n\n**Doldurulacak placeholder:**\n- `Vapi Aramasını Başlat (EFAS Yaşamkent)` node'unda `EFAS_NTEPE_INBOUND_ASSISTANT_ID` → gerçek **EFAS N-TEPE - INBOUND** asistan ID'si (Vapi dashboard'dan).\n- `E-posta Gönder` node'unun credential'ı `EFAS_SMTP_CREDENTIAL` → n8n'de gerçek bir SMTP credential'ı oluşturup seçin.\n\n**Nasıl çalışıyor:**\nBu çağrı **EFAS N-TEPE - INBOUND** asistanının kendi Server URL'ine (efas-ntepe projesindeki mevcut '03 Inbound' workflow'u) düşer — randevu/olumsuz/bilgi sonuç işleme orada zaten var, burada tekrar kurmaya gerek yok. Randevu olursa **YAPAY ZEKA RANDEVU OLUŞTURANLAR**'a taşınır; olmazsa lead olduğu statüde (**EFAS İÇİN GELEN**) kalır, mevcut sorumluya dönüş görevi açılır.\n\n⚠️ Bunun çalışması için `efas-ntepe/n8n/src/lib.js`'teki `efasLeadSec` fonksiyonuna UC_PQDHUK (EFAS İÇİN GELEN) desteği eklendi — efas-ntepe'nin GÜNCEL workflow dosyalarının (hazir/*.json) n8n'e tekrar içe aktarılıp publish edilmesi gerekiyor.\n\n**WhatsApp eklenmedi** — hangi entegrasyonu kullandığınızı (Meta WhatsApp Cloud API mi, yoksa ekran görüntüsündeki ChatApp/Whatcrm uygulaması mı) netleştirin, ona göre ekleyelim.",
+        "height": 420,
+        "width": 560
+      },
+      "name": "EFAS YAŞAMKENT NOTLARI",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1248,
+        -560
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook - EFAS Yaşamkent": {
+      "main": [
+        [
+          {
+            "node": "15sn Bekle (Kaynak Dolması İçin)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15sn Bekle (Kaynak Dolması İçin)": {
+      "main": [
+        [
+          {
+            "node": "Lead Detayını Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Detayını Çek": {
+      "main": [
+        [
+          {
+            "node": "Lead Kaynaklarını Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Kaynaklarını Çek": {
+      "main": [
+        [
+          {
+            "node": "EFAS Kaynağı mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EFAS Kaynağı mı?": {
+      "main": [
+        [
+          {
+            "node": "Statüyü EFAS İçin Gelene Taşı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Statüyü EFAS İçin Gelene Taşı": {
+      "main": [
+        [
+          {
+            "node": "Lead Detayını Yeniden Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Detayını Yeniden Çek": {
+      "main": [
+        [
+          {
+            "node": "Kişi Detayı Gerekli mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Detayı Gerekli mi?": {
+      "main": [
+        [
+          {
+            "node": "Kişi Detayını Çek",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Başvuruyu Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Detayını Çek": {
+      "main": [
+        [
+          {
+            "node": "Başvuruyu Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Başvuruyu Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Telefon Geçerli mi?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Vapi Aramasını Başlat (EFAS Yaşamkent)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "E-posta Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telefon Geçerli mi?": {
+      "main": [
+        [
+          {
+            "node": "SMS Gönder (Erccell) - EFAS",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Geçersiz Telefon Timeline Notu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SMS Gönder (Erccell) - EFAS": {
+      "main": [
+        [
+          {
+            "node": "EFAS SMS Timeline Notu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram - SMS Gönderildi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Geçersiz Telefon Timeline Notu": {
+      "main": [
+        [
+          {
+            "node": "Telegram - SMS Gönderilemedi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi Aramasını Başlat (EFAS Yaşamkent)": {
+      "main": [
+        [
+          {
+            "node": "EFAS Yaşamkent AI Arama Notu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E-posta Var mı?": {
+      "main": [
+        [
+          {
+            "node": "E-posta Gönder (EFAS Yaşamkent)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "E-posta Gönder (EFAS Yaşamkent)": {
+      "main": [
+        [
+          {
+            "node": "EFAS Yaşamkent E-posta Notu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  }
+}

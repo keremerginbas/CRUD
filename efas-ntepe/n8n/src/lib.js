@@ -486,7 +486,12 @@ function efasLeadSec(liste, A) {
   const F = A.ALAN;
   const dolu = (v) => v !== undefined && v !== null && v !== '' && v !== false;
   const efas = (Array.isArray(liste) ? liste : []).filter(
-    (l) => l && ([...kuyrukStatuleri(A), A.STATU.OLUMSUZ].includes(l.STATUS_ID) || dolu(l[F.SONUC]) || dolu(l[F.CAGRI]) || dolu(l[F.RANDEVU]))
+    (l) =>
+      l &&
+      ([...kuyrukStatuleri(A), A.STATU.OLUMSUZ, A.STATU.BILGI, A.STATU.RANDEVU].includes(l.STATUS_ID) ||
+        dolu(l[F.SONUC]) ||
+        dolu(l[F.CAGRI]) ||
+        dolu(l[F.RANDEVU]))
   );
   efas.sort((a, b) => Number(b.ID) - Number(a.ID));
   return efas[0] || null;
