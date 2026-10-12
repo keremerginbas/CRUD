@@ -11,6 +11,7 @@ const VAPI_KEY = 'test-key';
 
 const VARSAYILAN_ASISTANLAR = [
   { id: 'asst-out', name: 'XRE FRANCHISE - OUTBOUND', server: { url: 'http://x/webhook/xre-franchise-outbound' } },
+  { id: 'asst-in', name: 'XRE FRANCHISE - INBOUND', server: { url: 'http://x/webhook/xre-franchise-inbound' } },
 ];
 const VARSAYILAN_STATUSES = [
   { STATUS_ID: 'NEW', NAME: 'Yeni' },
@@ -46,6 +47,7 @@ function sifirla(seed = {}) {
     phoneNumbers: seed.phoneNumbers || [
       { id: 'pn-1', number: '+905000000001', assistantId: 'asst-out' },
       { id: 'pn-2', number: '+905000000002', assistantId: 'asst-out' },
+      { id: 'pn-9', number: '+905000000009', assistantId: 'asst-in' },
     ],
     assistants: seed.assistants || VARSAYILAN_ASISTANLAR,
     statuses: seed.statuses || VARSAYILAN_STATUSES,

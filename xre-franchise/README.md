@@ -29,6 +29,12 @@ Bitrix: "Aranacak" statüsündeki adaylar (140K'lık havuzdan)
                                                       + insan franchise asistanına 60 dk'lık görev
 
    05 · Günlük Rapor ──► Telegram'a 9 statülük huni (funnel) raporu
+
+Müşteri kendi arasa (kampanyadan haberdar olmuş, AI'ın aramasını geri aramış vb.) ──►
+   03 · Inbound (aynı XRE FRANCHISE - INBOUND asistanı, aynı sonuç mantığı):
+        │  arayan numara Bitrix'te aranır (crm.duplicate.findbycomm)
+        ├─ bulunursa   → mevcut lead güncellenir
+        └─ bulunamazsa → "Aranacak" statüsünde yeni lead açılır, sonra aynı sonuç dallanması işlenir
 ```
 
 İnsan taraftan sonrası (Sunum Yapıldı → Erdal Bey Onayı → Sözleşme → Franchise Açılış) Bitrix'te elle taşınır.
@@ -68,6 +74,10 @@ aktarma ile adayları `STATU.ARANACAK` statüsünde oluşturmanız yeterli.
 3. **Phone Numbers**'da kampanyaya ayrılan hat(lar)ı tanımlayın. 140K hacim için birden fazla hat önerilir —
    her biri `ARAYAN_NUMARALAR` dizisine eklenir, `TUR_BASINA_MAX_ARAMA` ile eşzamanlı arama sayısı ayarlanır.
 4. Asistan adını `VAPI_OUTBOUND_ASISTAN`'da, numara(ları) `ARAYAN_NUMARALAR`'da tanımlayın.
+5. **XRE FRANCHISE - INBOUND** asistanını oluşturun — sistem promptu: [`vapi/inbound-sistem-promptu.md`](vapi/inbound-sistem-promptu.md).
+   Bu asistanda da araç/tool yok. **Advanced > Server URL**: `…/webhook/xre-franchise-inbound`.
+6. **Phone Numbers**'da inbound'a ayrılan ayrı bir numara tanımlayın, **Inbound Settings > Assistant**'ı
+   **XRE FRANCHISE - INBOUND** yapın. Numarayı `INBOUND_NUMARA`'ya, asistan adını `VAPI_INBOUND_ASISTAN`'a yazın.
 
 ### 3) WhatsApp (Meta Cloud API)
 
@@ -85,20 +95,22 @@ aktarma ile adayları `STATU.ARANACAK` statüsünde oluşturmanız yeterli.
      "ARAYAN_NUMARALAR": ["+90..."],
      "STATU": { "ARANACAK": "UC_...", "AI_GORUSTU": "UC_...", "...": "..." },
      "FRANCHISE_ASISTAN_SORUMLU_ID": "<insan franchise asistanının Bitrix kullanıcı ID'si>",
+     "INBOUND_NUMARA": "+90...",
      "WHATSAPP": { "AKTIF": true, "TELEFON_NUMARASI_ID": "..." },
      "TELEGRAM": { "CHAT_ID": "-100..." }
    }
    ```
 2. `node n8n/build.mjs --ayar n8n/ayarlar.local.json` → `n8n/hazir/*.json` üretir.
-3. n8n'de 4 dosyayı içe aktarın: **00 Kurulum ve Kontrol**, **01 Arama Kuyruğu**, **02 Outbound**, **05 Günlük Rapor**.
+3. n8n'de 5 dosyayı içe aktarın: **00 Kurulum ve Kontrol**, **01 Arama Kuyruğu**, **02 Outbound**,
+   **03 Inbound**, **05 Günlük Rapor**.
    - "Vapi API" credential'ını (Header Auth, Authorization: Bearer <Vapi API Key>) seçin
    - "WhatsApp API" credential'ını seçin
    - "XRE Rapor Botu" (Telegram) credential'ını seçin
 4. **00 Kurulum ve Kontrol**'ü bir kez elle çalıştırın, son node'daki raporu kontrol edin (4 alan + 9 statü +
-   numaralar + asistan hepsi ✅ olmalı).
-5. **01**, **02**, **05**'i Publish/Active yapın.
-6. 02'deki **Vapi Webhook** node'unun Production URL'ini Vapi'deki asistanın Server URL alanıyla eşleştiğini
-   kontrol edin.
+   numaralar + outbound/inbound asistanları hepsi ✅ olmalı).
+5. **01**, **02**, **03**, **05**'i Publish/Active yapın.
+6. 02 ve 03'teki **Vapi Webhook** node'larının Production URL'lerini Vapi'deki ilgili asistanın Server URL
+   alanıyla eşleştiğini kontrol edin.
 
 ## Test
 
@@ -106,4 +118,5 @@ aktarma ile adayları `STATU.ARANACAK` statüsünde oluşturmanız yeterli.
 `node n8n/build.mjs --test test/ayarlar.test.json` ile üretilen workflow'lar smoke test edildi:
 kurulum/kontrol raporu, dış arama başlatma (doğru değişkenlerle), ilgilenen adaya WhatsApp video + insan
 devri, DNC (bir daha aranmaz), hat hatası (deneme hakkı yakılmadan tekrar planlama), arama başlatılamadı
-(tekrar planlama) — hepsi beklenen Bitrix durumuna geçti.
+(tekrar planlama), inbound arama — numara bilinen lead'e eşleşiyor ve numara Bitrix'te yokken yeni lead
+açılıyor — hepsi beklenen Bitrix durumuna geçti.

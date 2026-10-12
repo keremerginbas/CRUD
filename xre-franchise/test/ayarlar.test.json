@@ -2,7 +2,9 @@
   "BITRIX_WEBHOOK": "http://127.0.0.1:8787/rest/1/test/",
   "VAPI_API": "http://127.0.0.1:8787/vapi",
   "ARAYAN_NUMARALAR": ["+905000000001", "+905000000002"],
+  "INBOUND_NUMARA": "+905000000009",
   "OLAY_WEBHOOK_URL": "http://127.0.0.1:5678/webhook/xre-franchise-outbound",
+  "INBOUND_WEBHOOK_URL": "http://127.0.0.1:5678/webhook/xre-franchise-inbound",
   "STATU": {
     "ARANACAK": "UC_ARANACAK",
     "AI_GORUSTU": "UC_AIGORUSTU",

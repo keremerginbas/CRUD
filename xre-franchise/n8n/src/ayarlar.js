@@ -11,11 +11,21 @@ const AYARLAR = {
   // Vapi (API anahtarı "Vapi API" adlı Header Auth credential'ında durur)
   VAPI_API: 'https://api.vapi.ai',
   VAPI_OUTBOUND_ASISTAN: 'XRE FRANCHISE - OUTBOUND',
+  VAPI_INBOUND_ASISTAN: 'XRE FRANCHISE - INBOUND',
   // Bu kampanyaya ayrılan hatlar (Vapi Phone Numbers'daki numaralarla birebir aynı). 140K'lık hacim için birden fazla hat önerilir.
   ARAYAN_NUMARALAR: ['+90XXXXXXXXXX'],
+  // Inbound'a özel numara (Vapi Phone Numbers'da Inbound Assistant'ı XRE FRANCHISE - INBOUND olarak ayarlı olmalı).
+  INBOUND_NUMARA: '+90XXXXXXXXXX',
 
   // 02 Outbound webhook adresi. Boş bırakılırsa n8n adresinizden otomatik bulunur.
   OLAY_WEBHOOK_URL: '',
+  // 03 Inbound webhook adresi. Boş bırakılırsa n8n adresinizden otomatik bulunur.
+  INBOUND_WEBHOOK_URL: '',
+
+  // Inbound'da numarası Bitrix'te bulunamayan aday için: yeni lead hangi kaynakla açılsın.
+  INBOUND_KAYNAK_ID: 'CALLBACK',
+  // Inbound'da numarası bulunamayan adaya yeni lead açılırken atanacak sorumlu (boşsa FRANCHISE_ASISTAN_SORUMLU_ID kullanılır).
+  INBOUND_VARSAYILAN_SORUMLU_ID: '',
 
   // Bitrix lead statüleri — bu 9 statüyü Bitrix'te oluşturup kodlarını (UC_xxxxxxxx) buraya yazın.
   STATU: {
@@ -74,6 +84,11 @@ const AYARLAR = {
 if (!AYARLAR.OLAY_WEBHOOK_URL) {
   try {
     AYARLAR.OLAY_WEBHOOK_URL = String($execution.resumeUrl).replace(/\/webhook-waiting\/.*$/, '/webhook/xre-franchise-outbound');
+  } catch (e) {}
+}
+if (!AYARLAR.INBOUND_WEBHOOK_URL) {
+  try {
+    AYARLAR.INBOUND_WEBHOOK_URL = String($execution.resumeUrl).replace(/\/webhook-waiting\/.*$/, '/webhook/xre-franchise-inbound');
   } catch (e) {}
 }
 

@@ -298,6 +298,58 @@ const dosyalar = {};
 }
 
 // =====================================================================
+// 03 — Inbound Vapi Sunucu
+// =====================================================================
+{
+  const wf = new Workflow(`${ON}03 Inbound`);
+  wf.not(
+    "## 03 · Inbound Vapi Sunucu\n**XRE FRANCHISE - INBOUND** asistanının Server URL'i bu webhook'tur (bu asistanda da araç/tool YOK, sonuç çağrı sonu analizinden okunur).\n\nArayan numara Bitrix'te aranır (crm.duplicate.findbycomm): bulunursa mevcut lead güncellenir; bulunamazsa **Aranacak** statüsünde yeni lead açılır. Sonrası 02 Outbound ile aynı mantık (DNC/olumsuz → AI Görüştü, ilgileniyor → İlgileniyor + WhatsApp video + insan devri).",
+    [-60, -320],
+    580,
+    260
+  );
+  const wh = webhookNode(wf, 'Vapi Webhook', [0, 0], 'xre-franchise-inbound');
+  const ay = ayarlarNode(wf, [220, 0]);
+  const coz = codeNode(wf, 'Mesajı Çöz', [440, 0], kod('mesaji-coz.js'));
+  const hemen = yanitNode(wf, 'Hemen Yanıtla', [660, 0], 'noData');
+  const leadAra = bitrixPost(
+    wf,
+    'Bitrix: Telefonla Ara',
+    [880, 0],
+    'crm.duplicate.findbycomm',
+    "={{ JSON.stringify({ entity_type: 'LEAD', type: 'PHONE', values: $('Mesajı Çöz').first().json.telefonVaryantlari.length ? $('Mesajı Çöz').first().json.telefonVaryantlari : ['0'] }) }}",
+    { onError: 'continueRegularOutput', alwaysOutputData: true }
+  );
+  const leadDetay = bitrixPost(
+    wf,
+    'Bitrix: Telefonla Lead Detayı',
+    [1100, 0],
+    'crm.lead.list',
+    `={{ JSON.stringify({ filter: { ID: ($json.result && $json.result.LEAD && $json.result.LEAD.length) ? $json.result.LEAD : [0] }, select: ${LEAD_ALANLARI}, order: { ID: 'DESC' } }) }}`,
+    { onError: 'continueRegularOutput', alwaysOutputData: true }
+  );
+  const leadPlan = codeNode(wf, 'Inbound Lead Planı', [1320, 0], kod('inbound-lead-plani.js'));
+  const leadBx = bitrixBatch(wf, 'Bitrix: Lead Oluştur', [1540, 0], { onError: 'continueRegularOutput' });
+  const leadCoz = codeNode(wf, 'Inbound Lead Çöz', [1760, 0], kod('inbound-lead-coz.js'));
+  const raporPlanIn = codeNode(wf, 'Rapor Planı', [1980, 0], kod('outbound-rapor-plani.js'));
+  const raporBxIn = bitrixBatch(wf, 'Bitrix: Rapor Kaydı', [2200, 0], { onError: 'continueRegularOutput' });
+  const mesajPlanIn = codeNode(wf, 'Mesaj Planı', [2420, 0], kod('mesaj-plani.js'));
+  const whatsappIn = wf.ekle(
+    'WhatsApp: Video Gönder',
+    HTTP,
+    4.2,
+    [2640, 0],
+    { method: 'POST', url: "={{ $('AYARLAR').first().json.WHATSAPP.API_URL }}/{{ $('AYARLAR').first().json.WHATSAPP.TELEFON_NUMARASI_ID }}/messages", authentication: 'genericCredentialType', genericAuthType: 'httpHeaderAuth', sendBody: true, specifyBody: 'json', jsonBody: '={{ JSON.stringify($json.govde) }}', options: { timeout: 20000 } },
+    { credentials: { httpHeaderAuth: { id: 'XreFranchiseWhatsAppApi', name: 'WhatsApp API' } }, onError: 'continueRegularOutput' }
+  );
+  const videoSonucIn = codeNode(wf, 'Video Sonucu', [2860, 0], kod('video-sonuc.js'));
+  const videoBxIn = bitrixBatch(wf, 'Bitrix: Video Sonucu Kaydı', [3080, 0], { onError: 'continueRegularOutput' });
+
+  wf.zincir(wh, ay, coz, hemen, leadAra, leadDetay, leadPlan, leadBx, leadCoz, raporPlanIn, raporBxIn, mesajPlanIn, whatsappIn, videoSonucIn, videoBxIn);
+  dosyalar['03-inbound.json'] = wf.json();
+}
+
+// =====================================================================
 // 05 — Günlük Huni Raporu (Telegram)
 // =====================================================================
 {

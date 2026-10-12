@@ -41,6 +41,21 @@ if (!a) {
   s.push(`${url ? '✅' : '⚠️'} Outbound asistanı: ${a.name} | Server URL: ${url || 'TANIMLI DEĞİL'}`);
 }
 
+const bulunanIn = asistanBul(asistanlar, A.VAPI_INBOUND_ASISTAN);
+const ai = bulunanIn && asistanlar.find((x) => x.id === bulunanIn.id);
+if (!ai) {
+  if (asistanlar.length) s.push(`❌ Inbound asistanı "${A.VAPI_INBOUND_ASISTAN}" Vapi'de bulunamadı`);
+} else {
+  const url = (ai.server && ai.server.url) || ai.serverUrl || '';
+  s.push(`${url ? '✅' : '⚠️'} Inbound asistanı: ${ai.name} | Server URL: ${url || 'TANIMLI DEĞİL'}`);
+}
+
+if (A.INBOUND_NUMARA) {
+  const e = telefonNormalize(A.INBOUND_NUMARA);
+  const n = numaralar.find((x) => telefonNormalize(x.number) === e);
+  s.push(n ? `✅ Inbound numara ${A.INBOUND_NUMARA} → Vapi ID ${n.id}` : (numaralar.length ? `❌ Inbound numara ${A.INBOUND_NUMARA} Vapi'de bulunamadı` : '⚠️ numaralar okunamadığı için kontrol edilemedi'));
+}
+
 s.push(`ℹ️ WhatsApp ${A.WHATSAPP.AKTIF ? 'AÇIK' : 'kapalı'} · Telegram ${A.TELEGRAM.AKTIF ? 'AÇIK' : 'kapalı'}`);
 
 return [{ json: { rapor: s.join('\n'), satirlar: s } }];
