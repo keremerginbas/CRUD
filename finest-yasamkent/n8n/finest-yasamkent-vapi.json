@@ -1,0 +1,603 @@
+{
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finest-form-lead",
+        "options": {}
+      },
+      "name": "Webhook - Finest Form",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -3568,
+        3024
+      ],
+      "id": "84b6b3aa-9aff-4b54-8d42-39eb8effc9fe",
+      "webhookId": "finest-form-lead"
+    },
+    {
+      "parameters": {
+        "url": "=https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.lead.get.json?id={{ ($json.body[\"document_id[2]\"] || $json.body[\"data[FIELDS][ID]\"] || $json.query.id || $json.body.id || \"\").toString().replace(\"LEAD_\", \"\") }}",
+        "options": {}
+      },
+      "name": "Lead Detayını Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -3344,
+        3024
+      ],
+      "id": "2458112e-fd06-4496-a1c9-9bc6e1525179"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.result.ID && $json.result.STATUS_ID === 'UC_5M177N' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Finest Lead mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -3120,
+        3024
+      ],
+      "id": "da3ed5d3-d558-4ecf-b733-2d18a36e76ef"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.result.CONTACT_ID && (!$json.result.PHONE || !$json.result.EMAIL) }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Kişi Detayı Gerekli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2896,
+        3024
+      ],
+      "id": "9463f8c4-df3e-4ab2-bc85-1f696b3a33e9"
+    },
+    {
+      "parameters": {
+        "url": "=https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.contact.get.json?id={{ $json.result.CONTACT_ID }}",
+        "options": {}
+      },
+      "name": "Kişi Detayını Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2672,
+        2912
+      ],
+      "id": "c87b3c77-73d3-43a3-9303-007befdb0a12"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FINEST YAŞAMKENT - VAPI OUTBOUND hazırlık\n// Tetik: Bitrix STATUS_ID = UC_5M177N\n\nlet lead = {}; try { lead = $('Lead Detayını Çek').first().json.result || {}; } catch(e) {}\nlet contact = {}; try { contact = $('Kişi Detayını Çek').first().json.result || {}; } catch(e) {}\nlet webhook = {}; try { webhook = $('Webhook - Finest Form').first().json || {}; } catch(e) {}\n\nconst body = webhook.body || {};\nconst query = webhook.query || {};\nconst leadId = (lead.ID || body[\"data[FIELDS][ID]\"] || body.id || query.id || \"0\").toString().replace(\"LEAD_\", \"\");\nif (leadId === '0') return [];\n\n// Aynı lead'in AI sonucu tekrar UC_5M177N'e dönerken yeniden aranmasını engeller.\n// 10 dakika sonra manuel olarak yeniden bu statüye alınırsa tekrar aranabilir.\nconst staticData = $getWorkflowStaticData('global');\nstaticData.finestVapiCooldown = staticData.finestVapiCooldown || {};\nconst nowMs = Date.now();\nconst last = Number(staticData.finestVapiCooldown[leadId] || 0);\nif (last && (nowMs - last) < 10 * 60 * 1000) return [];\nstaticData.finestVapiCooldown[leadId] = nowMs;\n\nfunction titleCase(s){\n  if(!s) return '';\n  return String(s).toLocaleLowerCase('tr-TR').split(' ').filter(Boolean)\n    .map(w=>w.charAt(0).toLocaleUpperCase('tr-TR')+w.slice(1)).join(' ');\n}\nfunction first(v){\n  if(!v) return '';\n  if(Array.isArray(v)&&v[0]) return v[0].VALUE||v[0].value||'';\n  if(typeof v==='object') return v.VALUE||v.value||'';\n  return String(v);\n}\nfunction phoneTR(raw){\n  let x=String(raw||'').replace(/\\D/g,'');\n  if(x.startsWith('0090')) x=x.slice(2);\n  if(x.startsWith('90')&&x.length===12) return {e164:'+'+x,sms:x,valid:true};\n  if(x.startsWith('0')&&x.length===11){ x='90'+x.slice(1); return {e164:'+'+x,sms:x,valid:true}; }\n  if(x.length===10&&x.startsWith('5')){ x='90'+x; return {e164:'+'+x,sms:x,valid:true}; }\n  return {e164:'',sms:x,valid:false};\n}\nfunction istanbulVars(){\n  const now = new Date();\n  const tr = opts => new Intl.DateTimeFormat('tr-TR',{timeZone:'Europe/Istanbul',...opts}).format(now);\n  return {\n    bugunun_tarihi: tr({day:'2-digit',month:'long',year:'numeric',weekday:'long'}),\n    bugun_iso: new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(now),\n    su_anki_saat: tr({hour:'2-digit',minute:'2-digit',hour12:false})\n  };\n}\n\nconst firstName = titleCase(String(lead.NAME||contact.NAME||body.name||'').trim());\nconst lastName = titleCase(String(lead.LAST_NAME||contact.LAST_NAME||body.last_name||'').trim());\nconst fullName = (firstName+' '+lastName).trim();\nconst rawPhone = first(lead.PHONE) || first(contact.PHONE) || body[\"data[FIELDS][PHONE][0][VALUE]\"] || body.phone || body.PHONE || query.phone || '';\nconst phone = phoneTR(rawPhone);\nconst email = first(lead.EMAIL) || first(contact.EMAIL) || body.email || '';\nconst assignedTo = String(lead.ASSIGNED_BY_ID || '');\nconst dateVars = istanbulVars();\n\nconst dynamicGreeting = firstName\n  ? `Merhabalar ${fullName || firstName}, ben iksre Topraktan'dan Aslı. Az önce Finest Yaşamkent projemiz için form doldurmuştunuz, sizi bekletmeden hemen aramak istedim. Müsaitseniz kısaca bilgi vermek isterim.`\n  : `Merhabalar, iksre Topraktan'dan Aslı ben. Az önce Finest Yaşamkent projemiz için form doldurmuştunuz, sizi bekletmeden hemen aramak istedim. Kiminle görüşüyorum acaba?`;\n\nreturn [{json:{\n  lead_id: leadId,\n  assigned_to: assignedTo,\n  first_name: firstName,\n  full_name: fullName || '',\n  raw_phone: rawPhone,\n  sms_phone: phone.sms,\n  customer_phone: phone.e164,\n  phone_valid: phone.valid,\n  phone_error: phone.valid ? '' : `Geçerli telefon bulunamadı. Gelen değer: ${rawPhone||'BOŞ'}`,\n  email,\n  bugunun_tarihi: dateVars.bugunun_tarihi,\n  bugun_iso: dateVars.bugun_iso,\n  su_anki_saat: dateVars.su_anki_saat,\n  dynamic_greeting: dynamicGreeting,\n  start_mode: firstName ? 'confirm_name' : 'ask_name'\n}}];"
+      },
+      "name": "Başvuruyu Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2448,
+        3024
+      ],
+      "id": "1e960078-9c9c-4016-a029-94c7d8543f09"
+    },
+    {
+      "parameters": {
+        "chatId": "-5195295618",
+        "text": "=🏡 *YENİ FİNEST YAŞAMKENT TALEBİ*\n\n👤 *Müşteri:* {{$json.full_name}}\n📱 *Telefon:* {{$json.raw_phone || 'YOK'}}\n👩‍💼 *Sorumlu ID:* {{$json.assigned_to}}\n\n{{$json.phone_valid ? '🤖 AI Asistan Aslı aramayı başlatıyor. ✅' : '⚠️ Geçersiz telefon, AI araması iptal. ❌'}}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Telegram - Yeni Finest Talebi",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        -2240,
+        2832
+      ],
+      "id": "5c2a34a9-0c9f-43d6-98ff-9364e60da9f8",
+      "webhookId": "209363a1-a4d6-4e72-a82d-8d0b01a72535",
+      "credentials": {
+        "telegramApi": {
+          "id": "9rdlvgk54bgsCz0s",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.phone_valid === true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Telefon Geçerli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -2240,
+        3024
+      ],
+      "id": "6d81dd09-3333-41d3-8ddc-5ddfa5b1bef3"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vapi.ai/call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  assistantId: '0f5e140e-dfc3-4a8a-bf9d-33dbdbb98d27',\n  phoneNumberId: '1c6cea8b-f4fa-4301-a46b-24fa4443006e',\n  customer: {\n    number: $node[\"Başvuruyu Hazırla\"].json.customer_phone,\n    name: $node[\"Başvuruyu Hazırla\"].json.full_name || undefined\n  },\n  assistantOverrides: {\n    variableValues: {\n      user_name: $node[\"Başvuruyu Hazırla\"].json.full_name || '',\n      isim: $node[\"Başvuruyu Hazırla\"].json.first_name || '',\n      start_mode: $node[\"Başvuruyu Hazırla\"].json.start_mode,\n      dynamic_greeting: $node[\"Başvuruyu Hazırla\"].json.dynamic_greeting,\n      bitrix_id: $node[\"Başvuruyu Hazırla\"].json.lead_id,\n      customer_phone: $node[\"Başvuruyu Hazırla\"].json.customer_phone,\n      customer_email: $node[\"Başvuruyu Hazırla\"].json.email || '',\n      assigned_to: String($node[\"Başvuruyu Hazırla\"].json.assigned_to || ''),\n      bugunun_tarihi: $node[\"Başvuruyu Hazırla\"].json.bugunun_tarihi,\n      bugun_iso: $node[\"Başvuruyu Hazırla\"].json.bugun_iso,\n      su_anki_saat: $node[\"Başvuruyu Hazırla\"].json.su_anki_saat,\n      arama_turu: 'Giden'\n    }\n  },\n  metadata: {\n    lead_id: $node[\"Başvuruyu Hazırla\"].json.lead_id,\n    bitrix_id: $node[\"Başvuruyu Hazırla\"].json.lead_id,\n    assigned_to: String($node[\"Başvuruyu Hazırla\"].json.assigned_to || ''),\n    user_name: $node[\"Başvuruyu Hazırla\"].json.full_name || '',\n    customer_phone: $node[\"Başvuruyu Hazırla\"].json.customer_phone,\n    customer_email: $node[\"Başvuruyu Hazırla\"].json.email || '',\n    project: 'finest-yasamkent',\n    arama_turu: 'Giden'\n  }\n}) }}",
+        "options": {}
+      },
+      "name": "Vapi Aramasını Başlat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2016,
+        2912
+      ],
+      "id": "97e11f55-dc4b-4e4c-8091-84accdb12d41",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zIhaRE8nBbWH1bw6",
+          "name": "Vapi Header Auth"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.lead.update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"id\":\"{{ $node[\"Başvuruyu Hazırla\"].json.lead_id }}\",\"fields\":{\"STATUS_ID\":\"UC_1SAZKC\"}}",
+        "options": {}
+      },
+      "name": "Bitrix - Yapay Zeka Arıyor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2016,
+        3072
+      ],
+      "id": "8984012b-8cef-4832-83eb-599e24a89522"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.timeline.comment.add",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"fields\":{\"ENTITY_ID\":\"{{ $node[\"Başvuruyu Hazırla\"].json.lead_id }}\",\"ENTITY_TYPE\":\"lead\",\"COMMENT\":\"AI araması başlatılamadı: {{ $node[\"Başvuruyu Hazırla\"].json.phone_error }}\"}}",
+        "options": {}
+      },
+      "name": "Geçersiz Telefon Not Düş",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2016,
+        3232
+      ],
+      "id": "8269c353-98f8-459b-b13c-eb37aa26a971"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "finest-vapi-call-result",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook - Finest Vapi Sonucu",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -3568,
+        3616
+      ],
+      "id": "4bb8b9e7-a63a-4db5-961b-dd73bddc052f",
+      "webhookId": "finest-vapi-call-result"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.body.event === 'call_analyzed' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "name": "Vapi sonucu mu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -3120,
+        3616
+      ],
+      "id": "2b187649-69d8-4481-8ef6-293ee3cd8dd4"
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Respond 200 (Diğer Event)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -2896,
+        3776
+      ],
+      "id": "6442d9d2-29a2-48ff-9853-cdd2db0f7d72"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body=$json.body||{}, call=body.call||{}, an=call.call_analysis||{}, c=an.custom_analysis_data||{};\nconst dv=call.retell_llm_dynamic_variables||{};\nconst leadId=(call.metadata?.lead_id||dv.bitrix_id||'').toString();\nconst assignedTo=(call.metadata?.assigned_to||dv.assigned_to||'').toString();\nconst t=(call.transcript||an.call_summary||'').toLocaleLowerCase('tr-TR');\nconst status=call.call_status||call.disconnection_reason||'';\nconst sonuc=String(c.arama_sonucu||'').toLowerCase();\nconst isRandevu = sonuc==='randevu' || (!!c.appointment_date && sonuc!=='olumsuz');\nconst acmadi = ['no_answer','busy','failed','voicemail','dial_no_answer','dial_busy','dial_failed'].includes(status) || (t.length<20 && !isRandevu);\nconst tekrarAra = !isRandevu && !acmadi && (sonuc==='musait_degil' || !!c.aranacak_saat);\nconst wantsWhatsapp = c.link_istegi===true || t.includes('whatsapp');\nlet r={ lead_id:leadId, assigned_to:assignedTo, customer_name: dv.user_name||c.extracted_name||'Müşteri', customer_phone: dv.customer_phone||call.to_number||'', call_summary: an.call_summary||'Özet yok.', appointment_date: c.appointment_date||'', aranacak_saat: c.aranacak_saat||'', wants_whatsapp: wantsWhatsapp, satis_talebi: c.satis_talebi===true };\nif(isRandevu){ r.arama_durumu='RANDEVU ✅'; r.status_id='UC_ML92HM'; r.bitrix_comment=`AI: Randevu alındı. Tarih: ${r.appointment_date||'özete bakınız'}.`; }\nelse if(acmadi){ r.arama_durumu='AÇMADI 📵'; r.status_id='UC_5OE5YZ'; r.bitrix_comment='AI: Müşteri aramayı açmadı / meşguldü.'; }\nelse if(tekrarAra){ r.arama_durumu='TEKRAR ARA 🔁'; r.status_id='UC_04UBVN'; r.bitrix_comment=`AI: Müşteri şu an müsait değil. Aranacak saat: ${r.aranacak_saat||'belirtilmedi'}.`; }\nelse { r.arama_durumu='OLUMSUZ ❌'; r.status_id='UC_5M177N'; r.bitrix_comment='AI: Görüştü, randevu alınamadı. Lead finest yaşamkent statüsüne ve satışçısına geri bırakıldı.'; }\nreturn [{json:r}];"
+      },
+      "name": "Sonucu Yorumla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2896,
+        3616
+      ],
+      "id": "6a8f2a48-5caa-493b-a6ea-57937cd857c6"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.lead.update",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: $json.lead_id, fields: Object.assign({ STATUS_ID: $json.status_id, COMMENTS: $json.bitrix_comment }, $json.appointment_date ? { UF_CRM_1769424669: $json.appointment_date } : {}, $json.aranacak_saat ? { UF_CRM_1770733984: $json.aranacak_saat } : {}) }) }}",
+        "options": {}
+      },
+      "name": "Bitrix Lead Güncelle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2672,
+        3616
+      ],
+      "id": "8f72b290-144e-4a94-b670-f6254cff1d89"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.activity.add",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: Object.assign({ OWNER_TYPE_ID: 1, OWNER_ID: $('Sonucu Yorumla').first().json.lead_id, TYPE_ID: 2, SUBJECT: 'Vapi AI Görüşmesi - Finest Yaşamkent', COMPLETED: 'Y', DIRECTION: 1, DESCRIPTION: 'ARAMA ÖZETİ:\\n' + $('Sonucu Yorumla').first().json.call_summary }, $('Sonucu Yorumla').first().json.customer_phone ? { COMMUNICATIONS: [{ VALUE: $('Sonucu Yorumla').first().json.customer_phone, ENTITY_ID: $('Sonucu Yorumla').first().json.lead_id, ENTITY_TYPE_ID: 1, TYPE: 'PHONE' }] } : {}) }) }}",
+        "options": {}
+      },
+      "name": "Bitrix Arama Aktivitesi",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2448,
+        3616
+      ],
+      "id": "25ace9e5-69f7-4c92-80a2-993574dabab7"
+    },
+    {
+      "parameters": {
+        "chatId": "-5195295618",
+        "text": "=📞 *FİNEST AI GÖRÜŞME SONUCU*\n\n👤 *Müşteri:* {{$('Sonucu Yorumla').item.json.customer_name}}\n🎯 *Durum:* {{$('Sonucu Yorumla').item.json.arama_durumu}}\n📅 *Randevu:* {{$('Sonucu Yorumla').item.json.appointment_date || '-'}}\n🔁 *Aranacak Saat:* {{$('Sonucu Yorumla').item.json.aranacak_saat || '-'}}\n\n📝 _{{$('Sonucu Yorumla').item.json.call_summary}}_",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Telegram - Finest Sonuç",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.1,
+      "position": [
+        -2224,
+        3616
+      ],
+      "id": "08772cc0-13c8-4431-992c-bbb75c8946b2",
+      "webhookId": "89dea3b7-044b-4cfc-a980-fb52ca94593f",
+      "credentials": {
+        "telegramApi": {
+          "id": "9rdlvgk54bgsCz0s",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -2016,
+        3616
+      ],
+      "id": "5e0c9e9d-c33b-41e5-90e4-b348eecfa724"
+    },
+    {
+      "parameters": {
+        "jsCode": "// VAPI end-of-call-report -> mevcut Finest Retell-benzeri sonuç formatı\nconst input = $input.first().json || {};\nconst raw = input.body || input;\nconst msg = raw.message || raw;\nconst call = msg.call || raw.call || {};\nconst analysis = msg.analysis || call.analysis || raw.analysis || {};\nconst artifact = msg.artifact || call.artifact || raw.artifact || {};\n\nconst eventType = String(msg.type || raw.type || '');\nif (eventType !== 'end-of-call-report') {\n  return [{json:{...input, body:{event:'vapi_ignored'}, vapi_event_type:eventType}}];\n}\n\nfunction pick(...xs){ for (const x of xs){ if(x!==undefined&&x!==null&&String(x).trim()!=='') return x; } return ''; }\nfunction bool(v){ if(v===true||v===false) return v; return ['true','1','yes','evet'].includes(String(v||'').toLowerCase()); }\nfunction structuredFrom(v){\n  if(!v || typeof v!=='object') return {};\n  if(v.topraktan_call_result && typeof v.topraktan_call_result==='object') return v.topraktan_call_result;\n  const keys=['appointment_date','arama_sonucu','extracted_name','aranacak_saat','satis_talebi','link_istegi','arama_turu','call_summary','call_successful','user_sentiment'];\n  if(keys.some(k=>Object.prototype.hasOwnProperty.call(v,k))) return v;\n  if(Array.isArray(v)) { for(const x of v){ const r=structuredFrom(x); if(Object.keys(r).length) return r; } }\n  for(const x of Object.values(v)){ if(x && typeof x==='object'){ const r=structuredFrom(x); if(Object.keys(r).length) return r; } }\n  return {};\n}\n\nlet structured={};\nfor(const c of [\n  analysis.structuredData,\n  analysis.structuredDataMulti,\n  msg.structuredOutputs,\n  msg.structuredOutput,\n  artifact.structuredOutputs,\n  artifact.structuredOutput,\n  call.structuredOutputs,\n  call.structuredOutput\n]){\n  const r=structuredFrom(c); if(Object.keys(r).length){ structured=r; break; }\n}\n\nconst vars = call.assistantOverrides?.variableValues || msg.assistantOverrides?.variableValues || {};\nconst meta = {...(raw.metadata||{}), ...(msg.metadata||{}), ...(call.metadata||{}), ...(vars||{})};\nconst customer = call.customer || msg.customer || {};\nconst phoneNumber = call.phoneNumber || msg.phoneNumber || {};\n\nconst endedReason = String(pick(call.endedReason, msg.endedReason, call.ended_reason, msg.ended_reason));\nconst er = endedReason.toLowerCase();\nlet disc = endedReason;\nlet callStatus = 'completed';\nif(er.includes('no-answer')||er.includes('no_answer')||er.includes('did-not-answer')||er.includes('did-not-pick')){disc='dial_no_answer';callStatus='no_answer';}\nelse if(er.includes('busy')){disc='dial_busy';callStatus='busy';}\nelse if(er.includes('voicemail')){disc='voicemail';callStatus='voicemail';}\nelse if(er.includes('failed')||er.includes('error')||er.includes('provider')||er.includes('telephony')){disc='dial_failed';callStatus='failed';}\n\nconst customerPhone=String(pick(customer.number, meta.customer_phone));\nconst assistantPhone=String(pick(phoneNumber.number, meta.from_number));\nconst userName=String(pick(meta.user_name, customer.name, structured.extracted_name));\nconst leadId=String(pick(meta.lead_id, meta.bitrix_id));\nconst assignedTo=String(pick(meta.assigned_to, meta.lead_owner_id));\nconst transcript=String(pick(artifact.transcript, msg.transcript, call.transcript));\nconst summary=String(pick(structured.call_summary, analysis.summary, msg.summary, artifact.summary));\n\nconst normalized={\n  call_id:String(pick(call.id,msg.callId)),\n  call_status:callStatus,\n  disconnection_reason:disc,\n  from_number:assistantPhone,\n  to_number:customerPhone,\n  transcript,\n  recording_url:String(pick(artifact.recordingUrl, artifact.recording?.url, call.recordingUrl)),\n  retell_llm_dynamic_variables:{\n    bitrix_id:leadId,\n    assigned_to:assignedTo,\n    user_name:userName,\n    isim:String(pick(meta.isim, userName.split(/\\s+/)[0])),\n    start_mode:String(pick(meta.start_mode, userName?'confirm_name':'ask_name')),\n    customer_phone:customerPhone,\n    customer_email:String(pick(meta.customer_email,customer.email)),\n    dynamic_greeting:String(pick(meta.dynamic_greeting)),\n    bugunun_tarihi:String(pick(meta.bugunun_tarihi)),\n    bugun_iso:String(pick(meta.bugun_iso)),\n    su_anki_saat:String(pick(meta.su_anki_saat))\n  },\n  metadata:{...meta,lead_id:leadId,assigned_to:assignedTo,provider:'vapi'},\n  call_analysis:{\n    custom_analysis_data:{\n      appointment_date:String(pick(structured.appointment_date)),\n      arama_sonucu:String(pick(structured.arama_sonucu)),\n      extracted_name:String(pick(structured.extracted_name,userName)),\n      aranacak_saat:String(pick(structured.aranacak_saat)),\n      satis_talebi:bool(structured.satis_talebi),\n      link_istegi:bool(structured.link_istegi),\n      arama_turu:'Giden',\n      call_successful:bool(structured.call_successful),\n      user_sentiment:String(pick(structured.user_sentiment))\n    },\n    call_summary:summary,\n    call_successful:bool(structured.call_successful),\n    user_sentiment:String(pick(structured.user_sentiment))\n  }\n};\n\nreturn [{json:{...input, body:{event:'call_analyzed', call:normalized}, vapi_event_type:eventType, vapi_call_id:normalized.call_id}}];"
+      },
+      "name": "Vapi - Finest Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3344,
+        3616
+      ],
+      "id": "04d08c19-30c1-4af8-89f2-0c55583ce97a"
+    },
+    {
+      "parameters": {
+        "content": "## FINEST YAŞAMKENT — VAPI\n\n**Tetik:** Bitrix `UC_5M177N`\n\nDoldurulacak placeholder:\n- `FINEST_VAPI_OUTBOUND_ASSISTANT_ID`\n\nPhone Number ID (dolu): `1c6cea8b-f4fa-4301-a46b-24fa4443006e` (+905337436014)\n\nHTTP credential: **Vapi Header Auth**\n\nAssistant Server URL:\n`https://xre111.shop/webhook/finest-vapi-call-result`\n\n> 10 dakikalık cooldown, AI sonucu UC_5M177N statüsüne dönünce tekrar arama döngüsünü önler.",
+        "height": 360,
+        "width": 520
+      },
+      "name": "FINEST VAPI NOTLARI",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1920,
+        2464
+      ],
+      "id": "3a2995c3-e253-4b78-8978-5d19fdcaddeb"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gateway.erccell.com.tr/corporatesms/sendsms/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "text/xml"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "text/xml",
+        "body": "=<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<CORPORATESMS>\n    <HEADER>\n        <USERNAME>ERCCELL_KULLANICI_ADI</USERNAME>\n        <PASSWORD>ERCCELL_SIFRE</PASSWORD>\n        <SMSHEADER><![CDATA[XRE]]></SMSHEADER>\n        <SMSTYPE>UC</SMSTYPE>\n        <SENDTYPE>1:N</SENDTYPE>\n    </HEADER>\n    <SMS>\n        <SMS_MESSAGE><![CDATA[Merhaba {{ $node[\"Başvuruyu Hazırla\"].json.full_name || \"Değerli Müşterimiz\" }}, Finest Yaşamkent başvurunuz alınmıştır. Danışmanımız en kısa sürede sizinle iletişime geçecektir. XRE'li günler dileriz. https://xreproject.com/firmaProjeler/finest-yasamkent]]></SMS_MESSAGE>\n        <NUMBERS>{{ $node[\"Başvuruyu Hazırla\"].json.sms_phone }}</NUMBERS>\n    </SMS>\n</CORPORATESMS>",
+        "options": {}
+      },
+      "id": "430bab38-cef5-49ad-b005-3f2f1dcdf4f6",
+      "name": "SMS Gönder (Erccell) - Finest Yaşamkent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -2016,
+        2752
+      ],
+      "retryOnFail": true
+    }
+  ],
+  "connections": {
+    "Webhook - Finest Form": {
+      "main": [
+        [
+          {
+            "node": "Lead Detayını Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Detayını Çek": {
+      "main": [
+        [
+          {
+            "node": "Finest Lead mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finest Lead mi?": {
+      "main": [
+        [
+          {
+            "node": "Kişi Detayı Gerekli mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Detayı Gerekli mi?": {
+      "main": [
+        [
+          {
+            "node": "Kişi Detayını Çek",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Başvuruyu Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Detayını Çek": {
+      "main": [
+        [
+          {
+            "node": "Başvuruyu Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Başvuruyu Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Yeni Finest Talebi",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telefon Geçerli mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telefon Geçerli mi?": {
+      "main": [
+        [
+          {
+            "node": "SMS Gönder (Erccell) - Finest Yaşamkent",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Vapi Aramasını Başlat",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bitrix - Yapay Zeka Arıyor",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Geçersiz Telefon Not Düş",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Finest Vapi Sonucu": {
+      "main": [
+        [
+          {
+            "node": "Vapi - Finest Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi sonucu mu?": {
+      "main": [
+        [
+          {
+            "node": "Sonucu Yorumla",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 200 (Diğer Event)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sonucu Yorumla": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Lead Güncelle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Lead Güncelle": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Arama Aktivitesi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Arama Aktivitesi": {
+      "main": [
+        [
+          {
+            "node": "Telegram - Finest Sonuç",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram - Finest Sonuç": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi - Finest Normalize": {
+      "main": [
+        [
+          {
+            "node": "Vapi sonucu mu?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "aiBuilderAssisted": true,
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  }
+}
