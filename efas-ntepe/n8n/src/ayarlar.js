@@ -17,7 +17,7 @@ const AYARLAR = {
   VAPI_INBOUND_ASISTAN: 'EFAS N-TEPE - INBOUND', // sadece 00-Kurulum kontrolü için
 
   // Aramaların yapılacağı numaralar (Vapi'deki Phone Numbers ile birebir aynı)
-  ARAYAN_NUMARALAR: ['+905337435615', '+905337435632', '+905337436876'],
+  ARAYAN_NUMARALAR: ['+905337436014', '+905337435632', '+905337436876'],
 
   // 04-Olay ve Mesaj Merkezi webhook adresi. Boş bırakılırsa n8n adresinizden otomatik bulunur.
   OLAY_WEBHOOK_URL: '',
