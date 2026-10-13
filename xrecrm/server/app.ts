@@ -87,7 +87,11 @@ import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
-import { registerLineInventoryRoutes } from "./line-inventory.js";
+import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-inventory.js";
+import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
+import { registerBackupRoutes, startBackupScheduler } from "./backup.js";
+import { liveNotifyStore } from "./live-notify.js";
+import { loadIntegrationSettings } from "./integration-settings.js";
 import {
   captureEvolutionMedia,
   captureMetaMedia,
@@ -1195,7 +1199,7 @@ export function createApp(
   options: { store?: Store; background?: boolean } = {},
 ): Express {
   const baseStore = options.store || createStore();
-  const rawStore = webhookEmitterStore(baseStore);
+  const rawStore = liveNotifyStore(auditStore(webhookEmitterStore(baseStore)));
   const store = createPermissionStore(
     stagePolicyStore(appointmentStore(rawStore)),
   );
@@ -1546,6 +1550,12 @@ export function createApp(
   registerIntegrationSettingsRoutes(app, store);
   registerPbxRoutes(app, store);
   registerLineInventoryRoutes(app, store);
+  registerAuditRoutes(app, store);
+  registerBackupRoutes(app, baseStore, async () => {
+    await loadLineInventoryFromStore(store);
+    await loadIntegrationSettings(store);
+  });
+  if (options.background) startBackupScheduler(baseStore);
   registerMediaRoutes(app, store, {
     providerFor: async (lineId, owner) => {
       const connected =
@@ -1561,7 +1571,7 @@ export function createApp(
   app.get("/api/state", async (req, res) => {
     try {
       const owner = ownerOf(req);
-      const [leads, rules, messages, events, connections, calls, suite] =
+      const [leads, rules, messages, events, connections, calls, suite, stages] =
         await Promise.all([
           store.list<Lead>("lead", owner),
           store.list<Rule>("rule", owner),
@@ -1570,7 +1580,10 @@ export function createApp(
           store.list("connection", owner),
           store.list("call", owner),
           getSuiteState(store, owner),
+          rawStoreOf(store).list<any>(STAGE_KIND, owner),
         ]);
+      const visibleLeads = new Set(leads.map((r) => r.id));
+      const since = Date.now() - 400 * 86_400_000;
       res.json({
         leads: leads.map((r) => r.payload),
         rules: rules.map((r) => r.payload),
@@ -1586,6 +1599,9 @@ export function createApp(
         ),
         ...suite,
         lines,
+        stageHistory: stages
+          .map((r) => r.payload)
+          .filter((h) => visibleLeads.has(h.leadId) && Date.parse(h.at) >= since),
         settings: {},
       });
     } catch (error) {

@@ -42,6 +42,8 @@ import {
   BarChart3,
   ContactRound,
   Sparkles,
+  History,
+  DatabaseBackup,
 } from "lucide-react";
 import { Toaster, toast } from "sonner";
 import { StoreProvider, useStore } from "./store";
@@ -77,6 +79,8 @@ const Employees = lazy(() => import("./pages/Employees"));
 const Profile = lazy(() => import("./pages/Profile"));
 const DataQuality = lazy(() => import("./pages/DataQuality"));
 const Worktime = lazy(() => import("./pages/Worktime"));
+const AuditLog = lazy(() => import("./pages/AuditLog"));
+const SystemBackups = lazy(() => import("./pages/SystemBackups"));
 const navGroups = [
   {
     label: "ÇALIŞMA ALANI",
@@ -94,6 +98,8 @@ const navGroups = [
       ["/structure", "Şirket yapısı", Building2],
       ["/worktime", "XRE Mesai", Clock],
       ["/access", "Erişim izinleri", ShieldCheck],
+      ["/audit", "Denetim günlüğü", History],
+      ["/system", "Yedekler", DatabaseBackup],
       ["/profile", "Profilim", ContactRound],
       ["/reports", "CRM analitiği", BarChart3],
       ["/data-quality", "Veri kalitesi", ShieldCheck],
@@ -135,6 +141,8 @@ function Workspace() {
     "/structure": "departments",
     "/worktime": "worktime",
     "/access": "access",
+    "/audit": "access",
+    "/system": "access",
     "/reports": "reports",
     "/ai": "ai",
     "/whatsapp": "whatsapp",
@@ -599,6 +607,14 @@ function Workspace() {
               </>
             ) : path === "/data-quality" ? (
               <DataQuality navigate={navigate} onLead={setLeadModal} />
+            ) : path === "/audit" ? (
+              <AuditLog
+                onLead={(id) =>
+                  setLeadModal(data.leads.find((l) => l.id === id) || null)
+                }
+              />
+            ) : path === "/system" ? (
+              <SystemBackups />
             ) : path === "/access" ? (
               <Access />
             ) : path === "/employees" || path === "/structure" ? (

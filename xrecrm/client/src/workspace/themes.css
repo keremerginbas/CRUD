@@ -726,3 +726,17 @@ html[data-xre-theme="night"] .b24-next-activity.overdue {
 html[data-xre-font] .b24-deal-title {
   font-size: var(--xre-ui-font-size, 13px);
 }
+
+/* Tablolar her temada okunur kalsın (koyu temada beyaz başlık şeridi oluşmaz). */
+html[data-xre-theme] th {
+  background: var(--xre-surface-muted);
+  color: var(--xre-text-faint);
+  border-color: var(--xre-border);
+}
+html[data-xre-theme] td {
+  color: var(--xre-text-soft);
+  border-color: var(--xre-border);
+}
+html[data-xre-theme] td strong {
+  color: var(--xre-text);
+}

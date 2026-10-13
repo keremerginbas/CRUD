@@ -16,7 +16,15 @@ XRE CRM - HIZLI BASLANGIC
 
 4) Siyah pencereyi KAPATMAYIN; kapatirsaniz CRM durur.
 
-Notlar
+Bilgisayar acilinca otomatik baslasin
+- OTOMATIK-BASLAT-KUR.cmd: CRM'i arka planda (pencere olmadan) her acilista baslatir.
+- OTOMATIK-BASLAT-KALDIR.cmd: bunu geri alir.
+
+Yedekler
+- Veriler her gun otomatik yedeklenir (data\backups). CRM > Yedekler sayfasindan
+  elle yedek alip indirebilir veya geri yukleyebilirsiniz.
+
+Notlar
 - MySQL gerekmez. Veriler "data" klasorunde saklanir; bu klasoru yedekleyin.
 - Sirket hat listesi (47 hat) config/lines.json dosyasindadir ve otomatik yuklenir.
   Hat yonetimi > Hatlari duzenle ekranindan da degistirebilirsiniz.

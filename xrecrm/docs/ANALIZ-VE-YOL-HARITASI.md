@@ -13,6 +13,16 @@
 | WhatsApp medya gönderme/alma | WhatsApp → ataş butonu |
 | Bitrix24 veri aktarımı | Bitrix aktarımı & uygulamalar |
 
+## v8.2 — tamamlananlar
+
+| Konu | Nerede |
+| --- | --- |
+| Denetim günlüğü (kim, neyi, ne zaman; gizli alanlar maskeli) | Çalışma alanı → Denetim günlüğü |
+| Aşama geçmişi; Genel bakış kazanım tarihini buradan alır | Otomatik |
+| Günlük otomatik yedek (son 14), elle yedek, indir, geri yükle (önce otomatik güvenlik yedeği) | Çalışma alanı → Yedekler |
+| Anlık bildirim: yeni mesaj, cevapsız arama, size atanan görev (tarayıcı bildirimi dahil) | Tüm sayfalar |
+| Bilgisayar açılınca arka planda otomatik başlatma | OTOMATIK-BASLAT-KUR.cmd |
+
 ### Santral kurulumu (Asterisk / FreePBX)
 1. FreePBX → Settings → Asterisk Manager Users: kullanıcı oluşturun; izinler: `call, originate, cdr, reporting`;
    "Permit" alanına yalnız CRM sunucusunun IP'sini yazın.

@@ -228,8 +228,32 @@ interface StreamClient {
   openId: string;
   ext: string;
   canCalls: boolean;
+  names: string[];
+  modules: Set<string>;
 }
 const clients = new Set<StreamClient>();
+
+export interface LiveNotice {
+  id: string;
+  kind: "message" | "missed-call" | "task";
+  title: string;
+  body: string;
+  leadId?: string | null;
+  at: string;
+}
+
+/** Canlı bildirim gönderir: modül yetkisi olanlara, isim verilirse yalnız o kişiye. */
+export function pushNotice(notice: LiveNotice, filter: { module: string; assigneeName?: string }): number {
+  let delivered = 0;
+  const assignee = filter.assigneeName?.trim().toLocaleLowerCase("tr-TR");
+  for (const client of clients) {
+    if (!client.modules.has(filter.module)) continue;
+    if (assignee && !client.names.includes(assignee)) continue;
+    client.res.write(`event: notice\ndata: ${JSON.stringify(notice)}\n\n`);
+    delivered += 1;
+  }
+  return delivered;
+}
 
 export interface RingingEvent {
   id: string;
@@ -472,6 +496,14 @@ export function registerPbxRoutes(app: Express, store: Store) {
       openId: auth.user.openId,
       ext: await extensionOf(auth),
       canCalls: auth.isOwner || canAccess(auth, "calls", "read"),
+      names: [auth.displayName, auth.user.name, auth.user.email]
+        .filter(Boolean)
+        .map((n) => String(n).trim().toLocaleLowerCase("tr-TR")),
+      modules: new Set(
+        (["calls", "whatsapp", "tasks", "crm"] as const).filter(
+          (m) => auth.isOwner || canAccess(auth, m, "read"),
+        ),
+      ),
     };
     clients.add(client);
     const ping = setInterval(() => res.write(": ping\n\n"), 25_000);

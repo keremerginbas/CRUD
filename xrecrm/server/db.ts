@@ -58,6 +58,24 @@ export interface Store {
     >,
   ): Promise<StoredEvent | null>;
   claimDueEvents(limit?: number): Promise<StoredEvent[]>;
+  /** Yedekleme: tüm kayıt ve olayları döndürür. */
+  dumpAll?(): Promise<StoreDump>;
+  /** Geri yükleme: mevcut tüm veriyi yedektekiyle değiştirir. */
+  restoreAll?(dump: StoreDump): Promise<void>;
+}
+
+export interface StoreDump {
+  format: "xrecrm-backup";
+  version: 1;
+  createdAt: string;
+  records: StoredRecord[];
+  events: StoredEvent[];
+}
+
+export function assertDump(value: any): StoreDump {
+  if (!value || value.format !== "xrecrm-backup" || value.version !== 1 || !Array.isArray(value.records) || !Array.isArray(value.events))
+    throw Object.assign(new Error("Geçerli bir XRE CRM yedeği değil."), { statusCode: 400 });
+  return value as StoreDump;
 }
 
 export class DatabaseUnavailableError extends Error {
@@ -444,6 +462,47 @@ export class MysqlStore implements Store {
       conn.release();
     }
   }
+
+  async dumpAll(): Promise<StoreDump> {
+    const pool = await this.ready();
+    const [records] = await pool.query<RowDataPacket[]>("SELECT * FROM xre_records");
+    const [events] = await pool.query<RowDataPacket[]>("SELECT * FROM xre_events");
+    return {
+      format: "xrecrm-backup",
+      version: 1,
+      createdAt: new Date().toISOString(),
+      records: records.map((row) => rowRecord(row)),
+      events: events.map((row) => rowEvent(row)),
+    };
+  }
+
+  async restoreAll(dump: StoreDump): Promise<void> {
+    assertDump(dump);
+    const pool = await this.ready();
+    const conn = await pool.getConnection();
+    const ts = (v?: string | null) => (v ? new Date(v) : null);
+    try {
+      await conn.beginTransaction();
+      await conn.query("DELETE FROM xre_events");
+      await conn.query("DELETE FROM xre_records");
+      for (const r of dump.records)
+        await conn.execute(
+          "INSERT INTO xre_records (owner_open_id, kind, id, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+          [r.ownerOpenId, r.kind, r.id, JSON.stringify(r.payload), ts(r.createdAt) || new Date(), ts(r.updatedAt) || new Date()],
+        );
+      for (const e of dump.events)
+        await conn.execute(
+          "INSERT INTO xre_events (id, owner_open_id, event_key, status, attempts, next_attempt_at, last_error, payload, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [e.id, e.ownerOpenId, e.eventKey, e.status, e.attempts, ts(e.nextAttemptAt), e.lastError ?? null, JSON.stringify(e.payload), ts(e.createdAt) || new Date(), ts(e.updatedAt) || new Date()],
+        );
+      await conn.commit();
+    } catch (error) {
+      await conn.rollback();
+      throw error;
+    } finally {
+      conn.release();
+    }
+  }
 }
 
 export class MemoryStore implements Store {
@@ -470,7 +529,7 @@ export class MemoryStore implements Store {
     await this.put("user", user.openId, { ...user, isOwner }, ownerOpenId);
     return { ownerOpenId, isOwner };
   }
-  private key(owner: string, kind: string, id: string) {
+  protected key(owner: string, kind: string, id: string) {
     return `${owner}\u0000${kind}\u0000${id}`;
   }
   async list<T = unknown>(kind: string, ownerOpenId: string) {
@@ -619,6 +678,24 @@ export class MemoryStore implements Store {
     }
     return claimed;
   }
+  async dumpAll(): Promise<StoreDump> {
+    return {
+      format: "xrecrm-backup",
+      version: 1,
+      createdAt: new Date().toISOString(),
+      records: [...this.records.values()].map((r) => structuredClone(r)),
+      events: [...this.events.values()].map((e) => structuredClone(e)),
+    };
+  }
+  async restoreAll(dump: StoreDump): Promise<void> {
+    assertDump(dump);
+    this.records.clear();
+    this.events.clear();
+    for (const r of dump.records)
+      this.records.set(this.key(r.ownerOpenId, r.kind, r.id), structuredClone(r));
+    for (const e of dump.events) this.events.set(String(e.id), structuredClone(e));
+    this.nextEventId = Math.max(0, ...dump.events.map((e) => Number(e.id) || 0)) + 1;
+  }
 }
 
 /**
@@ -708,6 +785,10 @@ export class FileStore extends MemoryStore {
     const result = await super.claimDueEvents(limit);
     if (result.length) this.schedule();
     return result;
+  }
+  async restoreAll(dump: StoreDump) {
+    await super.restoreAll(dump);
+    this.flushSync();
   }
 }
 

@@ -11,6 +11,8 @@ import { loadLineInventory, loadLineInventoryFromStore } from "./line-inventory.
 import { ensureSessionSecret } from "./local-auth.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
 import { webhookEmitterStore } from "./webhook-hub.js";
+import { auditStore } from "./audit.js";
+import { liveNotifyStore } from "./live-notify.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(here, "..");
@@ -43,7 +45,7 @@ export async function start(): Promise<void> {
   const app = createApp({ store, background: true });
   const httpServer = createHttpServer(app);
   startOutboxWorker(
-    stagePolicyStore(appointmentStore(webhookEmitterStore(store))),
+    stagePolicyStore(appointmentStore(liveNotifyStore(auditStore(webhookEmitterStore(store))))),
     Number(process.env.OUTBOX_INTERVAL_MS || 5000),
   );
   const production = process.env.NODE_ENV === "production";

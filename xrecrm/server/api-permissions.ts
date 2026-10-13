@@ -29,6 +29,8 @@ export function requireModulePermissions(
     path === "/settings/integrations" ||
     path === "/pbx/me" ||
     path === "/lines" ||
+    path === "/audit" ||
+    /^\/system\/backups(?:\/|$)/.test(path) ||
     path === "/pbx/test"
   )
     return next();
@@ -93,10 +95,8 @@ export function requireModulePermissions(
     action = "read";
   }
   else if (/^\/calls(?:\/|$)/.test(path)) module = "calls";
-  else if (path === "/pbx/stream") {
-    module = "calls";
-    action = "read";
-  } else if (/^\/pbx(?:\/|$)/.test(path)) module = "calls";
+  else if (path === "/pbx/stream") return next();
+  else if (/^\/pbx(?:\/|$)/.test(path)) module = "calls";
   else if (/^\/assistant(?:\/|$)/.test(path)) {
     module = "ai";
     if (

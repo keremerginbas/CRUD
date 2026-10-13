@@ -90,6 +90,10 @@ function statusError(statusCode: number, message: string): Error {
 // ---------------------------------------------------------------------------
 
 const inboundOrigin = new AsyncLocalStorage<{ inboundHookId: string }>();
+/** Şu anki yazım bir gelen webhooktan mı geliyor? (denetim günlüğü için) */
+export function currentInboundHookId(): string | undefined {
+  return inboundOrigin.getStore()?.inboundHookId;
+}
 
 const WATCHED_KINDS: Record<string, string> = {
   lead: "lead.",

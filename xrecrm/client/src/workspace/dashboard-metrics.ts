@@ -92,7 +92,9 @@ export interface DashboardMetrics {
 }
 
 export function computeDashboard(
-  data: Pick<AppState, "leads" | "messages" | "calls" | "tasks" | "activities">,
+  data: Pick<AppState, "leads" | "messages" | "calls" | "tasks" | "activities"> & {
+    stageHistory?: { leadId: string; to: string; at: string }[];
+  },
   period: Period,
   nowMs = Date.now(),
 ): DashboardMetrics {
@@ -107,8 +109,13 @@ export function computeDashboard(
   const activities = (data.activities || []).filter((a) => !a.cancelled);
 
   const newLeads = leads.filter((l) => inWindow(l.createdAt, current));
-  // Kazanılma tarihi ayrıca tutulmadığı için son hareket tarihi kullanılır.
-  const won = leads.filter((l) => l.stage === "won" && inWindow(l.lastActivity, current));
+  // Kazanım/kayıp tarihi aşama geçmişinden; geçmiş yoksa son hareket tarihi.
+  const closedAt = new Map<string, string>();
+  for (const h of data.stageHistory || [])
+    if ((h.to === "won" || h.to === "lost") && (!closedAt.has(h.leadId) || h.at > closedAt.get(h.leadId)!))
+      closedAt.set(h.leadId, h.at);
+  const closeDate = (l: Lead) => closedAt.get(l.id) || l.lastActivity;
+  const won = leads.filter((l) => l.stage === "won" && inWindow(closeDate(l), current));
   const periodCalls = calls.filter((c) => inWindow(c.startedAt || c.createdAt, current));
   const periodMessages = messages.filter((m) => inWindow(m.createdAt, current));
   const openTasks = tasks.filter((t) => t.status !== "done");
@@ -127,7 +134,7 @@ export function computeDashboard(
       key,
       name: shortDay.format(new Date(`${key}T12:00:00+03:00`)),
       leads: leads.filter((l) => match(l.createdAt)).length,
-      won: leads.filter((l) => l.stage === "won" && match(l.lastActivity)).length,
+      won: leads.filter((l) => l.stage === "won" && match(closeDate(l))).length,
       calls: calls.filter((c) => match(c.startedAt || c.createdAt)).length,
       messages: messages.filter((m) => match(m.createdAt)).length,
     };
@@ -229,7 +236,7 @@ export function computeDashboard(
     .sort((a, b) => b.count - a.count);
 
   const closedInPeriod = leads.filter(
-    (l) => (l.stage === "won" || l.stage === "lost") && inWindow(l.lastActivity, current),
+    (l) => (l.stage === "won" || l.stage === "lost") && inWindow(closeDate(l), current),
   ).length;
 
   return {

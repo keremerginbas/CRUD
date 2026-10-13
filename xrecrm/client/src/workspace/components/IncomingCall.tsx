@@ -35,6 +35,33 @@ export default function IncomingCall({ onLead }: { onLead: (id: string) => void 
           tag: call.id,
         });
     });
+    source.addEventListener("notice", (e) => {
+      const n = JSON.parse((e as MessageEvent).data) as {
+        id: string;
+        kind: string;
+        title: string;
+        body: string;
+        leadId?: string | null;
+      };
+      const show = n.kind === "missed-call" ? toast.warning : toast.info;
+      show(n.title, {
+        description: n.body || undefined,
+        duration: 12000,
+        ...(n.leadId
+          ? {
+              action: {
+                label: "Kartı aç",
+                onClick: async () => {
+                  await refresh();
+                  onLead(n.leadId!);
+                },
+              },
+            }
+          : {}),
+      });
+      if (document.visibilityState !== "visible" && "Notification" in window && Notification.permission === "granted")
+        new Notification(n.title, { body: n.body, tag: n.id });
+    });
     if ("Notification" in window && Notification.permission === "default") void Notification.requestPermission().catch(() => {});
     return () => {
       source.close();

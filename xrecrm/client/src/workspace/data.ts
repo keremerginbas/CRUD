@@ -68,6 +68,7 @@ export interface AppState extends SuiteState {
   events: EventItem[];
   connections: any[];
   calls: any[];
+  stageHistory?: { id: string; leadId: string; from: string | null; to: string; at: string; actor: string }[];
   settings: Record<string, unknown>;
 }
 export { lines, groupNames } from "../../../shared/lines";
