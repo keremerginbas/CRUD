@@ -4,6 +4,9 @@ import mysql, {
   type ResultSetHeader,
   type RowDataPacket,
 } from "mysql2/promise";
+import fs from "node:fs/promises";
+import fsSync from "node:fs";
+import path from "node:path";
 import type { StoredEvent, StoredRecord, UserIdentity } from "./types.js";
 
 export interface Store {
@@ -444,9 +447,9 @@ export class MysqlStore implements Store {
 }
 
 export class MemoryStore implements Store {
-  private records = new Map<string, StoredRecord>();
-  private events = new Map<string, StoredEvent>();
-  private nextEventId = 1;
+  protected records = new Map<string, StoredRecord>();
+  protected events = new Map<string, StoredEvent>();
+  protected nextEventId = 1;
   async init() {
     /* Test-only store: deliberately not used by production. */
   }
@@ -618,8 +621,104 @@ export class MemoryStore implements Store {
   }
 }
 
+/**
+ * MySQL olmadan kalıcı çalışma: tüm kayıtlar tek JSON dosyasında tutulur.
+ * Küçük ekipler ve tek sunucu için uygundur; yazımlar atomik (geçici dosya +
+ * yeniden adlandırma) ve 250 ms toplu yapılır. Birden çok sunucu süreci için MySQL kullanın.
+ */
+export class FileStore extends MemoryStore {
+  private timer: NodeJS.Timeout | null = null;
+  private loaded = false;
+  constructor(private readonly file: string) {
+    super();
+  }
+  async init() {
+    if (this.loaded) return;
+    this.loaded = true;
+    await fs.mkdir(path.dirname(this.file), { recursive: true });
+    try {
+      const data = JSON.parse(await fs.readFile(this.file, "utf8"));
+      for (const record of data.records || [])
+        this.records.set(`${record.ownerOpenId}\u0000${record.kind}\u0000${record.id}`, record);
+      for (const event of data.events || []) this.events.set(String(event.id), event);
+      this.nextEventId = Number(data.nextEventId) || this.events.size + 1;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    const flush = () => this.flushSync();
+    process.once("exit", flush);
+    for (const signal of ["SIGINT", "SIGTERM"] as const)
+      process.once(signal, () => {
+        flush();
+        process.exit(0);
+      });
+  }
+  private snapshot() {
+    return JSON.stringify({
+      version: 1,
+      nextEventId: this.nextEventId,
+      records: [...this.records.values()],
+      events: [...this.events.values()],
+    });
+  }
+  private schedule() {
+    if (this.timer) return;
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      const tmp = `${this.file}.tmp`;
+      fs.writeFile(tmp, this.snapshot())
+        .then(() => fs.rename(tmp, this.file))
+        .catch((error) => console.error("Yerel veritabanı yazılamadı:", error));
+    }, 250);
+  }
+  flushSync() {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    if (!this.loaded) return;
+    const tmp = `${this.file}.tmp`;
+    fsSync.writeFileSync(tmp, this.snapshot());
+    fsSync.renameSync(tmp, this.file);
+  }
+  async put<T = unknown>(kind: string, id: string, payload: T, ownerOpenId: string) {
+    const result = await super.put(kind, id, payload, ownerOpenId);
+    this.schedule();
+    return result;
+  }
+  async delete(kind: string, id: string, ownerOpenId: string) {
+    await super.delete(kind, id, ownerOpenId);
+    this.schedule();
+  }
+  async appendEvent(
+    ownerOpenId: string,
+    eventKey: string,
+    payload: Record<string, unknown>,
+    status?: StoredEvent["status"],
+    scheduledAt?: string | null,
+  ) {
+    const result = await super.appendEvent(ownerOpenId, eventKey, payload, status, scheduledAt);
+    if (result.inserted) this.schedule();
+    return result;
+  }
+  async updateEvent(id: string, ownerOpenId: string, patch: Parameters<MemoryStore["updateEvent"]>[2]) {
+    const result = await super.updateEvent(id, ownerOpenId, patch);
+    this.schedule();
+    return result;
+  }
+  async claimDueEvents(limit = 10) {
+    const result = await super.claimDueEvents(limit);
+    if (result.length) this.schedule();
+    return result;
+  }
+}
+
 export function createStore(): Store {
-  return new MysqlStore();
+  if (process.env.DATABASE_URL?.trim()) return new MysqlStore();
+  const file = path.resolve(
+    process.env.XRE_DATA_DIR || "data",
+    "xrecrm-data.json",
+  );
+  console.log(`DATABASE_URL yok; yerel dosya veritabanı kullanılıyor: ${file}`);
+  return new FileStore(file);
 }
 export function createMemoryStore(): Store {
   return new MemoryStore();

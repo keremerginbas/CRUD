@@ -1,6 +1,7 @@
 import type { VapiOptions } from "../components/VapiCallFields";
 import AIIntegration from "../components/AIIntegration";
 import WebhookHub from "../components/WebhookHub";
+import BitrixImport from "../components/BitrixImport";
 import { useState, useEffect } from "react";
 import {
   MessageCircle,
@@ -223,8 +224,9 @@ export default function Integrations({
         <PageTitle
           eyebrow="UYGULAMA EKOSİSTEMİ"
           title="Araçlarınız birlikte çalışsın."
-          description="CRM bağlamını yerel uygulamalara ve mevcut Bitrix iş akışlarınıza taşıyın."
+          description="Bitrix24'ten verilerinizi taşıyın, CRM bağlamını yerel uygulamalara aktarın."
         />
+        <BitrixImport />
         <div className="integration-grid">
           <article className="integration-card">
             <span className="provider-icon pbx">

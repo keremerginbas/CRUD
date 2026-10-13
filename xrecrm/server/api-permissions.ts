@@ -23,7 +23,9 @@ export function requireModulePermissions(
       "/notifications",
       "/preferences",
     ].includes(path) ||
-    /^\/notifications\/[^/]+\/read$/.test(path)
+    /^\/notifications\/[^/]+\/read$/.test(path) ||
+    // Hesap/şifre/QR uçları kendi sahiplik kontrollerini yapar.
+    /^\/auth\/(accounts|password|qr\/approve)(?:\/|$)/.test(path)
   )
     return next();
   if (path === "/access" && req.method === "GET") {
@@ -95,7 +97,7 @@ export function requireModulePermissions(
   } else if (/^\/conversation-analysis(?:\/|$)/.test(path)) module = "ai";
   else if (/^\/worktime(?:\/|$)/.test(path)) module = "worktime";
   else if (/^\/rules(?:\/|$)/.test(path)) module = "automations";
-  else if (/^\/(integrations|connections|n8n|events|bitrix|webhook-hub)(?:\/|$)/.test(path))
+  else if (/^\/(integrations|connections|n8n|events|bitrix|bitrix-import|webhook-hub)(?:\/|$)/.test(path))
     module = "integrations";
   else if (/^\/access\/departments/.test(path)) module = "departments";
   else if (/^\/access\/employees/.test(path)) module = "users";

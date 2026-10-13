@@ -6,3 +6,4 @@ dist
 .manus-logs
 # Gerçek hat envanteri (telefon numaraları / ICCID) asla repoya girmez.
 config/lines.json
+data/

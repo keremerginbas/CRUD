@@ -56,6 +56,7 @@ import "./style.css";
 import "./bitrix.css";
 import "./customer.css";
 import LeadDrawer from "./components/LeadDrawer";
+import LoginScreen, { QrApprove, type AuthStatus } from "./components/LoginScreen";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const OnlineMeeting = lazy(() => import("./components/OnlineMeeting"));
 const CRM = lazy(() => import("./pages/CRM"));
@@ -112,7 +113,7 @@ const navGroups = [
       ["/n8n", "n8n iş akışları", Workflow],
       ["/webhooks", "Webhooklar", Webhook],
       ["/integrations", "Entegrasyonlar", Link2],
-      ["/apps", "Yerel uygulamalar", Blocks],
+      ["/apps", "Bitrix aktarımı & uygulamalar", Blocks],
     ],
   },
 ] as const;
@@ -227,10 +228,58 @@ function Workspace() {
             ? "/kanban"
             : path),
       )?.[1] || "Ayarlar";
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  useEffect(() => {
+    fetch("/api/auth/status", { credentials: "include" })
+      .then((r) => r.json())
+      .then((s) => {
+        if (!s || typeof s !== "object" || !s.providers) return;
+        setAuthStatus(s as AuthStatus);
+      })
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    if (loading || user || !authStatus) return;
+    let dismissed = false;
+    try {
+      dismissed = sessionStorage.getItem("xre-login-dismissed") === "1";
+    } catch {
+      /* depolama kapalı */
+    }
+    if (
+      !dismissed ||
+      authStatus.needsSetup ||
+      new URLSearchParams(location.search).has("login_error")
+    )
+      setAuthOpen(true);
+  }, [loading, user, authStatus]);
   const login = () => {
-    window.location.href =
-      "/api/auth/login?origin=" + encodeURIComponent(window.location.origin);
+    if (authStatus) setAuthOpen(true);
+    else
+      window.location.href =
+        "/api/auth/login?origin=" + encodeURIComponent(window.location.origin);
   };
+  const dismissLogin = () => {
+    try {
+      sessionStorage.setItem("xre-login-dismissed", "1");
+    } catch {
+      /* depolama kapalı */
+    }
+    setAuthOpen(false);
+  };
+  if (path === "/qr-onay" && !authOpen)
+    return (
+      <QrApprove loggedIn={Boolean(user)} onLogin={() => setAuthOpen(true)} />
+    );
+  if (authOpen && authStatus && !user)
+    return (
+      <LoginScreen
+        status={authStatus}
+        onDemo={dismissLogin}
+        onClose={authStatus.needsSetup ? undefined : dismissLogin}
+      />
+    );
   return (
     <AssistantProvider path={path} leadId={leadModal?.id}>
       <div className="app-shell">

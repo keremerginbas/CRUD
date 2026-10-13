@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { CheckCircle2, KeyRound, Save, Copy, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "../components/ui";
+import { ChangePassword } from "../components/LoginAccounts";
 import { useStore } from "../store";
 import "../access.css";
 type ProfileData = {
@@ -108,6 +109,7 @@ export default function Profile() {
         title="Profilim"
         description="Kişisel bilgilerinizi güncelleyin. Erişim rolü ve doğrulanmış kimlik buradan değiştirilemez."
       />
+      <ChangePassword />
       {demo && (
         <div className="access-notice">
           Örnek profil · düzenleme gerçek bir kullanıcı veya yetki oluşturmaz.

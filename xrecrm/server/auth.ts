@@ -23,7 +23,7 @@ function cookieValue(req: Request, name: string): string | undefined {
   return undefined;
 }
 
-function cookieHeader(
+export function cookieHeader(
   name: string,
   value: string,
   maxAge: number,
@@ -32,7 +32,7 @@ function cookieHeader(
   return `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=${secure ? "None" : "Lax"}${secure ? "; Secure" : ""}`;
 }
 
-function publicHttps(req: Request): boolean {
+export function publicHttps(req: Request): boolean {
   const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
     .split(",")[0]
     .trim()
@@ -40,7 +40,7 @@ function publicHttps(req: Request): boolean {
   return forwardedProto === "https";
 }
 
-function clearCookie(req: Request, name: string): string {
+export function clearCookie(req: Request, name: string): string {
   return cookieHeader(name, "", 0, publicHttps(req));
 }
 
@@ -109,12 +109,14 @@ export function safeBrowserOrigin(
 }
 
 function secretKey(): Uint8Array | null {
-  const secret = process.env.MANUS_JWT_SECRET;
+  const secret =
+    process.env.MANUS_JWT_SECRET?.trim() || process.env.XRE_SESSION_SECRET?.trim();
   return secret ? new TextEncoder().encode(secret) : null;
 }
 
 function projectId(): string | undefined {
-  return process.env.MANUS_PROJECT_ID || process.env.MANUS_APP_ID;
+  // Manus yapılandırılmamışsa yerel giriş için sabit uygulama kimliği kullanılır.
+  return process.env.MANUS_PROJECT_ID || process.env.MANUS_APP_ID || "xre-crm";
 }
 
 function identityFromClaims(
@@ -199,7 +201,7 @@ export async function createSessionToken(user: UserIdentity): Promise<string> {
   const key = secretKey();
   const appId = projectId();
   if (!key || !appId)
-    throw new Error("MANUS_JWT_SECRET ve MANUS_PROJECT_ID yapılandırılmalı.");
+    throw new Error("Oturum anahtarı (XRE_SESSION_SECRET) yapılandırılmalı.");
   return new SignJWT({
     appId,
     openId: user.openId,
@@ -226,7 +228,7 @@ export function requireAuth(
     if (!auth)
       return res.status(401).json({
         error: "UNAUTHORIZED",
-        message: "Geçerli Manus oturumu gerekli.",
+        message: "Oturum açmanız gerekli.",
       });
     if (module && !canAccess(auth, module, action))
       return res.status(403).json({
@@ -251,7 +253,7 @@ export async function handleLogin(req: Request, res: Response): Promise<void> {
     return;
   }
   const portal = process.env.MANUS_OAUTH_PORTAL_URL;
-  const appId = projectId();
+  const appId = process.env.MANUS_PROJECT_ID || process.env.MANUS_APP_ID;
   if (!portal || !appId) {
     res.status(503).json({
       error: "OAUTH_NOT_CONFIGURED",

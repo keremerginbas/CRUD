@@ -8,12 +8,14 @@ import express from "express";
 import { createApp, startOutboxWorker } from "./app.js";
 import { createStore } from "./db.js";
 import { loadLineInventory } from "./line-inventory.js";
+import { ensureSessionSecret } from "./local-auth.js";
 import { webhookEmitterStore } from "./webhook-hub.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(here, "..");
 
 export async function start(): Promise<void> {
+  ensureSessionSecret(projectRoot);
   const inventory = loadLineInventory(projectRoot);
   console.log(`Hat envanteri: ${inventory.count} hat (${inventory.source === "placeholder" ? "yer tutucu" : "yerel yapılandırma"})`);
   const store = createStore();

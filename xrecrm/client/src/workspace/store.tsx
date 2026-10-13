@@ -107,11 +107,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     api("/api/me")
-      .then((d) =>
-        setUser(
-          d && Object.prototype.hasOwnProperty.call(d, "user") ? d.user : null,
-        ),
-      )
+      .then((d) => {
+        const next =
+          d && Object.prototype.hasOwnProperty.call(d, "user") ? d.user : null;
+        setUser(next);
+        // Giriş yapmış kullanıcı doğrudan canlı CRM ile başlar (demo tercih edilmediyse).
+        let preferDemo = false;
+        try {
+          preferDemo = sessionStorage.getItem("xre-prefer-demo") === "1";
+        } catch {
+          /* depolama kapalı */
+        }
+        if (next && next.canAccess !== false && next.openId && !preferDemo) {
+          setDemoState(false);
+          setData(emptyState);
+        }
+      })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
@@ -132,6 +143,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (!v && (!user || user.canAccess === false)) {
       toast.error("Gerçek CRM verileri için yetkili oturum gerekli.");
       return;
+    }
+    try {
+      if (v) sessionStorage.setItem("xre-prefer-demo", "1");
+      else sessionStorage.removeItem("xre-prefer-demo");
+    } catch {
+      /* depolama kapalı */
     }
     setDemoState(v);
     if (v) {

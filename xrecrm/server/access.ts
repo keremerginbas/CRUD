@@ -790,7 +790,7 @@ function mapRole(
   };
 }
 
-async function allRoles(
+export async function allRoles(
   raw: Store,
   ownerOpenId: string,
 ): Promise<AccessRole[]> {

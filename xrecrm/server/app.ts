@@ -82,6 +82,9 @@ import {
 } from "./types.js";
 import { verifyBitrixContext } from "./bitrix.js";
 import { lines } from "../shared/lines.js";
+import { registerLocalAccountRoutes, registerLocalAuthRoutes } from "./local-auth.js";
+import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.js";
+import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import {
   deliverHookEvent,
   registerHookInboundRoute,
@@ -1466,6 +1469,8 @@ export function createApp(options: { store?: Store } = {}): Express {
     },
   );
 
+  registerLocalAuthRoutes(app, store);
+  registerSocialAuthRoutes(app, store);
   registerN8nInboundRoute(app, store, processInboundWebhook);
   registerHookInboundRoute(app, store, {
     ownerScope,
@@ -1490,6 +1495,9 @@ export function createApp(options: { store?: Store } = {}): Express {
   registerConversationAnalysisRoutes(app, store);
   registerN8nReportRoutes(app, store);
   registerWebhookHubRoutes(app, store);
+  registerLocalAccountRoutes(app, store);
+  registerBitrixImportRoutes(app, store);
+  registerQrApproveRoute(app, store);
 
   app.get("/api/state", async (req, res) => {
     try {

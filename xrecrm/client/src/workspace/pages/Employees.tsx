@@ -12,6 +12,7 @@ import {
   UserRoundX,
 } from "lucide-react";
 import { PageTitle } from "../components/ui";
+import LoginAccounts from "../components/LoginAccounts";
 import { useStore } from "../store";
 import {
   DEFAULT_ROLES,
@@ -153,7 +154,7 @@ export default function Employees({
       <PageTitle
         eyebrow="ÇALIŞMA ALANI / EKİP"
         title={structure ? "Ekip yapısı" : "Çalışanlar"}
-        description="Üyeleri yalnızca doğrulanmış Manus openId kimliğiyle eşleştirin. E-posta tek başına erişim sağlamaz."
+        description="Çalışanlara giriş hesabı açın; yetkiler seçtiğiniz rolden gelir."
         actions={
           isOwner && (
             <button className="btn primary" onClick={() => setAdding(true)}>
@@ -162,6 +163,7 @@ export default function Employees({
           )
         }
       />
+      {!structure && <LoginAccounts />}
       {demo && (
         <div className="access-notice">
           Örnek ekip yapısı · gerçek çalışan hesabı veya erişim oluşturulmaz.
@@ -170,9 +172,9 @@ export default function Employees({
       <div className="access-notice">
         <KeyRound size={17} />
         <span>
-          Kimlik eşleştirmesi için çalışanın profilindeki Manus kimliğini alın.
-          Yeni kayıtlar <strong>pasif</strong> başlar; parola veya sahte davet
-          oluşturulmaz.
+          Giriş yapabilen çalışanları yukarıdaki <strong>Giriş hesapları</strong>{" "}
+          bölümünden açın. Bu listeden eklenen kayıtlar yalnız Manus kimliğiyle
+          eşleşir ve <strong>pasif</strong> başlar.
         </span>
       </div>
       {structure && (
