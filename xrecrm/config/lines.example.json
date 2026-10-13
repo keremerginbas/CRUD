@@ -1,0 +1,19 @@
+[
+ {
+  "id": "ai-1",
+  "phone": "+905551000001",
+  "group": "ai",
+  "label": "Vapi asistan hattı"
+ },
+ {
+  "id": "office-1",
+  "phone": "+905552000001",
+  "group": "office"
+ },
+ {
+  "id": "cloud-1",
+  "phone": "+905553000001",
+  "group": "cloud",
+  "iccid": "89900000000000000001"
+ }
+]

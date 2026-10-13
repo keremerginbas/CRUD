@@ -1,0 +1,523 @@
+.crm-views-heading {
+  align-items: flex-start;
+}
+.crm-views-heading h1 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.crm-views-heading h1 span {
+  color: #5e6d87;
+  font-size: 13px;
+  font-weight: 700;
+}
+.crm-view-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.crm-views-tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 0 0 18px;
+  padding: 4px;
+  border: 1px solid #dbe5ef;
+  border-radius: 11px;
+  background: #f5f8fb;
+  width: fit-content;
+}
+.crm-views-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 8px;
+  padding: 8px 13px;
+  color: #61708a;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.crm-views-tabs button:hover,
+.crm-views-tabs button.active {
+  color: #087ea9;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(32, 67, 102, 0.1);
+}
+.crm-contact-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #dbe6ef;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 3px 12px rgba(32, 67, 102, 0.05);
+}
+.crm-contact-card:hover {
+  border-color: #b9dcea;
+  box-shadow: 0 7px 18px rgba(32, 67, 102, 0.1);
+}
+.crm-contact-card-top,
+.crm-contact-footer,
+.crm-contact-meta,
+.crm-calendar-head,
+.crm-calendar-legend,
+.crm-activity-record-row {
+  display: flex;
+  align-items: center;
+}
+.crm-contact-card-top {
+  min-height: 24px;
+  gap: 8px;
+}
+.crm-card-source {
+  overflow: hidden;
+  flex: 1;
+  color: #7a899c;
+  font-size: 10px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.crm-open-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+  padding: 3px 6px;
+  border: 1px solid #cceaf4;
+  border-radius: 999px;
+  color: #087ea9;
+  background: #effaff;
+  font-size: 10px;
+  font-weight: 800;
+}
+.crm-contact-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.crm-contact-name {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  color: #172b4d;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+.crm-contact-name:hover {
+  color: #087ea9;
+}
+.crm-contact-heading strong {
+  overflow: hidden;
+  color: #64758e;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm-contact-meta {
+  gap: 6px;
+  color: #667991;
+  font-size: 11px;
+}
+.crm-contact-meta .badge {
+  margin-left: auto;
+}
+.crm-contact-record {
+  min-height: 40px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: #f5f8fb;
+  color: #526782;
+  font-size: 11px;
+}
+.crm-contact-record span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.crm-contact-record b {
+  overflow: hidden;
+  color: #253e61;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm-contact-record small {
+  color: #71829a;
+  font-size: 10px;
+}
+.crm-no-record {
+  color: #8d9aad;
+}
+.crm-contact-footer {
+  justify-content: space-between;
+  gap: 8px;
+}
+.crm-lead-actions {
+  min-width: 0;
+  margin-right: auto;
+}
+.crm-lead-actions > * {
+  display: flex;
+  gap: 4px;
+}
+.crm-contact-footer select {
+  max-width: 125px;
+  min-height: 27px;
+  padding: 3px 7px;
+  border: 1px solid #dbe5ef;
+  border-radius: 6px;
+  color: #4d627f;
+  background: #fff;
+  font-size: 10px;
+}
+.crm-subview-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin: 7px 0 14px;
+}
+.crm-subview-heading h2 {
+  margin: 2px 0 3px;
+  color: #172b4d;
+  font-size: 19px;
+}
+.crm-subview-heading p {
+  margin: 0;
+  color: #72829a;
+  font-size: 11px;
+}
+.crm-eyebrow {
+  color: #087ea9;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+.crm-activity-group {
+  margin: 0 0 22px;
+}
+.crm-activity-group > header {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  margin: 0 0 10px;
+}
+.crm-activity-group > header > div {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.crm-activity-group h3 {
+  margin: 0;
+  color: #273f61;
+  font-size: 14px;
+}
+.crm-activity-group > header span:not(.crm-group-line) {
+  color: #8492a7;
+  font-size: 10px;
+}
+.crm-group-line {
+  height: 1px;
+  flex: 1;
+  background: #dce6ef;
+}
+.crm-activity-group.overdue h3 {
+  color: #b34b48;
+}
+.crm-activity-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  gap: 12px;
+}
+.crm-activity-card-records {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.crm-activity-card-records .crm-activity-record-row + .crm-activity-record-row {
+  padding-top: 5px;
+  border-top: 1px solid #edf2f6;
+}
+.crm-activity-record-row {
+  gap: 5px;
+  min-width: 0;
+}
+.crm-record-check {
+  display: inline-grid;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #d5e2eb;
+  border-radius: 7px;
+  color: #087ea9;
+  background: #fff;
+  cursor: pointer;
+}
+.crm-record-check:hover {
+  border-color: #29b5e8;
+  background: #effaff;
+}
+.crm-record-edit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  flex: 1;
+  gap: 8px;
+  padding: 2px 3px;
+  border: 0;
+  color: #405776;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+.crm-record-edit > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+.crm-record-edit strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm-record-edit small {
+  color: #8796a9;
+  font-size: 10px;
+}
+.crm-record-edit svg {
+  flex: none;
+  color: #7186a1;
+}
+.crm-more-records {
+  padding-left: 31px;
+  color: #8493a7;
+  font-size: 10px;
+}
+.crm-add-activity {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 5px;
+  padding: 5px 0;
+  border: 0;
+  color: #087ea9;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.crm-calendar-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(290px, 0.8fr);
+  gap: 16px;
+}
+.crm-calendar-panel,
+.crm-calendar-day-detail {
+  min-width: 0;
+  padding: 16px;
+}
+.crm-calendar-head {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.crm-calendar-head h2 {
+  flex: 1;
+  margin: 0;
+  color: #233b5d;
+  font-size: 17px;
+  text-transform: capitalize;
+}
+.crm-calendar-weekdays,
+.crm-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.crm-calendar-weekdays {
+  gap: 5px;
+  margin-bottom: 5px;
+  color: #8997aa;
+  font-size: 10px;
+  font-weight: 800;
+  text-align: center;
+}
+.crm-calendar-grid {
+  gap: 5px;
+}
+.crm-calendar-day,
+.crm-calendar-empty {
+  min-height: 92px;
+  border: 1px solid #e1eaf1;
+  border-radius: 7px;
+}
+.crm-calendar-day {
+  overflow: hidden;
+  padding: 7px;
+  color: #526884;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.crm-calendar-day:hover,
+.crm-calendar-day.selected {
+  border-color: #70c9e5;
+  background: #f3fbfe;
+}
+.crm-calendar-day.today strong {
+  color: #087ea9;
+}
+.crm-calendar-day > strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 11px;
+}
+.crm-calendar-events {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.crm-calendar-event {
+  display: block;
+  overflow: hidden;
+  padding: 3px 4px;
+  border-radius: 4px;
+  color: #46627f;
+  background: #eaf7fb;
+  font-size: 9px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm-calendar-event.task {
+  background: #fff5df;
+}
+.crm-calendar-event b {
+  font-weight: 800;
+}
+.crm-calendar-events small {
+  color: #8190a3;
+  font-size: 9px;
+}
+.crm-calendar-legend {
+  flex-wrap: wrap;
+  gap: 11px;
+  margin-top: 12px;
+  color: #75859b;
+  font-size: 10px;
+}
+.crm-calendar-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.crm-calendar-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #b9eaf6;
+}
+.crm-calendar-legend i.task {
+  background: #f6d28b;
+}
+.crm-calendar-day-detail > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.crm-calendar-day-detail h2 {
+  margin: 3px 0 0;
+  color: #273f61;
+  font-size: 15px;
+  text-transform: capitalize;
+}
+.crm-calendar-day-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.crm-calendar-day-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid #e0e9f0;
+  border-radius: 8px;
+  background: #fff;
+}
+.crm-calendar-day-item.completed {
+  opacity: 0.62;
+}
+.crm-calendar-day-body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+.crm-calendar-day-body strong {
+  overflow: hidden;
+  color: #2d4568;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.crm-calendar-day-body > span {
+  color: #7b8ba0;
+  font-size: 10px;
+}
+.crm-calendar-day-body p {
+  margin: 4px 0 0;
+  color: #61758f;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.crm-linked-lead {
+  width: fit-content;
+  padding: 0;
+  border: 0;
+  color: #087ea9;
+  background: transparent;
+  font-size: 10px;
+  cursor: pointer;
+}
+@media (max-width: 960px) {
+  .crm-calendar-layout {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 680px) {
+  .crm-views-tabs {
+    width: 100%;
+    overflow-x: auto;
+  }
+  .crm-views-tabs button {
+    flex: 1 0 auto;
+  }
+  .crm-calendar-panel,
+  .crm-calendar-day-detail {
+    padding: 10px;
+  }
+  .crm-calendar-day,
+  .crm-calendar-empty {
+    min-height: 73px;
+  }
+  .crm-calendar-event {
+    font-size: 8px;
+  }
+}

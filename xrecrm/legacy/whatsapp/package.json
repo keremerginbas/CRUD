@@ -1,0 +1,22 @@
+{
+  "name": "xre-whatsapp",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "sync:templates": "node scripts/sync-templates.js",
+    "sync:hatlar": "node scripts/sync-hatlar.js"
+  },
+  "dependencies": {
+    "@fastify/formbody": "7.4.0",
+    "@fastify/static": "7.0.4",
+    "@fastify/websocket": "10.0.1",
+    "dotenv": "16.4.5",
+    "fastify": "4.28.1",
+    "fastify-raw-body": "4.3.0",
+    "mysql2": "3.11.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "routes": [
+    {
+      "path": "/",
+      "title": "Genel bakış"
+    },
+    {
+      "path": "/leads",
+      "title": "CRM · Liste"
+    },
+    {
+      "path": "/kanban",
+      "title": "CRM · Kanban"
+    },
+    {
+      "path": "/whatsapp",
+      "title": "WhatsApp"
+    },
+    {
+      "path": "/calls",
+      "title": "Aramalar & Yapay Zekâ"
+    },
+    {
+      "path": "/lines",
+      "title": "Hat yönetimi"
+    },
+    {
+      "path": "/automations",
+      "title": "Otomasyonlar"
+    },
+    {
+      "path": "/webhooks",
+      "title": "Webhook günlüğü"
+    },
+    {
+      "path": "/integrations",
+      "title": "Entegrasyonlar"
+    },
+    {
+      "path": "/apps",
+      "title": "Yerel uygulamalar"
+    },
+    {
+      "path": "/settings",
+      "title": "Ayarlar"
+    },
+    {
+      "path": "/contacts",
+      "title": "Kişiler"
+    },
+    {
+      "path": "/companies",
+      "title": "Şirketler"
+    },
+    {
+      "path": "/tasks",
+      "title": "Görevler"
+    },
+    {
+      "path": "/calendar",
+      "title": "Takvim"
+    },
+    {
+      "path": "/team",
+      "title": "Ekip dizini"
+    },
+    {
+      "path": "/feed",
+      "title": "Akış"
+    },
+    {
+      "path": "/reports",
+      "title": "CRM analitiği"
+    },
+    {
+      "path": "/ai",
+      "title": "XRE Yapay Zekâ Asistanı"
+    },
+    {
+      "path": "/n8n",
+      "title": "n8n İş Akışları"
+    },
+    {
+      "path": "/access",
+      "title": "Erişim izinleri"
+    },
+    {
+      "path": "/employees",
+      "title": "Çalışanlar"
+    },
+    {
+      "path": "/structure",
+      "title": "Şirket yapısı"
+    },
+    {
+      "path": "/profile",
+      "title": "Profilim"
+    },
+    {
+      "path": "/worktime",
+      "title": "XRE Mesai"
+    },
+    {
+      "path": "/activities",
+      "title": "CRM · Etkinlikler"
+    },
+    {
+      "path": "/data-quality",
+      "title": "Veri kalitesi ve aktarım"
+    }
+  ]
+}

@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XRE WhatsApp</title>
+<style>
+[hidden]{display:none !important}
+
+/* WhatsApp Web açık tema renkleri */
+:root{
+  --wa-green:#00a884; --wa-green-dark:#008069; --wa-badge:#25d366;
+  --bar:#f0f2f5; --panel:#ffffff; --hover:#f5f6f6; --active:#f0f2f5;
+  --line:#e9edef; --line-2:#d1d7db;
+  --ink:#111b21; --ink-2:#3b4a54; --ink-dim:#667781; --icon:#54656f;
+  --chat-bg:#efeae2; --in:#ffffff; --out:#d9fdd3;
+  --tick-read:#53bdeb; --warn-bg:#fff5c4; --warn-ink:#54656f; --danger:#ea0038;
+  --shadow-bub:0 1px .5px rgba(11,20,26,.13);
+  font-synthesis:none;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:#d1d7db; color:var(--ink);
+  font:14.2px/1.45 "Segoe UI","Helvetica Neue",Helvetica,"Lucida Grande",Arial,Ubuntu,Cantarell,sans-serif;
+  overflow:hidden; -webkit-font-smoothing:antialiased;
+}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:none}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--wa-green);outline-offset:1px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:rgba(11,20,26,.2)}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ---------- iskelet ---------- */
+.app{display:grid;grid-template-columns:minmax(300px,30%) 1fr;height:100vh;background:var(--panel)}
+.side{background:var(--panel);border-right:1px solid var(--line-2);display:flex;flex-direction:column;min-width:0}
+.main{display:flex;flex-direction:column;min-width:0;height:100vh;overflow:hidden;position:relative;
+  background-color:var(--chat-bg);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23d6cfc4' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round' opacity='.55'%3E%3Cpath d='M14 18h16v11H14zM14 18l8 6 8-6'/%3E%3Ccircle cx='86' cy='22' r='7'/%3E%3Cpath d='M83 22l2 2 4-4'/%3E%3Cpath d='M52 52c0-5 4-8 8-8s8 3 8 8-4 8-8 8l-5 3 1-4c-2-1-4-4-4-7z'/%3E%3Cpath d='M18 84l6-10 6 10zM96 76v14M89 83h14'/%3E%3Cpath d='M58 98a6 6 0 0 1 12 0c0 5-6 9-6 9s-6-4-6-9z'/%3E%3Ccircle cx='64' cy='98' r='1.5'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* ---------- sol üst: hat seçici (WhatsApp profil çubuğu) ---------- */
+.chan{height:59px;flex:none;padding:0 12px;background:var(--bar);display:flex;align-items:center;position:relative;
+  border-right:1px solid var(--line-2)}
+.chan-btn{width:100%;display:flex;align-items:center;gap:12px;padding:6px 4px;text-align:left;border-radius:6px}
+.chan-btn:hover{background:rgba(11,20,26,.04)}
+.chan-btn::before{content:"";width:40px;height:40px;border-radius:50%;flex:none;
+  background:#dfe5e7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M12 12.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4zm0 2.1c-3.6 0-8 1.8-8 4.9V21h16v-1.6c0-3.1-4.4-4.9-8-4.9z'/%3E%3C/svg%3E") center/26px no-repeat}
+.chan-dot{width:10px;height:10px;border-radius:50%;background:var(--wa-badge);flex:none;order:3;
+  box-shadow:0 0 0 2px var(--bar)}
+.chan-dot.pending{background:#f7b928}
+.chan-meta{flex:1;min-width:0;display:flex;flex-direction:column;order:2}
+.chan-name{font-size:16px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chan-sub{font-size:13px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chan-caret{order:4;color:var(--icon);font-size:10px;padding:0 4px}
+.chan-list{position:absolute;left:10px;right:10px;top:56px;z-index:40;max-height:65vh;overflow:auto;padding:6px 0;
+  background:#fff;border-radius:3px;box-shadow:0 2px 5px rgba(11,20,26,.26),0 2px 10px rgba(11,20,26,.16);display:none}
+.chan-list.open{display:block}
+.chan-item{display:flex;align-items:center;gap:12px;padding:10px 16px;width:100%;text-align:left}
+.chan-item .chan-dot{order:0}
+.chan-item .chan-meta{order:1}
+.chan-item .chan-name{font-size:14.5px}
+.chan-item:hover{background:var(--hover)}
+.chan-item.active{background:var(--active)}
+.badge{min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--wa-badge);
+  color:#fff;font-size:12px;font-weight:600;display:grid;place-items:center;flex:none}
+
+/* ---------- arama ---------- */
+.search{padding:7px 12px;background:var(--panel);border-bottom:1px solid var(--line)}
+.search input{width:100%;height:35px;padding:0 12px 0 52px;background:var(--bar);border:none;border-radius:8px;outline:none;
+  font-size:14px;color:var(--ink);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%2354656f' d='M15.9 14.3h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5 1.5-1.5-5-5zm-6 0a4.5 4.5 0 1 1 0-9 4.5 4.5 0 0 1 0 9z'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:18px center;background-size:20px}
+.search input::placeholder{color:var(--ink-dim)}
+
+/* ---------- sohbet listesi ---------- */
+.convs{flex:1;overflow-y:auto;min-height:0;background:var(--panel)}
+.conv{display:flex;align-items:center;gap:15px;padding:0 15px 0 13px;width:100%;height:72px;text-align:left;position:relative}
+.conv::after{content:"";position:absolute;left:77px;right:0;bottom:0;border-bottom:1px solid var(--line)}
+.conv:hover{background:var(--hover)}
+.conv.active{background:var(--active)}
+.av{width:49px;height:49px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:#dfe5e7;color:#fff;font-weight:600;font-size:17px;letter-spacing:.3px}
+.av.anon{background:#dfe5e7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23ffffff' d='M12 12.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4zm0 2.1c-3.6 0-8 1.8-8 4.9V21h16v-1.6c0-3.1-4.4-4.9-8-4.9z'/%3E%3C/svg%3E") center/68% no-repeat}
+.conv-body{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:center}
+.conv-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.conv-name{font-size:17px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.conv-time{font-size:12px;color:var(--ink-dim);flex:none}
+.conv.unread .conv-time{color:var(--wa-badge);font-weight:500}
+.conv-bot{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:2px;min-height:20px}
+.conv-prev{font-size:14px;color:var(--ink-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.win-dot{width:8px;height:8px;border-radius:50%;background:#f7b928;flex:none}
+
+/* ---------- sohbet başlığı ---------- */
+.head{height:59px;flex:none;display:flex;align-items:center;gap:15px;padding:0 16px;background:var(--bar);
+  border-left:1px solid var(--line-2);z-index:2}
+.head .av{width:40px;height:40px;font-size:15px}
+.head-name{font-size:16px;color:var(--ink)}
+.head-sub{font-size:13px;color:var(--ink-dim)}
+.head-actions{margin-left:auto;display:flex;gap:6px}
+.btn-ghost{height:34px;padding:0 14px;border-radius:17px;font-size:13.5px;color:var(--icon)}
+.btn-ghost:hover{background:rgba(11,20,26,.06);color:var(--ink)}
+#crmBtn{color:var(--wa-green-dark);font-weight:500}
+
+/* ---------- mesaj alanı ---------- */
+.msgs{flex:1;overflow-y:auto;padding:12px 7% 8px;display:flex;flex-direction:column;min-height:0}
+.day{align-self:center;margin:12px 0 10px;padding:5px 12px 6px;border-radius:7.5px;background:#fff;
+  box-shadow:var(--shadow-bub);font-size:12.5px;color:var(--ink-dim)}
+.bub{max-width:min(65%,560px);padding:6px 7px 8px 9px;border-radius:7.5px;position:relative;
+  word-wrap:break-word;white-space:pre-wrap;box-shadow:var(--shadow-bub);color:var(--ink);font-size:14.2px;line-height:19px;
+  margin-top:2px}
+.bub.first{margin-top:10px}
+.bub.in{align-self:flex-start;background:var(--in)}
+.bub.out{align-self:flex-end;background:var(--out)}
+.bub.in.first{border-top-left-radius:0}
+.bub.out.first{border-top-right-radius:0}
+.bub.in.first::before,.bub.out.first::before{content:"";position:absolute;top:0;width:8px;height:13px}
+.bub.in.first::before{left:-8px;background:var(--in);clip-path:polygon(100% 0,0 0,100% 100%)}
+.bub.out.first::before{right:-8px;background:var(--out);clip-path:polygon(0 0,100% 0,0 100%)}
+.spacer{display:inline-block;width:52px;height:1px}
+.bub.out .spacer{width:72px}
+.bub-meta{position:absolute;right:7px;bottom:3px;display:flex;gap:3px;align-items:center;
+  font-size:11px;line-height:15px;color:var(--ink-dim);white-space:nowrap}
+.bub-err{display:block;font-size:12px;color:var(--danger);margin-top:4px;white-space:normal}
+.tick{display:inline-flex;width:16px;height:11px;color:#8696a0}
+.tick svg{width:16px;height:11px}
+.tick.read{color:var(--tick-read)}
+.tick.failed{color:var(--danger)}
+.tpl-tag{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--wa-green-dark);margin-bottom:3px;font-weight:500}
+.media{max-width:min(330px,100%);border-radius:6px;display:block;margin:-3px -4px 5px -6px}
+.file{display:flex;gap:10px;align-items:center;padding:10px 12px;background:rgba(11,20,26,.05);border-radius:6px;
+  margin:-2px -3px 6px -5px;font-size:14px}
+
+/* ---------- medya balonları ---------- */
+.bub.media-bub{padding:3px 3px 3px;max-width:min(340px,80%)}
+.bub.media-bub .media,.bub.media-bub .vid{margin:0;border-radius:6px;display:block;width:100%;max-height:360px;object-fit:cover;background:#000}
+.bub.media-bub .cap{display:block;padding:5px 6px 2px}
+.bub.media-bub.nocap .bub-meta{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);right:10px;bottom:8px}
+.bub.media-bub.nocap .tick{color:#fff}
+.bub.media-bub.nocap .tick.read{color:var(--tick-read)}
+.bub.media-bub .spacer{display:none}
+.bub.media-bub.nocap{padding-bottom:3px}
+.bub.media-bub:not(.nocap) .cap::after{content:"";display:inline-block;width:56px}
+.bub.out.media-bub:not(.nocap) .cap::after{width:74px}
+a.media-link{display:block;cursor:zoom-in}
+.aud{display:block;width:260px;max-width:100%;margin:2px 0 4px}
+.doc{display:flex;align-items:center;gap:10px;padding:10px 12px;margin:-2px -3px 6px -5px;border-radius:6px;
+  background:rgba(11,20,26,.05);color:var(--ink);text-decoration:none;min-width:220px}
+.bub.out .doc{background:rgba(11,20,26,.06)}
+.doc-ic{width:32px;height:40px;flex:none;border-radius:4px;background:#e65a5a;color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center}
+.doc-name{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.doc-sub{display:block;font-size:12px;color:var(--ink-dim)}
+.sticker{width:150px;height:150px;object-fit:contain;display:block}
+
+/* ---------- dosya ekle ---------- */
+.attach{width:42px;height:42px;flex:none;border-radius:50%;color:var(--icon);display:grid;place-items:center}
+.attach svg{width:24px;height:24px;transform:rotate(45deg)}
+.attach:hover{background:rgba(11,20,26,.06)}
+.attach:disabled{opacity:.4;cursor:not-allowed}
+.drop{position:absolute;inset:59px 0 0 0;z-index:20;background:rgba(240,242,245,.92);display:grid;place-items:center;
+  border:3px dashed var(--wa-green);margin:12px;border-radius:12px;font-size:20px;color:var(--ink-2);pointer-events:none}
+.msheet{position:absolute;inset:59px 0 0 0;z-index:30;background:#e9edef;display:flex;flex-direction:column}
+.msheet-top{height:52px;flex:none;display:flex;align-items:center;gap:14px;padding:0 16px;color:var(--ink-2);font-size:15px}
+.msheet-top span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msheet-x{width:36px;height:36px;border-radius:50%;font-size:18px;color:var(--icon)}
+.msheet-x:hover{background:rgba(11,20,26,.08)}
+.msheet-body{flex:1;min-height:0;display:grid;place-items:center;padding:12px 24px;overflow:hidden}
+.msheet-body img,.msheet-body video{max-width:100%;max-height:calc(100vh - 230px);object-fit:contain;border-radius:4px;box-shadow:0 2px 8px rgba(11,20,26,.2);background:#000}
+.msheet-file{background:#fff;border-radius:10px;padding:28px 36px;text-align:center;box-shadow:var(--shadow-bub)}
+.msheet-file .doc-ic{width:56px;height:70px;font-size:14px;margin:0 auto 12px}
+.msheet-file b{display:block;font-weight:500;color:var(--ink);margin-bottom:4px;word-break:break-all}
+.msheet-file small{color:var(--ink-dim)}
+.msheet-err{margin:0 24px 8px;padding:9px 12px;border-radius:7px;background:#fde3e6;color:#9b0020;font-size:13.5px}
+.msheet-bar{flex:none;display:flex;gap:10px;align-items:center;padding:12px 24px 18px}
+.msheet-bar input{flex:1;height:42px;border:none;border-radius:8px;background:#fff;padding:0 14px;font-size:15px;outline:none}
+.mprog{height:4px;background:rgba(11,20,26,.08)}
+.mprog div{height:100%;width:0;background:var(--wa-green);transition:width .15s}
+
+/* ---------- numara bulunamadı ---------- */
+.np-box{max-width:420px;background:#fff;border-radius:10px;padding:26px 28px;box-shadow:var(--shadow-bub);text-align:left}
+.np-row{display:flex;gap:8px;margin-top:16px}
+.np-row input{flex:1;height:40px;background:var(--bar);border:none;border-radius:8px;padding:0 12px;outline:none;font-size:15px}
+.np-btn{background:var(--wa-green);color:#fff;border-radius:20px;padding:0 18px;height:40px;font-weight:500;white-space:nowrap}
+.np-btn:hover{background:var(--wa-green-dark)}
+.np-btn:disabled{opacity:.5}
+.np-hint{font-size:12.5px;color:var(--ink-dim);margin-top:12px}
+
+/* ---------- yazma alanı ---------- */
+.composer{flex:none;background:var(--bar);padding:5px 16px 5px;z-index:2;border-left:1px solid var(--line-2)}
+.win-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;margin:6px 0 4px;background:var(--warn-bg);
+  border-radius:7.5px;font-size:13.5px;color:var(--warn-ink);box-shadow:var(--shadow-bub)}
+.win-bar b{color:var(--ink);font-weight:600}
+.win-bar button{margin-left:auto;flex:none;height:32px;padding:0 14px;border-radius:16px;background:var(--wa-green);color:#fff;font-weight:500;font-size:13px}
+.win-bar button:hover{background:var(--wa-green-dark)}
+.comp-row{display:flex;gap:10px;align-items:flex-end;padding:5px 0}
+.comp-row textarea{flex:1;max-height:130px;min-height:42px;padding:11px 14px;resize:none;background:#fff;border:none;
+  border-radius:8px;outline:none;font-size:15px;line-height:20px}
+.comp-row textarea::placeholder{color:var(--ink-dim)}
+.comp-row textarea:disabled{background:#f7f8fa;cursor:not-allowed}
+.send{width:42px;height:42px;flex:none;border-radius:50%;background:var(--wa-green);color:#fff;display:grid;place-items:center}
+.send svg{width:22px;height:22px;margin-left:2px}
+.send:hover{background:var(--wa-green-dark)}
+.send:disabled{background:transparent;color:#8696a0;cursor:not-allowed}
+
+/* ---------- boş / yükleniyor ---------- */
+.empty{flex:1;display:grid;place-items:center;text-align:center;padding:40px;color:var(--ink-dim)}
+.empty h2{font-size:20px;font-weight:300;color:var(--ink-2);margin-bottom:8px}
+.empty p{font-size:14px;max-width:360px;line-height:20px}
+.convs .empty{padding:48px 28px}
+.convs .empty h2{font-size:16px;font-weight:400}
+#welcome{background:var(--bar);border-bottom:6px solid var(--wa-badge)}
+#welcome h2{font-size:30px;margin-bottom:12px}
+#noPhone{background:transparent}
+.skel{padding:0}
+.skel div{height:72px;border-bottom:1px solid var(--line);
+  background:linear-gradient(90deg,#fff 0,#f5f6f6 50%,#fff 100%);background-size:200% 100%;animation:p 1.4s infinite}
+@keyframes p{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.skel div{animation:none}}
+
+/* ---------- şablon kutusu ---------- */
+.modal{position:fixed;inset:0;background:rgba(255,255,255,.75);display:none;place-items:center;z-index:100;padding:20px}
+.modal.open{display:grid}
+.sheet{width:min(560px,100%);max-height:80vh;overflow:auto;background:#fff;border-radius:3px;padding:22px 24px 20px;
+  box-shadow:0 17px 50px rgba(11,20,26,.19),0 12px 15px rgba(11,20,26,.24)}
+.sheet h3{font-size:20px;font-weight:400;color:var(--ink);margin-bottom:6px}
+.sheet .hint{font-size:14px;color:var(--ink-dim);margin-bottom:16px}
+.tpl{width:100%;text-align:left;padding:12px 14px;border-radius:7.5px;margin-bottom:8px;background:var(--out);box-shadow:var(--shadow-bub)}
+.tpl:hover{filter:brightness(.97)}
+.tpl-name{font-weight:500;font-size:14.5px;color:var(--ink)}
+.tpl-cat{font-size:12px;color:var(--ink-dim)}
+.tpl-body{font-size:14px;color:var(--ink-2);margin-top:4px;white-space:pre-wrap}
+.sheet-close{margin-top:8px;height:36px;padding:0 20px;border-radius:18px;color:var(--wa-green-dark);font-weight:500;
+  border:1px solid var(--line-2)}
+.sheet-close:hover{background:var(--hover)}
+.var-in{width:100%;height:40px;padding:0 12px;margin:6px 0;background:var(--bar);border:none;border-radius:8px;outline:none}
+
+/* ---------- bildirim ---------- */
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:20px;z-index:200;
+  padding:12px 20px;border-radius:6px;background:#111b21;color:#fff;
+  font-size:14px;box-shadow:0 6px 18px rgba(11,20,26,.3);opacity:0;pointer-events:none;transition:opacity .2s,bottom .2s}
+.toast.show{opacity:1;bottom:28px}
+.toast.err{background:#c4002f}
+
+@media(max-width:820px){
+  .app{grid-template-columns:1fr}
+  .side{display:none}
+  .app.mobile-list .side{display:flex}
+  .app.mobile-list .main{display:none}
+  .msgs{padding:10px 4%}
+  .bub{max-width:85%}
+}
+</style>
+</head>
+<body>
+
+<div class="app mobile-list" id="app">
+  <aside class="side">
+    <div class="chan">
+      <button class="chan-btn" id="chanBtn">
+        <span class="chan-dot" id="chanDot"></span>
+        <span class="chan-meta">
+          <span class="chan-name" id="chanName">Hat seçin</span>
+          <span class="chan-sub" id="chanSub">yükleniyor…</span>
+        </span>
+        <span class="chan-caret" aria-hidden="true">▼</span>
+      </button>
+      <div class="chan-list" id="chanList"></div>
+    </div>
+
+    <div class="search"><input id="q" placeholder="Kişi veya numara ara" autocomplete="off"></div>
+    <div class="convs" id="convs"><div class="skel"><div></div><div></div><div></div></div></div>
+  </aside>
+
+  <section class="main" id="main">
+    <div class="empty" id="welcome">
+      <div>
+        <h2>XRE WhatsApp</h2>
+        <p>Soldan bir sohbet seçin. Müşterilerinizden gelen mesajlar burada anında görünür.</p>
+      </div>
+    </div>
+
+    <div class="empty" id="noPhone" hidden>
+      <div class="np-box">
+        <h2>Numara bulunamadı</h2>
+        <p id="npText">Bu kayıtta WhatsApp için geçerli bir cep numarası yok.</p>
+        <div class="np-row">
+          <input id="npInput" inputmode="tel" placeholder="05XX XXX XX XX">
+          <button class="np-btn" id="npStart">Sohbet başlat</button>
+        </div>
+        <p class="np-hint">Başlatılan sohbet bu CRM kaydına bağlanır.</p>
+      </div>
+    </div>
+
+    <div class="head" id="head" hidden>
+      <div class="av" id="hAv"></div>
+      <div>
+        <div class="head-name" id="hName"></div>
+        <div class="head-sub" id="hSub"></div>
+      </div>
+      <div class="head-actions">
+        <button class="btn-ghost" id="crmBtn" hidden>CRM kartı</button>
+        <button class="btn-ghost" id="backBtn">Geri</button>
+      </div>
+    </div>
+
+    <div class="msgs" id="msgs" hidden></div>
+
+    <div class="drop" id="drop" hidden><div>Dosyayı buraya bırakın</div></div>
+
+    <div class="msheet" id="mSheet" hidden>
+      <div class="msheet-top">
+        <button class="msheet-x" id="mCancel" aria-label="Kapat">✕</button>
+        <span id="mName"></span>
+      </div>
+      <div class="msheet-body" id="mPrev"></div>
+      <div class="msheet-err" id="mErr" hidden></div>
+      <div class="msheet-bar">
+        <input id="mCaption" placeholder="Açıklama ekleyin" maxlength="1024">
+        <button class="send" id="mSend" aria-label="Gönder"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg></button>
+      </div>
+      <div class="mprog" id="mProg" hidden><div id="mProgBar"></div></div>
+    </div>
+
+    <div class="composer" id="composer" hidden>
+      <div class="win-bar" id="winBar" hidden>
+        <span id="winText"><b>24 saatlik yanıt süresi doldu.</b> Serbest mesaj gönderilemez, onaylı şablon kullanın.</span>
+        <button id="openTpl">Şablon seç</button>
+      </div>
+      <div class="comp-row">
+        <button class="attach" id="attachBtn" title="Fotoğraf, video veya belge ekle" aria-label="Dosya ekle"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M16.5 6.5v10.6a4.5 4.5 0 0 1-9 0V5.6a2.9 2.9 0 0 1 5.8 0v10.1a1.3 1.3 0 0 1-2.6 0V6.5H9.2v9.2a2.8 2.8 0 0 0 5.6 0V5.6a4.4 4.4 0 0 0-8.8 0v11.5a6 6 0 0 0 12 0V6.5z"/></svg></button>
+        <input type="file" id="fileIn" hidden accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">
+        <textarea id="input" rows="1" placeholder="Mesaj yazın"></textarea>
+        <button class="send" id="sendBtn" title="Gönder" aria-label="Gönder"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg></button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="tplModal">
+  <div class="sheet">
+    <h3>Onaylı şablonlar</h3>
+    <p class="hint">24 saatlik pencere kapalıyken yalnızca Meta'nın onayladığı şablonlar gönderilebilir.</p>
+    <div id="tplList"></div>
+    <button class="sheet-close" id="tplClose">Kapat</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ---------------- oturum ---------------- */
+const qs = new URLSearchParams(location.search);
+
+// Bitrix, uygulamayı POST ile açar ve AUTH_ID'yi gövdeyle gönderir.
+// Sunucu bu değerleri sayfaya gizli alan olarak gömer; buradan okuyoruz.
+const hidden = n => (document.querySelector(`input[name="${n}"]`) || {}).value || '';
+
+let AUTH = qs.get('AUTH_ID') || qs.get('auth') || hidden('AUTH_ID') || '';
+if (!AUTH) AUTH = sessionStorage.getItem('xrewa.auth') || '';
+if (AUTH) sessionStorage.setItem('xrewa.auth', AUTH);
+
+const API = '';
+
+const S = {
+  channels: [], channel: null,
+  convs: [], conv: null, msgs: [],
+  templates: [], search: '', ws: null, poll: null, pendingTpl: null
+};
+
+/* ---------------- yardımcılar ---------------- */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg, isErr){
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = 'toast', 3200);
+}
+
+async function api(path, opts = {}){
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(AUTH ? { 'X-Bitrix-Auth': AUTH } : {}),
+      ...(opts.headers || {})
+    }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) { const e = new Error(data.message || 'İstek başarısız'); e.data = data; e.status = res.status; throw e; }
+  return data;
+}
+
+const MEDIA_TR = { '[image]':'📷 Fotoğraf', '[video]':'🎥 Video', '[audio]':'🎤 Sesli mesaj',
+  '[document]':'📎 Belge', '[sticker]':'Çıkartma', '[location]':'📍 Konum' };
+const preview = t => MEDIA_TR[t] || t || '';
+
+const initials = n => (n || '?').trim().split(/\s+/).slice(0,2).map(w => w[0]).join('').toUpperCase();
+
+function clock(ts){
+  if (!ts) return '';
+  const d = new Date(ts.replace(' ', 'T') + (ts.includes('Z') ? '' : 'Z'));
+  return d.toLocaleTimeString('tr-TR', { hour:'2-digit', minute:'2-digit' });
+}
+function relday(ts){
+  if (!ts) return '';
+  const d = new Date(ts.replace(' ', 'T') + (ts.includes('Z') ? '' : 'Z'));
+  const now = new Date();
+  const dd = Math.floor((now.setHours(0,0,0,0) - new Date(d).setHours(0,0,0,0)) / 864e5);
+  if (dd === 0) return 'Bugün';
+  if (dd === 1) return 'Dün';
+  return d.toLocaleDateString('tr-TR', { day:'numeric', month:'long', year:'numeric' });
+}
+function listTime(ts){
+  if (!ts) return '';
+  const d = new Date(ts.replace(' ', 'T') + (ts.includes('Z') ? '' : 'Z'));
+  const dd = Math.floor((Date.now() - d) / 864e5);
+  if (dd === 0) return clock(ts);
+  if (dd === 1) return 'Dün';
+  return d.toLocaleDateString('tr-TR', { day:'2-digit', month:'2-digit' });
+}
+const SVG_ONE = '<svg viewBox="0 0 16 11"><path fill="currentColor" d="M11.1.6 5.3 7.9 2.8 5.5 1.6 6.7l3.8 3.7L12.4 1.6z"/></svg>';
+const SVG_TWO = '<svg viewBox="0 0 16 11"><path fill="currentColor" d="M11.1.6 5.3 7.9 2.8 5.5 1.6 6.7l3.8 3.7L12.4 1.6zM14.6.6 8.8 7.9l-.8-.8-1.1 1.4 2 1.9 7-8.8z"/></svg>';
+const SVG_CLOCK = '<svg viewBox="0 0 16 15"><path fill="currentColor" d="M8 1.5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 1.2a4.8 4.8 0 1 1 0 9.6 4.8 4.8 0 0 1 0-9.6zM7.4 4.5v3.7l3 1.8.6-1-2.4-1.4V4.5z"/></svg>';
+const SVG_FAIL = '<svg viewBox="0 0 16 15"><path fill="currentColor" d="M8 1.5a6 6 0 1 0 0 12 6 6 0 0 0 0-12zM7.3 4h1.4v5H7.3zm0 6h1.4v1.4H7.3z"/></svg>';
+function tick(st){
+  if (st === 'read')      return `<span class="tick read" title="Okundu">${SVG_TWO}</span>`;
+  if (st === 'delivered') return `<span class="tick" title="İletildi">${SVG_TWO}</span>`;
+  if (st === 'sent')      return `<span class="tick" title="Gönderildi">${SVG_ONE}</span>`;
+  if (st === 'failed')    return `<span class="tick failed" title="Gönderilemedi">${SVG_FAIL}</span>`;
+  return `<span class="tick" title="Gönderiliyor">${SVG_CLOCK}</span>`;
+}
+
+// İsimden sabit avatar rengi (WhatsApp'taki gibi her kişiye kendi tonu)
+const AV_COLORS = ['#6bcbef','#e542a3','#91ab01','#ffa97a','#1f7aec','#dfb610','#029d00','#8b7add','#fe7c7f','#ba33dc','#59d368','#b04632','#fd85d4','#8393ca','#ff8f2c','#a3e2cb'];
+function avColor(key){
+  let h = 0; for (const ch of String(key || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return AV_COLORS[h % AV_COLORS.length];
+}
+
+/* ---------------- kanallar ---------------- */
+async function loadChannels(){
+  try {
+    S.channels = await api('/api/channels');
+  } catch (e) {
+    if (e.status === 401) {
+      $('convs').innerHTML = '<div class="empty"><div><h2>Oturum bulunamadı</h2>' +
+        '<p>Bu ekran Bitrix24 içinden açılmalıdır. Adres çubuğundan doğrudan açtıysanız Bitrix üzerindeki XRE WhatsApp sekmesini kullanın.</p></div></div>';
+      return;
+    }
+    toast(e.message, true); return;
+  }
+
+  const box = $('chanList');
+  if (!S.channels.length) {
+    $('chanName').textContent = 'Tanımlı hat yok';
+    $('chanSub').textContent  = 'Yöneticinizden hat yetkisi isteyin';
+    $('convs').innerHTML = '<div class="empty"><div><h2>Hat atanmamış</h2><p>Size henüz bir WhatsApp hattı tanımlanmamış.</p></div></div>';
+    return;
+  }
+
+  box.innerHTML = S.channels.map(c => `
+    <button class="chan-item" data-id="${c.id}">
+      <span class="chan-dot ${!isLive(c) ? 'pending' : ''}"></span>
+      <span class="chan-meta">
+        <span class="chan-name">${esc(c.owner_name || c.label)}</span>
+        <span class="chan-sub">${esc(c.msisdn || c.label)}</span>
+      </span>
+      ${c.unread > 0 ? `<span class="badge">${c.unread}</span>` : ''}
+    </button>`).join('');
+
+  box.querySelectorAll('.chan-item').forEach(b =>
+    b.onclick = () => { pickChannel(+b.dataset.id); box.classList.remove('open'); });
+
+  const saved = localStorage.getItem('xrewa.ch');
+  pickChannel(S.channels.some(c => c.id == saved) ? +saved : S.channels[0].id);
+}
+
+function pickChannel(id){
+  S.channel = S.channels.find(c => c.id === id);
+  if (!S.channel) return;
+  localStorage.setItem('xrewa.ch', id);
+  $('chanName').textContent = S.channel.owner_name || S.channel.label;
+  $('chanSub').textContent  = S.channel.msisdn || S.channel.label;
+  $('chanDot').className = 'chan-dot' + (!isLive(S.channel) ? ' pending' : '');
+  document.querySelectorAll('.chan-item').forEach(b =>
+    b.classList.toggle('active', +b.dataset.id === id));
+  closeConv();
+  loadConvs();
+}
+
+/* ---------------- sohbetler ---------------- */
+async function loadConvs(){
+  if (!S.channel) return;
+  const url = `/api/channels/${S.channel.id}/conversations` + (S.search ? `?q=${encodeURIComponent(S.search)}` : '');
+  try { S.convs = await api(url); } catch (e) { toast(e.message, true); return; }
+  renderConvs();
+}
+
+function renderConvs(){
+  const el = $('convs');
+  if (!S.convs.length) {
+    el.innerHTML = '<div class="empty"><div><h2>Sohbet yok</h2>' +
+      `<p>${S.search ? 'Aramanızla eşleşen kayıt bulunamadı.' : 'Bu hatta henüz mesaj gelmemiş. Müşteri yazdığında sohbet burada görünür.'}</p></div></div>`;
+    return;
+  }
+  el.innerHTML = S.convs.map(c => `
+    <button class="conv ${S.conv && S.conv.id === c.id ? 'active' : ''} ${c.unread_count > 0 ? 'unread' : ''}" data-id="${c.id}">
+      ${c.display_name ? `<span class="av" style="background:${avColor(c.wa_id)}">${esc(initials(c.display_name))}</span>` : '<span class="av anon"></span>'}
+      <span class="conv-body">
+        <span class="conv-top">
+          <span class="conv-name">${esc(c.display_name || '+' + c.wa_id)}</span>
+          <span class="conv-time">${listTime(c.last_message_at)}</span>
+        </span>
+        <span class="conv-bot">
+          <span class="conv-prev">${esc(preview(c.last_preview))}</span>
+          ${c.unread_count > 0 ? `<span class="badge">${c.unread_count}</span>`
+            : (!c.window_open && c.last_inbound_at ? '<span class="win-dot" title="24 saatlik pencere kapalı"></span>' : '')}
+        </span>
+      </span>
+    </button>`).join('');
+  el.querySelectorAll('.conv').forEach(b => b.onclick = () => openConv(+b.dataset.id));
+}
+
+/* ---------------- mesajlar ---------------- */
+async function openConv(id){
+  let data;
+  try { data = await api(`/api/conversations/${id}/messages`); }
+  catch (e) { toast(e.message, true); return; }
+
+  S.conv = data.conversation;
+  S.msgs = data.messages;
+
+  $('welcome').hidden = true; $('noPhone').hidden = true;
+  $('head').hidden = $('msgs').hidden = $('composer').hidden = false;
+  $('app').classList.remove('mobile-list');
+
+  $('hAv').textContent  = S.conv.display_name ? initials(S.conv.display_name) : '';
+  $('hAv').className = 'av' + (S.conv.display_name ? '' : ' anon');
+  $('hAv').style.background = S.conv.display_name ? avColor(S.conv.wa_id) : '';
+  $('hName').textContent = S.conv.display_name || '+' + S.conv.wa_id;
+  $('hSub').textContent  = '+' + S.conv.wa_id + ' · ' + (S.channel.owner_name || S.channel.label);
+  $('crmBtn').hidden = !S.conv.crm_entity_id;
+
+  delete $('msgs').dataset.ready;
+  renderMsgs();
+  renderConvs();
+  applyWindow();
+
+  api(`/api/conversations/${id}/read`, { method:'POST', body:'{}' }).catch(() => {});
+  const c = S.convs.find(x => x.id === id);
+  if (c) { c.unread_count = 0; renderConvs(); }
+}
+
+function closeConv(){
+  S.conv = null; S.msgs = [];
+  $('noPhone').hidden = true;
+  $('welcome').hidden = false;
+  $('head').hidden = $('msgs').hidden = $('composer').hidden = true;
+  $('app').classList.add('mobile-list');
+}
+
+function renderMsgs(){
+  const el = $('msgs');
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+  let html = '', lastDay = '', lastDir = '';
+  for (const m of S.msgs) {
+    const day = relday(m.created_at);
+    if (day !== lastDay) { html += `<div class="day">${esc(day)}</div>`; lastDay = day; lastDir = ''; }
+    html += bubble(m, m.direction !== lastDir);
+    lastDir = m.direction;
+  }
+  el.innerHTML = html;
+  if (atBottom || !el.dataset.ready) { el.scrollTop = el.scrollHeight; el.dataset.ready = '1'; }
+}
+
+const mediaUrl = (m) => '/media/' + (m.media_path || '').split('/').slice(-2).map(encodeURIComponent).join('/');
+const fmtSize = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+const extOf = (name) => (String(name || '').split('.').pop() || 'DOSYA').slice(0, 4).toUpperCase();
+
+function bubble(m, first){
+  const out = m.direction === 'out';
+  const mime = m.media_mime || '';
+  const has = !!m.media_path;
+  const kind = !has ? null
+    : mime.startsWith('image/webp') && m.msg_type === 'sticker' ? 'sticker'
+    : mime.startsWith('image/') ? 'image'
+    : mime.startsWith('video/') ? 'video'
+    : mime.startsWith('audio/') ? 'audio' : 'document';
+  const cap = m.body ? esc(m.body) : '';
+  const meta = `<span class="bub-meta">${esc(clock(m.created_at))}${out ? tick(m.status) : ''}</span>`;
+  const err = m.status === 'failed' && m.error_detail ? `<span class="bub-err">${esc(m.error_detail)}</span>` : '';
+  const tpl = m.template_name ? `<span class="tpl-tag">Şablon · ${esc(m.template_name)}</span>\n` : '';
+  const cls = `bub ${out ? 'out' : 'in'}${first ? ' first' : ''}`;
+
+  if (kind === 'image' || kind === 'video') {
+    const el = kind === 'image'
+      ? `<a class="media-link" href="${mediaUrl(m)}" target="_blank" rel="noopener"><img class="media" src="${mediaUrl(m)}" alt="" loading="lazy"></a>`
+      : `<video class="vid" src="${mediaUrl(m)}" controls preload="metadata" playsinline></video>`;
+    return `<div class="${cls} media-bub${cap ? '' : ' nocap'}">${el}${cap ? `<span class="cap">${cap}</span>` : ''}${err}${meta}</div>`;
+  }
+  if (kind === 'sticker')
+    return `<div class="${cls}" style="background:transparent;box-shadow:none"><img class="sticker" src="${mediaUrl(m)}" alt="">${meta}</div>`;
+
+  let inner = tpl;
+  if (kind === 'audio')
+    inner += `<audio class="aud" src="${mediaUrl(m)}" controls preload="metadata"></audio>`;
+  else if (kind === 'document')
+    inner += `<a class="doc" href="${mediaUrl(m)}" target="_blank" rel="noopener" download="${esc(m.media_name || '')}">
+      <span class="doc-ic">${esc(extOf(m.media_name || m.media_path))}</span>
+      <span><span class="doc-name">${esc(m.media_name || 'Belge')}</span><span class="doc-sub">İndirmek için tıklayın</span></span></a>`;
+  else if (!has && ['image','video','audio','document','sticker'].includes(m.msg_type))
+    inner += `<span class="doc-sub">${esc(preview('[' + m.msg_type + ']'))} — dosya alınamadı</span>`;
+  inner += cap || (has ? '' : esc(`[${m.msg_type}]`));
+  inner += err + '<span class="spacer"></span>';
+  return `<div class="${cls}">${inner}${meta}</div>`;
+}
+
+/* ---------------- 24 saat penceresi ---------------- */
+// Hat Meta Cloud API'ye bağlı mı? (sync:hatlar kayıtsız hatlara META_KAYITSIZ yazar)
+function isLive(c){ return !!c && String(c.status || '').toUpperCase() !== 'META_KAYITSIZ'
+  && !String(c.status || '').toUpperCase().startsWith('PENDING'); }
+
+function applyWindow(){
+  if (S.channel && !isLive(S.channel)) {
+    $('winText').innerHTML = '<b>Bu hat henüz WhatsApp Cloud API\'ye bağlı değil.</b> Mesaj alınamaz ve gönderilemez; hat Meta\'ya taşındığında otomatik açılır.';
+    $('winBar').hidden = false;
+    $('openTpl').hidden = true;
+    $('input').disabled = true; $('sendBtn').disabled = true; $('attachBtn').disabled = true;
+    $('input').placeholder = 'Hat bağlı değil';
+    return;
+  }
+  $('openTpl').hidden = false;
+  const open = !!(S.conv && S.conv.window_open);
+  const fresh = !!(S.conv && !S.conv.last_inbound_at);
+  const wt = $('winText');
+  if (wt) wt.innerHTML = fresh
+    ? '<b>İlk mesaj.</b> Müşteri henüz yazmadı, bu yüzden onaylı şablonla başlamanız gerekiyor.'
+    : '<b>24 saatlik yanıt süresi doldu.</b> Serbest mesaj gönderilemez, onaylı şablon kullanın.';
+  $('winBar').hidden = open;
+  $('input').disabled = !open;
+  $('input').placeholder = open ? 'Mesaj yazın' : 'Serbest mesaj kapalı — şablon kullanın';
+  $('sendBtn').disabled = !open;
+  $('attachBtn').disabled = !open;
+}
+
+/* ---------------- gönderim ---------------- */
+async function send(payload){
+  if (!S.conv) return;
+  $('sendBtn').disabled = true;
+  try {
+    const row = await api(`/api/conversations/${S.conv.id}/send`, {
+      method:'POST', body: JSON.stringify(payload)
+    });
+    if (!S.msgs.some(m => m.id === row.id)) S.msgs.push(row);
+    renderMsgs();
+    loadConvs();
+  } catch (e) {
+    if (e.data && e.data.error === 'WINDOW_CLOSED') {
+      S.conv.window_open = false; applyWindow();
+      toast('24 saatlik pencere kapandı. Şablon seçin.', true);
+      openTemplates();
+    } else {
+      toast(e.message || 'Mesaj gönderilemedi', true);
+    }
+  } finally {
+    applyWindow();
+  }
+}
+
+function sendText(){
+  const ta = $('input');
+  const text = ta.value.trim();
+  if (!text) return;
+  ta.value = ''; ta.style.height = 'auto';
+  send({ text });
+}
+
+/* ---------------- medya gönderimi ---------------- */
+const IMG_OK = ['image/jpeg','image/png'], VID_OK = ['video/mp4','video/3gpp'];
+const LIMITS = { image: 5, video: 16, audio: 16, document: 100 };
+let pending = null, previewUrl = null;
+
+function kindOf(f){
+  const t = (f.type || '').toLowerCase();
+  if (IMG_OK.includes(t)) return 'image';
+  if (VID_OK.includes(t)) return 'video';
+  if (['audio/aac','audio/mp4','audio/mpeg','audio/amr','audio/ogg'].includes(t)) return 'audio';
+  return 'document';
+}
+
+function pickFile(f){
+  if (!f || !S.conv) return;
+  if ($('attachBtn').disabled) { toast('Bu sohbette şu an dosya gönderilemez (pencere kapalı veya hat bağlı değil).', true); return; }
+  const k = kindOf(f);
+  pending = { file: f, kind: k };
+  if (previewUrl) URL.revokeObjectURL(previewUrl);
+  previewUrl = URL.createObjectURL(f);
+  $('mName').textContent = f.name;
+  const tooBig = f.size > LIMITS[k] * 1048576;
+  const note = (f.type.startsWith('image/') && k === 'document') ? ' Bu fotoğraf biçimi WhatsApp\'ta belge olarak gider; fotoğraf olarak göndermek için JPG veya PNG kullanın.'
+    : (f.type.startsWith('video/') && k === 'document') ? ' Bu video biçimi belge olarak gider; video olarak göndermek için MP4 kullanın.' : '';
+  $('mPrev').innerHTML = k === 'image' ? `<img src="${previewUrl}" alt="">`
+    : k === 'video' ? `<video src="${previewUrl}" controls playsinline></video>`
+    : `<div class="msheet-file"><div class="doc-ic">${esc(extOf(f.name))}</div><b>${esc(f.name)}</b><small>${fmtSize(f.size)}</small></div>`;
+  $('mErr').hidden = !(tooBig || note);
+  $('mErr').textContent = tooBig ? `Dosya çok büyük: ${fmtSize(f.size)}. WhatsApp sınırı ${LIMITS[k]} MB.` : note.trim();
+  $('mSend').disabled = tooBig;
+  $('mCaption').value = $('input').value.trim();
+  $('mCaption').disabled = k === 'audio';
+  $('mSheet').hidden = false;
+  $('mProg').hidden = true;
+  setTimeout(() => $('mCaption').focus(), 50);
+}
+
+function closeSheet(){
+  $('mSheet').hidden = true; $('mPrev').innerHTML = '';
+  pending = null; $('fileIn').value = '';
+  if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+}
+
+function uploadMedia(){
+  if (!pending || !S.conv) return;
+  const { file } = pending, conv = S.conv;
+  const caption = $('mCaption').value.trim();
+  $('mSend').disabled = true; $('mProg').hidden = false; $('mProgBar').style.width = '0';
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', `${API}/api/conversations/${conv.id}/media?caption=${encodeURIComponent(caption)}`);
+  xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+  xhr.setRequestHeader('X-File-Name', encodeURIComponent(file.name));
+  if (AUTH) xhr.setRequestHeader('X-Bitrix-Auth', AUTH);
+  xhr.upload.onprogress = (e) => { if (e.lengthComputable) $('mProgBar').style.width = (e.loaded / e.total * 90) + '%'; };
+  xhr.onload = () => {
+    let data = {}; try { data = JSON.parse(xhr.responseText); } catch {}
+    if (xhr.status >= 200 && xhr.status < 300) {
+      $('mProgBar').style.width = '100%';
+      if (S.conv && S.conv.id === conv.id && !S.msgs.some(m => m.id === data.id)) { S.msgs.push(data); renderMsgs(); }
+      if (caption && $('input').value.trim() === caption) $('input').value = '';
+      closeSheet(); loadConvs();
+    } else {
+      $('mSend').disabled = false; $('mProg').hidden = true;
+      $('mErr').hidden = false; $('mErr').textContent = data.message || `Gönderilemedi (HTTP ${xhr.status})`;
+      if (data.error === 'WINDOW_CLOSED') { S.conv.window_open = false; applyWindow(); }
+    }
+  };
+  xhr.onerror = () => { $('mSend').disabled = false; $('mProg').hidden = true;
+    $('mErr').hidden = false; $('mErr').textContent = 'Bağlantı hatası, tekrar deneyin.'; };
+  xhr.send(file);
+}
+
+$('attachBtn').onclick = () => $('fileIn').click();
+$('fileIn').onchange = (e) => pickFile(e.target.files[0]);
+$('mCancel').onclick = closeSheet;
+$('mSend').onclick = uploadMedia;
+$('mCaption').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); uploadMedia(); } if (e.key === 'Escape') closeSheet(); };
+
+// Sürükle-bırak ve yapıştır
+let dragDepth = 0;
+$('main').addEventListener('dragenter', (e) => { if (!S.conv || !e.dataTransfer?.types?.includes('Files')) return; dragDepth++; $('drop').hidden = false; });
+$('main').addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('drop').hidden = true; } });
+$('main').addEventListener('dragover', (e) => { if (S.conv) e.preventDefault(); });
+$('main').addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; $('drop').hidden = true;
+  const f = e.dataTransfer?.files?.[0]; if (f) pickFile(f);
+});
+$('input').addEventListener('paste', (e) => {
+  const f = [...(e.clipboardData?.files || [])][0];
+  if (f) { e.preventDefault(); pickFile(f); }
+});
+
+/* ---------------- şablonlar ---------------- */
+async function openTemplates(){
+  $('tplModal').classList.add('open');
+  const box = $('tplList');
+  box.innerHTML = '<div class="skel"><div></div><div></div></div>';
+  try { S.templates = await api('/api/templates'); }
+  catch { box.innerHTML = '<p class="hint">Şablonlar yüklenemedi.</p>'; return; }
+
+  if (!S.templates.length) {
+    box.innerHTML = '<p class="hint">Onaylı şablon yok. Meta Business hesabınızdan şablon oluşturup onaya gönderin.</p>';
+    return;
+  }
+  box.innerHTML = S.templates.map((t, i) => `
+    <button class="tpl" data-i="${i}">
+      <span class="tpl-cat">${esc(t.category || '')}</span>
+      <div class="tpl-name">${esc(t.name)}</div>
+      <div class="tpl-body">${esc((t.body_text || '').slice(0, 160))}</div>
+    </button>`).join('');
+  box.querySelectorAll('.tpl').forEach(b => b.onclick = () => useTemplate(S.templates[+b.dataset.i]));
+}
+
+function useTemplate(t){
+  if (!t.variables) {
+    $('tplModal').classList.remove('open');
+    send({ template: t.name, language: t.language });
+    return;
+  }
+  const box = $('tplList');
+  box.innerHTML = `<div class="tpl-name" style="margin-bottom:8px">${esc(t.name)}</div>
+    <p class="hint">${esc(t.body_text || '')}</p>` +
+    Array.from({length: t.variables}, (_, i) =>
+      `<input class="var-in" data-v="${i}" placeholder="{{${i+1}}} değeri">`).join('') +
+    `<button class="tpl" id="tplGo" style="text-align:center;border-color:#1e6b52">Gönder</button>`;
+
+  $('tplGo').onclick = () => {
+    const vars = [...box.querySelectorAll('.var-in')].map(x => x.value.trim());
+    if (vars.some(v => !v)) { toast('Tüm alanları doldurun', true); return; }
+    $('tplModal').classList.remove('open');
+    send({ template: t.name, language: t.language, variables: vars });
+  };
+}
+
+/* ---------------- canlı akış ----------------
+   Passenger WebSocket'i desteklemiyor; yoklama (polling) kullanılıyor.
+   Sunucu WebSocket destekler hale gelirse WS_ENABLED = true yapılır. */
+const WS_ENABLED = false;
+
+function connect(){
+  if (!WS_ENABLED) return;
+  try {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${proto}://${location.host}/ws${AUTH ? '?AUTH_ID=' + encodeURIComponent(AUTH) : ''}`);
+    S.ws = ws;
+    ws.onmessage = ev => {
+      const d = JSON.parse(ev.data);
+      if (d.event !== 'message') return;
+      if (S.conv && d.conversation === S.conv.id) {
+        if (!S.msgs.some(m => m.id === d.message.id)) { S.msgs.push(d.message); renderMsgs(); }
+        if (d.message.direction === 'in') {
+          S.conv.window_open = true; applyWindow();
+          api(`/api/conversations/${S.conv.id}/read`, { method:'POST', body:'{}' }).catch(() => {});
+        }
+      }
+      loadConvs();
+    };
+    ws.onclose = () => { S.ws = null; startPoll(); };
+    ws.onerror  = () => { try { ws.close(); } catch {} };
+  } catch { startPoll(); }
+}
+
+function startPoll(){
+  if (S.poll) return;
+  S.poll = setInterval(async () => {
+    if (document.hidden) return;
+    await loadConvs();
+    if (S.conv) {
+      try {
+        const d = await api(`/api/conversations/${S.conv.id}/messages`);
+        if (d.messages.length !== S.msgs.length ||
+            (d.messages.at(-1) || {}).id !== (S.msgs.at(-1) || {}).id) {
+          S.msgs = d.messages; S.conv = d.conversation;
+          renderMsgs(); applyWindow();
+        }
+      } catch {}
+    }
+  }, 3000);
+}
+
+/* ---------------- olaylar ---------------- */
+$('chanBtn').onclick = e => { e.stopPropagation(); $('chanList').classList.toggle('open'); };
+document.addEventListener('click', () => $('chanList').classList.remove('open'));
+$('chanList').onclick = e => e.stopPropagation();
+
+let qT;
+$('q').oninput = e => { clearTimeout(qT); S.search = e.target.value.trim();
+  qT = setTimeout(loadConvs, 300); };
+
+$('input').addEventListener('input', e => {
+  e.target.style.height = 'auto';
+  e.target.style.height = Math.min(e.target.scrollHeight, 130) + 'px';
+});
+$('input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); }
+});
+$('sendBtn').onclick = sendText;
+$('openTpl').onclick = openTemplates;
+$('tplClose').onclick = () => $('tplModal').classList.remove('open');
+$('tplModal').onclick = e => { if (e.target.id === 'tplModal') e.currentTarget.classList.remove('open'); };
+$('backBtn').onclick = closeConv;
+$('crmBtn').onclick = () => {
+  if (!S.conv || !S.conv.crm_entity_id) return;
+  const map = { LEAD:'lead', CONTACT:'contact', DEAL:'deal' };
+  const seg = map[S.conv.crm_entity_type] || 'contact';
+  const domain = (qs.get('DOMAIN') || hidden('DOMAIN') || 'xre.bitrix24.com.tr');
+  window.open(`https://${domain}/crm/${seg}/details/${S.conv.crm_entity_id}/`, '_blank');
+};
+
+/* ---------------- Bitrix kart entegrasyonu ---------------- */
+// Kişi/anlaşma kartından açıldığında o kişinin sohbetini doğrudan aç
+function crmContext(){
+  try {
+    const raw = qs.get('PLACEMENT_OPTIONS') || hidden('PLACEMENT_OPTIONS');
+    const pl  = qs.get('PLACEMENT') || hidden('PLACEMENT') || '';
+    if (raw) {
+      const o = JSON.parse(raw);
+      if (o.ID) {
+        // Kayıt tipini önce PLACEMENT'tan, yoksa URI'den çıkar
+        const src = (pl + ' ' + (o.URI || '')).toUpperCase().replace(/\\/g, '');
+        const type =
+          src.includes('DEAL')    ? 'DEAL'    :
+          src.includes('LEAD')    ? 'LEAD'    :
+          src.includes('COMPANY') ? 'COMPANY' : 'CONTACT';
+        console.log('[XRE] CRM kartı:', type, o.ID);
+        return { type, id: o.ID };
+      }
+    }
+  } catch (e) { console.warn('[XRE] crmContext', e); }
+  const t = qs.get('entityType'), i = qs.get('entityId');
+  return (t && i) ? { type: t, id: i } : null;
+}
+
+async function openFromCrm(ctx){
+  try {
+    const r = await api(`/api/crm/open?entityType=${ctx.type}&entityId=${ctx.id}` +
+                        (S.channel ? `&channel=${S.channel.id}` : ''));
+    if (r.channel_id !== (S.channel && S.channel.id)) {
+      const ch = S.channels.find(c => c.id === r.channel_id);
+      if (ch) { S.channel = ch; localStorage.setItem('xrewa.ch', ch.id);
+        $('chanName').textContent = ch.owner_name || ch.label;
+        $('chanSub').textContent = ch.msisdn || ch.label; }
+    }
+    await loadConvs();
+    await openConv(r.conversation_id);
+    if (r.created) toast('Yeni sohbet açıldı. İlk mesaj için şablon kullanın.');
+  } catch (e) {
+    console.error('[XRE] openFromCrm', e.status, e.data || e.message);
+    const code = e.data && e.data.error;
+    if (code === 'NO_PHONE' || code === 'NO_CONTACT') { showNoPhone(ctx, e.data); return; }
+    toast((e.data && e.data.message) || e.message || 'Bu kayıt için sohbet açılamadı', true);
+  }
+}
+
+// Kayıtta numara yoksa: elle numara girip bu kayda bağlı sohbet başlat
+function showNoPhone(ctx, info){
+  $('welcome').hidden = true;
+  $('head').hidden = $('msgs').hidden = $('composer').hidden = true;
+  $('noPhone').hidden = false;
+  const t = info && info.title ? `"${info.title}" kaydında` : 'Bu kayıtta';
+  $('npText').textContent = `${t}, bağlı kişi/şirkette ve kayıt alanlarında geçerli bir cep numarası bulunamadı. Numarayı elle girerek sohbet başlatabilirsiniz.`;
+  $('npInput').value = '';
+  const go = async () => {
+    if (!S.channel) { toast('Önce bir hat seçin', true); return; }
+    $('npStart').disabled = true;
+    try {
+      const r = await api('/api/conversations/start', { method: 'POST', body: JSON.stringify({
+        phone: $('npInput').value, channel_id: S.channel.id,
+        name: (info && info.title) || null, entity_type: ctx.type, entity_id: ctx.id }) });
+      $('noPhone').hidden = true;
+      await loadConvs();
+      await openConv(r.conversation_id);
+      toast('Sohbet açıldı ve CRM kaydına bağlandı.');
+    } catch (err) { toast((err.data && err.data.message) || err.message, true); }
+    finally { $('npStart').disabled = false; }
+  };
+  $('npStart').onclick = go;
+  $('npInput').onkeydown = (ev) => { if (ev.key === 'Enter') go(); };
+  $('npInput').focus();
+}
+
+/* ---------------- başlat ---------------- */
+loadChannels().then(() => {
+  connect(); startPoll();
+  const ctx = crmContext();
+  if (ctx) openFromCrm(ctx);
+});
+</script>
+</body>
+</html>

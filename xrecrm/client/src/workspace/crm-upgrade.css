@@ -1,0 +1,119 @@
+.stage-required-editor h4 {
+  margin: 0 0 8px;
+}
+.stage-required-editor > p {
+  font-size: 12px;
+  color: var(--text-muted, #758795);
+  line-height: 1.6;
+}
+.stage-required-editor details {
+  border: 1px solid var(--border, #e6eced);
+  border-radius: 10px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+.stage-required-editor summary {
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--surface, #fff);
+}
+.stage-required-editor summary span {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted, #758795);
+}
+.stage-required-editor details > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 14px;
+}
+.stage-required-editor details label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+.stage-required-editor input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--primary, #10b9ae);
+}
+.crm-required-hint {
+  padding: 10px 12px;
+  margin: 10px 0;
+  background: rgba(245, 167, 66, 0.09);
+  border-left: 3px solid #e5a23b;
+  font-size: 12px;
+  line-height: 1.6;
+  border-radius: 5px;
+}
+.crm-policy-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+  margin: 8px 0;
+}
+.crm-policy-chips span {
+  padding: 4px 8px;
+  border-radius: 5px;
+  background: var(--surface-alt, #f3f7f8);
+  color: var(--text-muted, #62717f);
+}
+.crm-card-profile-compact .b24-card-secondary,
+.crm-card-profile-compact .b24-contact-link,
+.crm-card-profile-compact .b24-card-tags {
+  display: none;
+}
+.crm-card-profile-compact {
+  padding: 10px 12px !important;
+}
+.crm-card-profile-compact .b24-deal-title {
+  font-size: 13px !important;
+}
+.crm-card-profile-compact .b24-deal-value {
+  font-size: 15px !important;
+  margin: 6px 0 !important;
+}
+.crm-card-profile-compact .b24-card-next {
+  margin: 7px 0 !important;
+}
+.crm-card-profile-detailed {
+  padding: 17px !important;
+}
+.crm-card-profile-detailed .b24-card-secondary {
+  line-height: 1.7;
+}
+.crm-card-profile-detailed .b24-deal-title {
+  font-size: 15px !important;
+}
+.crm-card-profile-detailed .b24-card-tags {
+  flex-wrap: wrap;
+}
+.crm-card-profile-detailed .b24-card-next {
+  min-height: 42px;
+}
+.crm-card-profile-detailed .b24-card-source {
+  white-space: normal;
+}
+.crm-card-profile-compact .v6-lead-actions,
+.crm-card-profile-standard .v6-lead-actions,
+.crm-card-profile-detailed .v6-lead-actions {
+  display: flex;
+}
+
+.crm-detailed-card {
+  display: grid;
+  gap: 5px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border, #e3e9ed);
+  font-size: 11px;
+  color: var(--text-muted, #687987);
+  overflow-wrap: anywhere;
+}

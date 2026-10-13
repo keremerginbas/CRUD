@@ -1,0 +1,5 @@
+# This folder is a Node.js application, NOT an Apache/PHP document root.
+# Prevent Apache from serving source code or .env when extracted into htdocs.
+# Requires Apache 2.4 and AllowOverride authorization directives.
+Options -Indexes
+Require all denied

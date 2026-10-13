@@ -1,0 +1,8 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+.manus-logs
+# Gerçek hat envanteri (telefon numaraları / ICCID) asla repoya girmez.
+config/lines.json
