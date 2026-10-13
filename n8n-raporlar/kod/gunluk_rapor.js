@@ -8,6 +8,7 @@
 //   crm.activity.list          bugün tamamlanan, bugün vadeli, geciken (TÜM GEÇMİŞ) etkinlikler
 //   crm.lead.list / deal.list  aşamaya giren kaydın sorumlusu
 //   user.get                   personelin aktif/pasif durumu
+//   voximplant.line.get        hat adları (hat kontrolü)
 //
 // Rapor yalnızca aşağıdaki güncel personel listesini kapsar.
 // =========================================================
@@ -66,11 +67,42 @@ const personeller = {
 
   "27446": { isim: "Beril Sarıyıldız",    dep: "XRE PARTNERS" },
 
-  "27332": { isim: "Rüstem Sarıoğlu",     dep: "XRE FRANCHİSE" },
+  "27332": { isim: "Rüstem Sarıoğlan",    dep: "XRE FRANCHİSE" },
 
   "29484": { isim: "Enes Can Yıldırım",   dep: "XRE AUTO" },
 
   "22182": { isim: "Zarife Ayoğlu",       dep: "XRE RECRUITING" }
+};
+
+// =========================================================
+// PERSONEL HAT NUMARALARI (hat kontrolü)
+//
+// Arama, başka bir personelin hattından yapıldıysa raporun sonunda gösterilir.
+// Bitrix hat adları (voximplant.line.get, ör. "NetGSM 111 - 7616", "104-5337435988")
+// numaranın sonuyla eşleştirilir. Listede olmayan hatlar kontrol edilmez.
+// =========================================================
+
+const HAT_KONTROLU = true;
+
+const personelHat = {
+  "23180": "+90XXXXXXXXXX",
+  "22186": "+90XXXXXXXXXX",
+  "25120": "+90XXXXXXXXXX",
+  "27878": "+90XXXXXXXXXX",
+  "26120": "+90XXXXXXXXXX",
+  "25258": "+90XXXXXXXXXX",
+  "27876": "+90XXXXXXXXXX",
+  "26352": "+90XXXXXXXXXX",
+  "27446": "+90XXXXXXXXXX",
+  "27332": "+90XXXXXXXXXX",
+  "22182": "+90XXXXXXXXXX",
+  "5778":  "+90XXXXXXXXXX",
+  "1174":  "+90XXXXXXXXXX",
+  "116":   "+90XXXXXXXXXX",
+  "25314": "+90XXXXXXXXXX",
+  "17984": "+90XXXXXXXXXX",
+  "11690": "+90XXXXXXXXXX",
+  "29484": "+90XXXXXXXXXX"
 };
 
 // =========================================================
@@ -316,6 +348,25 @@ const tum = await bolum('Aramalar', () => hepsiniCek('voximplant.statistic.get',
   ORDER: 'ASC'
 })) || [];
 
+// Hat kimliği (PORTAL_NUMBER, ör. "reg66966", "sip36") -> hattın sahibi olan personel
+const hatSahibi = {};
+const baskaHat = {}; // arayan uid -> { hat sahibi uid -> adet }
+
+if (HAT_KONTROLU) {
+  await bolum('Hat listesi', async () => {
+    const r = await bx('voximplant.line.get', {});
+    const numaralar = Object.entries(personelHat).map(([uid, tel]) => [uid, String(tel).replace(/\D/g, '')]);
+    for (const [hatId, ad] of Object.entries(r.result || {})) {
+      // Hat adındaki son rakam grubu (en az 4 hane) personel numarasının sonuyla eşleşmeli
+      const gruplar = String(ad || '').match(/\d{4,}/g) || [];
+      const son = gruplar[gruplar.length - 1];
+      if (!son) continue;
+      const eslesen = numaralar.filter(([, tel]) => tel.endsWith(son));
+      if (eslesen.length === 1) hatSahibi[hatId] = eslesen[0][0];
+    }
+  });
+}
+
 tum.forEach(c => {
 
   const callType = String(c.CALL_TYPE || '');
@@ -345,6 +396,13 @@ tum.forEach(c => {
 
   s.adet++;
   s.sure += dur;
+
+  // Yalnızca giden arama: gelen aramayı başka birinin cevaplaması hat kullanımı sayılmaz.
+  const sahip = gidenMi ? hatSahibi[String(c.PORTAL_NUMBER || '')] : null;
+  if (sahip && sahip !== uid && personeller[sahip]) {
+    if (!baskaHat[uid]) baskaHat[uid] = {};
+    baskaHat[uid][sahip] = (baskaHat[uid][sahip] || 0) + 1;
+  }
 
   if (gidenMi) s.giden++;
   if (gelenMi) s.gelen++;
@@ -685,6 +743,13 @@ if (enCokGeciken.length && !H.gecik) {
     enCokGeciken.map((p, i) => (i + 1) + '. ' + esc(p.isim) + ': ' + sayi(p.geciken) + ' (' + sayi(p.gecikenKayit) + ' kayıt)').join('\n');
 }
 
+const hatSatirlari = Object.entries(baskaHat)
+  .flatMap(([uid, sahipler]) => Object.entries(sahipler).map(([sahip, n]) => ({ uid, sahip, n })))
+  .sort((a, b) => b.n - a.n)
+  .map(x => personeller[x.uid].isim + ' → ' + personeller[x.sahip].isim + ' hattı: ' + sayi(x.n) + ' arama');
+
+if (hatSatirlari.length) genel += '\n\n☎️ <b>Başka personelin hattından yapılan giden aramalar</b>\n' + esc(hatSatirlari.join('\n'));
+
 if (gizlenenPasif.length) genel += '\n\nPasif (listelenmedi): ' + esc(gizlenenPasif.join(', '));
 
 genel += '\n\nℹ️ Randevu / Katılım / Satış: bugün o aşamaya giren lead ve anlaşma sayısı (kaydın sorumlusuna yazılır).' +
@@ -735,6 +800,7 @@ if (enCokGeciken.length && !H.gecik) {
   html += '<p><b>⏰ En çok geciken etkinlik:</b> ' +
     enCokGeciken.map(p => esc(p.isim) + ' ' + sayi(p.geciken) + ' (' + sayi(p.gecikenKayit) + ' kayıt)').join(' · ') + '</p>';
 }
+if (hatSatirlari.length) html += '<p><b>☎️ Başka personelin hattından yapılan giden aramalar:</b><br>' + hatSatirlari.map(esc).join('<br>') + '</p>';
 if (gizlenenPasif.length) html += `<p style="color:#6b7280;">Pasif (listelenmedi): ${esc(gizlenenPasif.join(', '))}</p>`;
 if (uyarilar.length) html += `<p style="background:#fde7e9;border:1px solid #d13438;padding:8px;border-radius:6px;">⚠️ ${esc(uyarilar.join(' | '))}</p>`;
 
@@ -817,6 +883,7 @@ return [
       toplam_geciken_kayit: g.gecikenKayit,
 
       asama_gecmisi: asamaSonuc,
+      baska_hattan_arama: hatSatirlari,
       uyarilar,
 
       aktif_kullanicilar: debugKullanicilar,

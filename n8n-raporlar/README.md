@@ -64,6 +64,15 @@ Kurallar:
 - Pasif ve o gün hiç verisi olmayan personel listelenmez, sonda adı yazılır.
 - Telegram'a HTML biçiminde, 3.500 karakterlik parçalar halinde gönderilir (tek mesaj sınırı 4.096).
 
+### Hat kontrolü
+
+Kodun başındaki `personelHat` listesinde her çalışanın hat numarası durur (repoda numaralar maskelidir).
+Bitrix hat adları (`voximplant.line.get`, ör. `NetGSM 111 - 7616`, `104-5337435988`) numaranın sonuyla
+eşleştirilir. Bir çalışan **başka bir çalışanın hattından giden arama** yaptıysa raporun sonunda
+"Başka personelin hattından yapılan giden aramalar" başlığı altında kişi → hat sahibi → adet olarak yazılır.
+Gelen aramalar (başkasının hattına gelen aramayı cevaplamak) sayılmaz. Listede olmayan hatlar kontrol edilmez.
+`HAT_KONTROLU = false` ile kapatılabilir.
+
 ### "Cevapsız" tanımı değişti
 
 Eski rapor yalnızca `603` (reddedildi) kodunu cevapsız sayıyordu. Bitrix'te giden aramada karşı taraf
@@ -88,13 +97,13 @@ Yeni raporda **cevapsız = sonucu 200 olmayan her arama**. Bu yüzden cevapsız 
 | 9 | Hepsi | Personel listeleri birbirinden farklı ve eski (pasif kişiler var, yeni kişiler yok) | Yeni kişiler "Personel listesinde yok" / "TANIMSIZ" görünüyor | 13.10.2026 listesine (18 kişi) eşitlendi. Enes Can Yıldırım (Bitrix'te XRE Auto) eklendi |
 | 10 | Ekip Raporu v2.1 | Randevu aşamalarında `YAPAY ZEKA RANDEVU OLUŞTURANLAR` yok | YZ randevuları sayılmıyor | Eklendi |
 | 11 | Etkinlik Takip v3 | Webhook kolu `rest/78` kullanıyor | Şu an çalışıyor ama o kullanıcı kapanırsa durur | `rest/1`'e geçildi |
+| 12 | Etkinlik Takip v3 | "Yeni lead aranmadı", "Aradı ama kapatmadı", "Aranmadan tamamlanan" yalnızca arama kaydı **lead'e** bağlıysa eşleşiyor; Bitrix aramaların çoğunu lead'e değil bağlı **kişiye (contact)** yazıyor (günde ~1.200 aramadan ~65'i lead'e bağlı) | Yeni lead'lerin çoğu "aranmadı", tamamlananların çoğu "aranmadan tamamlandı" görünüyor; "aradı ama kapatmadı" hep 0 | Lead ID **veya** lead'in telefon numarası (son 10 hane) **veya** bağlı kişi (CONTACT_ID) ile eşleştirme. 12.10 testinde yeni lead "arandı" 7 → 58 (71'den), "aranmadan tamamlanan" 154 → 13, "aradı ama kapatmadı" 0 → 8; bağımsız yeniden hesaplamayla doğrulandı |
 
 ### Düzeltilmeyenler / bilinmesi gerekenler
 
-- **Etkinlik Takip — "Aradı ama kapatmadı" ve "Yeni lead aranmadı":** Bitrix aramaların büyük çoğunluğunu
-  lead'e değil **kişiye (CONTACT)** bağlıyor; bir günde ~1.200 aramadan ~65'i lead'e bağlı. Bu iki metrik lead
-  eşleşmesiyle çalıştığı için olduğundan düşük/yüksek çıkar. Doğru sonuç için telefon numarasıyla eşleştirme
-  gerekir; ayrı bir iş olarak önerilir.
+- **Arama eşleştirmesi:** müşteri numarası lead kartında da, bağlı kişi kartında da yoksa ve arama lead'e
+  bağlanmamışsa eşleşme kurulamaz; bu lead "aranmadı" görünür. (12.10'da bağlı kişi kartının numarası ek bir
+  eşleşme getirmediği için ayrıca okunmuyor.)
 - **Tamamlanan etkinlik zamanı:** Bitrix REST tamamlanma anını vermez. "Bugün güncellenmiş ve tamamlanmış"
   etkinlik sayılır. Etkinlik Takip'teki Google Sheet günlüğü bu yüzden tutuluyor.
 - **Telegram token'ı canlı test edilmedi:** Düzeltme token uzunluğuna dayanıyor (Telegram bot token'ının gizli
@@ -112,4 +121,8 @@ Yeni raporda **cevapsız = sonucu 200 olmayan her arama**. Bu yüzden cevapsız 
 3. Önce **Execute workflow** ile bir kez elle çalıştırıp çıktıyı kontrol edin.
 4. Yeni workflow'u aktif edin, **eski sürümü pasif yapın** (iki rapor birden gitmesin).
 
-1 numaralı rapor her gün 20:00'de çalışır, yaklaşık 15 Bitrix isteği ile 6–8 saniyede tamamlanır.
+1 numaralı rapor her gün 20:00'de çalışır, yaklaşık 16 Bitrix isteği ile 6–8 saniyede tamamlanır.
+
+Personel değişikliğinde güncellenecek yerler: 1 numaralı raporda `personeller` ve `personelHat`;
+2 numaralı raporda `PERSONELLER`, `personeller` ve "Geciken Açık Todo'lar" düğümündeki `@RESPONSIBLE_ID` listesi;
+3 numaralı raporda Ayarlar → `personeller`; 4 numaralı raporda Code düğümlerindeki `PERSONELLER`.
