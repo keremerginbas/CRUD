@@ -255,10 +255,8 @@ export async function handleLogin(req: Request, res: Response): Promise<void> {
   const portal = process.env.MANUS_OAUTH_PORTAL_URL;
   const appId = process.env.MANUS_PROJECT_ID || process.env.MANUS_APP_ID;
   if (!portal || !appId) {
-    res.status(503).json({
-      error: "OAUTH_NOT_CONFIGURED",
-      message: "Manus OAuth yapılandırılmamış.",
-    });
+    // Manus kurulu değil: kullanıcıyı yerel giriş ekranına gönder.
+    res.redirect(`${origin}/?giris=1`);
     return;
   }
   const nonce = crypto.randomBytes(24).toString("base64url");

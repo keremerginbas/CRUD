@@ -41,6 +41,20 @@ if not exist dist\server.js (
     exit /b 1
   )
 )
+set "OLDPID="
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr /r /c:":3000 .*LISTENING"') do set "OLDPID=%%p"
+if defined OLDPID (
+  echo.
+  echo 3000 portunu baska bir program kullaniyor ^(PID %OLDPID%^). Buyuk ihtimalle eski XRE CRM acik.
+  choice /c EH /m "Eski CRM kapatilsin mi"
+  if errorlevel 2 (
+    echo Eski pencereyi kapatip bu dosyayi tekrar acin.
+    pause
+    exit /b 1
+  )
+  taskkill /PID %OLDPID% /F >nul
+  timeout /t 2 >nul
+)
 echo.
 echo XRE CRM aciliyor: http://localhost:3000
 echo Bu pencereyi KAPATMAYIN. Kapatirsaniz CRM durur.

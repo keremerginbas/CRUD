@@ -49,21 +49,41 @@ export async function start(): Promise<void> {
   const production = process.env.NODE_ENV === "production";
   if (production) {
     const publicDir = path.join(projectRoot, "dist", "public");
-    app.use(express.static(publicDir, { index: "index.html" }));
-    app.get("*", (_req, res) =>
-      res.sendFile(path.join(publicDir, "index.html")),
+    // index.html her zaman yeniden doğrulanır; güncelleme sonrası eski arayüz açılmaz.
+    const noCache = (res: express.Response) =>
+      res.setHeader("cache-control", "no-cache");
+    app.use(
+      express.static(publicDir, {
+        index: "index.html",
+        setHeaders: (res, file) => {
+          if (file.endsWith(".html")) noCache(res);
+        },
+      }),
     );
+    app.get("*", (_req, res) => {
+      noCache(res);
+      res.sendFile(path.join(publicDir, "index.html"));
+    });
   } else {
     const { attachDevelopmentServer } = await import("./development.js");
     await attachDevelopmentServer(app, httpServer, projectRoot);
   }
   const port = Number(process.env.PORT || 3000);
-  await new Promise<void>((resolve) =>
+  await new Promise<void>((resolve, reject) => {
+    httpServer.once("error", (error: NodeJS.ErrnoException) => {
+      if (error.code === "EADDRINUSE")
+        console.error(
+          `\n${port} portu zaten kullanımda. Büyük ihtimalle eski bir XRE CRM penceresi açık.\n` +
+            "O pencereyi kapatın (veya Görev Yöneticisi'nde node.exe'yi sonlandırın) ve tekrar başlatın.\n" +
+            "Alternatif: .env dosyasında PORT=3001 yapın.\n",
+        );
+      reject(error);
+    });
     httpServer.listen(port, "0.0.0.0", () => {
       console.log(`XRE CRM server listening on 0.0.0.0:${port}`);
       resolve();
-    }),
-  );
+    });
+  });
 }
 
 const entry = process.argv[1] ? path.resolve(process.argv[1]) : "";

@@ -252,7 +252,8 @@ function Workspace() {
     if (
       !dismissed ||
       authStatus.needsSetup ||
-      new URLSearchParams(location.search).has("login_error")
+      new URLSearchParams(location.search).has("login_error") ||
+      new URLSearchParams(location.search).has("giris")
     )
       setAuthOpen(true);
   }, [loading, user, authStatus]);
@@ -263,10 +264,24 @@ function Workspace() {
       );
       return;
     }
-    if (authStatus) setAuthOpen(true);
-    else
-      window.location.href =
-        "/api/auth/login?origin=" + encodeURIComponent(window.location.origin);
+    if (authStatus) {
+      setAuthOpen(true);
+      return;
+    }
+    // Durum henüz gelmediyse tekrar sor; gelmezse yerel giriş ekranını varsayılanla aç.
+    fetch("/api/auth/status", { credentials: "include" })
+      .then((r) => r.json())
+      .then((s) => (s?.providers ? (s as AuthStatus) : null))
+      .catch(() => null)
+      .then((s) => {
+        setAuthStatus(
+          s || {
+            needsSetup: false,
+            providers: { local: true, qr: true, manus: false, google: false, facebook: false, apple: false },
+          },
+        );
+        setAuthOpen(true);
+      });
   };
   const dismissLogin = () => {
     try {
