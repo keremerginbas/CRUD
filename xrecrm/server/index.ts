@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { createApp, startOutboxWorker } from "./app.js";
 import { createStore } from "./db.js";
-import { loadLineInventory } from "./line-inventory.js";
+import { loadLineInventory, loadLineInventoryFromStore } from "./line-inventory.js";
 import { ensureSessionSecret } from "./local-auth.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
 import { webhookEmitterStore } from "./webhook-hub.js";
@@ -27,6 +27,12 @@ export async function start(): Promise<void> {
       "Kalıcı veritabanı hazır değil; gerçek yazma istekleri 503 dönecek.",
       error instanceof Error ? error.message : error,
     );
+  }
+  try {
+    const saved = await loadLineInventoryFromStore(store);
+    if (saved) console.log(`Hat envanteri veritabanından yüklendi: ${saved} hat.`);
+  } catch (error) {
+    console.warn("Kayıtlı hat envanteri okunamadı:", error instanceof Error ? error.message : error);
   }
   try {
     const count = await loadIntegrationSettings(store);

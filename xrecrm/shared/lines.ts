@@ -76,3 +76,61 @@ export function setLineInventory(next: Line[]): void {
 export function resetLineInventory(): void {
   setLineInventory(placeholderLines);
 }
+
+const groupAliases: Record<string, Line["group"]> = {
+  ai: "ai",
+  "yapay zeka": "ai",
+  "yapay zekâ": "ai",
+  vapi: "ai",
+  office: "office",
+  ofix: "office",
+  "ofi̇x": "office",
+  "ofix pbx": "office",
+  "ofi̇x pbx": "office",
+  cloud: "cloud",
+  bulut: "cloud",
+  "bulut pbx": "cloud",
+};
+
+/**
+ * Hat yönetimi ekranındaki toplu metni çözer. Her satır:
+ *   telefon ; grup ; iccid ; etiket   (grup/iccid/etiket opsiyonel)
+ * Kimlikler grup içindeki sıraya göre atanır (ai-1, office-1, cloud-1 …).
+ */
+export function parseLineText(text: string, defaultGroup: Line["group"] = "cloud"): Line[] {
+  const counters: Record<Line["group"], number> = { ai: 0, office: 0, cloud: 0 };
+  const result: Line[] = [];
+  text.split(/\r?\n/).forEach((row, index) => {
+    if (!row.trim() || row.trim().startsWith("#")) return;
+    const [rawPhone, rawGroup = "", rawIccid = "", ...rest] = row.split(/[;\t,]/).map((c) => c.trim());
+    let digits = rawPhone.replace(/\D/g, "");
+    if (digits.startsWith("0")) digits = `90${digits.slice(1)}`;
+    if (digits.length === 10) digits = `90${digits}`;
+    if (digits.length < 10 || digits.length > 15)
+      throw new Error(`${index + 1}. satır: "${rawPhone}" geçerli bir telefon değil.`);
+    const group = rawGroup ? groupAliases[rawGroup.toLocaleLowerCase("tr-TR")] : defaultGroup;
+    if (!group) throw new Error(`${index + 1}. satır: grup "${rawGroup}" tanınmadı (ai, office, cloud).`);
+    counters[group] += 1;
+    const iccid = rawIccid.replace(/\D/g, "");
+    const label = rest.join(" ").trim();
+    result.push({
+      id: `${group}-${counters[group]}`,
+      phone: `+${digits}`,
+      group,
+      ...(iccid ? { iccid } : {}),
+      ...(label ? { label } : {}),
+    });
+  });
+  const phones = new Set<string>();
+  for (const line of result) {
+    if (phones.has(line.phone)) throw new Error(`${line.phone} iki kez yazılmış.`);
+    phones.add(line.phone);
+  }
+  return result;
+}
+
+export function formatLineText(list: Line[]): string {
+  return list
+    .map((l) => [l.phone, l.group, l.iccid || "", l.label || ""].join(";").replace(/;+$/, ""))
+    .join("\n");
+}

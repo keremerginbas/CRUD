@@ -28,6 +28,7 @@ export function requireModulePermissions(
     /^\/auth\/(accounts|password|qr\/approve)(?:\/|$)/.test(path) ||
     path === "/settings/integrations" ||
     path === "/pbx/me" ||
+    path === "/lines" ||
     path === "/pbx/test"
   )
     return next();

@@ -13,3 +13,4 @@
 .pbx-call-row label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
 .pbx-call-row input { width: 110px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: transparent; color: inherit; }
 .pbx-call small { color: var(--muted); font-size: 12px; }
+.lines-editor { width: 100%; font-family: ui-monospace, monospace; font-size: 12.5px; border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: transparent; color: inherit; margin-top: 10px; }

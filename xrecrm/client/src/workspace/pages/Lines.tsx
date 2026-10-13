@@ -1,3 +1,5 @@
+import "../pbx.css";
+import "../login.css";
 import VapiCallFields, {
   useVapiOptions,
   canUseVapiSelection,
@@ -17,9 +19,11 @@ import {
   Radio,
   Play,
   Settings2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { lines, groupNames, formatPhone } from "../data";
+import { formatLineText, parseLineText, setLineInventory } from "../../../../shared/lines";
 import { useStore } from "../store";
 import { PageTitle, Badge, Modal, Empty } from "../components/ui";
 export default function Lines({
@@ -29,7 +33,23 @@ export default function Lines({
   calls?: boolean;
   navigate: (p: string) => void;
 }) {
-  const { data, demo, request, refresh } = useStore();
+  const { data, demo, request, refresh, user } = useStore();
+  const [editor, setEditor] = useState<string | null>(null);
+  const [editorError, setEditorError] = useState("");
+  const saveLines = async () => {
+    if (editor === null) return;
+    try {
+      const parsed = parseLineText(editor);
+      const r = await request("/api/lines", { lines: parsed }, "PUT");
+      setLineInventory(r.lines);
+      await refresh();
+      setEditor(null);
+      setEditorError("");
+      toast.success(`${r.lines.length} hat kaydedildi.`);
+    } catch (e) {
+      setEditorError((e as Error).message);
+    }
+  };
   const [group, setGroup] = useState("all");
   const [query, setQuery] = useState("");
   const [detail, setDetail] = useState<string | null>(null);
@@ -125,6 +145,15 @@ export default function Lines({
                 <Download size={16} />
                 Envanteri indir
               </button>
+              {!demo && user?.isOwner && (
+                <button
+                  className="btn secondary"
+                  onClick={() => setEditor(formatLineText(lines))}
+                >
+                  <Pencil size={16} />
+                  Hatları düzenle
+                </button>
+              )}
               <button
                 className="btn primary"
                 onClick={() => navigate("/integrations")}
@@ -447,6 +476,38 @@ export default function Lines({
                   ? "Demo aramasını dene"
                   : "Aramayı başlat"}
             </button>
+          </footer>
+        </Modal>
+      )}
+      {editor !== null && (
+        <Modal
+          title="Hat envanterini düzenle"
+          subtitle="Her satır: telefon ; grup (ai/office/cloud) ; ICCID ; etiket"
+          onClose={() => setEditor(null)}
+          wide
+        >
+          <div className="modal-content">
+            <p className="setup-footnote">
+              Excel'den veya Netgsm panelinden kopyalayıp yapıştırabilirsiniz. Grup
+              yazılmazsa "cloud" (Bulut PBX) kabul edilir. Kimlikler grup içindeki
+              sıraya göre verilir; Vapi/Meta hat eşlemeleri bu kimlikleri kullanır.
+            </p>
+            <textarea
+              className="lines-editor"
+              aria-label="Hat listesi"
+              rows={16}
+              value={editor}
+              onChange={(e) => {
+                setEditor(e.target.value);
+                setEditorError("");
+              }}
+              placeholder={"05321234567;ai;;Vapi satış\n02121234567;office\n05331234567;cloud;8990..."}
+            />
+            {editorError && <p className="login-error">{editorError}</p>}
+          </div>
+          <footer className="modal-footer">
+            <button className="btn secondary" onClick={() => setEditor(null)}>Vazgeç</button>
+            <button className="btn primary" onClick={() => void saveLines()}>Kaydet</button>
           </footer>
         </Modal>
       )}

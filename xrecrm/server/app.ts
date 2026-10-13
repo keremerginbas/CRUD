@@ -87,6 +87,7 @@ import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
+import { registerLineInventoryRoutes } from "./line-inventory.js";
 import { runInboundAction } from "./webhook-hub.js";
 import {
   deliverHookEvent,
@@ -1516,6 +1517,7 @@ export function createApp(
   registerBitrixImportRoutes(app, store);
   registerIntegrationSettingsRoutes(app, store);
   registerPbxRoutes(app, store);
+  registerLineInventoryRoutes(app, store);
   registerQrApproveRoute(app, store);
 
   app.get("/api/state", async (req, res) => {
