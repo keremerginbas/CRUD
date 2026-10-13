@@ -57,6 +57,7 @@ import "./style.css";
 import "./bitrix.css";
 import "./customer.css";
 import LeadDrawer from "./components/LeadDrawer";
+import { PREVIEW, currentPath } from "./nav";
 import LoginScreen, { QrApprove, type AuthStatus } from "./components/LoginScreen";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const OnlineMeeting = lazy(() => import("./components/OnlineMeeting"));
@@ -156,7 +157,7 @@ function Workspace() {
     user?.isOwner ||
     (!routeModules[url] && url !== "/data-quality") ||
     Boolean(user?.permissions?.[routeModules[url]]?.read);
-  const [path, setPath] = useState(window.location.pathname);
+  const [path, setPath] = useState(currentPath());
   const [leadModal, setLeadModal] = useState<Lead | undefined | null>(null);
   const [newContext, setNewContext] = useState<{
     stage: Stage;
@@ -183,7 +184,7 @@ function Workspace() {
     window.scrollTo(0, 0);
   };
   useEffect(() => {
-    const pop = () => setPath(location.pathname);
+    const pop = () => setPath(currentPath());
     const meetingEvent = (e: Event) =>
       setMeeting((e as CustomEvent).detail || {});
     const callEvent = (e: Event) =>
@@ -256,6 +257,12 @@ function Workspace() {
       setAuthOpen(true);
   }, [loading, user, authStatus]);
   const login = () => {
+    if (PREVIEW) {
+      toast.info(
+        "Bu bir önizleme: giriş ve canlı CRM için uygulamayı kendi bilgisayarınızda veya sunucunuzda çalıştırın.",
+      );
+      return;
+    }
     if (authStatus) setAuthOpen(true);
     else
       window.location.href =
