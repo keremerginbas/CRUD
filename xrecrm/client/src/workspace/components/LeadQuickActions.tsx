@@ -213,9 +213,8 @@ export function CustomerCallDialog({
           <>
             {!demo && <PbxCallBox leadId={leadId} onDone={onClose} />}
             <p>
-              Bilgisayarınızdaki veya telefonunuzdaki arama uygulaması açılır.
-              CRM içinden sesli görüşme için SIP/PBX ağ geçidinin bağlanması
-              gerekir.
+              Alternatif: bilgisayarınızdaki veya telefonunuzdaki arama
+              uygulamasıyla arayın.
             </p>
             {demo ? (
               <button

@@ -1118,8 +1118,12 @@ const StartBody = z.object({
   since: isoSince,
 });
 
-export function registerBitrixImportRoutes(app: Express, store: Store): void {
-  const writeStore = rawStoreOf(store);
+/**
+ * `baseStore` verilirse geçmiş veriler canlı kurallar (randevu zorunluluğu,
+ * giden webhook olayları, AI analizi) tetiklenmeden doğrudan veri katmanına yazılır.
+ */
+export function registerBitrixImportRoutes(app: Express, store: Store, baseStore?: Store): void {
+  const writeStore = baseStore || rawStoreOf(store);
 
   app.post("/api/bitrix-import/preview", async (req, res) => {
     try {

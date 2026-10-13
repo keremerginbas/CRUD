@@ -1,5 +1,33 @@
 # XRE CRM — Eksik analizi ve yol haritası (v7 → v8)
 
+## v8 ikinci tur — tamamlananlar
+
+| Konu | Nerede |
+| --- | --- |
+| Bağımsız giriş (e-posta/şifre), ilk kurulum, çalışan hesapları | Açılış ekranı · Çalışanlar → Giriş hesapları · Profil → Şifre değiştir |
+| QR ile giriş (telefon onayı), Google / Facebook / Apple girişi | Giriş ekranı; anahtarlar Entegrasyonlar → Sosyal giriş |
+| MySQL'siz çalışma | `DATABASE_URL` yoksa `data/xrecrm-data.json` |
+| Entegrasyon anahtarlarını arayüzden girme (AES-256-GCM) | Entegrasyonlar → Anahtarlar ve bağlantı ayarları |
+| Tıkla-ara, gelen aramada müşteri kartı, otomatik CDR | Santral ayarları + arama penceresi "Santralden ara" |
+| Hat envanteri arayüzden | Hat yönetimi → Hatları düzenle |
+| WhatsApp medya gönderme/alma | WhatsApp → ataş butonu |
+| Bitrix24 veri aktarımı | Bitrix aktarımı & uygulamalar |
+
+### Santral kurulumu (Asterisk / FreePBX)
+1. FreePBX → Settings → Asterisk Manager Users: kullanıcı oluşturun; izinler: `call, originate, cdr, reporting`;
+   "Permit" alanına yalnız CRM sunucusunun IP'sini yazın.
+2. `cdr_manager.conf` → `enabled = yes` (CDR olayları için).
+3. CRM → Entegrasyonlar → Santral: Sürücü `asterisk`, AMI sunucu/port/kullanıcı/şifre, kanal şablonu
+   (`PJSIP/{ext}`), context (`from-internal`). "Bağlantıyı test et".
+4. Her çalışan arama penceresinde kendi dahili numarasını bir kez girer.
+5. Netgsm Netsantral gibi URL tabanlı santrallerde sürücü `http`; tıkla-ara URL şablonunu girin, çalma
+   bildirimi için Webhook merkezinde `call.ringing`, arama sonucu için `call.log` kapsamlı bir gelen webhook açın.
+
+### Sosyal giriş kurulumu
+Dönüş adresleri: `https://CRM/api/auth/social/google/callback`, `.../facebook/callback`, `.../apple/callback`.
+Sosyal giriş yeni kullanıcı oluşturmaz; yöneticinin açtığı hesabın e-postasıyla eşleşir.
+
+
 Bu belge, Bitrix24'ün yerine geçecek XRE CRM'in v7 kaynaklarının incelenmesinden çıkan
 eksikleri, bu turda yapılanları ve sıradaki adımları özetler.
 

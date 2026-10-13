@@ -1194,7 +1194,8 @@ export function startOutboxWorker(
 export function createApp(
   options: { store?: Store; background?: boolean } = {},
 ): Express {
-  const rawStore = webhookEmitterStore(options.store || createStore());
+  const baseStore = options.store || createStore();
+  const rawStore = webhookEmitterStore(baseStore);
   const store = createPermissionStore(
     stagePolicyStore(appointmentStore(rawStore)),
   );
@@ -1541,7 +1542,7 @@ export function createApp(
   registerN8nReportRoutes(app, store);
   registerWebhookHubRoutes(app, store);
   registerLocalAccountRoutes(app, store);
-  registerBitrixImportRoutes(app, store);
+  registerBitrixImportRoutes(app, store, baseStore);
   registerIntegrationSettingsRoutes(app, store);
   registerPbxRoutes(app, store);
   registerLineInventoryRoutes(app, store);
