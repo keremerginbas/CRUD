@@ -85,6 +85,7 @@ import { lines } from "../shared/lines.js";
 import { registerLocalAccountRoutes, registerLocalAuthRoutes } from "./local-auth.js";
 import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
+import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import {
   deliverHookEvent,
   registerHookInboundRoute,
@@ -1497,6 +1498,7 @@ export function createApp(options: { store?: Store } = {}): Express {
   registerWebhookHubRoutes(app, store);
   registerLocalAccountRoutes(app, store);
   registerBitrixImportRoutes(app, store);
+  registerIntegrationSettingsRoutes(app, store);
   registerQrApproveRoute(app, store);
 
   app.get("/api/state", async (req, res) => {

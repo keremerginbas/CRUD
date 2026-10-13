@@ -9,6 +9,7 @@ import { createApp, startOutboxWorker } from "./app.js";
 import { createStore } from "./db.js";
 import { loadLineInventory } from "./line-inventory.js";
 import { ensureSessionSecret } from "./local-auth.js";
+import { loadIntegrationSettings } from "./integration-settings.js";
 import { webhookEmitterStore } from "./webhook-hub.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -26,6 +27,12 @@ export async function start(): Promise<void> {
       "Kalıcı veritabanı hazır değil; gerçek yazma istekleri 503 dönecek.",
       error instanceof Error ? error.message : error,
     );
+  }
+  try {
+    const count = await loadIntegrationSettings(store);
+    if (count) console.log(`Arayüzden kaydedilmiş ${count} entegrasyon ayarı yüklendi.`);
+  } catch (error) {
+    console.warn("Entegrasyon ayarları yüklenemedi:", error instanceof Error ? error.message : error);
   }
   const app = createApp({ store });
   const httpServer = createHttpServer(app);

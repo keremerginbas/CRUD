@@ -1,0 +1,25 @@
+.is-panel { padding: 18px 20px; margin: 18px 0; display: grid; gap: 14px; }
+.is-panel > header { display: flex; gap: 12px; align-items: flex-start; }
+.is-panel > header > div { flex: 1; }
+.is-panel h3 { font-size: 15px; font-family: var(--heading); }
+.is-panel > header p { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.is-panel code { font-size: 11px; color: var(--muted); }
+.is-note { font-size: 13px; color: var(--muted); }
+.is-groups { display: grid; gap: 8px; }
+.is-group { border: 1px solid var(--border); border-radius: 10px; background: var(--xre-surface); }
+.is-group[open] { border-color: var(--xre-accent); }
+.is-group summary { display: flex; align-items: center; gap: 10px; padding: 12px 14px; cursor: pointer; list-style: none; }
+.is-group summary::-webkit-details-marker { display: none; }
+.is-group summary > span { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.is-group summary strong { font-size: 13.5px; }
+.is-group summary small { font-size: 12px; color: var(--muted); }
+.is-group[open] summary svg { transform: rotate(180deg); }
+.is-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px 16px; padding: 4px 14px 12px; }
+.is-field { display: grid; gap: 4px; }
+.is-field label { font-size: 12.5px; font-weight: 600; display: flex; gap: 6px; align-items: center; }
+.is-field label em { font-style: normal; font-size: 10.5px; padding: 1px 6px; border-radius: 999px; background: var(--xre-surface-muted); color: var(--xre-text-soft); font-weight: 500; }
+.is-field label em.ui { background: var(--xre-accent-soft); color: var(--xre-accent-strong); }
+.is-field small { font-size: 11.5px; color: var(--muted); }
+.is-input { display: flex; gap: 6px; }
+.is-input input, .is-input textarea { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: transparent; color: inherit; font-size: 13px; font-family: inherit; }
+.is-group footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }

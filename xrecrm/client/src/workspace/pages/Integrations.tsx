@@ -2,6 +2,7 @@ import type { VapiOptions } from "../components/VapiCallFields";
 import AIIntegration from "../components/AIIntegration";
 import WebhookHub from "../components/WebhookHub";
 import BitrixImport from "../components/BitrixImport";
+import IntegrationSettings from "../components/IntegrationSettings";
 import { useState, useEffect } from "react";
 import {
   MessageCircle,
@@ -313,8 +314,8 @@ export default function Integrations({
             <div>
               <strong>Gizli anahtarlar tarayıcıda saklanmaz.</strong>
               <p>
-                Değerleri güvenli proje ortam değişkenlerinde yapılandırın. API
-                anahtarı veya SIP parolasını mesaj olarak göndermeyin.
+                Değerleri bu sayfadaki "Anahtarlar ve bağlantı ayarları"
+                bölümünden girin; sunucuda şifreli saklanır.
               </p>
             </div>
           </div>
@@ -637,6 +638,7 @@ export default function Integrations({
           </div>
         </>
       )}
+      {!webhooks && <IntegrationSettings />}
       {!local && <AIIntegration />}
       <div className="info-banner slim">
         <ShieldCheck size={18} />
