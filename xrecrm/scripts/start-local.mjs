@@ -17,7 +17,11 @@ if (!fs.existsSync(path.join(root, 'node_modules', 'express'))) {
   console.error('Bagimliliklar eksik. Once pnpm install --frozen-lockfile calistirin.');
   process.exit(1);
 }
-console.log('XRE CRM: http://localhost:' + (process.env.PORT || '3000'));
+let port = process.env.PORT;
+try {
+  port ||= fs.readFileSync(path.join(root, '.env'), 'utf8').match(/^PORT=(\d+)/m)?.[1];
+} catch {}
+console.log('XRE CRM: http://localhost:' + (port || '3000'));
 console.log('Terminali acik tutun. Durdurmak icin Ctrl+C.');
 const child = spawn(process.execPath, ['--env-file-if-exists=.env', entry], {
   cwd: root,
