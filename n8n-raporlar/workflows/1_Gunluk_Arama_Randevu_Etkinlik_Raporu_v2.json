@@ -86,7 +86,7 @@
       "parameters": {
         "jsCode": "// Telegram tek mesajda en fazla 4096 karakter kabul eder.\n// Rapor 3500 karakterlik parçalara bölünmüş gelir; her parça ayrı mesaj olarak gider.\nconst parcalar = $input.first().json.telegram_parcalar || [];\nreturn parcalar.map((text, i) => ({ json: { text, parca: i + 1, toplam: parcalar.length } }));"
       },
-      "id": "fc99493f-b431-4087-893f-a8c29f8640a3",
+      "id": "2ba09dd3-feec-4a96-ade3-82bebd92ec80",
       "name": "Telegram Mesajını Parçala",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
