@@ -1,0 +1,3796 @@
+{
+  "name": "XRE Bitrix Assistant v8 - Daily Call Report — düzeltildi 13.10.2026",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "xre-bitrix-assistant",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "caa1e267-0ec2-4ef6-a055-9ce31baf1f7f",
+      "name": "XRE Assistant Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -33136,
+        13968
+      ],
+      "webhookId": "xre-bitrix-assistant"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\n\n// ==================================================\n// XRE BITRIX24 ASSISTANT - REQUEST VALIDATOR\n// ==================================================\n\nconst allowedActions = [\n  // USERS\n  'get_users','get_user','search_users',\n\n  // DEALS\n  'get_deals','get_deal','search_deals','get_deals_by_user','get_deals_by_stage',\n  'change_assignee','change_stage','update_deal',\n\n  // LEADS\n  'get_leads','get_lead','search_leads','get_leads_by_user',\n\n  // CONTACTS\n  'get_contacts','get_contact','search_contacts',\n\n  // COMPANIES\n  'get_companies','get_company','search_companies',\n\n  // CRM STRUCTURE\n  'get_pipelines','get_pipeline_stages',\n\n  // CRM ACTIVITIES / CALLS\n  'get_activities','get_activity','search_activities','get_activity_audit_bindings',\n  'get_activities_created_today','get_activities_today',\n  'get_activities_by_user','get_activities_by_owner','get_activities_by_deal',\n  'get_completed_activities_today','get_calls_today','get_calls_by_user',\n  'get_open_activities_by_user','get_overdue_activities','get_activity_fields',\n  'get_completion_audit','get_exact_completion_audit','setup_activity_audit','daily_crm_report','get_sales_team_daily_report','get_daily_call_report','get_user_daily_activity','ask_crm'\n];\n\nconst requestedAction = String(body.action || '').trim();\nif (!requestedAction) throw new Error('action zorunludur');\nif (!allowedActions.includes(requestedAction)) throw new Error(`Geçersiz action: ${requestedAction}`);\n\n// MCP için yeni, anlaşılır action adı.\n// Mevcut çalışan günlük rapor zincirini bozmadan aynı route'a yönlendirir.\nconst actionAliases = {\n  get_daily_call_report: 'get_sales_team_daily_report'\n};\nconst action = actionAliases[requestedAction] || requestedAction;\n\nlet resource = null;\nif (['get_users','get_user','search_users'].includes(action)) resource = 'users';\nelse if (['get_deals','get_deal','search_deals','get_deals_by_user','get_deals_by_stage','change_assignee','change_stage','update_deal'].includes(action)) resource = 'deals';\nelse if (['get_leads','get_lead','search_leads','get_leads_by_user'].includes(action)) resource = 'leads';\nelse if (['get_contacts','get_contact','search_contacts'].includes(action)) resource = 'contacts';\nelse if (['get_companies','get_company','search_companies'].includes(action)) resource = 'companies';\nelse if (['get_pipelines','get_pipeline_stages'].includes(action)) resource = 'crm_structure';\nelse if (action.startsWith('get_activit') || action.startsWith('search_activit') || action.startsWith('get_calls') || action.startsWith('get_completed_activit') || action.startsWith('get_open_activit') || action.startsWith('get_overdue_activit') || ['get_completion_audit','get_exact_completion_audit','setup_activity_audit','daily_crm_report','get_sales_team_daily_report','get_daily_call_report','get_user_daily_activity','ask_crm'].includes(action)) resource = 'activities';\n\nconst idRequiredActions = ['get_deal','get_lead','get_contact','get_company','get_user','get_activity','change_assignee','change_stage','update_deal'];\nif (idRequiredActions.includes(action) && (body.id === undefined || body.id === null || String(body.id).trim() === '')) {\n  throw new Error(`${action} için id zorunludur`);\n}\n\nif (action === 'change_assignee' && (body.assigned_by_id === undefined || body.assigned_by_id === null || String(body.assigned_by_id).trim() === '')) {\n  throw new Error('change_assignee için assigned_by_id zorunludur');\n}\nif (action === 'change_stage' && !String(body.stage_id || '').trim()) {\n  throw new Error('change_stage için stage_id zorunludur');\n}\nif (action === 'update_deal' && (!body.fields || typeof body.fields !== 'object' || Array.isArray(body.fields) || Object.keys(body.fields).length === 0)) {\n  throw new Error('update_deal için fields zorunludur');\n}\n\nconst searchActions = ['search_users','search_deals','search_leads','search_contacts','search_companies','search_activities'];\nif (searchActions.includes(action) && !String(body.query || '').trim()) {\n  throw new Error(`${action} için query zorunludur`);\n}\n\nif (['get_deals_by_user','get_leads_by_user'].includes(action) && (body.assigned_by_id === undefined || body.assigned_by_id === null || String(body.assigned_by_id).trim() === '')) {\n  throw new Error(`${action} için assigned_by_id zorunludur`);\n}\nif (action === 'get_deals_by_stage' && !String(body.stage_id || '').trim()) {\n  throw new Error('get_deals_by_stage için stage_id zorunludur');\n}\nif (action === 'get_pipeline_stages' && (body.category_id === undefined || body.category_id === null || String(body.category_id).trim() === '')) {\n  throw new Error('get_pipeline_stages için category_id zorunludur');\n}\n\nconst responsibleId = body.responsible_id ?? body.assigned_by_id ?? null;\nif (['get_activities_by_user','get_calls_by_user','get_open_activities_by_user'].includes(action) && (responsibleId === null || String(responsibleId).trim() === '')) {\n  throw new Error(`${action} için responsible_id veya assigned_by_id zorunludur`);\n}\nif (action === 'get_user_daily_activity' && (responsibleId === null || String(responsibleId).trim() === '')) {\n  throw new Error('get_user_daily_activity için responsible_id veya assigned_by_id zorunludur');\n}\nif (action === 'get_activities_by_owner' && ((body.owner_id === undefined || body.owner_id === null || String(body.owner_id).trim() === '') || (body.owner_type_id === undefined || body.owner_type_id === null || String(body.owner_type_id).trim() === ''))) {\n  throw new Error('get_activities_by_owner için owner_id ve owner_type_id zorunludur');\n}\nif (action === 'get_activities_by_deal' && (body.deal_id === undefined || body.deal_id === null || String(body.deal_id).trim() === '')) {\n  throw new Error('get_activities_by_deal için deal_id zorunludur');\n}\n\nlet requestedLimit = Number(body.limit ?? 50);\nlet requestedStart = Number(body.start ?? 0);\nif (!Number.isFinite(requestedLimit)) requestedLimit = 50;\nif (!Number.isFinite(requestedStart)) requestedStart = 0;\nconst limit = Math.min(Math.max(Math.floor(requestedLimit), 1), 50);\nconst start = Math.max(Math.floor(requestedStart), 0);\n\nconst filter = body.filter && typeof body.filter === 'object' && !Array.isArray(body.filter) ? body.filter : {};\nconst fields = body.fields && typeof body.fields === 'object' && !Array.isArray(body.fields) ? body.fields : {};\n\n// Istanbul day boundaries. Türkiye currently uses UTC+03 year-round.\nconst parts = new Intl.DateTimeFormat('en-CA', {\n  timeZone: 'Europe/Istanbul', year: 'numeric', month: '2-digit', day: '2-digit'\n}).formatToParts(new Date());\nconst p = Object.fromEntries(parts.map(x => [x.type, x.value]));\nconst today = `${p.year}-${p.month}-${p.day}`;\nconst today_from = `${today}T00:00:00+03:00`;\nconst today_to = `${today}T23:59:59+03:00`;\n\nlet date_from = body.date_from ? String(body.date_from) : null;\nlet date_to = body.date_to ? String(body.date_to) : null;\nconst question = String(body.question || body.soru || '').trim();\nconst user_name = String(body.user_name || body.personel || '').trim();\n\n// ask_crm doğal dil tarih çözümleme (Europe/Istanbul)\nif (action === 'ask_crm') {\n  if (!question) throw new Error('ask_crm için question zorunludur');\n  const q = question.toLocaleLowerCase('tr-TR');\n  const day = new Date(`${today}T12:00:00+03:00`);\n  const isoDay = (dt) => new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit',day:'2-digit'}).format(dt);\n  if (q.includes('dün') || q.includes('dunku') || q.includes('dünkü')) {\n    const x=new Date(day); x.setDate(x.getDate()-1); const ds=isoDay(x); date_from=`${ds}T00:00:00+03:00`; date_to=`${ds}T23:59:59+03:00`;\n  } else {\n    const m=q.match(/son\\s+(\\d+)\\s+g[uü]n/);\n    if (m) { const n=Math.max(1,Math.min(Number(m[1]),30)); const x=new Date(day); x.setDate(x.getDate()-(n-1)); const ds=isoDay(x); date_from=`${ds}T00:00:00+03:00`; date_to=today_to; }\n    else { date_from=date_from||today_from; date_to=date_to||today_to; }\n  }\n}\n\nconst writeActions = ['change_assignee','change_stage','update_deal'];\nconst is_write = writeActions.includes(action);\n\nreturn [{\n  json: {\n    success: true,\n    requested_action: requestedAction,\n    action, resource,\n    operation: is_write ? 'write' : 'read',\n    is_write,\n    id: body.id ?? null,\n    deal_id: body.deal_id ?? null,\n    category_id: body.category_id ?? null,\n    stage_id: body.stage_id ?? null,\n    status_id: body.status_id ?? null,\n    assigned_by_id: body.assigned_by_id ?? null,\n    responsible_id: responsibleId,\n    owner_id: body.owner_id ?? null,\n    owner_type_id: body.owner_type_id ?? null,\n    activity_type_id: body.activity_type_id ?? null,\n    completed: body.completed ?? null,\n    query: String(body.query || '').trim(),\n    filter, fields,\n    limit, start,\n    date_from, date_to,\n    question, user_name,\n    today_from, today_to,\n    request: body\n  }\n}];"
+      },
+      "id": "ee685c50-c83d-41bc-97a9-7575a72e1346",
+      "name": "Validate Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32416,
+        13824
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_users",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "a6c01bb1-69f7-429e-9d2e-862c4e7afe27"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_users"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_deals",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "66240a57-ca7a-40b1-a4ab-c40ae61d9852"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_deals"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_deal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "f47789e5-2963-4164-8637-3e5c4b4fd1d4"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_deal"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_leads",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ac68d8e1-7676-431d-891e-bd454009616d"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_leads"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_contacts",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "92bce9c7-2950-45a3-bfcc-eab7435caea3"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_contacts"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_pipeline_stages",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ec01d527-48a7-4cdc-958e-8819410344b2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_pipeline_stages"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_deals_by_stage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "1f61aff1-ef38-4445-a67b-c01b0507d5c2"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_deals_by_stage"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_deals_by_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "46f8fb7b-f2ea-4105-9662-656bbc10c98b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_deals_by_user"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "search_deals",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e505316b-626b-4c28-abd9-2227952056cd"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "search_deals"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "change_assignee",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "bec61661-ffa7-46f7-addf-25e8f6fb27f5"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "change_assignee"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "change_stage",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "52dd0ff0-6659-41b2-8573-35d6e43b8c03"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "change_stage"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "update_deal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "afb4caf0-3d83-404b-9195-34ecda9c24ac"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "update_deal"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "056680bf-a74c-4e75-afc8-6b7cf2fa65d8",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "get_user"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4ef68f91-98c8-4701-8a75-6356fe99134b",
+      "name": "Action Router",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -31152,
+        13792
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/user.get.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={\"ACTIVE\":true}",
+        "options": {}
+      },
+      "id": "ce0219b2-5de9-4862-bb3d-6fb7b187b036",
+      "name": "Bitrix - Users",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        13072
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.deal.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({\n  order: {\n    DATE_CREATE: 'DESC'\n  },\n  filter: $json.filter || {},\n  select: [\n    'ID',\n    'TITLE',\n    'STAGE_ID',\n    'CATEGORY_ID',\n    'CONTACT_ID',\n    'COMPANY_ID',\n    'ASSIGNED_BY_ID',\n    'OPPORTUNITY',\n    'CURRENCY_ID',\n    'DATE_CREATE',\n    'DATE_MODIFY'\n  ],\n  start: $json.start || 0\n}) }}",
+        "options": {}
+      },
+      "id": "6f133f51-3746-4fdd-b0dd-9353765e6f45",
+      "name": "Bitrix - Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        13248
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.deal.get.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.id}) }}",
+        "options": {}
+      },
+      "id": "1354d836-6adb-4b69-adc5-27875369e27f",
+      "name": "Bitrix - Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        13456
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.lead.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:$json.filter || {}, select:['ID','TITLE','NAME','LAST_NAME','STATUS_ID','ASSIGNED_BY_ID','PHONE','EMAIL','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }}",
+        "options": {}
+      },
+      "id": "63cc47c5-305b-4188-9243-640e739eadc7",
+      "name": "Bitrix - Leads",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        13648
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.contact.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:$json.filter || {}, select:['ID','NAME','LAST_NAME','PHONE','EMAIL','ASSIGNED_BY_ID','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }}",
+        "options": {}
+      },
+      "id": "78158e37-665f-4f46-9e98-eb5fcc4848fd",
+      "name": "Bitrix - Contacts",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        13856
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.status.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({filter:{ENTITY_ID:'DEAL_STAGE_' + $json.category_id}}) }}",
+        "options": {}
+      },
+      "id": "0e7bba31-5eb1-46e4-8d1d-5012c45c38ba",
+      "name": "Bitrix - Pipeline Stages",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        14096
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.deal.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:{...( $json.category_id !== null ? {CATEGORY_ID:$json.category_id}:{} ), ...( $json.stage_id ? {STAGE_ID:$json.stage_id}:{} )}, select:['ID','TITLE','STAGE_ID','CATEGORY_ID','CONTACT_ID','COMPANY_ID','ASSIGNED_BY_ID','OPPORTUNITY','CURRENCY_ID','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }}",
+        "options": {}
+      },
+      "id": "2d70bed4-3567-40b0-b78a-34c418ef0489",
+      "name": "Bitrix - Deals By Stage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        14272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.deal.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:{ASSIGNED_BY_ID:$json.assigned_by_id, ...( $json.category_id !== null ? {CATEGORY_ID:$json.category_id}:{} )}, select:['ID','TITLE','STAGE_ID','CATEGORY_ID','CONTACT_ID','COMPANY_ID','ASSIGNED_BY_ID','OPPORTUNITY','CURRENCY_ID','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }}",
+        "options": {}
+      },
+      "id": "252abfb5-013a-41d0-98fa-f92594bef58c",
+      "name": "Bitrix - Deals By User",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        14496
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.deal.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:{'%TITLE':$json.query, ...( $json.category_id !== null ? {CATEGORY_ID:$json.category_id}:{} )}, select:['ID','TITLE','STAGE_ID','CATEGORY_ID','CONTACT_ID','COMPANY_ID','ASSIGNED_BY_ID','OPPORTUNITY','CURRENCY_ID','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }}",
+        "options": {}
+      },
+      "id": "2877ec27-c9a4-45d9-9f5c-474a0b9ca018",
+      "name": "Bitrix - Search Deals",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        14704
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.deal.update.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.id,fields:{ASSIGNED_BY_ID:$json.assigned_by_id}}) }}",
+        "options": {}
+      },
+      "id": "35e5e738-d95e-45c9-85da-39f9b8a8ca4d",
+      "name": "Bitrix - Change Assignee",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        14896
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.deal.update.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.id,fields:{STAGE_ID:$json.stage_id}}) }}",
+        "options": {}
+      },
+      "id": "53ba0030-fdab-495a-b90b-580e5681f142",
+      "name": "Bitrix - Change Stage",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        15088
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.deal.update.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.id,fields:$json.fields}) }}",
+        "options": {}
+      },
+      "id": "f5fbfa88-100e-4afa-a967-baac2cf74ca3",
+      "name": "Bitrix - Update Deal",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -30800,
+        15312
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst req = $('Validate Request').first().json;\n\nconst requestedLimit = Number(req.limit ?? 50);\nconst requestedStart = Number(req.start ?? 0);\nconst rawResult = input.result ?? input;\nconst result = Array.isArray(rawResult) ? rawResult.slice(0, requestedLimit) : rawResult;\nconst total = input.total ?? (Array.isArray(rawResult) ? rawResult.length : null);\n\nlet next = null;\nif (Array.isArray(result) && result.length > 0) {\n  if (typeof total === 'number' && requestedStart + result.length < total) {\n    next = requestedStart + result.length;\n  } else if (input.next !== undefined && input.next !== null && result.length >= requestedLimit) {\n    next = requestedStart + result.length;\n  }\n}\n\nreturn [{\n  json: {\n    success: true,\n    timestamp: new Date().toISOString(),\n    action: req.action,\n    resource: req.resource,\n    pagination: {\n      start: requestedStart,\n      limit: requestedLimit,\n      returned: Array.isArray(result) ? result.length : null,\n      total,\n      next\n    },\n    result\n  }\n}];"
+      },
+      "id": "31a84895-ab1a-44ad-8307-5c4e35ed1e60",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -30240,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "7a6c4b33-4de2-43f7-ab4b-b1882c796a8f",
+      "name": "Return JSON",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        -29824,
+        13600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const headers = $json.headers || {};\n\nconst receivedKey =\n  headers['x-api-key'] ||\n  headers['X-API-Key'];\n\nconst expectedKey = '<ASSISTANT_API_KEY>';\n\nconst authorized =\n  Boolean(receivedKey) &&\n  receivedKey === expectedKey;\n\nreturn [{\n  json: {\n    ...$json,\n    authorized\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32928,
+        13968
+      ],
+      "id": "3ccfc2e6-9d85-47a5-85b2-be8b86a50922",
+      "name": "API Key Check"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "bdbf2105-7ab0-4ac3-9097-e4848846c69a",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -32720,
+        13968
+      ],
+      "id": "2b1ab78e-644c-4428-b15b-21a2a02cdd4c",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": false,\n  \"error\": \"UNAUTHORIZED\",\n  \"message\": \"Geçersiz veya eksik API anahtarı\"\n}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -32448,
+        14128
+      ],
+      "id": "f789635f-cce8-45d5-80bc-0676bf9ccce2",
+      "name": "401 Unauthorized"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.resource }}",
+                    "rightValue": "users",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "67591f7a-ed6b-4073-9edc-67b1ab2c5cc4"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "USERS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "178ba69e-426e-4b93-a750-f59f23a94d3b",
+                    "leftValue": "={{ $json.resource }}",
+                    "rightValue": "deals",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DEALS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "20f6b5fd-60d9-4147-b1e3-096f7473154a",
+                    "leftValue": "={{ $json.resource }}",
+                    "rightValue": "leads",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "LEADS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0988e332-799e-48a9-9111-0ec1e125ebb2",
+                    "leftValue": "={{ $json.resource }}",
+                    "rightValue": "contacts",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CONTACTS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "57a4f998-1e6d-4e62-a373-ea71f4dac135",
+                    "leftValue": "={{ $json.resource }}",
+                    "rightValue": "companies",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "COMPANIES"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a4187c92-9031-4ba5-91bf-4e1484974f92",
+                    "leftValue": "={{ $json.resource }}",
+                    "rightValue": "crm_structure",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CRM STRUCTURE"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "85b2063f-ae0e-4dae-8f7e-030bbb5db8d9",
+                    "leftValue": "={{ $json.resource }}",
+                    "rightValue": "activities",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ACTIVITIES"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -32080,
+        13648
+      ],
+      "id": "282157dc-12e3-4ccc-a584-9adaaeef28aa",
+      "name": "Action Router2"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_users",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "f6a6c3e9-07c3-4b7c-b004-05dd9107f99b"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_USERS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d9c89058-a5a6-44f8-87a3-638bdea8587b",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_USER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "91ad63e0-b1eb-4662-b7d2-ac689a6bec17",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "search_users",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SEARCH_USERS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -31840,
+        13472
+      ],
+      "id": "c46c1d02-5f59-468a-8f09-86f37fffed5d",
+      "name": "Users Router"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/user.get.json",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "ID",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31472,
+        13344
+      ],
+      "id": "b29114cc-26f4-4c90-9b91-1b5ba54bf11d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/user.get.json",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "ID",
+              "value": "={{ $json.id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31456,
+        13568
+      ],
+      "id": "a820d1f0-5825-4636-aaae-b1940ac51a0c",
+      "name": "Bitrix - Get User"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/user.get.json",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "FILTER[ACTIVE]",
+              "value": "true"
+            },
+            {
+              "name": "FILTER[NAME]",
+              "value": "={{ $json.query }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31312,
+        13712
+      ],
+      "id": "4895ddc2-ef2b-448b-b6d1-60d48bfc7d01",
+      "name": "Bitrix - Search Users"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c05d2f01-5e45-484c-a133-bc284c6bb212",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_leads",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_LEADS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b42cdd36-aee6-4019-a6c7-c7f5b246d473",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_lead",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_LEAD"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "338619b3-a9b1-4745-b521-f969e106500a",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "search_leads",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SEARCH_LEADS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "13d5d739-2659-45cf-a302-08fc217ab0b1",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_leads_by_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_LEADS_BY_USER"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -31808,
+        13936
+      ],
+      "id": "d1eb4e8f-9e67-4a74-8801-1dfa59eab1ef",
+      "name": "Leads Router"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a829b7ce-26bf-4a98-85e6-3f3f77e583ce",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_contacts",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_CONTACTS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a2ec9d06-d51e-4079-970f-3d585f34bed0",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_contact",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_CONTACT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "002e0b65-e9f2-497b-969c-2329d070876d",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "search_contacts",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SEARCH_CONTACTS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -31808,
+        14176
+      ],
+      "id": "3ba61778-fff2-4099-9931-14c07420c3a5",
+      "name": "Contacts Router"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ffc0902d-5851-4090-8761-b445db6eb4c2",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_companies",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_COMPANIES"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "3f1b72ee-8ee5-46ee-a6eb-426a0eec7b8b",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_company",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_COMPANY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a42af475-f26d-40d1-9013-09c5a7968c99",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "search_companies",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SEARCH_COMPANIES"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -31808,
+        14416
+      ],
+      "id": "4cb0428f-f345-4ea8-932f-60f6cd4f9ba0",
+      "name": "Companies Router"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b4dd77df-9822-4a7e-82ba-64a4e66bdf8f",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_pipelines",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_PIPELINES"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9ab13b93-2321-4868-8e84-0cc74f7a6ff5",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_pipeline_stages",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_PIPELINE_STAGES"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -31808,
+        14656
+      ],
+      "id": "7963ea8d-cc09-4586-b6df-5a1bddfd927d",
+      "name": "CRM Structure Router"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "04117c7e-d53b-4154-a726-8c450642bc6c",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activities",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITIES"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e09d8a8b-4e6c-4df0-a6ce-882e1d07c0af",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activity",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "46ba8bca-27a4-4505-acb4-3a5fc4529a22",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "search_activities",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SEARCH_ACTIVITIES"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c8b0c92c-f8f4-43e8-b151-64129e8a4906",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activities_created_today",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITIES_CREATED_TODAY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8ef92a97-3bd2-4bdd-8aae-2b69e9fdfeed",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activities_today",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITIES_TODAY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b10949eb-d6dd-4fae-ab04-7c242e98520c",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activities_by_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITIES_BY_USER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0635fc98-7bf6-428e-afb1-a021213248b7",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activities_by_owner",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITIES_BY_OWNER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b5a02fd9-79dc-4c1f-8e95-52f027766871",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activities_by_deal",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITIES_BY_DEAL"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "2c7f5467-82f0-41f1-b6aa-c8956dd4b85b",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_completed_activities_today",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_COMPLETED_ACTIVITIES_TODAY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "e15f67c9-dc10-4334-9a04-47e1e196dd0e",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_calls_today",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_CALLS_TODAY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "565f1617-864e-426f-ac10-e4f40d46393e",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_calls_by_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_CALLS_BY_USER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "92061e56-ed26-44f5-be9d-dd271dc6480d",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_open_activities_by_user",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_OPEN_ACTIVITIES_BY_USER"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "aad4b0e2-c4c2-44ab-a0e8-f13c8a590657",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_overdue_activities",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_OVERDUE_ACTIVITIES"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ea1fcdfa-851e-4ca1-9fbf-35749d809012",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activity_fields",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITY_FIELDS"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "acd9bb42-66f4-4aee-92f2-c151d6765f7e",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_completion_audit",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_COMPLETION_AUDIT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ab783ff5-2c1b-46f5-8277-dde6a3771329",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "daily_crm_report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "DAILY_CRM_REPORT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5acccc8b-f87d-4053-aebb-3ba45436f0be",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_sales_team_daily_report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_SALES_TEAM_DAILY_REPORT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8d69d0c2-b540-454b-af37-261e52b4e657",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_user_daily_activity",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_USER_DAILY_ACTIVITY"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9561ec82-8502-4b7e-8f9b-d5796e40f6aa",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "ask_crm",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ASK_CRM"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "529e17ae-b040-4ab2-a58c-416a5306c7ce",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "setup_activity_audit",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "SETUP_ACTIVITY_AUDIT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0100fce0-ea97-4607-bbfe-cd9504ba7b59",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_exact_completion_audit",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_EXACT_COMPLETION_AUDIT"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8cd3647a-14b1-4c1d-a56b-6aa30a156fce",
+                    "leftValue": "={{ $json.action }}",
+                    "rightValue": "get_activity_audit_bindings",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "GET_ACTIVITY_AUDIT_BINDINGS"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -32288,
+        14976
+      ],
+      "id": "f58d7982-c0f9-46b0-a07b-b16bc20e0d79",
+      "name": "Activities Router"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.lead.get.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.id}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        13888
+      ],
+      "id": "d51dc129-580d-4e72-a4c5-5e2500ce1c38",
+      "name": "Bitrix - Get Lead"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.lead.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:{'%TITLE':$json.query}, select:['ID','TITLE','NAME','LAST_NAME','SECOND_NAME','STATUS_ID','SOURCE_ID','ASSIGNED_BY_ID','COMPANY_ID','CONTACT_ID','PHONE','EMAIL','COMMENTS','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        13968
+      ],
+      "id": "4e543323-0c25-4d33-9377-993d8c58cea7",
+      "name": "Bitrix - Search Leads"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.lead.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:{ASSIGNED_BY_ID:$json.assigned_by_id}, select:['ID','TITLE','NAME','LAST_NAME','SECOND_NAME','STATUS_ID','SOURCE_ID','ASSIGNED_BY_ID','COMPANY_ID','CONTACT_ID','PHONE','EMAIL','COMMENTS','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        14048
+      ],
+      "id": "74133875-1974-4a08-8431-2e54e70f0a30",
+      "name": "Bitrix - Leads By User"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.contact.get.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.id}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        14144
+      ],
+      "id": "f05d6a98-9076-4115-859e-d75a93f8e17f",
+      "name": "Bitrix - Get Contact"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.contact.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:{'%NAME':$json.query}, select:['ID','NAME','LAST_NAME','SECOND_NAME','TYPE_ID','SOURCE_ID','ASSIGNED_BY_ID','COMPANY_ID','PHONE','EMAIL','COMMENTS','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        14224
+      ],
+      "id": "9c681585-2d07-4933-941f-58c70be2491e",
+      "name": "Bitrix - Search Contacts"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.company.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:$json.filter || {}, select:['ID','TITLE','COMPANY_TYPE','INDUSTRY','EMPLOYEES','REVENUE','CURRENCY_ID','ASSIGNED_BY_ID','PHONE','EMAIL','WEB','COMMENTS','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        14352
+      ],
+      "id": "2cb94ee0-aa63-45f3-84f8-1003d2510d2e",
+      "name": "Bitrix - Companies"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.company.get.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.id}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        14432
+      ],
+      "id": "4a4ffdce-0906-4faa-bc19-8c4badf1d1bf",
+      "name": "Bitrix - Get Company"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.company.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={ JSON.stringify({ order:{DATE_CREATE:'DESC'}, filter:{'%TITLE':$json.query}, select:['ID','TITLE','COMPANY_TYPE','INDUSTRY','EMPLOYEES','REVENUE','CURRENCY_ID','ASSIGNED_BY_ID','PHONE','EMAIL','WEB','COMMENTS','DATE_CREATE','DATE_MODIFY'], start:$json.start || 0 }) }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        14512
+      ],
+      "id": "6af0411e-de3b-42b0-aa20-13e5bd060143",
+      "name": "Bitrix - Search Companies"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.category.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({entityTypeId:2}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31360,
+        14624
+      ],
+      "id": "555b1265-cf6f-47b0-87aa-c4e25e02ad41",
+      "name": "Bitrix - Pipelines"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{...($json.responsible_id?{RESPONSIBLE_ID:$json.responsible_id}:{}),...($json.activity_type_id?{TYPE_ID:$json.activity_type_id}:{}),...($json.completed!==null&&$json.completed!==undefined?{COMPLETED:$json.completed}:{}),...($json.date_from?{'>=CREATED':$json.date_from}:{}),...($json.date_to?{'<=CREATED':$json.date_to}:{})},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        14800
+      ],
+      "id": "6e4dda7a-a9bc-4e5e-a290-78e3d6ed72d7",
+      "name": "Bitrix - Activities"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.get.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({id:$json.id}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        14880
+      ],
+      "id": "6f34b83f-6411-4e22-ac4e-051e26c4f49a",
+      "name": "Bitrix - Get Activity"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{'%SUBJECT':$json.query},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        14960
+      ],
+      "id": "278c7380-979f-4e0f-8079-ef24273e6bf8",
+      "name": "Bitrix - Search Activities"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{'>=CREATED':$json.today_from,'<=CREATED':$json.today_to},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15040
+      ],
+      "id": "cd35b219-3b7c-447a-b6c7-f3a75e990f1d",
+      "name": "Bitrix - Activities Created Today"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{'>=CREATED':$json.today_from,'<=CREATED':$json.today_to},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15120
+      ],
+      "id": "9ccffe26-2f31-4f37-b671-9abfd695dcde",
+      "name": "Bitrix - Activities Today"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{OWNER_ID:$json.owner_id,OWNER_TYPE_ID:$json.owner_type_id},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15280
+      ],
+      "id": "527fffbf-6b73-41fe-9f04-0347f0d71610",
+      "name": "Bitrix - Activities By Owner"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{OWNER_ID:$json.deal_id,OWNER_TYPE_ID:2},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15360
+      ],
+      "id": "457d9200-7485-47f2-8b0c-e972c7f12fd8",
+      "name": "Bitrix - Activities By Deal"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{LAST_UPDATED:'DESC',ID:'DESC'},filter:{COMPLETED:'Y','>=LAST_UPDATED':$json.today_from,'<=LAST_UPDATED':$json.today_to},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15440
+      ],
+      "id": "23b9e3fc-7e9b-4fce-b145-892d5fd11aa7",
+      "name": "Bitrix - Completed Activities Today"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{TYPE_ID:2,'>=CREATED':$json.today_from,'<=CREATED':$json.today_to},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31136,
+        15520
+      ],
+      "id": "544e67b4-2cd0-473b-8e59-6289f3d9c3a2",
+      "name": "Bitrix - Calls Today"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{TYPE_ID:2,RESPONSIBLE_ID:$json.responsible_id,...(($json.date_from||$json.date_to)?{...($json.date_from?{'>=CREATED':$json.date_from}:{}),...($json.date_to?{'<=CREATED':$json.date_to}:{})}:{'>=CREATED':$json.today_from,'<=CREATED':$json.today_to})},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15600
+      ],
+      "id": "426ff4ce-9671-45f0-ad4e-2679f8524120",
+      "name": "Bitrix - Calls By User"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{DEADLINE:'ASC',ID:'DESC'},filter:{COMPLETED:'N',RESPONSIBLE_ID:$json.responsible_id},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15680
+      ],
+      "id": "fdee636a-dd5d-41eb-adbb-ca233e6672e6",
+      "name": "Bitrix - Open Activities By User"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{DEADLINE:'ASC',ID:'DESC'},filter:{COMPLETED:'N','<DEADLINE':new Date().toISOString()},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15760
+      ],
+      "id": "e507ff21-783b-4db7-98f2-40b346800c62",
+      "name": "Bitrix - Overdue Activities"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.fields.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15840
+      ],
+      "id": "d2c69008-3b30-4357-b452-8afd65f6d9f9",
+      "name": "Bitrix - Activity Fields"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{LAST_UPDATED:'DESC',ID:'DESC'},filter:{COMPLETED:'Y','>=LAST_UPDATED':$json.date_from||$json.today_from,'<=LAST_UPDATED':$json.date_to||$json.today_to,...($json.responsible_id?{RESPONSIBLE_ID:$json.responsible_id}:{})},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"DIRECTION\",\"AUTHOR_ID\",\"EDITOR_ID\",\"SETTINGS\",\"RESULT_STATUS\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31232,
+        16000
+      ],
+      "id": "d1a465a7-4c53-426e-bb3e-9e7438e72fa8",
+      "name": "Bitrix - Completion Audit"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input=$input.first().json; const req=$('Validate Request').first().json; const rows=Array.isArray(input.result)?input.result:[]; return [{json:{success:true,timestamp:new Date().toISOString(),action:req.action,audit:{basis:'crm.activity.list COMPLETED=Y + LAST_UPDATED',exact_button_click:false,note:'Bitrix activity REST kaydı Tamamlandı durumunu ve son güncelleme zamanını verir; LAST_UPDATED başka bir düzenleme ile de değişebilir. Bu nedenle geçmiş UI buton tıklamasının kesin audit timestampi olarak garanti edilmez.'},pagination:{start:req.start,limit:req.limit,returned:Math.min(rows.length,req.limit),total:input.total??rows.length,next:input.next??null},result:rows.slice(0,req.limit).map(x=>({...x,completion_observed_at:x.LAST_UPDATED||null,completion_status:x.COMPLETED}))}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -30736,
+        16000
+      ],
+      "id": "900c246d-2f39-42ae-a76b-9f57c95387de",
+      "name": "Format Completion Audit"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/batch.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ (() => { const cmd={}; const f=encodeURIComponent($json.date_from||$json.today_from); const t=encodeURIComponent($json.date_to||$json.today_to); cmd.users='user.get?ACTIVE=true'; for(let i=0;i<49;i++){ const s=i*50; cmd['a'+i]='crm.activity.list?order%5BCREATED%5D=ASC&filter%5B%3E%3DCREATED%5D='+f+'&filter%5B%3C%3DCREATED%5D='+t+'&select[0]=ID&select[1]=OWNER_ID&select[2]=OWNER_TYPE_ID&select[3]=TYPE_ID&select[4]=PROVIDER_ID&select[5]=PROVIDER_TYPE_ID&select[6]=SUBJECT&select[7]=CREATED&select[8]=LAST_UPDATED&select[9]=START_TIME&select[10]=END_TIME&select[11]=DEADLINE&select[12]=COMPLETED&select[13]=STATUS&select[14]=RESPONSIBLE_ID&select[15]=DIRECTION&select[16]=SETTINGS&select[17]=AUTHOR_ID&select[18]=EDITOR_ID&select[19]=ORIGIN_ID&select[20]=RESULT_STREAM&start='+s; } return JSON.stringify({halt:0,cmd}); })() }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31232,
+        16160
+      ],
+      "id": "ff292e6e-2890-437c-ac3d-65a55ffc95e8",
+      "name": "Bitrix - Daily Report Batch"
+    },
+    {
+      "parameters": {
+        "jsCode": "const entityRaw=$input.first().json;\nconst activityRaw=$('Bitrix - Daily Report Batch').first().json;\nconst req=$('Validate Request').first().json;\nconst root=activityRaw?.result??activityRaw??{}; const rr=root?.result??root??{};\nconst totalsMeta=root?.result_total??activityRaw?.result_total??{}; const errorsMeta=root?.result_error??activityRaw?.result_error??{};\nconst users=Array.isArray(rr.users)?rr.users:(Array.isArray(root.users)?root.users:[]);\nconst userMap={}; for(const u of users){const id=String(u.ID??''); if(id)userMap[id]=[u.NAME,u.LAST_NAME].filter(Boolean).join(' ').trim()||('User '+id);}\nlet acts=[]; const pageDebug=[];\nfor(let i=0;i<49;i++){const key='a'+i;let x=rr[key];if(x&&Array.isArray(x.result))x=x.result;if(!Array.isArray(x)&&Array.isArray(root[key]))x=root[key];pageDebug.push({page:i,start:i*50,count:Array.isArray(x)?x.length:0,total:totalsMeta?.[key]??null,error:errorsMeta?.[key]??null});if(Array.isArray(x))acts.push(...x);}\nconst seen=new Set(); acts=acts.filter(a=>{const k=String(a.ID??'');if(!k||seen.has(k))return false;seen.add(k);return true;});\nconst fromText=req.date_from||req.today_from,toText=req.date_to||req.today_to; const from=new Date(fromText),to=new Date(toText);\nacts=acts.filter(a=>{const t=new Date(a.CREATED||a.START_TIME||0);return !Number.isNaN(t.getTime())&&t>=from&&t<=to;});\nif(req.action==='get_user_daily_activity'&&req.responsible_id)acts=acts.filter(a=>String(a.RESPONSIBLE_ID)===String(req.responsible_id));\n\n// Resolve CRM owner IDs -> human names.\nconst eroot=entityRaw?.result??entityRaw??{}; const err=eroot?.result??eroot??{}; const ownerMap={};\nconst label=(t,x)=>{if(Number(t)===1)return [x.NAME,x.LAST_NAME].filter(Boolean).join(' ').trim()||x.TITLE||('Lead '+x.ID);if(Number(t)===2)return x.TITLE||('Deal '+x.ID);if(Number(t)===3)return [x.NAME,x.LAST_NAME].filter(Boolean).join(' ').trim()||('Contact '+x.ID);if(Number(t)===4)return x.TITLE||('Company '+x.ID);return 'CRM '+t+':'+x.ID;};\nfor(const [k,v0] of Object.entries(err)){if(!/^e[1-4]_/.test(k))continue;const t=Number(k[1]);let v=v0;if(v&&Array.isArray(v.result))v=v.result;if(!Array.isArray(v))continue;for(const x of v)ownerMap[t+':'+x.ID]={name:label(t,x),entity_type_id:t,id:String(x.ID),phone:Array.isArray(x.PHONE)?x.PHONE.map(p=>p.VALUE).filter(Boolean):[]};}\nconst ownerName=a=>ownerMap[String(a.OWNER_TYPE_ID)+':'+String(a.OWNER_ID)]?.name||a.SUBJECT||('CRM '+a.OWNER_TYPE_ID+':'+a.OWNER_ID);\nconst isMissed=a=>String(a?.SETTINGS?.MISSED_CALL??'').toLowerCase()==='true'||a?.SETTINGS?.MISSED_CALL===true;\nconst byUser={},customers={};\nfor(const a of acts){const uid=String(a.RESPONSIBLE_ID||'0');if(!byUser[uid])byUser[uid]={user_id:uid,user_name:userMap[uid]||('User '+uid),assigned_activities:0,authored_activities:0,calls:0,outgoing_calls:0,incoming_calls:0,missed_calls:0,completed_records:0,open_records:0,completion_rate:0,first_activity:null,last_activity:null,customers:[]};const u=byUser[uid];u.assigned_activities++;if(String(a.AUTHOR_ID)===uid)u.authored_activities++;const isCall=Number(a.TYPE_ID)===2;if(isCall){u.calls++;if(Number(a.DIRECTION)===2)u.outgoing_calls++;if(Number(a.DIRECTION)===1)u.incoming_calls++;if(isMissed(a))u.missed_calls++;}if(String(a.COMPLETED)==='Y')u.completed_records++;else u.open_records++;const tm=a.CREATED||a.START_TIME||null;if(tm&&(!u.first_activity||tm<u.first_activity))u.first_activity=tm;if(tm&&(!u.last_activity||tm>u.last_activity))u.last_activity=tm;const ok=String(a.OWNER_TYPE_ID||'')+':'+String(a.OWNER_ID||'');if(a.OWNER_ID&&!customers[ok])customers[ok]={owner_key:ok,owner_type_id:a.OWNER_TYPE_ID,owner_id:a.OWNER_ID,customer_name:ownerName(a),touches:0,calls:0,outgoing_calls:0,incoming_calls:0,last_activity:null,responsible_ids:[]};if(a.OWNER_ID){const c=customers[ok];c.touches++;if(isCall){c.calls++;if(Number(a.DIRECTION)===2)c.outgoing_calls++;if(Number(a.DIRECTION)===1)c.incoming_calls++;}if(tm&&(!c.last_activity||tm>c.last_activity))c.last_activity=tm;if(!c.responsible_ids.includes(uid))c.responsible_ids.push(uid);if(!u.customers.some(z=>z.owner_key===ok))u.customers.push({owner_key:ok,owner_type_id:a.OWNER_TYPE_ID,owner_id:a.OWNER_ID,customer_name:ownerName(a)});}}\nconst completed=acts.filter(a=>String(a.COMPLETED)==='Y'),open=acts.filter(a=>String(a.COMPLETED)!=='Y'),calls=acts.filter(a=>Number(a.TYPE_ID)===2),outgoing=calls.filter(a=>Number(a.DIRECTION)===2),incoming=calls.filter(a=>Number(a.DIRECTION)===1),missed=incoming.filter(isMissed);\nconst userRows=Object.values(byUser).map(u=>({...u,activities:u.assigned_activities,completion_rate:u.assigned_activities?Math.round(u.completed_records/u.assigned_activities*10000)/100:0})).sort((a,b)=>b.calls-a.calls||b.assigned_activities-a.assigned_activities);\nconst customerRows=Object.values(customers).sort((a,b)=>b.touches-a.touches);\nconst activityRow=a=>({activity_id:a.ID,time:a.START_TIME||a.CREATED,created:a.CREATED,last_updated:a.LAST_UPDATED,type_id:a.TYPE_ID,direction:Number(a.DIRECTION)===2?'outgoing':Number(a.DIRECTION)===1?'incoming':null,missed:isMissed(a),responsible_id:a.RESPONSIBLE_ID,responsible_name:userMap[String(a.RESPONSIBLE_ID)]||('User '+a.RESPONSIBLE_ID),author_id:a.AUTHOR_ID,author_name:userMap[String(a.AUTHOR_ID)]||('User '+a.AUTHOR_ID),owner_type_id:a.OWNER_TYPE_ID,owner_id:a.OWNER_ID,customer_name:ownerName(a),subject:a.SUBJECT,completed:a.COMPLETED});\nconst report={period:{from:fromText,to:toText,time_zone:'Europe/Istanbul'},totals:{activities:acts.length,calls:calls.length,outgoing_calls:outgoing.length,incoming_calls:incoming.length,missed_calls:missed.length,completed_records:completed.length,open_records:open.length,completion_rate:acts.length?Math.round(completed.length/acts.length*10000)/100:0,unique_responsible_users:userRows.length,unique_crm_owners:customerRows.length},users:userRows,customers:customerRows,recent_calls:[...calls].sort((a,b)=>String(b.CREATED||'').localeCompare(String(a.CREATED||''))).slice(0,200).map(activityRow),open_activities:[...open].sort((a,b)=>String(b.CREATED||'').localeCompare(String(a.CREATED||''))).slice(0,500).map(activityRow),completion_observations:[...completed].sort((a,b)=>String(b.LAST_UPDATED||'').localeCompare(String(a.LAST_UPDATED||''))).slice(0,500).map(a=>({...activityRow(a),completion_observed_at:a.LAST_UPDATED||null,manual_button_click_confirmed:false}))};\nconst top=userRows.slice(0,30).map(u=>`${u.user_name}: ${u.assigned_activities} etkinlik, ${u.completed_records} tamamlanmış, ${u.open_records} tamamlanmamış (%${u.completion_rate}); ${u.calls} arama (${u.outgoing_calls} giden / ${u.incoming_calls} gelen)`).join('\\n');\nconst summary=`${fromText.slice(0,10)} CRM özeti: ${acts.length} etkinlik; ${completed.length} tamamlanmış, ${open.length} tamamlanmamış; ${calls.length} arama.\\n${top}`;\nif(req.action==='ask_crm'){\n const tr=s=>String(s||'').toLocaleLowerCase('tr-TR').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').replace(/ı/g,'i').replace(/[^a-z0-9 ]/g,' ').replace(/\\s+/g,' ').trim();const q=tr(req.question),explicit=tr(req.user_name);let matched=null;const candidates=userRows.map(u=>({u,n:tr(u.user_name),parts:tr(u.user_name).split(' ').filter(x=>x.length>2)}));if(explicit)matched=candidates.find(x=>x.n===explicit||x.n.includes(explicit)||explicit.includes(x.n))?.u||null;if(!matched){let best=null,score=0;for(const x of candidates){let sc=0;if(q.includes(x.n))sc=100+x.n.length;else for(const p of x.parts)if(q.split(' ').includes(p))sc+=p.length;if(sc>score){score=sc;best=x.u;}}if(score>=4)matched=best;}\n let scope=acts;if(matched)scope=acts.filter(a=>String(a.RESPONSIBLE_ID)===String(matched.user_id));const scalls=scope.filter(a=>Number(a.TYPE_ID)===2),sout=scalls.filter(a=>Number(a.DIRECTION)===2),sin=scalls.filter(a=>Number(a.DIRECTION)===1),smissed=sin.filter(isMissed),scompleted=scope.filter(a=>String(a.COMPLETED)==='Y'),sopen=scope.filter(a=>String(a.COMPLETED)!=='Y');const callRows=[...scalls].sort((a,b)=>String(b.START_TIME||b.CREATED||'').localeCompare(String(a.START_TIME||a.CREATED||''))).slice(0,300).map(activityRow),openRows=[...sopen].sort((a,b)=>String(b.CREATED||'').localeCompare(String(a.CREATED||''))).slice(0,300).map(activityRow),completionRows=[...scompleted].sort((a,b)=>String(b.LAST_UPDATED||'').localeCompare(String(a.LAST_UPDATED||''))).slice(0,300).map(a=>({...activityRow(a),completion_observed_at:a.LAST_UPDATED||null,manual_button_click_confirmed:false}));const wantsCalls=/ara|arama|telefon|kimleri aradi|kimle gorustu/.test(q),wantsCompleted=/tamam|completed/.test(q),wantsOpen=/acik|bekleyen|tamamlanmamis|tamamlamamis/.test(q),wantsTeam=/tum satis|satisci|ekip|personel|kim ne yapti|performans/.test(q)&&!matched;const who=matched?matched.user_name:'Tüm ekip';const rate=scope.length?Math.round(scompleted.length/scope.length*10000)/100:0;let answer=`${who}: ${scope.length} etkinlik; ${scompleted.length} tamamlanmış, ${sopen.length} tamamlanmamış (%${rate}); ${scalls.length} arama (${sout.length} giden / ${sin.length} gelen), ${smissed.length} cevapsız.`;if(wantsCalls)answer+=' Aranan müşteriler calls alanında isimleriyle listelenmiştir.';if(wantsOpen)answer+=' Tamamlanmayan etkinlikler open_activities alanındadır.';if(wantsCompleted)answer+=' completions alanındaki kayıtlar COMPLETED=Y gözlemidir; kesin kullanıcı buton tıklaması exact audit log ile ayrıca doğrulanır.';\n return [{json:{success:true,timestamp:new Date().toISOString(),action:'ask_crm',question:req.question,period:report.period,matched_user:matched?{id:matched.user_id,name:matched.user_name}:null,answer,totals:{activities:scope.length,calls:scalls.length,outgoing_calls:sout.length,incoming_calls:sin.length,missed_calls:smissed.length,completed_records:scompleted.length,open_records:sopen.length,completion_rate:rate},calls:wantsCalls?callRows:callRows.slice(0,30),open_activities:wantsOpen?openRows:openRows.slice(0,30),completions:wantsCompleted?completionRows:completionRows.slice(0,30),team:wantsTeam?userRows:undefined,full_name_candidates:!matched?userRows.map(u=>({id:u.user_id,name:u.user_name})):undefined,audit_note:'COMPLETED=Y durum metriğidir. setup_activity_audit sonrasında yakalanan Y geçişleri get_exact_completion_audit ile ayrıca doğrulanır.'}}];\n}\nreturn [{json:{success:true,timestamp:new Date().toISOString(),action:req.action,summary,report,diagnostics:{api_total_activities:Number(totalsMeta?.a0??seen.size),truncated:Number(totalsMeta?.a0??0)>49*50,batch_pages:pageDebug,raw_activity_count_before_date_filter:seen.size,users_loaded:users.length,resolved_owners:Object.keys(ownerMap).length},audit_note:'Etkinlik tamamlanma durumu COMPLETED alanından; kesin ileriye dönük completion geçişleri ayrı event audit webhookundan izlenir.'}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -30464,
+        16112
+      ],
+      "id": "cf7a554f-e8ae-4871-9215-1a3e0341b788",
+      "name": "Build Daily CRM Report"
+    },
+    {
+      "parameters": {
+        "content": "## XRE Bitrix24 Management Intelligence v5\n\nYeni: `ask_crm` doğal dil sorgusu. Personel adı (Merve, Tuğba, Zeliha, Arda vb.) Bitrix aktif kullanıcı listesinden otomatik eşleştirilir.\n\nÖrnek: `{\"action\":\"ask_crm\",\"question\":\"Merve bugün kimleri aradı?\"}`\n\nDestek: bugün, dün, son N gün; arama/gelen-giden/cevapsız, tamamlanmış/açık aktiviteler, ekip özeti.\n\nNot: `COMPLETED=Y` geçmiş UI buton tıklamasını tek başına kanıtlamaz. Kesin buton audit'i ileriye dönük event log gerektirir.",
+        "height": 320,
+        "width": 520
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -27488,
+        12048
+      ],
+      "id": "3097402c-51a3-4361-a38b-f78efa29505d",
+      "name": "V5 Notes"
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw=$input.first().json;\nconst root=raw?.result??raw??{}; const rr=root?.result??root??{};\nconst ids={1:new Set(),2:new Set(),3:new Set(),4:new Set()};\nfor(let i=0;i<49;i++){\n let x=rr['a'+i]; if(x&&Array.isArray(x.result))x=x.result; if(!Array.isArray(x)&&Array.isArray(root['a'+i]))x=root['a'+i];\n if(!Array.isArray(x))continue;\n for(const a of x){const t=Number(a.OWNER_TYPE_ID), id=String(a.OWNER_ID||''); if(ids[t]&&id&&id!=='0')ids[t].add(id);}\n}\nconst cmd={}; const methods={1:'crm.lead.list',2:'crm.deal.list',3:'crm.contact.list',4:'crm.company.list'};\nconst selects={1:['ID','TITLE','NAME','LAST_NAME','PHONE'],2:['ID','TITLE','CONTACT_ID','COMPANY_ID'],3:['ID','NAME','LAST_NAME','PHONE'],4:['ID','TITLE','PHONE']};\nfor(const t of [1,2,3,4]){\n const all=[...ids[t]];\n for(let p=0;p<all.length;p+=50){\n  const chunk=all.slice(p,p+50); const params=[];\n  chunk.forEach(id=>params.push('filter%5BID%5D%5B%5D='+encodeURIComponent(id)));\n  selects[t].forEach((s,j)=>params.push('select%5B'+j+'%5D='+encodeURIComponent(s)));\n  params.push('start=0'); cmd['e'+t+'_'+(p/50)]=methods[t]+'?'+params.join('&');\n }\n}\n// Bitrix batch en fazla 50 komut kabul eder.\nconst keys=Object.keys(cmd); for(const k of keys.slice(50)) delete cmd[k];\nreturn [{json:{cmd,resolver_commands_dropped:Math.max(0,keys.length-50),owner_counts:Object.fromEntries(Object.entries(ids).map(([k,v])=>[k,v.size]))}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -30976,
+        16112
+      ],
+      "id": "a5bc4f52-447a-4afe-a3a3-aa99d4e06587",
+      "name": "Prepare Customer Resolver Batch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/batch.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({halt:0,cmd:$json.cmd}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -30720,
+        16112
+      ],
+      "id": "6871a697-f6ac-4d1e-b04f-2846baea9d58",
+      "name": "Bitrix - Resolve CRM Owners"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "xre-bitrix-activity-audit",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -33136,
+        16592
+      ],
+      "id": "0eb826dd-92f9-4576-8eb0-9691e4f72bf9",
+      "name": "Bitrix Activity Audit Webhook",
+      "webhookId": "c23c4adf-6b8d-449b-9f59-0cf2086fbbc2"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// ============================================================\n// XRE BITRIX24 - ACTIVITY AUDIT EVENT NORMALIZER\n// Events:\n// ONCRMACTIVITYADD\n// ONCRMACTIVITYUPDATE\n// ONCRMACTIVITYDELETE\n// ============================================================\n\n// n8n Webhook node çıktısı\nconst body = input.body ?? input;\nconst query = input.query ?? {};\nconst headers = input.headers ?? {};\n\n// ------------------------------------------------------------\n// 1. EVENT\n// ------------------------------------------------------------\n\nconst event = String(\n  body.event ??\n  body.EVENT ??\n  ''\n)\n  .toUpperCase()\n  .trim();\n\nif (!event) {\n  throw new Error('BITRIX_EVENT_MISSING');\n}\n\n// Sadece CRM Activity eventlerini kabul et\nconst allowedEvents = [\n  'ONCRMACTIVITYADD',\n  'ONCRMACTIVITYUPDATE',\n  'ONCRMACTIVITYDELETE',\n];\n\nif (!allowedEvents.includes(event)) {\n  throw new Error(`UNSUPPORTED_BITRIX_EVENT: ${event}`);\n}\n\n// ------------------------------------------------------------\n// 2. ACTIVITY ID\n// ------------------------------------------------------------\n\n// Bitrix outgoing webhook bazı kurulumlarda:\n// data[FIELDS][ID] = 123\n//\n// bazı yapılarda:\n// data: {\n//   FIELDS: {\n//     ID: 123\n//   }\n// }\n//\n// şeklinde gelebilir.\n\nconst activityIdRaw =\n  body['data[FIELDS][ID]'] ??\n  body?.data?.FIELDS?.ID ??\n  body?.data?.fields?.ID ??\n  body?.data?.fields?.id ??\n  body?.data?.ID ??\n  body?.data?.id ??\n  body?.FIELDS?.ID ??\n  body?.FIELDS?.id ??\n  null;\n\nconst activityId = String(activityIdRaw ?? '').trim();\n\nif (!activityId) {\n  throw new Error(\n    `ACTIVITY_ID_MISSING | event=${event}`\n  );\n}\n\n// ID sadece sayı olmalı\nif (!/^\\d+$/.test(activityId)) {\n  throw new Error(\n    `INVALID_ACTIVITY_ID: ${activityId}`\n  );\n}\n\n// ------------------------------------------------------------\n// 3. EVENT TYPE\n// ------------------------------------------------------------\n\nlet eventType = 'unknown';\n\nswitch (event) {\n  case 'ONCRMACTIVITYADD':\n    eventType = 'created';\n    break;\n\n  case 'ONCRMACTIVITYUPDATE':\n    eventType = 'updated';\n    break;\n\n  case 'ONCRMACTIVITYDELETE':\n    eventType = 'deleted';\n    break;\n}\n\n// ------------------------------------------------------------\n// 4. BITRIX AUTH / PORTAL INFORMATION\n// ------------------------------------------------------------\n\nconst domain =\n  body['auth[domain]'] ??\n  body?.auth?.domain ??\n  null;\n\nconst memberId =\n  body['auth[member_id]'] ??\n  body?.auth?.member_id ??\n  null;\n\nconst clientEndpoint =\n  body['auth[client_endpoint]'] ??\n  body?.auth?.client_endpoint ??\n  null;\n\nconst serverEndpoint =\n  body['auth[server_endpoint]'] ??\n  body?.auth?.server_endpoint ??\n  null;\n\nconst applicationToken =\n  body['auth[application_token]'] ??\n  body?.auth?.application_token ??\n  null;\n\n// ------------------------------------------------------------\n// 5. EVENT HANDLER ID\n// ------------------------------------------------------------\n\nconst eventHandlerId =\n  body.event_handler_id ??\n  body.EVENT_HANDLER_ID ??\n  null;\n\n// ------------------------------------------------------------\n// 6. BITRIX TIMESTAMP\n// ------------------------------------------------------------\n\nconst bitrixTimestampRaw =\n  body.ts ??\n  body.TS ??\n  null;\n\nlet bitrixTimestamp = null;\n\nif (bitrixTimestampRaw !== null) {\n  const timestampNumber = Number(bitrixTimestampRaw);\n\n  if (Number.isFinite(timestampNumber)) {\n    // Bitrix ts saniye cinsindeyse milisaniyeye çevir\n    const milliseconds =\n      timestampNumber < 1000000000000\n        ? timestampNumber * 1000\n        : timestampNumber;\n\n    const parsedDate = new Date(milliseconds);\n\n    if (!Number.isNaN(parsedDate.getTime())) {\n      bitrixTimestamp = parsedDate.toISOString();\n    }\n  }\n}\n\n// ------------------------------------------------------------\n// 7. RECEIVED AT\n// ------------------------------------------------------------\n\nconst receivedAt = new Date().toISOString();\n\n// ------------------------------------------------------------\n// 8. EVENT KEY\n//\n// Aynı Bitrix webhook'unu takip edebilmek için deterministik\n// bir anahtar. Database tarafındaki unique/dedup işlemlerinde\n// kullanılabilir.\n// ------------------------------------------------------------\n\nconst eventKey = [\n  event,\n  activityId,\n  String(bitrixTimestampRaw ?? ''),\n  String(eventHandlerId ?? ''),\n].join(':');\n\n// ------------------------------------------------------------\n// 9. DELETE EVENT KONTROLÜ\n//\n// DELETE durumunda crm.activity.get artık aktiviteyi\n// bulamayabilir. Sonraki node bunu dikkate almalı.\n// ------------------------------------------------------------\n\nconst isDeleted =\n  event === 'ONCRMACTIVITYDELETE';\n\n// ------------------------------------------------------------\n// 10. OUTPUT\n// ------------------------------------------------------------\n\nreturn [\n  {\n    json: {\n      success: true,\n\n      source: 'bitrix_outgoing_webhook',\n\n      event: event,\n      event_type: eventType,\n\n      activity_id: activityId,\n\n      is_deleted: isDeleted,\n\n      event_handler_id:\n        eventHandlerId !== null\n          ? String(eventHandlerId)\n          : null,\n\n      bitrix_timestamp: bitrixTimestamp,\n\n      received_at: receivedAt,\n\n      event_key: eventKey,\n\n      bitrix: {\n        domain:\n          domain !== null\n            ? String(domain)\n            : null,\n\n        member_id:\n          memberId !== null\n            ? String(memberId)\n            : null,\n\n        client_endpoint:\n          clientEndpoint !== null\n            ? String(clientEndpoint)\n            : null,\n\n        server_endpoint:\n          serverEndpoint !== null\n            ? String(serverEndpoint)\n            : null,\n\n        application_token:\n          applicationToken !== null\n            ? String(applicationToken)\n            : null,\n      },\n\n      request: {\n        host:\n          headers.host ??\n          null,\n\n        user_agent:\n          headers['user-agent'] ??\n          null,\n\n        content_type:\n          headers['content-type'] ??\n          null,\n      },\n\n      // Debug/audit için orijinal Bitrix payload\n      raw_event: body,\n    },\n  },\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32912,
+        16592
+      ],
+      "id": "a5a4516a-28c3-432f-856e-dedaa1fd7f3d",
+      "name": "Normalize Activity Audit Event"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.get.json",
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $json.activity_id }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -32672,
+        16592
+      ],
+      "id": "f44a2758-441f-4ce1-b2b2-12fcb9c53a9b",
+      "name": "Bitrix - Audit Get Activity"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst activity = response?.result ?? response;\nconst evt = $('Normalize Activity Audit Event').first().json;\n\nconst id = String(activity?.ID || evt.activity_id || '').trim();\nif (!id) throw new Error('ACTIVITY_ID_MISSING');\n\nconst completedRaw = String(activity?.COMPLETED ?? '').toUpperCase().trim();\nconst completed = completedRaw === 'Y' ? 'Y' : completedRaw === 'N' ? 'N' : '';\n\nconst receivedAt = evt.received_at || new Date().toISOString();\nconst bitrixUpdatedAt =\n  activity?.LAST_UPDATED ||\n  activity?.LAST_UPDATED_DATE ||\n  activity?.DATE_MODIFY ||\n  null;\n\n// Aynı Bitrix update'in tekrar gelmesi halinde duplicate kayıt oluşmasını önler.\nconst eventKey = [\n  id,\n  evt.event,\n  bitrixUpdatedAt || receivedAt\n].join(':');\n\nreturn [{\n  json: {\n    success: true,\n    event_key: eventKey,\n    event: evt.event,\n    event_type: evt.event_type,\n    activity_id: id,\n    received_at: receivedAt,\n    bitrix_last_updated: bitrixUpdatedAt,\n    completed,\n\n    responsible_id: String(activity?.RESPONSIBLE_ID ?? ''),\n    author_id: String(activity?.AUTHOR_ID ?? ''),\n    editor_id: String(activity?.EDITOR_ID ?? ''),\n    owner_type_id: String(activity?.OWNER_TYPE_ID ?? ''),\n    owner_id: String(activity?.OWNER_ID ?? ''),\n\n    subject: activity?.SUBJECT ?? '',\n    provider_id: activity?.PROVIDER_ID ?? '',\n    provider_type_id: activity?.PROVIDER_TYPE_ID ?? '',\n    direction: String(activity?.DIRECTION ?? ''),\n\n    activity\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32432,
+        16592
+      ],
+      "id": "ffe7a85d-4c70-452a-8850-4cb5f8507f13",
+      "name": "Prepare Activity Audit DB"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/batch.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={ JSON.stringify({halt:0,cmd:{add:\"event.bind?event=ONCRMACTIVITYADD&handler=https%3A%2F%2Fxre111.shop%2Fwebhook%2Fxre-bitrix-activity-audit%3Fkey%3D<ASSISTANT_API_KEY>\",update:\"event.bind?event=ONCRMACTIVITYUPDATE&handler=https%3A%2F%2Fxre111.shop%2Fwebhook%2Fxre-bitrix-activity-audit%3Fkey%3D<ASSISTANT_API_KEY>\"}}) }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31232,
+        16496
+      ],
+      "id": "f11796fc-2682-46d7-9021-9b533e566d0d",
+      "name": "Bitrix - Setup Audit Events"
+    },
+    {
+      "parameters": {
+        "jsCode": "const x=$input.first().json; return [{json:{success:true,action:'setup_activity_audit',message:'Bitrix activity ADD/UPDATE event binding isteği gönderildi.',bitrix_response:x,audit_endpoint:'https://xre111.shop/webhook/xre-bitrix-activity-audit',note:'Bu noktadan sonraki activity durum geçişleri izlenir. Geçmiş UI tıklamaları geriye dönük kesinleştirilemez.'}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -30976,
+        16496
+      ],
+      "id": "76b7a577-b0bf-4a01-84ee-2c8afc9bd503",
+      "name": "Format Audit Setup"
+    },
+    {
+      "parameters": {
+        "jsCode": "const req=$('Validate Request').first().json;const s=$getWorkflowStaticData('global');let rows=Array.isArray(s.completion_audit)?[...s.completion_audit]:[];const from=new Date(req.date_from||req.today_from),to=new Date(req.date_to||req.today_to);rows=rows.filter(x=>{const d=new Date(x.completed_at||x.event_received_at);return !Number.isNaN(d.getTime())&&d>=from&&d<=to;});if(req.responsible_id)rows=rows.filter(x=>String(x.responsible_id)===String(req.responsible_id));rows.sort((a,b)=>String(b.completed_at).localeCompare(String(a.completed_at)));return [{json:{success:true,action:'get_exact_completion_audit',period:{from:req.date_from||req.today_from,to:req.date_to||req.today_to,time_zone:'Europe/Istanbul'},count:rows.length,result:rows,note:'count yalnızca audit kurulumu sonrasında gözlenen COMPLETED N→Y geçişleridir.'}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -31424,
+        16832
+      ],
+      "id": "ee183719-6d19-4170-bc56-33450cb5c7fc",
+      "name": "Legacy Exact Audit (disabled)"
+    },
+    {
+      "parameters": {
+        "content": "## V7 FIXED\n- Audit webhook artık Immediately/On Received yanıt verir.\n- Kopuk zincir düzeltildi: Webhook → Normalize → crm.activity.get → Prepare → PostgreSQL.\n- Audit webhook shared-secret kontrolü yapar.\n- PostgreSQL xre_activity_events tablosunu otomatik oluşturur.\n- Exact completion audit yalnızca gözlenen COMPLETED N→Y geçişlerini döndürür.\n- ask_crm ve mevcut CRM sorguları korunmuştur.\n\nÖnemli: Exact audit yalnızca audit sistemi aktif olduktan sonra yakalanan geçişleri kesin olarak gösterebilir.",
+        "height": 360,
+        "width": 620
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -27520,
+        12464
+      ],
+      "id": "c1ff8b3a-d5e0-4cef-ba2b-110b8d506a83",
+      "name": "V6 Final Notes"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/event.get.json",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31232,
+        16336
+      ],
+      "id": "4384c785-1b8b-424f-9199-f8665bb56589",
+      "name": "Bitrix - Activity Audit Bindings"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE IF NOT EXISTS xre_activity_events (\n  event_key text PRIMARY KEY,\n  activity_id bigint NOT NULL,\n  event text NOT NULL,\n  event_type text,\n  completed text,\n  responsible_id bigint,\n  author_id bigint,\n  editor_id bigint,\n  owner_type_id bigint,\n  owner_id bigint,\n  subject text,\n  provider_id text,\n  provider_type_id text,\n  direction text,\n  bitrix_last_updated timestamptz,\n  received_at timestamptz NOT NULL,\n  payload jsonb NOT NULL,\n  created_at timestamptz NOT NULL DEFAULT now()\n);\n\nALTER TABLE xre_activity_events\n  ADD COLUMN IF NOT EXISTS event_type text;\n\nCREATE INDEX IF NOT EXISTS idx_xre_activity_events_activity\n  ON xre_activity_events(activity_id, received_at);\n\nCREATE INDEX IF NOT EXISTS idx_xre_activity_events_received\n  ON xre_activity_events(received_at);\n\nCREATE INDEX IF NOT EXISTS idx_xre_activity_events_resp\n  ON xre_activity_events(responsible_id, received_at);\n\nINSERT INTO xre_activity_events(\n  event_key,\n  activity_id,\n  event,\n  event_type,\n  completed,\n  responsible_id,\n  author_id,\n  editor_id,\n  owner_type_id,\n  owner_id,\n  subject,\n  provider_id,\n  provider_type_id,\n  direction,\n  bitrix_last_updated,\n  received_at,\n  payload\n)\nVALUES (\n  $1,\n  $2::bigint,\n  $3,\n  $4,\n  $5,\n  NULLIF($6,'')::bigint,\n  NULLIF($7,'')::bigint,\n  NULLIF($8,'')::bigint,\n  NULLIF($9,'')::bigint,\n  NULLIF($10,'')::bigint,\n  $11,\n  $12,\n  $13,\n  $14,\n  NULLIF($15,'')::timestamptz,\n  $16::timestamptz,\n  $17::jsonb\n)\nON CONFLICT (event_key) DO UPDATE SET\n  event_type = EXCLUDED.event_type,\n  completed = EXCLUDED.completed,\n  responsible_id = EXCLUDED.responsible_id,\n  editor_id = EXCLUDED.editor_id,\n  payload = EXCLUDED.payload\nRETURNING\n  activity_id,\n  event,\n  event_type,\n  completed,\n  responsible_id,\n  editor_id,\n  received_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.event_key,\n  $json.activity_id,\n  $json.event,\n  $json.event_type,\n  $json.completed,\n  $json.responsible_id,\n  $json.author_id,\n  $json.editor_id,\n  $json.owner_type_id,\n  $json.owner_id,\n  $json.subject,\n  $json.provider_id,\n  $json.provider_type_id,\n  $json.direction,\n  $json.bitrix_last_updated || '',\n  $json.received_at,\n  JSON.stringify($json)\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -32192,
+        16352
+      ],
+      "id": "394add4c-913a-4802-88aa-24bca97a48ee",
+      "name": "Postgres - Persist Activity Audit",
+      "credentials": {
+        "postgres": {
+          "id": "992wUNN1dvBPAQr4",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH ordered AS (\n  SELECT\n    e.*,\n    LAG(e.completed) OVER (\n      PARTITION BY e.activity_id\n      ORDER BY e.received_at, e.created_at, e.event_key\n    ) AS previous_completed\n  FROM xre_activity_events e\n),\ntransitions AS (\n  SELECT *\n  FROM ordered\n  WHERE event = 'ONCRMACTIVITYUPDATE'\n    AND completed = 'Y'\n    AND previous_completed = 'N'\n)\nSELECT\n  activity_id,\n  event,\n  event_type,\n  previous_completed,\n  completed AS current_completed,\n  responsible_id,\n  author_id,\n  editor_id,\n  owner_type_id,\n  owner_id,\n  subject,\n  provider_id,\n  provider_type_id,\n  direction,\n  bitrix_last_updated,\n  received_at,\n  payload\nFROM transitions\nWHERE received_at >= $1::timestamptz\n  AND received_at <= $2::timestamptz\n  AND ($3 = '' OR responsible_id = $3::bigint)\nORDER BY received_at DESC\nLIMIT 1000;",
+        "options": {
+          "queryReplacement": "={{ [ $json.date_from || $json.today_from, $json.date_to || $json.today_to, $json.responsible_id ? String($json.responsible_id) : '' ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -31232,
+        16688
+      ],
+      "id": "d932c008-4ff6-4cdd-a2b2-89a34faddedc",
+      "name": "Postgres - Exact Completion Audit",
+      "credentials": {
+        "postgres": {
+          "id": "992wUNN1dvBPAQr4",
+          "name": "Postgres account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const req = $('Validate Request').first().json;\nconst rows = $input.all().map(x => x.json);\n\nreturn [{\n  json: {\n    success: true,\n    action: 'get_exact_completion_audit',\n    period: {\n      from: req.date_from || req.today_from,\n      to: req.date_to || req.today_to,\n      time_zone: 'Europe/Istanbul'\n    },\n    count: rows.length,\n    result: rows,\n    note: 'PostgreSQL exact audit: yalnızca gözlenen COMPLETED N→Y geçişleri listelenir.'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -30976,
+        16688
+      ],
+      "id": "bdbba88d-84ad-4527-8bc5-6fbb7332769e",
+      "name": "Format DB Exact Audit"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify({order:{CREATED:'DESC',ID:'DESC'},filter:{RESPONSIBLE_ID:$json.responsible_id,...($json.date_from?{'>=CREATED':$json.date_from}:{}),...($json.date_to?{'<=CREATED':$json.date_to}:{})},select:[\"ID\",\"OWNER_ID\",\"OWNER_TYPE_ID\",\"TYPE_ID\",\"PROVIDER_ID\",\"PROVIDER_TYPE_ID\",\"PROVIDER_GROUP_ID\",\"ASSOCIATED_ENTITY_ID\",\"SUBJECT\",\"CREATED\",\"LAST_UPDATED\",\"START_TIME\",\"END_TIME\",\"DEADLINE\",\"COMPLETED\",\"STATUS\",\"RESPONSIBLE_ID\",\"PRIORITY\",\"NOTIFY_TYPE\",\"NOTIFY_VALUE\",\"DESCRIPTION\",\"DESCRIPTION_TYPE\",\"DIRECTION\",\"LOCATION\",\"SETTINGS\",\"ORIGINATOR_ID\",\"ORIGIN_ID\",\"AUTHOR_ID\",\"EDITOR_ID\",\"PROVIDER_PARAMS\",\"PROVIDER_DATA\",\"RESULT_MARK\",\"RESULT_VALUE\",\"RESULT_SUM\",\"RESULT_CURRENCY_ID\",\"RESULT_STATUS\",\"RESULT_STREAM\",\"RESULT_SOURCE_ID\",\"AUTOCOMPLETE_RULE\"],start:$json.start||0}) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -31248,
+        15200
+      ],
+      "id": "f5df9a2f-447d-49f8-9a3e-1801676b5210",
+      "name": "Bitrix - Activities By User"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "XRE Assistant Webhook": {
+      "main": [
+        [
+          {
+            "node": "API Key Check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Request": {
+      "main": [
+        [
+          {
+            "node": "Action Router2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Router": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Users",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Deals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Pipeline Stages",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Deals By Stage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Deals By User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Search Deals",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Change Assignee",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Change Stage",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Update Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Users Router",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Bitrix - Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Users": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Deals": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Deal": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Leads": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Contacts": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Pipeline Stages": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Deals By Stage": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Deals By User": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Search Deals": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Change Assignee": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Change Stage": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Update Deal": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Return JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "API Key Check": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Validate Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "401 Unauthorized",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action Router2": {
+      "main": [
+        [
+          {
+            "node": "Users Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Action Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Leads Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Contacts Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Companies Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "CRM Structure Router",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Activities Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Users Router": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Get User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Search Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Get User": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Search Users": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leads Router": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Get Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Search Leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Leads By User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Contacts Router": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Get Contact",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Search Contacts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Companies Router": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Companies",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Get Company",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Search Companies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM Structure Router": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Pipelines",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Pipeline Stages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Activities Router": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Activities",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Get Activity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Search Activities",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Activities Created Today",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Activities Today",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Activities By User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Activities By Owner",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Activities By Deal",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Completed Activities Today",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Calls Today",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Calls By User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Open Activities By User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Overdue Activities",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Activity Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Completion Audit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Daily Report Batch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Daily Report Batch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Daily Report Batch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Daily Report Batch",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Setup Audit Events",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Postgres - Exact Completion Audit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Activity Audit Bindings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Get Lead": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Search Leads": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Leads By User": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Get Contact": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Search Contacts": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Companies": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Get Company": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Search Companies": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Pipelines": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Activities": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Get Activity": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Search Activities": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Activities Created Today": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Activities Today": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Activities By Owner": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Activities By Deal": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Completed Activities Today": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Calls Today": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Calls By User": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Open Activities By User": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Overdue Activities": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Activity Fields": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Completion Audit": {
+      "main": [
+        [
+          {
+            "node": "Format Completion Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Completion Audit": {
+      "main": [
+        [
+          {
+            "node": "Return JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Daily Report Batch": {
+      "main": [
+        [
+          {
+            "node": "Prepare Customer Resolver Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Daily CRM Report": {
+      "main": [
+        [
+          {
+            "node": "Return JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Customer Resolver Batch": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Resolve CRM Owners",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Resolve CRM Owners": {
+      "main": [
+        [
+          {
+            "node": "Build Daily CRM Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Activity Audit Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Activity Audit Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Activity Audit Event": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Audit Get Activity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Setup Audit Events": {
+      "main": [
+        [
+          {
+            "node": "Format Audit Setup",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Audit Setup": {
+      "main": [
+        [
+          {
+            "node": "Return JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Activity Audit Bindings": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Activity Audit DB": {
+      "main": [
+        [
+          {
+            "node": "Postgres - Persist Activity Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres - Exact Completion Audit": {
+      "main": [
+        [
+          {
+            "node": "Format DB Exact Audit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format DB Exact Audit": {
+      "main": [
+        [
+          {
+            "node": "Return JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Audit Get Activity": {
+      "main": [
+        [
+          {
+            "node": "Prepare Activity Audit DB",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Activities By User": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Istanbul",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "75c33836-9360-4b5d-971d-eb7a5d3bfdc4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  },
+  "id": "gWKseHEZL96T26iC",
+  "tags": []
+}

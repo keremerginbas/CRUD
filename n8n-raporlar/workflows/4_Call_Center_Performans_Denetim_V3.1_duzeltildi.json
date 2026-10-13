@@ -1,0 +1,1837 @@
+{
+  "name": "XRE | Call Center – Satışçı Performans ve Denetim V3.116.09.2026 (düzeltilmiş: API aramaları + sütun sıralı okuma) — düzeltildi 13.10.2026",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * 6"
+            }
+          ]
+        }
+      },
+      "name": "Her Cumartesi 09:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        6480,
+        3472
+      ],
+      "id": "bc4cc5b7-414e-4cc1-841a-9f749c18ac78"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Güncel personel listesi (13.10.2026, 18 kişi).\n// Bu blok akış oluşturulurken ilgili Code düğümlerine gömülür; harici dosya gerekmez.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\nfunction normalizePersonName(value) {\n  return String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/\\s+/g, ' ');\n}\nfunction normalizePersonId(value) {\n  if (value === null || value === undefined) return '';\n  const raw = String(value).trim();\n  const match = /^(?:(?:user|USER)_|Bitrix kullanıcı #)?([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  return match ? match[1] : '';\n}\nfunction resolvePerson(idValue, nameValue) {\n  let id = normalizePersonId(idValue);\n  const supplied = typeof nameValue === 'object' && nameValue !== null ? (nameValue.isim || nameValue.name || '') : nameValue;\n  const name = ['string', 'number'].includes(typeof supplied) ? String(supplied).trim() : '';\n  if (!id) id = normalizePersonId(name);\n  if (id && Object.prototype.hasOwnProperty.call(PERSONELLER, id)) {\n    return { id, ...PERSONELLER[id], listed: true, status: 'Personel listesi' };\n  }\n  if (!id && name) {\n    const match = Object.entries(PERSONELLER).find(([,p]) => normalizePersonName(p.isim) === normalizePersonName(name));\n    if (match) return { id: match[0], ...match[1], listed: true, status: 'Ad üzerinden personel listesi' };\n  }\n  const normalized = normalizePersonName(name);\n  const invalidName = !name || /bilinm|sistem hata|baglan|atanmamis|kullanici #|personel listesinde|id eksik|object object|^[-?]+$/.test(normalized) || Boolean(normalizePersonId(name));\n  return {\n    id,\n    isim: id ? (invalidName ? 'Personel listesinde yok (ID ' + id + ')' : name) : 'Sorumlu ID eksik',\n    birim: 'Personel listesinde yok', listed: false,\n    status: id ? 'Personel listesinde yok' : 'Sorumlu ID eksik'\n  };\n}\n\nconst CALL_RESULTS = {\n  '200':'Başarılı','304':'Cevapsız','603':'Reddedildi','603-S':'İptal edildi',\n  '404':'Geçersiz numara','486':'Meşgul','484':'Arama yönü kullanılamıyor','403':'Arama izni yok',\n  '480':'Geçici olarak ulaşılamıyor','503':'Arama yönü kullanılamıyor','402':'Yetersiz bakiye','423':'Engellendi','OTHER':'Tanımlanmamış sonuç'\n};\nconst CALL_DIRECTIONS = {'1':'Giden','2':'Gelen','3':'Yönlendirmeli gelen','4':'Geri arama','5':'Bilgilendirme araması'};\nfunction callResult(code) { return CALL_RESULTS[String(code)] || (code ? 'Diğer sonuç (' + code + ')' : 'Sonuç kodu eksik'); }\nfunction isCallRow(row) {\n  const norm = v => String(v || '').trim().toLocaleUpperCase('tr-TR');\n  return norm(row['Olay']) === 'ONVOXIMPLANTCALLEND' || norm(row['Olay Türü']) === 'ARAMA' ||\n    norm(row['Kayıt Türü']) === 'ARAMA' || ['GERCEK_ARAMA','GERÇEK_ARAMA'].includes(norm(row.Kaynak));\n}\nfunction secondsValue(value) {\n  const raw = String(value ?? '').trim();\n  return /^\\d+(?:\\.\\d+)?$/.test(raw) && Number.isFinite(Number(raw)) ? Number(raw) : null;\n}\nfunction legacyCallResult(value) {\n  const label = String(value || '').trim().toLocaleUpperCase('tr-TR');\n  const known = {'BAŞARILI':'200','BASARILI':'200','CEVAPSIZ':'304','REDDEDİLDİ':'603','REDDEDILDI':'603',\n    'İPTAL EDİLDİ':'603-S','IPTAL EDILDI':'603-S','MEŞGUL':'486','MESGUL':'486'};\n  return known[label] || '';\n}\n\n// weekly: replaced by the workflow builder; daily or weekly.\nconst period = 'weekly';\nconst zone = 'Europe/Istanbul';\nconst now = $now.setZone(zone);\nlet end;\nif (period === 'daily') {\n  end = now.startOf('day').set({ hour: 20 });\n  if (end > now) end = end.minus({ days: 1 });\n} else {\n  end = now.startOf('day').minus({ days: (now.weekday - 6 + 7) % 7 }).set({ hour: 9 });\n  if (end > now) end = end.minus({ days: 7 });\n}\nconst start = end.minus({ days: period === 'daily' ? 1 : 7 });\nconst periodText = start.toFormat('dd.MM.yyyy HH:mm') + ' – ' + end.toFormat('dd.MM.yyyy HH:mm');\nfunction parseDate(value) {\n  if (value === undefined || value === null || value === '') return null;\n  if (typeof value === 'number' || /^\\d{5}(?:\\.\\d+)?$/.test(String(value))) {\n    const serial = Number(value);\n    if (serial > 20000 && serial < 100000) return DateTime.fromObject({year:1899,month:12,day:30}, {zone:'UTC'}).plus({milliseconds:Math.round(serial * 86400000)}).setZone(zone, {keepLocalTime:true});\n    return null;\n  }\n  const s = String(value).trim();\n  for (const format of ['dd.MM.yyyy HH:mm:ss', 'dd.MM.yyyy HH:mm', 'dd.MM.yyyy', 'd.M.yyyy H:m:s', 'd.M.yyyy H:m', 'd.M.yyyy', 'yyyy-MM-dd HH:mm:ss']) {\n    const dt = DateTime.fromFormat(s, format, {zone});\n    if (dt.isValid) return dt;\n  }\n  const iso = DateTime.fromISO(s, {zone});\n  return iso.isValid ? iso.setZone(zone) : null;\n}\n// --- Sheet satırları: başlık adına göre DEĞİL, yazılan sütun sırasına (A:AB) göre okunur. ---\n// Webhook kolu values.append ile her satırı SHEET_COLUMNS sırasıyla yazar. Eski okuma başlık\n// satırına güvendiği için başlıkta olmayan \"Arama ID\"/\"CRM ID\" sütunları boş geliyor, tüm\n// aramalar \"ID'siz eski satır\" sayılıyor ve tekil CRM 0 çıkıyordu.\nconst SHEET_COLUMNS = ['Tarih','Müşteri Adı','Yeni Aşama','Kaynak','Sorumlu Kişi','Sorumlu ID','Birim','Görev',\n  'Önceki Aşama','CRM ID','Kayıt Türü','CRM Başlığı','İşlemi Yapan ID','İşlemi Yapan','Aşama Bilgisi','Kayıt Zamanı',\n  'Olay','Kontrol Notu','Olay Türü','Telefon','Arama ID','Arama Yönü','Arama Başlangıcı','Arama Süresi (sn)',\n  'Arama Sonucu','Arama Sonuç Kodu','Arama Açıklaması','CRM Aktivite ID'];\nconst sheetResp = $('Sheet Oku (Haftalık, sütun sırasıyla)').first()?.json || {};\nconst sheetValues = Array.isArray(sheetResp.values) ? sheetResp.values : [];\nconst headerWarnings = [];\nif (sheetResp.error) headerWarnings.push('Sheet okunamadı: ' + (sheetResp.error.message || JSON.stringify(sheetResp.error)).slice(0, 200));\nlet firstData = 0;\nif (sheetValues.length && String(sheetValues[0][0] || '').trim() === 'Tarih') {\n  firstData = 1;\n  const header = sheetValues[0].map(v => String(v || '').trim());\n  const diff = SHEET_COLUMNS.map((c, i) => header[i] === c ? null : ((i < 26 ? '' : 'A') + String.fromCharCode(65 + (i % 26)) + ':' + (header[i] || 'boş') + '≠' + c)).filter(Boolean);\n  if (diff.length) headerWarnings.push('Sheet başlık satırı yazılan sütun sırasıyla uyuşmuyor (' + diff.slice(0, 8).join(', ') + (diff.length > 8 ? ' …' : '') + '). Veriler sütun sırasıyla okundu; başlık satırını düzeltmeniz önerilir.');\n}\nconst rows = sheetValues.slice(firstData).map((vals, i) => {\n  const o = { row_number: i + firstData + 1 };\n  SHEET_COLUMNS.forEach((c, j) => { o[c] = vals[j] ?? ''; });\n  return o;\n}).filter(r => SHEET_COLUMNS.some(c => String(r[c]).trim() !== ''));\n\nconst invalid = [], selected = [];\nfor (const row of rows) {\n  const dt = parseDate(row['Kayıt Zamanı']) || parseDate(row.Tarih);\n  if (!dt) { invalid.push(row); continue; }\n  if (dt >= start && dt < end) selected.push({ row, dt });\n}\nselected.sort((a,b) => a.dt.toMillis() - b.dt.toMillis());\nconst result = selected.map(({row}) => {\nconst call = isCallRow(row);\nconst owner = resolvePerson(row['Sorumlu ID'] || (call ? row.PORTAL_USER_ID : ''), row['Sorumlu Kişi']);\nconst editor = resolvePerson(row['İşlemi Yapan ID'], row['İşlemi Yapan']);\nconst durationRaw = call ? (row['Arama Süresi (sn)'] ?? row['Süre (sn)'] ?? row['Süre'] ?? row.CALL_DURATION) : '';\nconst duration = call ? secondsValue(durationRaw) : null;\nconst resultCode = call ? String(row['Arama Sonuç Kodu'] || row.CALL_FAILED_CODE || legacyCallResult(row['Arama Sonucu'] || row['Yeni Aşama'])) : '';\nreturn {json:{\n  'Satır Türü': call ? 'Arama' : 'Hareket',\n  'Rapor Tarihi': end.toFormat('dd.MM.yyyy'),\n  'Rapor Dönemi': periodText,\n  'İşlem Zamanı': row.Tarih || row['Kayıt Zamanı'],\n  'Kaynak': row.Kaynak || '-',\n  'Müşteri Adı': row['Müşteri Adı'] || '-',\n  'Önceki Aşama': row['Önceki Aşama'] || 'Bildirimde gönderilmedi',\n  'Yeni Aşama': row['Yeni Aşama'] || '-',\n  'Sorumlu Kişi': owner.isim,\n  'Sorumlu ID': owner.id,\n  'Birim': owner.birim,\n  'Görev': owner.gorev || '',\n  'Personel Eşleme': owner.status,\n  'CRM ID': String(row['CRM ID'] || ''),\n  'Kayıt Türü': call ? 'Arama' : row['Kayıt Türü'] || 'Lead',\n  'İşlemi Yapan': editor.id ? editor.isim : '-',\n  'Aşama Bilgisi': row['Aşama Bilgisi'] || '-',\n  'Kayıt Zamanı': row['Kayıt Zamanı'] || '',\n  'Kontrol Notu': row['Kontrol Notu'] || '',\n  'Telefon': call ? (row['Telefon'] || row.PHONE_NUMBER || row['Müşteri Adı'] || '') : '',\n  'Arama ID': call ? String(row['Arama ID'] || row.CALL_ID || '') : '',\n  'Arama Yönü': call ? (row['Arama Yönü'] || CALL_DIRECTIONS[String(row.CALL_TYPE)] || 'Yön belirtilmedi') : '',\n  'Arama Süresi (sn)': duration === null ? '' : duration,\n  'Arama Sonucu': call ? (resultCode ? callResult(resultCode) : row['Arama Sonucu'] || row['Yeni Aşama'] || 'Sonuç kodu eksik') : '',\n  'Arama Sonuç Kodu': resultCode,\n  'Arama Açıklaması': call ? row['Arama Açıklaması'] || '' : '',\n  'CRM Aktivite ID': call ? String(row['CRM Aktivite ID'] || row.CRM_ACTIVITY_ID || '') : '',\n  'Bilgi': ''\n}}; });\nif (!result.length) result.push({json:{'Satır Türü':'Bilgi','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':'Bu dönemde kayıt bulunamadı.'}});\n// --- CRM hareketleri doğrudan Bitrix aşama geçmişinden (crm.stagehistory.list) alınır. ---\n// Sheet'teki satırlar farklı sütun düzenleriyle yazıldığı için (Yeni Aşama sütununda GERCEK_ARAMA /\n// kaynak kodları görünüyordu) sorumlu, CRM ID ve aşama güvenilir okunamıyordu.\nfunction bxPages(nodeName) {\n  let pages = [];\n  try { pages = $(nodeName).all().map(i => i.json?.body && typeof i.json.body === 'object' ? i.json.body : i.json); }\n  catch (e) { return { rows: [], error: 'düğüm çalışmadı' }; }\n  const rows = []; let error = '';\n  for (const p of pages) {\n    if (p?.error) { error = String(p.error_description || p.error?.message || p.error); continue; }\n    const r = p?.result;\n    if (Array.isArray(r?.items)) rows.push(...r.items); else if (Array.isArray(r)) rows.push(...r);\n  }\n  return { rows, error: error || (pages.length ? '' : 'yanıt yok') };\n}\nconst stageRes = bxPages('Bitrix Aşama Adları (Haftalık)'), leadHist = bxPages('Bitrix Lead Aşama Geçmişi (Haftalık)'), dealHist = bxPages('Bitrix Anlaşma Aşama Geçmişi (Haftalık)'), ownerRes = bxPages('Bitrix Kayıt Sorumluları (Haftalık)');\nconst crmApiOk = !leadHist.error && !dealHist.error;\nif (crmApiOk) {\n  const leadStage = {}, dealStage = {}, sourceName = {};\n  for (const s of stageRes.rows) {\n    const ent = String(s.ENTITY_ID || ''), id = String(s.STATUS_ID || ''), name = String(s.NAME || id);\n    if (ent === 'STATUS') leadStage[id] = name;\n    else if (ent.startsWith('DEAL_STAGE')) dealStage[id] = name;\n    else if (ent === 'SOURCE') sourceName[id] = name;\n  }\n  const leads = {}, deals = {};\n  for (const o of ownerRes.rows) { if ('STAGE_ID' in o) deals[String(o.ID)] = o; else leads[String(o.ID)] = o; }\n  const sheetMoveCount = result.filter(r => r.json['Satır Türü'] === 'Hareket').length;\n  for (let i = result.length - 1; i >= 0; i--) if (result[i].json['Satır Türü'] === 'Hareket') result.splice(i, 1);\n  const hist = [\n    ...leadHist.rows.map(h => ({ ...h, _type: 'LEAD', _stage: String(h.STATUS_ID || h.STAGE_ID || '') })),\n    ...dealHist.rows.map(h => ({ ...h, _type: 'DEAL', _stage: String(h.STAGE_ID || h.STATUS_ID || '') }))\n  ].map(h => ({ ...h, _dt: parseDate(h.CREATED_TIME) })).filter(h => h._dt && h._dt >= start && h._dt < end)\n   .sort((a, b) => a._dt.toMillis() - b._dt.toMillis() || Number(a.ID) - Number(b.ID));\n  const lastStage = {};\n  let missingOwner = 0;\n  for (const h of hist) {\n    const oid = String(h.OWNER_ID || ''), key = h._type + ':' + oid;\n    const rec = h._type === 'LEAD' ? leads[oid] : deals[oid];\n    if (!rec) missingOwner++;\n    const owner = resolvePerson(rec?.ASSIGNED_BY_ID, '');\n    const names = h._type === 'LEAD' ? leadStage : dealStage;\n    const stageName = names[h._stage] || h._stage || '-';\n    const title = rec ? (String(rec.TITLE || '').trim() || [rec.NAME, rec.LAST_NAME].filter(Boolean).join(' ')) : '';\n    const typeLabel = { '1': 'Kayıt oluşturuldu', '2': 'Aşama değişti', '3': 'Pipeline değişti' }[String(h.TYPE_ID)] || 'Aşama geçmişi';\n    result.push({ json: {\n      'Satır Türü': 'Hareket', 'Rapor Tarihi': end.toFormat('dd.MM.yyyy'), 'Rapor Dönemi': periodText,\n      'İşlem Zamanı': h._dt.toFormat('dd.MM.yyyy HH:mm:ss'), 'Kaynak': rec ? (sourceName[rec.SOURCE_ID] || rec.SOURCE_ID || '-') : '-',\n      'Müşteri Adı': title || (h._type === 'LEAD' ? 'Lead #' : 'Anlaşma #') + oid,\n      'Önceki Aşama': lastStage[key] || '-', 'Yeni Aşama': stageName,\n      'Sorumlu Kişi': owner.isim, 'Sorumlu ID': owner.id, 'Birim': owner.birim, 'Görev': owner.gorev || '', 'Personel Eşleme': owner.status,\n      'CRM ID': oid, 'Kayıt Türü': h._type === 'LEAD' ? 'Lead' : 'Anlaşma', 'İşlemi Yapan': '-', 'Aşama Bilgisi': typeLabel,\n      'Kayıt Zamanı': h._dt.toISO(), 'Kontrol Notu': rec ? (owner.listed ? '' : owner.status + (owner.id ? ': ' + owner.id : '')) : 'CRM kaydı okunamadı',\n      'Telefon': '', 'Arama ID': '', 'Arama Yönü': '', 'Arama Süresi (sn)': '', 'Arama Sonucu': '', 'Arama Sonuç Kodu': '',\n      'Arama Açıklaması': '', 'CRM Aktivite ID': '', 'Bilgi': ''\n    } });\n    lastStage[key] = stageName;\n  }\n  headerWarnings.push('CRM hareketleri Bitrix aşama geçmişinden alındı (' + hist.length + ' geçiş; Sheet\\'teki ' + sheetMoveCount + ' satır kullanılmadı). Sorumlu, kaydın şu anki sorumlusudur.');\n  if (missingOwner) headerWarnings.push(missingOwner + ' geçişin CRM kaydı okunamadı (silinmiş olabilir).');\n  if (ownerRes.error) headerWarnings.push('Sorumlu bilgisi kısmen alınamadı: ' + ownerRes.error.slice(0, 160));\n} else {\n  headerWarnings.push('Bitrix aşama geçmişi alınamadı (' + (leadHist.error || dealHist.error).slice(0, 160) + '); CRM hareketleri Sheet satırlarından sayıldı ve güvenilir olmayabilir.');\n}\n// --- Aramalar doğrudan Bitrix telefoni istatistiğinden (voximplant.statistic.get) alınır. ---\n// Webhook bildirimi kaçarsa veya eksik alanla gelirse Sheet'teki arama satırları eksik kalır;\n// kaynak veri Bitrix'tir. API başarılıysa Sheet'teki arama satırları rapora alınmaz.\nconst apiCalls = [];\nlet apiError = '';\nfor (const item of $('Bitrix Aramaları (Haftalık)').all()) {\n  const page = item.json?.body && typeof item.json.body === 'object' ? item.json.body : item.json;\n  if (page?.error) { apiError = String(page.error_description || page.error?.message || page.error); continue; }\n  if (Array.isArray(page?.result)) apiCalls.push(...page.result);\n}\nconst apiOk = !apiError && $('Bitrix Aramaları (Haftalık)').all().length > 0;\nif (apiOk) {\n  const sheetCallCount = result.filter(r => r.json['Satır Türü'] === 'Arama').length;\n  for (let i = result.length - 1; i >= 0; i--) if (result[i].json['Satır Türü'] === 'Arama') result.splice(i, 1);\n  const seenCalls = new Set();\n  let usedCalls = 0;\n  for (const c of apiCalls) {\n    const callId = String(c.CALL_ID || c.ID || '');\n    if (!callId || seenCalls.has(callId)) continue;\n    seenCalls.add(callId);\n    const st = parseDate(c.CALL_START_DATE);\n    if (!st || st < start || st >= end) continue;\n    usedCalls++;\n    const owner = resolvePerson(c.PORTAL_USER_ID, '');\n    const code = String(c.CALL_FAILED_CODE || '');\n    const duration = secondsValue(c.CALL_DURATION);\n    result.push({json:{\n      'Satır Türü':'Arama','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,\n      'İşlem Zamanı':st.toFormat('dd.MM.yyyy HH:mm:ss'),'Kaynak':'BITRIX_TELEFONI','Müşteri Adı':c.PHONE_NUMBER || '-',\n      'Önceki Aşama':'-','Yeni Aşama':callResult(code),'Sorumlu Kişi':owner.isim,'Sorumlu ID':owner.id,'Birim':owner.birim,\n      'Görev':owner.gorev || '','Personel Eşleme':owner.status,'CRM ID':String(c.CRM_ENTITY_ID || ''),'Kayıt Türü':'Arama',\n      'İşlemi Yapan':'-','Aşama Bilgisi':'Bitrix telefoni istatistiği','Kayıt Zamanı':st.toISO(),\n      'Kontrol Notu':owner.listed ? '' : owner.status + (owner.id ? ': ' + owner.id : ''),\n      'Telefon':c.PHONE_NUMBER || '','Arama ID':callId,'Arama Yönü':CALL_DIRECTIONS[String(c.CALL_TYPE)] || 'Tür ' + (c.CALL_TYPE || '?'),\n      'Arama Süresi (sn)':duration === null ? '' : duration,'Arama Sonucu':callResult(code),'Arama Sonuç Kodu':code,\n      'Arama Açıklaması':c.CALL_FAILED_REASON || '','CRM Aktivite ID':String(c.CRM_ACTIVITY_ID || ''),'Bilgi':''\n    }});\n  }\n  const infoIdx = result.findIndex(r => r.json['Satır Türü'] === 'Bilgi');\n  if (infoIdx >= 0 && result.length > 1) result.splice(infoIdx, 1);\n  if (sheetCallCount) headerWarnings.push(sheetCallCount + ' Sheet arama satırı yerine Bitrix telefoni istatistiğindeki ' + usedCalls + ' arama kullanıldı.');\n} else {\n  headerWarnings.push('Bitrix arama istatistiği alınamadı' + (apiError ? ' (' + apiError.slice(0, 160) + ')' : '') + '; aramalar Sheet satırlarından sayıldı.');\n}\nfor (const w of headerWarnings) result.push({json:{'Satır Türü':'Uyarı','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':w}});\nif (invalid.length) result.push({json:{'Satır Türü':'Uyarı','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':invalid.length + ' satırın tarihi okunamadı; dönem hesabına alınmadı. Sheet satırları: ' + invalid.slice(0,20).map(r => r.row_number || '?').join(', ')}});\n// Yalnızca güncel personel listesindeki çalışanlar raporlanır.\nconst sadecePersonel = result.filter(r => !['Hareket', 'Arama'].includes(r.json['Satır Türü']) || ['Personel listesi', 'Ad üzerinden personel listesi'].includes(r.json['Personel Eşleme']));\nif (!sadecePersonel.some(r => ['Hareket', 'Arama', 'Bilgi'].includes(r.json['Satır Türü']))) sadecePersonel.unshift({json:{'Satır Türü':'Bilgi','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':'Bu dönemde kayıt bulunamadı.'}});\nreturn sadecePersonel;\n"
+      },
+      "name": "Haftalık Veriyi Filtrele",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7760,
+        3472
+      ],
+      "id": "907b6b5a-60e5-4a45-9030-e5c0e80e4ff3"
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "xlsx",
+        "options": {
+          "fileName": "=XRE_Haftalik_CRM_{{ $now.setZone('Europe/Istanbul').toFormat('yyyy-MM-dd') }}.xlsx",
+          "sheetName": "Haftalık Rapor"
+        }
+      },
+      "name": "Excel Oluştur (Haftalık)",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 1,
+      "position": [
+        7888,
+        3472
+      ],
+      "id": "11026f28-29bf-4310-9c14-7c85c5caffd5"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bitrix-crm-guncelleme",
+        "options": {}
+      },
+      "name": "Bitrix24 Webhook (Tetikleyici)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        6480,
+        2864
+      ],
+      "id": "1d2429f3-b31d-46b1-bb5a-55c18fa2bfa8",
+      "webhookId": "2b223f7c-c0c9-4a76-a3aa-9c7c38e7bd96",
+      "notes": "Bildirim hemen 200 ile kabul edilir. Mükerrer bildirimler sonraki düğümde tekilleştirilir."
+    },
+    {
+      "parameters": {
+        "url": "=https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/{{ $json.method }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $json.crmId }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Bitrix CRM Kaydını Getir",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7200,
+        2864
+      ],
+      "id": "87a7582f-581e-4e1c-b720-483a8f30d7a8",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/<GOOGLE_SHEET_ID_CALLCENTER>/values/Sayfa1!A%3AAB:append",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "valueInputOption",
+              "value": "RAW"
+            },
+            {
+              "name": "insertDataOption",
+              "value": "INSERT_ROWS"
+            },
+            {
+              "name": "includeValuesInResponse",
+              "value": "false"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ majorDimension: 'ROWS', values: [[$json[\"Tarih\"] ?? '', $json[\"Müşteri Adı\"] ?? '', $json[\"Yeni Aşama\"] ?? '', $json[\"Kaynak\"] ?? '', $json[\"Sorumlu Kişi\"] ?? '', $json[\"Sorumlu ID\"] ?? '', $json[\"Birim\"] ?? '', $json[\"Görev\"] ?? '', $json[\"Önceki Aşama\"] ?? '', $json[\"CRM ID\"] ?? '', $json[\"Kayıt Türü\"] ?? '', $json[\"CRM Başlığı\"] ?? '', $json[\"İşlemi Yapan ID\"] ?? '', $json[\"İşlemi Yapan\"] ?? '', $json[\"Aşama Bilgisi\"] ?? '', $json[\"Kayıt Zamanı\"] ?? '', $json[\"Olay\"] ?? '', $json[\"Kontrol Notu\"] ?? '', $json[\"Olay Türü\"] ?? '', $json[\"Telefon\"] ?? '', $json[\"Arama ID\"] ?? '', $json[\"Arama Yönü\"] ?? '', $json[\"Arama Başlangıcı\"] ?? '', $json[\"Arama Süresi (sn)\"] ?? '', $json[\"Arama Sonucu\"] ?? '', $json[\"Arama Sonuç Kodu\"] ?? '', $json[\"Arama Açıklaması\"] ?? '', $json[\"CRM Aktivite ID\"] ?? '']] }) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "name": "Google Sheets API (Okumasız Kaydet)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        8160,
+        2864
+      ],
+      "id": "e83c2610-3955-449b-aec0-4a5801d56148",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Sheet başlıklarını okumadan doğrudan values.append ile A:AB aralığına yazar. Read requests kotasını kullanmaz. İçe aktardıktan sonra Google Sheets OAuth2 hesabını seçin."
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 * * *"
+            }
+          ]
+        }
+      },
+      "name": "Her Gün 20:00 (Rapor Zamanı)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        6480,
+        3184
+      ],
+      "id": "ea07f957-6c5c-43a5-a9c8-df66f3f132a4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Güncel personel listesi (13.10.2026, 18 kişi).\n// Bu blok akış oluşturulurken ilgili Code düğümlerine gömülür; harici dosya gerekmez.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\nfunction normalizePersonName(value) {\n  return String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/\\s+/g, ' ');\n}\nfunction normalizePersonId(value) {\n  if (value === null || value === undefined) return '';\n  const raw = String(value).trim();\n  const match = /^(?:(?:user|USER)_|Bitrix kullanıcı #)?([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  return match ? match[1] : '';\n}\nfunction resolvePerson(idValue, nameValue) {\n  let id = normalizePersonId(idValue);\n  const supplied = typeof nameValue === 'object' && nameValue !== null ? (nameValue.isim || nameValue.name || '') : nameValue;\n  const name = ['string', 'number'].includes(typeof supplied) ? String(supplied).trim() : '';\n  if (!id) id = normalizePersonId(name);\n  if (id && Object.prototype.hasOwnProperty.call(PERSONELLER, id)) {\n    return { id, ...PERSONELLER[id], listed: true, status: 'Personel listesi' };\n  }\n  if (!id && name) {\n    const match = Object.entries(PERSONELLER).find(([,p]) => normalizePersonName(p.isim) === normalizePersonName(name));\n    if (match) return { id: match[0], ...match[1], listed: true, status: 'Ad üzerinden personel listesi' };\n  }\n  const normalized = normalizePersonName(name);\n  const invalidName = !name || /bilinm|sistem hata|baglan|atanmamis|kullanici #|personel listesinde|id eksik|object object|^[-?]+$/.test(normalized) || Boolean(normalizePersonId(name));\n  return {\n    id,\n    isim: id ? (invalidName ? 'Personel listesinde yok (ID ' + id + ')' : name) : 'Sorumlu ID eksik',\n    birim: 'Personel listesinde yok', listed: false,\n    status: id ? 'Personel listesinde yok' : 'Sorumlu ID eksik'\n  };\n}\n\nconst CALL_RESULTS = {\n  '200':'Başarılı','304':'Cevapsız','603':'Reddedildi','603-S':'İptal edildi',\n  '404':'Geçersiz numara','486':'Meşgul','484':'Arama yönü kullanılamıyor','403':'Arama izni yok',\n  '480':'Geçici olarak ulaşılamıyor','503':'Arama yönü kullanılamıyor','402':'Yetersiz bakiye','423':'Engellendi','OTHER':'Tanımlanmamış sonuç'\n};\nconst CALL_DIRECTIONS = {'1':'Giden','2':'Gelen','3':'Yönlendirmeli gelen','4':'Geri arama','5':'Bilgilendirme araması'};\nfunction callResult(code) { return CALL_RESULTS[String(code)] || (code ? 'Diğer sonuç (' + code + ')' : 'Sonuç kodu eksik'); }\nfunction isCallRow(row) {\n  const norm = v => String(v || '').trim().toLocaleUpperCase('tr-TR');\n  return norm(row['Olay']) === 'ONVOXIMPLANTCALLEND' || norm(row['Olay Türü']) === 'ARAMA' ||\n    norm(row['Kayıt Türü']) === 'ARAMA' || ['GERCEK_ARAMA','GERÇEK_ARAMA'].includes(norm(row.Kaynak));\n}\nfunction secondsValue(value) {\n  const raw = String(value ?? '').trim();\n  return /^\\d+(?:\\.\\d+)?$/.test(raw) && Number.isFinite(Number(raw)) ? Number(raw) : null;\n}\nfunction legacyCallResult(value) {\n  const label = String(value || '').trim().toLocaleUpperCase('tr-TR');\n  const known = {'BAŞARILI':'200','BASARILI':'200','CEVAPSIZ':'304','REDDEDİLDİ':'603','REDDEDILDI':'603',\n    'İPTAL EDİLDİ':'603-S','IPTAL EDILDI':'603-S','MEŞGUL':'486','MESGUL':'486'};\n  return known[label] || '';\n}\n\n// daily: replaced by the workflow builder; daily or weekly.\nconst period = 'daily';\nconst zone = 'Europe/Istanbul';\nconst now = $now.setZone(zone);\nlet end;\nif (period === 'daily') {\n  end = now.startOf('day').set({ hour: 20 });\n  if (end > now) end = end.minus({ days: 1 });\n} else {\n  end = now.startOf('day').minus({ days: (now.weekday - 6 + 7) % 7 }).set({ hour: 9 });\n  if (end > now) end = end.minus({ days: 7 });\n}\nconst start = end.minus({ days: period === 'daily' ? 1 : 7 });\nconst periodText = start.toFormat('dd.MM.yyyy HH:mm') + ' – ' + end.toFormat('dd.MM.yyyy HH:mm');\nfunction parseDate(value) {\n  if (value === undefined || value === null || value === '') return null;\n  if (typeof value === 'number' || /^\\d{5}(?:\\.\\d+)?$/.test(String(value))) {\n    const serial = Number(value);\n    if (serial > 20000 && serial < 100000) return DateTime.fromObject({year:1899,month:12,day:30}, {zone:'UTC'}).plus({milliseconds:Math.round(serial * 86400000)}).setZone(zone, {keepLocalTime:true});\n    return null;\n  }\n  const s = String(value).trim();\n  for (const format of ['dd.MM.yyyy HH:mm:ss', 'dd.MM.yyyy HH:mm', 'dd.MM.yyyy', 'd.M.yyyy H:m:s', 'd.M.yyyy H:m', 'd.M.yyyy', 'yyyy-MM-dd HH:mm:ss']) {\n    const dt = DateTime.fromFormat(s, format, {zone});\n    if (dt.isValid) return dt;\n  }\n  const iso = DateTime.fromISO(s, {zone});\n  return iso.isValid ? iso.setZone(zone) : null;\n}\n// --- Sheet satırları: başlık adına göre DEĞİL, yazılan sütun sırasına (A:AB) göre okunur. ---\n// Webhook kolu values.append ile her satırı SHEET_COLUMNS sırasıyla yazar. Eski okuma başlık\n// satırına güvendiği için başlıkta olmayan \"Arama ID\"/\"CRM ID\" sütunları boş geliyor, tüm\n// aramalar \"ID'siz eski satır\" sayılıyor ve tekil CRM 0 çıkıyordu.\nconst SHEET_COLUMNS = ['Tarih','Müşteri Adı','Yeni Aşama','Kaynak','Sorumlu Kişi','Sorumlu ID','Birim','Görev',\n  'Önceki Aşama','CRM ID','Kayıt Türü','CRM Başlığı','İşlemi Yapan ID','İşlemi Yapan','Aşama Bilgisi','Kayıt Zamanı',\n  'Olay','Kontrol Notu','Olay Türü','Telefon','Arama ID','Arama Yönü','Arama Başlangıcı','Arama Süresi (sn)',\n  'Arama Sonucu','Arama Sonuç Kodu','Arama Açıklaması','CRM Aktivite ID'];\nconst sheetResp = $('Sheet Oku (Günlük, sütun sırasıyla)').first()?.json || {};\nconst sheetValues = Array.isArray(sheetResp.values) ? sheetResp.values : [];\nconst headerWarnings = [];\nif (sheetResp.error) headerWarnings.push('Sheet okunamadı: ' + (sheetResp.error.message || JSON.stringify(sheetResp.error)).slice(0, 200));\nlet firstData = 0;\nif (sheetValues.length && String(sheetValues[0][0] || '').trim() === 'Tarih') {\n  firstData = 1;\n  const header = sheetValues[0].map(v => String(v || '').trim());\n  const diff = SHEET_COLUMNS.map((c, i) => header[i] === c ? null : ((i < 26 ? '' : 'A') + String.fromCharCode(65 + (i % 26)) + ':' + (header[i] || 'boş') + '≠' + c)).filter(Boolean);\n  if (diff.length) headerWarnings.push('Sheet başlık satırı yazılan sütun sırasıyla uyuşmuyor (' + diff.slice(0, 8).join(', ') + (diff.length > 8 ? ' …' : '') + '). Veriler sütun sırasıyla okundu; başlık satırını düzeltmeniz önerilir.');\n}\nconst rows = sheetValues.slice(firstData).map((vals, i) => {\n  const o = { row_number: i + firstData + 1 };\n  SHEET_COLUMNS.forEach((c, j) => { o[c] = vals[j] ?? ''; });\n  return o;\n}).filter(r => SHEET_COLUMNS.some(c => String(r[c]).trim() !== ''));\n\nconst invalid = [], selected = [];\nfor (const row of rows) {\n  const dt = parseDate(row['Kayıt Zamanı']) || parseDate(row.Tarih);\n  if (!dt) { invalid.push(row); continue; }\n  if (dt >= start && dt < end) selected.push({ row, dt });\n}\nselected.sort((a,b) => a.dt.toMillis() - b.dt.toMillis());\nconst result = selected.map(({row}) => {\nconst call = isCallRow(row);\nconst owner = resolvePerson(row['Sorumlu ID'] || (call ? row.PORTAL_USER_ID : ''), row['Sorumlu Kişi']);\nconst editor = resolvePerson(row['İşlemi Yapan ID'], row['İşlemi Yapan']);\nconst durationRaw = call ? (row['Arama Süresi (sn)'] ?? row['Süre (sn)'] ?? row['Süre'] ?? row.CALL_DURATION) : '';\nconst duration = call ? secondsValue(durationRaw) : null;\nconst resultCode = call ? String(row['Arama Sonuç Kodu'] || row.CALL_FAILED_CODE || legacyCallResult(row['Arama Sonucu'] || row['Yeni Aşama'])) : '';\nreturn {json:{\n  'Satır Türü': call ? 'Arama' : 'Hareket',\n  'Rapor Tarihi': end.toFormat('dd.MM.yyyy'),\n  'Rapor Dönemi': periodText,\n  'İşlem Zamanı': row.Tarih || row['Kayıt Zamanı'],\n  'Kaynak': row.Kaynak || '-',\n  'Müşteri Adı': row['Müşteri Adı'] || '-',\n  'Önceki Aşama': row['Önceki Aşama'] || 'Bildirimde gönderilmedi',\n  'Yeni Aşama': row['Yeni Aşama'] || '-',\n  'Sorumlu Kişi': owner.isim,\n  'Sorumlu ID': owner.id,\n  'Birim': owner.birim,\n  'Görev': owner.gorev || '',\n  'Personel Eşleme': owner.status,\n  'CRM ID': String(row['CRM ID'] || ''),\n  'Kayıt Türü': call ? 'Arama' : row['Kayıt Türü'] || 'Lead',\n  'İşlemi Yapan': editor.id ? editor.isim : '-',\n  'Aşama Bilgisi': row['Aşama Bilgisi'] || '-',\n  'Kayıt Zamanı': row['Kayıt Zamanı'] || '',\n  'Kontrol Notu': row['Kontrol Notu'] || '',\n  'Telefon': call ? (row['Telefon'] || row.PHONE_NUMBER || row['Müşteri Adı'] || '') : '',\n  'Arama ID': call ? String(row['Arama ID'] || row.CALL_ID || '') : '',\n  'Arama Yönü': call ? (row['Arama Yönü'] || CALL_DIRECTIONS[String(row.CALL_TYPE)] || 'Yön belirtilmedi') : '',\n  'Arama Süresi (sn)': duration === null ? '' : duration,\n  'Arama Sonucu': call ? (resultCode ? callResult(resultCode) : row['Arama Sonucu'] || row['Yeni Aşama'] || 'Sonuç kodu eksik') : '',\n  'Arama Sonuç Kodu': resultCode,\n  'Arama Açıklaması': call ? row['Arama Açıklaması'] || '' : '',\n  'CRM Aktivite ID': call ? String(row['CRM Aktivite ID'] || row.CRM_ACTIVITY_ID || '') : '',\n  'Bilgi': ''\n}}; });\nif (!result.length) result.push({json:{'Satır Türü':'Bilgi','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':'Bu dönemde kayıt bulunamadı.'}});\n// --- CRM hareketleri doğrudan Bitrix aşama geçmişinden (crm.stagehistory.list) alınır. ---\n// Sheet'teki satırlar farklı sütun düzenleriyle yazıldığı için (Yeni Aşama sütununda GERCEK_ARAMA /\n// kaynak kodları görünüyordu) sorumlu, CRM ID ve aşama güvenilir okunamıyordu.\nfunction bxPages(nodeName) {\n  let pages = [];\n  try { pages = $(nodeName).all().map(i => i.json?.body && typeof i.json.body === 'object' ? i.json.body : i.json); }\n  catch (e) { return { rows: [], error: 'düğüm çalışmadı' }; }\n  const rows = []; let error = '';\n  for (const p of pages) {\n    if (p?.error) { error = String(p.error_description || p.error?.message || p.error); continue; }\n    const r = p?.result;\n    if (Array.isArray(r?.items)) rows.push(...r.items); else if (Array.isArray(r)) rows.push(...r);\n  }\n  return { rows, error: error || (pages.length ? '' : 'yanıt yok') };\n}\nconst stageRes = bxPages('Bitrix Aşama Adları (Günlük)'), leadHist = bxPages('Bitrix Lead Aşama Geçmişi (Günlük)'), dealHist = bxPages('Bitrix Anlaşma Aşama Geçmişi (Günlük)'), ownerRes = bxPages('Bitrix Kayıt Sorumluları (Günlük)');\nconst crmApiOk = !leadHist.error && !dealHist.error;\nif (crmApiOk) {\n  const leadStage = {}, dealStage = {}, sourceName = {};\n  for (const s of stageRes.rows) {\n    const ent = String(s.ENTITY_ID || ''), id = String(s.STATUS_ID || ''), name = String(s.NAME || id);\n    if (ent === 'STATUS') leadStage[id] = name;\n    else if (ent.startsWith('DEAL_STAGE')) dealStage[id] = name;\n    else if (ent === 'SOURCE') sourceName[id] = name;\n  }\n  const leads = {}, deals = {};\n  for (const o of ownerRes.rows) { if ('STAGE_ID' in o) deals[String(o.ID)] = o; else leads[String(o.ID)] = o; }\n  const sheetMoveCount = result.filter(r => r.json['Satır Türü'] === 'Hareket').length;\n  for (let i = result.length - 1; i >= 0; i--) if (result[i].json['Satır Türü'] === 'Hareket') result.splice(i, 1);\n  const hist = [\n    ...leadHist.rows.map(h => ({ ...h, _type: 'LEAD', _stage: String(h.STATUS_ID || h.STAGE_ID || '') })),\n    ...dealHist.rows.map(h => ({ ...h, _type: 'DEAL', _stage: String(h.STAGE_ID || h.STATUS_ID || '') }))\n  ].map(h => ({ ...h, _dt: parseDate(h.CREATED_TIME) })).filter(h => h._dt && h._dt >= start && h._dt < end)\n   .sort((a, b) => a._dt.toMillis() - b._dt.toMillis() || Number(a.ID) - Number(b.ID));\n  const lastStage = {};\n  let missingOwner = 0;\n  for (const h of hist) {\n    const oid = String(h.OWNER_ID || ''), key = h._type + ':' + oid;\n    const rec = h._type === 'LEAD' ? leads[oid] : deals[oid];\n    if (!rec) missingOwner++;\n    const owner = resolvePerson(rec?.ASSIGNED_BY_ID, '');\n    const names = h._type === 'LEAD' ? leadStage : dealStage;\n    const stageName = names[h._stage] || h._stage || '-';\n    const title = rec ? (String(rec.TITLE || '').trim() || [rec.NAME, rec.LAST_NAME].filter(Boolean).join(' ')) : '';\n    const typeLabel = { '1': 'Kayıt oluşturuldu', '2': 'Aşama değişti', '3': 'Pipeline değişti' }[String(h.TYPE_ID)] || 'Aşama geçmişi';\n    result.push({ json: {\n      'Satır Türü': 'Hareket', 'Rapor Tarihi': end.toFormat('dd.MM.yyyy'), 'Rapor Dönemi': periodText,\n      'İşlem Zamanı': h._dt.toFormat('dd.MM.yyyy HH:mm:ss'), 'Kaynak': rec ? (sourceName[rec.SOURCE_ID] || rec.SOURCE_ID || '-') : '-',\n      'Müşteri Adı': title || (h._type === 'LEAD' ? 'Lead #' : 'Anlaşma #') + oid,\n      'Önceki Aşama': lastStage[key] || '-', 'Yeni Aşama': stageName,\n      'Sorumlu Kişi': owner.isim, 'Sorumlu ID': owner.id, 'Birim': owner.birim, 'Görev': owner.gorev || '', 'Personel Eşleme': owner.status,\n      'CRM ID': oid, 'Kayıt Türü': h._type === 'LEAD' ? 'Lead' : 'Anlaşma', 'İşlemi Yapan': '-', 'Aşama Bilgisi': typeLabel,\n      'Kayıt Zamanı': h._dt.toISO(), 'Kontrol Notu': rec ? (owner.listed ? '' : owner.status + (owner.id ? ': ' + owner.id : '')) : 'CRM kaydı okunamadı',\n      'Telefon': '', 'Arama ID': '', 'Arama Yönü': '', 'Arama Süresi (sn)': '', 'Arama Sonucu': '', 'Arama Sonuç Kodu': '',\n      'Arama Açıklaması': '', 'CRM Aktivite ID': '', 'Bilgi': ''\n    } });\n    lastStage[key] = stageName;\n  }\n  headerWarnings.push('CRM hareketleri Bitrix aşama geçmişinden alındı (' + hist.length + ' geçiş; Sheet\\'teki ' + sheetMoveCount + ' satır kullanılmadı). Sorumlu, kaydın şu anki sorumlusudur.');\n  if (missingOwner) headerWarnings.push(missingOwner + ' geçişin CRM kaydı okunamadı (silinmiş olabilir).');\n  if (ownerRes.error) headerWarnings.push('Sorumlu bilgisi kısmen alınamadı: ' + ownerRes.error.slice(0, 160));\n} else {\n  headerWarnings.push('Bitrix aşama geçmişi alınamadı (' + (leadHist.error || dealHist.error).slice(0, 160) + '); CRM hareketleri Sheet satırlarından sayıldı ve güvenilir olmayabilir.');\n}\n// --- Aramalar doğrudan Bitrix telefoni istatistiğinden (voximplant.statistic.get) alınır. ---\n// Webhook bildirimi kaçarsa veya eksik alanla gelirse Sheet'teki arama satırları eksik kalır;\n// kaynak veri Bitrix'tir. API başarılıysa Sheet'teki arama satırları rapora alınmaz.\nconst apiCalls = [];\nlet apiError = '';\nfor (const item of $('Bitrix Aramaları (Günlük)').all()) {\n  const page = item.json?.body && typeof item.json.body === 'object' ? item.json.body : item.json;\n  if (page?.error) { apiError = String(page.error_description || page.error?.message || page.error); continue; }\n  if (Array.isArray(page?.result)) apiCalls.push(...page.result);\n}\nconst apiOk = !apiError && $('Bitrix Aramaları (Günlük)').all().length > 0;\nif (apiOk) {\n  const sheetCallCount = result.filter(r => r.json['Satır Türü'] === 'Arama').length;\n  for (let i = result.length - 1; i >= 0; i--) if (result[i].json['Satır Türü'] === 'Arama') result.splice(i, 1);\n  const seenCalls = new Set();\n  let usedCalls = 0;\n  for (const c of apiCalls) {\n    const callId = String(c.CALL_ID || c.ID || '');\n    if (!callId || seenCalls.has(callId)) continue;\n    seenCalls.add(callId);\n    const st = parseDate(c.CALL_START_DATE);\n    if (!st || st < start || st >= end) continue;\n    usedCalls++;\n    const owner = resolvePerson(c.PORTAL_USER_ID, '');\n    const code = String(c.CALL_FAILED_CODE || '');\n    const duration = secondsValue(c.CALL_DURATION);\n    result.push({json:{\n      'Satır Türü':'Arama','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,\n      'İşlem Zamanı':st.toFormat('dd.MM.yyyy HH:mm:ss'),'Kaynak':'BITRIX_TELEFONI','Müşteri Adı':c.PHONE_NUMBER || '-',\n      'Önceki Aşama':'-','Yeni Aşama':callResult(code),'Sorumlu Kişi':owner.isim,'Sorumlu ID':owner.id,'Birim':owner.birim,\n      'Görev':owner.gorev || '','Personel Eşleme':owner.status,'CRM ID':String(c.CRM_ENTITY_ID || ''),'Kayıt Türü':'Arama',\n      'İşlemi Yapan':'-','Aşama Bilgisi':'Bitrix telefoni istatistiği','Kayıt Zamanı':st.toISO(),\n      'Kontrol Notu':owner.listed ? '' : owner.status + (owner.id ? ': ' + owner.id : ''),\n      'Telefon':c.PHONE_NUMBER || '','Arama ID':callId,'Arama Yönü':CALL_DIRECTIONS[String(c.CALL_TYPE)] || 'Tür ' + (c.CALL_TYPE || '?'),\n      'Arama Süresi (sn)':duration === null ? '' : duration,'Arama Sonucu':callResult(code),'Arama Sonuç Kodu':code,\n      'Arama Açıklaması':c.CALL_FAILED_REASON || '','CRM Aktivite ID':String(c.CRM_ACTIVITY_ID || ''),'Bilgi':''\n    }});\n  }\n  const infoIdx = result.findIndex(r => r.json['Satır Türü'] === 'Bilgi');\n  if (infoIdx >= 0 && result.length > 1) result.splice(infoIdx, 1);\n  if (sheetCallCount) headerWarnings.push(sheetCallCount + ' Sheet arama satırı yerine Bitrix telefoni istatistiğindeki ' + usedCalls + ' arama kullanıldı.');\n} else {\n  headerWarnings.push('Bitrix arama istatistiği alınamadı' + (apiError ? ' (' + apiError.slice(0, 160) + ')' : '') + '; aramalar Sheet satırlarından sayıldı.');\n}\nfor (const w of headerWarnings) result.push({json:{'Satır Türü':'Uyarı','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':w}});\nif (invalid.length) result.push({json:{'Satır Türü':'Uyarı','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':invalid.length + ' satırın tarihi okunamadı; dönem hesabına alınmadı. Sheet satırları: ' + invalid.slice(0,20).map(r => r.row_number || '?').join(', ')}});\n// Yalnızca güncel personel listesindeki çalışanlar raporlanır.\nconst sadecePersonel = result.filter(r => !['Hareket', 'Arama'].includes(r.json['Satır Türü']) || ['Personel listesi', 'Ad üzerinden personel listesi'].includes(r.json['Personel Eşleme']));\nif (!sadecePersonel.some(r => ['Hareket', 'Arama', 'Bilgi'].includes(r.json['Satır Türü']))) sadecePersonel.unshift({json:{'Satır Türü':'Bilgi','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':'Bu dönemde kayıt bulunamadı.'}});\nreturn sadecePersonel;\n"
+      },
+      "name": "Günlük Veriyi Filtrele",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7760,
+        3184
+      ],
+      "id": "8371e230-cf96-41b1-93ca-0db87c793c96"
+    },
+    {
+      "parameters": {
+        "operation": "toFile",
+        "fileFormat": "xlsx",
+        "options": {
+          "fileName": "=XRE_Gunluk_CRM_{{ $now.setZone('Europe/Istanbul').toFormat('yyyy-MM-dd') }}.xlsx",
+          "sheetName": "Günlük Rapor"
+        }
+      },
+      "name": "Excel Oluştur (Günlük)",
+      "type": "n8n-nodes-base.spreadsheetFile",
+      "typeVersion": 1,
+      "position": [
+        7888,
+        3184
+      ],
+      "id": "48c36386-d228-4109-9f54-09db314982aa"
+    },
+    {
+      "parameters": {
+        "sendTo": "keremerginbas@gmail.com",
+        "subject": "={{ $(\"Haftalık Özeti Hazırla\").first().json.subject }}",
+        "message": "={{ $(\"Haftalık Özeti Hazırla\").first().json.summaryHtml }}",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "id": "3b3c322b-40cd-4f5b-997a-b971976b17fb",
+      "name": "Gmail (Haftalık CRM Raporu)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        8160,
+        3472
+      ],
+      "webhookId": "2348ccb0-06d9-4d22-aeb2-b7c035238ddf",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "nJY7Tulv7839tYMA",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "keremerginbas@gmail.com",
+        "subject": "={{ $(\"Gün Sonu Özetini Hazırla\").first().json.subject }}",
+        "message": "={{ $(\"Gün Sonu Özetini Hazırla\").first().json.summaryHtml }}",
+        "options": {
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {}
+            ]
+          }
+        }
+      },
+      "id": "c2eefbe9-fc1f-421b-aa79-7cf5c51a70b2",
+      "name": "Gmail (Günlük CRM Raporu)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        8160,
+        3184
+      ],
+      "webhookId": "2348ccb0-06d9-4d22-aeb2-b7c035238ddf",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "nJY7Tulv7839tYMA",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node: Run Once for All Items. No external modules required.\nconst root = $input.first().json;\nfunction object(value) {\n  if (value && typeof value === 'object' && !Array.isArray(value)) return value;\n  if (typeof value !== 'string' || !value.trim()) return {};\n  const raw = value.trim();\n  if (raw.startsWith('{')) {\n    try { return JSON.parse(raw); } catch { throw new Error('Webhook gövdesi geçerli JSON değil.'); }\n  }\n  const out = {};\n  for (const pair of raw.split('&')) {\n    const i = pair.indexOf('=');\n    const decode = s => decodeURIComponent(s.replace(/\\+/g, ' '));\n    out[decode(i < 0 ? pair : pair.slice(0, i))] = decode(i < 0 ? '' : pair.slice(i + 1));\n  }\n  return out;\n}\nconst body = object(root.body), query = object(root.query);\nconst sources = [body, query, root];\nfunction at(obj, key) {\n  if (Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];\n  return key.replace(/\\[/g, '.').replace(/\\]/g, '').split('.').reduce((v, k) => v && typeof v === 'object' ? v[k] : undefined, obj);\n}\nfunction pick(...keys) {\n  for (const obj of sources) for (const key of keys) {\n    const value = at(obj, key);\n    if (value !== undefined && value !== null && String(value).trim() !== '') return value;\n  }\n  return '';\n}\nfunction text(value) {\n  if (value === null || value === undefined) return '';\n  if (!['string', 'number', 'boolean'].includes(typeof value)) return '';\n  return String(value).trim();\n}\nconst event = text(pick('event', 'EVENT')).toUpperCase();\nconst domain = text(pick('auth.domain', 'auth[domain]')).toLowerCase();\nif (domain && domain !== 'xre.bitrix24.com.tr') throw new Error('Bildirim farklı bir Bitrix alan adından geliyor.');\nlet eventTime = $now.setZone('Europe/Istanbul');\nconst ts = text(pick('ts', 'timestamp'));\nif (/^\\d{10}(?:\\d{3})?$/.test(ts)) {\n  const dt = DateTime.fromMillis(Number(ts) * (ts.length === 10 ? 1000 : 1), { zone: 'Europe/Istanbul' });\n  if (dt.isValid) eventTime = dt;\n}\nif (event === 'ONVOXIMPLANTCALLEND') {\n  const field = name => text(pick('data[' + name + ']', name));\n  const callId = field('CALL_ID');\n  if (!callId || callId.length > 512 || /[\\r\\n\\x00]/.test(callId)) throw new Error('Arama bildiriminin CALL_ID alanı eksik/geçersiz.');\n  const durationRaw = field('CALL_DURATION');\n  const duration = /^\\d+(?:\\.\\d+)?$/.test(durationRaw) && Number.isFinite(Number(durationRaw)) ? Number(durationRaw) : null;\n  const startRaw = field('CALL_START_DATE');\n  const start = startRaw ? DateTime.fromISO(startRaw, {zone:'Europe/Istanbul'}) : null;\n  const warnings = [];\n  if (!start?.isValid) warnings.push('Arama başlangıcı okunamadı; olay zamanı kullanıldı.');\n  if (duration === null) warnings.push('Arama süresi eksik/geçersiz.');\n  return [{json:{kind:'CALL',event,callId,dedupeKey:'CALL:'+callId,\n    portalUserId:field('PORTAL_USER_ID'),phone:field('PHONE_NUMBER'),callType:field('CALL_TYPE'),\n    duration,resultCode:field('CALL_FAILED_CODE'),resultReason:field('CALL_FAILED_REASON'),\n    activityId:field('CRM_ACTIVITY_ID'),startTime:start?.isValid ? start.setZone('Europe/Istanbul').toISO() : eventTime.toISO(),\n    eventTime:eventTime.toISO(),receivedAt:$now.setZone('Europe/Istanbul').toISO(),warnings}}];\n}\nif (event && !/^ONCRM(LEAD|DEAL)(ADD|UPDATE)$/.test(event)) {\n  throw new Error('Desteklenmeyen olay: ' + event + '. Beklenen: ONVOXIMPLANTCALLEND, lead/anlaşma ADD/UPDATE veya CRM robot bildirimi.');\n}\nlet document = pick('document_id[2]', 'DOCUMENT_ID[2]');\nif (!document) {\n  const full = pick('document_id', 'DOCUMENT_ID');\n  if (Array.isArray(full)) document = full[2];\n  else if (full && typeof full === 'object') document = full[2];\n  else if (typeof full === 'string' && full.startsWith('[')) {\n    try { document = JSON.parse(full)[2]; } catch {}\n  } else document = full;\n}\nconst rawId = text(document || pick('lead_id', 'LEAD_ID', 'deal_id', 'DEAL_ID', 'data[FIELDS][ID]', 'data.fields.ID', 'FIELDS.ID', 'fields.ID', 'id', 'ID'));\nconst match = /^(?:(LEAD|DEAL)_)?([1-9]\\d*)$/i.exec(rawId);\nif (!match) throw new Error('CRM kayıt numarası bulunamadı/geçersiz. document_id[2]=LEAD_123, data[FIELDS][ID]=123 veya lead_id=123 gönderin.');\nconst hints = [match[1], event.includes('DEAL') ? 'DEAL' : event.includes('LEAD') ? 'LEAD' : '',\n  text(pick('entity_type', 'ENTITY_TYPE')).toUpperCase(),\n  pick('deal_id', 'DEAL_ID') ? 'DEAL' : '', pick('lead_id', 'LEAD_ID') ? 'LEAD' : ''].filter(Boolean);\nif (hints.some(t => !['LEAD', 'DEAL'].includes(t)) || new Set(hints).size > 1) {\n  throw new Error('CRM kayıt türleri birbiriyle çelişiyor. LEAD veya DEAL bilgisini kontrol edin.');\n}\nconst entityType = hints[0] || 'LEAD';\nconst newStage = text(pick('asama', 'yeni_asama', 'new_stage', 'STATUS_ID', 'STAGE_ID'));\nconst dedupeMinute = eventTime.toFormat('yyyyMMddHHmm');\nconst dedupeKey = 'CRM:' + entityType + ':' + match[2] + ':' + (newStage || '-') + ':' + dedupeMinute;\nreturn [{ json: {\n  kind:'CRM',crmId: match[2], entityType, event: event || 'ROBOT', dedupeKey,\n  method: entityType === 'DEAL' ? 'crm.deal.get.json' : 'crm.lead.get.json',\n  newStage,\n  oldStage: text(pick('onceki_asama', 'old_stage', 'previous_stage', 'OLD_STATUS_ID', 'OLD_STAGE_ID')),\n  source: text(pick('kaynak', 'source', 'SOURCE_ID')),\n  eventTime: eventTime.toISO(), receivedAt: $now.setZone('Europe/Istanbul').toISO()\n} }];\n"
+      },
+      "id": "9edc9fd0-3bd1-47d4-96b8-9638f9dbf0cf",
+      "name": "Webhook Verisini Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6720,
+        2864
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().filter(item => item.json.kind === 'CRM');"
+      },
+      "id": "b5e43243-9acb-44f7-8296-bd8099b34e42",
+      "name": "CRM Bildirimini Ayır",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6960,
+        2864
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Güncel personel listesi (13.10.2026, 18 kişi).\n// Bu blok akış oluşturulurken ilgili Code düğümlerine gömülür; harici dosya gerekmez.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\nfunction normalizePersonName(value) {\n  return String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/\\s+/g, ' ');\n}\nfunction normalizePersonId(value) {\n  if (value === null || value === undefined) return '';\n  const raw = String(value).trim();\n  const match = /^(?:(?:user|USER)_|Bitrix kullanıcı #)?([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  return match ? match[1] : '';\n}\nfunction resolvePerson(idValue, nameValue) {\n  let id = normalizePersonId(idValue);\n  const supplied = typeof nameValue === 'object' && nameValue !== null ? (nameValue.isim || nameValue.name || '') : nameValue;\n  const name = ['string', 'number'].includes(typeof supplied) ? String(supplied).trim() : '';\n  if (!id) id = normalizePersonId(name);\n  if (id && Object.prototype.hasOwnProperty.call(PERSONELLER, id)) {\n    return { id, ...PERSONELLER[id], listed: true, status: 'Personel listesi' };\n  }\n  if (!id && name) {\n    const match = Object.entries(PERSONELLER).find(([,p]) => normalizePersonName(p.isim) === normalizePersonName(name));\n    if (match) return { id: match[0], ...match[1], listed: true, status: 'Ad üzerinden personel listesi' };\n  }\n  const normalized = normalizePersonName(name);\n  const invalidName = !name || /bilinm|sistem hata|baglan|atanmamis|kullanici #|personel listesinde|id eksik|object object|^[-?]+$/.test(normalized) || Boolean(normalizePersonId(name));\n  return {\n    id,\n    isim: id ? (invalidName ? 'Personel listesinde yok (ID ' + id + ')' : name) : 'Sorumlu ID eksik',\n    birim: 'Personel listesinde yok', listed: false,\n    status: id ? 'Personel listesinde yok' : 'Sorumlu ID eksik'\n  };\n}\n\nconst CALL_RESULTS = {\n  '200':'Başarılı','304':'Cevapsız','603':'Reddedildi','603-S':'İptal edildi',\n  '404':'Geçersiz numara','486':'Meşgul','484':'Arama yönü kullanılamıyor','403':'Arama izni yok',\n  '480':'Geçici olarak ulaşılamıyor','503':'Arama yönü kullanılamıyor','402':'Yetersiz bakiye','423':'Engellendi','OTHER':'Tanımlanmamış sonuç'\n};\nconst CALL_DIRECTIONS = {'1':'Giden','2':'Gelen','3':'Yönlendirmeli gelen','4':'Geri arama','5':'Bilgilendirme araması'};\nfunction callResult(code) { return CALL_RESULTS[String(code)] || (code ? 'Diğer sonuç (' + code + ')' : 'Sonuç kodu eksik'); }\nfunction isCallRow(row) {\n  const norm = v => String(v || '').trim().toLocaleUpperCase('tr-TR');\n  return norm(row['Olay']) === 'ONVOXIMPLANTCALLEND' || norm(row['Olay Türü']) === 'ARAMA' ||\n    norm(row['Kayıt Türü']) === 'ARAMA' || ['GERCEK_ARAMA','GERÇEK_ARAMA'].includes(norm(row.Kaynak));\n}\nfunction secondsValue(value) {\n  const raw = String(value ?? '').trim();\n  return /^\\d+(?:\\.\\d+)?$/.test(raw) && Number.isFinite(Number(raw)) ? Number(raw) : null;\n}\nfunction legacyCallResult(value) {\n  const label = String(value || '').trim().toLocaleUpperCase('tr-TR');\n  const known = {'BAŞARILI':'200','BASARILI':'200','CEVAPSIZ':'304','REDDEDİLDİ':'603','REDDEDILDI':'603',\n    'İPTAL EDİLDİ':'603-S','IPTAL EDILDI':'603-S','MEŞGUL':'486','MESGUL':'486'};\n  return known[label] || '';\n}\n\n// Aynı tabloya yazan iki kol da aynı başlık kümesini gönderir.\nconst SHEET_COLUMNS = ['Tarih','Müşteri Adı','Yeni Aşama','Kaynak','Sorumlu Kişi','Sorumlu ID','Birim','Görev',\n  'Önceki Aşama','CRM ID','Kayıt Türü','CRM Başlığı','İşlemi Yapan ID','İşlemi Yapan','Aşama Bilgisi','Kayıt Zamanı',\n  'Olay','Kontrol Notu','Olay Türü','Telefon','Arama ID','Arama Yönü','Arama Başlangıcı','Arama Süresi (sn)',\n  'Arama Sonucu','Arama Sonuç Kodu','Arama Açıklaması','CRM Aktivite ID'];\nfunction sheetRow(values) { return Object.fromEntries(SHEET_COLUMNS.map(k=>[k, values[k] ?? ''])); }\n\nconst items = $input.all().filter(i=>i.json.kind === 'CALL');\nreturn items.map(item=>{\n  const call = item.json;\n  // Sıfır saniyede ve başarısız aramada da kullanıcı PORTAL_USER_ID'den çözülür.\n  const owner = resolvePerson(call.portalUserId, '');\n  const warnings = [...(call.warnings || [])];\n  if (!owner.listed) warnings.push(owner.status + (owner.id ? ': '+owner.id : ''));\n  if (!call.resultCode) warnings.push('Arama sonuç kodu gönderilmedi.');\n  if (!CALL_DIRECTIONS[call.callType]) warnings.push('Arama türü tanınmadı: ' + (call.callType || 'eksik'));\n  return {json:sheetRow({\n    'Tarih':DateTime.fromISO(call.startTime).setZone('Europe/Istanbul').toFormat('dd.MM.yyyy HH:mm:ss'),\n    'Müşteri Adı':call.phone || 'Telefon gönderilmedi','Yeni Aşama':callResult(call.resultCode),\n    'Kaynak':'GERCEK_ARAMA','Sorumlu Kişi':owner.isim,'Sorumlu ID':owner.id,'Birim':owner.birim,'Görev':owner.gorev || '',\n    'Önceki Aşama':'-','Kayıt Türü':'Arama','Olay Türü':'Arama','Aşama Bilgisi':'Telefon araması sonucu',\n    'Kayıt Zamanı':$now.setZone('Europe/Istanbul').toISO(),'Olay':call.event,'Kontrol Notu':warnings.join('; '),\n    'Telefon':call.phone,'Arama ID':call.callId,'Arama Yönü':CALL_DIRECTIONS[call.callType] || 'Tür '+call.callType,\n    'Arama Başlangıcı':call.startTime,'Arama Süresi (sn)':call.duration === null ? '' : call.duration,\n    'Arama Sonucu':callResult(call.resultCode),'Arama Sonuç Kodu':call.resultCode,'Arama Açıklaması':call.resultReason,\n    'CRM Aktivite ID':call.activityId\n  })};\n});\n"
+      },
+      "id": "d120a43d-fc84-4e81-8116-3001efa04e5e",
+      "name": "Arama Kaydını Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7200,
+        2624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst context = $('Webhook Verisini Hazırla').first().json;\nif (response.error) throw new Error('Bitrix CRM: ' + response.error + ' — ' + (response.error_description || ''));\nconst record = response.result;\nif (!record || typeof record !== 'object' || Array.isArray(record) || String(record.ID) !== context.crmId) {\n  throw new Error('Bitrix istenen CRM kaydını döndürmedi; Sheet kaydı oluşturulmadı.');\n}\nconst ownerId = String(record.ASSIGNED_BY_ID || '').trim();\nconst editorId = String(record.MODIFY_BY_ID || '').trim();\nconst categoryId = Number(record.CATEGORY_ID || 0);\nconst statusEntity = context.entityType === 'LEAD' ? 'STATUS' : categoryId > 0 ? 'DEAL_STAGE_' + categoryId : 'DEAL_STAGE';\nconst cmd = {\n  stages: 'crm.status.list?filter[ENTITY_ID]=' + encodeURIComponent(statusEntity),\n  sources: 'crm.status.list?filter[ENTITY_ID]=SOURCE'\n};\nif (/^[1-9]\\d*$/.test(ownerId)) cmd.owner = 'user.get?ID=' + encodeURIComponent(ownerId);\nif (/^[1-9]\\d*$/.test(editorId) && editorId !== ownerId) cmd.editor = 'user.get?ID=' + encodeURIComponent(editorId);\nreturn [{ json: { context, record, ownerId, editorId, batchBody: { halt: 0, cmd } } }];\n"
+      },
+      "id": "c8a628db-f65f-4598-bfe3-63b0d2b0cadc",
+      "name": "CRM Kaydını Kontrol Et",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7440,
+        2864
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/batch.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.batchBody) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "f46381cf-1c5b-4b61-8948-34010a1a73e0",
+      "name": "Bitrix İsim ve Etiketleri Getir",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        7680,
+        2864
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 1500,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Güncel personel listesi (13.10.2026, 18 kişi).\n// Bu blok akış oluşturulurken ilgili Code düğümlerine gömülür; harici dosya gerekmez.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\nfunction normalizePersonName(value) {\n  return String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/\\s+/g, ' ');\n}\nfunction normalizePersonId(value) {\n  if (value === null || value === undefined) return '';\n  const raw = String(value).trim();\n  const match = /^(?:(?:user|USER)_|Bitrix kullanıcı #)?([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  return match ? match[1] : '';\n}\nfunction resolvePerson(idValue, nameValue) {\n  let id = normalizePersonId(idValue);\n  const supplied = typeof nameValue === 'object' && nameValue !== null ? (nameValue.isim || nameValue.name || '') : nameValue;\n  const name = ['string', 'number'].includes(typeof supplied) ? String(supplied).trim() : '';\n  if (!id) id = normalizePersonId(name);\n  if (id && Object.prototype.hasOwnProperty.call(PERSONELLER, id)) {\n    return { id, ...PERSONELLER[id], listed: true, status: 'Personel listesi' };\n  }\n  if (!id && name) {\n    const match = Object.entries(PERSONELLER).find(([,p]) => normalizePersonName(p.isim) === normalizePersonName(name));\n    if (match) return { id: match[0], ...match[1], listed: true, status: 'Ad üzerinden personel listesi' };\n  }\n  const normalized = normalizePersonName(name);\n  const invalidName = !name || /bilinm|sistem hata|baglan|atanmamis|kullanici #|personel listesinde|id eksik|object object|^[-?]+$/.test(normalized) || Boolean(normalizePersonId(name));\n  return {\n    id,\n    isim: id ? (invalidName ? 'Personel listesinde yok (ID ' + id + ')' : name) : 'Sorumlu ID eksik',\n    birim: 'Personel listesinde yok', listed: false,\n    status: id ? 'Personel listesinde yok' : 'Sorumlu ID eksik'\n  };\n}\n\n// Aynı tabloya yazan iki kol da aynı başlık kümesini gönderir.\nconst SHEET_COLUMNS = ['Tarih','Müşteri Adı','Yeni Aşama','Kaynak','Sorumlu Kişi','Sorumlu ID','Birim','Görev',\n  'Önceki Aşama','CRM ID','Kayıt Türü','CRM Başlığı','İşlemi Yapan ID','İşlemi Yapan','Aşama Bilgisi','Kayıt Zamanı',\n  'Olay','Kontrol Notu','Olay Türü','Telefon','Arama ID','Arama Yönü','Arama Başlangıcı','Arama Süresi (sn)',\n  'Arama Sonucu','Arama Sonuç Kodu','Arama Açıklaması','CRM Aktivite ID'];\nfunction sheetRow(values) { return Object.fromEntries(SHEET_COLUMNS.map(k=>[k, values[k] ?? ''])); }\n\nconst state = $('CRM Kaydını Kontrol Et').first().json;\nconst { context, record, ownerId, editorId } = state;\nconst response = $input.first().json;\nconst result = response.result?.result || {};\nconst errors = response.result?.result_error || {};\nconst notices = [];\nif (response.error) notices.push('Yardımcı Bitrix sorgusu yanıt vermedi; tanımlı personel adları yerel listeden alındı, aşamalarda ham CRM kodları kullanıldı.');\nfor (const [key, value] of Object.entries(errors)) notices.push(key + ': ' + (value.error || 'Bitrix hatası'));\nfunction scalar(v) { return v === undefined || v === null ? '' : String(v).trim(); }\nfunction person(data, id) {\n  const list = Array.isArray(data) ? data : data && typeof data === 'object' ? [data] : [];\n  const user = list.find(u => String(u.ID) === id);\n  const full = user ? [user.NAME, user.LAST_NAME].map(scalar).filter(Boolean).join(' ') : '';\n  return resolvePerson(id, full);\n}\nfunction label(data, id) {\n  const list = Array.isArray(data) ? data : [];\n  const found = list.find(v => String(v.STATUS_ID) === scalar(id));\n  return scalar(found?.NAME) || scalar(id) || '-';\n}\nconst stage = context.newStage || scalar(context.entityType === 'LEAD' ? record.STATUS_ID : record.STAGE_ID);\nconst owner = person(result.owner, ownerId);\nconst editor = editorId === ownerId ? owner : person(result.editor, editorId);\nif (!owner.listed) notices.push(owner.status + (owner.id ? ': ' + owner.id : ''));\nconst fullName = [record.NAME, record.SECOND_NAME, record.LAST_NAME].map(scalar).filter(Boolean).join(' ');\nconst customerName = context.entityType === 'LEAD' ? (fullName || scalar(record.TITLE)) : scalar(record.TITLE);\nconst row = {\n  'Tarih': DateTime.fromISO(context.eventTime).setZone('Europe/Istanbul').toFormat('dd.MM.yyyy HH:mm:ss'),\n  'Müşteri Adı': customerName || context.entityType + ' #' + context.crmId,\n  'Yeni Aşama': label(result.stages, stage),\n  'Kaynak': label(result.sources, context.source || record.SOURCE_ID),\n  'Sorumlu Kişi': owner.isim,\n  'Sorumlu ID': owner.id,\n  'Birim': owner.birim,\n  'Görev': owner.gorev || '',\n  'Önceki Aşama': context.oldStage ? label(result.stages, context.oldStage) : 'Bildirimde gönderilmedi',\n  'CRM ID': context.crmId,\n  'Kayıt Türü': context.entityType === 'LEAD' ? 'Lead' : 'Anlaşma',\n  'CRM Başlığı': scalar(record.TITLE),\n  'İşlemi Yapan ID': editorId,\n  'İşlemi Yapan': editorId ? editor.isim : 'İşlemi yapan ID eksik',\n  'Aşama Bilgisi': context.newStage ? 'Bildirimdeki aşama' : 'İşleme anındaki CRM aşaması',\n  'Kayıt Zamanı': $now.setZone('Europe/Istanbul').toISO(),\n  'Olay': context.event,\n  'Olay Türü': 'CRM',\n  'Kontrol Notu': notices.join('; ')\n};\nreturn [{ json: sheetRow(row) }];\n"
+      },
+      "id": "39e575f1-a77a-4235-9e77-8a5348f377d5",
+      "name": "Sheet Satırını Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7920,
+        2864
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Güncel personel listesi (13.10.2026, 18 kişi).\n// Bu blok akış oluşturulurken ilgili Code düğümlerine gömülür; harici dosya gerekmez.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\nfunction normalizePersonName(value) {\n  return String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/\\s+/g, ' ');\n}\nfunction normalizePersonId(value) {\n  if (value === null || value === undefined) return '';\n  const raw = String(value).trim();\n  const match = /^(?:(?:user|USER)_|Bitrix kullanıcı #)?([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  return match ? match[1] : '';\n}\nfunction resolvePerson(idValue, nameValue) {\n  let id = normalizePersonId(idValue);\n  const supplied = typeof nameValue === 'object' && nameValue !== null ? (nameValue.isim || nameValue.name || '') : nameValue;\n  const name = ['string', 'number'].includes(typeof supplied) ? String(supplied).trim() : '';\n  if (!id) id = normalizePersonId(name);\n  if (id && Object.prototype.hasOwnProperty.call(PERSONELLER, id)) {\n    return { id, ...PERSONELLER[id], listed: true, status: 'Personel listesi' };\n  }\n  if (!id && name) {\n    const match = Object.entries(PERSONELLER).find(([,p]) => normalizePersonName(p.isim) === normalizePersonName(name));\n    if (match) return { id: match[0], ...match[1], listed: true, status: 'Ad üzerinden personel listesi' };\n  }\n  const normalized = normalizePersonName(name);\n  const invalidName = !name || /bilinm|sistem hata|baglan|atanmamis|kullanici #|personel listesinde|id eksik|object object|^[-?]+$/.test(normalized) || Boolean(normalizePersonId(name));\n  return {\n    id,\n    isim: id ? (invalidName ? 'Personel listesinde yok (ID ' + id + ')' : name) : 'Sorumlu ID eksik',\n    birim: 'Personel listesinde yok', listed: false,\n    status: id ? 'Personel listesinde yok' : 'Sorumlu ID eksik'\n  };\n}\n\nconst CALL_RESULTS = {\n  '200':'Başarılı','304':'Cevapsız','603':'Reddedildi','603-S':'İptal edildi',\n  '404':'Geçersiz numara','486':'Meşgul','484':'Arama yönü kullanılamıyor','403':'Arama izni yok',\n  '480':'Geçici olarak ulaşılamıyor','503':'Arama yönü kullanılamıyor','402':'Yetersiz bakiye','423':'Engellendi','OTHER':'Tanımlanmamış sonuç'\n};\nconst CALL_DIRECTIONS = {'1':'Giden','2':'Gelen','3':'Yönlendirmeli gelen','4':'Geri arama','5':'Bilgilendirme araması'};\nfunction callResult(code) { return CALL_RESULTS[String(code)] || (code ? 'Diğer sonuç (' + code + ')' : 'Sonuç kodu eksik'); }\nfunction isCallRow(row) {\n  const norm = v => String(v || '').trim().toLocaleUpperCase('tr-TR');\n  return norm(row['Olay']) === 'ONVOXIMPLANTCALLEND' || norm(row['Olay Türü']) === 'ARAMA' ||\n    norm(row['Kayıt Türü']) === 'ARAMA' || ['GERCEK_ARAMA','GERÇEK_ARAMA'].includes(norm(row.Kaynak));\n}\nfunction secondsValue(value) {\n  const raw = String(value ?? '').trim();\n  return /^\\d+(?:\\.\\d+)?$/.test(raw) && Number.isFinite(Number(raw)) ? Number(raw) : null;\n}\nfunction legacyCallResult(value) {\n  const label = String(value || '').trim().toLocaleUpperCase('tr-TR');\n  const known = {'BAŞARILI':'200','BASARILI':'200','CEVAPSIZ':'304','REDDEDİLDİ':'603','REDDEDILDI':'603',\n    'İPTAL EDİLDİ':'603-S','IPTAL EDILDI':'603-S','MEŞGUL':'486','MESGUL':'486'};\n  return known[label] || '';\n}\n\nconst period = 'daily';\nconst inputRows = $input.all().map(i => i.json);\nconst rows = inputRows.filter(r => r['Satır Türü'] === 'Hareket');\nconst rawCallRows = inputRows.filter(r => r['Satır Türü'] === 'Arama');\nconst callsById = new Map(), legacyCalls = [];\nfor (const row of rawCallRows) {\n  const id = String(row['Arama ID'] || '').trim();\n  if (id) callsById.set(id, row); else legacyCalls.push(row);\n}\nconst callRows = Array.from(callsById.values());\nconst callResults = new Map(), callDirections = new Map();\nconst callTotals = {total:callRows.length,rawRows:rawCallRows.length,legacyRows:legacyCalls.length,\n  duplicates:rawCallRows.length - callRows.length - legacyCalls.length,successful:0,unsuccessful:0,unknownResult:0,\n  seconds:0,missingDuration:0,successful20:0};\nconst periodText = inputRows[0]?.['Rapor Dönemi'] || '';\nconst reportDate = inputRows[0]?.['Rapor Tarihi'] || '';\nconst title = period === 'daily' ? 'XRE GÜN SONU ÖZETİ' : 'XRE HAFTALIK YÖNETİCİ ÖZETİ';\nconst warnings = inputRows.filter(r => r['Satır Türü'] === 'Uyarı').map(r => String(r.Bilgi));\nconst people = new Map(Object.entries(PERSONELLER).map(([id,p]) => [id, {\n  id, isim:p.isim, birim:p.birim, gorev:p.gorev || '', listed:true, movements:0, ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0\n}]));\nconst departments = new Map();\nfor (const person of people.values()) {\n  if (!departments.has(person.birim)) departments.set(person.birim, {birim:person.birim, movements:0, ids:new Set(), active:new Set(), staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  departments.get(person.birim).staff++;\n}\nconst uniqueCRM = new Set(), latestCRM = new Map(), stageMovements = new Map(), sourceMovements = new Map();\nlet missingCRM = 0, missingOwner = 0, outsideRoster = 0, controlNotes = 0;\nconst clean = v => String(v ?? '').trim();\nfunction crmKey(row) {\n  const raw = clean(row['CRM ID']);\n  const match = /^([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  if (!match) return '';\n  const type = ['ANLAŞMA','DEAL'].includes(clean(row['Kayıt Türü']).toLocaleUpperCase('tr-TR')) ? 'DEAL' : 'LEAD';\n  return type + ':' + match[1];\n}\nfunction increment(map, key) { map.set(key, (map.get(key) || 0) + 1); }\nfor (const row of rows) {\n  const owner = resolvePerson(row['Sorumlu ID'], row['Sorumlu Kişi']);\n  const personKey = owner.id || 'ID_EKSIK';\n  if (!people.has(personKey)) people.set(personKey,{...owner,movements:0,ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const person = people.get(personKey);\n  if (!departments.has(owner.birim)) departments.set(owner.birim,{birim:owner.birim,movements:0,ids:new Set(),active:new Set(),staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const department = departments.get(owner.birim);\n  person.movements++; department.movements++;\n  if (owner.listed) department.active.add(owner.id);\n  if (!owner.id) missingOwner++;\n  else if (!owner.listed) outsideRoster++;\n  const key = crmKey(row);\n  if (key) {\n    uniqueCRM.add(key); latestCRM.set(key,row);\n    person.ids.add(key); department.ids.add(key);\n  } else missingCRM++;\n  increment(stageMovements,clean(row['Yeni Aşama']) || 'Aşama bilgisi yok');\n  increment(sourceMovements,clean(row.Kaynak) || 'Kaynak bilgisi yok');\n  if (row['Kontrol Notu']) controlNotes++;\n}\nfor (const [collection,legacy] of [[callRows,false],[legacyCalls,true]]) for (const row of collection) {\n  const owner = resolvePerson(row['Sorumlu ID'],row['Sorumlu Kişi']);\n  const key = owner.id || 'ID_EKSIK';\n  if (!people.has(key)) people.set(key,{...owner,movements:0,ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  if (!departments.has(owner.birim)) departments.set(owner.birim,{birim:owner.birim,movements:0,ids:new Set(),active:new Set(),staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const person=people.get(key),department=departments.get(owner.birim);\n  if (owner.listed) department.active.add(owner.id);\n  if (!owner.id) missingOwner++; else if (!owner.listed) outsideRoster++;\n  if (row['Kontrol Notu']) controlNotes++;\n  if (legacy) {person.legacyCalls++;department.legacyCalls++;continue;}\n  person.calls++;department.calls++;\n  const code=clean(row['Arama Sonuç Kodu']);\n  const seconds=secondsValue(row['Arama Süresi (sn)']);\n  if (seconds === null) callTotals.missingDuration++;\n  else {callTotals.seconds+=seconds;person.callSeconds+=seconds;department.callSeconds+=seconds;}\n  if (code==='200') {\n    callTotals.successful++;person.successfulCalls++;department.successfulCalls++;\n    if (seconds !== null && seconds>=20) {callTotals.successful20++;person.successful20++;department.successful20++;}\n  } else if (code && code!=='OTHER' && CALL_RESULTS[code]) callTotals.unsuccessful++;\n  else callTotals.unknownResult++;\n  increment(callResults,code ? callResult(code) : 'Sonuç kodu eksik');\n  increment(callDirections,clean(row['Arama Yönü']) || 'Yön belirtilmedi');\n}\nconst latestStages = new Map();\nfor (const row of latestCRM.values()) increment(latestStages,clean(row['Yeni Aşama']) || 'Aşama bilgisi yok');\nconst byCount = map => Array.from(map,([label,count])=>({label,count})).sort((a,b)=>b.count-a.count || a.label.localeCompare(b.label,'tr'));\nconst personRows = Array.from(people.values()).map(p=>({id:p.id,isim:p.isim,birim:p.birim,gorev:p.gorev || '',listed:p.listed,movements:p.movements,uniqueCRM:p.ids.size,calls:p.calls,successfulCalls:p.successfulCalls,successful20:p.successful20,callSeconds:p.callSeconds,legacyCalls:p.legacyCalls}))\n  .sort((a,b)=>Number(b.listed)-Number(a.listed) || b.calls-a.calls || b.movements-a.movements || a.isim.localeCompare(b.isim,'tr'));\nconst departmentRows = Array.from(departments.values()).map(d=>({birim:d.birim,movements:d.movements,uniqueCRM:d.ids.size,active:d.active.size,staff:d.staff,calls:d.calls,successfulCalls:d.successfulCalls,successful20:d.successful20,callSeconds:d.callSeconds,legacyCalls:d.legacyCalls}))\n  .sort((a,b)=>b.movements-a.movements || a.birim.localeCompare(b.birim,'tr'));\nconst activeStaff = personRows.filter(p=>p.listed && (p.movements+p.calls+p.legacyCalls)>0).length;\nconst zeroStaff = personRows.filter(p=>p.listed && !(p.movements+p.calls+p.legacyCalls));\nif (missingCRM) warnings.push(missingCRM + ' hareketin CRM ID bilgisi yok/geçersiz; bu satırlar tekil CRM sayısına ve son aşama dağılımına dahil edilmedi.');\nif (missingOwner) warnings.push(missingOwner + ' kayıtta sorumlu ID bulunamadı; bu kayıtlar herhangi bir çalışana atanmadı.');\nif (outsideRoster) warnings.push(outsideRoster + ' kaydın sorumlu ID’si verilen personel listesinde yok; ayrı satırlarda gösterildi.');\nif (controlNotes) warnings.push(controlNotes + ' kaydın Kontrol Notu alanı dolu; ayrıntılar Excel ekindedir.');\nif (callTotals.duplicates) warnings.push(callTotals.duplicates + ' yinelenen arama satırı aynı dönem içinde Arama ID ile tekilleştirildi; son kaydedilen satır kullanıldı.');\nif (callTotals.legacyRows) warnings.push(callTotals.legacyRows + ' eski arama satırında Arama ID bulunmuyor. Tekil arama, başarı ve süre hesaplarına katılmadı; eski satır adedi ayrı gösterildi.');\nif (callTotals.missingDuration) warnings.push(callTotals.missingDuration + ' tekil aramanın süresi eksik; sıfır kabul edilmedi.');\nfor (const person of personRows.filter(p=>p.listed && p.birim === 'Birim belirtilmedi')) warnings.push(person.isim + ' için birim belirtilmedi.');\nconst stats = {movements:rows.length,uniqueCRM:uniqueCRM.size,activeStaff,staffCount:Object.keys(PERSONELLER).length,\n  calls:{...callTotals,results:byCount(callResults),directions:byCount(callDirections)},\n  missingCRM,missingOwner,outsideRoster,people:personRows,departments:departmentRows,\n  latestStages:byCount(latestStages),stageMovements:byCount(stageMovements),sources:byCount(sourceMovements),\n  zeroStaff:zeroStaff.map(p=>p.isim),warnings};\nconst text = [title+' — '+reportDate,'Dönem: '+periodText,'',\n  'Arama adedi (ID ile tekil): '+stats.calls.total,'Başarılı arama (kod 200): '+stats.calls.successful,\n  '20 sn ve üzeri başarılı arama: '+stats.calls.successful20,'Başarısız arama: '+stats.calls.unsuccessful,'Sonucu belirlenemeyen arama: '+stats.calls.unknownResult,\n  'Toplam arama süresi: '+stats.calls.seconds+' sn','Arama ID bilgisi olmayan eski satırlar: '+stats.calls.legacyRows,\n  'Toplam CRM hareketi: '+stats.movements,'Tekil CRM kaydı: '+stats.uniqueCRM,\n  'Arama/CRM kaydı görülen personel: '+activeStaff+'/'+stats.staffCount,'',\n  'BİRİMLER',...departmentRows.map(d=>d.birim+': '+d.calls+' arama | '+d.successfulCalls+' başarılı | '+d.movements+' CRM hareketi | '+d.uniqueCRM+' tekil CRM'),'',\n  'PERSONELLER',...personRows.map(p=>p.isim+' — '+p.birim+(p.gorev?' / '+p.gorev:'')+': '+p.calls+' arama | '+p.successfulCalls+' başarılı | '+p.successful20+' başarılı 20 sn+ | '+p.callSeconds+' sn | '+p.movements+' CRM hareketi | '+p.uniqueCRM+' tekil CRM | '+p.legacyCalls+' ID’siz eski arama satırı'),'',\n  'ARAMA SONUÇLARI',...stats.calls.results.map(r=>r.label+': '+r.count),'',\n  'ARAMA YÖNLERİ',...stats.calls.directions.map(r=>r.label+': '+r.count),'',\n  'TEKİL CRM KAYITLARININ SON KAYDEDİLEN AŞAMALARI',...stats.latestStages.map(s=>s.label+': '+s.count),\n  ...(stats.latestStages.length ? [] : ['CRM ID bilgisiyle sayılabilen kayıt yok.']),'',\n  'HAREKETLERİN AŞAMA DAĞILIMI',...stats.stageMovements.map(s=>s.label+': '+s.count),'',\n  'KAYNAKLARA GÖRE HAREKETLER',...stats.sources.map(s=>s.label+': '+s.count),'',\n  'RAPORDA HAREKETİ GÖRÜNMEYEN PERSONELLER',zeroStaff.map(p=>p.isim).join(', ') || 'Yok.','',\n  'KONTROL NOTLARI',...(warnings.length ? warnings.map(w=>'• '+w) : ['Kontrol gerektiren kayıt yok.']),'',\n  'Aramalar tamamlanma bildiriminden sayılır; başarı kodu 200’dür. Aynı dönemde aynı Arama ID bir kez sayılır. Süre, Bitrix CALL_DURATION değeridir. CRM hareketleri arama/randevu/satış adedi değildir.',\n  'Tekil CRM sayısı kayıt türü + CRM ID ile hesaplanır; sorumlusu değişen kayıt birden fazla personelin tekil sayısında görünebilir.',\n  'Hareket görünmemesi, personelin çalışmadığı veya arama yapmadığı anlamına gelmez. Ayrıntılı hareketler Excel ekindedir.'\n].join('\\n');\nfunction esc(value) { return String(value ?? '').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c])); }\nfunction table(headers,data) {\n  return '<table style=\"border-collapse:collapse;width:100%;font-size:13px;margin:12px 0 24px\"><thead><tr>'+\n    headers.map(h=>'<th style=\"background:#eef2f7;text-align:left;padding:10px;border:1px solid #dae1ea\">'+esc(h)+'</th>').join('')+\n    '</tr></thead><tbody>'+data.map((r,i)=>'<tr style=\"background:'+(i%2?'#f8fafc':'#fff')+'\">'+r.map(c=>'<td style=\"padding:9px;border:1px solid #dae1ea\">'+esc(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';\n}\nconst intro = (rows.length || rawCallRows.length) ? 'Bu dönemde '+callRows.length+' tekil arama ve '+rows.length+' CRM hareketi kaydedildi. '+activeStaff+'/'+stats.staffCount+' personel için arama veya CRM kaydı görüldü.' : 'Bu dönemde Sheet üzerinde arama veya CRM hareketi bulunamadı. Bildirim bağlantısını ve rapor dönemini kontrol edebilirsiniz.';\nconst html = '<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"></head><body style=\"margin:0;background:#f3f5f8;font-family:Arial,sans-serif;color:#172335\">'+\n  '<div style=\"max-width:900px;margin:24px auto;background:#fff;padding:28px;border-top:6px solid #153b62\">'+\n  '<h1 style=\"font-size:24px;margin:0 0 12px\">'+esc(title)+'</h1><p style=\"color:#536174\">'+esc(reportDate)+'<br>Dönem: '+esc(periodText)+'</p><p>'+esc(intro)+'</p>'+\n  table(['Toplam CRM hareketi','Tekil CRM kaydı','Hareket görülen personel'],[[rows.length,uniqueCRM.size,activeStaff+'/'+stats.staffCount]])+\n  '<h2 style=\"font-size:18px\">Arama özeti</h2>'+table(['Ölçüm','Adet / süre'],[['Arama adedi (ID ile tekil)',callTotals.total],['Başarılı (kod 200)',callTotals.successful],['Başarısız',callTotals.unsuccessful],['Sonucu belirlenemeyen',callTotals.unknownResult],['20 sn ve üzeri başarılı',callTotals.successful20],['Toplam arama süresi',callTotals.seconds+' sn'],['Arama ID bilgisi olmayan eski satırlar',callTotals.legacyRows]])+\n  '<h2 style=\"font-size:18px\">Birimlere göre özet</h2>'+table(['Birim','Arama','Başarılı','CRM hareketi','Tekil CRM','Kayıt görülen / listedeki personel'],departmentRows.map(d=>[d.birim,d.calls,d.successfulCalls,d.movements,d.uniqueCRM,d.staff?d.active+'/'+d.staff:'Liste dışı']))+\n  '<h2 style=\"font-size:18px\">Personel arama özeti</h2>'+table(['Personel','Birim','Arama','Başarılı','20 sn+ başarılı','Süre (sn)','ID’siz eski satır'],personRows.map(p=>[p.isim,p.birim,p.calls,p.successfulCalls,p.successful20,p.callSeconds,p.legacyCalls]))+\n  '<h2 style=\"font-size:18px\">Personel bazında özet</h2>'+table(['Personel','Birim','Görev','CRM hareketi','Tekil CRM'],personRows.map(p=>[p.isim+(p.listed?'':' (liste dışı)'),p.birim,p.gorev || '-',p.movements,p.uniqueCRM]))+\n  '<h2 style=\"font-size:18px\">Arama sonuçları</h2>'+table(['Sonuç','Tekil arama'],stats.calls.results.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Arama yönleri</h2>'+table(['Yön','Tekil arama'],stats.calls.directions.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Tekil CRM kayıtlarının son kaydedilen aşamaları</h2>'+\n  (stats.latestStages.length ? table(['Son kaydedilen aşama','Tekil CRM'],stats.latestStages.map(s=>[s.label,s.count])) : '<p>CRM ID bilgisiyle sayılabilen kayıt yok.</p>')+\n  '<h2 style=\"font-size:18px\">Hareketlerin aşama dağılımı</h2>'+table(['Yeni aşama','Hareket'],stats.stageMovements.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Kaynaklara göre hareketler</h2>'+table(['Kaynak','Hareket'],stats.sources.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Raporda hareketi görünmeyen personeller</h2><p>'+esc(zeroStaff.map(p=>p.isim).join(', ') || 'Yok.')+'</p>'+\n  '<h2 style=\"font-size:18px\">Kontrol notları</h2>'+(warnings.length ? '<ul>'+warnings.map(w=>'<li style=\"margin-bottom:6px\">'+esc(w)+'</li>').join('')+'</ul>' : '<p>Kontrol gerektiren kayıt yok.</p>')+\n  '<p style=\"font-size:12px;color:#536174;line-height:1.6\">Aramalar tamamlanma bildiriminden sayılır; başarı kodu 200’dür. Aynı dönemde aynı Arama ID bir kez sayılır. Süre, Bitrix CALL_DURATION değeridir. CRM hareketleri arama/randevu/satış adedi değildir. Tekil CRM sayısı kayıt türü + CRM ID ile hesaplanır; sorumlusu değişen kayıt birden fazla personelin tekil sayısında görünebilir. Kayıt görünmemesi, personelin çalışmadığı anlamına gelmez. Ayrıntılar Excel ekindedir.</p></div></body></html>';\nreturn [{json:{subject:title+' — '+reportDate,summaryText:text,summaryHtml:html,stats,rows:inputRows}}];\n"
+      },
+      "id": "418f5691-29f0-40c7-92c1-135bbe117fae",
+      "name": "Gün Sonu Özetini Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7328,
+        3184
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.first().json.rows.map(row => ({json: row}));"
+      },
+      "id": "69034b63-4e3a-4d94-83cd-7fa39efc13fb",
+      "name": "Günlük Excel Verisini Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7600,
+        3184
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Güncel personel listesi (13.10.2026, 18 kişi).\n// Bu blok akış oluşturulurken ilgili Code düğümlerine gömülür; harici dosya gerekmez.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\nfunction normalizePersonName(value) {\n  return String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/\\s+/g, ' ');\n}\nfunction normalizePersonId(value) {\n  if (value === null || value === undefined) return '';\n  const raw = String(value).trim();\n  const match = /^(?:(?:user|USER)_|Bitrix kullanıcı #)?([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  return match ? match[1] : '';\n}\nfunction resolvePerson(idValue, nameValue) {\n  let id = normalizePersonId(idValue);\n  const supplied = typeof nameValue === 'object' && nameValue !== null ? (nameValue.isim || nameValue.name || '') : nameValue;\n  const name = ['string', 'number'].includes(typeof supplied) ? String(supplied).trim() : '';\n  if (!id) id = normalizePersonId(name);\n  if (id && Object.prototype.hasOwnProperty.call(PERSONELLER, id)) {\n    return { id, ...PERSONELLER[id], listed: true, status: 'Personel listesi' };\n  }\n  if (!id && name) {\n    const match = Object.entries(PERSONELLER).find(([,p]) => normalizePersonName(p.isim) === normalizePersonName(name));\n    if (match) return { id: match[0], ...match[1], listed: true, status: 'Ad üzerinden personel listesi' };\n  }\n  const normalized = normalizePersonName(name);\n  const invalidName = !name || /bilinm|sistem hata|baglan|atanmamis|kullanici #|personel listesinde|id eksik|object object|^[-?]+$/.test(normalized) || Boolean(normalizePersonId(name));\n  return {\n    id,\n    isim: id ? (invalidName ? 'Personel listesinde yok (ID ' + id + ')' : name) : 'Sorumlu ID eksik',\n    birim: 'Personel listesinde yok', listed: false,\n    status: id ? 'Personel listesinde yok' : 'Sorumlu ID eksik'\n  };\n}\n\nconst CALL_RESULTS = {\n  '200':'Başarılı','304':'Cevapsız','603':'Reddedildi','603-S':'İptal edildi',\n  '404':'Geçersiz numara','486':'Meşgul','484':'Arama yönü kullanılamıyor','403':'Arama izni yok',\n  '480':'Geçici olarak ulaşılamıyor','503':'Arama yönü kullanılamıyor','402':'Yetersiz bakiye','423':'Engellendi','OTHER':'Tanımlanmamış sonuç'\n};\nconst CALL_DIRECTIONS = {'1':'Giden','2':'Gelen','3':'Yönlendirmeli gelen','4':'Geri arama','5':'Bilgilendirme araması'};\nfunction callResult(code) { return CALL_RESULTS[String(code)] || (code ? 'Diğer sonuç (' + code + ')' : 'Sonuç kodu eksik'); }\nfunction isCallRow(row) {\n  const norm = v => String(v || '').trim().toLocaleUpperCase('tr-TR');\n  return norm(row['Olay']) === 'ONVOXIMPLANTCALLEND' || norm(row['Olay Türü']) === 'ARAMA' ||\n    norm(row['Kayıt Türü']) === 'ARAMA' || ['GERCEK_ARAMA','GERÇEK_ARAMA'].includes(norm(row.Kaynak));\n}\nfunction secondsValue(value) {\n  const raw = String(value ?? '').trim();\n  return /^\\d+(?:\\.\\d+)?$/.test(raw) && Number.isFinite(Number(raw)) ? Number(raw) : null;\n}\nfunction legacyCallResult(value) {\n  const label = String(value || '').trim().toLocaleUpperCase('tr-TR');\n  const known = {'BAŞARILI':'200','BASARILI':'200','CEVAPSIZ':'304','REDDEDİLDİ':'603','REDDEDILDI':'603',\n    'İPTAL EDİLDİ':'603-S','IPTAL EDILDI':'603-S','MEŞGUL':'486','MESGUL':'486'};\n  return known[label] || '';\n}\n\nconst period = 'weekly';\nconst inputRows = $input.all().map(i => i.json);\nconst rows = inputRows.filter(r => r['Satır Türü'] === 'Hareket');\nconst rawCallRows = inputRows.filter(r => r['Satır Türü'] === 'Arama');\nconst callsById = new Map(), legacyCalls = [];\nfor (const row of rawCallRows) {\n  const id = String(row['Arama ID'] || '').trim();\n  if (id) callsById.set(id, row); else legacyCalls.push(row);\n}\nconst callRows = Array.from(callsById.values());\nconst callResults = new Map(), callDirections = new Map();\nconst callTotals = {total:callRows.length,rawRows:rawCallRows.length,legacyRows:legacyCalls.length,\n  duplicates:rawCallRows.length - callRows.length - legacyCalls.length,successful:0,unsuccessful:0,unknownResult:0,\n  seconds:0,missingDuration:0,successful20:0};\nconst periodText = inputRows[0]?.['Rapor Dönemi'] || '';\nconst reportDate = inputRows[0]?.['Rapor Tarihi'] || '';\nconst title = period === 'daily' ? 'XRE GÜN SONU ÖZETİ' : 'XRE HAFTALIK YÖNETİCİ ÖZETİ';\nconst warnings = inputRows.filter(r => r['Satır Türü'] === 'Uyarı').map(r => String(r.Bilgi));\nconst people = new Map(Object.entries(PERSONELLER).map(([id,p]) => [id, {\n  id, isim:p.isim, birim:p.birim, gorev:p.gorev || '', listed:true, movements:0, ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0\n}]));\nconst departments = new Map();\nfor (const person of people.values()) {\n  if (!departments.has(person.birim)) departments.set(person.birim, {birim:person.birim, movements:0, ids:new Set(), active:new Set(), staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  departments.get(person.birim).staff++;\n}\nconst uniqueCRM = new Set(), latestCRM = new Map(), stageMovements = new Map(), sourceMovements = new Map();\nlet missingCRM = 0, missingOwner = 0, outsideRoster = 0, controlNotes = 0;\nconst clean = v => String(v ?? '').trim();\nfunction crmKey(row) {\n  const raw = clean(row['CRM ID']);\n  const match = /^([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  if (!match) return '';\n  const type = ['ANLAŞMA','DEAL'].includes(clean(row['Kayıt Türü']).toLocaleUpperCase('tr-TR')) ? 'DEAL' : 'LEAD';\n  return type + ':' + match[1];\n}\nfunction increment(map, key) { map.set(key, (map.get(key) || 0) + 1); }\nfor (const row of rows) {\n  const owner = resolvePerson(row['Sorumlu ID'], row['Sorumlu Kişi']);\n  const personKey = owner.id || 'ID_EKSIK';\n  if (!people.has(personKey)) people.set(personKey,{...owner,movements:0,ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const person = people.get(personKey);\n  if (!departments.has(owner.birim)) departments.set(owner.birim,{birim:owner.birim,movements:0,ids:new Set(),active:new Set(),staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const department = departments.get(owner.birim);\n  person.movements++; department.movements++;\n  if (owner.listed) department.active.add(owner.id);\n  if (!owner.id) missingOwner++;\n  else if (!owner.listed) outsideRoster++;\n  const key = crmKey(row);\n  if (key) {\n    uniqueCRM.add(key); latestCRM.set(key,row);\n    person.ids.add(key); department.ids.add(key);\n  } else missingCRM++;\n  increment(stageMovements,clean(row['Yeni Aşama']) || 'Aşama bilgisi yok');\n  increment(sourceMovements,clean(row.Kaynak) || 'Kaynak bilgisi yok');\n  if (row['Kontrol Notu']) controlNotes++;\n}\nfor (const [collection,legacy] of [[callRows,false],[legacyCalls,true]]) for (const row of collection) {\n  const owner = resolvePerson(row['Sorumlu ID'],row['Sorumlu Kişi']);\n  const key = owner.id || 'ID_EKSIK';\n  if (!people.has(key)) people.set(key,{...owner,movements:0,ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  if (!departments.has(owner.birim)) departments.set(owner.birim,{birim:owner.birim,movements:0,ids:new Set(),active:new Set(),staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const person=people.get(key),department=departments.get(owner.birim);\n  if (owner.listed) department.active.add(owner.id);\n  if (!owner.id) missingOwner++; else if (!owner.listed) outsideRoster++;\n  if (row['Kontrol Notu']) controlNotes++;\n  if (legacy) {person.legacyCalls++;department.legacyCalls++;continue;}\n  person.calls++;department.calls++;\n  const code=clean(row['Arama Sonuç Kodu']);\n  const seconds=secondsValue(row['Arama Süresi (sn)']);\n  if (seconds === null) callTotals.missingDuration++;\n  else {callTotals.seconds+=seconds;person.callSeconds+=seconds;department.callSeconds+=seconds;}\n  if (code==='200') {\n    callTotals.successful++;person.successfulCalls++;department.successfulCalls++;\n    if (seconds !== null && seconds>=20) {callTotals.successful20++;person.successful20++;department.successful20++;}\n  } else if (code && code!=='OTHER' && CALL_RESULTS[code]) callTotals.unsuccessful++;\n  else callTotals.unknownResult++;\n  increment(callResults,code ? callResult(code) : 'Sonuç kodu eksik');\n  increment(callDirections,clean(row['Arama Yönü']) || 'Yön belirtilmedi');\n}\nconst latestStages = new Map();\nfor (const row of latestCRM.values()) increment(latestStages,clean(row['Yeni Aşama']) || 'Aşama bilgisi yok');\nconst byCount = map => Array.from(map,([label,count])=>({label,count})).sort((a,b)=>b.count-a.count || a.label.localeCompare(b.label,'tr'));\nconst personRows = Array.from(people.values()).map(p=>({id:p.id,isim:p.isim,birim:p.birim,gorev:p.gorev || '',listed:p.listed,movements:p.movements,uniqueCRM:p.ids.size,calls:p.calls,successfulCalls:p.successfulCalls,successful20:p.successful20,callSeconds:p.callSeconds,legacyCalls:p.legacyCalls}))\n  .sort((a,b)=>Number(b.listed)-Number(a.listed) || b.calls-a.calls || b.movements-a.movements || a.isim.localeCompare(b.isim,'tr'));\nconst departmentRows = Array.from(departments.values()).map(d=>({birim:d.birim,movements:d.movements,uniqueCRM:d.ids.size,active:d.active.size,staff:d.staff,calls:d.calls,successfulCalls:d.successfulCalls,successful20:d.successful20,callSeconds:d.callSeconds,legacyCalls:d.legacyCalls}))\n  .sort((a,b)=>b.movements-a.movements || a.birim.localeCompare(b.birim,'tr'));\nconst activeStaff = personRows.filter(p=>p.listed && (p.movements+p.calls+p.legacyCalls)>0).length;\nconst zeroStaff = personRows.filter(p=>p.listed && !(p.movements+p.calls+p.legacyCalls));\nif (missingCRM) warnings.push(missingCRM + ' hareketin CRM ID bilgisi yok/geçersiz; bu satırlar tekil CRM sayısına ve son aşama dağılımına dahil edilmedi.');\nif (missingOwner) warnings.push(missingOwner + ' kayıtta sorumlu ID bulunamadı; bu kayıtlar herhangi bir çalışana atanmadı.');\nif (outsideRoster) warnings.push(outsideRoster + ' kaydın sorumlu ID’si verilen personel listesinde yok; ayrı satırlarda gösterildi.');\nif (controlNotes) warnings.push(controlNotes + ' kaydın Kontrol Notu alanı dolu; ayrıntılar Excel ekindedir.');\nif (callTotals.duplicates) warnings.push(callTotals.duplicates + ' yinelenen arama satırı aynı dönem içinde Arama ID ile tekilleştirildi; son kaydedilen satır kullanıldı.');\nif (callTotals.legacyRows) warnings.push(callTotals.legacyRows + ' eski arama satırında Arama ID bulunmuyor. Tekil arama, başarı ve süre hesaplarına katılmadı; eski satır adedi ayrı gösterildi.');\nif (callTotals.missingDuration) warnings.push(callTotals.missingDuration + ' tekil aramanın süresi eksik; sıfır kabul edilmedi.');\nfor (const person of personRows.filter(p=>p.listed && p.birim === 'Birim belirtilmedi')) warnings.push(person.isim + ' için birim belirtilmedi.');\nconst stats = {movements:rows.length,uniqueCRM:uniqueCRM.size,activeStaff,staffCount:Object.keys(PERSONELLER).length,\n  calls:{...callTotals,results:byCount(callResults),directions:byCount(callDirections)},\n  missingCRM,missingOwner,outsideRoster,people:personRows,departments:departmentRows,\n  latestStages:byCount(latestStages),stageMovements:byCount(stageMovements),sources:byCount(sourceMovements),\n  zeroStaff:zeroStaff.map(p=>p.isim),warnings};\nconst text = [title+' — '+reportDate,'Dönem: '+periodText,'',\n  'Arama adedi (ID ile tekil): '+stats.calls.total,'Başarılı arama (kod 200): '+stats.calls.successful,\n  '20 sn ve üzeri başarılı arama: '+stats.calls.successful20,'Başarısız arama: '+stats.calls.unsuccessful,'Sonucu belirlenemeyen arama: '+stats.calls.unknownResult,\n  'Toplam arama süresi: '+stats.calls.seconds+' sn','Arama ID bilgisi olmayan eski satırlar: '+stats.calls.legacyRows,\n  'Toplam CRM hareketi: '+stats.movements,'Tekil CRM kaydı: '+stats.uniqueCRM,\n  'Arama/CRM kaydı görülen personel: '+activeStaff+'/'+stats.staffCount,'',\n  'BİRİMLER',...departmentRows.map(d=>d.birim+': '+d.calls+' arama | '+d.successfulCalls+' başarılı | '+d.movements+' CRM hareketi | '+d.uniqueCRM+' tekil CRM'),'',\n  'PERSONELLER',...personRows.map(p=>p.isim+' — '+p.birim+(p.gorev?' / '+p.gorev:'')+': '+p.calls+' arama | '+p.successfulCalls+' başarılı | '+p.successful20+' başarılı 20 sn+ | '+p.callSeconds+' sn | '+p.movements+' CRM hareketi | '+p.uniqueCRM+' tekil CRM | '+p.legacyCalls+' ID’siz eski arama satırı'),'',\n  'ARAMA SONUÇLARI',...stats.calls.results.map(r=>r.label+': '+r.count),'',\n  'ARAMA YÖNLERİ',...stats.calls.directions.map(r=>r.label+': '+r.count),'',\n  'TEKİL CRM KAYITLARININ SON KAYDEDİLEN AŞAMALARI',...stats.latestStages.map(s=>s.label+': '+s.count),\n  ...(stats.latestStages.length ? [] : ['CRM ID bilgisiyle sayılabilen kayıt yok.']),'',\n  'HAREKETLERİN AŞAMA DAĞILIMI',...stats.stageMovements.map(s=>s.label+': '+s.count),'',\n  'KAYNAKLARA GÖRE HAREKETLER',...stats.sources.map(s=>s.label+': '+s.count),'',\n  'RAPORDA HAREKETİ GÖRÜNMEYEN PERSONELLER',zeroStaff.map(p=>p.isim).join(', ') || 'Yok.','',\n  'KONTROL NOTLARI',...(warnings.length ? warnings.map(w=>'• '+w) : ['Kontrol gerektiren kayıt yok.']),'',\n  'Aramalar tamamlanma bildiriminden sayılır; başarı kodu 200’dür. Aynı dönemde aynı Arama ID bir kez sayılır. Süre, Bitrix CALL_DURATION değeridir. CRM hareketleri arama/randevu/satış adedi değildir.',\n  'Tekil CRM sayısı kayıt türü + CRM ID ile hesaplanır; sorumlusu değişen kayıt birden fazla personelin tekil sayısında görünebilir.',\n  'Hareket görünmemesi, personelin çalışmadığı veya arama yapmadığı anlamına gelmez. Ayrıntılı hareketler Excel ekindedir.'\n].join('\\n');\nfunction esc(value) { return String(value ?? '').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c])); }\nfunction table(headers,data) {\n  return '<table style=\"border-collapse:collapse;width:100%;font-size:13px;margin:12px 0 24px\"><thead><tr>'+\n    headers.map(h=>'<th style=\"background:#eef2f7;text-align:left;padding:10px;border:1px solid #dae1ea\">'+esc(h)+'</th>').join('')+\n    '</tr></thead><tbody>'+data.map((r,i)=>'<tr style=\"background:'+(i%2?'#f8fafc':'#fff')+'\">'+r.map(c=>'<td style=\"padding:9px;border:1px solid #dae1ea\">'+esc(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';\n}\nconst intro = (rows.length || rawCallRows.length) ? 'Bu dönemde '+callRows.length+' tekil arama ve '+rows.length+' CRM hareketi kaydedildi. '+activeStaff+'/'+stats.staffCount+' personel için arama veya CRM kaydı görüldü.' : 'Bu dönemde Sheet üzerinde arama veya CRM hareketi bulunamadı. Bildirim bağlantısını ve rapor dönemini kontrol edebilirsiniz.';\nconst html = '<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"></head><body style=\"margin:0;background:#f3f5f8;font-family:Arial,sans-serif;color:#172335\">'+\n  '<div style=\"max-width:900px;margin:24px auto;background:#fff;padding:28px;border-top:6px solid #153b62\">'+\n  '<h1 style=\"font-size:24px;margin:0 0 12px\">'+esc(title)+'</h1><p style=\"color:#536174\">'+esc(reportDate)+'<br>Dönem: '+esc(periodText)+'</p><p>'+esc(intro)+'</p>'+\n  table(['Toplam CRM hareketi','Tekil CRM kaydı','Hareket görülen personel'],[[rows.length,uniqueCRM.size,activeStaff+'/'+stats.staffCount]])+\n  '<h2 style=\"font-size:18px\">Arama özeti</h2>'+table(['Ölçüm','Adet / süre'],[['Arama adedi (ID ile tekil)',callTotals.total],['Başarılı (kod 200)',callTotals.successful],['Başarısız',callTotals.unsuccessful],['Sonucu belirlenemeyen',callTotals.unknownResult],['20 sn ve üzeri başarılı',callTotals.successful20],['Toplam arama süresi',callTotals.seconds+' sn'],['Arama ID bilgisi olmayan eski satırlar',callTotals.legacyRows]])+\n  '<h2 style=\"font-size:18px\">Birimlere göre özet</h2>'+table(['Birim','Arama','Başarılı','CRM hareketi','Tekil CRM','Kayıt görülen / listedeki personel'],departmentRows.map(d=>[d.birim,d.calls,d.successfulCalls,d.movements,d.uniqueCRM,d.staff?d.active+'/'+d.staff:'Liste dışı']))+\n  '<h2 style=\"font-size:18px\">Personel arama özeti</h2>'+table(['Personel','Birim','Arama','Başarılı','20 sn+ başarılı','Süre (sn)','ID’siz eski satır'],personRows.map(p=>[p.isim,p.birim,p.calls,p.successfulCalls,p.successful20,p.callSeconds,p.legacyCalls]))+\n  '<h2 style=\"font-size:18px\">Personel bazında özet</h2>'+table(['Personel','Birim','Görev','CRM hareketi','Tekil CRM'],personRows.map(p=>[p.isim+(p.listed?'':' (liste dışı)'),p.birim,p.gorev || '-',p.movements,p.uniqueCRM]))+\n  '<h2 style=\"font-size:18px\">Arama sonuçları</h2>'+table(['Sonuç','Tekil arama'],stats.calls.results.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Arama yönleri</h2>'+table(['Yön','Tekil arama'],stats.calls.directions.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Tekil CRM kayıtlarının son kaydedilen aşamaları</h2>'+\n  (stats.latestStages.length ? table(['Son kaydedilen aşama','Tekil CRM'],stats.latestStages.map(s=>[s.label,s.count])) : '<p>CRM ID bilgisiyle sayılabilen kayıt yok.</p>')+\n  '<h2 style=\"font-size:18px\">Hareketlerin aşama dağılımı</h2>'+table(['Yeni aşama','Hareket'],stats.stageMovements.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Kaynaklara göre hareketler</h2>'+table(['Kaynak','Hareket'],stats.sources.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Raporda hareketi görünmeyen personeller</h2><p>'+esc(zeroStaff.map(p=>p.isim).join(', ') || 'Yok.')+'</p>'+\n  '<h2 style=\"font-size:18px\">Kontrol notları</h2>'+(warnings.length ? '<ul>'+warnings.map(w=>'<li style=\"margin-bottom:6px\">'+esc(w)+'</li>').join('')+'</ul>' : '<p>Kontrol gerektiren kayıt yok.</p>')+\n  '<p style=\"font-size:12px;color:#536174;line-height:1.6\">Aramalar tamamlanma bildiriminden sayılır; başarı kodu 200’dür. Aynı dönemde aynı Arama ID bir kez sayılır. Süre, Bitrix CALL_DURATION değeridir. CRM hareketleri arama/randevu/satış adedi değildir. Tekil CRM sayısı kayıt türü + CRM ID ile hesaplanır; sorumlusu değişen kayıt birden fazla personelin tekil sayısında görünebilir. Kayıt görünmemesi, personelin çalışmadığı anlamına gelmez. Ayrıntılar Excel ekindedir.</p></div></body></html>';\nreturn [{json:{subject:title+' — '+reportDate,summaryText:text,summaryHtml:html,stats,rows:inputRows}}];\n"
+      },
+      "id": "c8f407f3-49f1-4f5c-9bd6-8ffe369d90e2",
+      "name": "Haftalık Özeti Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7328,
+        3472
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.first().json.rows.map(row => ({json: row}));"
+      },
+      "id": "59a6603f-7dea-4b13-9666-3ab2870ef788",
+      "name": "Haftalık Excel Verisini Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7600,
+        3472
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "447327b0-dfe7-4ad7-9869-4a826a9b80ac",
+      "name": "Manuel Sheet Bağlantı Testi",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        6480,
+        3744
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "<GOOGLE_SHEET_ID_CALLCENTER>",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sayfa1"
+        },
+        "options": {
+          "dataLocationOnSheet": {
+            "values": {
+              "rangeDefinition": "detectAutomatically"
+            }
+          },
+          "outputFormatting": {
+            "values": {
+              "general": "UNFORMATTED_VALUE",
+              "date": "SERIAL_NUMBER"
+            }
+          }
+        }
+      },
+      "id": "e9c7a8c2-84a4-46e3-9685-533f87373df0",
+      "name": "Google Sheets (Bağlantı Testi)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        6768,
+        3744
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(i => i.json).filter(r => Object.keys(r).some(k => k !== 'row_number'));\nreturn [{json:{'Sonuç':'Google Sheets okuma bağlantısı başarılı. Yazma yetkisi gerçek webhook kaydıyla kontrol edilmelidir.','Okunan Satır':rows.length,'Sütunlar':rows.length ? Object.keys(rows[0]).filter(k=>k!=='row_number').join(', ') : 'Sheet boş; ilk gerçek kayıtta başlıklar oluşturulur.','Sonraki Adım':'Akışı etkinleştirin; Bitrix kaydından POST bildirim gönderin. Sheet satırını ve başarılı webhook yanıtını doğrulayın.'}}];"
+      },
+      "id": "de663c1b-1a4f-4be7-8e43-f7d272a64d15",
+      "name": "Sheet Test Sonucu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7040,
+        3744
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Güncel personel listesi (13.10.2026, 18 kişi).\n// Bu blok akış oluşturulurken ilgili Code düğümlerine gömülür; harici dosya gerekmez.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\nfunction normalizePersonName(value) {\n  return String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/\\s+/g, ' ');\n}\nfunction normalizePersonId(value) {\n  if (value === null || value === undefined) return '';\n  const raw = String(value).trim();\n  const match = /^(?:(?:user|USER)_|Bitrix kullanıcı #)?([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  return match ? match[1] : '';\n}\nfunction resolvePerson(idValue, nameValue) {\n  let id = normalizePersonId(idValue);\n  const supplied = typeof nameValue === 'object' && nameValue !== null ? (nameValue.isim || nameValue.name || '') : nameValue;\n  const name = ['string', 'number'].includes(typeof supplied) ? String(supplied).trim() : '';\n  if (!id) id = normalizePersonId(name);\n  if (id && Object.prototype.hasOwnProperty.call(PERSONELLER, id)) {\n    return { id, ...PERSONELLER[id], listed: true, status: 'Personel listesi' };\n  }\n  if (!id && name) {\n    const match = Object.entries(PERSONELLER).find(([,p]) => normalizePersonName(p.isim) === normalizePersonName(name));\n    if (match) return { id: match[0], ...match[1], listed: true, status: 'Ad üzerinden personel listesi' };\n  }\n  const normalized = normalizePersonName(name);\n  const invalidName = !name || /bilinm|sistem hata|baglan|atanmamis|kullanici #|personel listesinde|id eksik|object object|^[-?]+$/.test(normalized) || Boolean(normalizePersonId(name));\n  return {\n    id,\n    isim: id ? (invalidName ? 'Personel listesinde yok (ID ' + id + ')' : name) : 'Sorumlu ID eksik',\n    birim: 'Personel listesinde yok', listed: false,\n    status: id ? 'Personel listesinde yok' : 'Sorumlu ID eksik'\n  };\n}\n\nconst CALL_RESULTS = {\n  '200':'Başarılı','304':'Cevapsız','603':'Reddedildi','603-S':'İptal edildi',\n  '404':'Geçersiz numara','486':'Meşgul','484':'Arama yönü kullanılamıyor','403':'Arama izni yok',\n  '480':'Geçici olarak ulaşılamıyor','503':'Arama yönü kullanılamıyor','402':'Yetersiz bakiye','423':'Engellendi','OTHER':'Tanımlanmamış sonuç'\n};\nconst CALL_DIRECTIONS = {'1':'Giden','2':'Gelen','3':'Yönlendirmeli gelen','4':'Geri arama','5':'Bilgilendirme araması'};\nfunction callResult(code) { return CALL_RESULTS[String(code)] || (code ? 'Diğer sonuç (' + code + ')' : 'Sonuç kodu eksik'); }\nfunction isCallRow(row) {\n  const norm = v => String(v || '').trim().toLocaleUpperCase('tr-TR');\n  return norm(row['Olay']) === 'ONVOXIMPLANTCALLEND' || norm(row['Olay Türü']) === 'ARAMA' ||\n    norm(row['Kayıt Türü']) === 'ARAMA' || ['GERCEK_ARAMA','GERÇEK_ARAMA'].includes(norm(row.Kaynak));\n}\nfunction secondsValue(value) {\n  const raw = String(value ?? '').trim();\n  return /^\\d+(?:\\.\\d+)?$/.test(raw) && Number.isFinite(Number(raw)) ? Number(raw) : null;\n}\nfunction legacyCallResult(value) {\n  const label = String(value || '').trim().toLocaleUpperCase('tr-TR');\n  const known = {'BAŞARILI':'200','BASARILI':'200','CEVAPSIZ':'304','REDDEDİLDİ':'603','REDDEDILDI':'603',\n    'İPTAL EDİLDİ':'603-S','IPTAL EDILDI':'603-S','MEŞGUL':'486','MESGUL':'486'};\n  return known[label] || '';\n}\n\n// daily: replaced by the workflow builder; daily or weekly.\nconst period = 'daily';\nconst zone = 'Europe/Istanbul';\nconst now = $now.setZone(zone);\nlet end;\nif (period === 'daily') {\n  end = now.startOf('day').set({ hour: 20 });\n  if (end > now) end = end.minus({ days: 1 });\n} else {\n  end = now.startOf('day').minus({ days: (now.weekday - 6 + 7) % 7 }).set({ hour: 9 });\n  if (end > now) end = end.minus({ days: 7 });\n}\nconst start = end.minus({ days: period === 'daily' ? 1 : 7 });\nconst periodText = start.toFormat('dd.MM.yyyy HH:mm') + ' – ' + end.toFormat('dd.MM.yyyy HH:mm');\nfunction parseDate(value) {\n  if (value === undefined || value === null || value === '') return null;\n  if (typeof value === 'number' || /^\\d{5}(?:\\.\\d+)?$/.test(String(value))) {\n    const serial = Number(value);\n    if (serial > 20000 && serial < 100000) return DateTime.fromObject({year:1899,month:12,day:30}, {zone:'UTC'}).plus({milliseconds:Math.round(serial * 86400000)}).setZone(zone, {keepLocalTime:true});\n    return null;\n  }\n  const s = String(value).trim();\n  for (const format of ['dd.MM.yyyy HH:mm:ss', 'dd.MM.yyyy HH:mm', 'dd.MM.yyyy', 'd.M.yyyy H:m:s', 'd.M.yyyy H:m', 'd.M.yyyy', 'yyyy-MM-dd HH:mm:ss']) {\n    const dt = DateTime.fromFormat(s, format, {zone});\n    if (dt.isValid) return dt;\n  }\n  const iso = DateTime.fromISO(s, {zone});\n  return iso.isValid ? iso.setZone(zone) : null;\n}\nconst rows = $input.all().map(i => i.json).filter(r => Object.keys(r).some(k => k !== 'row_number'));\nconst invalid = [], selected = [];\nfor (const row of rows) {\n  const dt = parseDate(row['Kayıt Zamanı']) || parseDate(row.Tarih);\n  if (!dt) { invalid.push(row); continue; }\n  if (dt >= start && dt < end) selected.push({ row, dt });\n}\nselected.sort((a,b) => a.dt.toMillis() - b.dt.toMillis());\nconst result = selected.map(({row}) => {\nconst call = isCallRow(row);\nconst owner = resolvePerson(row['Sorumlu ID'] || (call ? row.PORTAL_USER_ID : ''), row['Sorumlu Kişi']);\nconst editor = resolvePerson(row['İşlemi Yapan ID'], row['İşlemi Yapan']);\nconst durationRaw = call ? (row['Arama Süresi (sn)'] ?? row['Süre (sn)'] ?? row['Süre'] ?? row.CALL_DURATION) : '';\nconst duration = call ? secondsValue(durationRaw) : null;\nconst resultCode = call ? String(row['Arama Sonuç Kodu'] || row.CALL_FAILED_CODE || legacyCallResult(row['Arama Sonucu'] || row['Yeni Aşama'])) : '';\nreturn {json:{\n  'Satır Türü': call ? 'Arama' : 'Hareket',\n  'Rapor Tarihi': end.toFormat('dd.MM.yyyy'),\n  'Rapor Dönemi': periodText,\n  'İşlem Zamanı': row.Tarih || row['Kayıt Zamanı'],\n  'Kaynak': row.Kaynak || '-',\n  'Müşteri Adı': row['Müşteri Adı'] || '-',\n  'Önceki Aşama': row['Önceki Aşama'] || 'Bildirimde gönderilmedi',\n  'Yeni Aşama': row['Yeni Aşama'] || '-',\n  'Sorumlu Kişi': owner.isim,\n  'Sorumlu ID': owner.id,\n  'Birim': owner.birim,\n  'Görev': owner.gorev || '',\n  'Personel Eşleme': owner.status,\n  'CRM ID': String(row['CRM ID'] || ''),\n  'Kayıt Türü': call ? 'Arama' : row['Kayıt Türü'] || 'Lead',\n  'İşlemi Yapan': editor.id ? editor.isim : '-',\n  'Aşama Bilgisi': row['Aşama Bilgisi'] || '-',\n  'Kayıt Zamanı': row['Kayıt Zamanı'] || '',\n  'Kontrol Notu': row['Kontrol Notu'] || '',\n  'Telefon': call ? (row['Telefon'] || row.PHONE_NUMBER || row['Müşteri Adı'] || '') : '',\n  'Arama ID': call ? String(row['Arama ID'] || row.CALL_ID || '') : '',\n  'Arama Yönü': call ? (row['Arama Yönü'] || CALL_DIRECTIONS[String(row.CALL_TYPE)] || 'Yön belirtilmedi') : '',\n  'Arama Süresi (sn)': duration === null ? '' : duration,\n  'Arama Sonucu': call ? (resultCode ? callResult(resultCode) : row['Arama Sonucu'] || row['Yeni Aşama'] || 'Sonuç kodu eksik') : '',\n  'Arama Sonuç Kodu': resultCode,\n  'Arama Açıklaması': call ? row['Arama Açıklaması'] || '' : '',\n  'CRM Aktivite ID': call ? String(row['CRM Aktivite ID'] || row.CRM_ACTIVITY_ID || '') : '',\n  'Bilgi': ''\n}}; });\nif (!result.length) result.push({json:{'Satır Türü':'Bilgi','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':'Bu dönemde kayıt bulunamadı.'}});\nif (invalid.length) result.push({json:{'Satır Türü':'Uyarı','Rapor Tarihi':end.toFormat('dd.MM.yyyy'),'Rapor Dönemi':periodText,'Bilgi':invalid.length + ' satırın tarihi okunamadı; dönem hesabına alınmadı. Sheet satırları: ' + invalid.slice(0,20).map(r => r.row_number || '?').join(', ')}});\nreturn result;\n"
+      },
+      "id": "51122a76-7e72-4f6b-80c4-5a8a9f806097",
+      "name": "Gün Sonu Önizleme Verisi",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7040,
+        3984
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Güncel personel listesi (13.10.2026, 18 kişi).\n// Bu blok akış oluşturulurken ilgili Code düğümlerine gömülür; harici dosya gerekmez.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\nfunction normalizePersonName(value) {\n  return String(value || '').trim().toLocaleLowerCase('tr-TR').normalize('NFKD')\n    .replace(/[\\u0300-\\u036f]/g, '').replace(/ı/g, 'i').replace(/\\s+/g, ' ');\n}\nfunction normalizePersonId(value) {\n  if (value === null || value === undefined) return '';\n  const raw = String(value).trim();\n  const match = /^(?:(?:user|USER)_|Bitrix kullanıcı #)?([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  return match ? match[1] : '';\n}\nfunction resolvePerson(idValue, nameValue) {\n  let id = normalizePersonId(idValue);\n  const supplied = typeof nameValue === 'object' && nameValue !== null ? (nameValue.isim || nameValue.name || '') : nameValue;\n  const name = ['string', 'number'].includes(typeof supplied) ? String(supplied).trim() : '';\n  if (!id) id = normalizePersonId(name);\n  if (id && Object.prototype.hasOwnProperty.call(PERSONELLER, id)) {\n    return { id, ...PERSONELLER[id], listed: true, status: 'Personel listesi' };\n  }\n  if (!id && name) {\n    const match = Object.entries(PERSONELLER).find(([,p]) => normalizePersonName(p.isim) === normalizePersonName(name));\n    if (match) return { id: match[0], ...match[1], listed: true, status: 'Ad üzerinden personel listesi' };\n  }\n  const normalized = normalizePersonName(name);\n  const invalidName = !name || /bilinm|sistem hata|baglan|atanmamis|kullanici #|personel listesinde|id eksik|object object|^[-?]+$/.test(normalized) || Boolean(normalizePersonId(name));\n  return {\n    id,\n    isim: id ? (invalidName ? 'Personel listesinde yok (ID ' + id + ')' : name) : 'Sorumlu ID eksik',\n    birim: 'Personel listesinde yok', listed: false,\n    status: id ? 'Personel listesinde yok' : 'Sorumlu ID eksik'\n  };\n}\n\nconst CALL_RESULTS = {\n  '200':'Başarılı','304':'Cevapsız','603':'Reddedildi','603-S':'İptal edildi',\n  '404':'Geçersiz numara','486':'Meşgul','484':'Arama yönü kullanılamıyor','403':'Arama izni yok',\n  '480':'Geçici olarak ulaşılamıyor','503':'Arama yönü kullanılamıyor','402':'Yetersiz bakiye','423':'Engellendi','OTHER':'Tanımlanmamış sonuç'\n};\nconst CALL_DIRECTIONS = {'1':'Giden','2':'Gelen','3':'Yönlendirmeli gelen','4':'Geri arama','5':'Bilgilendirme araması'};\nfunction callResult(code) { return CALL_RESULTS[String(code)] || (code ? 'Diğer sonuç (' + code + ')' : 'Sonuç kodu eksik'); }\nfunction isCallRow(row) {\n  const norm = v => String(v || '').trim().toLocaleUpperCase('tr-TR');\n  return norm(row['Olay']) === 'ONVOXIMPLANTCALLEND' || norm(row['Olay Türü']) === 'ARAMA' ||\n    norm(row['Kayıt Türü']) === 'ARAMA' || ['GERCEK_ARAMA','GERÇEK_ARAMA'].includes(norm(row.Kaynak));\n}\nfunction secondsValue(value) {\n  const raw = String(value ?? '').trim();\n  return /^\\d+(?:\\.\\d+)?$/.test(raw) && Number.isFinite(Number(raw)) ? Number(raw) : null;\n}\nfunction legacyCallResult(value) {\n  const label = String(value || '').trim().toLocaleUpperCase('tr-TR');\n  const known = {'BAŞARILI':'200','BASARILI':'200','CEVAPSIZ':'304','REDDEDİLDİ':'603','REDDEDILDI':'603',\n    'İPTAL EDİLDİ':'603-S','IPTAL EDILDI':'603-S','MEŞGUL':'486','MESGUL':'486'};\n  return known[label] || '';\n}\n\nconst period = 'daily';\nconst inputRows = $input.all().map(i => i.json);\nconst rows = inputRows.filter(r => r['Satır Türü'] === 'Hareket');\nconst rawCallRows = inputRows.filter(r => r['Satır Türü'] === 'Arama');\nconst callsById = new Map(), legacyCalls = [];\nfor (const row of rawCallRows) {\n  const id = String(row['Arama ID'] || '').trim();\n  if (id) callsById.set(id, row); else legacyCalls.push(row);\n}\nconst callRows = Array.from(callsById.values());\nconst callResults = new Map(), callDirections = new Map();\nconst callTotals = {total:callRows.length,rawRows:rawCallRows.length,legacyRows:legacyCalls.length,\n  duplicates:rawCallRows.length - callRows.length - legacyCalls.length,successful:0,unsuccessful:0,unknownResult:0,\n  seconds:0,missingDuration:0,successful20:0};\nconst periodText = inputRows[0]?.['Rapor Dönemi'] || '';\nconst reportDate = inputRows[0]?.['Rapor Tarihi'] || '';\nconst title = period === 'daily' ? 'XRE GÜN SONU ÖZETİ' : 'XRE HAFTALIK YÖNETİCİ ÖZETİ';\nconst warnings = inputRows.filter(r => r['Satır Türü'] === 'Uyarı').map(r => String(r.Bilgi));\nconst people = new Map(Object.entries(PERSONELLER).map(([id,p]) => [id, {\n  id, isim:p.isim, birim:p.birim, gorev:p.gorev || '', listed:true, movements:0, ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0\n}]));\nconst departments = new Map();\nfor (const person of people.values()) {\n  if (!departments.has(person.birim)) departments.set(person.birim, {birim:person.birim, movements:0, ids:new Set(), active:new Set(), staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  departments.get(person.birim).staff++;\n}\nconst uniqueCRM = new Set(), latestCRM = new Map(), stageMovements = new Map(), sourceMovements = new Map();\nlet missingCRM = 0, missingOwner = 0, outsideRoster = 0, controlNotes = 0;\nconst clean = v => String(v ?? '').trim();\nfunction crmKey(row) {\n  const raw = clean(row['CRM ID']);\n  const match = /^([1-9]\\d*)(?:\\.0+)?$/.exec(raw);\n  if (!match) return '';\n  const type = ['ANLAŞMA','DEAL'].includes(clean(row['Kayıt Türü']).toLocaleUpperCase('tr-TR')) ? 'DEAL' : 'LEAD';\n  return type + ':' + match[1];\n}\nfunction increment(map, key) { map.set(key, (map.get(key) || 0) + 1); }\nfor (const row of rows) {\n  const owner = resolvePerson(row['Sorumlu ID'], row['Sorumlu Kişi']);\n  const personKey = owner.id || 'ID_EKSIK';\n  if (!people.has(personKey)) people.set(personKey,{...owner,movements:0,ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const person = people.get(personKey);\n  if (!departments.has(owner.birim)) departments.set(owner.birim,{birim:owner.birim,movements:0,ids:new Set(),active:new Set(),staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const department = departments.get(owner.birim);\n  person.movements++; department.movements++;\n  if (owner.listed) department.active.add(owner.id);\n  if (!owner.id) missingOwner++;\n  else if (!owner.listed) outsideRoster++;\n  const key = crmKey(row);\n  if (key) {\n    uniqueCRM.add(key); latestCRM.set(key,row);\n    person.ids.add(key); department.ids.add(key);\n  } else missingCRM++;\n  increment(stageMovements,clean(row['Yeni Aşama']) || 'Aşama bilgisi yok');\n  increment(sourceMovements,clean(row.Kaynak) || 'Kaynak bilgisi yok');\n  if (row['Kontrol Notu']) controlNotes++;\n}\nfor (const [collection,legacy] of [[callRows,false],[legacyCalls,true]]) for (const row of collection) {\n  const owner = resolvePerson(row['Sorumlu ID'],row['Sorumlu Kişi']);\n  const key = owner.id || 'ID_EKSIK';\n  if (!people.has(key)) people.set(key,{...owner,movements:0,ids:new Set(),calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  if (!departments.has(owner.birim)) departments.set(owner.birim,{birim:owner.birim,movements:0,ids:new Set(),active:new Set(),staff:0,calls:0,successfulCalls:0,successful20:0,callSeconds:0,legacyCalls:0});\n  const person=people.get(key),department=departments.get(owner.birim);\n  if (owner.listed) department.active.add(owner.id);\n  if (!owner.id) missingOwner++; else if (!owner.listed) outsideRoster++;\n  if (row['Kontrol Notu']) controlNotes++;\n  if (legacy) {person.legacyCalls++;department.legacyCalls++;continue;}\n  person.calls++;department.calls++;\n  const code=clean(row['Arama Sonuç Kodu']);\n  const seconds=secondsValue(row['Arama Süresi (sn)']);\n  if (seconds === null) callTotals.missingDuration++;\n  else {callTotals.seconds+=seconds;person.callSeconds+=seconds;department.callSeconds+=seconds;}\n  if (code==='200') {\n    callTotals.successful++;person.successfulCalls++;department.successfulCalls++;\n    if (seconds !== null && seconds>=20) {callTotals.successful20++;person.successful20++;department.successful20++;}\n  } else if (code && code!=='OTHER' && CALL_RESULTS[code]) callTotals.unsuccessful++;\n  else callTotals.unknownResult++;\n  increment(callResults,code ? callResult(code) : 'Sonuç kodu eksik');\n  increment(callDirections,clean(row['Arama Yönü']) || 'Yön belirtilmedi');\n}\nconst latestStages = new Map();\nfor (const row of latestCRM.values()) increment(latestStages,clean(row['Yeni Aşama']) || 'Aşama bilgisi yok');\nconst byCount = map => Array.from(map,([label,count])=>({label,count})).sort((a,b)=>b.count-a.count || a.label.localeCompare(b.label,'tr'));\nconst personRows = Array.from(people.values()).map(p=>({id:p.id,isim:p.isim,birim:p.birim,gorev:p.gorev || '',listed:p.listed,movements:p.movements,uniqueCRM:p.ids.size,calls:p.calls,successfulCalls:p.successfulCalls,successful20:p.successful20,callSeconds:p.callSeconds,legacyCalls:p.legacyCalls}))\n  .sort((a,b)=>Number(b.listed)-Number(a.listed) || b.calls-a.calls || b.movements-a.movements || a.isim.localeCompare(b.isim,'tr'));\nconst departmentRows = Array.from(departments.values()).map(d=>({birim:d.birim,movements:d.movements,uniqueCRM:d.ids.size,active:d.active.size,staff:d.staff,calls:d.calls,successfulCalls:d.successfulCalls,successful20:d.successful20,callSeconds:d.callSeconds,legacyCalls:d.legacyCalls}))\n  .sort((a,b)=>b.movements-a.movements || a.birim.localeCompare(b.birim,'tr'));\nconst activeStaff = personRows.filter(p=>p.listed && (p.movements+p.calls+p.legacyCalls)>0).length;\nconst zeroStaff = personRows.filter(p=>p.listed && !(p.movements+p.calls+p.legacyCalls));\nif (missingCRM) warnings.push(missingCRM + ' hareketin CRM ID bilgisi yok/geçersiz; bu satırlar tekil CRM sayısına ve son aşama dağılımına dahil edilmedi.');\nif (missingOwner) warnings.push(missingOwner + ' kayıtta sorumlu ID bulunamadı; bu kayıtlar herhangi bir çalışana atanmadı.');\nif (outsideRoster) warnings.push(outsideRoster + ' kaydın sorumlu ID’si verilen personel listesinde yok; ayrı satırlarda gösterildi.');\nif (controlNotes) warnings.push(controlNotes + ' kaydın Kontrol Notu alanı dolu; ayrıntılar Excel ekindedir.');\nif (callTotals.duplicates) warnings.push(callTotals.duplicates + ' yinelenen arama satırı aynı dönem içinde Arama ID ile tekilleştirildi; son kaydedilen satır kullanıldı.');\nif (callTotals.legacyRows) warnings.push(callTotals.legacyRows + ' eski arama satırında Arama ID bulunmuyor. Tekil arama, başarı ve süre hesaplarına katılmadı; eski satır adedi ayrı gösterildi.');\nif (callTotals.missingDuration) warnings.push(callTotals.missingDuration + ' tekil aramanın süresi eksik; sıfır kabul edilmedi.');\nfor (const person of personRows.filter(p=>p.listed && p.birim === 'Birim belirtilmedi')) warnings.push(person.isim + ' için birim belirtilmedi.');\nconst stats = {movements:rows.length,uniqueCRM:uniqueCRM.size,activeStaff,staffCount:Object.keys(PERSONELLER).length,\n  calls:{...callTotals,results:byCount(callResults),directions:byCount(callDirections)},\n  missingCRM,missingOwner,outsideRoster,people:personRows,departments:departmentRows,\n  latestStages:byCount(latestStages),stageMovements:byCount(stageMovements),sources:byCount(sourceMovements),\n  zeroStaff:zeroStaff.map(p=>p.isim),warnings};\nconst text = [title+' — '+reportDate,'Dönem: '+periodText,'',\n  'Arama adedi (ID ile tekil): '+stats.calls.total,'Başarılı arama (kod 200): '+stats.calls.successful,\n  '20 sn ve üzeri başarılı arama: '+stats.calls.successful20,'Başarısız arama: '+stats.calls.unsuccessful,'Sonucu belirlenemeyen arama: '+stats.calls.unknownResult,\n  'Toplam arama süresi: '+stats.calls.seconds+' sn','Arama ID bilgisi olmayan eski satırlar: '+stats.calls.legacyRows,\n  'Toplam CRM hareketi: '+stats.movements,'Tekil CRM kaydı: '+stats.uniqueCRM,\n  'Arama/CRM kaydı görülen personel: '+activeStaff+'/'+stats.staffCount,'',\n  'BİRİMLER',...departmentRows.map(d=>d.birim+': '+d.calls+' arama | '+d.successfulCalls+' başarılı | '+d.movements+' CRM hareketi | '+d.uniqueCRM+' tekil CRM'),'',\n  'PERSONELLER',...personRows.map(p=>p.isim+' — '+p.birim+(p.gorev?' / '+p.gorev:'')+': '+p.calls+' arama | '+p.successfulCalls+' başarılı | '+p.successful20+' başarılı 20 sn+ | '+p.callSeconds+' sn | '+p.movements+' CRM hareketi | '+p.uniqueCRM+' tekil CRM | '+p.legacyCalls+' ID’siz eski arama satırı'),'',\n  'ARAMA SONUÇLARI',...stats.calls.results.map(r=>r.label+': '+r.count),'',\n  'ARAMA YÖNLERİ',...stats.calls.directions.map(r=>r.label+': '+r.count),'',\n  'TEKİL CRM KAYITLARININ SON KAYDEDİLEN AŞAMALARI',...stats.latestStages.map(s=>s.label+': '+s.count),\n  ...(stats.latestStages.length ? [] : ['CRM ID bilgisiyle sayılabilen kayıt yok.']),'',\n  'HAREKETLERİN AŞAMA DAĞILIMI',...stats.stageMovements.map(s=>s.label+': '+s.count),'',\n  'KAYNAKLARA GÖRE HAREKETLER',...stats.sources.map(s=>s.label+': '+s.count),'',\n  'RAPORDA HAREKETİ GÖRÜNMEYEN PERSONELLER',zeroStaff.map(p=>p.isim).join(', ') || 'Yok.','',\n  'KONTROL NOTLARI',...(warnings.length ? warnings.map(w=>'• '+w) : ['Kontrol gerektiren kayıt yok.']),'',\n  'Aramalar tamamlanma bildiriminden sayılır; başarı kodu 200’dür. Aynı dönemde aynı Arama ID bir kez sayılır. Süre, Bitrix CALL_DURATION değeridir. CRM hareketleri arama/randevu/satış adedi değildir.',\n  'Tekil CRM sayısı kayıt türü + CRM ID ile hesaplanır; sorumlusu değişen kayıt birden fazla personelin tekil sayısında görünebilir.',\n  'Hareket görünmemesi, personelin çalışmadığı veya arama yapmadığı anlamına gelmez. Ayrıntılı hareketler Excel ekindedir.'\n].join('\\n');\nfunction esc(value) { return String(value ?? '').replace(/[&<>\"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c])); }\nfunction table(headers,data) {\n  return '<table style=\"border-collapse:collapse;width:100%;font-size:13px;margin:12px 0 24px\"><thead><tr>'+\n    headers.map(h=>'<th style=\"background:#eef2f7;text-align:left;padding:10px;border:1px solid #dae1ea\">'+esc(h)+'</th>').join('')+\n    '</tr></thead><tbody>'+data.map((r,i)=>'<tr style=\"background:'+(i%2?'#f8fafc':'#fff')+'\">'+r.map(c=>'<td style=\"padding:9px;border:1px solid #dae1ea\">'+esc(c)+'</td>').join('')+'</tr>').join('')+'</tbody></table>';\n}\nconst intro = (rows.length || rawCallRows.length) ? 'Bu dönemde '+callRows.length+' tekil arama ve '+rows.length+' CRM hareketi kaydedildi. '+activeStaff+'/'+stats.staffCount+' personel için arama veya CRM kaydı görüldü.' : 'Bu dönemde Sheet üzerinde arama veya CRM hareketi bulunamadı. Bildirim bağlantısını ve rapor dönemini kontrol edebilirsiniz.';\nconst html = '<!doctype html><html lang=\"tr\"><head><meta charset=\"utf-8\"></head><body style=\"margin:0;background:#f3f5f8;font-family:Arial,sans-serif;color:#172335\">'+\n  '<div style=\"max-width:900px;margin:24px auto;background:#fff;padding:28px;border-top:6px solid #153b62\">'+\n  '<h1 style=\"font-size:24px;margin:0 0 12px\">'+esc(title)+'</h1><p style=\"color:#536174\">'+esc(reportDate)+'<br>Dönem: '+esc(periodText)+'</p><p>'+esc(intro)+'</p>'+\n  table(['Toplam CRM hareketi','Tekil CRM kaydı','Hareket görülen personel'],[[rows.length,uniqueCRM.size,activeStaff+'/'+stats.staffCount]])+\n  '<h2 style=\"font-size:18px\">Arama özeti</h2>'+table(['Ölçüm','Adet / süre'],[['Arama adedi (ID ile tekil)',callTotals.total],['Başarılı (kod 200)',callTotals.successful],['Başarısız',callTotals.unsuccessful],['Sonucu belirlenemeyen',callTotals.unknownResult],['20 sn ve üzeri başarılı',callTotals.successful20],['Toplam arama süresi',callTotals.seconds+' sn'],['Arama ID bilgisi olmayan eski satırlar',callTotals.legacyRows]])+\n  '<h2 style=\"font-size:18px\">Birimlere göre özet</h2>'+table(['Birim','Arama','Başarılı','CRM hareketi','Tekil CRM','Kayıt görülen / listedeki personel'],departmentRows.map(d=>[d.birim,d.calls,d.successfulCalls,d.movements,d.uniqueCRM,d.staff?d.active+'/'+d.staff:'Liste dışı']))+\n  '<h2 style=\"font-size:18px\">Personel arama özeti</h2>'+table(['Personel','Birim','Arama','Başarılı','20 sn+ başarılı','Süre (sn)','ID’siz eski satır'],personRows.map(p=>[p.isim,p.birim,p.calls,p.successfulCalls,p.successful20,p.callSeconds,p.legacyCalls]))+\n  '<h2 style=\"font-size:18px\">Personel bazında özet</h2>'+table(['Personel','Birim','Görev','CRM hareketi','Tekil CRM'],personRows.map(p=>[p.isim+(p.listed?'':' (liste dışı)'),p.birim,p.gorev || '-',p.movements,p.uniqueCRM]))+\n  '<h2 style=\"font-size:18px\">Arama sonuçları</h2>'+table(['Sonuç','Tekil arama'],stats.calls.results.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Arama yönleri</h2>'+table(['Yön','Tekil arama'],stats.calls.directions.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Tekil CRM kayıtlarının son kaydedilen aşamaları</h2>'+\n  (stats.latestStages.length ? table(['Son kaydedilen aşama','Tekil CRM'],stats.latestStages.map(s=>[s.label,s.count])) : '<p>CRM ID bilgisiyle sayılabilen kayıt yok.</p>')+\n  '<h2 style=\"font-size:18px\">Hareketlerin aşama dağılımı</h2>'+table(['Yeni aşama','Hareket'],stats.stageMovements.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Kaynaklara göre hareketler</h2>'+table(['Kaynak','Hareket'],stats.sources.map(s=>[s.label,s.count]))+\n  '<h2 style=\"font-size:18px\">Raporda hareketi görünmeyen personeller</h2><p>'+esc(zeroStaff.map(p=>p.isim).join(', ') || 'Yok.')+'</p>'+\n  '<h2 style=\"font-size:18px\">Kontrol notları</h2>'+(warnings.length ? '<ul>'+warnings.map(w=>'<li style=\"margin-bottom:6px\">'+esc(w)+'</li>').join('')+'</ul>' : '<p>Kontrol gerektiren kayıt yok.</p>')+\n  '<p style=\"font-size:12px;color:#536174;line-height:1.6\">Aramalar tamamlanma bildiriminden sayılır; başarı kodu 200’dür. Aynı dönemde aynı Arama ID bir kez sayılır. Süre, Bitrix CALL_DURATION değeridir. CRM hareketleri arama/randevu/satış adedi değildir. Tekil CRM sayısı kayıt türü + CRM ID ile hesaplanır; sorumlusu değişen kayıt birden fazla personelin tekil sayısında görünebilir. Kayıt görünmemesi, personelin çalışmadığı anlamına gelmez. Ayrıntılar Excel ekindedir.</p></div></body></html>';\nreturn [{json:{subject:title+' — '+reportDate,summaryText:text,summaryHtml:html,stats,rows:inputRows}}];\n"
+      },
+      "id": "8ceb2b66-84dc-44f0-b8ee-e15c29f54990",
+      "name": "Gün Sonu Özeti Önizleme",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7328,
+        3984
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ $json.dedupeKey }}",
+        "options": {
+          "scope": "workflow",
+          "historySize": 50000
+        }
+      },
+      "id": "6b2d599c-876f-4eef-9bfb-98f3089193f0",
+      "name": "Mükerrer Bildirimi Engelle",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        6960,
+        2864
+      ],
+      "notes": "Aynı arama CALL_ID ile bir kez; aynı CRM/aşama bildirimi dakika penceresinde bir kez işlenir. Geçmiş 'workflow' kapsamında tutulur ve her gece 03:00'te temizlenir (10.000 sınırına dolup akışı durdurmasın diye)."
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/<GOOGLE_SHEET_ID_CALLCENTER>/values/Sayfa1!A%3AAB",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "valueRenderOption",
+              "value": "FORMATTED_VALUE"
+            },
+            {
+              "name": "majorDimension",
+              "value": "ROWS"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "name": "Sheet Oku (Günlük, sütun sırasıyla)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6768,
+        3104
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "id": "8f1025a3-e4f3-444b-a7f6-499209a60a5c",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Başlık adlarına güvenmeden A:AB aralığını okur; satırlar yazıldığı sütun sırasıyla eşlenir."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rapor dönemi: Filtrele düğümüyle aynı hesap. Bitrix telefoni sorgusunun gövdesini üretir.\nconst period = 'daily';\nconst zone = 'Europe/Istanbul';\nconst now = $now.setZone(zone);\nlet end;\nif (period === 'daily') {\n  end = now.startOf('day').set({ hour: 20 });\n  if (end > now) end = end.minus({ days: 1 });\n} else {\n  end = now.startOf('day').minus({ days: (now.weekday - 6 + 7) % 7 }).set({ hour: 9 });\n  if (end > now) end = end.minus({ days: 7 });\n}\nconst start = end.minus({ days: period === 'daily' ? 1 : 7 });\nconst f = d => d.toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\");\nreturn [{ json: { period, start: f(start), end: f(end), callBody: { FILTER: { '>=CALL_START_DATE': f(start), '<CALL_START_DATE': f(end) }, SORT: 'ID', ORDER: 'ASC', start: 0 } } }];\n"
+      },
+      "name": "Rapor Dönemi (Günlük)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6912,
+        3264
+      ],
+      "id": "0ea8da8a-0d23-458d-ada1-c9e472fb752d"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/voximplant.statistic.get.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.callBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Aramaları (Günlük)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        6912,
+        3424
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "da4acdd5-a3eb-4ec1-9e6e-a9b88fe2bf51",
+      "onError": "continueRegularOutput",
+      "notes": "Aramaların asıl kaynağı: Bitrix telefoni istatistiği (webhook kaçsa bile tam sayı)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.status.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: { SORT: 'ASC' }, start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Aşama Adları (Günlük)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7056,
+        3424
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "1478631d-246f-42e1-be44-8c1e1ef32be1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.stagehistory.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ entityTypeId: 1, order: { ID: 'ASC' }, filter: { '>=CREATED_TIME': $('Rapor Dönemi (Günlük)').first().json.start, '<CREATED_TIME': $('Rapor Dönemi (Günlük)').first().json.end }, select: ['ID','TYPE_ID','OWNER_ID','CREATED_TIME','STATUS_ID'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Lead Aşama Geçmişi (Günlük)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7200,
+        3424
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "b7ad8f1e-bfcf-4ac0-ad32-4fbb136c5864",
+      "onError": "continueRegularOutput",
+      "notes": "CRM hareketlerinin asıl kaynağı: lead aşama geçmişi."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.stagehistory.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ entityTypeId: 2, order: { ID: 'ASC' }, filter: { '>=CREATED_TIME': $('Rapor Dönemi (Günlük)').first().json.start, '<CREATED_TIME': $('Rapor Dönemi (Günlük)').first().json.end }, select: ['ID','TYPE_ID','OWNER_ID','CREATED_TIME','STAGE_ID','CATEGORY_ID'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Anlaşma Aşama Geçmişi (Günlük)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7328,
+        3424
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "36bc5715-8963-42fd-a198-d59b97db0b2b",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aşama geçmişindeki lead/anlaşma ID'lerini 50'lik gruplara böler; her grup bir Bitrix isteğidir.\n// Sorumlu (ASSIGNED_BY_ID), müşteri adı ve kaynak buradan alınır.\nfunction items(nodeName) {\n  const out = [];\n  for (const i of $(nodeName).all()) {\n    const r = i.json?.body && typeof i.json.body === 'object' ? i.json.body : i.json;\n    const res = r?.result;\n    if (Array.isArray(res?.items)) out.push(...res.items); else if (Array.isArray(res)) out.push(...res);\n  }\n  return out;\n}\nconst leadIds = [...new Set(items('Bitrix Lead Aşama Geçmişi (Günlük)').map(h => String(h.OWNER_ID || '')).filter(Boolean))];\nconst dealIds = [...new Set(items('Bitrix Anlaşma Aşama Geçmişi (Günlük)').map(h => String(h.OWNER_ID || '')).filter(Boolean))];\nconst out = [];\nfor (let i = 0; i < leadIds.length; i += 50) out.push({ json: { method: 'crm.lead.list', body: { filter: { '@ID': leadIds.slice(i, i + 50) }, select: ['ID','TITLE','NAME','LAST_NAME','ASSIGNED_BY_ID','SOURCE_ID','STATUS_ID'], start: 0 } } });\nfor (let i = 0; i < dealIds.length; i += 50) out.push({ json: { method: 'crm.deal.list', body: { filter: { '@ID': dealIds.slice(i, i + 50) }, select: ['ID','TITLE','ASSIGNED_BY_ID','SOURCE_ID','STAGE_ID'], start: 0 } } });\n// Hiç geçmiş yoksa zincir kopmasın diye boş sonuç dönen tek istek.\nif (!out.length) out.push({ json: { method: 'crm.lead.list', body: { filter: { ID: 0 }, select: ['ID'], start: 0 } } });\nreturn out;\n"
+      },
+      "name": "Sorumlu Sorgularını Hazırla (Günlük)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7472,
+        3424
+      ],
+      "executeOnce": true,
+      "id": "6c868cf3-2833-49e7-b88e-c2fc571fa52e"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/' + $json.method + \".json\" }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 600
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Kayıt Sorumluları (Günlük)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7616,
+        3424
+      ],
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "6146763b-f115-41d5-b4a7-3bb84ee63e7b",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://sheets.googleapis.com/v4/spreadsheets/<GOOGLE_SHEET_ID_CALLCENTER>/values/Sayfa1!A%3AAB",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "valueRenderOption",
+              "value": "FORMATTED_VALUE"
+            },
+            {
+              "name": "majorDimension",
+              "value": "ROWS"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "name": "Sheet Oku (Haftalık, sütun sırasıyla)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        6768,
+        3392
+      ],
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "id": "659b08f8-fcad-439d-97ed-baf2a8f58942",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Başlık adlarına güvenmeden A:AB aralığını okur; satırlar yazıldığı sütun sırasıyla eşlenir."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Rapor dönemi: Filtrele düğümüyle aynı hesap. Bitrix telefoni sorgusunun gövdesini üretir.\nconst period = 'weekly';\nconst zone = 'Europe/Istanbul';\nconst now = $now.setZone(zone);\nlet end;\nif (period === 'daily') {\n  end = now.startOf('day').set({ hour: 20 });\n  if (end > now) end = end.minus({ days: 1 });\n} else {\n  end = now.startOf('day').minus({ days: (now.weekday - 6 + 7) % 7 }).set({ hour: 9 });\n  if (end > now) end = end.minus({ days: 7 });\n}\nconst start = end.minus({ days: period === 'daily' ? 1 : 7 });\nconst f = d => d.toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\");\nreturn [{ json: { period, start: f(start), end: f(end), callBody: { FILTER: { '>=CALL_START_DATE': f(start), '<CALL_START_DATE': f(end) }, SORT: 'ID', ORDER: 'ASC', start: 0 } } }];\n"
+      },
+      "name": "Rapor Dönemi (Haftalık)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6912,
+        3552
+      ],
+      "id": "c5e3ffa4-a316-4a69-a7c1-7be37e636068"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/voximplant.statistic.get.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.callBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Aramaları (Haftalık)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        6912,
+        3712
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "cd00b686-0b3a-447b-b51c-66b56aee7d87",
+      "onError": "continueRegularOutput",
+      "notes": "Aramaların asıl kaynağı: Bitrix telefoni istatistiği (webhook kaçsa bile tam sayı)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.status.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: { SORT: 'ASC' }, start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Aşama Adları (Haftalık)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7056,
+        3712
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "f36cad13-fcbc-4023-9c1e-5a876201461e",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.stagehistory.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ entityTypeId: 1, order: { ID: 'ASC' }, filter: { '>=CREATED_TIME': $('Rapor Dönemi (Haftalık)').first().json.start, '<CREATED_TIME': $('Rapor Dönemi (Haftalık)').first().json.end }, select: ['ID','TYPE_ID','OWNER_ID','CREATED_TIME','STATUS_ID'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 500,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Lead Aşama Geçmişi (Haftalık)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7200,
+        3712
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "5a33aa0f-59aa-4b1d-8603-7386ae397909",
+      "onError": "continueRegularOutput",
+      "notes": "CRM hareketlerinin asıl kaynağı: lead aşama geçmişi."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.stagehistory.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ entityTypeId: 2, order: { ID: 'ASC' }, filter: { '>=CREATED_TIME': $('Rapor Dönemi (Haftalık)').first().json.start, '<CREATED_TIME': $('Rapor Dönemi (Haftalık)').first().json.end }, select: ['ID','TYPE_ID','OWNER_ID','CREATED_TIME','STAGE_ID','CATEGORY_ID'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 500,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Anlaşma Aşama Geçmişi (Haftalık)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7328,
+        3712
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "a6d6fbca-2989-4485-9791-ff8bb2bc5d62",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aşama geçmişindeki lead/anlaşma ID'lerini 50'lik gruplara böler; her grup bir Bitrix isteğidir.\n// Sorumlu (ASSIGNED_BY_ID), müşteri adı ve kaynak buradan alınır.\nfunction items(nodeName) {\n  const out = [];\n  for (const i of $(nodeName).all()) {\n    const r = i.json?.body && typeof i.json.body === 'object' ? i.json.body : i.json;\n    const res = r?.result;\n    if (Array.isArray(res?.items)) out.push(...res.items); else if (Array.isArray(res)) out.push(...res);\n  }\n  return out;\n}\nconst leadIds = [...new Set(items('Bitrix Lead Aşama Geçmişi (Haftalık)').map(h => String(h.OWNER_ID || '')).filter(Boolean))];\nconst dealIds = [...new Set(items('Bitrix Anlaşma Aşama Geçmişi (Haftalık)').map(h => String(h.OWNER_ID || '')).filter(Boolean))];\nconst out = [];\nfor (let i = 0; i < leadIds.length; i += 50) out.push({ json: { method: 'crm.lead.list', body: { filter: { '@ID': leadIds.slice(i, i + 50) }, select: ['ID','TITLE','NAME','LAST_NAME','ASSIGNED_BY_ID','SOURCE_ID','STATUS_ID'], start: 0 } } });\nfor (let i = 0; i < dealIds.length; i += 50) out.push({ json: { method: 'crm.deal.list', body: { filter: { '@ID': dealIds.slice(i, i + 50) }, select: ['ID','TITLE','ASSIGNED_BY_ID','SOURCE_ID','STAGE_ID'], start: 0 } } });\n// Hiç geçmiş yoksa zincir kopmasın diye boş sonuç dönen tek istek.\nif (!out.length) out.push({ json: { method: 'crm.lead.list', body: { filter: { ID: 0 }, select: ['ID'], start: 0 } } });\nreturn out;\n"
+      },
+      "name": "Sorumlu Sorgularını Hazırla (Haftalık)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7472,
+        3712
+      ],
+      "executeOnce": true,
+      "id": "b012ad59-ede3-4f38-bc1f-c924863b521c"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ 'https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/' + $json.method + \".json\" }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 600
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Kayıt Sorumluları (Haftalık)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7616,
+        3712
+      ],
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "7ad31171-37ae-4fb5-b688-1ad6a53d5f6c",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/sendDocument",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "-5110365688"
+            },
+            {
+              "name": "caption",
+              "value": "=📊 Günlük Bitrix CRM Hareket Raporu — {{ $now.setZone('Europe/Istanbul').toFormat('dd.MM.yyyy') }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "document",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "name": "Telegram Excel Gönder (Günlük)",
+      "position": [
+        8176,
+        3376
+      ],
+      "id": "e8db18db-ae0a-42fd-8a60-53642263c3a1",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gün sonu özet metnini Telegram'ın 4096 karakter sınırına göre parçalar.\nconst text = String($('Gün Sonu Özetini Hazırla').first().json.summaryText || '');\nconst max = 3500, chunks = [];\nlet rest = text;\nwhile (rest.length > max) {\n  let cut = rest.lastIndexOf('\\n', max);\n  if (cut < 1000) cut = max;\n  chunks.push(rest.slice(0, cut));\n  rest = rest.slice(cut).replace(/^\\n+/, '');\n}\nif (rest) chunks.push(rest);\nreturn chunks.map((t, i) => ({ json: { text: chunks.length > 1 ? `(${i + 1}/${chunks.length})\\n` + t : t } }));\n"
+      },
+      "name": "Telegram Özetini Parçala (Günlük)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8176,
+        3552
+      ],
+      "id": "3b45480d-e14d-4125-9ffe-dd319620b908"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"-5110365688\", text: $json.text, disable_web_page_preview: true }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1100
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "name": "Telegram Özet Gönder (Günlük)",
+      "position": [
+        8448,
+        3552
+      ],
+      "id": "16e77972-09e8-4026-a047-923ea2e55a8a",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/sendDocument",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "-5110365688"
+            },
+            {
+              "name": "caption",
+              "value": "=📊 Haftalık Bitrix CRM Hareket Raporu — {{ $now.setZone('Europe/Istanbul').toFormat('dd.MM.yyyy') }}"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "document",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "name": "Telegram Excel Gönder (Haftalık)",
+      "position": [
+        8176,
+        3664
+      ],
+      "id": "0790751a-4be3-4b86-b63b-39445f73c89b",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Gün sonu özet metnini Telegram'ın 4096 karakter sınırına göre parçalar.\nconst text = String($('Haftalık Özeti Hazırla').first().json.summaryText || '');\nconst max = 3500, chunks = [];\nlet rest = text;\nwhile (rest.length > max) {\n  let cut = rest.lastIndexOf('\\n', max);\n  if (cut < 1000) cut = max;\n  chunks.push(rest.slice(0, cut));\n  rest = rest.slice(cut).replace(/^\\n+/, '');\n}\nif (rest) chunks.push(rest);\nreturn chunks.map((t, i) => ({ json: { text: chunks.length > 1 ? `(${i + 1}/${chunks.length})\\n` + t : t } }));\n"
+      },
+      "name": "Telegram Özetini Parçala (Haftalık)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8176,
+        3840
+      ],
+      "id": "c0927e7f-fc74-4c4a-b051-102c22162e2d"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"-5110365688\", text: $json.text, disable_web_page_preview: true }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1100
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "name": "Telegram Özet Gönder (Haftalık)",
+      "position": [
+        8448,
+        3840
+      ],
+      "id": "c74ef3f3-575b-4c94-a28f-db764774aa4b",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "e4617c09-a245-4fd3-8cc2-bc4fd4048ed0",
+      "name": "Her Gece 03:00 (Mükerrer Geçmişi Temizle)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        6480,
+        2640
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "clearDeduplicationHistory",
+        "options": {
+          "scope": "workflow"
+        }
+      },
+      "id": "c9b25a73-4233-4c0f-b9bb-3ebb3c24f042",
+      "name": "Mükerrer Geçmişini Temizle",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        6720,
+        2640
+      ],
+      "notes": "'Mükerrer Bildirimi Engelle' düğümünün workflow kapsamındaki geçmişini siler."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Haftalık Veriyi Filtrele": {
+      "main": [
+        [
+          {
+            "node": "Haftalık Özeti Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel Oluştur (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Gmail (Haftalık CRM Raporu)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram Excel Gönder (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix24 Webhook (Tetikleyici)": {
+      "main": [
+        [
+          {
+            "node": "Webhook Verisini Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix CRM Kaydını Getir": {
+      "main": [
+        [
+          {
+            "node": "CRM Kaydını Kontrol Et",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Günlük Veriyi Filtrele": {
+      "main": [
+        [
+          {
+            "node": "Gün Sonu Özetini Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Excel Oluştur (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Gmail (Günlük CRM Raporu)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram Excel Gönder (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Verisini Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Mükerrer Bildirimi Engelle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM Bildirimini Ayır": {
+      "main": [
+        [
+          {
+            "node": "Bitrix CRM Kaydını Getir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arama Kaydını Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets API (Okumasız Kaydet)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CRM Kaydını Kontrol Et": {
+      "main": [
+        [
+          {
+            "node": "Bitrix İsim ve Etiketleri Getir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix İsim ve Etiketleri Getir": {
+      "main": [
+        [
+          {
+            "node": "Sheet Satırını Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet Satırını Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets API (Okumasız Kaydet)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gün Sonu Özetini Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Günlük Excel Verisini Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Günlük Excel Verisini Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Excel Oluştur (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Haftalık Özeti Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Haftalık Excel Verisini Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Haftalık Excel Verisini Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Excel Oluştur (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manuel Sheet Bağlantı Testi": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets (Bağlantı Testi)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Sheets (Bağlantı Testi)": {
+      "main": [
+        [
+          {
+            "node": "Sheet Test Sonucu",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gün Sonu Önizleme Verisi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gün Sonu Önizleme Verisi": {
+      "main": [
+        [
+          {
+            "node": "Gün Sonu Özeti Önizleme",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mükerrer Bildirimi Engelle": {
+      "main": [
+        [
+          {
+            "node": "CRM Bildirimini Ayır",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Arama Kaydını Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Her Gün 20:00 (Rapor Zamanı)": {
+      "main": [
+        [
+          {
+            "node": "Sheet Oku (Günlük, sütun sırasıyla)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet Oku (Günlük, sütun sırasıyla)": {
+      "main": [
+        [
+          {
+            "node": "Rapor Dönemi (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rapor Dönemi (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Aramaları (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Aramaları (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Aşama Adları (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Aşama Adları (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Lead Aşama Geçmişi (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Lead Aşama Geçmişi (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Anlaşma Aşama Geçmişi (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Anlaşma Aşama Geçmişi (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Sorumlu Sorgularını Hazırla (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sorumlu Sorgularını Hazırla (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Kayıt Sorumluları (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Kayıt Sorumluları (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Günlük Veriyi Filtrele",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Her Cumartesi 09:00": {
+      "main": [
+        [
+          {
+            "node": "Sheet Oku (Haftalık, sütun sırasıyla)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet Oku (Haftalık, sütun sırasıyla)": {
+      "main": [
+        [
+          {
+            "node": "Rapor Dönemi (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rapor Dönemi (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Aramaları (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Aramaları (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Aşama Adları (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Aşama Adları (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Lead Aşama Geçmişi (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Lead Aşama Geçmişi (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Anlaşma Aşama Geçmişi (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Anlaşma Aşama Geçmişi (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Sorumlu Sorgularını Hazırla (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sorumlu Sorgularını Hazırla (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Kayıt Sorumluları (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Kayıt Sorumluları (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Haftalık Veriyi Filtrele",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Excel Gönder (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Telegram Özetini Parçala (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Özetini Parçala (Günlük)": {
+      "main": [
+        [
+          {
+            "node": "Telegram Özet Gönder (Günlük)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Excel Gönder (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Telegram Özetini Parçala (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Özetini Parçala (Haftalık)": {
+      "main": [
+        [
+          {
+            "node": "Telegram Özet Gönder (Haftalık)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Her Gece 03:00 (Mükerrer Geçmişi Temizle)": {
+      "main": [
+        [
+          {
+            "node": "Mükerrer Geçmişini Temizle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Istanbul",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "ce7776ac-b438-4676-952c-753030714cea",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  },
+  "id": "0PIWrbVUIcWf7AiZ",
+  "tags": []
+}

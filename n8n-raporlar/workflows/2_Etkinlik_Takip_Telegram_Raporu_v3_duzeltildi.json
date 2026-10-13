@@ -1,0 +1,1312 @@
+{
+  "name": "Bitrix Etkinlik Takip + Günlük Telegram Raporu (v3 tamamlama takibi) — düzeltildi 13.10.2026",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/<GOOGLE_SHEET_ID_ETKINLIK>/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sayfa1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/<GOOGLE_SHEET_ID_ETKINLIK>/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Tarih": "={{ $json[\"Tarih\"] }}",
+            "Sorumlu Danışman": "={{ $json[\"Sorumlu Danışman\"] }}",
+            "Müşteri / Lead Adı": "={{ $json[\"Müşteri / Lead Adı\"] }}",
+            "Etkinlik Türü": "={{ $json[\"Etkinlik Türü\"] }}",
+            "Etkinlik Konusu": "={{ $json[\"Etkinlik Konusu\"] }}",
+            "Planlanan Tarih": "={{ $json[\"Planlanan Tarih\"] }}",
+            "Durum": "={{ $json[\"Durum\"] }}",
+            "Açıklama / Not": "={{ $json[\"Açıklama / Not\"] }}",
+            "Son Yorum": "={{ $json[\"Son Yorum\"] }}",
+            "WhatsApp_Mi": "={{ $json[\"WhatsApp_Mi\"] }}",
+            "EPosta_Mi": "={{ $json[\"EPosta_Mi\"] }}",
+            "Etkinlik_ID": "={{ $json[\"Etkinlik_ID\"] }}",
+            "Deadline Durumu": "={{ $json[\"Deadline Durumu\"] }}",
+            "Gün İçi Unutulan": "={{ $json[\"Gün İçi Unutulan\"] }}"
+          },
+          "matchingColumns": [
+            "Etkinlik_ID"
+          ],
+          "schema": [
+            {
+              "id": "Tarih",
+              "displayName": "Tarih",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sorumlu Danışman",
+              "displayName": "Sorumlu Danışman",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Müşteri / Lead Adı",
+              "displayName": "Müşteri / Lead Adı",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Etkinlik Türü",
+              "displayName": "Etkinlik Türü",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Etkinlik Konusu",
+              "displayName": "Etkinlik Konusu",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Planlanan Tarih",
+              "displayName": "Planlanan Tarih",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Durum",
+              "displayName": "Durum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Açıklama / Not",
+              "displayName": "Açıklama / Not",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Son Yorum",
+              "displayName": "Son Yorum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "WhatsApp_Mi",
+              "displayName": "WhatsApp_Mi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "EPosta_Mi",
+              "displayName": "EPosta_Mi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Etkinlik_ID",
+              "displayName": "Etkinlik_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Deadline Durumu",
+              "displayName": "Deadline Durumu",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Gün İçi Unutulan",
+              "displayName": "Gün İçi Unutulan",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "f4b8512f-2503-4354-831d-f852e1da8966",
+      "name": "Sheets Upsert (ID ile güncelle)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        6512,
+        1248
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Etkinlik_ID ile append/update yapar. Google kota hatasında 5 saniye arayla en fazla 5 kez yeniden dener."
+    },
+    {
+      "parameters": {
+        "jsCode": "const activity = $(\"Etkinlik Sonucunu Normalize Et\").first().json.result || {};\nconst lead     = $(\"Müşteri Adını Bul\").first().json.result || {};\nconst yorumlar = $(\"Son Yorumu Çek\").first().json.result || [];\n\nconst personeller = {\n  \"23180\": \"Abdullah Açıkgöz\",\n  \"17984\": \"Ali Karaoğlu\",\n  \"22186\": \"Ali Kemal Çınar\",\n  \"26120\": \"Sefa Tuna Şencan\",\n  \"26352\": \"Emre Caner\",\n  \"1174\": \"Arda Kağan Ertaş\",\n  \"116\": \"Merve Gelleci\",\n  \"25258\": \"Murat Çakıroğlu\",\n  \"5778\": \"Tuğba Kütük\",\n  \"11690\": \"Zeliha Bilginsoy\",\n  \"25314\": \"Hatice Aldemir\",\n  \"25120\": \"Ozan Kabagöz\",\n  \"27876\": \"Yiğitcan Dilek\",\n  \"27878\": \"Aleyna Özdemir\",\n  \"27446\": \"Beril Sarıyıldız\",\n  \"27332\": \"Rüstem Sarıoğlu\",\n  \"29484\": \"Enes Can Yıldırım\",\n  \"22182\": \"Zarife Ayoğlu\"\n};\n\n\nconst userId = String(activity.RESPONSIBLE_ID || activity.AUTHOR_ID || \"\");\nif (!personeller[userId]) return [];\n\nconst sorumluIsim = personeller[userId];\nconst musteriAdi = lead.TITLE || ((lead.NAME || '') + ' ' + (lead.LAST_NAME || '')).trim() || `Lead ID: ${activity.OWNER_ID || ''}`;\n\nconst provider = String(activity.PROVIDER_ID || '').toUpperCase();\nconst subject  = String(activity.SUBJECT || '');\nconst subjectU = subject.toUpperCase();\nconst desc     = String(activity.DESCRIPTION || '');\nconst descU    = desc.toUpperCase();\n\nlet tur = 'Diğer';\nif (provider === 'CRM_TODO') tur = 'Evrensel Görev (Todo)';\nelse if (provider === 'CRM_EXTERNAL_CHANNEL') tur = 'Açık Hat / Canlı Destek';\nelse if (String(activity.TYPE_ID) === '1') tur = 'Toplantı / Yüz Yüze';\nelse if (String(activity.TYPE_ID) === '2') tur = 'Arama';\nelse if (String(activity.TYPE_ID) === '3') tur = 'Görev';\nelse if (String(activity.TYPE_ID) === '4') tur = 'E-Posta';\n\nif (subjectU.includes('SMS') || provider.includes('SMS')) tur = 'SMS Gönderimi';\nif (provider.includes('WHATSAPP') || subjectU.includes('WHATSAPP') || descU.includes('WHATSAPP')) tur = 'WhatsApp Mesajı';\n\nconst completed = String(activity.COMPLETED || '').toUpperCase() === 'Y';\nconst durum = completed ? 'Tamamlandı' : 'Bekliyor';\n\nlet deadlineRaw = String(activity.DEADLINE || '');\nif (deadlineRaw.startsWith('9999')) deadlineRaw = '';\nif (!deadlineRaw) deadlineRaw = String(activity.START_TIME || '');\nif (deadlineRaw.startsWith('9999')) deadlineRaw = '';\n\nconst now = $now.setZone('Europe/Istanbul');\nconst today = now.startOf('day');\nlet deadlineDurum = 'Tarihsiz';\nlet deadlineFmt = 'Tarih Girilmemiş';\n\nif (deadlineRaw) {\n  deadlineFmt = deadlineRaw.substring(0,16).replace('T',' ');\n  const d = DateTime.fromISO(deadlineRaw, { zone: 'Europe/Istanbul' });\n  if (d.isValid) {\n    const day = d.startOf('day');\n    if (day < today) deadlineDurum = 'Geçmiş';\n    else if (day.equals(today)) deadlineDurum = 'Bugün';\n    else deadlineDurum = 'İleri Tarih';\n  }\n}\n\n// Gün içi unutulan: son tarihi bugün ve saati GEÇMİŞ, hâlâ açık (saati gelmemiş olan unutulmuş sayılmaz).\nconst deadlineDt = deadlineRaw ? DateTime.fromISO(deadlineRaw, { zone: 'Europe/Istanbul' }) : null;\nconst gunIciUnutulan = (!completed && deadlineDurum === 'Bugün' && deadlineDt?.isValid && deadlineDt <= now) ? 1 : 0;\n\nlet sonYorum = '-';\nif (Array.isArray(yorumlar) && yorumlar[0]?.COMMENT) {\n  sonYorum = String(yorumlar[0].COMMENT).replace(/<[^>]*>?/gm,'').trim();\n}\nconst yorumU = sonYorum.toUpperCase();\nconst isWA = tur === 'WhatsApp Mesajı' || descU.includes('WHATSAPP') || yorumU.includes('WHATSAPP') || yorumU.includes('WA MESSENGER') ? 1 : 0;\nconst isMail = tur === 'E-Posta' || descU.includes('E-POSTA') || yorumU.includes('E-POSTA') || yorumU.includes('MAIL') ? 1 : 0;\n\nlet tarih = now.toFormat('dd.MM.yyyy HH:mm');\nconst created = String(activity.CREATED || '');\nif (created.length >= 16) {\n  tarih = `${created.substring(8,10)}.${created.substring(5,7)}.${created.substring(0,4)} ${created.substring(11,16)}`;\n}\n\nreturn [{ json: {\n  'Tarih': tarih,\n  'Sorumlu Danışman': sorumluIsim,\n  'Müşteri / Lead Adı': musteriAdi,\n  'Etkinlik Türü': tur,\n  'Etkinlik Konusu': subject || 'Konu Yok',\n  'Planlanan Tarih': deadlineFmt,\n  'Durum': durum,\n  'Açıklama / Not': desc.replace(/<[^>]*>?/gm,'').split('**Transcript:**')[0].trim() || 'Detay yok',\n  'Son Yorum': sonYorum,\n  'WhatsApp_Mi': isWA,\n  'EPosta_Mi': isMail,\n  'Etkinlik_ID': String(activity.ID || ''),\n  'Deadline Durumu': deadlineDurum,\n  'Gün İçi Unutulan': gunIciUnutulan\n}}];"
+      },
+      "id": "f3f6aac8-ad03-4cd6-979b-48dbcf79a344",
+      "name": "Raporu Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6256,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.timeline.comment.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"filter\": {\n    \"ENTITY_ID\": \"{{ $('Müşteri Adını Bul').first().json.result.ID || $('Etkinlik / Lead ID Ayıkla').first().json.ownerId }}\",\n    \"ENTITY_TYPE\": \"lead\"\n  },\n  \"order\": { \"ID\": \"DESC\" },\n  \"select\": [\"COMMENT\"]\n}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "2a840232-b2c9-47ff-91e4-14e8869663e3",
+      "name": "Son Yorumu Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        6016,
+        1248
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.lead.get.json",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "={{ $json.result.OWNER_ID }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "9c3ce839-ee98-483d-87a8-dbc5c983502e",
+      "name": "Müşteri Adını Bul",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        5760,
+        1248
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $json.result;\nconst activity = Array.isArray(result) ? result[0] : result;\nif (!activity || !activity.ID) return [];\n\n// Bu panel yalnızca Lead etkinliklerini raporlar.\nif (String(activity.OWNER_TYPE_ID || '') !== '1') return [];\n\nreturn [{ json: { result: activity } }];"
+      },
+      "id": "82fbda1e-f0de-4d1b-a430-ec4812bc7faf",
+      "name": "Etkinlik Sonucunu Normalize Et",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5504,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.activityId ? 'https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.get.json?id=' + encodeURIComponent($json.activityId) : 'https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json?order[ID]=DESC&filter[OWNER_TYPE_ID]=' + encodeURIComponent($json.ownerTypeId) + '&filter[OWNER_ID]=' + encodeURIComponent($json.ownerId) + '&select[]=*&select[]=COMMUNICATIONS' }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "7ad945cc-a906-4c80-a87a-614d27fab80e",
+      "name": "Etkinliği Bitrix’ten Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        5264,
+        1248
+      ],
+      "retryOnFail": true,
+      "maxTries": 4,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "jsCode": "// Bitrix giden webhook gövdesi form-urlencoded gelir. n8n sürümüne göre anahtarlar düz\n// (\"data[FIELDS][ID]\") veya iç içe (data.FIELDS.ID) olabilir; ikisi de desteklenir.\nconst body = $json.body || {};\nconst at = (obj, key) => {\n  if (obj && Object.prototype.hasOwnProperty.call(obj, key)) return obj[key];\n  return key.replace(/\\[/g, '.').replace(/\\]/g, '').split('.').reduce((v, k) => v && typeof v === 'object' ? v[k] : undefined, obj);\n};\nconst pick = (...keys) => {\n  for (const key of keys) {\n    const value = at(body, key);\n    if (value !== undefined && value !== null && typeof value !== 'object' && String(value).trim() !== '') return value;\n  }\n  return '';\n};\n\nconst event = String(pick('event', 'EVENT')).toUpperCase();\nif (event === 'ONCRMACTIVITYDELETE') return [];\n\nconst rawDoc = pick('document_id[2]', 'DOCUMENT_ID[2]', 'documentId[2]');\nconst activityId = String(pick('data[FIELDS][ID]', 'DATA[FIELDS][ID]', 'FIELDS[ID]', 'ID', 'id', 'activity_id', 'ACTIVITY_ID')).trim();\n\nlet ownerType = '';\nlet ownerTypeId = '';\nlet ownerId = '';\nconst typeMap = { LEAD: 1, DEAL: 2, CONTACT: 3, COMPANY: 4 };\nconst reverseTypeMap = { '1': 'LEAD', '2': 'DEAL', '3': 'CONTACT', '4': 'COMPANY' };\nconst docMatch = String(rawDoc || '').match(/^(LEAD|DEAL|CONTACT|COMPANY)_(\\d+)$/i);\n\nif (docMatch) {\n  ownerType = docMatch[1].toUpperCase();\n  ownerTypeId = typeMap[ownerType];\n  ownerId = docMatch[2];\n} else {\n  ownerTypeId = pick('data[FIELDS][OWNER_TYPE_ID]', 'DATA[FIELDS][OWNER_TYPE_ID]', 'FIELDS[OWNER_TYPE_ID]', 'OWNER_TYPE_ID', 'ownerTypeId');\n  ownerId = pick('data[FIELDS][OWNER_ID]', 'DATA[FIELDS][OWNER_ID]', 'FIELDS[OWNER_ID]', 'OWNER_ID', 'ownerId');\n  ownerType = reverseTypeMap[String(ownerTypeId)] || '';\n}\n\nif (!/^\\d+$/.test(activityId) && (!ownerTypeId || !ownerId)) return [];\n\nreturn [{\n  json: {\n    event: event || 'ROBOT',\n    activityId: /^\\d+$/.test(activityId) ? activityId : '',\n    ownerType,\n    ownerTypeId: ownerTypeId ? Number(ownerTypeId) : '',\n    ownerId: ownerId ? String(ownerId) : '',\n    rawDocumentId: rawDoc || ''\n  }\n}];\n"
+      },
+      "id": "c5dba7a8-ae15-4bae-bfae-6b0782f38050",
+      "name": "Etkinlik / Lead ID Ayıkla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5008,
+        1248
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "bitrix-etkinlik-takip",
+        "options": {}
+      },
+      "id": "1650890b-e177-4fea-bc11-57623e5a7480",
+      "name": "Bitrix Etkinlik Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        4752,
+        1248
+      ],
+      "webhookId": "4c6a3f0a-58af-418d-b06a-b21416dad914",
+      "notes": "Bitrix bildirimi anında HTTP 200 ile kabul edilir; işlemler arka planda devam eder."
+    },
+    {
+      "parameters": {
+        "jsCode": "// XRE Gün Sonu Etkinlik / Tamamlama / Arama Raporu (v3)\n// Kaynaklar (hepsi bu Code düğümünden önce, sırayla ve \"Execute Once\" ile çalışır):\n//   Bitrix Rapor - Kullanıcılar                 user.get (ACTIVE)            -> ID → isim\n//   Bitrix Rapor - Bugün Oluşturulan Etkinlikler crm.activity.list CREATED bugün\n//   Bitrix Rapor - Bugün Güncellenen Etkinlikler crm.activity.list LAST_UPDATED bugün\n//   Bitrix Rapor - Bugün Vadesi Olan Todo'lar    CRM_TODO, DEADLINE bugün (açık+kapalı)\n//   Bitrix Rapor - Geciken Açık Todo'lar         CRM_TODO, COMPLETED=N, DEADLINE < bugün\n//   Bitrix Rapor - Bugün Gelen Leadler           crm.lead.list DATE_CREATE bugün\n//   Bitrix Rapor - Bugünkü Çağrılar              voximplant.statistic.get bugün\n//   Etkinlik Günlüğünü Oku                       webhook kolunun yazdığı durum geçmişi\n//\n// \"Tamamlandı'ya basma\" sayısı Bitrix listesinden okunamaz (Bitrix tamamlama zamanı ve\n// tamamlayanı tutmaz). Bu yüzden webhook kolu her etkinlik sürümünü \"Etkinlik Günlüğü\"\n// sekmesine yazar; burada Bekliyor → Tamamlandı geçişleri sayılır. Günlük boşsa\n// yaklaşık değer (bugün güncellenmiş ve şu an tamamlanmış) kullanılır ve raporda belirtilir.\n\nconst ZONE = 'Europe/Istanbul';\nconst KONUSMA_ESIK = 20; // sn; bu süre ve üzeri başarılı arama \"geçerli görüşme\"\nconst CRM_HOST = 'https://xre.bitrix24.com.tr';\n\n// Rapor kapsamındaki personel. Listede olup hiç kaydı olmayanlar da 0 ile gösterilir.\nconst PERSONELLER = {\n  '23180': { isim: 'Abdullah Açıkgöz', birim: 'Arsa' },\n  '17984': { isim: 'Ali Karaoğlu', birim: 'Proje Satış' },\n  '22186': { isim: 'Ali Kemal Çınar', birim: 'Proje Satış' },\n  '26120': { isim: 'Sefa Tuna Şencan', birim: 'Proje Satış' },\n  '26352': { isim: 'Emre Caner', birim: 'Proje Satış' },\n  '1174': { isim: 'Arda Kağan Ertaş', birim: 'Proje Satış' },\n  '116': { isim: 'Merve Gelleci', birim: 'Proje Satış' },\n  '25258': { isim: 'Murat Çakıroğlu', birim: 'Proje Satış' },\n  '5778': { isim: 'Tuğba Kütük', birim: 'Proje Satış' },\n  '11690': { isim: 'Zeliha Bilginsoy', birim: 'Proje Satış' },\n  '25314': { isim: 'Hatice Aldemir', birim: 'Barter' },\n  '25120': { isim: 'Ozan Kabagöz', birim: 'Barter', gorev: 'Avukat' },\n  '27876': { isim: 'Yiğitcan Dilek', birim: 'Barter' },\n  '27878': { isim: 'Aleyna Özdemir', birim: 'Barter' },\n  '27446': { isim: 'Beril Sarıyıldız', birim: 'Partners' },\n  '27332': { isim: 'Rüstem Sarıoğlu', birim: 'Franchise' },\n  '29484': { isim: 'Enes Can Yıldırım', birim: 'Auto' },\n  '22182': { isim: 'Zarife Ayoğlu', birim: 'Recruiting' }\n};\n\nconst simdi = $now.setZone(ZONE);\nconst bugun = simdi.startOf('day');\nconst yarin = bugun.plus({ days: 1 });\nconst todayStr = simdi.toFormat('dd.MM.yyyy');\nconst saatStr = simdi.toFormat('HH:mm');\n\nfunction esc(s) {\n  return String(s ?? '').replace(/[&<>\"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#039;' }[c]));\n}\nfunction hms(seconds) {\n  const s = Math.max(0, Math.floor(Number(seconds) || 0));\n  return [Math.floor(s / 3600), Math.floor((s % 3600) / 60), s % 60].map(x => String(x).padStart(2, '0')).join(':');\n}\nfunction uidOf(v) {\n  const m = /^(?:user_)?([1-9]\\d*)(?:\\.0+)?$/i.exec(String(v ?? '').trim());\n  return m ? m[1] : '';\n}\nfunction dt(v) {\n  const s = String(v ?? '').trim();\n  if (!s || s.startsWith('0000') || s.startsWith('9999')) return null;\n  let d = DateTime.fromISO(s, { zone: ZONE });\n  if (!d.isValid) {\n    for (const f of ['dd.MM.yyyy HH:mm:ss', 'dd.MM.yyyy HH:mm', 'yyyy-MM-dd HH:mm:ss']) {\n      d = DateTime.fromFormat(s, f, { zone: ZONE });\n      if (d.isValid) break;\n    }\n  }\n  return d.isValid ? d.setZone(ZONE) : null;\n}\n\nconst hatalar = [];\nfunction safeAll(nodeName) {\n  try { return $(nodeName).all().map(i => i?.json || {}); }\n  catch (e) { hatalar.push(nodeName + ': düğüm çalışmadı (' + e.message + ')'); return []; }\n}\nfunction bitrixRows(nodeName) {\n  const rows = [];\n  for (const page of safeAll(nodeName)) {\n    const r = page?.body && typeof page.body === 'object' ? page.body : page;\n    if (r?.error) { hatalar.push(nodeName + ': ' + (r.error_description || r.error)); continue; }\n    const res = r?.result;\n    if (Array.isArray(res)) rows.push(...res);\n    else if (Array.isArray(res?.items)) rows.push(...res.items);\n    else if (Array.isArray(res?.activities)) rows.push(...res.activities);\n  }\n  // Sayfa kaymasında aynı kayıt iki kez gelebilir.\n  const seen = new Set();\n  return rows.filter(r => {\n    const k = String(r?.ID ?? r?.CALL_ID ?? '');\n    if (!k) return true;\n    if (seen.has(k)) return false;\n    seen.add(k);\n    return true;\n  });\n}\n\n// ---------- Kaynaklar ----------\nconst kullanicilar = bitrixRows('Bitrix Rapor - Kullanıcılar');\nconst olusturulan = bitrixRows('Bitrix Rapor - Bugün Oluşturulan Etkinlikler');\nconst guncellenen = bitrixRows('Bitrix Rapor - Bugün Güncellenen Etkinlikler');\nconst vadesiBugun = bitrixRows(\"Bitrix Rapor - Bugün Vadesi Olan Todo'lar\");\nconst gecikenAcik = bitrixRows(\"Bitrix Rapor - Geciken Açık Todo'lar\");\nconst yeniLeadler = bitrixRows('Bitrix Rapor - Bugün Gelen Leadler');\nconst cagrilar = bitrixRows('Bitrix Rapor - Bugünkü Çağrılar');\nconst gunluk = safeAll('Etkinlik Günlüğünü Oku').filter(r => r && r['Etkinlik_ID']);\n\nconst isimler = {};\nfor (const u of kullanicilar) {\n  const id = uidOf(u.ID);\n  const ad = [u.NAME, u.LAST_NAME].map(x => String(x || '').trim()).filter(Boolean).join(' ');\n  if (id && ad) isimler[id] = ad;\n}\nfor (const [id, p] of Object.entries(PERSONELLER)) isimler[id] = p.isim;\nconst isim = uid => isimler[uid] || ('Kullanıcı #' + uid);\n\n// ---------- Kişi istatistikleri ----------\nconst stats = new Map();\nfunction S(uid) {\n  if (!stats.has(uid)) {\n    stats.set(uid, {\n      todoOlusturulan: 0,   // bugün oluşturulan ve sorumlusu kendisi olan Todo\n      vadesiBugun: 0,       // son tarihi bugün olan Todo (açık+kapalı)\n      vadesiBugunTamam: 0,  // bunların tamamlanmış olanı\n      tamamlamaBasma: 0,    // bugün \"Tamamlandı\"ya basma adedi (basan kişi = EDITOR)\n      tekilTamamlanan: new Set(),\n      zamanindaTamam: 0,    // son tarihten önce/aynı anda tamamlanan\n      gecTamam: 0,          // son tarihi geçtikten sonra tamamlanan\n      yenidenAcma: 0,       // tamamlandı → bekliyor geri alma\n      aramasizTamam: new Set(), // lead'i bugün hiç aranmadan tamamlanan Todo\n      gunIciUnutulan: 0,    // son tarihi bugün, saati geçmiş, hâlâ açık\n      bugunKalanAcik: 0,    // son tarihi bugün, saati henüz gelmemiş, açık\n      oncekiGeciken: 0,     // son tarihi bugünden önce, hâlâ açık\n      aradiTamamlamadi: new Set(), // bugün aradığı lead'de vadesi gelmiş açık Todo kaldı\n      aramaDenemesi: 0, aramaBasarili: 0, cevapsiz: 0, digerSonuc: 0, gelen: 0,\n      gecerliArama: 0, gecerliSure: 0, gecerliNumara: new Set(),\n      yeniLead: new Set(), arananYeniLead: new Set()\n    });\n  }\n  return stats.get(uid);\n}\nfor (const uid of Object.keys(PERSONELLER)) S(uid);\n\nconst isLead = a => String(a?.OWNER_TYPE_ID ?? '') === '1';\nconst isTodo = a => String(a?.PROVIDER_ID || '').toUpperCase() === 'CRM_TODO';\nconst isDone = a => String(a?.COMPLETED || '').toUpperCase() === 'Y';\n\n// Aynı etkinlik birden fazla listede gelir; en güncel kopya (LAST_UPDATED en büyük) tutulur.\nconst aktivite = new Map();\nfor (const a of [...olusturulan, ...vadesiBugun, ...gecikenAcik, ...guncellenen]) {\n  const id = String(a?.ID || '');\n  if (!id || !isLead(a)) continue;\n  const prev = aktivite.get(id);\n  const t = dt(a.LAST_UPDATED)?.toMillis() ?? 0;\n  if (!prev || t >= (dt(prev.LAST_UPDATED)?.toMillis() ?? 0)) aktivite.set(id, a);\n}\nconst olusturulanId = new Set(olusturulan.map(a => String(a.ID)));\n\n// ---------- Aramalar ----------\nconst leadAranan = new Map(); // uid -> Set(leadId) bugün aradığı lead'ler\nconst leadHerhangiArama = new Set(); // bugün kim olursa olsun aranan lead'ler\nconst cagriSayisi = cagrilar.length;\nfor (const c of cagrilar) {\n  const uid = uidOf(c.PORTAL_USER_ID);\n  if (!uid) continue;\n  const s = S(uid);\n  const code = String(c.CALL_FAILED_CODE || '').trim();\n  const sure = parseInt(c.CALL_DURATION, 10) || 0;\n  const tip = String(c.CALL_TYPE || '');\n  const giden = tip === '1' || tip === '4';\n  if (giden) {\n    s.aramaDenemesi++;\n    if (code === '200') s.aramaBasarili++;\n    // Giden aramada karşı taraf açmazsa Bitrix 603 / 603-S / 503 / 500 / 486 döndürür;\n    // 304 yalnızca kaçırılan GELEN aramadır. Bu yüzden 200 olmayan her giden arama cevapsızdır.\n    else s.cevapsiz++;\n  } else if (tip === '2' || tip === '3') s.gelen++;\n  if (code === '200' && sure >= KONUSMA_ESIK) {\n    s.gecerliArama++;\n    s.gecerliSure += sure;\n    const tel = String(c.PHONE_NUMBER || '').replace(/\\D/g, '').slice(-10);\n    if (tel) s.gecerliNumara.add(tel);\n  }\n  if (String(c.CRM_ENTITY_TYPE || '').toUpperCase() === 'LEAD' && c.CRM_ENTITY_ID) {\n    const lid = String(c.CRM_ENTITY_ID);\n    leadHerhangiArama.add(lid);\n    if (!leadAranan.has(uid)) leadAranan.set(uid, new Set());\n    leadAranan.get(uid).add(lid);\n  }\n}\n\n// ---------- Yeni lead'ler ----------\nfor (const l of yeniLeadler) {\n  const uid = uidOf(l.ASSIGNED_BY_ID);\n  const id = String(l.ID || '');\n  if (!uid || !id) continue;\n  const s = S(uid);\n  s.yeniLead.add(id);\n  if (leadAranan.get(uid)?.has(id)) s.arananYeniLead.add(id);\n}\n\n// ---------- Todo durumları (anlık) ----------\nfor (const a of aktivite.values()) {\n  if (!isTodo(a)) continue;\n  const uid = uidOf(a.RESPONSIBLE_ID);\n  if (!uid) continue;\n  const s = S(uid);\n  const id = String(a.ID);\n  const deadline = dt(a.DEADLINE);\n  const done = isDone(a);\n  if (olusturulanId.has(id)) s.todoOlusturulan++;\n  if (deadline && deadline >= bugun && deadline < yarin) {\n    s.vadesiBugun++;\n    if (done) s.vadesiBugunTamam++;\n    else if (deadline <= simdi) s.gunIciUnutulan++;\n    else s.bugunKalanAcik++;\n  }\n  if (!done && deadline && deadline < bugun) s.oncekiGeciken++;\n  // Aradı ama tamamlamadı: bugün bu lead'i aramış, vadesi gelmiş Todo hâlâ açık.\n  if (!done && deadline && deadline <= simdi && leadAranan.get(uid)?.has(String(a.OWNER_ID))) {\n    s.aradiTamamlamadi.add(String(a.OWNER_ID));\n  }\n}\n\n// ---------- Tamamlama geçişleri (Etkinlik Günlüğü) ----------\n// Günlük satırı: Etkinlik_ID, Durum (Tamamlandı/Bekliyor), Son Güncelleme (Bitrix LAST_UPDATED),\n// Değiştiren ID (EDITOR_ID = butona basan), Sorumlu ID, Lead ID, Son Tarih, Tür, Kayıt Zamanı.\nconst gunlukTodo = gunluk.filter(r => String(r['Tür'] || '').toUpperCase() === 'CRM_TODO');\nlet gunlukKullanildi = false;\nconst byId = new Map();\nfor (const r of gunlukTodo) {\n  const id = String(r['Etkinlik_ID']);\n  if (!byId.has(id)) byId.set(id, []);\n  byId.get(id).push(r);\n}\nfor (const [id, list] of byId) {\n  list.sort((a, b) => ((dt(a['Son Güncelleme']) || dt(a['Kayıt Zamanı']))?.toMillis() ?? 0) - ((dt(b['Son Güncelleme']) || dt(b['Kayıt Zamanı']))?.toMillis() ?? 0));\n  let onceki = null;\n  for (const r of list) {\n    const durum = String(r['Durum'] || '');\n    const t = dt(r['Son Güncelleme']) || dt(r['Kayıt Zamanı']);\n    const bugunMu = t && t >= bugun && t < yarin;\n    const basan = uidOf(r['Değiştiren ID']) || uidOf(r['Sorumlu ID']);\n    if (durum === 'Tamamlandı' && onceki !== 'Tamamlandı' && bugunMu && basan) {\n      gunlukKullanildi = true;\n      const s = S(basan);\n      s.tamamlamaBasma++;\n      s.tekilTamamlanan.add(id);\n      const deadline = dt(r['Son Tarih']);\n      if (deadline && t > deadline) s.gecTamam++; else s.zamanindaTamam++;\n      const lid = String(r['Lead ID'] || '');\n      if (lid && !leadHerhangiArama.has(lid)) s.aramasizTamam.add(id);\n    }\n    if (durum === 'Bekliyor' && onceki === 'Tamamlandı' && bugunMu && basan) S(basan).yenidenAcma++;\n    onceki = durum;\n  }\n}\n// Günlük boşsa yaklaşık değer: bugün güncellenmiş ve şu an tamamlanmış Todo (sorumlusuna yazılır).\nif (!gunlukKullanildi) {\n  for (const a of aktivite.values()) {\n    if (!isTodo(a) || !isDone(a)) continue;\n    const t = dt(a.LAST_UPDATED);\n    if (!t || t < bugun || t >= yarin) continue;\n    const uid = uidOf(a.EDITOR_ID) || uidOf(a.RESPONSIBLE_ID);\n    if (!uid) continue;\n    const s = S(uid);\n    s.tamamlamaBasma++;\n    s.tekilTamamlanan.add(String(a.ID));\n    const deadline = dt(a.DEADLINE);\n    if (deadline && t > deadline) s.gecTamam++; else s.zamanindaTamam++;\n    if (!leadHerhangiArama.has(String(a.OWNER_ID))) s.aramasizTamam.add(String(a.ID));\n  }\n}\n\n// ---------- Satırlar ----------\nconst satirlar = [...stats.entries()].map(([uid, s]) => ({\n  uid,\n  isim: isim(uid),\n  birim: PERSONELLER[uid]?.birim || 'Liste dışı',\n  listed: Boolean(PERSONELLER[uid]),\n  todoOlusturulan: s.todoOlusturulan,\n  vadesiBugun: s.vadesiBugun,\n  vadesiBugunTamam: s.vadesiBugunTamam,\n  tamamlamaBasma: s.tamamlamaBasma,\n  tekilTamamlanan: s.tekilTamamlanan.size,\n  zamanindaTamam: s.zamanindaTamam,\n  gecTamam: s.gecTamam,\n  yenidenAcma: s.yenidenAcma,\n  aramasizTamam: s.aramasizTamam.size,\n  gunIciUnutulan: s.gunIciUnutulan,\n  bugunKalanAcik: s.bugunKalanAcik,\n  oncekiGeciken: s.oncekiGeciken,\n  unutulanToplam: s.gunIciUnutulan + s.oncekiGeciken,\n  aradiTamamlamadi: s.aradiTamamlamadi.size,\n  aramaDenemesi: s.aramaDenemesi, aramaBasarili: s.aramaBasarili, cevapsiz: s.cevapsiz, digerSonuc: s.digerSonuc, gelen: s.gelen,\n  gecerliArama: s.gecerliArama, gecerliSure: s.gecerliSure, gecerliKisi: s.gecerliNumara.size,\n  yeniLead: s.yeniLead.size, arananYeniLead: s.arananYeniLead.size,\n  aranmayanYeniLead: Math.max(0, s.yeniLead.size - s.arananYeniLead.size)\n}))\n  .filter(r => r.listed)\n  .sort((a, b) => Number(b.listed) - Number(a.listed) || (b.tamamlamaBasma + b.aramaDenemesi) - (a.tamamlamaBasma + a.aramaDenemesi) || a.isim.localeCompare(b.isim, 'tr'));\n\nconst SAYISAL = ['todoOlusturulan', 'vadesiBugun', 'vadesiBugunTamam', 'tamamlamaBasma', 'tekilTamamlanan', 'zamanindaTamam', 'gecTamam', 'yenidenAcma', 'aramasizTamam', 'gunIciUnutulan', 'bugunKalanAcik', 'oncekiGeciken', 'unutulanToplam', 'aradiTamamlamadi', 'aramaDenemesi', 'aramaBasarili', 'cevapsiz', 'digerSonuc', 'gelen', 'gecerliArama', 'gecerliSure', 'gecerliKisi', 'yeniLead', 'arananYeniLead', 'aranmayanYeniLead'];\nconst toplam = Object.fromEntries(SAYISAL.map(k => [k, satirlar.reduce((t, r) => t + (r[k] || 0), 0)]));\nconst oran = (a, b) => b ? Math.round((a / b) * 100) + '%' : '-';\n\nconst kaynakNotu = gunlukKullanildi\n  ? 'Tamamlandı basma sayıları Etkinlik Günlüğü\\'ndeki Bekliyor→Tamamlandı geçişlerinden, basan kişiye (EDITOR_ID) göre sayıldı.'\n  : 'UYARI: Etkinlik Günlüğü\\'nde bugüne ait geçiş yok. Tamamlama sayıları YAKLAŞIK: bugün güncellenmiş ve şu an tamamlanmış Todo sayısıdır; aynı Todo\\'yu birden fazla kez tamamlama/geri alma görünmez. Bitrix → n8n etkinlik webhook\\'unu (ONCRMACTIVITYADD/UPDATE) kontrol edin.';\n\n// ---------- Telegram ----------\nlet tg = `📊 XRE GÜNLÜK ETKİNLİK • TAMAMLAMA • ARAMA RAPORU — ${todayStr}\\n🕒 ${saatStr} itibarıyla\\n━━━━━━━━━━━━━━━━━━━━\\n`;\nfor (const r of satirlar) {\n  const hepsiSifir = !(r.todoOlusturulan || r.vadesiBugun || r.tamamlamaBasma || r.unutulanToplam || r.aramaDenemesi || r.gelen || r.yeniLead);\n  if (hepsiSifir) continue;\n  tg += `\\n👤 ${r.isim}\\n`;\n  tg += `   ✅ Tamamlandı'ya basma: ${r.tamamlamaBasma} (${r.tekilTamamlanan} tekil etkinlik) · zamanında ${r.zamanindaTamam} · geç ${r.gecTamam}${r.yenidenAcma ? ' · geri açma ' + r.yenidenAcma : ''}\\n`;\n  tg += `   📅 Bugün vadeli etkinlik: ${r.vadesiBugun} · tamamlanan ${r.vadesiBugunTamam} (${oran(r.vadesiBugunTamam, r.vadesiBugun)}) · bugün oluşturulan ${r.todoOlusturulan}\\n`;\n  tg += `   ⚠️ Tamamlamayı unuttu: ${r.unutulanToplam} (bugün saati geçen ${r.gunIciUnutulan} + önceki günlerden ${r.oncekiGeciken})${r.bugunKalanAcik ? ' · saati gelmemiş ' + r.bugunKalanAcik : ''}\\n`;\n  tg += `   📞 Aradı ama etkinliği kapatmadı: ${r.aradiTamamlamadi} lead · aranmadan tamamlanan: ${r.aramasizTamam}\\n`;\n  tg += `   ☎️ Giden arama ${r.aramaDenemesi} · başarılı ${r.aramaBasarili} · cevapsız ${r.cevapsiz} · gelen ${r.gelen}\\n`;\n  tg += `   ⏱ ${KONUSMA_ESIK} sn+ görüşme: ${r.gecerliArama} (${r.gecerliKisi} kişi) · ${hms(r.gecerliSure)}\\n`;\n  if (r.yeniLead) tg += `   🆕 Yeni lead ${r.yeniLead} · arandı ${r.arananYeniLead} · aranmadı ${r.aranmayanYeniLead}\\n`;\n}\nconst sifirlar = satirlar.filter(r => r.listed && !(r.todoOlusturulan || r.vadesiBugun || r.tamamlamaBasma || r.unutulanToplam || r.aramaDenemesi || r.gelen || r.yeniLead)).map(r => r.isim);\ntg += '\\n━━━━━━━━━━━━━━━━━━━━\\n';\ntg += `📌 GENEL: Tamamlandı'ya basma ${toplam.tamamlamaBasma} (${toplam.tekilTamamlanan} tekil) · zamanında ${toplam.zamanindaTamam} · geç ${toplam.gecTamam}\\n`;\ntg += `Bugün vadeli ${toplam.vadesiBugun} · tamamlanan ${toplam.vadesiBugunTamam} (${oran(toplam.vadesiBugunTamam, toplam.vadesiBugun)})\\n`;\ntg += `Unutulan açık etkinlik ${toplam.unutulanToplam} (bugün ${toplam.gunIciUnutulan} + önceki ${toplam.oncekiGeciken}) · aradı/kapatmadı ${toplam.aradiTamamlamadi} · aranmadan tamamlanan ${toplam.aramasizTamam}\\n`;\ntg += `Giden arama ${toplam.aramaDenemesi} · başarılı ${toplam.aramaBasarili} · ${KONUSMA_ESIK} sn+ ${toplam.gecerliArama} · ${hms(toplam.gecerliSure)}\\n`;\nif (sifirlar.length) tg += `\\nKaydı görünmeyen: ${sifirlar.join(', ')}\\n`;\ntg += `\\nℹ️ ${kaynakNotu}\\nKaynak: ${aktivite.size} lead etkinliği · ${gecikenAcik.length} geciken açık Todo · ${cagriSayisi} çağrı · ${yeniLeadler.length} yeni lead · ${gunlukTodo.length} günlük satırı`;\nif (hatalar.length) tg += `\\n❗ Veri hatası: ${hatalar.join(' | ')}`;\n\n// ---------- E-posta ----------\nconst th = (t, al = 'center') => `<th style=\"padding:8px;text-align:${al};border:1px solid #cfd8e3;\">${esc(t)}</th>`;\nconst td = (v, style = '') => `<td style=\"padding:7px;text-align:center;border:1px solid #dde4ec;${style}\">${esc(v)}</td>`;\nconst KOLON = [\n  ['Tamamlandı\\'ya basma', 'tamamlamaBasma', 'color:#107c41;font-weight:bold;'],\n  ['Tekil tamamlanan', 'tekilTamamlanan', ''],\n  ['Zamanında', 'zamanindaTamam', ''],\n  ['Geç', 'gecTamam', 'color:#c65911;'],\n  ['Geri açma', 'yenidenAcma', ''],\n  ['Bugün vadeli', 'vadesiBugun', ''],\n  ['Vadeli tamamlanan', 'vadesiBugunTamam', ''],\n  ['Unutulan (bugün)', 'gunIciUnutulan', 'color:#c00000;font-weight:bold;'],\n  ['Unutulan (önceki gün)', 'oncekiGeciken', 'color:#c00000;'],\n  ['Aradı, kapatmadı', 'aradiTamamlamadi', 'color:#c65911;'],\n  ['Aranmadan tamamlanan', 'aramasizTamam', 'color:#7030a0;'],\n  ['Giden arama', 'aramaDenemesi', ''],\n  ['Başarılı', 'aramaBasarili', ''],\n  ['Cevapsız', 'cevapsiz', ''],\n  [KONUSMA_ESIK + ' sn+ görüşme', 'gecerliArama', 'font-weight:bold;'],\n  ['Yeni lead', 'yeniLead', ''],\n  ['Yeni lead aranmadı', 'aranmayanYeniLead', 'color:#c00000;']\n];\nlet html = '<div style=\"font-family:Arial,sans-serif;max-width:1400px;margin:auto;border:1px solid #ccc;border-radius:8px;overflow:hidden;\">';\nhtml += `<div style=\"background:#1F3864;padding:16px;text-align:center;\"><h2 style=\"color:#fff;margin:0;\">📊 XRE Günlük Etkinlik • Tamamlama • Arama Raporu</h2><p style=\"color:#BDD7EE;margin:4px 0 0;\">${esc(todayStr)} — ${esc(saatStr)} itibarıyla</p></div>`;\nhtml += '<div style=\"padding:16px;overflow-x:auto;\">';\nif (!gunlukKullanildi) html += `<p style=\"background:#fff4ce;border:1px solid #e0c060;padding:10px;border-radius:6px;font-size:13px;\">${esc(kaynakNotu)}</p>`;\nif (hatalar.length) html += `<p style=\"background:#fde7e9;border:1px solid #d13438;padding:10px;border-radius:6px;font-size:13px;\">Veri hatası: ${esc(hatalar.join(' | '))}</p>`;\nhtml += '<table style=\"width:100%;border-collapse:collapse;font-size:12px;\"><thead><tr style=\"background:#2E75B6;color:#fff;\">' + th('Danışman', 'left') + th('Birim', 'left') + KOLON.map(k => th(k[0])).join('') + th('Görüşme süresi') + '</tr></thead><tbody>';\nsatirlar.forEach((r, i) => {\n  html += `<tr style=\"background:${i % 2 ? '#F2F2F2' : '#fff'};\"><td style=\"padding:7px 10px;font-weight:bold;border:1px solid #dde4ec;\">${esc(r.isim)}${r.listed ? '' : ' <span style=\"color:#888\">(liste dışı)</span>'}</td>${td(r.birim, 'text-align:left;')}`;\n  html += KOLON.map(k => td(r[k[1]], r[k[1]] ? k[2] : 'color:#999;')).join('') + td(hms(r.gecerliSure)) + '</tr>';\n});\nhtml += '<tr style=\"background:#FFC000;font-weight:bold;\"><td style=\"padding:8px;border:1px solid #dde4ec;\">TOPLAM</td><td style=\"border:1px solid #dde4ec;\"></td>' + KOLON.map(k => td(toplam[k[1]])).join('') + td(hms(toplam.gecerliSure)) + '</tr></tbody></table>';\nhtml += '<div style=\"font-size:11px;color:#595959;margin-top:12px;line-height:1.6;\">';\nhtml += `<p><b>Tamamlandı'ya basma:</b> bugün Bekliyor→Tamamlandı geçişi; butona basan kişiye (EDITOR_ID) yazılır. Aynı etkinliği tamamla-geri al-tamamla yapmak 2 basma, 1 tekil etkinliktir. ${esc(kaynakNotu)}</p>`;\nhtml += '<p><b>Zamanında / Geç:</b> tamamlama anı etkinliğin son tarihinden önce mi sonra mı.</p>';\nhtml += '<p><b>Unutulan (bugün):</b> son tarihi bugün ve saati geçmiş, hâlâ açık Evrensel Görev (CRM_TODO). <b>Unutulan (önceki gün):</b> son tarihi bugünden önce olup hâlâ açık olanlar (geçmiş tarih sınırı yok, tüm geçmiş). Sorumlu danışmana yazılır.</p>';\nhtml += '<p><b>Aradı, kapatmadı:</b> danışman bugün lead\\'i aramış (telefon kaydında CRM_ENTITY=LEAD) ama o lead\\'de son tarihi gelmiş açık görev duruyor. <b>Aranmadan tamamlanan:</b> tamamlanan görevin lead\\'i bugün hiç aranmamış (WhatsApp/yüz yüze olabilir; kontrol amaçlıdır).</p>';\nhtml += `<p><b>Aramalar:</b> Bitrix telefoni istatistiği. Giden = CALL_TYPE 1/4; başarılı = kod 200; cevapsız = 200 olmayan giden arama; ${KONUSMA_ESIK} sn+ görüşme = başarılı ve süresi ${KONUSMA_ESIK} sn ve üzeri.</p>`;\nhtml += `<p>Kaynak: ${aktivite.size} lead etkinliği · ${gecikenAcik.length} geciken açık Todo · ${cagriSayisi} çağrı · ${yeniLeadler.length} yeni lead · ${gunlukTodo.length} günlük satırı.</p>`;\nhtml += '</div></div></div>';\n\nreturn [{\n  json: {\n    telegram_mesaj: tg,\n    email_mesaj: html,\n    gunluk_kullanildi: gunlukKullanildi,\n    hatalar,\n    toplam,\n    satirlar,\n    rapor_saati: simdi.toISO()\n  }\n}];\n"
+      },
+      "id": "9e992e93-89b8-4884-a8a4-c6e9f3d61ea5",
+      "name": "Gün Sonu Etkinlik Özeti (Bitrix)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7104,
+        2192
+      ],
+      "notes": "08:05, 11:05, 14:05, 17:05 ve 20:05 raporu. Giden aramaları başarılı/cevapsız/diğer olarak ayırır; 20 saniyeden uzun başarılı görüşmeleri adet ve HH:MM:SS süreyle sayar. Lead etkinlikleri ve bugünkü yeni Leadler ayrıca raporlanır. Telegram hedefi, kullanıcının belirttiği grup sohbetidir."
+    },
+    {
+      "parameters": {
+        "sendTo": "keremerginbas@gmail.com",
+        "subject": "=📊 Gün Sonu Etkinlik • Tamamlama • Arama Özeti - {{ $now.setZone('Europe/Istanbul').toFormat('dd.MM.yyyy HH:mm') }}",
+        "message": "={{ $json.email_mesaj }}",
+        "options": {}
+      },
+      "id": "ffd5a5af-5328-4061-8451-b97a46f1cddb",
+      "name": "Gmail (Gün Sonu Özet)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [
+        7344,
+        2080
+      ],
+      "webhookId": "3083e398-f3b9-4847-b01c-3e0f17b99f21",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "nJY7Tulv7839tYMA",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ String($json.result?.ID || '') + ':' + String($json.result?.COMPLETED || '') + ':' + String($json.result?.LAST_UPDATED || $json.result?.CREATED || '') }}",
+        "options": {
+          "scope": "workflow",
+          "historySize": 50000
+        }
+      },
+      "id": "8fe006b4-c443-4f3c-9983-3df178a1a9b2",
+      "name": "Aynı Etkinlik Sürümünü Engelle",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        5632,
+        1408
+      ],
+      "notes": "ID + tamamlanma durumu + son güncelleme zamanı aynıysa mükerrer webhook durdurulur. Gerçek değişiklikler geçer. Geçmiş 'workflow' kapsamında tutulur ve her gece 03:00'te temizlenir (10.000 sınırına dolup akışı durdurmasın diye)."
+    },
+    {
+      "parameters": {
+        "jsCode": "const report = $input.first()?.json || {};\nlet remaining = String(report.telegram_mesaj || '');\nconst maxLength = 3500;\nconst chunks = [];\nwhile (remaining.length > maxLength) {\n  let cut = remaining.lastIndexOf('\\n', maxLength);\n  if (cut < 1000) cut = maxLength;\n  chunks.push(remaining.slice(0, cut));\n  remaining = remaining.slice(cut).replace(/^\\n+/, '');\n}\nif (remaining) chunks.push(remaining);\nreturn chunks.map((chunk, index) => ({ json: { telegram_mesaj_parcasi: chunk, parca: index + 1, toplam_parca: chunks.length } }));"
+      },
+      "id": "06fce737-b1fa-436c-8278-e1231c36d715",
+      "name": "Telegram Mesajını Parçalara Böl",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7344,
+        2320
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: \"-5110365688\", text: $json.telegram_mesaj_parcasi, disable_web_page_preview: true }) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 1100
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "id": "dd2aded6-8362-45d7-951b-468fb761914c",
+      "name": "Telegram Grubuna Gönder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        7584,
+        2320
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 1500
+    },
+    {
+      "parameters": {
+        "jsCode": "const responses = $input.all().map(item => item.json || {});\nconst failed = responses.find(response => response.ok !== true);\nif (failed) {\n  const body = failed.body && typeof failed.body === 'object' ? failed.body : failed;\n  const yeniId = body.parameters?.migrate_to_chat_id;\n  let mesaj = 'Telegram API mesajı reddetti: ' + String(body.description || failed.message || 'ok=true yanıtı alınmadı');\n  if (yeniId) mesaj += ` — Grup süper gruba dönüştürülmüş; \"Telegram Grubuna Gönder\" düğümündeki chat_id değerini ${yeniId} yapın.`;\n  throw new Error(mesaj);\n}\nreturn responses.map(json => ({ json }));\n"
+      },
+      "id": "8a4758e9-de02-4241-9fe0-e4c76b5f9ee7",
+      "name": "Telegram Yanıtını Doğrula",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7824,
+        2320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Her etkinlik sürümünü (aynı sürüm önceki düğümde tekilleştirildi) \"Etkinlik Günlüğü\" sekmesine\n// ekler. Gün sonu raporu Bekliyor → Tamamlandı geçişlerini buradan sayar:\n// kaç kez Tamamlandı'ya basıldı, kim bastı (EDITOR_ID), zamanında mı geç mi, geri alındı mı.\n// Personel filtresi uygulanmaz; butona yönetici de basmış olabilir.\nconst a = $json.result || {};\nlet event = '';\ntry { event = $('Etkinlik / Lead ID Ayıkla').first().json.event || ''; } catch (e) {}\nconst clean = v => {\n  const s = String(v ?? '').trim();\n  return s.startsWith('9999') || s.startsWith('0000') ? '' : s;\n};\nreturn [{ json: {\n  'Kayıt Zamanı': $now.setZone('Europe/Istanbul').toISO(),\n  'Olay': event,\n  'Etkinlik_ID': String(a.ID || ''),\n  'Lead ID': String(a.OWNER_ID || ''),\n  'Tür': String(a.PROVIDER_ID || ''),\n  'Konu': String(a.SUBJECT || '').slice(0, 200),\n  'Durum': String(a.COMPLETED || '').toUpperCase() === 'Y' ? 'Tamamlandı' : 'Bekliyor',\n  'Sorumlu ID': String(a.RESPONSIBLE_ID || ''),\n  'Değiştiren ID': String(a.EDITOR_ID || ''),\n  'Oluşturma': clean(a.CREATED),\n  'Son Güncelleme': clean(a.LAST_UPDATED),\n  'Son Tarih': clean(a.DEADLINE)\n} }];\n"
+      },
+      "name": "Günlük Satırı Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        5760,
+        1472
+      ],
+      "id": "ca77b6fe-474c-41b9-a5e0-ce3d69258bf3"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "https://docs.google.com/spreadsheets/d/<GOOGLE_SHEET_ID_ETKINLIK>/edit?gid=0#gid=0",
+          "__regex": "https:\\/\\/(?:drive|docs)\\.google\\.com(?:\\/.*|)\\/d\\/([0-9a-zA-Z\\-_]+)(?:\\/.*|)"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1728014069,
+          "mode": "list",
+          "cachedResultName": "Etkinlik Günlüğü",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/<GOOGLE_SHEET_ID_ETKINLIK>/edit#gid=1728014069"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Kayıt Zamanı",
+              "displayName": "Kayıt Zamanı",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Olay",
+              "displayName": "Olay",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Etkinlik_ID",
+              "displayName": "Etkinlik_ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Lead ID",
+              "displayName": "Lead ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tür",
+              "displayName": "Tür",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Konu",
+              "displayName": "Konu",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Durum",
+              "displayName": "Durum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sorumlu ID",
+              "displayName": "Sorumlu ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Değiştiren ID",
+              "displayName": "Değiştiren ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Oluşturma",
+              "displayName": "Oluşturma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Son Güncelleme",
+              "displayName": "Son Güncelleme",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Son Tarih",
+              "displayName": "Son Tarih",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "name": "Etkinlik Günlüğüne Ekle",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        6032,
+        1472
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "id": "8423d3dc-a922-4acc-acd9-379b46508ff1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      },
+      "notes": "Aynı dosyada 'Etkinlik Günlüğü' adlı sekme olmalı (ilk satır boş bırakılabilir; başlıklar otomatik yazılır)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/user.get.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ FILTER: { ACTIVE: true }, start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Rapor - Kullanıcılar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        5184,
+        2192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "5a3037d3-e84f-4eda-bab8-5c0320534cad",
+      "onError": "continueRegularOutput",
+      "notes": "Listede olmayan kullanıcı ID'lerini isimlendirmek için."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: { ID: 'ASC' }, filter: { OWNER_TYPE_ID: 1, '>=CREATED': $now.setZone('Europe/Istanbul').startOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\"), '<=CREATED': $now.setZone('Europe/Istanbul').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }, select: ['ID','OWNER_TYPE_ID','OWNER_ID','TYPE_ID','PROVIDER_ID','SUBJECT','RESPONSIBLE_ID','AUTHOR_ID','EDITOR_ID','CREATED','LAST_UPDATED','DEADLINE','COMPLETED'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Rapor - Bugün Oluşturulan Etkinlikler",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        5424,
+        2192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "c5b0a2da-6c58-4411-9a0f-776de8015c7b",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: { ID: 'ASC' }, filter: { OWNER_TYPE_ID: 1, '>=LAST_UPDATED': $now.setZone('Europe/Istanbul').startOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\"), '<=LAST_UPDATED': $now.setZone('Europe/Istanbul').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }, select: ['ID','OWNER_TYPE_ID','OWNER_ID','TYPE_ID','PROVIDER_ID','SUBJECT','RESPONSIBLE_ID','AUTHOR_ID','EDITOR_ID','CREATED','LAST_UPDATED','DEADLINE','COMPLETED'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Rapor - Bugün Güncellenen Etkinlikler",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        5664,
+        2192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "8cf7273c-816d-4536-9ca1-ad6b49856ecc",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: { ID: 'ASC' }, filter: { OWNER_TYPE_ID: 1, PROVIDER_ID: 'CRM_TODO', '>=DEADLINE': $now.setZone('Europe/Istanbul').startOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\"), '<DEADLINE': $now.setZone('Europe/Istanbul').startOf('day').plus({days:1}).toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }, select: ['ID','OWNER_TYPE_ID','OWNER_ID','TYPE_ID','PROVIDER_ID','SUBJECT','RESPONSIBLE_ID','AUTHOR_ID','EDITOR_ID','CREATED','LAST_UPDATED','DEADLINE','COMPLETED'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Rapor - Bugün Vadesi Olan Todo'lar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        5904,
+        2192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "fc69570d-61a2-4547-ac51-547bdcd03f0e",
+      "onError": "continueRegularOutput",
+      "notes": "Daha önce oluşturulmuş olsa da son tarihi bugün olan tüm Todo'lar (açık + tamamlanmış)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.activity.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: { ID: 'ASC' }, filter: { '@RESPONSIBLE_ID': ['23180', '17984', '22186', '26120', '26352', '1174', '116', '25258', '5778', '11690', '25314', '25120', '27876', '27878', '27446', '27332', '29484', '22182'], OWNER_TYPE_ID: 1, PROVIDER_ID: 'CRM_TODO', COMPLETED: 'N', '<DEADLINE': $now.setZone('Europe/Istanbul').startOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }, select: ['ID','OWNER_TYPE_ID','OWNER_ID','TYPE_ID','PROVIDER_ID','SUBJECT','RESPONSIBLE_ID','AUTHOR_ID','EDITOR_ID','CREATED','LAST_UPDATED','DEADLINE','COMPLETED'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Rapor - Geciken Açık Todo'lar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        6144,
+        2192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "31300b65-4f8a-443c-9b5c-0a201a799b62",
+      "onError": "continueRegularOutput",
+      "notes": "Güncel personelin vadesi geçmiş, hâlâ tamamlanmamış TÜM Todo'ları (geçmiş tarih sınırı yok)."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/crm.lead.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: { ID: 'ASC' }, filter: { '>=DATE_CREATE': $now.setZone('Europe/Istanbul').startOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\"), '<=DATE_CREATE': $now.setZone('Europe/Istanbul').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }, select: ['ID','TITLE','ASSIGNED_BY_ID','DATE_CREATE'], start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Rapor - Bugün Gelen Leadler",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        6384,
+        2192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "df1981a8-6635-4653-a784-bd11458bd348",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/<BITRIX_WEBHOOK_TOKEN>/voximplant.statistic.get.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ FILTER: { '>=CALL_START_DATE': $now.setZone('Europe/Istanbul').startOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\"), '<=CALL_START_DATE': $now.setZone('Europe/Istanbul').toFormat(\"yyyy-MM-dd'T'HH:mm:ssZZ\") }, SORT: 'ID', ORDER: 'ASC', start: 0 }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "json"
+            }
+          },
+          "pagination": {
+            "pagination": {
+              "parameters": {
+                "parameters": [
+                  {
+                    "type": "body",
+                    "name": "start",
+                    "value": "={{ $response.body.next }}"
+                  }
+                ]
+              },
+              "paginationCompleteWhen": "other",
+              "completeExpression": "={{ $response.body.next === undefined || $response.body.next === null || $response.body.next === '' }}",
+              "limitPagesFetched": true,
+              "maxRequests": 200,
+              "requestInterval": 600
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "name": "Bitrix Rapor - Bugünkü Çağrılar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        6624,
+        2192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "id": "32ba32a9-3916-43c6-aa77-86c878d0f048",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/<GOOGLE_SHEET_ID_ETKINLIK>/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Etkinlik Günlüğü"
+        },
+        "options": {}
+      },
+      "name": "Etkinlik Günlüğünü Oku",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        6864,
+        2192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "id": "58255c0e-a410-4922-a29d-c7b48face6d6",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 0 20 * * *"
+            }
+          ]
+        }
+      },
+      "id": "7fd70b0f-1cc9-49c7-b43a-379d8d786644",
+      "name": "Her Gün 20.00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [
+        4912,
+        2192
+      ],
+      "notes": "Her gün Türkiye saatiyle 20.00’de çalışır. Workflow Settings > Timezone: Europe/Istanbul."
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 3 * * *"
+            }
+          ]
+        }
+      },
+      "id": "78b32c42-ff7d-4f09-b305-3a8fd1f7837a",
+      "name": "Her Gece 03:00 (Mükerrer Geçmişi Temizle)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        4912,
+        1776
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "clearDeduplicationHistory",
+        "options": {
+          "scope": "workflow"
+        }
+      },
+      "id": "37d50747-017e-4a54-a740-f6fa69c72ff4",
+      "name": "Mükerrer Geçmişini Temizle",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        5152,
+        1776
+      ],
+      "notes": "'Aynı Etkinlik Sürümünü Engelle' düğümünün workflow kapsamındaki geçmişini siler."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Raporu Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Sheets Upsert (ID ile güncelle)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Son Yorumu Çek": {
+      "main": [
+        [
+          {
+            "node": "Raporu Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Müşteri Adını Bul": {
+      "main": [
+        [
+          {
+            "node": "Son Yorumu Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etkinlik Sonucunu Normalize Et": {
+      "main": [
+        [
+          {
+            "node": "Aynı Etkinlik Sürümünü Engelle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etkinliği Bitrix’ten Çek": {
+      "main": [
+        [
+          {
+            "node": "Etkinlik Sonucunu Normalize Et",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etkinlik / Lead ID Ayıkla": {
+      "main": [
+        [
+          {
+            "node": "Etkinliği Bitrix’ten Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Etkinlik Webhook": {
+      "main": [
+        [
+          {
+            "node": "Etkinlik / Lead ID Ayıkla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gün Sonu Etkinlik Özeti (Bitrix)": {
+      "main": [
+        [
+          {
+            "node": "Gmail (Gün Sonu Özet)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram Mesajını Parçalara Böl",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aynı Etkinlik Sürümünü Engelle": {
+      "main": [
+        [
+          {
+            "node": "Müşteri Adını Bul",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Günlük Satırı Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Mesajını Parçalara Böl": {
+      "main": [
+        [
+          {
+            "node": "Telegram Grubuna Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram Grubuna Gönder": {
+      "main": [
+        [
+          {
+            "node": "Telegram Yanıtını Doğrula",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Günlük Satırı Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Etkinlik Günlüğüne Ekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Rapor - Kullanıcılar": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Rapor - Bugün Oluşturulan Etkinlikler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Rapor - Bugün Oluşturulan Etkinlikler": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Rapor - Bugün Güncellenen Etkinlikler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Rapor - Bugün Güncellenen Etkinlikler": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Rapor - Bugün Vadesi Olan Todo'lar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Rapor - Bugün Vadesi Olan Todo'lar": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Rapor - Geciken Açık Todo'lar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Rapor - Geciken Açık Todo'lar": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Rapor - Bugün Gelen Leadler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Rapor - Bugün Gelen Leadler": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Rapor - Bugünkü Çağrılar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Rapor - Bugünkü Çağrılar": {
+      "main": [
+        [
+          {
+            "node": "Etkinlik Günlüğünü Oku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etkinlik Günlüğünü Oku": {
+      "main": [
+        [
+          {
+            "node": "Gün Sonu Etkinlik Özeti (Bitrix)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Her Gün 20.00": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Rapor - Kullanıcılar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Her Gece 03:00 (Mükerrer Geçmişi Temizle)": {
+      "main": [
+        [
+          {
+            "node": "Mükerrer Geçmişini Temizle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Istanbul",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "07dc5c9b-b32f-404a-8fcb-21547143a05b",
+  "meta": {
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  },
+  "id": "KWD5Yr7uuz2gMlI5",
+  "tags": []
+}
