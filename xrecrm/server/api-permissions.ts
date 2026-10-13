@@ -26,7 +26,9 @@ export function requireModulePermissions(
     /^\/notifications\/[^/]+\/read$/.test(path) ||
     // Hesap/şifre/QR uçları kendi sahiplik kontrollerini yapar.
     /^\/auth\/(accounts|password|qr\/approve)(?:\/|$)/.test(path) ||
-    path === "/settings/integrations"
+    path === "/settings/integrations" ||
+    path === "/pbx/me" ||
+    path === "/pbx/test"
   )
     return next();
   if (path === "/access" && req.method === "GET") {
@@ -86,6 +88,10 @@ export function requireModulePermissions(
   else if (/^\/members(?:\/|$)/.test(path)) module = "users";
   else if (/^\/messages(?:\/|$)/.test(path)) module = "whatsapp";
   else if (/^\/calls(?:\/|$)/.test(path)) module = "calls";
+  else if (path === "/pbx/stream") {
+    module = "calls";
+    action = "read";
+  } else if (/^\/pbx(?:\/|$)/.test(path)) module = "calls";
   else if (/^\/assistant(?:\/|$)/.test(path)) {
     module = "ai";
     if (

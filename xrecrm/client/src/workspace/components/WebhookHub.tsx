@@ -99,6 +99,7 @@ const sampleBodies: Record<InboundAction, Record<string, unknown>> = {
   "task.create": { phone: "05550000000", title: "Geri ara", dueAt: "2026-10-14T10:00:00+03:00", priority: "high" },
   "activity.create": { phone: "05550000000", type: "meeting", title: "Ofis görüşmesi", startAt: "2026-10-15T11:00:00+03:00" },
   "call.log": { phone: "05550000000", direction: "inbound", status: "no-answer", line: "02120000000", callId: "1697200000.42", durationSeconds: 0, agent: "Dahili 101" },
+  "call.ringing": { phone: "05550000000", ext: "101", line: "02120000000", callId: "1697200000.42" },
   "message.log": { phone: "05550000000", direction: "inbound", channel: "sms", text: "Merhaba, fiyat bilgisi alabilir miyim?" },
 };
 

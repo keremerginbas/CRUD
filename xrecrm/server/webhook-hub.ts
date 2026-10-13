@@ -15,6 +15,7 @@ import {
 } from "./security.js";
 import { ActivitySchema, TaskSchema } from "./suite.js";
 import { lines } from "../shared/lines.js";
+import { announceRinging } from "./pbx.js";
 import {
   INBOUND_ACTIONS,
   OUTBOUND_EVENTS,
@@ -713,6 +714,18 @@ export async function runInboundAction(
         await deps.scheduleCallAnalysis(store, owner, id).catch(() => undefined);
       return { callId: id, leadId: lead?.id || null, createdLead };
     }
+    case "call.ringing": {
+      const phone = normalizePhone(input.phone || input.from || input.caller);
+      if (!phone) throw statusError(400, "Arayan numara (phone) gerekli.");
+      const result = await announceRinging(store, owner, {
+        phone,
+        ext: input.ext ? String(input.ext).replace(/\D/g, "").slice(0, 6) : undefined,
+        lineId: lineIdFor(input) || undefined,
+        direction: String(input.direction || "inbound").startsWith("out") ? "outbound" : "inbound",
+        id: input.callId ? String(input.callId).slice(0, 120) : undefined,
+      });
+      return { ...result, phone };
+    }
     case "message.log": {
       const phone = normalizePhone(input.phone || input.from || input.to);
       const text = String(input.text || input.body || "").trim();
@@ -881,7 +894,7 @@ export function registerHookInboundRoute(app: Express, store: Store, deps: Webho
           return res.status(403).json({ error: "SCOPE", message: `Bu webhook ${action} işlemine yetkili değil.` });
         const input = (body.data && typeof body.data === "object" && !Array.isArray(body.data) ? body.data : body) as Record<string, unknown>;
         const idempotency = String(req.get("x-idempotency-key") || body.eventId || "").slice(0, 120);
-        const readOnly = action === "lead.find";
+        const readOnly = action === "lead.find" || action === "call.ringing";
         let logged: Awaited<ReturnType<Store["appendEvent"]>> | undefined;
         if (!readOnly) {
           logged = await raw.appendEvent(

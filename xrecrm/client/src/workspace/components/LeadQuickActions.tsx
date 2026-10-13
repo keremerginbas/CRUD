@@ -2,7 +2,7 @@ import VapiCallFields, {
   useVapiOptions,
   canUseVapiSelection,
 } from "./VapiCallFields";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Phone,
   MessageCircle,
@@ -83,6 +83,63 @@ export default function LeadQuickActions({
     </div>
   );
 }
+function PbxCallBox({ leadId, onDone }: { leadId: string; onDone: () => void }) {
+  const { request, refresh } = useStore();
+  const [info, setInfo] = useState<{ driver: string; extension: string } | null>(null);
+  const [ext, setExt] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    request("/api/pbx/me")
+      .then((r: { driver: string; extension: string }) => {
+        setInfo(r);
+        setExt(r.extension);
+      })
+      .catch(() => setInfo(null));
+  }, []);
+  if (!info?.driver) return null;
+  const call = async () => {
+    setBusy(true);
+    try {
+      if (ext !== info.extension) {
+        await request("/api/pbx/me", { extension: ext }, "PUT");
+        setInfo({ ...info, extension: ext });
+      }
+      const r = await request("/api/pbx/call", { leadId });
+      toast.success(r.message);
+      await refresh();
+      onDone();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="pbx-call">
+      <strong>Santralden ara</strong>
+      <div className="pbx-call-row">
+        <label>
+          Dahili numaranız
+          <input
+            value={ext}
+            inputMode="numeric"
+            placeholder="101"
+            onChange={(e) => setExt(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          />
+        </label>
+        <button className="btn primary" disabled={busy || !ext} onClick={() => void call()}>
+          <Phone size={16} />
+          {busy ? "Bağlanıyor…" : "Dahilimi çaldır ve ara"}
+        </button>
+      </div>
+      <small>
+        Önce masanızdaki/softphone'daki dahili çalar; açınca müşteri aranır ve
+        görüşme kaydı CRM'e otomatik düşer.
+      </small>
+    </div>
+  );
+}
+
 export function CustomerCallDialog({
   leadId,
   onClose,
@@ -154,6 +211,7 @@ export function CustomerCallDialog({
         </div>
         {mode === "phone" ? (
           <>
+            {!demo && <PbxCallBox leadId={leadId} onDone={onClose} />}
             <p>
               Bilgisayarınızdaki veya telefonunuzdaki arama uygulaması açılır.
               CRM içinden sesli görüşme için SIP/PBX ağ geçidinin bağlanması

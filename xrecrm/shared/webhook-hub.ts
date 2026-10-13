@@ -45,6 +45,12 @@ export const INBOUND_ACTIONS = [
       "Santral/FST/Asterisk arama sonucunu müşteriye bağlar; cevapsız aramaları görünür kılar.",
   },
   {
+    id: "call.ringing",
+    label: "Gelen arama bildirimi",
+    description:
+      "Santral çalarken gönderir; ilgili dahilinin ekranında müşteri kartı açılır (ext opsiyonel).",
+  },
+  {
     id: "message.log",
     label: "Mesaj kaydı",
     description: "Harici kanaldan (SMS, WhatsApp, e-posta) gelen/giden mesaj.",

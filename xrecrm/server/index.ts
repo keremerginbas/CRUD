@@ -34,7 +34,7 @@ export async function start(): Promise<void> {
   } catch (error) {
     console.warn("Entegrasyon ayarları yüklenemedi:", error instanceof Error ? error.message : error);
   }
-  const app = createApp({ store });
+  const app = createApp({ store, background: true });
   const httpServer = createHttpServer(app);
   startOutboxWorker(
     stagePolicyStore(appointmentStore(webhookEmitterStore(store))),

@@ -1,0 +1,15 @@
+.incoming-calls { position: fixed; left: 20px; bottom: 20px; z-index: 150; display: grid; gap: 10px; width: min(360px, calc(100vw - 32px)); }
+.incoming-call { display: flex; gap: 12px; align-items: flex-start; background: var(--xre-surface-raised, #fff); color: var(--xre-text); border: 1px solid var(--xre-accent); border-radius: 14px; padding: 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28); animation: incoming-in 0.25s ease-out; }
+.incoming-ring { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: #1f9d6b; color: #fff; flex-shrink: 0; animation: incoming-pulse 1.2s infinite; }
+.incoming-body { flex: 1; display: grid; gap: 3px; min-width: 0; }
+.incoming-body small { font-size: 11.5px; color: var(--muted); }
+.incoming-body strong { font-size: 16px; font-family: var(--heading); }
+.incoming-body > span { font-size: 12.5px; color: var(--xre-text-soft); }
+.incoming-actions { margin-top: 6px; display: flex; gap: 6px; }
+@keyframes incoming-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(31, 157, 107, 0.6); } 50% { box-shadow: 0 0 0 9px rgba(31, 157, 107, 0); } }
+@keyframes incoming-in { from { transform: translateY(12px); opacity: 0; } }
+.pbx-call { display: grid; gap: 10px; border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+.pbx-call-row { display: flex; gap: 8px; align-items: end; flex-wrap: wrap; }
+.pbx-call-row label { display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+.pbx-call-row input { width: 110px; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: transparent; color: inherit; }
+.pbx-call small { color: var(--muted); font-size: 12px; }

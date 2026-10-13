@@ -86,6 +86,8 @@ import { registerLocalAccountRoutes, registerLocalAuthRoutes } from "./local-aut
 import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
+import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
+import { runInboundAction } from "./webhook-hub.js";
 import {
   deliverHookEvent,
   registerHookInboundRoute,
@@ -1162,7 +1164,9 @@ export function startOutboxWorker(
   return timer;
 }
 
-export function createApp(options: { store?: Store } = {}): Express {
+export function createApp(
+  options: { store?: Store; background?: boolean } = {},
+): Express {
   const rawStore = webhookEmitterStore(options.store || createStore());
   const store = createPermissionStore(
     stagePolicyStore(appointmentStore(rawStore)),
@@ -1473,13 +1477,25 @@ export function createApp(options: { store?: Store } = {}): Express {
   registerLocalAuthRoutes(app, store);
   registerSocialAuthRoutes(app, store);
   registerN8nInboundRoute(app, store, processInboundWebhook);
-  registerHookInboundRoute(app, store, {
+  const hubDeps = {
     ownerScope,
     processInboundWebhook,
     ensureInboundLead,
-    scheduleCallAnalysis: (target, owner, callId) =>
+    scheduleCallAnalysis: (target: Store, owner: string, callId: string) =>
       scheduleConversationAnalysis(target, owner, "call", callId),
-  });
+  };
+  registerHookInboundRoute(app, store, hubDeps);
+  if (options.background)
+    startPbxSupervisor(store, (target, owner, input) =>
+      runInboundAction(
+        target,
+        owner,
+        { id: "asterisk", name: "Santral" },
+        "call.log",
+        input,
+        hubDeps,
+      ),
+    );
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", requireAuth(store), requireModulePermissions);
   registerSuiteRoutes(app, store);
@@ -1499,6 +1515,7 @@ export function createApp(options: { store?: Store } = {}): Express {
   registerLocalAccountRoutes(app, store);
   registerBitrixImportRoutes(app, store);
   registerIntegrationSettingsRoutes(app, store);
+  registerPbxRoutes(app, store);
   registerQrApproveRoute(app, store);
 
   app.get("/api/state", async (req, res) => {
