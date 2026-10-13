@@ -1,26 +1,29 @@
 import { getPipelineStages, baseStages } from "../suite";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Users,
   ArrowUpRight,
-  ArrowDownLeft,
+  ArrowDownRight,
   Phone,
+  PhoneMissed,
   MessageCircle,
-  MoreHorizontal,
-  ChevronDown,
   Plus,
-  ArrowRight,
   Check,
   Activity,
   Workflow,
   Radio,
   Download,
   Sparkles,
-  CalendarDays,
+  AlertTriangle,
+  Trophy,
+  Webhook,
+  Inbox,
+  CheckSquare,
 } from "lucide-react";
 import {
-  AreaChart,
+  ComposedChart,
   Area,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -28,14 +31,44 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { useStore } from "../store";
-import { Lead, stages, money, lines, groupNames } from "../data";
+import { Lead, money, lines, groupNames, formatPhone } from "../data";
+import { Avatar, Badge, PageTitle, SectionTitle, Empty } from "../components/ui";
 import {
-  Avatar,
-  Badge,
-  PageTitle,
-  SectionTitle,
-  Empty,
-} from "../components/ui";
+  computeDashboard,
+  periodLabels,
+  type Period,
+} from "../dashboard-metrics";
+import "../dashboard.css";
+
+const compactMoney = (value: number) =>
+  value >= 1_000_000
+    ? `₺${(value / 1_000_000).toFixed(1).replace(".", ",")} M`
+    : money(value);
+
+const timeOf = (iso: string) =>
+  new Date(iso).toLocaleTimeString("tr-TR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Istanbul",
+  });
+const dateTimeOf = (iso: string) =>
+  new Date(iso).toLocaleString("tr-TR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Istanbul",
+  });
+
+function greeting() {
+  const hour = Number(
+    new Intl.DateTimeFormat("tr-TR", { hour: "numeric", hourCycle: "h23", timeZone: "Europe/Istanbul" }).format(new Date()),
+  );
+  return hour < 12 ? "Günaydın" : hour < 18 ? "İyi günler" : "İyi akşamlar";
+}
+
+type ProviderStatus = Record<string, { configured?: boolean; connected?: boolean }>;
+
 export default function Dashboard({
   navigate,
   onLead,
@@ -45,70 +78,158 @@ export default function Dashboard({
   onLead: (l: Lead) => void;
   onNew: () => void;
 }) {
-  const { data, demo } = useStore();
-  const [period, setPeriod] = useState("Bu hafta");
-  const [range, setRange] = useState("7 gün");
-  const won = data.leads.filter((x) => x.stage === "won");
-  const total = data.leads
-    .filter((l) => l.stage !== "won" && l.stage !== "lost")
-    .reduce((s, l) => s + l.value, 0);
-  const conversion = data.leads.length
-    ? Math.round((won.length / data.leads.length) * 100)
-    : 0;
-  const chart = demo
-    ? range === "7 gün"
-      ? [
-          { name: "Pzt", lead: 14, contact: 9 },
-          { name: "Sal", lead: 22, contact: 15 },
-          { name: "Çar", lead: 18, contact: 12 },
-          { name: "Per", lead: 32, contact: 22 },
-          { name: "Cum", lead: 25, contact: 17 },
-          { name: "Cmt", lead: 40, contact: 28 },
-          { name: "Paz", lead: 35, contact: 25 },
-        ]
-      : [
-          { name: "1. hafta", lead: 34, contact: 21 },
-          { name: "2. hafta", lead: 58, contact: 32 },
-          { name: "3. hafta", lead: 42, contact: 29 },
-          { name: "4. hafta", lead: 76, contact: 52 },
-        ]
-    : [
-        {
-          name: "Bugün",
-          lead: data.leads.length,
-          contact: data.leads.filter((l) => l.stage !== "new").length,
-        },
-      ];
+  const { data, demo, user, request } = useStore();
+  const [period, setPeriod] = useState<Period>("7d");
+  const [status, setStatus] = useState<ProviderStatus | null>(null);
+  const [hooks, setHooks] = useState<{ inbound: number; outbound: number } | null>(null);
+  const m = useMemo(() => computeDashboard(data, period), [data, period]);
+  const leadById = useMemo(
+    () => new Map(data.leads.map((l) => [l.id, l])),
+    [data.leads],
+  );
+
+  useEffect(() => {
+    if (demo || !user) {
+      setStatus(null);
+      setHooks(null);
+      return;
+    }
+    request("/api/integrations/status").then(setStatus).catch(() => setStatus(null));
+    request("/api/webhook-hub")
+      .then((h) => setHooks({ inbound: h.inbound.length, outbound: h.outbound.length }))
+      .catch(() => setHooks(null));
+  }, [demo, user?.openId]);
+
+  const k = m.kpis;
+  const leadTrend = k.newLeads - k.newLeadsPrev;
+  const openLead = (id?: string) => {
+    const lead = id ? leadById.get(id) : undefined;
+    if (lead) onLead(lead);
+  };
+
   const download = () => {
-    const blob = new Blob(
-      [
-        "Müşteri;Aşama;Değer\n" +
-          data.leads.map((l) => `${l.name};${l.stage};${l.value}`).join("\n"),
-      ],
-      { type: "text/csv;charset=utf-8;" },
-    );
+    const rows = [
+      ["Tarih", "Yeni müşteri", "Kazanılan", "Arama", "Mesaj"],
+      ...m.trend.map((t) => [t.key, t.leads, t.won, t.calls, t.messages]),
+      [],
+      ["Danışman", "Açık", "Kazanılan", "Kazanılan değer", "Yeni", "Geciken görev", "Arama"],
+      ...m.owners.map((o) => [o.owner, o.open, o.won, o.wonValue, o.newLeads, o.overdue, o.calls]),
+    ];
+    const blob = new Blob(["﻿" + rows.map((r) => r.join(";")).join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = "xre-satis-ozeti.csv";
+    a.download = `xre-genel-bakis-${period}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
+
+  const providerBadge = (id: string) => {
+    if (demo) return <Badge tone="gray">Demo</Badge>;
+    const s = status?.[id];
+    if (!s) return <Badge tone="gray">Bilinmiyor</Badge>;
+    if (s.connected) return <Badge tone="green">Bağlı</Badge>;
+    if (s.configured) return <Badge tone="blue">Yapılandırıldı</Badge>;
+    return <Badge tone="amber">Kurulum gerekli</Badge>;
+  };
+
+  const kpis = [
+    {
+      label: "Yeni müşteri",
+      value: String(k.newLeads),
+      note:
+        period === "today"
+          ? `Dün: ${k.newLeadsPrev}`
+          : `Önceki ${periodLabels[period].toLowerCase()}: ${k.newLeadsPrev}`,
+      trend: leadTrend,
+      icon: Users,
+      color: "green",
+      to: "/kanban",
+    },
+    {
+      label: "Açık fırsat değeri",
+      value: compactMoney(k.openValue),
+      note: `${k.openCount} açık fırsat`,
+      icon: Activity,
+      color: "blue",
+      to: "/kanban",
+    },
+    {
+      label: "Kazanılan",
+      value: String(k.wonCount),
+      note: `${compactMoney(k.wonValue)} · kapanışların %${k.conversion}'i`,
+      icon: Trophy,
+      color: "amber",
+      to: "/reports",
+    },
+    {
+      label: "Aramalar",
+      value: String(k.calls),
+      note: `${k.callsAnswered} cevaplanan · ${k.callsMissed} cevapsız`,
+      icon: Phone,
+      color: "purple",
+      to: "/calls",
+      alert: k.callsMissed > 0,
+    },
+    {
+      label: "Mesajlar",
+      value: String(k.messagesIn + k.messagesOut),
+      note: `${k.messagesIn} gelen · ${k.messagesOut} giden`,
+      icon: MessageCircle,
+      color: "green",
+      to: "/whatsapp",
+    },
+    {
+      label: "Geciken görev",
+      value: String(k.overdueTasks),
+      note: `${k.openTasks} açık görev`,
+      icon: CheckSquare,
+      color: k.overdueTasks ? "red" : "blue",
+      to: "/tasks",
+      alert: k.overdueTasks > 0,
+    },
+  ];
+
+  const attentionCount =
+    m.attention.missedCalls.length +
+    m.attention.unansweredChats.length +
+    m.attention.idleLeads.length;
+  const lineGroups = (["ai", "office", "cloud"] as const).map((g) => ({
+    group: g,
+    count: lines.filter((l) => l.group === g).length,
+  }));
+
   return (
     <>
       <PageTitle
-        eyebrow="ÇALIŞMA ALANINIZA GENEL BAKIŞ"
-        title="XRE çalışma alanı"
-        description="CRM, görevler, takvim ve iletişim ekibinizle aynı bağlamda."
+        eyebrow={new Date().toLocaleDateString("tr-TR", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          timeZone: "Europe/Istanbul",
+        }).toLocaleUpperCase("tr-TR")}
+        title={`${greeting()}${user?.name ? `, ${String(user.name).split(" ")[0]}` : ""}`}
+        description={
+          attentionCount || m.agenda.length
+            ? `Bugün ${m.agenda.length} planlı iş ve ${attentionCount} dikkat bekleyen kayıt var.`
+            : "Bugün için bekleyen iş yok. Yeni fırsatlara odaklanın."
+        }
         actions={
           <>
-            <button
-              className="btn secondary period"
-              onClick={() => navigate("/reports")}
-            >
-              <CalendarDays size={16} />
-              CRM analitiği
-              <ChevronDown size={14} />
-            </button>
+            <div className="segmented" role="tablist" aria-label="Dönem">
+              {(Object.keys(periodLabels) as Period[]).map((p) => (
+                <button
+                  key={p}
+                  role="tab"
+                  aria-selected={period === p}
+                  className={period === p ? "active" : ""}
+                  onClick={() => setPeriod(p)}
+                >
+                  {periodLabels[p]}
+                </button>
+              ))}
+            </div>
             <button className="btn primary" onClick={onNew}>
               <Plus size={17} />
               Yeni müşteri
@@ -116,199 +237,171 @@ export default function Dashboard({
           </>
         }
       />
-      <div className="b24-home-launcher">
-        <button onClick={() => navigate("/kanban")}>
-          <Workflow size={19} />
-          <span>
-            <strong>CRM fırsatları</strong>
-            <small>Satış hunilerinizi yönetin</small>
-          </span>
-          <ArrowUpRight size={15} />
-        </button>
-        <button onClick={() => navigate("/tasks")}>
-          <Check size={19} />
-          <span>
+
+      <div className="db-kpis">
+        {kpis.map((s) => (
+          <button
+            className={`db-kpi ${s.alert ? "alert" : ""}`}
+            key={s.label}
+            onClick={() => navigate(s.to)}
+          >
+            <span className={`stat-icon ${s.color}`}>
+              <s.icon size={18} />
+            </span>
+            <span className="db-kpi-label">{s.label}</span>
             <strong>
-              {data.tasks.filter((t) => t.status !== "done").length} açık görev
-            </strong>
-            <small>Bugünün takip işlerine bakın</small>
-          </span>
-          <ArrowUpRight size={15} />
-        </button>
-        <button onClick={() => navigate("/calendar")}>
-          <CalendarDays size={19} />
-          <span>
-            <strong>Takvim</strong>
-            <small>
-              {data.activities.filter((a) => !a.completed).length} planlanmış
-              etkinlik
-            </small>
-          </span>
-          <ArrowUpRight size={15} />
-        </button>
-        <button onClick={() => navigate("/feed")}>
-          <MessageCircle size={19} />
-          <span>
-            <strong>Ekip akışı</strong>
-            <small>Güncellemeleri paylaşın</small>
-          </span>
-          <ArrowUpRight size={15} />
-        </button>
-      </div>
-      <div className="stats-grid">
-        {[
-          {
-            label: "Toplam müşteri",
-            value: String(data.leads.length).padStart(2, "0"),
-            note: `${data.leads.filter((l) => l.stage === "new").length} yeni müşteri`,
-            icon: Users,
-            color: "green",
-            tag: "CRM",
-          },
-          {
-            label: "Aktif fırsat değeri",
-            value:
-              total >= 1000000
-                ? `₺${(total / 1000000).toFixed(1).replace(".", ",")} M`
-                : money(total),
-            note: `${data.leads.filter((l) => l.stage !== "won" && l.stage !== "lost").length} açık fırsat`,
-            icon: Activity,
-            color: "blue",
-            tag: "SATIŞ",
-          },
-          {
-            label: "Mesaj trafiği",
-            value: String(data.messages.length).padStart(2, "0"),
-            note: `${data.messages.filter((m) => m.direction === "inbound").length} gelen · ${data.messages.filter((m) => m.direction === "outbound").length} giden`,
-            icon: MessageCircle,
-            color: "purple",
-            tag: "WHATSAPP",
-          },
-          {
-            label: "Satışa dönüşüm",
-            value: `%${conversion}`,
-            note: `${won.length} tamamlanan satış`,
-            icon: ArrowUpRight,
-            color: "amber",
-            tag: "PERFORMANS",
-          },
-        ].map((s) => (
-          <article className="stat-card" key={s.label}>
-            <div className="stat-top">
-              <span className={`stat-icon ${s.color}`}>
-                <s.icon size={19} />
-              </span>
-              <span className="stat-tag">{s.tag}</span>
-              <MoreHorizontal size={17} />
-            </div>
-            <p>{s.label}</p>
-            <div className="stat-value">
               {s.value}
-              <span className="tiny-trend">
-                <ArrowUpRight size={13} />
-                {demo ? "Örnek" : "Canlı"}
-              </span>
-            </div>
-            <div className="stat-bottom">
-              <span className="green-dot" />
-              {s.note}
-            </div>
-          </article>
+              {s.trend !== undefined && s.trend !== 0 && (
+                <em className={s.trend > 0 ? "up" : "down"}>
+                  {s.trend > 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                  {Math.abs(s.trend)}
+                </em>
+              )}
+            </strong>
+            <small>{s.note}</small>
+          </button>
         ))}
       </div>
+
+      <div className="db-grid two">
+        <section className="panel db-agenda">
+          <SectionTitle
+            title="Bugünün ajandası"
+            description="Etkinlikler, son tarihi gelen görevler ve randevular"
+            action="Etkinlikler"
+            onAction={() => navigate("/activities")}
+          />
+          {m.agenda.length ? (
+            <ul className="db-list">
+              {m.agenda.slice(0, 8).map((item) => {
+                const lead = item.leadId ? leadById.get(item.leadId) : undefined;
+                return (
+                  <li key={`${item.kind}-${item.id}`} className={item.overdue ? "overdue" : ""}>
+                    <time>{dayLabel(item.at)}</time>
+                    <span className={`db-dot ${item.kind}`} />
+                    <div>
+                      <strong>{item.title}</strong>
+                      <small>
+                        {item.kind === "task" ? "Görev" : item.kind === "appointment" ? "Randevu" : item.type === "meeting" ? "Toplantı" : item.type === "call" ? "Arama" : "Etkinlik"}
+                        {lead && (
+                          <>
+                            {" · "}
+                            <button className="link" onClick={() => onLead(lead)}>
+                              {lead.name}
+                            </button>
+                          </>
+                        )}
+                        {item.overdue && <b> · Gecikti</b>}
+                      </small>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <Empty title="Bugün plan yok" description="Takvimde bugüne ait açık etkinlik veya görev bulunmuyor." />
+          )}
+        </section>
+
+        <section className="panel db-attention">
+          <SectionTitle
+            title="Dikkat bekleyenler"
+            description="Geri dönüş yapılmamış iletişimler ve sahipsiz fırsatlar"
+          />
+          <div className="db-attention-groups">
+            <div>
+              <h4>
+                <PhoneMissed size={15} /> Geri aranmamış cevapsız arama
+                <Badge tone={m.attention.missedCalls.length ? "red" : "green"}>
+                  {m.attention.missedCalls.length}
+                </Badge>
+              </h4>
+              {m.attention.missedCalls.slice(0, 4).map((c) => {
+                const lead = c.leadId ? leadById.get(c.leadId) : undefined;
+                return (
+                  <button key={c.id} className="db-row" onClick={() => (lead ? onLead(lead) : navigate("/calls"))}>
+                    <span>{lead?.name || (c.phone ? formatPhone(`+${c.phone}`) : "Bilinmeyen numara")}</span>
+                    <small>{dateTimeOf(c.at)}</small>
+                  </button>
+                );
+              })}
+              {!m.attention.missedCalls.length && <p className="db-ok">Tüm aramalara dönüş yapılmış.</p>}
+            </div>
+            <div>
+              <h4>
+                <Inbox size={15} /> Yanıt bekleyen mesaj
+                <Badge tone={m.attention.unansweredChats.length ? "amber" : "green"}>
+                  {m.attention.unansweredChats.length}
+                </Badge>
+              </h4>
+              {m.attention.unansweredChats.slice(0, 4).map((c) => (
+                <button key={c.leadId} className="db-row" onClick={() => navigate("/whatsapp")}>
+                  <span>
+                    {leadById.get(c.leadId)?.name || "Müşteri"}
+                    <em>{c.text}</em>
+                  </span>
+                  <small>{dateTimeOf(c.at)}</small>
+                </button>
+              ))}
+              {!m.attention.unansweredChats.length && <p className="db-ok">Bekleyen mesaj yok.</p>}
+            </div>
+            <div>
+              <h4>
+                <AlertTriangle size={15} /> Planlı işi olmayan açık fırsat
+                <Badge tone={m.attention.idleLeads.length ? "amber" : "green"}>
+                  {m.attention.idleLeads.length}
+                </Badge>
+              </h4>
+              {m.attention.idleLeads.slice(0, 4).map((l) => (
+                <button key={l.id} className="db-row" onClick={() => onLead(l)}>
+                  <span>
+                    {l.name}
+                    <em>{l.owner || "Atanmamış"}</em>
+                  </span>
+                  <small>{compactMoney(l.value || 0)}</small>
+                </button>
+              ))}
+              {m.attention.idleLeads.length > 4 && (
+                <button className="text-button" onClick={() => navigate("/activities")}>
+                  +{m.attention.idleLeads.length - 4} fırsat daha
+                </button>
+              )}
+              {!m.attention.idleLeads.length && <p className="db-ok">Her açık fırsatın planlı bir işi var.</p>}
+            </div>
+          </div>
+        </section>
+      </div>
+
       <div className="dashboard-main">
         <section className="panel performance">
           <SectionTitle
-            title="Satış performansı"
-            description={
-              demo
-                ? "Müşteri kazanımı ve iletişim trafiği · Örnek grafik"
-                : "Güncel CRM kayıtları"
-            }
+            title="Hareket trendi"
+            description={`Günlük yeni müşteri, kazanım, arama ve mesaj · ${period === "today" ? "son 7 gün" : periodLabels[period]}`}
           />
-          <div className="chart-toolbar">
-            <div className="chart-legend">
-              <span>
-                <i className="green" />
-                Yeni müşteriler
-              </span>
-              <span>
-                <i className="mint" />
-                İletişime geçilen
-              </span>
-            </div>
-            <div className="segmented">
-              {["7 gün", "30 gün"].map((x) => (
-                <button
-                  key={x}
-                  className={range === x ? "active" : ""}
-                  onClick={() => setRange(x)}
-                >
-                  {x}
-                </button>
-              ))}
-            </div>
-          </div>
           <div className="chart">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={chart}
-                margin={{ left: -24, right: 12, top: 10, bottom: 0 }}
-              >
+              <ComposedChart data={m.trend} margin={{ left: -24, right: 12, top: 10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="leadGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#29b5e8" stopOpacity={0.19} />
+                    <stop offset="0%" stopColor="#29b5e8" stopOpacity={0.22} />
                     <stop offset="95%" stopColor="#29b5e8" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid
-                  strokeDasharray="4 5"
-                  vertical={false}
-                  stroke="#e9ecea"
-                />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#929b95", fontSize: 11 }}
-                  dy={10}
-                />
-                <YAxis
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#929b95", fontSize: 11 }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 10,
-                    border: "1px solid #e4e9e5",
-                    fontSize: 12,
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="contact"
-                  name="İletişim"
-                  stroke="#a4d3e8"
-                  strokeWidth={2}
-                  fill="transparent"
-                  strokeDasharray="4 3"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="lead"
-                  name="Yeni müşteri"
-                  stroke="#29b5e8"
-                  strokeWidth={2.7}
-                  fill="url(#leadGradient)"
-                />
-              </AreaChart>
+                <CartesianGrid strokeDasharray="4 5" vertical={false} stroke="#e9ecea" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#929b95", fontSize: 11 }} dy={10} interval="preserveStartEnd" />
+                <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#929b95", fontSize: 11 }} />
+                <Tooltip contentStyle={{ borderRadius: 10, border: "1px solid #e4e9e5", fontSize: 12 }} />
+                <Bar dataKey="calls" name="Arama" fill="#b9a4e6" radius={[4, 4, 0, 0]} maxBarSize={14} />
+                <Bar dataKey="messages" name="Mesaj" fill="#9fd8c3" radius={[4, 4, 0, 0]} maxBarSize={14} />
+                <Area type="monotone" dataKey="leads" name="Yeni müşteri" stroke="#29b5e8" strokeWidth={2.5} fill="url(#leadGradient)" />
+                <Area type="monotone" dataKey="won" name="Kazanılan" stroke="#299574" strokeWidth={2} fill="transparent" strokeDasharray="4 3" />
+              </ComposedChart>
             </ResponsiveContainer>
           </div>
           <div className="chart-summary">
             <span>
               <span className="green-dot" />
-              Müşterilerinizle bağınızı güçlendirin.
+              {demo ? "Örnek veri" : "Canlı CRM kayıtları"} · Türkiye saati
             </span>
             <button className="text-button" onClick={download}>
               Raporu indir
@@ -326,18 +419,15 @@ export default function Dashboard({
           <div className="pipeline-total">
             <strong>{data.leads.length}</strong>
             <span>
-              toplam fırsat<Badge tone="green">{stages.length} aşama</Badge>
+              toplam fırsat<Badge tone="green">{baseStages.length} aşama</Badge>
             </span>
           </div>
           <div className="pipeline-bars">
-            {baseStages.map((s, i) => {
-              const count = data.leads.filter((x) => x.stage === s.id).length;
+            {baseStages.map((s) => {
+              const items = data.leads.filter((x) => x.stage === s.id);
+              const count = items.length;
               return (
-                <button
-                  key={s.id}
-                  onClick={() => navigate("/kanban")}
-                  className="pipeline-row"
-                >
+                <button key={s.id} onClick={() => navigate("/kanban")} className="pipeline-row">
                   <div>
                     <span>
                       <i style={{ background: s.color }} />
@@ -345,12 +435,7 @@ export default function Dashboard({
                     </span>
                     <b>
                       {count}
-                      <em>
-                        {data.leads.length
-                          ? Math.round((count / data.leads.length) * 100)
-                          : 0}
-                        %
-                      </em>
+                      <em>{compactMoney(items.reduce((sum, l) => sum + (l.value || 0), 0))}</em>
                     </b>
                   </div>
                   <div className="progress-track">
@@ -365,190 +450,176 @@ export default function Dashboard({
               );
             })}
           </div>
-          <div className="pipeline-footer">
-            <span className="check-ring">
-              <Check size={14} />
-            </span>
-            <span>{won.length} fırsat başarıyla sonuçlandı</span>
-          </div>
         </section>
       </div>
-      <div className="dashboard-bottom">
-        <section className="panel recent-leads">
+
+      <div className="db-grid two">
+        <section className="panel">
           <SectionTitle
-            title="Son müşteriler"
-            description="Yeni fırsatları kaçırmayın"
-            action="Tüm müşteriler"
-            onAction={() => navigate("/leads")}
+            title="Danışman performansı"
+            description={`${periodLabels[period]} · kazanılan değere göre`}
+            action="CRM analitiği"
+            onAction={() => navigate("/reports")}
           />
-          {data.leads.length ? (
+          {m.owners.length ? (
             <div className="table-wrap">
-              <table>
+              <table className="db-table">
                 <thead>
                   <tr>
-                    <th>MÜŞTERİ</th>
-                    <th>KAYNAK</th>
-                    <th>AŞAMA</th>
                     <th>DANIŞMAN</th>
-                    <th />
+                    <th>AÇIK</th>
+                    <th>YENİ</th>
+                    <th>KAZANILAN</th>
+                    <th>ARAMA</th>
+                    <th>GECİKEN</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {data.leads.slice(0, 4).map((l) => (
-                    <tr key={l.id} onClick={() => onLead(l)}>
-                      <td>
-                        <div className="person-cell">
-                          <Avatar name={l.name} />
-                          <div>
-                            <strong>{l.name}</strong>
-                            <span>{l.company}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className="source-cell">
-                          {l.source === "WhatsApp" ? (
-                            <MessageCircle size={14} className="green-text" />
-                          ) : l.source === "Telefon" ? (
-                            <Phone size={14} />
-                          ) : (
-                            <ArrowUpRight size={14} />
-                          )}{" "}
-                          {l.source}
-                        </span>
-                      </td>
-                      <td>
-                        <Badge
-                          tone={
-                            l.stage === "new"
-                              ? "purple"
-                              : l.stage === "qualified"
-                                ? "amber"
-                                : "blue"
-                          }
-                        >
-                          {getPipelineStages(data.pipelines, l.pipelineId).find(
-                            (s) => s.id === l.stage,
-                          )?.label || l.stage}
-                        </Badge>
-                      </td>
+                  {m.owners.slice(0, 8).map((o) => (
+                    <tr key={o.owner}>
                       <td>
                         <span className="owner-cell">
-                          <Avatar name={l.owner} size={23} />
-                          {l.owner}
+                          <Avatar name={o.owner} size={23} />
+                          {o.owner}
                         </span>
                       </td>
+                      <td>{o.open}</td>
+                      <td>{o.newLeads}</td>
                       <td>
-                        <ArrowUpRight size={16} />
+                        {o.won}
+                        {o.wonValue > 0 && <small> · {compactMoney(o.wonValue)}</small>}
                       </td>
+                      <td>{o.calls}</td>
+                      <td>{o.overdue ? <Badge tone="red">{o.overdue}</Badge> : "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : (
-            <Empty
-              title="Henüz müşteri yok"
-              description="İlk müşteri kaydınızı ekleyin."
-            />
+            <Empty title="Henüz müşteri yok" description="İlk müşteri kaydınızı ekleyin." />
           )}
         </section>
-        <section className="panel activities">
+        <section className="panel">
           <SectionTitle
-            title="Son hareketler"
-            action="Tümü"
-            onAction={() => navigate("/webhooks")}
+            title="Müşteri kaynakları"
+            description={m.kpis.newLeads ? `${periodLabels[period]} içinde gelen müşteriler` : "Açık fırsatların kaynağı"}
           />
-          <div className="activity-list">
-            {data.events.slice(0, 3).map((e, i) => (
-              <div className="activity-item" key={e.id}>
-                <span
-                  className={`activity-icon ${i === 1 ? "blue" : i === 2 ? "purple" : "green"}`}
-                >
-                  {i === 0 ? (
-                    <MessageCircle size={16} />
-                  ) : i === 1 ? (
-                    <ArrowRight size={16} />
-                  ) : (
-                    <Workflow size={16} />
-                  )}
-                </span>
-                <div>
-                  <strong>{e.title}</strong>
-                  <p>{e.detail || e.type}</p>
-                  <time>
-                    {new Date(e.createdAt).toLocaleTimeString("tr-TR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    · {demo ? "Örnek veri" : "CRM"}
-                  </time>
+          <div className="db-sources">
+            {m.sources.slice(0, 7).map((s) => {
+              const max = m.sources[0]?.count || 1;
+              return (
+                <div key={s.source} className="db-source">
+                  <span>{s.source}</span>
+                  <div className="progress-track">
+                    <span style={{ width: `${(s.count / max) * 100}%` }} />
+                  </div>
+                  <b>{s.count}</b>
                 </div>
-              </div>
-            ))}
-            {!data.events.length && (
-              <Empty
-                title="Henüz hareket yok"
-                description="CRM etkinlikleri burada görünecek."
-              />
-            )}
+              );
+            })}
+            {!m.sources.length && <Empty title="Kaynak verisi yok" description="Müşteri kaynakları burada görünür." />}
           </div>
-          <button
-            className="activity-more"
-            onClick={() => navigate("/automations")}
-          >
-            Otomasyonları yönet
-            <ArrowRight size={15} />
-          </button>
+          <h4 className="db-subhead">Son müşteriler</h4>
+          <div className="db-recent">
+            {[...data.leads]
+              .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+              .slice(0, 4)
+              .map((l) => (
+                <button key={l.id} className="db-row" onClick={() => onLead(l)}>
+                  <span className="person-cell">
+                    <Avatar name={l.name} size={26} />
+                    <span>
+                      {l.name}
+                      <em>
+                        {l.source} ·{" "}
+                        {getPipelineStages(data.pipelines, l.pipelineId).find((s) => s.id === l.stage)?.label || l.stage}
+                      </em>
+                    </span>
+                  </span>
+                  <small>{dateTimeOf(l.createdAt)}</small>
+                </button>
+              ))}
+          </div>
         </section>
       </div>
-      <section className="channel-strip">
+
+      <section className="channel-strip db-channels">
         <div className="channel-strip-title">
           <span className="channel-symbol">
             <Radio size={20} />
           </span>
           <div>
-            <strong>İletişim altyapınız, bir arada.</strong>
-            <p>{lines.length} kayıtlı hat · 3 hizmet grubu</p>
+            <strong>İletişim altyapısı</strong>
+            <p>
+              {lines.length} hat ·{" "}
+              {lineGroups.map((g) => `${g.count} ${groupNames[g.group]}`).join(" · ")}
+            </p>
           </div>
         </div>
-        <div className="channel-provider">
-          <span className="provider-icon whatsapp">
-            <MessageCircle size={20} />
-          </span>
-          <div>
-            <strong>WhatsApp</strong>
-            <small>QR & Meta Cloud API</small>
-          </div>
-          <Badge tone="gray">Kurulum gerekli</Badge>
-        </div>
-        <div className="channel-provider">
-          <span className="provider-icon pbx">
-            <Phone size={19} />
-          </span>
-          <div>
-            <strong>Netgsm</strong>
-            <small>SIP · OFİX & Bulut PBX</small>
-          </div>
-          <Badge tone="gray">Kurulum gerekli</Badge>
-        </div>
-        <div className="channel-provider">
-          <span className="provider-icon vapi">
-            <Sparkles size={19} />
-          </span>
-          <div>
-            <strong>Vapi AI</strong>
-            <small>8 yapay zekâ hattı</small>
-          </div>
-          <button
-            className="round-arrow"
-            onClick={() => navigate("/integrations")}
-            aria-label="Entegrasyonları aç"
-          >
-            <ArrowUpRight size={17} />
+        {[
+          { id: "evolution", name: "WhatsApp QR", sub: "Evolution API", icon: MessageCircle, cls: "whatsapp", to: "/whatsapp" },
+          { id: "meta", name: "WhatsApp Cloud", sub: "Meta resmi API", icon: MessageCircle, cls: "whatsapp", to: "/integrations" },
+          { id: "netgsm", name: "Santral / SIP", sub: "Netgsm · FST · PBX", icon: Phone, cls: "pbx", to: "/lines" },
+          { id: "vapi", name: "Vapi AI", sub: "Yapay zekâ aramaları", icon: Sparkles, cls: "vapi", to: "/integrations" },
+        ].map((p) => (
+          <button key={p.id} className="channel-provider" onClick={() => navigate(p.to)}>
+            <span className={`provider-icon ${p.cls}`}>
+              <p.icon size={19} />
+            </span>
+            <div>
+              <strong>{p.name}</strong>
+              <small>{p.sub}</small>
+            </div>
+            {providerBadge(p.id)}
           </button>
+        ))}
+        <button className="channel-provider" onClick={() => navigate("/webhooks")}>
+          <span className="provider-icon pbx">
+            <Webhook size={19} />
+          </span>
+          <div>
+            <strong>Webhooklar</strong>
+            <small>
+              {hooks ? `${hooks.inbound} gelen · ${hooks.outbound} giden` : "n8n ve dış sistemler"}
+            </small>
+          </div>
+          <Workflow size={16} />
+        </button>
+      </section>
+
+      <section className="panel activities db-events">
+        <SectionTitle title="Son sistem hareketleri" action="Tümü" onAction={() => navigate("/webhooks")} />
+        <div className="activity-list">
+          {data.events.slice(0, 5).map((e) => (
+            <div className="activity-item" key={e.id}>
+              <span className={`activity-icon ${e.status === "failed" ? "purple" : e.type === "hook-delivery" || e.type === "hook-inbound" ? "blue" : "green"}`}>
+                {e.type.startsWith("hook") ? <Webhook size={16} /> : e.type === "stage-change" ? <Check size={16} /> : <Workflow size={16} />}
+              </span>
+              <div>
+                <strong>{e.title}</strong>
+                <p>{e.detail || e.type}</p>
+                <time>
+                  {dateTimeOf(e.createdAt)} · {demo ? "Örnek veri" : e.status === "failed" ? "Hatalı" : "CRM"}
+                </time>
+              </div>
+            </div>
+          ))}
+          {!data.events.length && (
+            <Empty title="Henüz hareket yok" description="Otomasyon ve webhook olayları burada görünecek." />
+          )}
         </div>
       </section>
     </>
   );
 }
+
+function dayLabel(iso: string) {
+  const date = new Date(iso);
+  const today = new Date().toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul" });
+  const day = date.toLocaleDateString("tr-TR", { timeZone: "Europe/Istanbul" });
+  return day === today
+    ? timeOf(iso)
+    : date.toLocaleDateString("tr-TR", { day: "2-digit", month: "short", timeZone: "Europe/Istanbul" });
+}
+

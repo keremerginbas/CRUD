@@ -206,7 +206,10 @@ export function makeDemo(): AppState {
         i === 0
           ? "Kadıköy bölgesinde 3+1 daire arıyor. Hafta sonu portföy ziyareti planlanacak."
           : "İhtiyaç ve bütçe bilgileri ilk görüşmede alındı.",
-      createdAt: now,
+      // Genel bakış trendi anlamlı görünsün diye örnek kayıtlar son günlere yayılır.
+      createdAt: new Date(
+        Date.now() - ((i * 7) % 12) * 86400000 - i * 3600000,
+      ).toISOString(),
       lastActivity: now,
       tags: i % 3 === 0 ? ["Öncelikli", "Satılık"] : ["Satılık"],
     })),
