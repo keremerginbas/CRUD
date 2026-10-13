@@ -110,7 +110,7 @@ const navGroups = [
     items: [
       ["/automations", "Otomasyonlar", Workflow],
       ["/n8n", "n8n iş akışları", Workflow],
-      ["/webhooks", "Webhook günlüğü", Webhook],
+      ["/webhooks", "Webhooklar", Webhook],
       ["/integrations", "Entegrasyonlar", Link2],
       ["/apps", "Yerel uygulamalar", Blocks],
     ],

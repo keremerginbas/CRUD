@@ -1,5 +1,6 @@
 import type { VapiOptions } from "../components/VapiCallFields";
 import AIIntegration from "../components/AIIntegration";
+import WebhookHub from "../components/WebhookHub";
 import { useState, useEffect } from "react";
 import {
   MessageCircle,
@@ -436,7 +437,7 @@ export default function Integrations({
       <PageTitle
         eyebrow={webhooks ? "OLAY & VERİ AKIŞI" : "ENTEGRASYON MERKEZİ"}
         title={
-          webhooks ? "Her olay, izlenebilir." : "Bağlantılarınızın merkezi."
+          webhooks ? "Webhooklar ve olay akışı" : "Bağlantılarınızın merkezi."
         }
         description={
           webhooks
@@ -465,36 +466,7 @@ export default function Integrations({
       />
       {webhooks ? (
         <>
-          <div className="webhook-endpoints">
-            <section className="panel endpoint-card">
-              <span className="rule-icon blue">
-                <Webhook size={22} />
-              </span>
-              <div>
-                <h3>Gelen webhook</h3>
-                <p>Bearer kimlik doğrulama · Olay eşleme</p>
-                <code>/api/webhooks/inbound</code>
-              </div>
-              <button
-                className="icon-button"
-                onClick={() => copy(base + "/api/webhooks/inbound")}
-                aria-label="Gelen webhook kopyala"
-              >
-                <Copy size={17} />
-              </button>
-            </section>
-            <section className="panel endpoint-card">
-              <span className="rule-icon green">
-                <ArrowUpRight size={22} />
-              </span>
-              <div>
-                <h3>Giden webhook</h3>
-                <p>İmzalı gönderim · Tekrar koruması · Retry</p>
-                <code>Otomasyon kuralındaki HTTPS hedefi</code>
-              </div>
-              <ShieldCheck size={20} className="green-text" />
-            </section>
-          </div>
+          <WebhookHub />
           <div className="crm-toolbar">
             <h3>Olay günlüğü</h3>
             <select

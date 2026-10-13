@@ -95,7 +95,7 @@ export function requireModulePermissions(
   } else if (/^\/conversation-analysis(?:\/|$)/.test(path)) module = "ai";
   else if (/^\/worktime(?:\/|$)/.test(path)) module = "worktime";
   else if (/^\/rules(?:\/|$)/.test(path)) module = "automations";
-  else if (/^\/(integrations|connections|n8n|events|bitrix)(?:\/|$)/.test(path))
+  else if (/^\/(integrations|connections|n8n|events|bitrix|webhook-hub)(?:\/|$)/.test(path))
     module = "integrations";
   else if (/^\/access\/departments/.test(path)) module = "departments";
   else if (/^\/access\/employees/.test(path)) module = "users";

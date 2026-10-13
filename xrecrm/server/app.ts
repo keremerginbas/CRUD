@@ -83,6 +83,12 @@ import {
 import { verifyBitrixContext } from "./bitrix.js";
 import { lines } from "../shared/lines.js";
 import {
+  deliverHookEvent,
+  registerHookInboundRoute,
+  registerWebhookHubRoutes,
+  webhookEmitterStore,
+} from "./webhook-hub.js";
+import {
   getSuiteState,
   registerSuiteRoutes,
   taskFromRuleEvent,
@@ -532,6 +538,7 @@ async function executeOutbox(
   if (payload.type === "conversation-analysis")
     return { ...(await processConversationAnalysisEvent(store, event)) };
   if (payload.type === "n8n-delivery") return deliverN8nEvent(store, event);
+  if (payload.type === "hook-delivery") return deliverHookEvent(store, event);
   if (payload.type === "webhook" && payload.provider && payload.payload) {
     const body = payload.payload;
     if (payload.provider === "meta")
@@ -1152,7 +1159,7 @@ export function startOutboxWorker(
 }
 
 export function createApp(options: { store?: Store } = {}): Express {
-  const rawStore = options.store || createStore();
+  const rawStore = webhookEmitterStore(options.store || createStore());
   const store = createPermissionStore(
     stagePolicyStore(appointmentStore(rawStore)),
   );
@@ -1460,6 +1467,13 @@ export function createApp(options: { store?: Store } = {}): Express {
   );
 
   registerN8nInboundRoute(app, store, processInboundWebhook);
+  registerHookInboundRoute(app, store, {
+    ownerScope,
+    processInboundWebhook,
+    ensureInboundLead,
+    scheduleCallAnalysis: (target, owner, callId) =>
+      scheduleConversationAnalysis(target, owner, "call", callId),
+  });
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", requireAuth(store), requireModulePermissions);
   registerSuiteRoutes(app, store);
@@ -1475,6 +1489,7 @@ export function createApp(options: { store?: Store } = {}): Express {
   registerAppointmentRoutes(app, store);
   registerConversationAnalysisRoutes(app, store);
   registerN8nReportRoutes(app, store);
+  registerWebhookHubRoutes(app, store);
 
   app.get("/api/state", async (req, res) => {
     try {

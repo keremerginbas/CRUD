@@ -8,6 +8,7 @@ import express from "express";
 import { createApp, startOutboxWorker } from "./app.js";
 import { createStore } from "./db.js";
 import { loadLineInventory } from "./line-inventory.js";
+import { webhookEmitterStore } from "./webhook-hub.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(here, "..");
@@ -27,7 +28,7 @@ export async function start(): Promise<void> {
   const app = createApp({ store });
   const httpServer = createHttpServer(app);
   startOutboxWorker(
-    stagePolicyStore(appointmentStore(store)),
+    stagePolicyStore(appointmentStore(webhookEmitterStore(store))),
     Number(process.env.OUTBOX_INTERVAL_MS || 5000),
   );
   const production = process.env.NODE_ENV === "production";

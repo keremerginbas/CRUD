@@ -36,6 +36,13 @@ function isPrivateIp(address: string): boolean {
   return false;
 }
 
+export function allowedPrivateHosts(): string[] {
+  return (process.env.OUTBOUND_ALLOW_PRIVATE_HOSTS || "")
+    .split(",")
+    .map((host) => host.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
   let url: URL;
   try {
@@ -43,11 +50,18 @@ export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
   } catch {
     throw new OutboundSecurityError("Dış istek URLsi geçersiz.");
   }
-  if (url.protocol !== "https:")
-    throw new OutboundSecurityError("Dış istekler yalnızca HTTPS olabilir.");
   if (url.username || url.password)
     throw new OutboundSecurityError("Dış istek URLsi kimlik bilgisi içeremez.");
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  // Kendi sunucunuzdaki n8n/PBX gibi iç servisler için yönetici tarafından
+  // açıkça izin verilen ana bilgisayarlar (HTTP dahil) kontrolsüz geçer.
+  if (
+    ["http:", "https:"].includes(url.protocol) &&
+    allowedPrivateHosts().includes(host)
+  )
+    return url;
+  if (url.protocol !== "https:")
+    throw new OutboundSecurityError("Dış istekler yalnızca HTTPS olabilir.");
   if (
     host === "localhost" ||
     host.endsWith(".localhost") ||
