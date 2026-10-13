@@ -67,7 +67,7 @@ Kurallar:
 ### Hat kontrolü
 
 Kodun başındaki `personelHat` listesinde her çalışanın hat numarası durur (repoda numaralar maskelidir).
-Bitrix hat adları (`voximplant.line.get`, ör. `NetGSM 111 - 7616`, `104-5337435988`) numaranın sonuyla
+Bitrix hat adları (`voximplant.line.get`, ör. `NetGSM 111 - 7616`, `104-5XXXXXXXXX`) numaranın sonuyla
 eşleştirilir. Bir çalışan **başka bir çalışanın hattından giden arama** yaptıysa raporun sonunda
 "Başka personelin hattından yapılan giden aramalar" başlığı altında kişi → hat sahibi → adet olarak yazılır.
 Gelen aramalar (başkasının hattına gelen aramayı cevaplamak) sayılmaz. Listede olmayan hatlar kontrol edilmez.
@@ -77,8 +77,10 @@ Gelen aramalar (başkasının hattına gelen aramayı cevaplamak) sayılmaz. Lis
 
 Eski rapor yalnızca `603` (reddedildi) kodunu cevapsız sayıyordu. Bitrix'te giden aramada karşı taraf
 açmadığında `603-S` (iptal), `503`, `500`, `486` kodları da gelir; `304` ise sadece kaçırılan **gelen** aramadır.
-Yeni raporda **cevapsız = sonucu 200 olmayan her arama**. Bu yüzden cevapsız sayıları eski rapora göre belirgin
-şekilde artar; bu artış gerçek durumu gösterir.
+Yeni raporda **cevapsız** = açılmayan, reddedilen, iptal edilen veya meşgul aramalar (`603`, `603-S`, `486`, `480`,
+`487`, `408`, kaçırılan gelen `304`). Müşteriye hiç ulaşmayan hat/yapılandırma hataları (`503`, `500`), izin yok
+(`403`), geçersiz numara (`404`) gibi sonuçlar ayrıca **teknik hata** olarak gösterilir. Örneğin 12.10'da bir hattan
+peş peşe denenen yüzlerce `503` aslında hat hatasıdır, müşteri cevapsızlığı değildir.
 
 ---
 
@@ -97,7 +99,8 @@ Yeni raporda **cevapsız = sonucu 200 olmayan her arama**. Bu yüzden cevapsız 
 | 9 | Hepsi | Personel listeleri birbirinden farklı ve eski (pasif kişiler var, yeni kişiler yok) | Yeni kişiler "Personel listesinde yok" / "TANIMSIZ" görünüyor | 13.10.2026 listesine (18 kişi) eşitlendi. Enes Can Yıldırım (Bitrix'te XRE Auto) eklendi |
 | 10 | Ekip Raporu v2.1 | Randevu aşamalarında `YAPAY ZEKA RANDEVU OLUŞTURANLAR` yok | YZ randevuları sayılmıyor | Eklendi |
 | 11 | Etkinlik Takip v3 | Webhook kolu `rest/78` kullanıyor | Şu an çalışıyor ama o kullanıcı kapanırsa durur | `rest/1`'e geçildi |
-| 12 | Etkinlik Takip v3 | "Yeni lead aranmadı", "Aradı ama kapatmadı", "Aranmadan tamamlanan" yalnızca arama kaydı **lead'e** bağlıysa eşleşiyor; Bitrix aramaların çoğunu lead'e değil bağlı **kişiye (contact)** yazıyor (günde ~1.200 aramadan ~65'i lead'e bağlı) | Yeni lead'lerin çoğu "aranmadı", tamamlananların çoğu "aranmadan tamamlandı" görünüyor; "aradı ama kapatmadı" hep 0 | Lead ID **veya** lead'in telefon numarası (son 10 hane) **veya** bağlı kişi (CONTACT_ID) ile eşleştirme. 12.10 testinde yeni lead "arandı" 7 → 58 (71'den), "aranmadan tamamlanan" 154 → 13, "aradı ama kapatmadı" 0 → 8; bağımsız yeniden hesaplamayla doğrulandı |
+| 13 | Etkinlik Takip v3, Günlük rapor | Cevapsız ile teknik hata (503 hat hatası, 500, 403 izin yok) karışıyor | Hat hatası müşteri cevapsızlığı gibi görünüyor | Ayrı sayılıyor: "cevapsız" ve "teknik hata" |
+| 12 | Etkinlik Takip v3 | "Yeni lead aranmadı", "Aradı ama kapatmadı", "Aranmadan tamamlanan" yalnızca arama kaydı **lead'e** bağlıysa eşleşiyor; Bitrix aramaların çoğunu lead'e değil bağlı **kişiye (contact)** yazıyor (günde ~1.200 aramadan ~65'i lead'e bağlı) | Yeni lead'lerin çoğu "aranmadı", tamamlananların çoğu "aranmadan tamamlandı" görünüyor; "aradı ama kapatmadı" hep 0 | Lead ID **veya** lead'in telefon numarası (son 10 hane) **veya** bağlı kişi (CONTACT_ID) ile eşleştirme. Kişi bazındaki sayılarda yalnızca **giden** aramalar ve yalnızca lead oluşturulduktan / görev açıldıktan **sonraki** aramalar sayılır; personelin kendi hat numaraları eşleşmeye katılmaz. 12.10 testinde yeni lead "arandı" 7 → 51 (71'den), "aranmadan tamamlanan" 154 → 13, "aradı ama kapatmadı" 0 → 1 (gerçek vaka); bağımsız yeniden hesaplama ve kod incelemesiyle doğrulandı |
 
 ### Düzeltilmeyenler / bilinmesi gerekenler
 
@@ -110,6 +113,7 @@ Yeni raporda **cevapsız = sonucu 200 olmayan her arama**. Bu yüzden cevapsız 
   kısmı her zaman 35 karakter); çalışan Etkinlik Takip workflow'undaki token ile aynı yapıldı.
 - **Assistant v8:** API anahtarı kodda sabit yazılı; Action Router'da hiç ulaşılmayan (ölü) kurallar var.
   Davranışı etkilemediği için dokunulmadı.
+- **Geciken kayıt** lead, anlaşma, kişi ve şirket kartlarını kapsar; departman/genel toplam kişi bazındaki sayıların toplamıdır.
 - **Ekip Raporu:** randevuya katılım metriği yok; bu bilgi 1 numaralı günlük raporda var.
 
 ---

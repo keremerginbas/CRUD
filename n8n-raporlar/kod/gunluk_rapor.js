@@ -26,6 +26,9 @@ const SADECE_GIDEN = false;
 // Geçerli görüşme için minimum süre
 const BASARILI_ESIK = 20;
 
+// Cevapsız sayılan arama sonuç kodları
+const CEVAPSIZ_KOD = new Set(['603', '603-S', '486', '480', '487', '408', '304']);
+
 // Lead aşamaları (Bitrix > CRM > Lead aşamaları)
 const LEAD_ASAMA = {
   randevu: ['UC_WK3LVR', 'UC_Z3VV8S', 'UC_ML92HM'], // RANDEVU OLUŞTURANLAR, OFİS RANDEVUSU, YAPAY ZEKA RANDEVU OLUŞTURANLAR
@@ -78,7 +81,7 @@ const personeller = {
 // PERSONEL HAT NUMARALARI (hat kontrolü)
 //
 // Arama, başka bir personelin hattından yapıldıysa raporun sonunda gösterilir.
-// Bitrix hat adları (voximplant.line.get, ör. "NetGSM 111 - 7616", "104-5337435988")
+// Bitrix hat adları (voximplant.line.get, ör. "NetGSM 111 - 7616", "104-5XXXXXXXXX")
 // numaranın sonuyla eşleştirilir. Listede olmayan hatlar kontrol edilmez.
 // =========================================================
 
@@ -315,7 +318,7 @@ function bosKayit(uid, isim, dep, listede) {
     uid, isim, dep, listede,
     pasif: false,
 
-    adet: 0, basarili: 0, cevapsiz: 0, sure: 0, gelen: 0, giden: 0,
+    adet: 0, basarili: 0, cevapsiz: 0, teknik: 0, sure: 0, gelen: 0, giden: 0,
 
     randevu: new Set(), katildi: new Set(), katilmadi: new Set(), satis: new Set(),
 
@@ -412,11 +415,13 @@ tum.forEach(c => {
     s.basarili++;
   }
 
-  // Cevapsız / ulaşılamadı: sonucu 200 olmayan her arama.
-  // Giden aramada karşı taraf açmazsa Bitrix 603 / 603-S / 503 / 500 / 486 döndürür;
-  // 304 yalnızca kaçırılan GELEN aramadır.
-  if (kod !== '200') {
+  // Cevapsız: karşı taraf açmadı / reddetti / meşgul (304 = kaçırılan gelen arama).
+  // Diğer başarısız kodlar (503 hat hatası, 500 yapılandırma, 403 izin yok, 404 geçersiz no ...)
+  // müşteri cevapsızlığı değildir; "teknik" olarak ayrı sayılır.
+  if (CEVAPSIZ_KOD.has(kod)) {
     s.cevapsiz++;
+  } else if (kod !== '200') {
+    s.teknik++;
   }
 });
 
@@ -555,6 +560,8 @@ await bolum('Açık etkinlik toplamı', async () => {
   });
   const b = await bx('batch', { halt: 0, cmd });
   const toplamlar = b.result?.result_total || {};
+  const hataliKisi = Object.keys(b.result?.result_error || {}).map(k => personeller[k.slice(1)]?.isim || k);
+  if (hataliKisi.length) uyarilar.push('Açık etkinlik toplamı alınamadı: ' + hataliKisi.join(', '));
   PERSONEL_IDLER.forEach(uid => {
     const t = toplamlar['u' + uid];
     if (t !== undefined && t !== null) stats[uid].acikToplam = Number(t);
@@ -602,10 +609,15 @@ kayitlar
     gruplar[p.dep].push(p);
   });
 
-const ALANLAR = ['adet', 'basarili', 'cevapsiz', 'sure', 'gelen', 'giden', 'randevu', 'katildi', 'katilmadi', 'satis',
+const ALANLAR = ['adet', 'basarili', 'cevapsiz', 'teknik', 'sure', 'gelen', 'giden', 'randevu', 'katildi', 'katilmadi', 'satis',
   'tamamlanan', 'vadeli', 'vadeliTamam', 'geciken', 'gecikenBugun', 'gecikenKayit', 'gecikenLead', 'gecikenAnlasma', 'acikToplam'];
 
-const topla = liste => Object.fromEntries(ALANLAR.map(k => [k, liste.reduce((t, p) => t + (Number(p[k]) || 0), 0)]));
+const topla = liste => {
+  const t = Object.fromEntries(ALANLAR.map(k => [k, liste.reduce((t, p) => t + (Number(p[k]) || 0), 0)]));
+  // Açık toplamı alınamayan kişi varsa toplam da bilinmiyor ("?")
+  if (liste.some(p => p.acikToplam === null || p.acikToplam === undefined)) t.acikToplam = null;
+  return t;
+};
 
 // Bölüm alınamadıysa 0 yerine "?" göster
 const H = {
@@ -623,7 +635,7 @@ const v = (hataVar, n) => hataVar ? '?' : sayi(n);
 
 function aramaSatiri(t) {
   return '📞 ' + v(H.arama, t.adet) + ' arama · ' + v(H.arama, t.basarili) + ' görüşme (' + BASARILI_ESIK + 'sn+) · ' +
-    v(H.arama, t.cevapsiz) + ' cevapsız · ' + (H.arama ? '?' : sureMetni(t.sure));
+    v(H.arama, t.cevapsiz) + ' cevapsız · ' + (t.teknik ? sayi(t.teknik) + ' teknik hata · ' : '') + (H.arama ? '?' : sureMetni(t.sure));
 }
 
 function randevuSatiri(t) {
@@ -637,9 +649,9 @@ function etkinlikSatiri(t) {
 }
 
 function gecikenSatiri(t) {
-  return '⏰ Geciken etkinlik ' + v(H.gecik, t.geciken) + ' (' + v(H.gecik, t.gecikenKayit) + ' lead/anlaşmada' +
+  return '⏰ Geciken etkinlik ' + v(H.gecik, t.geciken) + ' (' + v(H.gecik, t.gecikenKayit) + ' farklı kayıtta' +
     (t.gecikenBugun ? ', bugün geciken ' + sayi(t.gecikenBugun) : '') + ')' +
-    (t.acikToplam !== null && t.acikToplam !== undefined ? ' · Açık toplam ' + sayi(t.acikToplam) : '');
+    ' · Açık toplam ' + (t.acikToplam === null || t.acikToplam === undefined ? '?' : sayi(t.acikToplam));
 }
 
 const tgBloklar = [];
@@ -657,14 +669,14 @@ let html = `
 
 const th = t => `<th style="padding:6px 8px;border:1px solid #d1d5db;background:#1f3864;color:#fff;font-size:12px;">${esc(t)}</th>`;
 const td = (x, stil = '') => `<td style="padding:5px 8px;border:1px solid #e5e7eb;text-align:center;font-size:12px;${stil}">${esc(x)}</td>`;
-const BASLIK = ['Personel', 'Arama', 'Görüşme ' + BASARILI_ESIK + 'sn+', 'Cevapsız', 'Süre', 'Randevu', 'Katıldı', 'Katılmadı', 'Satış',
+const BASLIK = ['Personel', 'Arama', 'Görüşme ' + BASARILI_ESIK + 'sn+', 'Cevapsız', 'Teknik hata', 'Süre', 'Randevu', 'Katıldı', 'Katılmadı', 'Satış',
   'Tamamlanan etkinlik', 'Bugün vadeli', 'Vadeli tamamlanan', 'Geciken etkinlik', 'Geciken kayıt', 'Açık toplam'];
 
 function tabloSatiri(p, kalin) {
   const stil = kalin ? 'font-weight:bold;background:#fff4ce;' : '';
   return '<tr>' +
     `<td style="padding:5px 8px;border:1px solid #e5e7eb;font-size:12px;${kalin ? 'font-weight:bold;background:#fff4ce;' : 'font-weight:bold;'}">${esc(p.isim)}</td>` +
-    td(v(H.arama, p.adet), stil) + td(v(H.arama, p.basarili), stil) + td(v(H.arama, p.cevapsiz), stil) + td(H.arama ? '?' : sureMetni(p.sure), stil) +
+    td(v(H.arama, p.adet), stil) + td(v(H.arama, p.basarili), stil) + td(v(H.arama, p.cevapsiz), stil) + td(v(H.arama, p.teknik), stil) + td(H.arama ? '?' : sureMetni(p.sure), stil) +
     td(v(H.asama, p.randevu), stil + (p.randevu ? 'color:#1d4ed8;font-weight:bold;' : '')) +
     td(v(H.asama, p.katildi), stil + (p.katildi ? 'color:#047857;font-weight:bold;' : '')) +
     td(v(H.asama, p.katilmadi), stil) +
@@ -672,7 +684,7 @@ function tabloSatiri(p, kalin) {
     td(v(H.tamam, p.tamamlanan), stil) + td(v(H.vade, p.vadeli), stil) + td(v(H.vade, p.vadeliTamam), stil) +
     td(v(H.gecik, p.geciken), stil + (p.geciken ? 'color:#b91c1c;font-weight:bold;' : '')) +
     td(v(H.gecik, p.gecikenKayit), stil) +
-    td(p.acikToplam === null || p.acikToplam === undefined ? '-' : sayi(p.acikToplam), stil) +
+    td(p.acikToplam === null || p.acikToplam === undefined ? '?' : sayi(p.acikToplam), stil) +
     '</tr>';
 }
 
@@ -724,7 +736,7 @@ depSira.concat(Object.keys(gruplar).filter(d => !depSira.includes(d))).forEach(d
 // GENEL ÖZET
 // =========================================================
 
-const g = topla(depToplamlari.map(t => ({ ...t, acikToplam: t.acikToplam || 0 })));
+const g = topla(depToplamlari);
 
 const enCokGeciken = kayitlar
   .filter(p => p.listede && p.geciken > 0)
@@ -754,7 +766,7 @@ if (gizlenenPasif.length) genel += '\n\nPasif (listelenmedi): ' + esc(gizlenenPa
 
 genel += '\n\nℹ️ Randevu / Katılım / Satış: bugün o aşamaya giren lead ve anlaşma sayısı (kaydın sorumlusuna yazılır).' +
   ' Geciken: tamamlanmamış ve son tarihi geçmiş TÜM etkinlikler (geçmiş tarih sınırı yok).' +
-  ' Cevapsız: sonucu başarılı (200) olmayan aramalar.';
+  ' Cevapsız: açılmayan, reddedilen veya meşgul aramalar; teknik hata: hat/yapılandırma hatası, izin yok, geçersiz numara.';
 
 if (uyarilar.length) genel += '\n\n⚠️ ' + esc(uyarilar.join(' | '));
 
@@ -806,10 +818,10 @@ if (uyarilar.length) html += `<p style="background:#fde7e9;border:1px solid #d13
 
 html += `
 <div style="font-size:12px;color:#6b7280;line-height:1.6;margin-top:16px;">
-<p><b>Arama:</b> Bitrix telefoni kaydı. Görüşme = sonucu 200 ve süresi ${BASARILI_ESIK} sn ve üzeri. Cevapsız = sonucu 200 olmayan (açılmayan, reddedilen, iptal, meşgul, ulaşılamayan) aramalar.</p>
+<p><b>Arama:</b> Bitrix telefoni kaydı. Görüşme = sonucu 200 ve süresi ${BASARILI_ESIK} sn ve üzeri. Cevapsız = açılmayan, reddedilen, iptal edilen veya meşgul aramalar (603, 603-S, 486, 480, 487, 408, kaçırılan gelen 304). Teknik hata = hat/yapılandırma hatası, izin yok, geçersiz numara gibi müşteriye ulaşmayan aramalar (503, 500, 403, 404 ...).</p>
 <p><b>Randevu:</b> bugün RANDEVU OLUŞTURANLAR / OFİS RANDEVUSU / YAPAY ZEKA RANDEVU OLUŞTURANLAR lead aşamasına veya anlaşma pipeline'larındaki randevu aşamalarına giren kayıt. <b>Katıldı / Katılmadı:</b> bugün RANDEVUYA KATILIM OLDU / OLMADI aşamasına giren lead. <b>Satış:</b> bugün SATIŞ lead aşamasına ya da anlaşmalarda başarılı kapanış / satış aşamasına giren kayıt. Aynı kayıt gün içinde birden fazla randevu aşamasından geçse de 1 sayılır; kaydın şu anki sorumlusuna yazılır.</p>
 <p><b>Tamamlanan etkinlik:</b> bugün tamamlanmış görev, toplantı, e-posta vb. (arama kayıtları, web formu ve açık hat oturumları hariç; Bitrix tamamlama anını tutmadığı için "bugün güncellenmiş ve tamamlanmış" etkinlik sayılır). <b>Bugün vadeli:</b> son tarihi bugün olan etkinlikler.</p>
-<p><b>Geciken etkinlik:</b> tamamlanmamış ve son tarihi geçmiş TÜM etkinlikler — geçmiş tarih sınırı yok; lead, anlaşma, kişi ve şirket etkinlikleri dahil (Bitrix etkinlik sayfasındaki "Gecikmiş" sayısı ile aynı mantık). <b>Geciken kayıt:</b> bu etkinliklerin bağlı olduğu farklı lead/anlaşma sayısı. <b>Açık toplam:</b> vadesi gelmemişler dahil tüm açık etkinlikler.</p>
+<p><b>Geciken etkinlik:</b> tamamlanmamış ve son tarihi geçmiş TÜM etkinlikler — geçmiş tarih sınırı yok; lead, anlaşma, kişi ve şirket etkinlikleri dahil (Bitrix etkinlik sayfasındaki "Gecikmiş" sayısı ile aynı mantık). <b>Geciken kayıt:</b> bu etkinliklerin bağlı olduğu farklı kayıt (lead, anlaşma, kişi, şirket) sayısı; departman ve genel toplamlarda kişi bazındaki sayıların toplamıdır. <b>Açık toplam:</b> vadesi gelmemişler dahil tüm açık etkinlikler.</p>
 <p>Bitrix API ham arama kaydı: ${tum.length}</p>
 </div>
 <p>İyi çalışmalar dileriz.</p>
@@ -834,6 +846,7 @@ const debugKullanicilar = kayitlar
     arama: p.adet,
     gorusme20sn: p.basarili,
     cevapsiz: p.cevapsiz,
+    teknikHata: p.teknik,
     gelen: p.gelen,
     giden: p.giden,
     toplamSureSn: p.sure,
@@ -866,6 +879,7 @@ return [
       toplam_arama: g.adet,
       toplam_gorusme_20sn: g.basarili,
       toplam_cevapsiz: g.cevapsiz,
+      toplam_teknik_hata: g.teknik,
 
       toplam_gelen: g.gelen,
       toplam_giden: g.giden,
