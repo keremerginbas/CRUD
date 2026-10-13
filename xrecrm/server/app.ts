@@ -88,6 +88,13 @@ import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
 import { registerLineInventoryRoutes } from "./line-inventory.js";
+import {
+  captureEvolutionMedia,
+  captureMetaMedia,
+  registerMediaBodyParser,
+  registerMediaRoutes,
+  stripMediaPayload,
+} from "./whatsapp-media.js";
 import { runInboundAction } from "./webhook-hub.js";
 import {
   deliverHookEvent,
@@ -208,6 +215,11 @@ function publicConnection(connection: Record<string, unknown>) {
     "updatedAt",
   ]);
 }
+function mediaLabel(type?: string): string {
+  return (
+    { image: "[Fotoğraf]", video: "[Video]", audio: "[Sesli mesaj]", document: "[Belge]" } as Record<string, string>
+  )[type || ""] || "[Medya mesajı]";
+}
 function publicMessage(
   message: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -223,6 +235,11 @@ function publicMessage(
       "text",
       "status",
       "createdAt",
+      "mediaId",
+      "mime",
+      "fileName",
+      "mediaType",
+      "size",
     ]),
     direction: inbound ? "inbound" : "outbound",
     text: message.text ?? "[Medya mesajı]",
@@ -770,6 +787,7 @@ async function processMetaWebhook(
         );
         const messageId = String(message.id || id("meta-message"));
         const type = String(message.type || "unknown");
+        const media = await captureMetaMedia(store, owner, message);
         const text =
           message.text?.body ??
           message[type]?.caption ??
@@ -787,9 +805,10 @@ async function processMetaWebhook(
             provider: "meta",
             direction: "inbound",
             type,
-            text: text ?? "[Medya mesajı]",
+            text: text ?? mediaLabel(media.mediaType),
             status: "received",
             providerMessageId: message.id || null,
+            ...media,
             payload: message,
             createdAt: now(),
           },
@@ -876,6 +895,12 @@ async function processEvolutionWebhook(
     message.videoMessage?.caption ||
     null;
   const messageId = String(key.id || data?.id || id("evolution-message"));
+  const media = await captureEvolutionMedia(
+    store,
+    owner,
+    String(body?.instance || body?.sender || ""),
+    data,
+  );
   await store.put(
     "message",
     messageId,
@@ -885,11 +910,12 @@ async function processEvolutionWebhook(
       lineId: body?.instance || body?.sender || null,
       provider: "evolution",
       direction: "inbound",
-      type: Object.keys(message)[0] || "text",
-      text: text ?? "[Medya mesajı]",
+      type: media.mediaType || Object.keys(message)[0] || "text",
+      text: text ?? mediaLabel(media.mediaType),
       status: "received",
       providerMessageId: messageId,
-      payload: data,
+      ...media,
+      payload: stripMediaPayload(data),
       createdAt: now(),
     },
     owner,
@@ -1497,6 +1523,7 @@ export function createApp(
         hubDeps,
       ),
     );
+  registerMediaBodyParser(app);
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", requireAuth(store), requireModulePermissions);
   registerSuiteRoutes(app, store);
@@ -1518,6 +1545,16 @@ export function createApp(
   registerIntegrationSettingsRoutes(app, store);
   registerPbxRoutes(app, store);
   registerLineInventoryRoutes(app, store);
+  registerMediaRoutes(app, store, {
+    providerFor: async (lineId, owner) => {
+      const connected =
+        (await store.get<any>("connection", lineId, owner))?.payload?.status ===
+        "connected";
+      if (connected && providerConfigured("evolution")) return "evolution";
+      if (!connected && providerConfigured("meta")) return "meta";
+      return null;
+    },
+  });
   registerQrApproveRoute(app, store);
 
   app.get("/api/state", async (req, res) => {

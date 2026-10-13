@@ -5,7 +5,8 @@ import {
 import { meetingShareText } from "../components/OnlineMeeting";
 import { Video, CalendarClock } from "lucide-react";
 import { dateTimeLabel } from "../suite";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import "../pbx.css";
 import {
   MessageCircle,
   Search,
@@ -41,7 +42,7 @@ export default function WhatsApp({
   onDraftConsumed?: () => void;
   onLead: (l: Lead) => void;
 }) {
-  const { data, demo, sendMessage, request, user } = useStore();
+  const { data, demo, sendMessage, request, user, refresh } = useStore();
   const [tab, setTab] = useState("inbox");
   const [selected, setSelected] = useState(
     initialLead || data.leads[0]?.id || "",
@@ -54,6 +55,43 @@ export default function WhatsApp({
   const [qrError, setQrError] = useState("");
   const [busy, setBusy] = useState(false);
   const [sending, setSending] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+  async function sendFile(file: File) {
+    if (!lead) return;
+    if (demo) {
+      toast.info("Demo modu: dosya gönderilmedi.");
+      return;
+    }
+    if (file.size > 16 * 1024 * 1024) {
+      toast.error("Dosya 16 MB'den büyük olamaz.");
+      return;
+    }
+    setSending(true);
+    try {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error("Dosya okunamadı."));
+        reader.readAsDataURL(file);
+      });
+      await request("/api/messages/media", {
+        leadId: lead.id,
+        lineId: line,
+        caption: message.trim(),
+        fileName: file.name,
+        mime: file.type || "application/octet-stream",
+        data,
+      });
+      setMessage("");
+      await refresh();
+      toast.success("Dosya gönderildi.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSending(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  }
   useEffect(() => {
     if (initialLead) {
       setSelected(initialLead);
@@ -315,7 +353,8 @@ export default function WhatsApp({
                     ))}
                   {messages.map((m) => (
                     <div className={`message-bubble ${m.direction}`} key={m.id}>
-                      {m.text}
+                      <MessageMedia m={m as any} />
+                      {(m as any).mediaId && /^\[(Fotoğraf|Video|Sesli mesaj|Belge|Medya mesajı)\]$|^\[.+\..+\]$/.test(m.text) ? null : m.text}
                       <span>
                         {new Date(m.createdAt).toLocaleTimeString("tr-TR", {
                           hour: "2-digit",
@@ -365,6 +404,25 @@ export default function WhatsApp({
                         }
                       }}
                     />
+                    <input
+                      ref={fileInput}
+                      type="file"
+                      hidden
+                      accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) void sendFile(f);
+                      }}
+                    />
+                    <button
+                      className="icon-button"
+                      onClick={() => fileInput.current?.click()}
+                      disabled={sending}
+                      aria-label="Dosya ekle"
+                      title="Fotoğraf, video, ses veya belge gönder (yazdığınız metin açıklama olur)"
+                    >
+                      <Paperclip size={17} />
+                    </button>
                     <button
                       className="btn primary"
                       onClick={send}
@@ -510,5 +568,23 @@ export default function WhatsApp({
         </Modal>
       )}
     </>
+  );
+}
+
+function MessageMedia({ m }: { m: { mediaId?: string; mediaType?: string; fileName?: string; mime?: string } }) {
+  if (!m.mediaId) return null;
+  const url = `/api/media/${m.mediaId}`;
+  if (m.mediaType === "image")
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="message-media">
+        <img src={url} alt={m.fileName || "Fotoğraf"} loading="lazy" />
+      </a>
+    );
+  if (m.mediaType === "audio") return <audio className="message-media" controls preload="none" src={url} />;
+  if (m.mediaType === "video") return <video className="message-media" controls preload="metadata" src={url} />;
+  return (
+    <a className="message-file" href={`${url}?download`} target="_blank" rel="noreferrer">
+      <Paperclip size={14} /> {m.fileName || "Belge"}
+    </a>
   );
 }
