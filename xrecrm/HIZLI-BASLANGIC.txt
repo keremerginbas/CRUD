@@ -1,0 +1,28 @@
+XRE CRM - HIZLI BASLANGIC
+=========================
+
+1) Bilgisayarda Node.js 22 (LTS) kurulu olmali: https://nodejs.org
+   (Kurulumda "Add to PATH" secili kalsin.)
+
+2) Windows: XRE-CRM-AC.cmd dosyasina cift tiklayin.
+   macOS/Linux: terminalde ./xre-crm-ac.sh
+
+   Ilk acilista paketleri kurar (internet gerekir, birkac dakika).
+   Sonraki acilislar birkac saniye surer.
+
+3) Tarayici kendiliginden http://localhost:3000 adresini acar.
+   Ilk acilista "Yonetici hesabi olustur" ekrani gelir.
+   Hesabi olusturunca dogrudan canli CRM'e girersiniz.
+
+4) Siyah pencereyi KAPATMAYIN; kapatirsaniz CRM durur.
+
+Notlar
+- MySQL gerekmez. Veriler "data" klasorunde saklanir; bu klasoru yedekleyin.
+- Sirket hat listesi (47 hat) config/lines.json dosyasindadir ve otomatik yuklenir.
+  Hat yonetimi > Hatlari duzenle ekranindan da degistirebilirsiniz.
+- Santral, WhatsApp, Vapi, OpenAI, Bitrix ve sosyal giris anahtarlari:
+  Entegrasyonlar > Anahtarlar ve baglanti ayarlari.
+- Ekipteki diger bilgisayarlar ayni agdaysa: http://BU-BILGISAYARIN-IP-ADRESI:3000
+  (Windows guvenlik duvari Node.js icin izin isteyebilir.)
+- 3000 portu doluysa .env dosyasinda PORT=3001 yapin.
+- Detayli bilgi: docs/ANALIZ-VE-YOL-HARITASI.md ve ONCE-BUNU-OKUYUN.md
