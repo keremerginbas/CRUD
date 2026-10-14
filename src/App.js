@@ -444,12 +444,65 @@ function Settings() {
   );
 }
 
+// Canlı deneme: tek SMS gönder ve Bitrix'ten tek kaydı seriye al.
+function LiveTest() {
+  const [sms, setSms] = useState({ phone: '', message: 'XRE SMS otomasyonu test mesajidir.' });
+  const [smsResult, setSmsResult] = useState(null);
+  const [lead, setLead] = useState({ type: 'lead', id: '' });
+  const [leadResult, setLeadResult] = useState(null);
+  const show = (setter) => (r) => setter(JSON.stringify(r, null, 2));
+  const fail = (setter) => (e) => setter(`Hata: ${e.message}`);
+
+  const sendSms = (e) => {
+    e.preventDefault();
+    if (!window.confirm(`${sms.phone} numarasına gerçek SMS gönderilecek. Devam edilsin mi?`)) return;
+    setSmsResult('Gönderiliyor…');
+    fetch('/api/test-sms', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sms) })
+      .then((r) => r.json()).then(show(setSmsResult), fail(setSmsResult));
+  };
+  const syncLead = (e) => {
+    e.preventDefault();
+    setLeadResult('Bitrix okunuyor…');
+    api.post('/bitrix/sync', { type: lead.type, id: Number(lead.id) }).then(show(setLeadResult), fail(setLeadResult));
+  };
+  return (
+    <>
+      <form className="card" onSubmit={sendSms}>
+        <h3>Test SMS gönder</h3>
+        <p className="hint">Tek bir numaraya tek SMS gider; SMS firmasının ham yanıtı aşağıda görünür.</p>
+        <div className="row">
+          <label>Cep telefonu<input value={sms.phone} placeholder="05xx xxx xx xx" onChange={(e) => setSms({ ...sms, phone: e.target.value })} required /></label>
+        </div>
+        <label>Mesaj<textarea rows="2" value={sms.message} onChange={(e) => setSms({ ...sms, message: e.target.value })} required /></label>
+        <div className="actions"><button className="primary" type="submit">Gönder</button></div>
+        {smsResult && <pre className="result">{smsResult}</pre>}
+      </form>
+      <form className="card" onSubmit={syncLead}>
+        <h3>Bitrix kaydını seriye al</h3>
+        <p className="hint">Kaydın şu anki statüsüne bağlı aktif kampanya varsa müşteri seriye eklenir (mesajlar zamanı gelince gider).</p>
+        <div className="row">
+          <label>Tür
+            <select value={lead.type} onChange={(e) => setLead({ ...lead, type: e.target.value })}>
+              <option value="lead">Lead</option>
+              <option value="deal">Deal</option>
+            </select>
+          </label>
+          <label>Kayıt ID<input type="number" value={lead.id} onChange={(e) => setLead({ ...lead, id: e.target.value })} required /></label>
+        </div>
+        <div className="actions"><button className="primary" type="submit">Seriye al</button></div>
+        {leadResult && <pre className="result">{leadResult}</pre>}
+      </form>
+    </>
+  );
+}
+
 const TABS = {
   campaigns: ['Kampanyalar', Campaigns],
   customers: ['Müşteriler', Customers],
   enrollments: ['Akışlar', Enrollments],
   messages: ['SMS geçmişi', Messages],
   settings: ['Ayarlar', Settings],
+  live: ['Canlı test', LiveTest],
 };
 
 export default function App() {
@@ -460,7 +513,7 @@ export default function App() {
 
   const runNow = async () => {
     const r = await api.post('/scheduler/run');
-    window.alert(r.skipped ? 'Zamanlayıcı zaten çalışıyor.' : `Gönderilen: ${r.sent} · Hata: ${r.failed} · Atlanan: ${r.skipped}`);
+    window.alert(r.busy ? 'Zamanlayıcı şu an başka bir yerde çalışıyor, biraz sonra tekrar deneyin.' : `Gönderilen: ${r.sent} · Hata: ${r.failed} · Atlanan: ${r.skipped}`);
     reloadStats();
     setRefresh((n) => n + 1);
   };

@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('node:crypto');
 const path = require('node:path');
 const fs = require('node:fs');
 const { computeDueAt, normalizePhone, todayInTurkey, isValidTime, isValidDate } = require('./schedule');
@@ -48,8 +49,25 @@ function checkPlaceholders(active, steps) {
 
 const parseCampaign = (c) => c && { ...c, bitrix_stages: c.bitrix_stages ? JSON.parse(c.bitrix_stages) : [] };
 
-function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => new Date(), bitrix = null }) {
+function createApp({
+  db, scheduler, provider = null, bitrix = null, now = () => new Date(),
+  apiKey = process.env.API_KEY,
+  panelUser = process.env.PANEL_USER, panelPassword = process.env.PANEL_PASSWORD,
+}) {
   const app = express();
+  // Panel ve API için basit giriş (tarayıcı kullanıcı adı/şifre sorar). Webhook ve lead uç noktaları
+  // kendi anahtarlarıyla korunduğu için hariç.
+  if (panelPassword) {
+    const expected = `Basic ${Buffer.from(`${panelUser || 'admin'}:${panelPassword}`).toString('base64')}`;
+    const open = new Set(['/api/bitrix/webhook', '/api/leads']);
+    app.use((req, res, next) => {
+      if (open.has(req.path)) return next();
+      const given = Buffer.from(req.get('authorization') || '');
+      const want = Buffer.from(expected);
+      if (given.length === want.length && crypto.timingSafeEqual(given, want)) return next();
+      res.set('WWW-Authenticate', 'Basic realm="SMS Otomasyonu", charset="UTF-8"').status(401).send('Giriş gerekli');
+    });
+  }
   app.use(express.json());
   app.use(express.urlencoded({ extended: true })); // Bitrix giden webhook'ları form olarak gönderir
   const api = express.Router();
@@ -342,6 +360,21 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
       failed: count(`SELECT COUNT(*) n FROM messages WHERE status = 'failed'`),
     });
   });
+
+  // Canlı deneme: tek bir numaraya tek SMS gönderir ve sağlayıcının ham yanıtını döner.
+  api.post('/test-sms', wrap(async (req, res) => {
+    if (!provider) throw new HttpError(503, 'SMS sağlayıcısı yok');
+    const phone = normalizePhone(req.body.phone);
+    if (!phone) throw new HttpError(400, `Geçersiz cep telefonu: ${req.body.phone}`);
+    const message = String(req.body.message || '').trim();
+    if (!message) throw new HttpError(400, 'Mesaj boş olamaz');
+    try {
+      const { ref } = await provider.send(phone, message);
+      res.json({ ok: true, provider: provider.name, phone, response: ref });
+    } catch (err) {
+      res.status(502).json({ ok: false, provider: provider.name, phone, error: String(err.message || err) });
+    }
+  }));
 
   api.post('/scheduler/run', wrap(async (req, res) => res.json(await scheduler.tick())));
 

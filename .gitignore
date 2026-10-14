@@ -3,3 +3,4 @@ build/
 server/data/
 .env
 *.log
+dist/

@@ -11,7 +11,7 @@ Mesajlarda `{ad}`, `{adsoyad}`, `{proje}`, `{kampanya}` değişkenleri kullanıl
 
 ## Çalıştırma
 
-Node.js 22.9+ gerekir (veritabanı olarak dahili SQLite kullanılır).
+Node.js 22.13+ gerekir (veritabanı olarak dahili SQLite kullanılır).
 
 ```bash
 npm install && npm --prefix server install

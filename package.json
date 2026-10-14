@@ -17,7 +17,8 @@
     "test": "react-scripts test",
     "server": "npm --prefix server start",
     "server:test": "npm --prefix server test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "paket": "bash scripts/paketle.sh"
   },
   "eslintConfig": {
     "extends": [

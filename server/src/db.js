@@ -1,3 +1,6 @@
+// node:sqlite Node 22'de "experimental" uyarısı basar; cron her dakika çalıştığı için log'u doldurmasın.
+const emitWarning = process.emitWarning;
+process.emitWarning = (warning, ...args) => (String(warning).includes('SQLite') ? undefined : emitWarning.call(process, warning, ...args));
 const { DatabaseSync } = require('node:sqlite');
 const path = require('node:path');
 const fs = require('node:fs');

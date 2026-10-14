@@ -28,8 +28,24 @@ function createScheduler({ db, provider, now = () => new Date(), log = console.l
       error = excluded.error, updated_at = excluded.updated_at, body = excluded.body, phone = excluded.phone
   `);
 
+  // Süreçler arası kilit: panel sunucusu ve cron aynı anda çalışırsa aynı SMS iki kez gitmesin.
+  const LOCK_MS = 10 * 60 * 1000;
+  const owner = `${process.pid}-${Math.random().toString(36).slice(2)}`;
+  const acquireLock = () => {
+    const nowMs = Date.now();
+    db.prepare(`INSERT INTO settings (key, value) VALUES ('scheduler_lock', ?)
+      ON CONFLICT (key) DO UPDATE SET value = excluded.value
+      WHERE json_extract(settings.value, '$.until') < ?`).run(JSON.stringify({ owner, until: nowMs + LOCK_MS }), nowMs);
+    const row = db.prepare(`SELECT value FROM settings WHERE key = 'scheduler_lock'`).get();
+    return JSON.parse(row.value).owner === owner;
+  };
+  const releaseLock = () => {
+    db.prepare(`DELETE FROM settings WHERE key = 'scheduler_lock' AND json_extract(value, '$.owner') = ?`).run(owner);
+  };
+
   async function tick() {
-    if (running) return { skipped: true };
+    if (running) return { busy: true };
+    if (!acquireLock()) return { busy: true };
     running = true;
     const stats = { sent: 0, failed: 0, skipped: 0, completed: 0 };
     try {
@@ -94,6 +110,7 @@ function createScheduler({ db, provider, now = () => new Date(), log = console.l
       return stats;
     } finally {
       running = false;
+      releaseLock();
     }
   }
 
