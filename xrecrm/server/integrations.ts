@@ -109,6 +109,29 @@ export async function evolutionConnectionState(instance: string): Promise<any> {
   return readJsonResponse(response);
 }
 
+/**
+ * Evolution'ın gelen mesajları CRM'e iletmesi için webhook ayarı.
+ * Tek adres (byEvents kapalı), gizli anahtar hem başlıkta hem adreste gönderilir.
+ */
+export function evolutionWebhookConfig() {
+  const base =
+    process.env.EVOLUTION_WEBHOOK_URL?.trim() ||
+    (process.env.PUBLIC_ORIGIN?.trim()
+      ? `${process.env.PUBLIC_ORIGIN.replace(/\/$/, "")}/api/webhooks/evolution`
+      : "");
+  const secret = process.env.EVOLUTION_WEBHOOK_SECRET?.trim();
+  if (!/^https?:\/\//i.test(base) || !secret) return undefined;
+  const url = new URL(base);
+  url.searchParams.set("token", secret);
+  return {
+    url: url.toString(),
+    byEvents: false,
+    base64: true,
+    headers: { authorization: `Bearer ${secret}` },
+    events: ["CONNECTION_UPDATE", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "QRCODE_UPDATED"],
+  };
+}
+
 export async function getEvolutionQr(instance: string): Promise<any> {
   if (!envConfigured("EVOLUTION_API_URL", "EVOLUTION_API_KEY"))
     throw Object.assign(
@@ -127,20 +150,8 @@ export async function getEvolutionQr(instance: string): Promise<any> {
     "content-type": "application/json",
   };
   let response: Response;
+  const webhook = evolutionWebhookConfig();
   if (!existing) {
-    const webhookUrl =
-      process.env.EVOLUTION_WEBHOOK_URL?.trim() ||
-      (process.env.PUBLIC_ORIGIN?.trim()
-        ? `${process.env.PUBLIC_ORIGIN.replace(/\/$/, "")}/api/webhooks/evolution`
-        : "");
-    const webhook = /^https:\/\//i.test(webhookUrl)
-      ? {
-          url: webhookUrl,
-          byEvents: true,
-          base64: true,
-          events: ["CONNECTION_UPDATE", "MESSAGES_UPSERT", "MESSAGES_UPDATE"],
-        }
-      : undefined;
     response = await fetchWithTimeout(`${evolutionBase()}/instance/create`, {
       method: "POST",
       headers,
@@ -152,6 +163,12 @@ export async function getEvolutionQr(instance: string): Promise<any> {
       }),
     });
   } else {
+    // Var olan oturumun webhook ayarını da güncelle (eski kurulumlar mesaj iletmiyordu).
+    if (webhook)
+      await fetchWithTimeout(
+        `${evolutionBase()}/webhook/set/${encodeURIComponent(instance)}`,
+        { method: "POST", headers, body: JSON.stringify({ webhook: { enabled: true, ...webhook } }) },
+      ).catch(() => undefined);
     response = await fetchWithTimeout(
       `${evolutionBase()}/instance/connect/${encodeURIComponent(instance)}`,
       { headers },

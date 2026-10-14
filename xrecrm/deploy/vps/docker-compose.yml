@@ -1,0 +1,82 @@
+# XRE CRM — tam canlı kurulum (CRM + WhatsApp QR + otomatik HTTPS)
+# kurulum.sh bu dosyayı ve .env'i kullanır. Elle:  docker compose up -d --build
+services:
+  crm:
+    build: ../..
+    restart: always
+    env_file: .env
+    environment:
+      PUBLIC_ORIGIN: https://${CRM_DOMAIN}
+      XRE_DATA_DIR: /app/data
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
+      EVOLUTION_WEBHOOK_URL: http://crm:3000/api/webhooks/evolution
+      OUTBOUND_ALLOW_PRIVATE_HOSTS: evolution
+    volumes:
+      - crm_data:/app/data
+    depends_on:
+      - evolution
+
+  evolution:
+    image: atendai/evolution-api:v2.2.3
+    restart: always
+    environment:
+      SERVER_URL: http://evolution:8080
+      AUTHENTICATION_API_KEY: ${EVOLUTION_API_KEY}
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:${POSTGRES_PASSWORD}@postgres:5432/evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_LOCAL_ENABLED: "false"
+      CONFIG_SESSION_PHONE_CLIENT: XRE CRM
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      LANGUAGE: tr
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      - postgres
+      - redis
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_pg:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - evolution_redis:/data
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CRM_DOMAIN: ${CRM_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - crm
+
+volumes:
+  crm_data:
+  evolution_instances:
+  evolution_pg:
+  evolution_redis:
+  caddy_data:
+  caddy_config:

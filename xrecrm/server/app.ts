@@ -1428,6 +1428,10 @@ export function createApp(
         !bearerMatches(
           String(req.headers["x-evolution-webhook-secret"] || ""),
           process.env.EVOLUTION_WEBHOOK_SECRET,
+        ) &&
+        !bearerMatches(
+          typeof req.query.token === "string" ? req.query.token : "",
+          process.env.EVOLUTION_WEBHOOK_SECRET,
         )
       )
         return res.status(401).send("unauthorized");

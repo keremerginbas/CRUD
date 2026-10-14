@@ -116,3 +116,16 @@ describe("WhatsApp sohbet (WhatCRM tarzı)", () => {
     expect((await blocked.json()).error).toBe("TEMPLATE_REQUIRED");
   });
 });
+
+describe("Evolution webhook ayarı", () => {
+  it("gizli anahtarı başlık ve adreste taşır, olay başına adres kullanmaz", async () => {
+    const { evolutionWebhookConfig } = await import("../server/integrations");
+    process.env.EVOLUTION_WEBHOOK_URL = "http://crm:3000/api/webhooks/evolution";
+    process.env.EVOLUTION_WEBHOOK_SECRET = "gizli-123";
+    const config = evolutionWebhookConfig()!;
+    expect(config).toMatchObject({ byEvents: false, headers: { authorization: "Bearer gizli-123" } });
+    expect(config.url).toBe("http://crm:3000/api/webhooks/evolution?token=gizli-123");
+    delete process.env.EVOLUTION_WEBHOOK_SECRET;
+    expect(evolutionWebhookConfig()).toBeUndefined();
+  });
+});
