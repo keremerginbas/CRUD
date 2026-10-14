@@ -1,8 +1,11 @@
-# XRE CRM — tam canlı kurulum (CRM + WhatsApp QR + otomatik HTTPS)
-# kurulum.sh bu dosyayı ve .env'i kullanır. Elle:  docker compose up -d --build
+# XRE CRM — canlı kurulum (CRM + WhatsApp QR [+ isteğe bağlı Caddy/HTTPS])
+# kurulum.sh bu dosyayı ve .env'i kullanır.
+# Sunucuda zaten bir Caddy varsa CRM onun ağına bağlanır ve bu dosyadaki caddy
+# servisi çalıştırılmaz (profil: kendi-caddy).
 services:
   crm:
     build: ../..
+    container_name: xrecrm-crm
     restart: always
     env_file: .env
     environment:
@@ -12,9 +15,12 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
       EVOLUTION_WEBHOOK_URL: http://crm:3000/api/webhooks/evolution
-      OUTBOUND_ALLOW_PRIVATE_HOSTS: evolution
+      OUTBOUND_ALLOW_PRIVATE_HOSTS: evolution,n8n
     volumes:
       - crm_data:/app/data
+    networks:
+      - default
+      - proxy
     depends_on:
       - evolution
 
@@ -59,6 +65,7 @@ services:
 
   caddy:
     image: caddy:2.8-alpine
+    profiles: ["kendi-caddy"]
     restart: always
     ports:
       - "80:80"
@@ -70,8 +77,15 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
+    networks:
+      - proxy
     depends_on:
       - crm
+
+networks:
+  proxy:
+    external: true
+    name: ${PROXY_NETWORK}
 
 volumes:
   crm_data:

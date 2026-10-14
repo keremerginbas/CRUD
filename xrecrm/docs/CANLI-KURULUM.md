@@ -19,6 +19,12 @@ sadece `crm.alanadiniz.com.tr` alt alan adını VPS'e yönlendirin.
 5. Bilgisayarınızdaki verileri taşımak için: eski CRM'de **Yedekler → Şimdi yedekle → İndir**, yeni CRM'de
    yedeği yükleyin (aşağıya bakın).
 
+## Sunucuda zaten Caddy varsa (ör. n8n kurulu Hostinger VPS)
+Kurulum betiği 443 portunu kullanan Caddy'yi algılar: kendi Caddy'sini açmaz, CRM'i o Caddy'nin ağına bağlar,
+Caddyfile'ı yedekleyip `crm.alanadiniz.com.tr` bloğunu ekler, doğrulama başarılıysa Caddy'yi yeniden yükler,
+başarısızsa yedeği geri koyar. n8n ve diğer konteynerlere dokunulmaz. CRM içinden n8n'e `http://n8n:5678` ile
+erişilebilir (aynı ağdaysa).
+
 ## Eski verileri taşıma
 Yeni sunucuda yönetici hesabını oluşturduktan sonra yedek dosyasını sunucuya kopyalayın:
 ```

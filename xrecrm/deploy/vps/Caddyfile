@@ -4,5 +4,5 @@
 
 {$CRM_DOMAIN} {
 	encode gzip
-	reverse_proxy crm:3000
+	reverse_proxy xrecrm-crm:3000
 }
