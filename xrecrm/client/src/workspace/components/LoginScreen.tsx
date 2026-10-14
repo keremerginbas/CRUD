@@ -162,7 +162,23 @@ export default function LoginScreen({
   return (
     <div className="login-screen" role="dialog" aria-modal="true" aria-label="XRE CRM giriş">
       <section className="login-brand">
-        <img src="/xre-crm-logo-white.png" alt="XRE CRM" />
+        <video
+          className="login-video"
+          poster="/login-poster.jpg"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          aria-hidden="true"
+          ref={(el) => {
+            if (el && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) el.pause();
+          }}
+        >
+          <source src="/login-video.webm" type="video/webm" />
+          <source src="/login-video.mp4" type="video/mp4" />
+        </video>
+        <div className="login-brand-text">
         <h2>Müşterileriniz, aramalarınız ve ekibiniz tek ekranda.</h2>
         <ul>
           <li>Kanban satış hunisi ve etkinlik takibi</li>
@@ -170,6 +186,7 @@ export default function LoginScreen({
           <li>n8n ve webhook otomasyonları</li>
         </ul>
         <small><ShieldCheck size={14} /> Verileriniz kendi sunucunuzda kalır.</small>
+        </div>
       </section>
       <section className="login-card">
         {onClose && (
