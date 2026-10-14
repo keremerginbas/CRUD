@@ -25,7 +25,7 @@ services:
       - evolution
 
   evolution:
-    image: atendai/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.3.7
     restart: always
     environment:
       SERVER_URL: http://evolution:8080
