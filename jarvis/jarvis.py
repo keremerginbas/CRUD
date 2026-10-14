@@ -902,7 +902,7 @@ def main():
 
     print("\n  J.A.R.V.I.S. hazır.\n"
           f"  Uyandırmak için 'Hey Jarvis' deyin ya da {KISAYOL} basın.\n"
-          f"  Mod: {'kulaklık' if KULAKLIK else 'hoparlör (araya girmek için biraz yüksek sesle konuşun)'}\n"
+          f"  Mod: {'kulaklık' if KULAKLIK else 'hoparlör (Jarvis konuşurken mikrofon kapalı; cümlesini bitirmesini bekleyin)'}\n"
           "  Kapatmak için bu pencerede Ctrl+C.\n", flush=True)
     if MAC:
         print("  İlk açılışta Mac mikrofon izni ister: İzin Ver deyin. Kısayol için Terminal'e\n"
