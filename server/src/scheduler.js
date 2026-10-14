@@ -57,7 +57,7 @@ function createScheduler({ db, provider, now = () => new Date(), log = console.l
           if (due > current) { pending += 1; continue; }
 
           const body = renderTemplate(step.template, {
-            ad: row.customer_name.split(' ')[0],
+            ad: /^değerli müşterimiz$/i.test(row.customer_name) ? row.customer_name : row.customer_name.split(' ')[0],
             adsoyad: row.customer_name,
             kampanya: row.campaign_name,
             proje: row.project || row.campaign_name,

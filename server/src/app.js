@@ -3,7 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { computeDueAt, normalizePhone, todayInTurkey, isValidTime, isValidDate } = require('./schedule');
 const { enrollmentPlan } = require('./scheduler');
-const { createBitrixSync } = require('./bitrix');
+const { createBitrixSync, getStopStages, setStopStages } = require('./bitrix');
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -27,12 +27,26 @@ function validateSteps(steps) {
   }).sort((a, b) => a.day_offset - b.day_offset);
 }
 
-function validateBitrix({ bitrix_entity, bitrix_stage, bitrix_project }) {
-  if (!bitrix_entity) return { bitrix_entity: null, bitrix_stage: null, bitrix_project: null };
+const cleanStages = (stages) => [...new Set((Array.isArray(stages) ? stages : []).map((s) => String(s).trim()).filter(Boolean))];
+
+function validateBitrix({ bitrix_entity, bitrix_stages, bitrix_project }) {
+  if (!bitrix_entity) return { bitrix_entity: null, bitrix_stages: null, bitrix_project: null };
   if (!['lead', 'deal'].includes(bitrix_entity)) throw new HttpError(400, 'Bitrix kayıt türü "lead" veya "deal" olmalı');
-  if (!bitrix_stage) throw new HttpError(400, 'Bitrix aşaması seçilmeli');
-  return { bitrix_entity, bitrix_stage: String(bitrix_stage), bitrix_project: bitrix_project ? String(bitrix_project) : null };
+  const stages = cleanStages(bitrix_stages);
+  if (!stages.length) throw new HttpError(400, 'En az bir Bitrix statüsü seçilmeli');
+  return { bitrix_entity, bitrix_stages: JSON.stringify(stages), bitrix_project: bitrix_project ? String(bitrix_project) : null };
 }
+
+// "[FİYAT]" gibi doldurulmamış şablon alanı olan kampanya aktif edilemez; müşteriye köşeli parantez gitmesin.
+function checkPlaceholders(active, steps) {
+  if (!active) return;
+  for (const s of steps) {
+    const m = /\[[^\]]+\]/.exec(s.message);
+    if (m) throw new HttpError(400, `${s.day_offset}. gün mesajında doldurulmamış alan var: ${m[0]}. Doldurun veya kampanyayı pasif kaydedin.`);
+  }
+}
+
+const parseCampaign = (c) => c && { ...c, bitrix_stages: c.bitrix_stages ? JSON.parse(c.bitrix_stages) : [] };
 
 function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => new Date(), bitrix = null }) {
   const app = express();
@@ -42,7 +56,7 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
 
   // ---------- Kampanyalar (reklam / proje) ----------
   const getCampaign = (id) => {
-    const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id);
+    const campaign = parseCampaign(db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id));
     if (!campaign) throw new HttpError(404, 'Kampanya bulunamadı');
     campaign.steps = db.prepare('SELECT * FROM campaign_steps WHERE campaign_id = ? ORDER BY day_offset').all(id);
     return campaign;
@@ -76,7 +90,7 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
         (SELECT COUNT(*) FROM campaign_steps s WHERE s.campaign_id = k.id) AS step_count,
         (SELECT COUNT(*) FROM enrollments e WHERE e.campaign_id = k.id AND e.status = 'active') AS active_count
       FROM campaigns k ORDER BY k.id DESC
-    `).all();
+    `).all().map(parseCampaign);
     for (const c of campaigns) {
       c.steps = db.prepare('SELECT * FROM campaign_steps WHERE campaign_id = ? ORDER BY day_offset').all(c.id);
     }
@@ -90,11 +104,12 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
     if (!name || !String(name).trim()) throw new HttpError(400, 'Kampanya adı gerekli');
     if (!['reklam', 'proje'].includes(type)) throw new HttpError(400, 'Tür "reklam" veya "proje" olmalı');
     const clean = validateSteps(steps);
+    checkPlaceholders(active, clean);
     const b = validateBitrix(req.body);
     const id = transaction(() => {
       const { lastInsertRowid } = db.prepare(`INSERT INTO campaigns
-        (name, type, description, active, project, bitrix_entity, bitrix_stage, bitrix_project) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(String(name).trim(), type, description, active ? 1 : 0, req.body.project || null, b.bitrix_entity, b.bitrix_stage, b.bitrix_project);
+        (name, type, description, active, project, bitrix_entity, bitrix_stages, bitrix_project) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(String(name).trim(), type, description, active ? 1 : 0, req.body.project || null, b.bitrix_entity, b.bitrix_stages, b.bitrix_project);
       saveSteps(lastInsertRowid, clean);
       return lastInsertRowid;
     });
@@ -106,12 +121,13 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
     const { name = current.name, type = current.type, description = current.description, active = current.active, steps } = req.body;
     if (!['reklam', 'proje'].includes(type)) throw new HttpError(400, 'Tür "reklam" veya "proje" olmalı');
     const clean = steps === undefined ? null : validateSteps(steps);
+    checkPlaceholders(active, clean || current.steps);
     const b = validateBitrix({ ...current, ...req.body });
     const project = req.body.project === undefined ? current.project : req.body.project || null;
     transaction(() => {
       db.prepare(`UPDATE campaigns SET name = ?, type = ?, description = ?, active = ?, project = ?,
-        bitrix_entity = ?, bitrix_stage = ?, bitrix_project = ? WHERE id = ?`)
-        .run(name, type, description, active ? 1 : 0, project, b.bitrix_entity, b.bitrix_stage, b.bitrix_project, current.id);
+        bitrix_entity = ?, bitrix_stages = ?, bitrix_project = ? WHERE id = ?`)
+        .run(name, type, description, active ? 1 : 0, project, b.bitrix_entity, b.bitrix_stages, b.bitrix_project, current.id);
       if (clean) saveSteps(current.id, clean);
     });
     res.json(getCampaign(current.id));
@@ -279,6 +295,13 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
     if (!['lead', 'deal'].includes(t)) throw new HttpError(400, 'Tür "lead" veya "deal" olmalı');
     return t;
   };
+
+  // Seriyi durduran statüler (randevu, satış, olumsuz…). Diğer statülere geçişte seri devam eder.
+  api.get('/settings', (req, res) => res.json({ bitrix_stop_stages: getStopStages(db) }));
+  api.put('/settings', (req, res) => {
+    if (req.body.bitrix_stop_stages !== undefined) setStopStages(db, cleanStages(req.body.bitrix_stop_stages));
+    res.json({ bitrix_stop_stages: getStopStages(db) });
+  });
 
   api.get('/bitrix/status', (req, res) => res.json({ configured: !!bitrixSync, project_field: bitrix?.config.projectField || null }));
   // Bitrix > Geliştirici kaynakları > Giden webhook bu adrese bağlanır.

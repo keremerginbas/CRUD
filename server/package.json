@@ -6,7 +6,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env src/index.js",
-    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "kurulum": "node --disable-warning=ExperimentalWarning --env-file-if-exists=.env scripts/xre-kurulum.js"
   },
   "engines": {
     "node": ">=22.9"

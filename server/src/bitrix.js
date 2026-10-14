@@ -30,24 +30,26 @@ function createBitrixClient({ webhookUrl, fetchImpl = fetch }) {
 }
 
 const firstMobile = (phones) => (phones || []).map((p) => normalizePhone(p.VALUE)).find(Boolean) || null;
-const fullName = (r) => [r.NAME, r.LAST_NAME].filter(Boolean).join(' ').trim() || r.TITLE || 'Müşteri';
+const fullName = (r) => [r.NAME, r.LAST_NAME].filter(Boolean).join(' ').trim() || 'Değerli müşterimiz';
 const isYes = (v) => ['y', 'yes', '1', 'true', 'evet'].includes(String(Array.isArray(v) ? v[0] : v ?? '').toLowerCase());
 
 // Lead/deal kaydını okuyup akış için gereken bilgileri çıkarır.
-async function fetchEntity(client, type, id, { projectField, consentField }) {
+async function fetchEntity(client, type, id, { projectField, consentField, optOutField }) {
   const { result: rec } = await client.call(`crm.${type}.get`, { id });
+  // Deal'de kişi bilgisi contact'ta; lead'de telefon yoksa bağlı contact'a bakılır.
   let person = rec;
-  if (type === 'deal') {
-    person = rec.CONTACT_ID && Number(rec.CONTACT_ID) > 0
-      ? (await client.call('crm.contact.get', { id: rec.CONTACT_ID })).result
-      : {};
+  const hasContact = rec.CONTACT_ID && Number(rec.CONTACT_ID) > 0;
+  if (type === 'deal' || (!firstMobile(rec.PHONE) && hasContact)) {
+    person = hasContact ? (await client.call('crm.contact.get', { id: rec.CONTACT_ID })).result || {} : {};
   }
+  const pick = (field) => rec[field] ?? person[field];
   return {
     stage: type === 'deal' ? rec.STAGE_ID : rec.STATUS_ID,
-    project: projectField ? rec[projectField] ?? person[projectField] : undefined,
-    consent: consentField ? isYes(rec[consentField] ?? person[consentField]) : undefined,
-    name: fullName(person),
-    phone: firstMobile(person.PHONE),
+    project: projectField ? pick(projectField) : undefined,
+    consent: consentField ? isYes(pick(consentField)) : undefined,
+    optedOut: optOutField ? isYes(pick(optOutField)) : false,
+    name: person.NAME || person.LAST_NAME ? fullName(person) : fullName(rec),
+    phone: firstMobile(person.PHONE) || firstMobile(rec.PHONE),
   };
 }
 
@@ -68,21 +70,33 @@ function createBitrixSync({ db, client, config, upsertCustomer, enroll, transact
     // Deal'de başka bir alan güncellendiğinde de olay gelir; aşama aynıysa hiçbir şey yapma.
     if (!force && prev && prev.stage === info.stage) return { action: 'unchanged', stage: info.stage };
 
-    const campaigns = db.prepare(`SELECT * FROM campaigns WHERE active = 1 AND bitrix_entity = ? AND bitrix_stage = ?`)
-      .all(type, info.stage)
+    const campaigns = db.prepare(`SELECT * FROM campaigns WHERE active = 1 AND bitrix_entity = ?`)
+      .all(type)
+      .filter((c) => JSON.parse(c.bitrix_stages || '[]').includes(info.stage))
       .filter((c) => projectMatches(c.bitrix_project, info.project));
     const keep = new Set(campaigns.map((c) => c.id));
+    const stop = getStopStages(db).includes(info.stage);
 
     return transaction(() => {
-      // Müşteri başka aşamaya geçti: önceki aşamanın akışını durdur.
-      let cancelled = 0;
-      for (const e of db.prepare(`SELECT id, campaign_id FROM enrollments WHERE source = ? AND status = 'active'`).all(key)) {
-        if (!keep.has(e.campaign_id)) {
-          db.prepare(`UPDATE enrollments SET status = 'cancelled' WHERE id = ?`).run(e.id);
-          cancelled += 1;
+      const cancelOthers = () => {
+        let n = 0;
+        for (const e of db.prepare(`SELECT id, campaign_id FROM enrollments WHERE source = ? AND status = 'active'`).all(key)) {
+          if (!keep.has(e.campaign_id)) {
+            db.prepare(`UPDATE enrollments SET status = 'cancelled' WHERE id = ?`).run(e.id);
+            n += 1;
+          }
         }
+        return n;
+      };
+      // Randevu/satış/olumsuz gibi durdurma statüsü veya "bir daha aranmasın": tüm serileri durdur.
+      if (stop || info.optedOut) {
+        keep.clear();
+        return { action: 'stopped', stage: info.stage, cancelled: cancelOthers() };
       }
-      if (!campaigns.length) return { action: 'no-campaign', stage: info.stage, cancelled };
+      // Kampanyası olmayan ara statü (ör. "YAPAY ZEKA ARIYOR"): mevcut seri devam eder.
+      if (!campaigns.length) return { action: 'no-campaign', stage: info.stage, cancelled: 0 };
+      // Başka bir projenin statüsüne geçti: önceki projenin serisini durdur.
+      const cancelled = cancelOthers();
       if (!info.phone) {
         log(`Bitrix ${key}: geçerli cep telefonu yok, SMS akışı başlatılamadı`);
         return { action: 'no-phone', stage: info.stage, cancelled };
@@ -115,7 +129,7 @@ function createBitrixSync({ db, client, config, upsertCustomer, enroll, transact
   async function stages(type) {
     const statuses = await client.callAll('crm.status.list', { order: { SORT: 'ASC' } });
     if (type === 'lead') {
-      return statuses.filter((s) => s.ENTITY_ID === 'STATUS').map((s) => ({ id: s.STATUS_ID, name: s.NAME }));
+      return statuses.filter((s) => s.ENTITY_ID === 'STATUS').map((s) => ({ id: s.STATUS_ID, name: s.NAME, semantics: s.EXTRA?.SEMANTICS }));
     }
     let pipelines = {};
     try {
@@ -141,6 +155,16 @@ function createBitrixSync({ db, client, config, upsertCustomer, enroll, transact
   return { sync, handleEvent, stages, projectOptions };
 }
 
+function getStopStages(db) {
+  const row = db.prepare(`SELECT value FROM settings WHERE key = 'bitrix_stop_stages'`).get();
+  return row ? JSON.parse(row.value) : [];
+}
+
+function setStopStages(db, stages) {
+  db.prepare(`INSERT INTO settings (key, value) VALUES ('bitrix_stop_stages', ?)
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value`).run(JSON.stringify(stages));
+}
+
 function bitrixConfigFromEnv(env = process.env) {
   if (!env.BITRIX_WEBHOOK_URL) return null;
   return {
@@ -148,8 +172,9 @@ function bitrixConfigFromEnv(env = process.env) {
     appToken: env.BITRIX_APP_TOKEN || null,
     projectField: env.BITRIX_PROJECT_FIELD || null,
     consentField: env.BITRIX_CONSENT_FIELD || null,
+    optOutField: env.BITRIX_OPTOUT_FIELD || null,
     defaultConsent: isYes(env.BITRIX_DEFAULT_CONSENT),
   };
 }
 
-module.exports = { createBitrixClient, createBitrixSync, bitrixConfigFromEnv };
+module.exports = { createBitrixClient, createBitrixSync, bitrixConfigFromEnv, getStopStages, setStopStages };

@@ -35,13 +35,14 @@ function smsInfo(text) {
 // ---------------- Kampanyalar ----------------
 
 // Yeni kampanyada hazır gelen teşvik serisi; köşeli parantezli yerler doldurulmalı.
+// Yeni kampanyada hazır gelen teşvik serisi (0. gün mesajı ayrı otomasyonla gidiyor).
+// Köşeli parantezli yerler doldurulmadan kampanya aktif edilemez.
 const SAMPLE_STEPS = [
-  [0, '00:00', 'Merhaba {ad}, {proje} projemizle ilgilendiğiniz için teşekkürler. Projemiz hakkında ne düşünüyorsunuz?'],
-  [3, '10:30', 'Merhaba {ad}, {proje} projemizi hâlâ değerlendiriyor musunuz? Size özel bir sunum için randevu planlayabiliriz.'],
-  [5, '10:30', '{ad}, {proje} güncel fiyat ve ödeme seçenekleri: [FİYAT / ÖDEME PLANI]. Detaylı bilgi için bize ulaşın.'],
-  [10, '10:30', '{ad}, {proje} projemizde sınırlı sayıda daire kaldı. Projeyi yerinde görmek ister misiniz? [LİNK]'],
-  [14, '10:30', '{ad}, {proje} için bu aya özel fırsat: [KAMPANYA DETAYI]. Fiyatlar değişmeden bilgi almak için bize yazın.'],
-  [30, '10:30', 'Merhaba {ad}, {proje} ile ilgili kararınızı verdiniz mi? Yardımcı olabileceğimiz bir konu varsa bize ulaşın.'],
+  [3, '10:30', 'Merhaba {ad}, {proje} projemizi hâlâ değerlendiriyor musunuz? Size özel sunum için randevu planlayabiliriz.'],
+  [5, '10:30', '{ad}, {proje} güncel fiyat ve ödeme seçenekleri: [FİYAT]. Detaylı bilgi için bize ulaşın.'],
+  [10, '10:30', '{ad}, {proje} projemizde sınırlı sayıda daire kaldı. Yerinde görmek ister misiniz? [LİNK]'],
+  [14, '10:30', '{ad}, {proje} için bu aya özel fırsat: [KAMPANYA]. Bilgi almak için bize yazın.'],
+  [30, '10:30', 'Merhaba {ad}, {proje} ile ilgili kararınızı verdiniz mi? Yardımcı olabileceğimiz bir konu var mı?'],
 ];
 
 const emptyCampaign = () => ({
@@ -49,22 +50,54 @@ const emptyCampaign = () => ({
   type: 'proje',
   project: '',
   description: '',
-  active: true,
-  bitrix_entity: '',
-  bitrix_stage: '',
+  active: false,
+  bitrix_entity: 'lead',
+  bitrix_stages: [],
   bitrix_project: '',
   steps: SAMPLE_STEPS.map(([day_offset, send_time, message]) => ({ day_offset, send_time, message })),
 });
 
-// Kampanyanın hangi Bitrix aşamasında otomatik başlayacağı.
-function BitrixTrigger({ form, set }) {
+function useBitrixStages(entity) {
   const [status, setStatus] = useState(null);
   const [stages, setStages] = useState([]);
-  const [projects, setProjects] = useState([]);
   useEffect(() => { api.get('/bitrix/status').then(setStatus, () => setStatus({ configured: false })); }, []);
   useEffect(() => {
-    if (!status?.configured || !form.bitrix_entity) return;
-    api.get(`/bitrix/stages?type=${form.bitrix_entity}`).then(setStages, () => setStages([]));
+    if (!status?.configured || !entity) return;
+    api.get(`/bitrix/stages?type=${entity}`).then(setStages, () => setStages([]));
+  }, [status, entity]);
+  return [status, stages];
+}
+
+// Bitrix statülerinden çoklu seçim; Bitrix bağlı değilse virgülle ayrılmış kod girişi.
+function StagePicker({ stages, value, onChange }) {
+  if (!stages.length) {
+    return (
+      <input
+        value={value.join(', ')}
+        placeholder="ör. UC_0RQEPM, UC_3CG0TQ"
+        onChange={(e) => onChange(e.target.value.split(',').map((x) => x.trim()).filter(Boolean))}
+      />
+    );
+  }
+  const toggle = (id) => onChange(value.includes(id) ? value.filter((v) => v !== id) : [...value, id]);
+  return (
+    <div className="stage-list">
+      {stages.map((s) => (
+        <label key={s.id} className="check">
+          <input type="checkbox" checked={value.includes(s.id)} onChange={() => toggle(s.id)} />
+          {s.name} <span className="hint">{s.id}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// Kampanyanın hangi Bitrix statülerinde otomatik başlayacağı.
+function BitrixTrigger({ form, set }) {
+  const [status, stages] = useBitrixStages(form.bitrix_entity);
+  const [projects, setProjects] = useState([]);
+  useEffect(() => {
+    if (!status?.configured || !form.bitrix_entity || !status.project_field) return;
     api.get(`/bitrix/project-options?type=${form.bitrix_entity}`).then(setProjects, () => setProjects([]));
   }, [status, form.bitrix_entity]);
 
@@ -72,42 +105,32 @@ function BitrixTrigger({ form, set }) {
     <>
       <h4>Bitrix tetikleyicisi</h4>
       <p className="hint">
-        Müşteri Bitrix'te seçilen aşamaya girdiği anda bu seri başlar; başka aşamaya geçince durur.
-        {status && !status.configured && ' (Sunucuda Bitrix bağlantısı tanımlı değil; değerleri elle girebilirsiniz.)'}
+        Müşteri seçilen statülerden birine girdiği anda seri başlar. Ara statülerde (ör. yapay zeka arıyor) devam eder;
+        Ayarlar'daki durdurma statülerine (randevu, satış, olumsuz…) veya başka bir projenin statüsüne geçince durur.
+        {status && !status.configured && ' (Sunucuda Bitrix bağlantısı tanımlı değil; statü kodlarını elle girebilirsiniz.)'}
       </p>
       <div className="row">
         <label>Kayıt türü
-          <select value={form.bitrix_entity || ''} onChange={(e) => set({ bitrix_entity: e.target.value, bitrix_stage: '', bitrix_project: '' })}>
+          <select value={form.bitrix_entity || ''} onChange={(e) => set({ bitrix_entity: e.target.value, bitrix_stages: [], bitrix_project: '' })}>
             <option value="">Bağlı değil (elle eklenir)</option>
-            <option value="deal">Anlaşma (Deal)</option>
             <option value="lead">Potansiyel müşteri (Lead)</option>
+            <option value="deal">Anlaşma (Deal)</option>
           </select>
         </label>
-        {form.bitrix_entity && (
-          <label>Aşama / statü
-            {stages.length ? (
-              <select value={form.bitrix_stage || ''} onChange={(e) => set({ bitrix_stage: e.target.value })} required>
-                <option value="">Seçin…</option>
-                {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            ) : (
-              <input value={form.bitrix_stage || ''} placeholder="ör. C3:NEW" onChange={(e) => set({ bitrix_stage: e.target.value })} required />
-            )}
-          </label>
-        )}
-        {form.bitrix_entity && (
+        {form.bitrix_entity && !!projects.length && (
           <label>Proje alanı değeri (opsiyonel)
-            {projects.length ? (
-              <select value={form.bitrix_project || ''} onChange={(e) => set({ bitrix_project: e.target.value })}>
-                <option value="">Tüm projeler</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            ) : (
-              <input value={form.bitrix_project || ''} onChange={(e) => set({ bitrix_project: e.target.value })} />
-            )}
+            <select value={form.bitrix_project || ''} onChange={(e) => set({ bitrix_project: e.target.value })}>
+              <option value="">Tüm projeler</option>
+              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
           </label>
         )}
       </div>
+      {form.bitrix_entity && (
+        <label>Seriyi başlatan statüler
+          <StagePicker stages={stages} value={form.bitrix_stages || []} onChange={(v) => set({ bitrix_stages: v })} />
+        </label>
+      )}
     </>
   );
 }
@@ -206,7 +229,7 @@ function Campaigns() {
             <tr key={c.id}>
               <td>{c.name}<div className="hint">{c.project || (c.type === 'proje' ? 'Proje' : 'Reklam')} · ID: {c.id}</div></td>
               <td>
-                {c.bitrix_entity ? `${c.bitrix_entity === 'deal' ? 'Deal' : 'Lead'} · ${c.bitrix_stage}` : <span className="hint">Elle</span>}
+                {c.bitrix_entity ? `${c.bitrix_entity === 'deal' ? 'Deal' : 'Lead'} · ${c.bitrix_stages.length} statü` : <span className="hint">Elle</span>}
                 {c.bitrix_project && <div className="hint">proje değeri: {c.bitrix_project}</div>}
               </td>
               <td>{c.steps.map((s) => `${s.day_offset}.`).join(' · ')} gün</td>
@@ -392,7 +415,42 @@ function Messages() {
 
 // ---------------- Uygulama ----------------
 
-const TABS = { campaigns: ['Kampanyalar', Campaigns], customers: ['Müşteriler', Customers], enrollments: ['Akışlar', Enrollments], messages: ['SMS geçmişi', Messages] };
+// ---------------- Ayarlar ----------------
+
+function Settings() {
+  const [, stages] = useBitrixStages('lead');
+  const [stop, setStop] = useState(null);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { api.get('/settings').then((s) => setStop(s.bitrix_stop_stages)); }, []);
+  if (!stop) return null;
+  const save = async () => {
+    const s = await api.put('/settings', { bitrix_stop_stages: stop });
+    setStop(s.bitrix_stop_stages);
+    setSaved(true);
+  };
+  return (
+    <div className="card">
+      <h3>Seriyi durduran Bitrix statüleri</h3>
+      <p className="hint">
+        Müşteri bu statülerden birine geçerse tüm SMS serileri durur (randevu aldı, satış oldu, olumsuz…).
+        İşaretlenmeyen ara statülerde seri devam eder.
+      </p>
+      <StagePicker stages={stages} value={stop} onChange={(v) => { setStop(v); setSaved(false); }} />
+      <div className="actions">
+        <button className="primary" onClick={save}>Kaydet</button>
+        {saved && <span className="hint">Kaydedildi.</span>}
+      </div>
+    </div>
+  );
+}
+
+const TABS = {
+  campaigns: ['Kampanyalar', Campaigns],
+  customers: ['Müşteriler', Customers],
+  enrollments: ['Akışlar', Enrollments],
+  messages: ['SMS geçmişi', Messages],
+  settings: ['Ayarlar', Settings],
+};
 
 export default function App() {
   const [tab, setTab] = useState('campaigns');

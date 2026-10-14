@@ -7,12 +7,14 @@ const { createScheduler } = require('../src/scheduler');
 // Bellekte sahte Bitrix24: deal'ler, contact'lar ve aşamalar.
 function fakeBitrix() {
   const deals = {};
+  const leads = {};
   const contacts = {
     7: { ID: '7', NAME: 'Mehmet', LAST_NAME: 'Kaya', PHONE: [{ VALUE: '0312 444 55 66' }, { VALUE: '+90 533 444 55 66' }], UF_IYS: 'Y' },
   };
   const client = {
     async call(method, params) {
       if (method === 'crm.deal.get') return { result: deals[params.id] };
+      if (method === 'crm.lead.get') return { result: leads[params.id] };
       if (method === 'crm.contact.get') return { result: contacts[params.id] };
       if (method === 'crm.category.list') return { result: { categories: [{ id: 0, name: 'Genel' }, { id: 1, name: 'Ankaport' }] } };
       if (method === 'crm.deal.fields') return { result: { UF_PROJE: { type: 'enumeration', items: [{ ID: '45', VALUE: 'Ankaport Saray' }, { ID: '46', VALUE: 'West Point' }] } } };
@@ -28,7 +30,7 @@ function fakeBitrix() {
       ];
     },
   };
-  return { client, deals, contacts };
+  return { client, deals, leads, contacts };
 }
 
 function setup() {
@@ -38,7 +40,7 @@ function setup() {
   const provider = { name: 'fake', async send(phone, body) { sent.push({ phone, body }); return { ref: 'x' }; } };
   const scheduler = createScheduler({ db, provider, now: () => clock.now, log: () => {} });
   const fb = fakeBitrix();
-  const config = { appToken: 'tok', projectField: 'UF_PROJE', consentField: 'UF_IYS', defaultConsent: false };
+  const config = { appToken: 'tok', projectField: 'UF_PROJE', consentField: 'UF_IYS', optOutField: 'UF_STOP', defaultConsent: false };
   const app = createApp({ db, scheduler, now: () => clock.now, bitrix: { client: fb.client, config, log: () => {} } });
   const server = app.listen(0);
   const base = `http://127.0.0.1:${server.address().port}/api`;
@@ -64,9 +66,9 @@ test('Bitrix aşamasına giren müşteriye o projenin serisi başlar, aşama de�
   const env = setup();
   t.after(env.close);
   const a = await env.json('POST', '/campaigns', { name: 'Ankaport - İlk görüşme', type: 'proje', project: 'Ankaport Saray',
-    bitrix_entity: 'deal', bitrix_stage: 'C1:NEW', bitrix_project: '45', steps: steps('ilk') });
+    bitrix_entity: 'deal', bitrix_stages: ['C1:NEW'], bitrix_project: '45', steps: steps('ilk') });
   const b = await env.json('POST', '/campaigns', { name: 'Ankaport - Teklif', type: 'proje', project: 'Ankaport Saray',
-    bitrix_entity: 'deal', bitrix_stage: 'C1:PREPARATION', bitrix_project: '45', steps: steps('teklif') });
+    bitrix_entity: 'deal', bitrix_stages: ['C1:PREPARATION', 'C1:PREPAYMENT'], bitrix_project: '45', steps: steps('teklif') });
   assert.strictEqual(a.status, 201);
 
   env.fb.deals[10] = { ID: '10', STAGE_ID: 'C1:NEW', CONTACT_ID: '7', UF_PROJE: '45' };
@@ -89,10 +91,24 @@ test('Bitrix aşamasına giren müşteriye o projenin serisi başlar, aşama de�
   let enr = (await env.json('GET', '/enrollments')).body;
   assert.deepStrictEqual(Object.fromEntries(enr.map((e) => [e.campaign_id, e.status])), { [a.body.id]: 'cancelled', [b.body.id]: 'active' });
 
-  // Satış kazanıldı (bağlı kampanya yok): seri durur.
+  // Aynı kampanyanın diğer statüsüne geçti: seri baştan başlamaz, devam eder.
+  env.fb.deals[10].STAGE_ID = 'C1:PREPAYMENT';
+  r = await env.hook('ONCRMDEALUPDATE', 10);
+  assert.deepStrictEqual([r.body.action, r.body.cancelled], ['enrolled', 0]);
+  await env.scheduler.tick();
+  assert.strictEqual(env.sent.length, 2);
+
+  // Kampanyasız ara statü (ör. "yapay zeka arıyor"): seri devam eder.
+  env.fb.deals[10].STAGE_ID = 'C1:CALLING';
+  r = await env.hook('ONCRMDEALUPDATE', 10);
+  assert.deepStrictEqual([r.body.action, r.body.cancelled], ['no-campaign', 0]);
+  assert.strictEqual((await env.json('GET', '/enrollments?status=active')).body.length, 1);
+
+  // Durdurma statüsü (satış): seri durur.
+  await env.json('PUT', '/settings', { bitrix_stop_stages: ['C1:WON', 'C1:LOSE'] });
   env.fb.deals[10].STAGE_ID = 'C1:WON';
   r = await env.hook('ONCRMDEALUPDATE', 10);
-  assert.deepStrictEqual([r.body.action, r.body.cancelled], ['no-campaign', 1]);
+  assert.deepStrictEqual([r.body.action, r.body.cancelled], ['stopped', 1]);
   enr = (await env.json('GET', '/enrollments?status=active')).body;
   assert.strictEqual(enr.length, 0);
 });
@@ -100,7 +116,7 @@ test('Bitrix aşamasına giren müşteriye o projenin serisi başlar, aşama de�
 test('farklı proje, telefonsuz kayıt, izinsiz kişi ve yanlış anahtar', async (t) => {
   const env = setup();
   t.after(env.close);
-  await env.json('POST', '/campaigns', { name: 'A', bitrix_entity: 'deal', bitrix_stage: 'C1:NEW', bitrix_project: '45', steps: steps('x') });
+  await env.json('POST', '/campaigns', { name: 'A', bitrix_entity: 'deal', bitrix_stages: ['C1:NEW'], bitrix_project: '45', steps: steps('x') });
 
   env.fb.deals[20] = { ID: '20', STAGE_ID: 'C1:NEW', CONTACT_ID: '7', UF_PROJE: '46' };
   assert.strictEqual((await env.hook('ONCRMDEALADD', 20)).body.action, 'no-campaign');
@@ -128,4 +144,43 @@ test('panel için aşama ve proje listeleri', async (t) => {
   assert.strictEqual((await env.json('GET', '/bitrix/project-options?type=deal')).body[1].name, 'West Point');
   const bad = await env.json('POST', '/campaigns', { name: 'X', bitrix_entity: 'deal', steps: [] });
   assert.strictEqual(bad.status, 400);
+});
+
+test('lead: telefon bağlı kişiden alınır, "bir daha aranmasın" seriyi başlatmaz', async (t) => {
+  const env = setup();
+  t.after(env.close);
+  await env.json('POST', '/campaigns', { name: 'Ankaport', project: 'Ankaport', bitrix_entity: 'lead', bitrix_stages: ['UC_0RQEPM'], steps: steps('x') });
+  env.fb.leads[5] = { ID: '5', STATUS_ID: 'UC_0RQEPM', TITLE: 'Facebook form', HAS_PHONE: 'N', CONTACT_ID: '7' };
+  const r = await env.hook('ONCRMLEADADD', 5);
+  assert.strictEqual(r.body.action, 'enrolled');
+  await env.scheduler.tick();
+  assert.deepStrictEqual(env.sent, [{ phone: '5334445566', body: 'Merhaba Mehmet, Ankaport x' }]);
+
+  env.fb.leads[6] = { ID: '6', STATUS_ID: 'UC_0RQEPM', NAME: 'Ali', PHONE: [{ VALUE: '05557778899' }], UF_STOP: '1' };
+  assert.strictEqual((await env.hook('ONCRMLEADADD', 6)).body.action, 'stopped');
+});
+
+test('doldurulmamış [ALAN] içeren kampanya aktif edilemez', async (t) => {
+  const env = setup();
+  t.after(env.close);
+  const bad = { name: 'F', steps: [{ day_offset: 5, send_time: '10:30', message: 'Fiyat: [FİYAT]' }] };
+  const r = await env.json('POST', '/campaigns', bad);
+  assert.strictEqual(r.status, 400);
+  assert.match(r.body.error, /\[FİYAT\]/);
+  const draft = await env.json('POST', '/campaigns', { ...bad, active: false });
+  assert.strictEqual(draft.status, 201);
+  assert.strictEqual((await env.json('PUT', `/campaigns/${draft.body.id}`, { active: true })).status, 400);
+});
+
+test('XRE kurulumu pasif kampanyaları ve durdurma statülerini oluşturur, tekrar çalışınca çoğaltmaz', () => {
+  const { run, PROJECTS } = require('../scripts/xre-kurulum');
+  const db = openDb(':memory:');
+  run(db, () => {});
+  run(db, () => {});
+  const rows = db.prepare('SELECT * FROM campaigns').all();
+  assert.strictEqual(rows.length, PROJECTS.length);
+  assert.ok(rows.every((r) => r.active === 0 && r.bitrix_entity === 'lead'));
+  const days = db.prepare('SELECT day_offset FROM campaign_steps WHERE campaign_id = ? ORDER BY day_offset').all(rows[0].id).map((r) => r.day_offset);
+  assert.deepStrictEqual(days, [3, 5, 10, 14, 30]);
+  assert.ok(db.prepare(`SELECT value FROM settings WHERE key = 'bitrix_stop_stages'`).get().value.includes('UC_I8G5YP'));
 });

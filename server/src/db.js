@@ -56,6 +56,12 @@ CREATE TABLE IF NOT EXISTS messages (
   UNIQUE (enrollment_id, step_id)
 );
 
+-- Genel ayarlar (ör. seriyi durduran Bitrix statüleri).
+CREATE TABLE IF NOT EXISTS settings (
+  key   TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 -- Bitrix kayıtlarının (lead/deal) son görülen aşaması: aşama değişmediyse akış yeniden başlatılmaz.
 CREATE TABLE IF NOT EXISTS bitrix_state (
   entity     TEXT PRIMARY KEY,
@@ -69,7 +75,7 @@ const COLUMNS = {
   campaigns: {
     project: 'TEXT',
     bitrix_entity: "TEXT CHECK (bitrix_entity IN ('lead', 'deal'))",
-    bitrix_stage: 'TEXT',
+    bitrix_stages: 'TEXT', // JSON dizi: kampanyayı başlatan statüler
     bitrix_project: 'TEXT',
   },
   enrollments: { source: 'TEXT' },

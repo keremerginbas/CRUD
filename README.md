@@ -34,10 +34,20 @@ Testler: `npm run server:test`
 
 ## Bitrix24 entegrasyonu (statüye göre otomatik SMS)
 
-Her kampanya bir **Bitrix aşamasına** (deal stage veya lead statüsü) ve istenirse bir **proje alanı değerine** bağlanır.
-Müşteri Bitrix'te o aşamaya girdiği anda kampanyanın SMS serisi başlar (ör. hemen "projemiz hakkında ne düşünüyorsunuz?",
-3. gün "hâlâ değerlendiriyor musunuz?", 5. gün fiyat bilgisi…). Müşteri başka bir aşamaya geçince eski seri durur;
-yeni aşamaya bağlı bir kampanya varsa o başlar. Kazanıldı/kaybedildi gibi kampanya bağlanmamış aşamalarda seri sadece durur.
+Her kampanya bir veya birden fazla **Bitrix statüsüne** (lead statüsü veya deal aşaması) bağlanır.
+Müşteri o statülerden birine girdiği anda kampanyanın SMS serisi başlar (3. gün "hâlâ değerlendiriyor musunuz?",
+5. gün fiyat bilgisi…). Sonrasında:
+
+- Aynı kampanyanın başka statüsüne geçerse (ör. DİDİM-AKBÜK GELEN → DİDİM-AKBÜK-ARANANLAR) seri **devam eder**.
+- Kampanyası olmayan ara statüye geçerse (ör. YAPAY ZEKA ARIYOR) seri **devam eder**.
+- **Ayarlar**'daki durdurma statülerine (randevu, satış, olumsuz…) geçerse seri **durur**.
+- Başka bir projenin statüsüne geçerse eski seri durur, yenisi başlar.
+
+Lead'de telefon yoksa bağlı kişi (contact) kaydındaki cep telefonu kullanılır.
+
+**XRE hazır kurulum:** `npm --prefix server run kurulum` 10 projenin (West Point, Ankaport, Didim Akbük, EFAS N-Tepe…)
+serisini Bitrix statü kodlarıyla ve durdurma statülerini oluşturur. Kampanyalar **pasif** oluşur; `[FİYAT]`, `[LİNK]`,
+`[KAMPANYA]` alanları doldurulmadan aktif edilemez.
 
 Kurulum:
 1. Bitrix'te **Gelen webhook** oluşturun (CRM izni) ve URL'yi `BITRIX_WEBHOOK_URL`'ye yazın.
@@ -45,7 +55,10 @@ Kurulum:
    `ONCRMDEALADD`, `ONCRMDEALUPDATE` (lead kullanıyorsanız `ONCRMLEADADD`, `ONCRMLEADUPDATE`). Verilen uygulama anahtarını `BITRIX_APP_TOKEN`'a yazın.
 3. Projeler (West Point, Ankaport…) ayrı **pipeline** ise ek ayar gerekmez; aşama listesinde "Ankaport › Yeni müşteri" gibi görünür.
    Projeler bir **özel alanda** tutuluyorsa alan kodunu `BITRIX_PROJECT_FIELD`'a yazın.
-4. Panelde kampanya oluştururken "Bitrix tetikleyicisi" bölümünden aşamayı (ve gerekiyorsa projeyi) seçin.
+4. Panelde kampanya oluştururken "Bitrix tetikleyicisi" bölümünden statüleri seçin; Ayarlar sekmesinden durdurma statülerini işaretleyin.
+
+Not: Webhook yalnızca yeni girişleri ve statü değişikliklerini yakalar; Bitrix'te halihazırda bu statülerde bekleyen lead'ler
+otomatik olarak seriye alınmaz.
 
 Telefon, deal'e bağlı kişinin (contact) ilk geçerli cep numarasından alınır. Test için: `POST /api/bitrix/sync {"type":"deal","id":123}`.
 
