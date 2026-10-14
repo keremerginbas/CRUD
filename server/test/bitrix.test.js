@@ -178,17 +178,25 @@ test('doldurulmamış [ALAN] içeren kampanya aktif edilemez', async (t) => {
 });
 
 test('XRE kurulumu pasif kampanyaları ve durdurma statülerini oluşturur, tekrar çalışınca çoğaltmaz', () => {
-  const { run, PROJECTS } = require('../scripts/xre-kurulum');
+  const { run, PROJECTS, GENERIC } = require('../scripts/xre-kurulum');
   const db = openDb(':memory:');
   run(db, () => {});
+  // Eski kurulumdan kalmış 14. gün adımı tekrar çalıştırınca silinir; elle eklenen 7. gün korunur.
+  db.exec(`INSERT INTO campaign_steps (campaign_id, day_offset, send_time, message) VALUES (1, 14, '10:30', 'eski'), (1, 7, '10:30', 'elle')`);
   run(db, () => {});
+  assert.deepStrictEqual(db.prepare('SELECT day_offset FROM campaign_steps WHERE campaign_id = 1 ORDER BY day_offset').all().map((r) => r.day_offset), [3, 5, 7, 10]);
+  db.exec('DELETE FROM campaign_steps WHERE campaign_id = 1 AND day_offset = 7');
   const rows = db.prepare('SELECT * FROM campaigns').all();
-  assert.strictEqual(rows.length, PROJECTS.length);
+  assert.strictEqual(rows.length, PROJECTS.length + GENERIC.length);
   assert.ok(rows.every((r) => r.active === 0 && r.bitrix_entity === 'lead'));
   const msgs = db.prepare('SELECT message FROM campaign_steps').all().map((r) => r.message);
   assert.ok(msgs.every((m) => !/\[[^\]]+\]/.test(m)), 'doldurulmamış alan kalmamalı');
   const days = db.prepare('SELECT day_offset FROM campaign_steps WHERE campaign_id = ? ORDER BY day_offset').all(rows[0].id).map((r) => r.day_offset);
-  assert.deepStrictEqual(days, [3, 5, 10, 14, 30]);
+  assert.deepStrictEqual(days, [3, 5, 10]);
+  const generic = rows.find((r) => r.name === 'Reklamdan Gelen - Genel seri');
+  assert.strictEqual(generic.bitrix_stages, '["UC_I0U6EY"]');
+  const gmsgs = db.prepare('SELECT message FROM campaign_steps WHERE campaign_id = ?').all(generic.id).map((r) => r.message);
+  assert.ok(gmsgs.every((m) => !m.includes('{proje}') && m.length <= 160), 'genel seri proje adı içermemeli, 1 SMS olmalı');
   assert.ok(db.prepare(`SELECT value FROM settings WHERE key = 'bitrix_stop_stages'`).get().value.includes('UC_I8G5YP'));
 });
 
