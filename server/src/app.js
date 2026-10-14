@@ -1,0 +1,301 @@
+const express = require('express');
+const path = require('node:path');
+const fs = require('node:fs');
+const { computeDueAt, normalizePhone, todayInTurkey, isValidTime, isValidDate } = require('./schedule');
+const { enrollmentPlan } = require('./scheduler');
+
+class HttpError extends Error {
+  constructor(status, message) { super(message); this.status = status; }
+}
+
+const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+function validateSteps(steps) {
+  if (!Array.isArray(steps)) throw new HttpError(400, 'steps bir liste olmalı');
+  const seen = new Set();
+  return steps.map((s) => {
+    const day = Number(s.day_offset);
+    const time = s.send_time || '10:00';
+    const message = String(s.message || '').trim();
+    if (!Number.isInteger(day) || day < 0) throw new HttpError(400, `Geçersiz gün: ${s.day_offset}`);
+    if (seen.has(day)) throw new HttpError(400, `${day}. gün birden fazla kez tanımlanmış`);
+    if (!isValidTime(time)) throw new HttpError(400, `Geçersiz saat: ${time} (SS:DD olmalı)`);
+    if (!message) throw new HttpError(400, `${day}. gün için mesaj boş olamaz`);
+    seen.add(day);
+    return { day_offset: day, send_time: time, message };
+  }).sort((a, b) => a.day_offset - b.day_offset);
+}
+
+function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => new Date() }) {
+  const app = express();
+  app.use(express.json());
+  const api = express.Router();
+
+  // ---------- Kampanyalar (reklam / proje) ----------
+  const getCampaign = (id) => {
+    const campaign = db.prepare('SELECT * FROM campaigns WHERE id = ?').get(id);
+    if (!campaign) throw new HttpError(404, 'Kampanya bulunamadı');
+    campaign.steps = db.prepare('SELECT * FROM campaign_steps WHERE campaign_id = ? ORDER BY day_offset').all(id);
+    return campaign;
+  };
+
+  // Mevcut adımları gün bazında günceller; böylece gönderilmiş mesaj kayıtları korunur.
+  const saveSteps = (campaignId, steps) => {
+    const existing = db.prepare('SELECT id, day_offset FROM campaign_steps WHERE campaign_id = ?').all(campaignId);
+    const wanted = new Set(steps.map((s) => s.day_offset));
+    for (const e of existing) {
+      if (!wanted.has(e.day_offset)) db.prepare('DELETE FROM campaign_steps WHERE id = ?').run(e.id);
+    }
+    const upsert = db.prepare(`
+      INSERT INTO campaign_steps (campaign_id, day_offset, send_time, message) VALUES (?, ?, ?, ?)
+      ON CONFLICT (campaign_id, day_offset) DO UPDATE SET send_time = excluded.send_time, message = excluded.message
+    `);
+    for (const s of steps) upsert.run(campaignId, s.day_offset, s.send_time, s.message);
+  };
+
+  const transaction = (fn) => {
+    db.exec('BEGIN');
+    try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; }
+  };
+
+  api.get('/campaigns', (req, res) => {
+    const campaigns = db.prepare(`
+      SELECT k.*,
+        (SELECT COUNT(*) FROM campaign_steps s WHERE s.campaign_id = k.id) AS step_count,
+        (SELECT COUNT(*) FROM enrollments e WHERE e.campaign_id = k.id AND e.status = 'active') AS active_count
+      FROM campaigns k ORDER BY k.id DESC
+    `).all();
+    for (const c of campaigns) {
+      c.steps = db.prepare('SELECT * FROM campaign_steps WHERE campaign_id = ? ORDER BY day_offset').all(c.id);
+    }
+    res.json(campaigns);
+  });
+
+  api.get('/campaigns/:id', (req, res) => res.json(getCampaign(req.params.id)));
+
+  api.post('/campaigns', (req, res) => {
+    const { name, type = 'reklam', description = null, active = true, steps = [] } = req.body;
+    if (!name || !String(name).trim()) throw new HttpError(400, 'Kampanya adı gerekli');
+    if (!['reklam', 'proje'].includes(type)) throw new HttpError(400, 'Tür "reklam" veya "proje" olmalı');
+    const clean = validateSteps(steps);
+    const id = transaction(() => {
+      const { lastInsertRowid } = db.prepare('INSERT INTO campaigns (name, type, description, active) VALUES (?, ?, ?, ?)')
+        .run(String(name).trim(), type, description, active ? 1 : 0);
+      saveSteps(lastInsertRowid, clean);
+      return lastInsertRowid;
+    });
+    res.status(201).json(getCampaign(id));
+  });
+
+  api.put('/campaigns/:id', (req, res) => {
+    const current = getCampaign(req.params.id);
+    const { name = current.name, type = current.type, description = current.description, active = current.active, steps } = req.body;
+    if (!['reklam', 'proje'].includes(type)) throw new HttpError(400, 'Tür "reklam" veya "proje" olmalı');
+    const clean = steps === undefined ? null : validateSteps(steps);
+    transaction(() => {
+      db.prepare('UPDATE campaigns SET name = ?, type = ?, description = ?, active = ? WHERE id = ?')
+        .run(name, type, description, active ? 1 : 0, current.id);
+      if (clean) saveSteps(current.id, clean);
+    });
+    res.json(getCampaign(current.id));
+  });
+
+  api.delete('/campaigns/:id', (req, res) => {
+    getCampaign(req.params.id);
+    db.prepare('DELETE FROM campaigns WHERE id = ?').run(req.params.id);
+    res.status(204).end();
+  });
+
+  // ---------- Müşteriler ----------
+  const getCustomer = (id) => {
+    const c = db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
+    if (!c) throw new HttpError(404, 'Müşteri bulunamadı');
+    return c;
+  };
+
+  const upsertCustomer = ({ name, phone, consent, note }) => {
+    const normalized = normalizePhone(phone);
+    if (!normalized) throw new HttpError(400, `Geçersiz cep telefonu: ${phone}`);
+    if (!name || !String(name).trim()) throw new HttpError(400, 'Müşteri adı gerekli');
+    const existing = db.prepare('SELECT * FROM customers WHERE phone = ?').get(normalized);
+    if (existing) {
+      // RET demiş müşterinin izni form tekrar doldurulsa bile otomatik açılmaz.
+      db.prepare('UPDATE customers SET name = ?, consent = MAX(consent, ?), note = COALESCE(?, note) WHERE id = ?')
+        .run(String(name).trim(), consent ? 1 : 0, note ?? null, existing.id);
+      return getCustomer(existing.id);
+    }
+    const { lastInsertRowid } = db.prepare('INSERT INTO customers (name, phone, consent, note) VALUES (?, ?, ?, ?)')
+      .run(String(name).trim(), normalized, consent ? 1 : 0, note ?? null);
+    return getCustomer(lastInsertRowid);
+  };
+
+  const enroll = (customerId, campaignId, startDate) => {
+    getCustomer(customerId);
+    getCampaign(campaignId);
+    const start = startDate || todayInTurkey(now());
+    if (!isValidDate(start)) throw new HttpError(400, `Geçersiz başlangıç tarihi: ${start}`);
+    const existing = db.prepare('SELECT * FROM enrollments WHERE customer_id = ? AND campaign_id = ?').get(customerId, campaignId);
+    if (existing) {
+      if (existing.status === 'active') return existing;
+      // Tamamlanmış/iptal kaydı yeniden başlatılıyor: eski mesaj geçmişi sıfırlanır.
+      transaction(() => {
+        db.prepare('DELETE FROM messages WHERE enrollment_id = ?').run(existing.id);
+        db.prepare(`UPDATE enrollments SET start_date = ?, status = 'active' WHERE id = ?`).run(start, existing.id);
+      });
+      return db.prepare('SELECT * FROM enrollments WHERE id = ?').get(existing.id);
+    }
+    const { lastInsertRowid } = db.prepare('INSERT INTO enrollments (customer_id, campaign_id, start_date) VALUES (?, ?, ?)')
+      .run(customerId, campaignId, start);
+    return db.prepare('SELECT * FROM enrollments WHERE id = ?').get(lastInsertRowid);
+  };
+
+  api.get('/customers', (req, res) => {
+    const q = `%${req.query.q || ''}%`;
+    res.json(db.prepare(`
+      SELECT c.*, (SELECT COUNT(*) FROM enrollments e WHERE e.customer_id = c.id AND e.status = 'active') AS active_count
+      FROM customers c WHERE c.name LIKE ? OR c.phone LIKE ? ORDER BY c.id DESC
+    `).all(q, q));
+  });
+
+  api.post('/customers', (req, res) => {
+    const { campaign_id, start_date } = req.body;
+    const customer = transaction(() => {
+      const c = upsertCustomer(req.body);
+      if (campaign_id) enroll(c.id, campaign_id, start_date);
+      return c;
+    });
+    res.status(201).json(customer);
+  });
+
+  api.put('/customers/:id', (req, res) => {
+    const current = getCustomer(req.params.id);
+    const { name = current.name, phone = current.phone, consent = current.consent, opted_out = current.opted_out, note = current.note } = req.body;
+    const normalized = normalizePhone(phone);
+    if (!normalized) throw new HttpError(400, `Geçersiz cep telefonu: ${phone}`);
+    try {
+      db.prepare('UPDATE customers SET name = ?, phone = ?, consent = ?, opted_out = ?, note = ? WHERE id = ?')
+        .run(name, normalized, consent ? 1 : 0, opted_out ? 1 : 0, note, current.id);
+    } catch (e) {
+      if (String(e.message).includes('UNIQUE')) throw new HttpError(409, 'Bu telefon başka bir müşteride kayıtlı');
+      throw e;
+    }
+    res.json(getCustomer(current.id));
+  });
+
+  api.delete('/customers/:id', (req, res) => {
+    getCustomer(req.params.id);
+    db.prepare('DELETE FROM customers WHERE id = ?').run(req.params.id);
+    res.status(204).end();
+  });
+
+  // RET: müşterinin tüm aktif akışları durdurulur.
+  api.post('/opt-out', (req, res) => {
+    const phone = normalizePhone(req.body.phone);
+    const customer = phone && db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone);
+    if (!customer) throw new HttpError(404, 'Bu numarayla kayıtlı müşteri yok');
+    transaction(() => {
+      db.prepare('UPDATE customers SET opted_out = 1 WHERE id = ?').run(customer.id);
+      db.prepare(`UPDATE enrollments SET status = 'cancelled' WHERE customer_id = ? AND status = 'active'`).run(customer.id);
+    });
+    res.json(getCustomer(customer.id));
+  });
+
+  // ---------- Kayıtlar (müşteri x kampanya) ----------
+  api.get('/enrollments', (req, res) => {
+    const where = [];
+    const params = [];
+    if (req.query.campaign_id) { where.push('e.campaign_id = ?'); params.push(req.query.campaign_id); }
+    if (req.query.customer_id) { where.push('e.customer_id = ?'); params.push(req.query.customer_id); }
+    if (req.query.status) { where.push('e.status = ?'); params.push(req.query.status); }
+    const rows = db.prepare(`
+      SELECT e.*, c.name AS customer_name, c.phone, c.consent, c.opted_out, k.name AS campaign_name, k.active AS campaign_active
+      FROM enrollments e JOIN customers c ON c.id = e.customer_id JOIN campaigns k ON k.id = e.campaign_id
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY e.id DESC
+    `).all(...params);
+    for (const r of rows) {
+      r.plan = enrollmentPlan(db, r.id).map((s) => ({
+        day_offset: s.day_offset,
+        due_at: computeDueAt(r.start_date, s.day_offset, s.send_time).toISOString(),
+        status: s.status || 'pending',
+        attempts: s.attempts || 0,
+        error: s.error,
+      }));
+    }
+    res.json(rows);
+  });
+
+  api.post('/enrollments', (req, res) => {
+    const { customer_id, campaign_id, start_date } = req.body;
+    res.status(201).json(enroll(customer_id, campaign_id, start_date));
+  });
+
+  api.post('/enrollments/:id/cancel', (req, res) => {
+    const r = db.prepare(`UPDATE enrollments SET status = 'cancelled' WHERE id = ? AND status = 'active'`).run(req.params.id);
+    if (!r.changes) throw new HttpError(404, 'Aktif kayıt bulunamadı');
+    res.json(db.prepare('SELECT * FROM enrollments WHERE id = ?').get(req.params.id));
+  });
+
+  // ---------- Dış entegrasyon: reklam formundan gelen lead ----------
+  // Meta/Google lead formu, web sitesi formu, n8n/Zapier vb. buraya POST eder.
+  api.post('/leads', (req, res) => {
+    if (apiKey && req.get('x-api-key') !== apiKey) throw new HttpError(401, 'Geçersiz API anahtarı');
+    const { name, phone, campaign_id, consent, start_date, note } = req.body;
+    if (!campaign_id) throw new HttpError(400, 'campaign_id gerekli');
+    const result = transaction(() => {
+      const customer = upsertCustomer({ name, phone, consent, note });
+      return { customer, enrollment: enroll(customer.id, campaign_id, start_date) };
+    });
+    res.status(201).json(result);
+  });
+
+  // ---------- Mesaj geçmişi / zamanlayıcı ----------
+  api.get('/messages', (req, res) => {
+    const limit = Math.min(Number(req.query.limit) || 200, 1000);
+    const params = [];
+    let where = '';
+    if (req.query.status) { where = 'WHERE m.status = ?'; params.push(req.query.status); }
+    res.json(db.prepare(`
+      SELECT m.*, s.day_offset, c.name AS customer_name, k.name AS campaign_name
+      FROM messages m
+      JOIN enrollments e ON e.id = m.enrollment_id
+      JOIN customers c ON c.id = e.customer_id
+      JOIN campaigns k ON k.id = e.campaign_id
+      JOIN campaign_steps s ON s.id = m.step_id
+      ${where} ORDER BY m.updated_at DESC LIMIT ${limit}
+    `).all(...params));
+  });
+
+  api.get('/stats', (req, res) => {
+    const count = (sql) => db.prepare(sql).get().n;
+    res.json({
+      campaigns: count('SELECT COUNT(*) n FROM campaigns WHERE active = 1'),
+      customers: count('SELECT COUNT(*) n FROM customers'),
+      active_enrollments: count(`SELECT COUNT(*) n FROM enrollments WHERE status = 'active'`),
+      sent: count(`SELECT COUNT(*) n FROM messages WHERE status = 'sent'`),
+      failed: count(`SELECT COUNT(*) n FROM messages WHERE status = 'failed'`),
+    });
+  });
+
+  api.post('/scheduler/run', wrap(async (req, res) => res.json(await scheduler.tick())));
+
+  app.use('/api', api);
+
+  // Üretimde React build'ini aynı sunucudan servis et.
+  const buildDir = path.join(__dirname, '..', '..', 'build');
+  if (fs.existsSync(buildDir)) {
+    app.use(express.static(buildDir));
+    app.get('*', (req, res) => res.sendFile(path.join(buildDir, 'index.html')));
+  }
+
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    const status = err.status || (err.type === 'entity.parse.failed' ? 400 : 500);
+    if (status === 500) console.error(err);
+    res.status(status).json({ error: status === 500 ? 'Sunucu hatası' : err.message });
+  });
+
+  return app;
+}
+
+module.exports = { createApp };

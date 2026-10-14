@@ -1,5 +1,5 @@
 {
-  "name": "yeni-proje",
+  "name": "sms-otomasyon",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -15,12 +15,13 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "server": "npm --prefix server start",
+    "server:test": "npm --prefix server test",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
     "extends": [
-      "react-app",
-      "react-app/jest"
+      "react-app"
     ]
   },
   "browserslist": {
@@ -34,5 +35,6 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
-  }
+  },
+  "proxy": "http://localhost:4000"
 }

@@ -1,70 +1,60 @@
-# Getting Started with Create React App
+# SMS Otomasyonu
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Her reklam veya proje için müşterilere belirli günlerde (ör. **3. – 5. – 10. – 14. – 30. gün**) otomatik SMS gönderen sistem.
 
-## Available Scripts
+- **Kampanya**: Reklam veya proje. Her kampanyanın kendi SMS adımları var (gün + saat + mesaj).
+- **Müşteri**: Ad, cep telefonu, SMS izni (İYS onayı), RET durumu.
+- **Akış**: Müşteri bir kampanyaya eklendiği an akış başlar. Gün 0 = eklendiği gün; "3. gün" = 3 gün sonra, adımın saatinde.
+- **Zamanlayıcı**: Sunucu her dakika zamanı gelen SMS'leri gönderir. Hata olursa 3 kez dener. Zamanı 24 saatten fazla geçmiş adımlar (sunucu kapalıyken kaçırılan ya da eski müşterilere sonradan eklenen adımlar) gönderilmez, "atlandı" olarak işaretlenir.
 
-In the project directory, you can run:
+Mesajlarda `{ad}`, `{adsoyad}`, `{kampanya}` değişkenleri kullanılabilir.
 
-### `npm start`
+## Çalıştırma
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+Node.js 22.9+ gerekir (veritabanı olarak dahili SQLite kullanılır).
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```bash
+npm install && npm --prefix server install
+cp server/.env.example server/.env   # SMS sağlayıcı bilgilerini girin
 
-### `npm test`
+npm run server   # API + zamanlayıcı  -> http://localhost:4000
+npm start        # Yönetim paneli (geliştirme) -> http://localhost:3000
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Üretimde `npm run build` sonrası sadece `npm run server` yeterli; panel de 4000 portundan servis edilir.
 
-### `npm run build`
+`SMS_PROVIDER=console` iken SMS gönderilmez, mesajlar sunucu loguna yazılır. Gerçek gönderim için `SMS_PROVIDER=netgsm` ve Netgsm bilgilerini girin.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Testler: `npm run server:test`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Reklam formlarından otomatik müşteri ekleme
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Meta/Google lead formu, web sitesi formu veya n8n/Zapier şu uç noktaya POST ederek müşteriyi ekleyip akışı başlatabilir:
 
-### `npm run eject`
+```bash
+curl -X POST http://localhost:4000/api/leads \
+  -H 'content-type: application/json' -H 'x-api-key: <API_KEY>' \
+  -d '{"name":"Ayşe Yılmaz","phone":"0532 111 22 33","campaign_id":1,"consent":true}'
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Aynı telefon tekrar gelirse yeni müşteri açılmaz; mevcut müşteri kampanyaya eklenir.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Yasal notlar (İYS / 6563 sayılı Kanun)
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- Ticari SMS yalnızca **onayı olan** ve **İYS'de kayıtlı** alıcılara gönderilebilir. Sistem, izni işaretlenmemiş müşteriye SMS göndermez; Netgsm tarafında da `iysfilter` ile İYS kontrolü yapılır.
+- Müşteri RET dediğinde paneldeki **RET** butonu (veya `POST /api/opt-out {"phone": "..."}`) tüm akışlarını durdurur.
+- Mesajlarda ret bilgisi (ör. "SMS almamak için RET yazıp XXXX'e gönderin") bulunmalıdır.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## API özeti
 
-## Learn More
+| Uç nokta | Açıklama |
+| --- | --- |
+| `GET/POST /api/campaigns`, `GET/PUT/DELETE /api/campaigns/:id` | Kampanyalar ve adımları (`steps: [{day_offset, send_time, message}]`) |
+| `GET/POST /api/customers`, `PUT/DELETE /api/customers/:id` | Müşteriler (`campaign_id` verilirse akış da başlar) |
+| `GET/POST /api/enrollments`, `POST /api/enrollments/:id/cancel` | Akışlar ve her adımın planlanan zamanı/durumu |
+| `POST /api/leads` | Dış entegrasyon (API anahtarı ile) |
+| `POST /api/opt-out` | RET |
+| `GET /api/messages`, `GET /api/stats` | Gönderim geçmişi ve özet |
+| `POST /api/scheduler/run` | Zamanlayıcıyı elle tetikle |
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+> Yönetim paneli ve API'de kullanıcı girişi yoktur; sunucuyu internete açarken önüne kimlik doğrulama (VPN, reverse proxy basic auth vb.) koyun.
