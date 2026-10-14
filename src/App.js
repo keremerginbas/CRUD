@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, formatDate } from './api';
+import { api, API_BASE, formatDate } from './api';
 
 const STATUS_LABELS = {
   pending: 'Bekliyor',
@@ -457,7 +457,7 @@ function LiveTest() {
     e.preventDefault();
     if (!window.confirm(`${sms.phone} numarasına gerçek SMS gönderilecek. Devam edilsin mi?`)) return;
     setSmsResult('Gönderiliyor…');
-    fetch('/api/test-sms', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sms) })
+    fetch(`${API_BASE}/test-sms`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sms) })
       .then((r) => r.json()).then(show(setSmsResult), fail(setSmsResult));
   };
   const syncLead = (e) => {

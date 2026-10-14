@@ -56,3 +56,17 @@ test('test SMS: sağlayıcı yanıtını döner, hatayı 502 ile bildirir', asyn
   assert.strictEqual((await post({ phone: '5321112233', message: 'x' })).status, 502);
   assert.strictEqual((await post({ phone: '123', message: 'x' })).status, 400);
 });
+
+test('BASE_PATH=/sms: önekli ve öneksiz istekler aynı rotaya gider, kimlik doğrulama korunur', async (t) => {
+  const db = openDb(':memory:');
+  const scheduler = createScheduler({ db, provider: { send: async () => ({}) }, log: () => {} });
+  const s = serve(createApp({ db, scheduler, basePath: '/sms', panelPassword: 'p' }));
+  t.after(s.close);
+  const ok = { authorization: `Basic ${Buffer.from('admin:p').toString('base64')}` };
+  assert.strictEqual((await fetch(`${s.base}/sms/api/stats`, { headers: ok })).status, 200);
+  assert.strictEqual((await fetch(`${s.base}/api/stats`, { headers: ok })).status, 200);
+  assert.strictEqual((await fetch(`${s.base}/sms/api/stats`)).status, 401);
+  assert.strictEqual((await fetch(`${s.base}/sms/api/bitrix/webhook`, { method: 'POST' })).status, 503);
+  const r = await fetch(`${s.base}/sms`, { headers: ok, redirect: 'manual' });
+  assert.deepStrictEqual([r.status, r.headers.get('location')], [301, '/sms/']);
+});

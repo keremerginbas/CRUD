@@ -52,9 +52,19 @@ const parseCampaign = (c) => c && { ...c, bitrix_stages: c.bitrix_stages ? JSON.
 function createApp({
   db, scheduler, provider = null, bitrix = null, now = () => new Date(),
   apiKey = process.env.API_KEY,
+  basePath = process.env.BASE_PATH,
   panelUser = process.env.PANEL_USER, panelPassword = process.env.PANEL_PASSWORD,
 }) {
   const app = express();
+  // Alt yolda yayın (ör. BASE_PATH=/sms): Passenger öneki iletse de iletmese de rotalar aynı çalışır.
+  const base = (basePath || '').replace(/\/+$/, '');
+  if (base) {
+    app.use((req, res, next) => {
+      if (req.url === base) return res.redirect(301, `${base}/`);
+      if (req.url.startsWith(`${base}/`)) req.url = req.url.slice(base.length);
+      next();
+    });
+  }
   // Panel ve API için basit giriş (tarayıcı kullanıcı adı/şifre sorar). Webhook ve lead uç noktaları
   // kendi anahtarlarıyla korunduğu için hariç.
   if (panelPassword) {

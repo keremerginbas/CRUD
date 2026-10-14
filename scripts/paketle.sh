@@ -2,7 +2,9 @@
 # cPanel'e yüklenecek zip'i hazırlar: React build + server (node_modules, veritabanı ve .env hariç).
 set -euo pipefail
 cd "$(dirname "$0")/.."
-npm run build
+# Panelin yayınlanacağı alt yol (kök dizin için: BASE_PATH= npm run paket)
+BASE_PATH="${BASE_PATH-/sms}"
+PUBLIC_URL="$BASE_PATH" npm run build
 rm -rf dist && mkdir -p dist/sms-otomasyon
 cp -r build dist/sms-otomasyon/build
 mkdir -p dist/sms-otomasyon/server
