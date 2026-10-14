@@ -19,9 +19,20 @@ function buildRequest({ username, password, header, smsType, phone, body }) {
 </CORPORATESMS>`;
 }
 
-// Yanıt biçimi belgelenmediği için: HTTP hatası veya hata ifadesi içeren yanıt başarısız sayılır,
-// aksi halde yanıt (ilk 200 karakter) gönderim referansı olarak saklanır.
+// Başarılı yanıt: <CORPORATESMS><RESULT>1</RESULT><MSG_ID>4828300</MSG_ID><MSG_COUNT>1</MSG_COUNT></CORPORATESMS>
+// RESULT 1 değilse gönderim başarısızdır. RESULT etiketi hiç yoksa hata ifadesine bakılır.
 const ERROR_PATTERN = /<ERROR|hata|error|fail|invalid|geçersiz|gecersiz|yetki|unauthori[sz]ed|denied/i;
+const tag = (xml, name) => (new RegExp(`<${name}>\\s*([^<]*?)\\s*</${name}>`, 'i').exec(xml) || [])[1];
+
+function parseResponse(text) {
+  const result = tag(text, 'RESULT');
+  if (result !== undefined) {
+    if (result === '1') return { ref: tag(text, 'MSG_ID') || text };
+    return { error: `RESULT=${result}` };
+  }
+  if (!text || ERROR_PATTERN.test(text)) return { error: text ? 'beklenmeyen yanıt' : 'boş yanıt' };
+  return { ref: text };
+}
 
 function createErccellProvider({
   username,
@@ -45,10 +56,11 @@ function createErccellProvider({
       const text = (await res.text()).trim();
       const summary = text.replace(/\s+/g, ' ').slice(0, 200);
       if (!res.ok) throw new Error(`Erccell HTTP ${res.status}: ${summary}`);
-      if (!text || ERROR_PATTERN.test(text)) throw new Error(`Erccell hata: ${summary || 'boş yanıt'}`);
-      return { ref: summary };
+      const parsed = parseResponse(text);
+      if (parsed.error) throw new Error(`Erccell hata (${parsed.error}): ${summary || '-'}`);
+      return { ref: parsed.ref === text ? summary : parsed.ref };
     },
   };
 }
 
-module.exports = { createErccellProvider, buildRequest };
+module.exports = { createErccellProvider, buildRequest, parseResponse };
