@@ -46,8 +46,9 @@ Müşteri o statülerden birine girdiği anda kampanyanın SMS serisi başlar (3
 Lead'de telefon yoksa bağlı kişi (contact) kaydındaki cep telefonu kullanılır.
 
 **XRE hazır kurulum:** `npm --prefix server run kurulum` 10 projenin (West Point, Ankaport, Didim Akbük, EFAS N-Tepe…)
-serisini Bitrix statü kodlarıyla ve durdurma statülerini oluşturur. Kampanyalar **pasif** oluşur; `[FİYAT]`, `[LİNK]`,
-`[KAMPANYA]` alanları doldurulmadan aktif edilemez.
+serisini Bitrix statü kodlarıyla, hazır mesaj metinleriyle (Erccell SMS üslubunda, Türkçe karaktersiz, linkli) ve
+durdurma statüleriyle oluşturur. Kampanyalar **pasif** oluşur; mesajları kontrol edip panelden aktif edin.
+Elle yazılan mesajlarda `[FİYAT]` gibi doldurulmamış alan varsa kampanya aktif edilemez.
 
 Kurulum:
 1. Bitrix'te **Gelen webhook** oluşturun (CRM izni) ve URL'yi `BITRIX_WEBHOOK_URL`'ye yazın.

@@ -180,6 +180,8 @@ test('XRE kurulumu pasif kampanyaları ve durdurma statülerini oluşturur, tekr
   const rows = db.prepare('SELECT * FROM campaigns').all();
   assert.strictEqual(rows.length, PROJECTS.length);
   assert.ok(rows.every((r) => r.active === 0 && r.bitrix_entity === 'lead'));
+  const msgs = db.prepare('SELECT message FROM campaign_steps').all().map((r) => r.message);
+  assert.ok(msgs.every((m) => !/\[[^\]]+\]/.test(m)), 'doldurulmamış alan kalmamalı');
   const days = db.prepare('SELECT day_offset FROM campaign_steps WHERE campaign_id = ? ORDER BY day_offset').all(rows[0].id).map((r) => r.day_offset);
   assert.deepStrictEqual(days, [3, 5, 10, 14, 30]);
   assert.ok(db.prepare(`SELECT value FROM settings WHERE key = 'bitrix_stop_stages'`).get().value.includes('UC_I8G5YP'));

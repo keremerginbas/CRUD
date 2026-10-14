@@ -1,19 +1,23 @@
 // XRE Bitrix statüleriyle proje SMS serilerini ve durdurma statülerini oluşturur.
-// Kampanyalar PASİF oluşturulur: [FİYAT], [LİNK], [KAMPANYA] doldurulup panelden aktif edilmeden SMS gitmez.
+// Mesajlar mevcut Erccell SMS'lerinin üslubunda (Türkçe karaktersiz, linkli) yazıldı.
+// Kampanyalar PASİF oluşturulur; mesajları kontrol edip panelden aktif ettiğinizde gönderim başlar.
 // Kullanım: npm run kurulum   (tekrar çalıştırılırsa var olan kampanyalara dokunmaz)
 const { openDb } = require('../src/db');
 const { setStopStages, getStopStages } = require('../src/bitrix');
 
+const SITE = 'https://xreproject.com';
+
+// project: mesajdaki {proje}; link: proje sayfası (bilinmeyenlerde ana sayfa).
 const PROJECTS = [
   { project: 'West Point', stages: ['UC_3CG0TQ'] },
-  { project: 'Ankaport Saray', stages: ['UC_0RQEPM'], link: 'https://xreproject.com/projeDetay/ankaport-saray' },
+  { project: 'Ankaport Saray', stages: ['UC_0RQEPM'], link: `${SITE}/projeDetay/ankaport-saray` },
   { project: 'Maximum Life', stages: ['UC_6NYK69'] },
   { project: 'Gimart', stages: ['UC_H16SU3'] },
-  { project: 'Finest Yaşamkent', stages: ['UC_5M177N'] },
-  { project: 'Didim Akbük', stages: ['UC_D2AMA8', 'UC_I7H1D9'] },
+  { project: 'Finest Yasamkent', stages: ['UC_5M177N'] },
+  { project: 'Didim Akbuk', stages: ['UC_D2AMA8', 'UC_I7H1D9'] },
   { project: 'Natura Paryal', stages: ['UC_BX1JIT'] },
   { project: 'EFAS N-Tepe', stages: ['UC_PQDHUK', 'UC_3W9EXO', 'UC_P8Z2WH', 'UC_LF04EU', 'UC_R94GLM', 'UC_PTDA4Y'] },
-  { project: 'Eskişehir', stages: ['UC_1216EB'] },
+  { project: 'Eskisehir', stages: ['UC_1216EB'] },
   { project: 'Motto', stages: ['UC_7DXC14'] },
 ];
 
@@ -34,12 +38,12 @@ const STOP_STAGES = [
   '5', '1', '2', '3', '4', '9', // Olumsuz / Ertelendi / Fiyat / Lokasyon / Kullanım Dışı / seçim araması
 ];
 
-const steps = (link) => [
-  [3, 'Merhaba {ad}, {proje} projemizi hâlâ değerlendiriyor musunuz? Size özel sunum için randevu planlayabiliriz.'],
-  [5, '{ad}, {proje} güncel fiyat ve ödeme seçenekleri: [FİYAT]. Detaylı bilgi için bize ulaşın.'],
-  [10, `{ad}, {proje} projemizde sınırlı sayıda daire kaldı. Yerinde görmek ister misiniz? ${link || '[LİNK]'}`],
-  [14, '{ad}, {proje} için bu aya özel fırsat: [KAMPANYA]. Bilgi almak için bize yazın.'],
-  [30, 'Merhaba {ad}, {proje} ile ilgili kararınızı verdiniz mi? Yardımcı olabileceğimiz bir konu var mı?'],
+const steps = (link = SITE) => [
+  [3, `Merhaba, XRE Project {proje} projesini hala degerlendiriyor musunuz? Size ozel sunum icin randevu planlayabiliriz. ${link}`],
+  [5, `Merhaba, XRE Project {proje} projesinin guncel fiyat ve odeme planlarini sizinle paylasmak isteriz. Detaylar: ${link}`],
+  [10, `Merhaba, XRE Project {proje} projesini yerinde gormek ister misiniz? Size uygun bir gun icin randevu planlayalim. ${link}`],
+  [14, `Merhaba, XRE Project {proje} projesinde size uygun odeme secenegini birlikte belirleyelim. Bilgi icin: ${link}`],
+  [30, `Merhaba, XRE Project {proje} projesi ile ilgili kararinizi verdiniz mi? Sorulariniz icin her zaman buradayiz. ${link}`],
 ].map(([day_offset, message]) => ({ day_offset, send_time: '10:30', message }));
 
 function run(db = openDb(), log = console.log) {
@@ -60,4 +64,4 @@ function run(db = openDb(), log = console.log) {
 }
 
 if (require.main === module) run();
-module.exports = { run, PROJECTS, STOP_STAGES };
+module.exports = { run, steps, PROJECTS, STOP_STAGES };
