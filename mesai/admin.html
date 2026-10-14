@@ -159,12 +159,26 @@ label{font-size:12px;color:var(--mute);font-weight:700;display:block;margin:10px
   <div class="card" id="girisCard" style="max-width:420px;margin-left:auto;margin-right:auto;margin-top:28px">
     <h2>Yönetici Girişi</h2>
     <label for="adminPin">Admin PIN</label>
-    <input type="password" id="adminPin" inputmode="numeric" placeholder="••••" onkeydown="if(event.key==='Enter')girisYap()">
+    <input type="password" id="adminPin" autocomplete="current-password" placeholder="••••••••" onkeydown="if(event.key==='Enter')girisYap()">
     <button class="btn btn-p" onclick="girisYap()">Giriş Yap</button>
     <div class="msg" id="girisMsg" style="color:var(--brick)"></div>
   </div>
 
   <div id="panel">
+    <!-- Admin PIN değiştir -->
+    <div class="card" id="pinCard" style="margin-top:22px">
+      <h2>🔐 Admin PIN'ini Değiştir</h2>
+      <p class="hint" id="pinUyari" style="display:none;color:var(--brick);font-weight:700;margin-top:0">
+        Şu anki PIN kısa ve eski dosyalarda düz metin olarak duruyor. Lütfen en az 8 karakterlik yeni bir PIN belirleyin.
+      </p>
+      <div class="grid2">
+        <div><label for="pinYeni">Yeni PIN (en az 8 karakter)</label><input type="password" id="pinYeni" autocomplete="new-password" maxlength="64"></div>
+        <div><label for="pinTekrar">Yeni PIN (tekrar)</label><input type="password" id="pinTekrar" autocomplete="new-password" maxlength="64" onkeydown="if(event.key==='Enter')pinDegistir()"></div>
+      </div>
+      <p class="hint">Harf, rakam ve işaret kullanabilirsiniz (Türkçe karakter ve boşluk olmadan). Yeni PIN hemen geçerli olur, eskisi çalışmaz.</p>
+      <button class="btn btn-p" onclick="pinDegistir()">PIN'i Değiştir</button>
+      <div class="msg" id="pinMsg"></div>
+    </div>
     <div class="panel-grid">
       <!-- Çalışan ekle -->
       <div class="card">
@@ -305,13 +319,26 @@ async function api(action, body) {
 }
 
 async function girisYap() {
-  PIN = $("adminPin").value.trim();
+  PIN = $("adminPin").value.trim() || PIN; // sayfa yenilenince oturumdaki PIN ile devam
   const r = await api("admin_giris");
   if (!r.ok) { $("girisMsg").style.display="block"; $("girisMsg").textContent = r.hata; return; }
   sessionStorage.setItem("xre-admin", PIN);
+  $("pinUyari").style.display = r.zayif ? "block" : "none";
   $("girisCard").style.display = "none";
   $("panel").style.display = "block";
   yenile();
+}
+
+async function pinDegistir() {
+  const yeni = $("pinYeni").value, tekrar = $("pinTekrar").value, m = $("pinMsg");
+  const yaz = (t, c) => { m.style.display = "block"; m.style.color = c; m.textContent = t; };
+  if (yeni !== tekrar) return yaz("İki PIN aynı değil.", "var(--brick)");
+  if (!/^[\x21-\x7E]{8,64}$/.test(yeni)) return yaz("En az 8 karakter; Türkçe karakter ve boşluk olmadan.", "var(--brick)");
+  const r = await api("admin_pin_degistir", { yeni });
+  if (!r.ok) return yaz(r.hata || "Değiştirilemedi", "var(--brick)");
+  PIN = yeni; sessionStorage.setItem("xre-admin", PIN);
+  $("pinYeni").value = $("pinTekrar").value = ""; $("pinUyari").style.display = "none";
+  yaz("✓ Admin PIN'i değişti. Bundan sonra yeni PIN ile giriş yapın.", "var(--green)");
 }
 
 async function yenile() {

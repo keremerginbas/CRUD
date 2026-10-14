@@ -103,6 +103,8 @@ foreach ([
   "ALTER TABLE users ADD COLUMN tg_id TEXT",              // kişisel Telegram: sayısal ID veya @kullaniciadi
 ] as $sql) { try { $db->exec($sql); } catch (Throwable $e) {} }
 
+/* Panelden değiştirilebilen ayarlar (ör. admin PIN hash'i — config.php'dekinden önceliklidir) */
+$db->exec("CREATE TABLE IF NOT EXISTS ayarlar(anahtar TEXT PRIMARY KEY, deger TEXT, zaman INTEGER)");
 $db->exec("CREATE TABLE IF NOT EXISTS denemeler(
   anahtar TEXT PRIMARY KEY, sayi INTEGER DEFAULT 0, ilk INTEGER)");
 $db->exec("CREATE TABLE IF NOT EXISTS bitrix_log(
@@ -938,7 +940,10 @@ function adminAuth(){
   $anahtar = rlAnahtar("admin");
   rlKontrol($db, $anahtar);
   $p = $_SERVER["HTTP_X_ADMIN"] ?? "";
-  if (!$p || !password_verify($p, $ADMIN_PIN_HASH)) {
+  // Panelden yeni PIN belirlendiyse o geçerlidir; config.php'deki eski PIN artık çalışmaz
+  $s = $db->prepare("SELECT deger FROM ayarlar WHERE anahtar='admin_pin_hash'"); $s->execute();
+  $hash = $s->fetchColumn() ?: $ADMIN_PIN_HASH;
+  if (!$p || !password_verify($p, $hash)) {
     rlHata($db, $anahtar);
     err("Admin PIN hatalı");
   }
@@ -1167,6 +1172,18 @@ case "siralama": // çalışanlara açık: bu ayın "en çok çalışan" tablosu
 /* ================= ADMİN ================= */
 case "admin_giris":
   adminAuth();
+  // 8 karakterden kısa PIN zayıf sayılır: panel değiştirme uyarısı gösterir
+  out(["ok"=>true, "zayif"=>strlen((string)($_SERVER["HTTP_X_ADMIN"] ?? "")) < 8]);
+
+case "admin_pin_degistir":
+  adminAuth(); // mevcut PIN doğru olmalı
+  $yeni = (string)($in["yeni"] ?? "");
+  // Tarayıcı başlıkta yalnızca ASCII taşıyabildiği için Türkçe karakter ve boşluk kabul edilmez
+  if (!preg_match('/^[\x21-\x7E]{8,64}$/', $yeni)) err("Yeni PIN en az 8 karakter olmalı (harf, rakam, işaret; Türkçe karakter ve boşluk olmadan)");
+  if (preg_match('/^(.)\1+$/', $yeni) || strpos("0123456789012345678909876543210", $yeni) !== false) err("Bu PIN tahmin edilmesi çok kolay, başka bir PIN seçin");
+  if ($yeni === (string)($_SERVER["HTTP_X_ADMIN"] ?? "")) err("Yeni PIN eskisiyle aynı olamaz");
+  $db->prepare("INSERT INTO ayarlar(anahtar,deger,zaman) VALUES('admin_pin_hash',?,?)
+    ON CONFLICT(anahtar) DO UPDATE SET deger=excluded.deger, zaman=excluded.zaman")->execute([password_hash($yeni, PASSWORD_DEFAULT), time()]);
   out(["ok"=>true]);
 
 case "kullanici_listesi":

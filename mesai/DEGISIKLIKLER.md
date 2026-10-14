@@ -19,6 +19,10 @@
 - `config.sample.php` bozuktu: yorumdaki `*/10` cron satırı yorumu erken kapatıyordu; kopyalayan
   kişinin sitesi açılmazdı. Düzeltildi.
 - `sw.js` v23.
+- **Admin PIN'i panelden değişir:** yönetim panelinde "🔐 Admin PIN'ini Değiştir" kartı (en az 8 karakter,
+  `12345678` gibi kolay PIN'ler reddedilir). Yeni PIN veritabanında hash'li saklanır ve config.php'dekinden
+  önceliklidir; eski PIN hemen geçersiz olur. Kısa PIN'le girişte panel uyarı gösterir.
+  Panel artık sayfa yenilenince oturumu korur.
 - **Cron:** hatırlatmaların dakikasında gitmesi için dakikada bir önerilir:
   `* * * * * php /home/KULLANICI/public_html/mesai/api.php`
 
