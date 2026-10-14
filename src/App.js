@@ -9,6 +9,7 @@ const STATUS_LABELS = {
   active: 'Aktif',
   completed: 'Tamamlandı',
   cancelled: 'İptal',
+  paused: 'Pasif',
 };
 
 function Badge({ status }) {
@@ -234,7 +235,7 @@ function Campaigns() {
               </td>
               <td>{c.steps.map((s) => `${s.day_offset}.`).join(' · ')} gün</td>
               <td>{c.active_count}</td>
-              <td>{c.active ? <Badge status="active" /> : <Badge status="cancelled" />}</td>
+              <td>{c.active ? <Badge status="active" /> : <Badge status="paused" />}</td>
               <td className="right">
                 <button className="link" onClick={() => setEditing(c)}>Düzenle</button>
                 <button className="link danger" onClick={async () => {
