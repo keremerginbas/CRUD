@@ -8,6 +8,7 @@ const { createScheduler } = require('../src/scheduler');
 function fakeBitrix() {
   const deals = {};
   const leads = {};
+  const listCalls = [];
   const contacts = {
     7: { ID: '7', NAME: 'Mehmet', LAST_NAME: 'Kaya', PHONE: [{ VALUE: '0312 444 55 66' }, { VALUE: '+90 533 444 55 66' }], UF_IYS: 'Y' },
   };
@@ -20,7 +21,11 @@ function fakeBitrix() {
       if (method === 'crm.deal.fields') return { result: { UF_PROJE: { type: 'enumeration', items: [{ ID: '45', VALUE: 'Ankaport Saray' }, { ID: '46', VALUE: 'West Point' }] } } };
       throw new Error(`beklenmeyen ${method}`);
     },
-    async callAll(method) {
+    async callAll(method, params) {
+      if (method === 'crm.lead.list') {
+        listCalls.push(params.filter);
+        return Object.values(leads).filter((l) => params.filter.STATUS_ID.includes(l.STATUS_ID)).map((l) => ({ ID: l.ID }));
+      }
       assert.strictEqual(method, 'crm.status.list');
       return [
         { ENTITY_ID: 'STATUS', STATUS_ID: 'NEW', NAME: 'Yeni lead' },
@@ -30,7 +35,7 @@ function fakeBitrix() {
       ];
     },
   };
-  return { client, deals, leads, contacts };
+  return { client, deals, leads, contacts, listCalls };
 }
 
 function setup() {
@@ -54,7 +59,7 @@ function setup() {
     const res = await fetch(`${base}/bitrix/webhook`, { method: 'POST', body: form });
     return { status: res.status, body: await res.json() };
   };
-  return { db, clock, sent, scheduler, fb, json, hook, close: () => server.close() };
+  return { db, clock, sent, scheduler, fb, config, json, hook, close: () => server.close() };
 }
 
 const steps = (label) => [
@@ -185,4 +190,35 @@ test('XRE kurulumu pasif kampanyaları ve durdurma statülerini oluşturur, tekr
   const days = db.prepare('SELECT day_offset FROM campaign_steps WHERE campaign_id = ? ORDER BY day_offset').all(rows[0].id).map((r) => r.day_offset);
   assert.deepStrictEqual(days, [3, 5, 10, 14, 30]);
   assert.ok(db.prepare(`SELECT value FROM settings WHERE key = 'bitrix_stop_stages'`).get().value.includes('UC_I8G5YP'));
+});
+
+test('eski lead\'ler: önizleme, kuyruğa alma (tekrarsız), cron ile işleme', async (t) => {
+  const { createBitrixSync } = require('../src/bitrix');
+  const { createServices } = require('../src/services');
+  const env = setup();
+  t.after(env.close);
+  const c = await env.json('POST', '/campaigns', { name: 'Ankaport', project: 'Ankaport', active: false, bitrix_entity: 'lead', bitrix_stages: ['UC_0RQEPM'], steps: steps('x') });
+  env.fb.leads[5] = { ID: '5', STATUS_ID: 'UC_0RQEPM', CONTACT_ID: '7' };
+  env.fb.leads[6] = { ID: '6', STATUS_ID: 'UC_0RQEPM', NAME: 'Ret', PHONE: [{ VALUE: '05557778899' }], UF_STOP: 'Y' };
+  env.fb.leads[8] = { ID: '8', STATUS_ID: 'IN_PROCESS', NAME: 'Diger', PHONE: [{ VALUE: '05550001122' }] };
+
+  assert.strictEqual((await env.json('POST', '/bitrix/backfill', { campaign_id: c.body.id })).status, 400); // pasif
+  await env.json('PUT', `/campaigns/${c.body.id}`, { active: true });
+
+  const preview = await env.json('POST', '/bitrix/backfill', { campaign_id: c.body.id, days: 90 });
+  assert.deepStrictEqual(preview.body, { campaign_id: c.body.id, found: 2, already_queued: 0, dry_run: true });
+  assert.ok(env.fb.listCalls.at(-1)['>=DATE_CREATE']);
+  assert.strictEqual((await env.json('GET', '/enrollments')).body.length, 0); // önizleme bir şey eklemez
+
+  assert.strictEqual((await env.json('POST', '/bitrix/backfill', { campaign_id: c.body.id, dry_run: false })).body.queued, 2);
+  assert.strictEqual((await env.json('POST', '/bitrix/backfill', { campaign_id: c.body.id, dry_run: false })).body.queued, 0);
+
+  const services = createServices({ db: env.db, now: () => env.clock.now });
+  const sync = createBitrixSync({ db: env.db, client: env.fb.client, config: env.config, ...services, log: () => {} });
+  assert.deepStrictEqual(await sync.processBackfill({ limit: 1, throttleMs: 0 }), { processed: 1 });
+  await sync.processBackfill({ throttleMs: 0 });
+  const [st] = (await env.json('GET', '/bitrix/backfill')).body;
+  assert.deepStrictEqual([st.pending, st.done, st.enrolled, st.skipped], [0, 2, 1, 1]);
+  const enr = (await env.json('GET', '/enrollments')).body;
+  assert.deepStrictEqual(enr.map((e) => [e.phone, e.status]), [['5334445566', 'active']]);
 });

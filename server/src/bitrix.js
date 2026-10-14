@@ -152,7 +152,61 @@ function createBitrixSync({ db, client, config, upsertCustomer, enroll, transact
     return (field?.items || []).map((i) => ({ id: String(i.ID), name: i.VALUE }));
   }
 
-  return { sync, handleEvent, stages, projectOptions };
+  // ---------- Eski kayıtları toplu seriye alma ----------
+  // Webhook sadece yeni değişiklikleri yakalar; kampanyanın statülerinde bekleyen eski kayıtlar kuyruğa alınır.
+  async function listForCampaign(campaign, days) {
+    const stageField = campaign.bitrix_entity === 'deal' ? 'STAGE_ID' : 'STATUS_ID';
+    const filter = { [stageField]: JSON.parse(campaign.bitrix_stages || '[]') };
+    if (days) {
+      const since = new Date(Date.now() - days * 24 * 3600 * 1000).toISOString().slice(0, 10);
+      filter['>=DATE_CREATE'] = `${since}T00:00:00+03:00`;
+    }
+    const rows = await client.callAll(`crm.${campaign.bitrix_entity}.list`, { filter, select: ['ID'], order: { ID: 'DESC' } });
+    return rows.map((r) => `${campaign.bitrix_entity}:${r.ID}`);
+  }
+
+  async function queueBackfill(campaign, { days = null, dryRun = true } = {}) {
+    if (!campaign.bitrix_entity) throw Object.assign(new Error("Kampanya Bitrix'e bağlı değil"), { status: 400 });
+    if (!campaign.active) throw Object.assign(new Error('Önce kampanyayı aktif edin'), { status: 400 });
+    const entities = await listForCampaign(campaign, days);
+    const alreadyQueued = db.prepare('SELECT COUNT(*) n FROM bitrix_backfill WHERE campaign_id = ?').get(campaign.id).n;
+    if (dryRun) return { campaign_id: campaign.id, found: entities.length, already_queued: alreadyQueued, dry_run: true };
+    const insert = db.prepare('INSERT OR IGNORE INTO bitrix_backfill (entity, campaign_id) VALUES (?, ?)');
+    let queued = 0;
+    transaction(() => { for (const e of entities) queued += insert.run(e, campaign.id).changes; });
+    return { campaign_id: campaign.id, found: entities.length, queued };
+  }
+
+  // Kuyruktan en fazla `limit` kayıt işler (cron her dakika çağırır). Bitrix hız sınırı için aralarda bekler.
+  async function processBackfill({ limit = 40, throttleMs = 500 } = {}) {
+    const rows = db.prepare(`SELECT * FROM bitrix_backfill WHERE status = 'pending' ORDER BY id LIMIT ?`).all(limit);
+    const mark = db.prepare(`UPDATE bitrix_backfill SET status = ?, result = ?, updated_at = datetime('now') WHERE id = ?`);
+    for (const row of rows) {
+      const [type, id] = row.entity.split(':');
+      try {
+        const r = await sync(type, id, { force: true });
+        mark.run('done', r.action, row.id);
+      } catch (err) {
+        mark.run('error', String(err.message || err).slice(0, 300), row.id);
+        log(`Toplu ekleme ${row.entity} hata: ${err.message || err}`);
+      }
+      if (throttleMs) await new Promise((r) => setTimeout(r, throttleMs));
+    }
+    return { processed: rows.length };
+  }
+
+  function backfillStatus() {
+    return db.prepare(`
+      SELECT b.campaign_id, k.name AS campaign_name,
+        SUM(b.status = 'pending') AS pending, SUM(b.status = 'done') AS done, SUM(b.status = 'error') AS errors,
+        SUM(b.result = 'enrolled') AS enrolled, SUM(b.result = 'no-phone') AS no_phone,
+        SUM(b.result IN ('stopped', 'no-campaign', 'unchanged')) AS skipped
+      FROM bitrix_backfill b JOIN campaigns k ON k.id = b.campaign_id
+      GROUP BY b.campaign_id ORDER BY b.campaign_id
+    `).all();
+  }
+
+  return { sync, handleEvent, stages, projectOptions, queueBackfill, processBackfill, backfillStatus };
 }
 
 function getStopStages(db) {
@@ -177,4 +231,15 @@ function bitrixConfigFromEnv(env = process.env) {
   };
 }
 
-module.exports = { createBitrixClient, createBitrixSync, bitrixConfigFromEnv, getStopStages, setStopStages };
+// cron ve süreç içi zamanlayıcı için: .env'den Bitrix bağlantısını kurar (yoksa null).
+function createBitrixSyncFromEnv(db, { env = process.env, log = console.log } = {}) {
+  const config = bitrixConfigFromEnv(env);
+  if (!config) return null;
+  const { createServices } = require('./services');
+  const { upsertCustomer, enroll, transaction } = createServices({ db });
+  return createBitrixSync({ db, client: createBitrixClient(config), config, upsertCustomer, enroll, transaction, log });
+}
+
+module.exports = {
+  createBitrixClient, createBitrixSync, createBitrixSyncFromEnv, bitrixConfigFromEnv, getStopStages, setStopStages,
+};

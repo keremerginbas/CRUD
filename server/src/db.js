@@ -65,6 +65,18 @@ CREATE TABLE IF NOT EXISTS settings (
   value TEXT NOT NULL
 );
 
+-- Eski Bitrix kayıtlarını seriye alma kuyruğu; cron parça parça işler.
+CREATE TABLE IF NOT EXISTS bitrix_backfill (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  entity      TEXT NOT NULL,
+  campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'done', 'error')),
+  result      TEXT,
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at  TEXT,
+  UNIQUE (entity, campaign_id)
+);
+
 -- Bitrix kayıtlarının (lead/deal) son görülen aşaması: aşama değişmediyse akış yeniden başlatılmaz.
 CREATE TABLE IF NOT EXISTS bitrix_state (
   entity     TEXT PRIMARY KEY,

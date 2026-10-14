@@ -445,6 +445,98 @@ function Settings() {
   );
 }
 
+// Bitrix'te kampanyanın statülerinde bekleyen eski kayıtları seriye alma.
+function Backfill() {
+  const [campaigns] = useLoader(useCallback(() => api.get('/campaigns'), []));
+  const [status, setStatus] = useState([]);
+  const [form, setForm] = useState({ campaign_id: '', days: '90' });
+  const [preview, setPreview] = useState(null);
+  const [error, setError] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  const loadStatus = useCallback(() => api.get('/bitrix/backfill').then(setStatus, () => {}), []);
+  useEffect(() => {
+    loadStatus();
+    const t = setInterval(loadStatus, 5000);
+    return () => clearInterval(t);
+  }, [loadStatus]);
+
+  const eligible = (campaigns || []).filter((c) => c.bitrix_entity && c.active);
+  const payload = () => ({ campaign_id: Number(form.campaign_id), days: form.days ? Number(form.days) : null });
+  const run = async (fn) => {
+    setError(null);
+    setBusy(true);
+    try { await fn(); } catch (e) { setError(e.message); } finally { setBusy(false); }
+  };
+  const doPreview = () => run(async () => setPreview(await api.post('/bitrix/backfill', { ...payload(), dry_run: true })));
+  const doQueue = () => run(async () => {
+    const name = eligible.find((c) => c.id === Number(form.campaign_id))?.name;
+    if (!window.confirm(`${preview.found} kayıt "${name}" serisine alınacak. SMS izni olanlara 3. günden itibaren mesaj gidecek. Onaylıyor musunuz?`)) return;
+    const r = await api.post('/bitrix/backfill', { ...payload(), dry_run: false });
+    setPreview(null);
+    window.alert(`${r.queued} kayıt kuyruğa alındı. Cron her dakika ~40 kayıt işler.`);
+    loadStatus();
+  });
+
+  return (
+    <>
+      <div className="card">
+        <h3>Eski lead'leri seriye al</h3>
+        <p className="hint">
+          Bitrix'te kampanyanın statülerinde şu an bekleyen kayıtlar seriye eklenir (başlangıç: bugün, ilk SMS 3. gün).
+          Sadece aktif kampanyalar listelenir. "Bir daha aranmasın" işaretli ve telefonu olmayan kayıtlar atlanır.
+        </p>
+        <div className="row">
+          <label>Kampanya
+            <select value={form.campaign_id} onChange={(e) => { setForm({ ...form, campaign_id: e.target.value }); setPreview(null); }}>
+              <option value="">Seçin…</option>
+              {eligible.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </label>
+          <label>Son kaç günde oluşturulanlar (boş = hepsi)
+            <input type="number" min="1" value={form.days} onChange={(e) => { setForm({ ...form, days: e.target.value }); setPreview(null); }} />
+          </label>
+        </div>
+        {campaigns && !eligible.length && <p className="hint">Aktif Bitrix kampanyası yok; önce Kampanyalar sekmesinden aktif edin.</p>}
+        <div className="actions">
+          <button disabled={!form.campaign_id || busy} onClick={doPreview}>{busy ? 'Bitrix okunuyor…' : 'Önizle'}</button>
+          {preview && (
+            <button className="primary" disabled={!preview.found || busy} onClick={doQueue}>{preview.found} kaydı seriye al</button>
+          )}
+        </div>
+        {preview && (
+          <p>Bitrix'te bulunan: <b>{preview.found}</b> kayıt{preview.already_queued ? ` (bu kampanya için daha önce ${preview.already_queued} kayıt kuyruğa alınmıştı; onlar tekrar eklenmez)` : ''}.</p>
+        )}
+        {error && <p className="error">{error}</p>}
+      </div>
+      <table>
+        <thead><tr><th>Kampanya</th><th>Bekleyen</th><th>İşlenen</th><th>Seriye giren</th><th>Telefonsuz</th><th>Atlanan</th><th>Hata</th><th /></tr></thead>
+        <tbody>
+          {status.map((r) => (
+            <tr key={r.campaign_id}>
+              <td>{r.campaign_name}</td>
+              <td>{r.pending}</td>
+              <td>{r.done}</td>
+              <td>{r.enrolled}</td>
+              <td>{r.no_phone}</td>
+              <td>{r.skipped}</td>
+              <td>{r.errors}</td>
+              <td className="right">
+                {r.pending > 0 && (
+                  <button className="link danger" onClick={async () => {
+                    if (window.confirm('Bekleyen kayıtlar kuyruktan çıkarılsın mı?')) { await api.post('/bitrix/backfill/cancel', { campaign_id: r.campaign_id }); loadStatus(); }
+                  }}>Durdur</button>
+                )}
+              </td>
+            </tr>
+          ))}
+          {!status.length && <tr><td colSpan="8" className="empty">Henüz toplu ekleme yapılmadı.</td></tr>}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
 // Canlı deneme: tek SMS gönder ve Bitrix'ten tek kaydı seriye al.
 function LiveTest() {
   const [sms, setSms] = useState({ phone: '', message: 'XRE SMS otomasyonu test mesajidir.' });
@@ -502,6 +594,7 @@ const TABS = {
   customers: ['Müşteriler', Customers],
   enrollments: ['Akışlar', Enrollments],
   messages: ['SMS geçmişi', Messages],
+  backfill: ["Eski lead'ler", Backfill],
   settings: ['Ayarlar', Settings],
   live: ['Canlı test', LiveTest],
 };

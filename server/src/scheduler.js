@@ -39,6 +39,11 @@ function createScheduler({ db, provider, now = () => new Date(), log = console.l
     const row = db.prepare(`SELECT value FROM settings WHERE key = 'scheduler_lock'`).get();
     return JSON.parse(row.value).owner === owner;
   };
+  // Uzun süren gönderimde (binlerce SMS) kilit dolmasın: her kayıttan sonra süresi uzatılır.
+  const renewLock = () => {
+    db.prepare(`UPDATE settings SET value = ? WHERE key = 'scheduler_lock' AND json_extract(value, '$.owner') = ?`)
+      .run(JSON.stringify({ owner, until: Date.now() + LOCK_MS }), owner);
+  };
   const releaseLock = () => {
     db.prepare(`DELETE FROM settings WHERE key = 'scheduler_lock' AND json_extract(value, '$.owner') = ?`).run(owner);
   };
@@ -63,6 +68,7 @@ function createScheduler({ db, provider, now = () => new Date(), log = console.l
         // İzni olmayan / RET diyen müşteriye ve durdurulmuş kampanyaya gönderim yapılmaz.
         if (!row.consent || row.opted_out || !row.campaign_active) continue;
 
+        renewLock();
         const plan = enrollmentPlan(db, row.enrollment_id);
         let pending = 0;
         for (const step of plan) {

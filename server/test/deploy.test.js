@@ -95,3 +95,32 @@ test('BASE_PATH yoksa alt yol derleme dosyasından algılanır; canlıda şifres
   assert.strictEqual((await fetch(`${locked.base}/sms/api/bitrix/webhook`, { method: 'POST' })).status, 503);
   assert.match(await (await fetch(`${locked.base}/sms/api/stats`)).text(), /PANEL_PASSWORD/);
 });
+
+test('uzun gönderimde kilit yenilenir; süre dolsa bile ikinci süreç aynı SMS\'i tekrar göndermez', async () => {
+  const db = openDb(':memory:');
+  db.exec(`INSERT INTO campaigns (name) VALUES ('K');
+    INSERT INTO campaign_steps (campaign_id, day_offset, send_time, message) VALUES (1, 0, '00:00', 'm');`);
+  for (let i = 0; i < 5; i += 1) {
+    db.exec(`INSERT INTO customers (name, phone, consent) VALUES ('A${i}', '53211122${String(i).padStart(2, '0')}', 1);
+      INSERT INTO enrollments (customer_id, campaign_id, start_date) VALUES (${i + 1}, 1, '2026-10-14');`);
+  }
+  const sent = [];
+  const realNow = Date.now;
+  let fake = realNow();
+  Date.now = () => fake;
+  try {
+    // Her SMS "3 dk" sürüyor: toplam 15 dk, kilit süresi (10 dk) aşılıyor.
+    const slow = { send: async (phone) => { fake += 3 * 60 * 1000; sent.push(phone); await new Promise((r) => setImmediate(r)); return { ref: 'x' }; } };
+    const opts = { db, now: () => new Date('2026-10-14T10:00:00Z'), log: () => {} };
+    const a = createScheduler({ ...opts, provider: slow });
+    const b = createScheduler({ ...opts, provider: slow });
+    const first = a.tick();
+    while (sent.length < 4) await new Promise((r) => setImmediate(r)); // 12 dk geçti
+    assert.deepStrictEqual(await b.tick(), { busy: true }); // kilit yenilendiği için ikinci süreç giremez
+    await first;
+  } finally {
+    Date.now = realNow;
+  }
+  assert.strictEqual(sent.length, 5);
+  assert.strictEqual(new Set(sent).size, 5);
+});

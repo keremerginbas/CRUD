@@ -7,7 +7,8 @@ const { openDb } = require('./db');
 const { createApp } = require('./app');
 const { createScheduler } = require('./scheduler');
 const { createProviderFromEnv } = require('./providers');
-const { createBitrixClient, bitrixConfigFromEnv } = require('./bitrix');
+const { createBitrixClient, bitrixConfigFromEnv, createBitrixSyncFromEnv } = require('./bitrix');
+const { withLock } = require('./locks');
 
 const PORT = Number(process.env.PORT) || 4000;
 // 0: süreç içi zamanlayıcı kapalı (cPanel'de zamanlayıcıyı cron çalıştırır: scripts/tick.js).
@@ -21,7 +22,10 @@ const bitrixConfig = bitrixConfigFromEnv();
 const bitrix = bitrixConfig && { client: createBitrixClient(bitrixConfig), config: bitrixConfig };
 const app = createApp({ db, scheduler, bitrix, provider });
 
-const runTick = () => scheduler.tick()
+const backfill = createBitrixSyncFromEnv(db);
+const runTick = () => (backfill ? withLock(db, 'backfill_lock', 5 * 60 * 1000, () => backfill.processBackfill()) : Promise.resolve())
+  .catch((e) => console.error('Toplu ekleme hatası:', e))
+  .then(() => scheduler.tick())
   .then((s) => { if (s.sent || s.failed || s.skipped) console.log('Zamanlayıcı:', s); })
   .catch((e) => console.error('Zamanlayıcı hatası:', e));
 
