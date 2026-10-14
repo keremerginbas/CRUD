@@ -599,6 +599,21 @@ const TABS = {
   live: ['Canlı test', LiveTest],
 };
 
+// Arka planda sessiz, sürekli dönen XRE videosu (hareket azaltma tercihi olanlarda sabit görsel).
+function BackgroundVideo() {
+  const base = process.env.PUBLIC_URL || '';
+  const reduceMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  return (
+    <div className="bg-video" aria-hidden="true">
+      {reduceMotion ? (
+        <img src={`${base}/xre-bg.jpg`} alt="" />
+      ) : (
+        <video src={`${base}/xre-bg.mp4`} poster={`${base}/xre-bg.jpg`} autoPlay muted loop playsInline />
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [tab, setTab] = useState('campaigns');
   const [refresh, setRefresh] = useState(0);
@@ -614,6 +629,7 @@ export default function App() {
 
   return (
     <div className="app">
+      <BackgroundVideo />
       <header>
         <h1>SMS Otomasyonu</h1>
         <button onClick={runNow}>Zamanlayıcıyı şimdi çalıştır</button>

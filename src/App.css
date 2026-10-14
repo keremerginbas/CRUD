@@ -47,3 +47,14 @@ code { background: #eef1f5; padding: 1px 4px; border-radius: 4px; }
 .dot-sent { background: var(--ok); color: #fff; } .dot-failed { background: var(--err); color: #fff; } .dot-skipped { background: var(--warn); color: #fff; }
 .stage-list { max-height: 260px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px 16px; font-weight: 400; }
 .result { background: #0f172a; color: #e2e8f0; padding: 10px; border-radius: 6px; white-space: pre-wrap; word-break: break-all; font-size: 12px; }
+
+/* Arka plan videosu */
+body { background: #0b1630; }
+.bg-video { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: #0b1630; }
+.bg-video video, .bg-video img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.bg-video::after { content: ''; position: absolute; inset: 0; background: rgba(8, 16, 36, 0.55); }
+header h1 { color: #fff; }
+nav { border-bottom-color: rgba(255, 255, 255, 0.2); }
+nav button { color: #dbe3f0; }
+nav button.active { color: #fff; border-bottom-color: #60a5fa; }
+.app > .error { background: #fff; padding: 8px 12px; border-radius: 6px; }
