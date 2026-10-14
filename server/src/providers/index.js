@@ -1,8 +1,17 @@
 const { createConsoleProvider } = require('./console');
 const { createNetgsmProvider } = require('./netgsm');
+const { createErccellProvider } = require('./erccell');
 
 function createProviderFromEnv(env = process.env) {
   const name = env.SMS_PROVIDER || 'console';
+  if (name === 'erccell') {
+    return createErccellProvider({
+      username: env.ERCCELL_USERNAME,
+      password: env.ERCCELL_PASSWORD,
+      header: env.ERCCELL_HEADER,
+      smsType: env.ERCCELL_SMS_TYPE || 'UC',
+    });
+  }
   if (name === 'netgsm') {
     return createNetgsmProvider({
       usercode: env.NETGSM_USERCODE,

@@ -23,7 +23,12 @@ npm start        # Yönetim paneli (geliştirme) -> http://localhost:3000
 
 Üretimde `npm run build` sonrası sadece `npm run server` yeterli; panel de 4000 portundan servis edilir.
 
-`SMS_PROVIDER=console` iken SMS gönderilmez, mesajlar sunucu loguna yazılır. Gerçek gönderim için `SMS_PROVIDER=netgsm` ve Netgsm bilgilerini girin.
+`SMS_PROVIDER=console` iken SMS gönderilmez, mesajlar sunucu loguna yazılır. Gerçek gönderim için:
+
+- **Erccell:** `SMS_PROVIDER=erccell`, `ERCCELL_USERNAME`, `ERCCELL_PASSWORD`, `ERCCELL_HEADER` (ör. `XRE`). Numaralar `90532...` biçiminde gönderilir.
+- **Netgsm:** `SMS_PROVIDER=netgsm` ve `NETGSM_*` bilgileri.
+
+Kullanıcı adı/şifreyi sadece `server/.env` dosyasına yazın; bu dosya git'e eklenmez.
 
 Testler: `npm run server:test`
 
