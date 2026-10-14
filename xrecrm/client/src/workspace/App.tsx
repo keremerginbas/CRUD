@@ -239,32 +239,39 @@ function Workspace() {
             : path),
       )?.[1] || "Ayarlar";
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [authChecked, setAuthChecked] = useState(PREVIEW);
   const [authOpen, setAuthOpen] = useState(false);
+  const [dismissedNow, setDismissedNow] = useState(false);
+  const [dismissedSession] = useState(() => {
+    try {
+      return sessionStorage.getItem("xre-login-dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
   useEffect(() => {
+    if (PREVIEW) return;
     fetch("/api/auth/status", { credentials: "include" })
       .then((r) => r.json())
       .then((s) => {
         if (!s || typeof s !== "object" || !s.providers) return;
         setAuthStatus(s as AuthStatus);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setAuthChecked(true));
   }, []);
-  useEffect(() => {
-    if (loading || user || !authStatus) return;
-    let dismissed = false;
-    try {
-      dismissed = sessionStorage.getItem("xre-login-dismissed") === "1";
-    } catch {
-      /* depolama kapalı */
-    }
-    if (
-      !dismissed ||
-      authStatus.needsSetup ||
-      new URLSearchParams(location.search).has("login_error") ||
-      new URLSearchParams(location.search).has("giris")
-    )
-      setAuthOpen(true);
-  }, [loading, user, authStatus]);
+  // Giriş ekranı gerekip gerekmediği ilk çizimde bilinir; arada pano görünmez.
+  const params = new URLSearchParams(location.search);
+  const autoLogin = Boolean(
+    authStatus &&
+      !user &&
+      !loading &&
+      !dismissedNow &&
+      (!dismissedSession ||
+        authStatus.needsSetup ||
+        params.has("login_error") ||
+        params.has("giris")),
+  );
   const login = () => {
     if (PREVIEW) {
       toast.info(
@@ -297,13 +304,16 @@ function Workspace() {
     } catch {
       /* depolama kapalı */
     }
+    setDismissedNow(true);
     setAuthOpen(false);
   };
-  if (path === "/qr-onay" && !authOpen)
+  if (!PREVIEW && !dismissedSession && (loading || !authChecked))
+    return <BootSplash />;
+  if (path === "/qr-onay" && !authOpen && !autoLogin)
     return (
       <QrApprove loggedIn={Boolean(user)} onLogin={() => setAuthOpen(true)} />
     );
-  if (authOpen && authStatus && !user)
+  if ((authOpen || autoLogin) && authStatus && !user)
     return (
       <LoginScreen
         status={authStatus}
@@ -963,5 +973,14 @@ export default function App() {
         <Toaster position="bottom-right" richColors closeButton />
       </ThemeProvider>
     </StoreProvider>
+  );
+}
+
+function BootSplash() {
+  return (
+    <div className="initial-loading boot-splash" role="status">
+      <img src="/xre-crm-logo-white.png" alt="XRE CRM" />
+      <p>Çalışma alanınız hazırlanıyor…</p>
+    </div>
   );
 }
