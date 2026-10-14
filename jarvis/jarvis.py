@@ -21,6 +21,7 @@ import os
 import platform
 import queue
 import random
+import re
 import socket
 import sys
 import threading
@@ -68,7 +69,9 @@ SOHBET_MODELI = os.getenv("JARVIS_SOHBET_MODELI", "").strip() or "claude-opus-5-
 SOHBET_EFOR = os.getenv("JARVIS_SOHBET_EFOR", "").strip() or "low"  # akıcılık için düşük; zor sorular derin_dusun'a gider
 CLAUDE_MODELI = "claude-opus-5-5"
 KULAKLIK = os.getenv("JARVIS_KULAKLIK", "hayir").strip().lower() in ("evet", "1", "true", "yes")
-SOZ_KESME_ESIGI = int(os.getenv("JARVIS_SOZ_KESME_ESIGI", "2500"))
+# Hoparlörde Jarvis konuşurken mikrofon tamamen kapanır (kendi sesini duymasın). 0'dan büyük bir değer
+# verilirse bu seviyeden yüksek ses (yüksek sesle araya girme) yine geçer; hoparlör yankısı güçlüyse 0 kalsın.
+SOZ_KESME_ESIGI = int(os.getenv("JARVIS_SOZ_KESME_ESIGI", "0") or 0)
 UYANDIRMA_ESIGI = float(os.getenv("JARVIS_UYANDIRMA_ESIGI", "0.6"))
 MAC = platform.system() == "Darwin"
 WINDOWS = platform.system() == "Windows"
@@ -122,6 +125,7 @@ Kullanıcı hakkında önceki konuşmalardan hatırladıkların (boşsa henüz y
 Bu konuşmanın ek bağlamı (boşsa yok):
 {{baglam}}"""
 
+SES_ETIKETI = re.compile(r"\[[^\]\n]{1,30}\]\s*")
 ACILIS_CUMLELERI = ["Efendim?", "Buyurun, dinliyorum.", "Sizi dinliyorum.", "Evet, buradayım."]
 
 
@@ -279,22 +283,23 @@ def ajani_hazirla():
 
 class JarvisSesArayuzu(AudioInterface):
     """ElevenLabs konuşması için mikrofon/hoparlör (sounddevice: Mac ve Windows'ta ek kurulum istemez).
-    Yankı koruması: hoparlörde Jarvis kendi sesini duyup kendi sözünü kesebilir. Jarvis konuşurken
-    mikrofon sesi yalnızca hoparlör yankısından belirgin şekilde yüksekse (siz araya girdiğinizde)
-    gönderilir, değilse sessizlik gider. Kulaklıkla (JARVIS_KULAKLIK=evet) bu koruma kapalıdır.
+    Yankı koruması: hoparlörde Jarvis kendi sesini duyup kendi sözünü sanabilir. Bu yüzden Jarvis
+    konuşurken (ve hoparlörün gecikmesi kadar sonra) mikrofona sessizlik gönderilir.
+    Kulaklıkla (JARVIS_KULAKLIK=evet) bu koruma kapalıdır; konuşurken sözünü kesebilirsiniz.
     Konuşma kapanırken son cümle (veda) yarıda kesilmeden çalınır."""
 
     def start(self, input_callback):
         self.input_callback = input_callback
         self.kuyruk = queue.Queue()
         self.dur = threading.Event()
-        self._son_cikis = 0.0
-        self._eko = 300.0  # Jarvis konuşurken mikrofona gelen yankının tahmini seviyesi (RMS)
+        self._calma_bitis = 0.0  # hoparlöre gönderilen sesin çalınmasının biteceği an
         self.cikis = sd.RawOutputStream(samplerate=ORNEKLEME, channels=1, dtype="int16", blocksize=1000)
         self.giris = sd.RawInputStream(samplerate=ORNEKLEME, channels=1, dtype="int16", blocksize=4000,
                                        callback=self._geldi)
         self.cikis.start()
         self.giris.start()
+        # Konuşma bittikten sonra mikrofonun açılması için pay: hoparlör gecikmesi + oda yankısı
+        self._pay = 0.6 + float(getattr(self.cikis, "latency", 0) or 0)
         self.calici = threading.Thread(target=self._cal, daemon=True)
         self.calici.start()
 
@@ -304,15 +309,18 @@ class JarvisSesArayuzu(AudioInterface):
                 ses = self.kuyruk.get(timeout=0.25)
             except queue.Empty:
                 continue
-            self._son_cikis = time.time() + len(ses) / 32000  # 16 kHz, 16 bit
+            simdi = time.time()
+            self._calma_bitis = max(simdi, self._calma_bitis) + len(ses) / 32000  # 16 kHz, 16 bit
             self.cikis.write(ses)
 
     def _geldi(self, veri, kare, zaman, durum):
         veri = bytes(veri)
-        if not KULAKLIK and time.time() < self._son_cikis + 0.3:
-            rms = float(np.sqrt(np.mean(np.frombuffer(veri, dtype=np.int16).astype(np.float32) ** 2)))
-            if rms <= max(SOZ_KESME_ESIGI, 3.0 * self._eko):  # yüksek değilse yankıdır
-                self._eko = 0.9 * self._eko + 0.1 * rms
+        if not KULAKLIK and (not self.kuyruk.empty() or time.time() < self._calma_bitis + self._pay):
+            yuksek = False
+            if SOZ_KESME_ESIGI > 0:
+                rms = float(np.sqrt(np.mean(np.frombuffer(veri, dtype=np.int16).astype(np.float32) ** 2)))
+                yuksek = rms > SOZ_KESME_ESIGI
+            if not yuksek:
                 veri = b"\x00" * len(veri)
         try:
             self.input_callback(veri)
@@ -323,6 +331,7 @@ class JarvisSesArayuzu(AudioInterface):
         self.kuyruk.put(audio)
 
     def interrupt(self):
+        self._calma_bitis = time.time()
         try:
             while True:
                 self.kuyruk.get(block=False)
@@ -688,6 +697,9 @@ def sohbet_et(acilis=None, baglam=""):
         yaz("🗣️", metin)
 
     def jarvis_dedi(metin):
+        metin = SES_ETIKETI.sub("", metin).strip()  # [warm], [calm] gibi ses tonu etiketleri okunmaz, gösterilmez
+        if not metin:
+            return
         gecmis.append(f"Jarvis: {metin}")
         yaz("🤖", metin)
 

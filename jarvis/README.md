@@ -88,10 +88,9 @@ asistan kendiliğinden güncellenir.
 
 ## İpuçları ve sorun giderme
 
-- **Kulaklık en iyisidir.** Kulaklık kullanıyorsanız `.env`'de `JARVIS_KULAKLIK=evet` yapın;
-  Jarvis konuşurken rahatça sözünü kesebilirsiniz.
-- **MacBook hoparlöründe kendi sözünü kesiyorsa** `JARVIS_SOZ_KESME_ESIGI`'ni artırın (ör. 4000);
-  siz araya giremiyorsanız azaltın (ör. 1500).
+- **Kulaklık en iyisidir.** Hoparlörde Jarvis konuşurken mikrofon kapanır (yoksa kendi sesini duyup
+  kendine cevap verir); bu yüzden sözünü sesle kesemezsiniz, cümlesini bitirmesini bekleyin.
+  Kulaklık kullanıyorsanız `.env`'de `JARVIS_KULAKLIK=evet` yapın; konuşurken sözünü kesebilirsiniz.
 - **Yanlışlıkla uyanıyorsa** `JARVIS_UYANDIRMA_ESIGI`'ni artırın (ör. 0.75);
   **"Hey Jarvis" dediğinizde uyanmıyorsa** azaltın (ör. 0.45). İngilizce gibi "hey CAR-vis" demek
   daha iyi tanınır. Kısayol her zaman çalışır.
