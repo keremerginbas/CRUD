@@ -49,15 +49,28 @@ function checkPlaceholders(active, steps) {
 
 const parseCampaign = (c) => c && { ...c, bitrix_stages: c.bitrix_stages ? JSON.parse(c.bitrix_stages) : [] };
 
+// Panel PUBLIC_URL=/sms ile derlendiyse alt yolu derleme dosyasından çıkar (.env'de BASE_PATH olmasa da çalışsın).
+function detectBasePath(buildDir) {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(buildDir, 'asset-manifest.json'), 'utf8'));
+    const main = manifest.files?.['main.js'] || '';
+    return main.slice(0, Math.max(0, main.indexOf('/static/')));
+  } catch {
+    return '';
+  }
+}
+
 function createApp({
   db, scheduler, provider = null, bitrix = null, now = () => new Date(),
   apiKey = process.env.API_KEY,
   basePath = process.env.BASE_PATH,
+  buildDir = path.join(__dirname, '..', '..', 'build'),
+  requirePassword = process.env.NODE_ENV === 'production',
   panelUser = process.env.PANEL_USER, panelPassword = process.env.PANEL_PASSWORD,
 }) {
   const app = express();
   // Alt yolda yayın (ör. BASE_PATH=/sms): Passenger öneki iletse de iletmese de rotalar aynı çalışır.
-  const base = (basePath || '').replace(/\/+$/, '');
+  const base = (basePath || detectBasePath(buildDir)).replace(/\/+$/, '');
   if (base) {
     app.use((req, res, next) => {
       if (req.url === base) return res.redirect(301, `${base}/`);
@@ -67,9 +80,14 @@ function createApp({
   }
   // Panel ve API için basit giriş (tarayıcı kullanıcı adı/şifre sorar). Webhook ve lead uç noktaları
   // kendi anahtarlarıyla korunduğu için hariç.
+  const open = new Set(['/api/bitrix/webhook', '/api/leads']);
+  // Canlıda şifre tanımlanmadıysa panel herkese açık kalmasın.
+  if (!panelPassword && requirePassword) {
+    app.use((req, res, next) => (open.has(req.path) ? next()
+      : res.status(503).type('text').send('Panel kilitli: server/.env dosyasında PANEL_PASSWORD tanımlayıp uygulamayı yeniden başlatın.')));
+  }
   if (panelPassword) {
     const expected = `Basic ${Buffer.from(`${panelUser || 'admin'}:${panelPassword}`).toString('base64')}`;
-    const open = new Set(['/api/bitrix/webhook', '/api/leads']);
     app.use((req, res, next) => {
       if (open.has(req.path)) return next();
       const given = Buffer.from(req.get('authorization') || '');
@@ -391,7 +409,6 @@ function createApp({
   app.use('/api', api);
 
   // Üretimde React build'ini aynı sunucudan servis et.
-  const buildDir = path.join(__dirname, '..', '..', 'build');
   if (fs.existsSync(buildDir)) {
     app.use(express.static(buildDir));
     app.get('*', (req, res) => res.sendFile(path.join(buildDir, 'index.html')));

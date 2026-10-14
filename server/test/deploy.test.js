@@ -70,3 +70,28 @@ test('BASE_PATH=/sms: önekli ve öneksiz istekler aynı rotaya gider, kimlik do
   const r = await fetch(`${s.base}/sms`, { headers: ok, redirect: 'manual' });
   assert.deepStrictEqual([r.status, r.headers.get('location')], [301, '/sms/']);
 });
+
+test('BASE_PATH yoksa alt yol derleme dosyasından algılanır; canlıda şifresiz panel kilitlenir', async (t) => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'build-'));
+  fs.mkdirSync(path.join(dir, 'static', 'js'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'asset-manifest.json'), JSON.stringify({ files: { 'main.js': '/sms/static/js/main.abc.js' } }));
+  fs.writeFileSync(path.join(dir, 'index.html'), '<html></html>');
+  fs.writeFileSync(path.join(dir, 'static', 'js', 'main.abc.js'), 'console.log(1)');
+  const db = openDb(':memory:');
+  const scheduler = createScheduler({ db, provider: { send: async () => ({}) }, log: () => {} });
+
+  const s = serve(createApp({ db, scheduler, buildDir: dir, basePath: '', panelPassword: '' }));
+  t.after(s.close);
+  const js = await fetch(`${s.base}/sms/static/js/main.abc.js`);
+  assert.strictEqual(js.status, 200);
+  assert.match(js.headers.get('content-type'), /javascript/);
+
+  const locked = serve(createApp({ db, scheduler, buildDir: dir, panelPassword: '', requirePassword: true }));
+  t.after(locked.close);
+  assert.strictEqual((await fetch(`${locked.base}/sms/`)).status, 503);
+  assert.strictEqual((await fetch(`${locked.base}/sms/api/bitrix/webhook`, { method: 'POST' })).status, 503);
+  assert.match(await (await fetch(`${locked.base}/sms/api/stats`)).text(), /PANEL_PASSWORD/);
+});
