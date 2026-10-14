@@ -1,7 +1,7 @@
 # J.A.R.V.I.S. — Sesli asistan (Mac ve Windows)
 
 "Hey Jarvis" deyin, konuşun. Gerçekçi bir sesle (ElevenLabs) akıcı şekilde cevap verir, sözünü
-kesebilirsiniz, zor sorularda Claude ile derin düşünür ve gerekirse internette arar.
+kesebilirsiniz, zor sorularda OpenAI (ya da Claude) ile derin düşünür ve gerekirse internette arar.
 Toplantıyı ya da sizi uzun uzun dinleyip özetler, sorular sorar ve konuştuklarınızı hatırlar.
 
 ## Ne yapabilir?
@@ -10,10 +10,10 @@ Toplantıyı ya da sizi uzun uzun dinleyip özetler, sorular sorar ve konuştukl
 |---|---|
 | "Hey Jarvis" ya da **Ctrl+Option+J** (Windows: Ctrl+Alt+J) | Uyanır, "Efendim?" der, konuşma başlar |
 | Herhangi bir soru, sohbet | Kısa ve doğal cevap verir, gerekince soru sorar |
-| "Şu planı bir düşün…", "Dolar kaç?", "Bugünkü haberler ne?" | Claude ile derin düşünür, gerekirse internette arar |
+| "Şu planı bir düşün…", "Dolar kaç?", "Bugünkü haberler ne?" | Derin düşünür, gerekirse internette arar |
 | "Beni dinle", "Toplantıyı dinle", "Not al" | Susar ve kaydeder. Bitince "Hey Jarvis" deyin: yazıya döker, özetler, sesli anlatır, sorular sorar. Notlar `notlar` klasörüne kaydedilir |
 | "Excel'i aç", "Safari'yi aç", "Bitrix'i aç" | Uygulamayı / siteyi açar |
-| "Ekrana bak, bu hata ne diyor?" | Ekran görüntüsü alır, Claude ile yorumlar |
+| "Ekrana bak, bu hata ne diyor?" | Ekran görüntüsü alır ve yorumlar |
 | "Kopyaladığım metni özetle" | Panodaki metni okur |
 | "Yirmi dakika sonra toplantıyı hatırlat" | Zamanı gelince sesli hatırlatır |
 | "Bunu hatırla: …" | Hafızasına kaydeder (`hafiza.md`) |
@@ -33,7 +33,8 @@ Toplantıyı ya da sizi uzun uzun dinleyip özetler, sorular sorar ve konuştukl
    Gerekenleri indirir (birkaç dakika), sonra `.env` dosyasını TextEdit'te açar.
 4. `.env` dosyasına anahtarlarınızı yazın ve kaydedin (⌘S):
    - `ELEVENLABS_API_KEY` — elevenlabs.io → sol alt profil → **API Keys**
-   - `ANTHROPIC_API_KEY` — platform.claude.com → **API Keys**
+   - `OPENAI_API_KEY` — platform.openai.com → **API keys** → **Create new secret key** (`sk-` ile başlar)
+     *(İsterseniz OpenAI yerine Claude: `ANTHROPIC_API_KEY` — platform.claude.com → API Keys. İkisinden biri yeterli.)*
    - `JARVIS_KULLANICI_ADI` — size nasıl hitap etsin
 5. Çalıştırın:
    ```
@@ -95,8 +96,10 @@ asistan kendiliğinden güncellenir.
   **"Hey Jarvis" dediğinizde uyanmıyorsa** azaltın (ör. 0.45). İngilizce gibi "hey CAR-vis" demek
   daha iyi tanınır. Kısayol her zaman çalışır.
 - **Cevaplar geç geliyorsa** `.env`'de `JARVIS_SOHBET_MODELI=claude-sonnet-5-5` deneyin (daha hızlı;
-  zor sorular yine Claude Opus ile derin düşünülür). Ses için `JARVIS_SES_MODELI=eleven_flash_v2_5`
+  zor sorular yine derin düşünme motoruna gider). Ses için `JARVIS_SES_MODELI=eleven_flash_v2_5`
   en hızlısıdır, varsayılan `eleven_v3_conversational` en gerçekçisidir.
+- **"model does not exist" ya da erişim hatası:** OpenAI hesabınız ilk modele erişemiyorsa Jarvis
+  sıradakini dener. Hepsi başarısızsa platform.openai.com → Billing'de kredi yüklü mü bakın.
 - **Mikrofon hiç duymuyorsa:** Ayarlar → Gizlilik ve Güvenlik → Mikrofon'da Terminal açık mı bakın;
   Ayarlar → Ses → Giriş'te doğru mikrofon seçili mi kontrol edin.
 - **"Hey Jarvis"i beklerken Mac uyursa** Jarvis de uyur; uzun süre açık kalacaksa Ayarlar → Ekran
@@ -107,7 +110,8 @@ asistan kendiliğinden güncellenir.
 
 - **ElevenLabs:** konuşma açıkken dakika başına ücret (plana göre). Dinleme modunda konuşma kapalıdır,
   yalnızca kayıt sonunda yazıya dökme ücreti alınır.
-- **Claude:** derin düşünme, ekran yorumlama, özet ve hafıza notları için kullanım kadar ücret.
+- **OpenAI (ya da Claude):** derin düşünme, ekran yorumlama, özet ve hafıza notları için kullanım kadar ücret.
+- Canlı sohbetin kendisi ElevenLabs'te çalışır (ElevenLabs kredisinden düşer), ek anahtar gerektirmez.
 - "Hey Jarvis" algılama tamamen bilgisayarınızda çalışır, ücretsizdir; beklerken internete ses gitmez.
 
 ## Gizlilik

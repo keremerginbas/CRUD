@@ -4,12 +4,12 @@ Akış:
   1. Arka planda "Hey Jarvis" uyandırma kelimesini (ya da Ctrl+Option+J / Ctrl+Alt+J) bekler.
      Uyandırma kelimesi bilgisayarda çalışır, internete ses gitmez.
   2. Uyanınca ElevenLabs'in canlı sesli asistanıyla konuşma başlar: sizi dinler, sözünü
-     kesebilirsiniz, gerçekçi sesle cevap verir. Beyin: Claude.
-  3. Zor ya da güncel bilgi isteyen sorularda "derin_dusun" ile kendi Claude anahtarınızla
+     kesebilirsiniz, gerçekçi sesle cevap verir.
+  3. Zor ya da güncel bilgi isteyen sorularda "derin_dusun" ile kendi OpenAI (ya da Claude) anahtarınızla
      (gerekirse internette arayarak) uzun uzun düşünür.
   4. Bilgisayarda iş yapar: uygulama/site açar, ekrana bakar, panodaki metni okur, hatırlatır.
   5. "Beni dinle" / "toplantıyı dinle" derseniz susar ve kaydeder (mikrofon + bilgisayarın
-     sesi, yani Teams/Zoom'daki karşı taraf da — Mac'te BlackHole gerekir); "Hey Jarvis" deyince yazıya döker, Claude
+     sesi, yani Teams/Zoom'daki karşı taraf da — Mac'te BlackHole gerekir); "Hey Jarvis" deyince yazıya döker,
      ile özetler, özeti sesli anlatır ve sorular sorar. Notlar "notlar" klasörüne kaydedilir.
   6. Her konuşmadan kısa bir not çıkarır ve sonraki konuşmalarda hatırlar.
 """
@@ -52,6 +52,13 @@ os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 # ---------------- Ayarlar (.env) ----------------
 ELEVEN_KEY = os.getenv("ELEVENLABS_API_KEY", "").strip()
 CLAUDE_KEY = os.getenv("ANTHROPIC_API_KEY", "").strip()
+OPENAI_KEY = os.getenv("OPENAI_API_KEY", "").strip()
+# Düşünme motoru (derin düşünme, ekran, özet, hafıza): openai ya da claude. Boşsa hangi anahtar varsa o.
+BEYIN = (os.getenv("JARVIS_BEYIN", "").strip().lower()
+         or ("openai" if OPENAI_KEY else "claude"))
+# OpenAI modelleri sırayla denenir; hesabınızın erişebildiği ilk model kullanılır.
+OPENAI_MODELLERI = [m.strip() for m in (os.getenv("JARVIS_OPENAI_MODELI", "").strip()
+                                       or "gpt-6.1-sol,gpt-5.5,gpt-5.4").split(",") if m.strip()]
 KULLANICI_ADI = os.getenv("JARVIS_KULLANICI_ADI", "").strip()
 # Varsayılan ses: "George" (ElevenLabs hazır sesi, tok ve sakin erkek sesi; Türkçe konuşur)
 SES_ID = os.getenv("JARVIS_SES_ID", "").strip() or "JBFqnCBsd6RMkjVDRZzb"
@@ -59,7 +66,7 @@ SES_MODELI = os.getenv("JARVIS_SES_MODELI", "").strip() or "eleven_v3_conversati
 YEDEK_SES_MODELI = "eleven_flash_v2_5"
 SOHBET_MODELI = os.getenv("JARVIS_SOHBET_MODELI", "").strip() or "claude-opus-5-5"
 SOHBET_EFOR = os.getenv("JARVIS_SOHBET_EFOR", "").strip() or "low"  # akıcılık için düşük; zor sorular derin_dusun'a gider
-DUSUNME_MODELI = "claude-opus-5-5"
+CLAUDE_MODELI = "claude-opus-5-5"
 KULAKLIK = os.getenv("JARVIS_KULAKLIK", "hayir").strip().lower() in ("evet", "1", "true", "yes")
 SOZ_KESME_ESIGI = int(os.getenv("JARVIS_SOZ_KESME_ESIGI", "2500"))
 UYANDIRMA_ESIGI = float(os.getenv("JARVIS_UYANDIRMA_ESIGI", "0.6"))
@@ -238,7 +245,7 @@ def kisa_hata(e):
 
 # ---------------- ElevenLabs asistanı ----------------
 eleven = None
-claude = None
+claude_istemci = None
 aktif_konusma = None  # şu an açık Conversation (yoksa None)
 
 
@@ -352,14 +359,68 @@ def sesli_bildir(metin):
         log.warning("Sesli bildirim çalınamadı: %s", kisa_hata(e))
 
 
-# ---------------- Claude ----------------
-def claude_cagir(messages, **kw):
-    """Claude Opus 5.5: akış (uzun cevaplarda zaman aşımı olmasın), reddedilirse sunucu tarafı
-    yedek model, internet araması uzun sürerse (pause_turn) kaldığı yerden devam."""
-    messages = list(messages)
+# ---------------- Düşünme motoru: OpenAI ya da Claude ----------------
+# .env'de hangi anahtar varsa o kullanılır (ikisi de varsa JARVIS_BEYIN ile seçilir; varsayılan OpenAI).
+openai_istemci = None
+_calisan_openai_modeli = None
+
+
+def dusun(sistem, metin, gorsel=None, efor="high", web=False, sema=None, azami=16000):
+    """Tek bir soru-cevap. gorsel: PNG baytları; web: internette arayabilsin; sema: JSON şeması (yapılandırılmış cevap)."""
+    if BEYIN == "openai":
+        return _openai_dusun(sistem, metin, gorsel, efor, web, sema, azami)
+    return _claude_dusun(sistem, metin, gorsel, efor, web, sema, azami)
+
+
+def _openai_dusun(sistem, metin, gorsel, efor, web, sema, azami):
+    """OpenAI Responses API. İlk çalışan model hatırlanır; hesap bir modele erişemiyorsa sıradakine geçer."""
+    global _calisan_openai_modeli
+    import openai
+    icerik = [{"type": "input_text", "text": metin}]
+    if gorsel:
+        icerik.append({"type": "input_image", "detail": "auto",
+                       "image_url": "data:image/png;base64," + araclar.b64(gorsel)})
+    kw = dict(instructions=sistem, input=[{"role": "user", "content": icerik}],
+              reasoning={"effort": efor}, max_output_tokens=azami)
+    if web:
+        kw["tools"] = [{"type": "web_search"}]
+    if sema:
+        kw["text"] = {"format": {"type": "json_schema", "name": "cevap", "schema": sema, "strict": True}}
+    modeller = [_calisan_openai_modeli] if _calisan_openai_modeli else OPENAI_MODELLERI
+    son_hata = None
+    for model in modeller:
+        try:
+            cevap = openai_istemci.responses.create(model=model, **kw)
+        except (openai.NotFoundError, openai.PermissionDeniedError) as e:
+            son_hata = e  # bu hesapta bu model yok: sıradakini dene
+            continue
+        except openai.BadRequestError as e:
+            if "model" in str(e).lower() and model != modeller[-1]:
+                son_hata = e
+                continue
+            raise
+        _calisan_openai_modeli = model
+        return (cevap.output_text or "").strip()
+    raise son_hata or RuntimeError("Kullanılabilir OpenAI modeli bulunamadı.")
+
+
+def _claude_dusun(sistem, metin, gorsel, efor, web, sema, azami):
+    """Claude Opus 5.5: akış (uzun cevaplarda zaman aşımı olmasın), reddedilirse sunucu tarafı yedek model,
+    internet araması uzun sürerse (pause_turn) kaldığı yerden devam."""
+    icerik = [{"type": "text", "text": metin}]
+    if gorsel:
+        icerik.insert(0, {"type": "image", "source": {"type": "base64", "media_type": "image/png",
+                                                       "data": araclar.b64(gorsel)}})
+    messages = [{"role": "user", "content": icerik}]
+    cikti = {"effort": efor}
+    if sema:
+        cikti["format"] = {"type": "json_schema", "schema": sema}
+    kw = dict(system=sistem, max_tokens=max(azami, 16000), output_config=cikti, thinking={"type": "adaptive"})
+    if web:
+        kw["tools"] = [{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}]
     for _ in range(5):
-        with claude.beta.messages.stream(
-            model=DUSUNME_MODELI,
+        with claude_istemci.beta.messages.stream(
+            model=CLAUDE_MODELI,
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
             messages=messages,
@@ -371,35 +432,27 @@ def claude_cagir(messages, **kw):
             continue
         break
     if mesaj.stop_reason == "refusal":
-        raise RuntimeError("Claude bu isteği yanıtlamayı reddetti.")
+        raise RuntimeError("Model bu isteği yanıtlamayı reddetti.")
     return "".join(b.text for b in mesaj.content if b.type == "text").strip()
 
 
 def derin_dusun(soru, gecmis):
     son = "\n".join(gecmis[-30:])
-    return claude_cagir(
-        [{"role": "user", "content":
-          f"Konuşmanın son kısmı:\n{son or '(yok)'}\n\nDüşünülecek soru:\n{soru}\n\n"
-          f"Kullanıcı hakkında bilinenler:\n{hafiza_metni() or '(yok)'}\n\nŞu an: {simdi_metni()} (Türkiye)"}],
-        max_tokens=16000,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high"},
-        tools=[{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}],
-        system=("Sen bir sesli asistanın arka plandaki düşünme motorusun. Soruyu dikkatle düşün; güncel bilgi "
-                "gerekiyorsa internette ara. En doğru, uygulanabilir cevabı ver. Cevap sesli okunacak: madde işareti, "
-                "başlık, tablo, emoji, link kullanma; akıcı Türkçe paragraflarla yaz. Gereksiz uzatma."),
+    return dusun(
+        "Sen bir sesli asistanın arka plandaki düşünme motorusun. Soruyu dikkatle düşün; güncel bilgi "
+        "gerekiyorsa internette ara. En doğru, uygulanabilir cevabı ver. Cevap sesli okunacak: madde işareti, "
+        "başlık, tablo, emoji, link kullanma; akıcı Türkçe paragraflarla yaz. Gereksiz uzatma.",
+        f"Konuşmanın son kısmı:\n{son or '(yok)'}\n\nDüşünülecek soru:\n{soru}\n\n"
+        f"Kullanıcı hakkında bilinenler:\n{hafiza_metni() or '(yok)'}\n\nŞu an: {simdi_metni()} (Türkiye)",
+        efor="high", web=True,
     )
 
 
-def claude_gorsel(png, soru):
-    return claude_cagir(
-        [{"role": "user", "content": [
-            {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": araclar.b64(png)}},
-            {"type": "text", "text": soru}]}],
-        max_tokens=8000,
-        output_config={"effort": "medium"},
-        system=("Kullanıcının bilgisayar ekranının görüntüsüne bakıyorsun. Soruyu ekrandakine göre cevapla. Cevap "
-                "sesli okunacak: kısa, akıcı Türkçe; liste ve emoji yok."),
+def ekrani_yorumla(png, soru):
+    return dusun(
+        "Kullanıcının bilgisayar ekranının görüntüsüne bakıyorsun. Soruyu ekrandakine göre cevapla. Cevap "
+        "sesli okunacak: kısa, akıcı Türkçe; liste ve emoji yok.",
+        soru, gorsel=png, efor="medium", azami=8000,
     )
 
 
@@ -407,14 +460,12 @@ def konusmadan_not_cikar(gecmis):
     if sum(1 for s in gecmis if s.startswith("Kullanıcı:")) < 2:
         return
     try:
-        not_metni = claude_cagir(
-            [{"role": "user", "content": "\n".join(gecmis[-60:])}],
-            max_tokens=2000,
-            output_config={"effort": "low"},
-            system=("Bir sesli asistanın uzun süreli hafızasını tutuyorsun. Konuşmadan, ileride işe yarayacak "
-                    "kalıcı bilgileri (kullanıcının işi, tercihleri, planları, verdiği kararlar, takip edilecek "
-                    "konular) ve konuşmanın konusunu tek bir kısa paragrafta (en çok 2 cümle) yaz. Kayda değer "
-                    "bir şey yoksa sadece BOŞ yaz."),
+        not_metni = dusun(
+            "Bir sesli asistanın uzun süreli hafızasını tutuyorsun. Konuşmadan, ileride işe yarayacak "
+            "kalıcı bilgileri (kullanıcının işi, tercihleri, planları, verdiği kararlar, takip edilecek "
+            "konular) ve konuşmanın konusunu tek bir kısa paragrafta (en çok 2 cümle) yaz. Kayda değer "
+            "bir şey yoksa sadece BOŞ yaz.",
+            "\n".join(gecmis[-60:]), efor="low", azami=4000,
         )
         if not_metni and not_metni.upper() != "BOŞ":
             hafizaya_ekle(not_metni)
@@ -437,16 +488,13 @@ OZET_SEMASI = {
 
 
 def ozetle(yazi, konu):
-    metin = claude_cagir(
-        [{"role": "user", "content":
-          f"Konu (biliniyorsa): {konu or '-'}\nTarih: {simdi_metni()}\n\nKaydın yazıya dökümü:\n{yazi}"}],
-        max_tokens=32000,
-        thinking={"type": "adaptive"},
-        output_config={"effort": "high", "format": {"type": "json_schema", "schema": OZET_SEMASI}},
-        system=("Bir sesli asistan için kayıt özetliyorsun. Kayıt bir toplantı, telefon/online görüşme ya da "
-                "kullanıcının kendi anlatımı olabilir. Konuşmacı etiketleri otomatik tahmindir. Konuşulanları "
-                "sadakatle özetle, uydurma. Sesli özet doğal Türkçe ile, sanki kullanıcıya anlatıyormuş gibi olsun; "
-                "sayıları yazıyla yaz."),
+    metin = dusun(
+        "Bir sesli asistan için kayıt özetliyorsun. Kayıt bir toplantı, telefon/online görüşme ya da "
+        "kullanıcının kendi anlatımı olabilir. Konuşmacı etiketleri otomatik tahmindir. Konuşulanları "
+        "sadakatle özetle, uydurma. Sesli özet doğal Türkçe ile, sanki kullanıcıya anlatıyormuş gibi olsun; "
+        "sayıları yazıyla yaz.",
+        f"Konu (biliniyorsa): {konu or '-'}\nTarih: {simdi_metni()}\n\nKaydın yazıya dökümü:\n{yazi}",
+        efor="high", sema=OZET_SEMASI, azami=32000,
     )
     return json.loads(metin)
 
@@ -805,20 +853,30 @@ def tek_kopya():
 
 
 def kontrol():
-    eksik = [ad for ad, d in (("ELEVENLABS_API_KEY", ELEVEN_KEY), ("ANTHROPIC_API_KEY", CLAUDE_KEY)) if not d]
+    eksik = []
+    if not ELEVEN_KEY:
+        eksik.append("ELEVENLABS_API_KEY")
+    if BEYIN == "openai" and not OPENAI_KEY:
+        eksik.append("OPENAI_API_KEY")
+    elif BEYIN == "claude" and not CLAUDE_KEY:
+        eksik.append("OPENAI_API_KEY (ya da ANTHROPIC_API_KEY)")
     if eksik:
         print(f"❌ .env dosyasında eksik: {', '.join(eksik)}. .env.ornek dosyasını .env olarak kopyalayıp doldurun.")
         sys.exit(1)
 
 
 def main():
-    global eleven, claude, KULAK
+    global eleven, claude_istemci, openai_istemci, KULAK
     kontrol()
     global KILIT
     KILIT = tek_kopya()  # açık kaldıkça başka kopya açılamaz
     eleven = ElevenLabs(api_key=ELEVEN_KEY)
-    claude = anthropic.Anthropic(api_key=CLAUDE_KEY)
-    araclar.claude_gorsel = claude_gorsel
+    if BEYIN == "openai":
+        import openai
+        openai_istemci = openai.OpenAI(api_key=OPENAI_KEY, timeout=180)
+    else:
+        claude_istemci = anthropic.Anthropic(api_key=CLAUDE_KEY)
+    araclar.ekrani_yorumla = ekrani_yorumla
     araclar.hafiza_notlari = hafiza_notlari
     araclar.sesli_bildir = sesli_bildir
     araclar.hafizaya_ekle = hafizaya_ekle

@@ -21,7 +21,7 @@ MAC = platform.system() == "Darwin"
 NOT_KLASORU = KLASOR / "notlar"
 
 # Ana program bunları doldurur (Claude çağrısı, hafıza, sesli bildirim)
-claude_gorsel = None      # fn(png_bytes, soru) -> str
+ekrani_yorumla = None     # fn(png_bytes, soru) -> str
 hafiza_notlari = None     # fn() -> list[{"tarih","not"}]
 sesli_bildir = None       # fn(metin) — konuşma dışındayken Jarvis'in sesiyle söyler
 hafizaya_ekle = None      # fn(metin) — kalıcı hafızaya bir satır ekler
@@ -142,7 +142,7 @@ def ekrana_bak(p):
     goruntu.thumbnail((1920, 1920))
     tampon = io.BytesIO()
     goruntu.save(tampon, format="PNG")
-    return claude_gorsel(tampon.getvalue(), soru)
+    return ekrani_yorumla(tampon.getvalue(), soru)
 
 
 def panoyu_oku(p):
