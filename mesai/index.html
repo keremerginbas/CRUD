@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>XRE REAL ESTATE · Mesai</title>
+<meta name="theme-color" content="#0C1126">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192-v2.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@300;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg0:#0C1126; --bg1:#151C3A;
+  --card:#1A2348; --card-hi:#222D58; --line:#2B366A; --line-soft:#232D5B;
+  --ink:#EEF0FA; --mute:#9AA2C8; --faint:#646D99;
+  --gold:#D4AF6E; --gold-d:#B98F4C; --gold-l:#EBD3A2;
+  --green:#3DBF7A; --violet:#9C8CE8; --blue:#5B9BE6; --brick:#E0764E;
+  --navy:#233069; --navy-l:#33438C; /* XRE marka lacivert (logodan) */
+  --r-lg:22px; --r-md:16px; --r-sm:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{scroll-behavior:smooth}
+body{
+  font-family:'Manrope','Segoe UI',system-ui,-apple-system,sans-serif;
+  color:var(--ink);font-size:15px;line-height:1.5;
+  background:
+    radial-gradient(1100px 560px at 82% -12%, #2B366A66, transparent 62%),
+    radial-gradient(800px 500px at -10% 110%, #D4AF6E14, transparent 55%),
+    linear-gradient(180deg,var(--bg0) 0%,var(--bg1) 100%);
+  background-attachment:fixed;
+  min-height:100vh;min-height:100dvh;
+  overflow-x:hidden;
+}
+/* Yaşayan arka plan — sürüklenen ışık kümeleri (aurora) */
+body::before,body::after{content:"";position:fixed;z-index:-1;border-radius:50%;
+  filter:blur(72px);opacity:.5;pointer-events:none;will-change:transform}
+body::before{width:54vmax;height:54vmax;left:-14vmax;top:-16vmax;
+  background:radial-gradient(circle,#3a4890,transparent 68%);animation:blob1 24s ease-in-out infinite}
+body::after{width:46vmax;height:46vmax;right:-14vmax;bottom:-16vmax;
+  background:radial-gradient(circle,#D4AF6E3d,transparent 66%);animation:blob2 30s ease-in-out infinite}
+@keyframes blob1{50%{transform:translate(9vmax,7vmax) scale(1.14)}}
+@keyframes blob2{50%{transform:translate(-8vmax,-5vmax) scale(1.16)}}
+::selection{background:#D4AF6E55}
+button{font:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:6px}
+a{color:var(--blue)}
+
+.wrap{max-width:1060px;margin:0 auto;padding:0 18px 120px}
+
+/* ---------- Wordmark ---------- */
+.wm{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;line-height:1;
+  color:var(--gold);letter-spacing:.06em}
+.wm-badge{width:52px;height:52px;border-radius:14px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid #D4AF6E66;background:linear-gradient(160deg,#D4AF6E1f,#D4AF6E08);
+  box-shadow:inset 0 1px 0 #EBD3A233, 0 6px 18px -8px #000c;
+  font-size:22px}
+/* XRE logo plakası — lacivert logo koyu zeminde net okunsun diye açık kart */
+.logo-plate{background:linear-gradient(180deg,#ffffff,#eef1fb);border-radius:14px;
+  padding:8px 14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  box-shadow:0 8px 22px -10px #000c, inset 0 0 0 1px #ffffff, inset 0 -2px 6px #23306922}
+.logo-plate img{height:40px;width:auto;display:block}
+.lg-logo{padding:14px 20px;border-radius:18px}
+.lg-logo img{height:62px}
+
+/* ---------- Header ---------- */
+header{
+  margin-top:20px;padding:6px 4px 22px;position:relative;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  border-bottom:1px solid transparent;
+  border-image:linear-gradient(90deg,transparent,#D4AF6E88 18%,#D4AF6E88 82%,transparent) 1;
+}
+.brand-l{display:flex;align-items:center;gap:14px;min-width:0}
+.brand h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;color:var(--ink);
+  font-size:clamp(20px,3vw,26px);letter-spacing:.12em;white-space:nowrap}
+.brand h1 em{font-style:normal;color:var(--gold)}
+.brand .tr{font-size:10px;letter-spacing:.42em;color:var(--mute);font-weight:600;margin-top:2px}
+.who{text-align:right;margin-left:auto}
+.who b{font-size:14px;font-weight:700;display:block}
+.who span{font-size:11px;color:var(--mute);letter-spacing:.04em}
+.cikis{background:none;border:0;color:var(--faint);font-size:11px;cursor:pointer;margin-top:5px;padding:0;
+  border-bottom:1px solid transparent;transition:color .15s,border-color .15s}
+.cikis:hover{color:var(--gold);border-color:#D4AF6E66}
+
+/* ---------- Sekmeler ---------- */
+nav{display:flex;gap:4px;background:#10173166;border:1px solid var(--line-soft);backdrop-filter:blur(10px);
+  border-radius:14px;padding:5px;margin:20px auto 0;max-width:520px;
+  box-shadow:0 14px 34px -16px #000c, inset 0 1px 0 #ffffff0a}
+nav button{flex:1;border:0;background:transparent;padding:12px;border-radius:10px;
+  font-size:13.5px;font-weight:700;letter-spacing:.02em;color:var(--mute);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;transition:all .22s}
+nav button:hover{color:var(--ink)}
+nav button.on{background:linear-gradient(135deg,var(--gold),var(--gold-d));color:#141B38;
+  box-shadow:0 8px 20px -8px #D4AF6E99, inset 0 1px 0 #ffffff55}
+
+/* ---------- Sayfa düzeni (responsive) ---------- */
+.mesai-grid{display:grid;gap:22px;margin-top:22px;align-items:start}
+#pgRapor{margin-top:22px}
+@media(min-width:940px){
+  .mesai-grid{grid-template-columns:460px minmax(0,1fr)}
+  #akisSec h3.sec{margin-top:6px}
+  #pgRapor{max-width:760px;margin-left:auto;margin-right:auto}
+}
+
+/* ---------- Zamanlayıcı kartı ---------- */
+.card{background:linear-gradient(170deg,var(--card-hi),var(--card) 55%);border-radius:26px;padding:32px 26px;
+  text-align:center;border:1px solid var(--line);
+  box-shadow:0 26px 60px -24px #000d, inset 0 1px 0 #ffffff12;
+  transform-style:preserve-3d;animation:card3d .6s cubic-bezier(.2,.75,.2,1) both}
+#tiltCard{transition:transform .18s ease, box-shadow .3s ease;will-change:transform}
+@keyframes card3d{from{opacity:0;transform:perspective(1200px) rotateX(9deg) translateY(26px)}to{opacity:1;transform:perspective(1200px)}}
+.state{font-size:11px;letter-spacing:.32em;text-transform:uppercase;font-weight:800;margin-bottom:18px;transition:color .4s}
+
+/* halka */
+.ring-wrap{position:relative;width:clamp(230px,68vw,290px);aspect-ratio:1;margin:0 auto}
+.ring-wrap svg{width:100%;height:100%;transform:rotate(-90deg);display:block}
+.ring-track{fill:none;stroke:#101731;stroke-width:9}
+.ring-ticks{fill:none;stroke:#D4AF6E4d;stroke-width:6;stroke-dasharray:1.4 32.86;
+  transform-box:fill-box;transform-origin:center;animation:tickSpin 100s linear infinite}
+@keyframes tickSpin{to{transform:rotate(360deg)}}
+.ring-bar{fill:none;stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset 1s linear,stroke .5s;
+  filter:drop-shadow(0 0 8px rgba(212,175,110,.25))}
+.ring-inner{position:absolute;inset:11%;border-radius:50%;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  background:radial-gradient(circle at 34% 26%, #28336680 0%, transparent 55%),linear-gradient(165deg,#1E2850,#131A38);
+  border:1px solid var(--line-soft);
+  box-shadow:inset 0 6px 18px #00000066, inset 0 -2px 6px #ffffff08}
+.clock{font-size:clamp(38px,10vw,46px);font-weight:300;font-variant-numeric:tabular-nums;letter-spacing:-1px;color:var(--ink)}
+.clock.idle{color:#454F80}
+.sub{font-size:12px;color:var(--mute);margin-top:4px}
+.sub b{color:var(--gold-l);font-variant-numeric:tabular-nums}
+.pulse{position:absolute;inset:5%;border-radius:50%;opacity:0;pointer-events:none}
+.pulse.go{animation:pulse 3s ease-out infinite}
+@keyframes pulse{0%{opacity:.16;transform:scale(.92)}70%{opacity:0;transform:scale(1.06)}100%{opacity:0}}
+
+/* ön hazırlık kartı */
+.oh{margin-top:18px;text-align:left;border-radius:var(--r-md);padding:14px 16px;
+  background:#9C8CE814;border:1px solid #9C8CE83a}
+.oh b{color:var(--violet);font-size:13.5px;display:flex;align-items:center;gap:7px}
+.oh p{color:#9C8CE8aa;font-size:12px;margin-top:3px}
+
+/* ---------- Butonlar ---------- */
+.btns{margin-top:24px;display:flex;flex-direction:column;gap:11px;position:relative}
+.btn{border:0;font-weight:800;font-size:15px;letter-spacing:.02em;padding:16px;border-radius:var(--r-md);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .12s,box-shadow .2s,filter .2s;
+  position:relative;overflow:hidden}
+.btn:hover{filter:brightness(1.07)}
+.btn:active{transform:scale(.965)}
+/* dolgulu butonlarda periyodik ışık süpürmesi */
+.btn-start::after,.btn-resume::after{content:"";position:absolute;top:0;left:-140%;width:55%;height:100%;
+  background:linear-gradient(100deg,transparent,#ffffff66,transparent);transform:skewX(-18deg);
+  animation:sheen 5s ease-in-out infinite;pointer-events:none}
+@keyframes sheen{0%,58%{left:-140%}78%,100%{left:150%}}
+.btn-start{color:#141B38;background:linear-gradient(135deg,var(--gold-l) -20%,var(--gold) 45%,var(--gold-d));
+  box-shadow:0 14px 30px -10px #D4AF6E88, inset 0 1px 0 #ffffff70, inset 0 -2px 0 #00000030}
+.btn-resume{color:#0D1E15;background:linear-gradient(135deg,#5AD695,#3DBF7A);
+  box-shadow:0 14px 30px -10px #3DBF7A66, inset 0 1px 0 #ffffff55, inset 0 -2px 0 #00000025}
+.btn-pause{background:#10173199;color:var(--ink);border:1px solid var(--line);
+  box-shadow:inset 0 1px 0 #ffffff0d}
+.btn-pause.open{background:linear-gradient(135deg,var(--card-hi),var(--card));color:var(--gold-l);
+  border-color:#D4AF6E55}
+.btn-stop{background:#E0764E12;color:var(--brick);border:1px solid #E0764E4d}
+.btn-ghost{background:#10173199;color:var(--ink);border:1px solid var(--line)}
+
+/* mola menüsü */
+.menu{background:linear-gradient(170deg,var(--card-hi),var(--card));border:1px solid var(--line);border-radius:18px;
+  overflow:hidden;box-shadow:0 18px 40px -14px #000d, inset 0 1px 0 #ffffff10;
+  animation:drop .22s ease both;transform-origin:top;text-align:left}
+@keyframes drop{from{opacity:0;transform:scaleY(.9) translateY(-6px)}to{opacity:1;transform:none}}
+.menu button{width:100%;border:0;background:transparent;color:var(--ink);display:flex;align-items:center;
+  gap:12px;padding:14px 16px;cursor:pointer;text-align:left;transition:background .15s}
+.menu button:hover{background:#ffffff08}
+.menu button + button{border-top:1px solid var(--line-soft)}
+.mi{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  font-size:17px;flex-shrink:0;border:1px solid #ffffff14}
+.menu .t{flex:1;font-size:14px;font-weight:700}
+.menu .tag{font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+
+/* ---------- Akış listesi ---------- */
+h3.sec{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--mute);
+  font-weight:800;margin:28px 4px 12px;display:flex;align-items:center;gap:10px}
+h3.sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,#D4AF6E55,transparent)}
+.seg{display:flex;align-items:center;gap:12px;background:linear-gradient(170deg,var(--card-hi),var(--card));
+  border-radius:var(--r-md);padding:14px 16px;margin-bottom:9px;
+  border:1px solid var(--line-soft);border-left-width:4px;
+  box-shadow:0 10px 26px -14px #000c, inset 0 1px 0 #ffffff0d;animation:rise .35s ease both}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.seg .info{flex:1;text-align:left;min-width:0}
+.seg .info b{font-size:14px;display:block}
+.seg .info small{font-size:11.5px;color:var(--faint);font-variant-numeric:tabular-nums;display:block}
+.seg .info .note{font-size:11.5px;color:var(--mute)}
+.seg .dur{font-size:14px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ---------- Rapor ---------- */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:380px){.stats{grid-template-columns:1fr}}
+.stat{background:linear-gradient(170deg,var(--card-hi),var(--card));border-radius:18px;padding:18px;
+  border:1px solid var(--line-soft);border-top-width:3px;text-align:left;
+  box-shadow:0 14px 32px -16px #000c, inset 0 1px 0 #ffffff0d}
+.stat small{font-size:11.5px;color:var(--mute);font-weight:600;letter-spacing:.04em}
+.stat div{font-size:24px;font-weight:300;font-variant-numeric:tabular-nums;margin-top:3px}
+.tg{background:linear-gradient(170deg,var(--card-hi),var(--card));border-radius:18px;padding:16px;
+  border:1px solid #5B9BE640;margin-top:12px;text-align:left;
+  box-shadow:0 14px 32px -16px #000c}
+.tg .bh{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.tg .ba{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--gold),var(--gold-d));
+  color:#141B38;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:11px;letter-spacing:.02em}
+.tg .bn{font-size:12px;font-weight:800;color:var(--blue)}
+.tg p{font-size:14px;line-height:1.55}
+.tg .tick{font-size:10px;color:var(--faint);text-align:right;margin-top:7px}
+.empty{background:linear-gradient(170deg,var(--card-hi),var(--card));border:1px solid var(--line-soft);
+  border-radius:22px;padding:64px 20px;text-align:center;color:var(--mute);font-size:14px}
+
+/* ---------- PWA yükleme ---------- */
+.install{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:50;
+  background:linear-gradient(135deg,var(--gold),var(--gold-d));color:#141B38;border:0;
+  font-size:13px;font-weight:800;padding:12px 22px;border-radius:99px;cursor:pointer;
+  display:none;align-items:center;gap:8px;box-shadow:0 16px 34px -10px #D4AF6E88}
+.install.show{display:flex}
+
+/* ---------- Giriş ekranı ---------- */
+#loginPg{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:20px;
+  background:
+    radial-gradient(1000px 560px at 82% -10%,#2B366A80,transparent 60%),
+    radial-gradient(700px 460px at -8% 105%,#D4AF6E1e,transparent 55%),
+    linear-gradient(165deg,#080C1D,#12193A 60%,#1A2348);overflow:hidden}
+/* Giriş arka plan videosu + okunabilirlik için lacivert örtü */
+.lg-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;pointer-events:none;
+  opacity:0;transition:opacity 1.2s ease}
+.lg-video.hazir{opacity:1}
+.lg-ortu{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(1000px 600px at 50% 45%,#0C112600 30%,#0C112680 85%),
+    linear-gradient(180deg,#080C1D59,#1A234826 45%,#080C1D80)}
+#loginPg .login-card{position:relative;z-index:1;backdrop-filter:blur(6px);
+  background:linear-gradient(170deg,#222D58e6,#1A2348eb)}
+.login-card{background:linear-gradient(170deg,var(--card-hi),var(--card));border:1px solid var(--line);
+  border-radius:24px;padding:36px 28px;width:100%;max-width:392px;
+  box-shadow:0 40px 90px -28px #000, inset 0 1px 0 #ffffff14;animation:rise .4s ease both}
+.login-card .lg{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:26px;text-align:center}
+.login-card h1{font-family:'Cormorant Garamond',Georgia,serif;font-weight:600;font-size:22px;
+  letter-spacing:.14em;color:var(--ink)}
+.login-card h1 em{font-style:normal;color:var(--gold)}
+.login-card .tr{font-size:10px;letter-spacing:.4em;color:var(--mute);font-weight:700}
+.login-card label{font-size:12px;color:var(--mute);font-weight:700;display:block;margin:13px 0 6px;text-align:left}
+.login-card input{font:inherit;color:var(--ink);width:100%;padding:13px 15px;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:#0F1531;outline:none;
+  transition:border .15s,box-shadow .15s}
+.login-card input::placeholder{color:var(--faint)}
+.login-card input:focus{border-color:var(--gold);box-shadow:0 0 0 3px #D4AF6E26}
+.login-err{color:var(--brick);font-size:13px;font-weight:700;margin-top:10px;display:none}
+@keyframes shake{10%,90%{transform:translateX(-2px)}20%,80%{transform:translateX(3px)}30%,50%,70%{transform:translateX(-5px)}40%,60%{transform:translateX(5px)}}
+.login-card.err-shake{animation:shake .45s ease}
+.btn[disabled]{opacity:.6;pointer-events:none}
+.btn .spin{display:inline-block;width:14px;height:14px;border:2px solid #141B3855;border-top-color:#141B38;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.login-card input:not(:placeholder-shown):invalid{border-color:var(--brick)}
+
+/* ---------- Kurulum rehberi ---------- */
+#pwaGuide{position:fixed;inset:0;z-index:200;display:none;align-items:flex-end;justify-content:center;
+  background:#05081599;backdrop-filter:blur(4px)}
+#pwaGuide.show{display:flex}
+.pwa-sheet{width:100%;max-width:440px;background:linear-gradient(170deg,var(--card-hi),var(--card));
+  border:1px solid var(--line);border-bottom:0;border-radius:24px 24px 0 0;padding:26px 22px 30px;
+  box-shadow:0 -30px 80px -20px #000;animation:sheetUp .35s ease both}
+@keyframes sheetUp{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+.pwa-sheet h2{font-family:'Cormorant Garamond',Georgia,serif;font-size:21px;color:var(--gold);
+  letter-spacing:.04em;margin-bottom:6px}
+.pwa-sheet p.sub{font-size:13px;color:var(--mute);margin-bottom:16px}
+.pwa-step{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line-soft)}
+.pwa-step:last-of-type{border-bottom:0}
+.pwa-step .no{width:26px;height:26px;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12.5px;font-weight:800;color:#141B38;background:linear-gradient(135deg,var(--gold),var(--gold-d))}
+.pwa-step div p{font-size:13.5px;line-height:1.45}
+.pwa-step div p b{color:var(--gold-l)}
+.pwa-actions{display:flex;gap:10px;margin-top:18px}
+.pwa-actions .btn{flex:1;padding:13px}
+.pwa-later{background:transparent;border:1px solid var(--line);color:var(--mute);border-radius:var(--r-sm);cursor:pointer;font-weight:700;font-size:13.5px}
+.pwa-later:hover{color:var(--ink);border-color:var(--gold)}
+
+/* ---------- Senkron göstergesi ---------- */
+.sync-rozet{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;
+  letter-spacing:.02em;padding:4px 10px;border-radius:99px;margin-top:7px;
+  border:1px solid var(--line);background:#10173199;color:var(--mute);white-space:nowrap;
+  transition:color .2s,border-color .2s,background .2s}
+.sync-rozet .dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex-shrink:0}
+.sync-rozet.ok{color:var(--green);border-color:#3DBF7A55;background:#3DBF7A12}
+.sync-rozet.pending{color:var(--gold-l);border-color:#D4AF6E55;background:#D4AF6E12}
+.sync-rozet.pending .dot{animation:blink 1s ease-in-out infinite}
+.sync-rozet.offline{color:var(--brick);border-color:#E0764E66;background:#E0764E12}
+.sync-rozet.offline .dot{animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{50%{opacity:.3}}
+
+/* kart içi durum uyarısı — çalışan "kaydoldu mu?" endişesini gidermek için */
+.sync-not{margin-top:14px;font-size:12.5px;font-weight:700;border-radius:var(--r-sm);
+  padding:11px 14px;display:none;gap:8px;text-align:left;line-height:1.45}
+.sync-not.warn{display:flex;background:#E0764E14;border:1px solid #E0764E44;color:var(--brick)}
+.sync-not.wait{display:flex;background:#D4AF6E10;border:1px solid #D4AF6E3a;color:var(--gold-l)}
+
+/* bağlantı uyarı şeridi — yalnızca sunucuya GERÇEKTEN ulaşılamadığında görünür.
+   (Eski sürüm transform ile gizleniyordu; body'deki perspective yüzünden şeridin
+   bir kısmı internet varken bile ekranda kalıyordu.) */
+.net-bar{display:none;position:sticky;top:0;z-index:120;
+  background:linear-gradient(90deg,#E0764E,#c85f38);color:#1c0f08;font-weight:800;font-size:12.5px;
+  text-align:center;padding:9px 14px;box-shadow:0 6px 18px -6px #000c}
+.net-bar.show{display:block;animation:rise .3s ease both}
+
+/* ---------- Sıralama / Skor tablosu (oyunlaştırma) ---------- */
+#pgSira{margin-top:22px}
+@media(min-width:940px){#pgSira{max-width:760px;margin-left:auto;margin-right:auto}}
+.sira-head{text-align:center;margin-bottom:6px}
+.sira-head h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:clamp(22px,5vw,28px);
+  color:var(--gold-l);letter-spacing:.03em}
+.sira-head p{font-size:12px;color:var(--mute);margin-top:2px;letter-spacing:.02em}
+
+/* kişisel özet */
+.benim{display:flex;align-items:center;gap:14px;margin:16px 0 8px;
+  background:linear-gradient(135deg,#D4AF6E1f,#D4AF6E08);border:1px solid #D4AF6E55;
+  border-radius:var(--r-lg);padding:16px 18px;box-shadow:0 14px 34px -18px #000c,inset 0 1px 0 #ffffff12}
+.benim .rk{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:34px;color:var(--gold);line-height:1;min-width:54px;text-align:center}
+.benim .rk small{display:block;font-family:'Manrope';font-size:9px;letter-spacing:.2em;color:var(--faint);font-weight:800}
+.benim .bi{flex:1;min-width:0}
+.benim .bi b{font-size:15px}
+.benim .bi div{font-size:12px;color:var(--mute);margin-top:2px}
+
+/* podyum */
+.podium{perspective:1200px;display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:10px;align-items:end;margin:14px 0 10px}
+.pod{position:relative;border-radius:18px 18px var(--r-sm) var(--r-sm);padding:14px 8px 12px;text-align:center;
+  border:1px solid var(--line);background:linear-gradient(170deg,var(--card-hi),var(--card));
+  box-shadow:0 16px 34px -18px #000c,inset 0 1px 0 #ffffff0d;
+  transform-style:preserve-3d;animation:podRise .6s cubic-bezier(.2,.85,.2,1) both}
+.pod.p2{animation-delay:.06s}.pod.p3{animation-delay:.12s}
+@keyframes podRise{from{opacity:0;transform:translateY(32px) rotateX(22deg) scale(.92)}to{opacity:1;transform:none}}
+.pod.p1{border-color:#D4AF6E88;background:linear-gradient(170deg,#2f3556,#20213f);padding-top:22px;padding-bottom:18px;
+  animation:podRise .6s cubic-bezier(.2,.85,.2,1) both, champGlow 3s ease-in-out 1s infinite}
+.pod.p1::before{content:"👑";position:absolute;top:-19px;left:50%;transform:translateX(-50%);font-size:23px;
+  filter:drop-shadow(0 3px 6px #000a);animation:crownBob 3s ease-in-out infinite}
+@keyframes crownBob{50%{transform:translateX(-50%) translateY(-5px) rotate(-5deg)}}
+@keyframes champGlow{50%{box-shadow:0 20px 44px -18px #000c, 0 0 46px 0 #D4AF6E66}}
+.pod.p2{border-color:#9fb0d688}.pod.p3{border-color:#C08A5288}
+.pod .medal{font-size:26px;line-height:1}
+.pod .pav{width:44px;height:44px;border-radius:50%;margin:6px auto 6px;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:15px;color:#141B38;background:linear-gradient(135deg,var(--gold),var(--gold-d));
+  box-shadow:inset 0 1px 0 #ffffff66,0 6px 14px -6px #000c}
+.pod.p1 .pav{width:54px;height:54px;font-size:18px}
+.pod .pn{font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pod .ph{font-size:15px;font-weight:800;color:var(--gold-l);font-variant-numeric:tabular-nums;margin-top:2px}
+.pod.me{outline:2px solid var(--gold);outline-offset:2px}
+
+/* yıldızlar */
+.stars{position:relative;display:inline-block;font-size:13px;letter-spacing:1.5px;color:#3a4680;line-height:1;white-space:nowrap}
+.stars i{position:absolute;left:0;top:0;height:100%;overflow:hidden;color:var(--gold);white-space:nowrap;font-style:normal;width:var(--f,0%)}
+
+/* liste satırları */
+.lb{margin-top:10px}
+.lb-row{display:flex;align-items:center;gap:12px;background:linear-gradient(170deg,var(--card-hi),var(--card));
+  border-radius:var(--r-md);padding:12px 14px;margin-bottom:8px;border:1px solid var(--line-soft);border-left-width:4px;
+  box-shadow:0 10px 26px -16px #000c,inset 0 1px 0 #ffffff0a;animation:rise .35s ease both}
+.lb-row.me{border-color:var(--gold);background:linear-gradient(170deg,#2a2f4d,#20233f)}
+.lb-rank{font-weight:800;font-size:15px;color:var(--mute);min-width:26px;text-align:center;font-variant-numeric:tabular-nums}
+.lb-av{width:38px;height:38px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:13px;color:#141B38;background:linear-gradient(135deg,var(--gold),var(--gold-d));box-shadow:inset 0 1px 0 #ffffff55}
+.lb-i{flex:1;min-width:0}
+.lb-i b{font-size:13.5px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lb-i .sub{font-size:11px;color:var(--faint)}
+.lb-h{text-align:right;white-space:nowrap}
+.lb-h b{font-size:14px;color:var(--gold-l);font-variant-numeric:tabular-nums}
+.lb-h .sub{font-size:10.5px;color:var(--faint)}
+.dot-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-left:6px;vertical-align:middle;box-shadow:0 0 0 0 var(--green);animation:live 1.6s infinite}
+@keyframes live{0%{box-shadow:0 0 0 0 #3DBF7A88}70%{box-shadow:0 0 0 6px #3DBF7A00}100%{box-shadow:0 0 0 0 #3DBF7A00}}
+.me-badge{font-size:8.5px;font-weight:800;letter-spacing:.1em;color:#141B38;background:var(--gold);padding:2px 6px;border-radius:6px;margin-left:6px;vertical-align:middle}
+.pod .ph{animation:pop .5s ease .18s both}
+@keyframes pop{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:none}}
+
+/* ---------- Konfeti (şampiyon kutlaması) ---------- */
+#konfeti{position:fixed;inset:0;pointer-events:none;z-index:130;overflow:hidden}
+.konf{position:absolute;top:-16px;width:9px;height:14px;border-radius:2px;opacity:.95;will-change:transform;animation:dus var(--d,2s) linear forwards}
+@keyframes dus{to{transform:translateY(104vh) rotate(760deg);opacity:.85}}
+
+/* ================= Görsel yenileme ================= */
+/* Kullanıcı kartı (sağ üst) */
+.who{display:flex;align-items:center;gap:12px;text-align:left}
+.who-av{width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:14px;color:#141B38;background:linear-gradient(135deg,var(--gold-l),var(--gold) 50%,var(--gold-d));
+  box-shadow:0 0 0 3px #D4AF6E22, inset 0 1px 0 #ffffff66}
+.who-t b{font-size:14px;font-weight:800;display:block;line-height:1.25}
+.who-t span{font-size:11.5px;color:var(--mute)}
+.who-r{display:flex;flex-direction:column;align-items:flex-end;gap:5px;margin-left:6px}
+.who-r .sync-rozet{margin-top:0}
+.cikis{margin-top:0}
+
+/* Selamlama satırı */
+.hello{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:22px 4px 0}
+.hello h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:clamp(24px,4.4vw,32px);
+  line-height:1.1;color:var(--ink);letter-spacing:.01em}
+.hello h2 em{font-style:normal;color:var(--gold-l)}
+.hello p{font-size:12.5px;color:var(--mute);font-weight:600;letter-spacing:.03em}
+.durum-pill{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:800;letter-spacing:.04em;
+  padding:7px 14px;border-radius:99px;border:1px solid var(--line);background:#10173180;color:var(--mute)}
+.durum-pill i{width:8px;height:8px;border-radius:50%;background:currentColor;font-style:normal}
+.durum-pill.canli i{animation:live 1.6s infinite}
+
+/* Halka içi hedef etiketi + mini istatistikler */
+.ring-goal{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-top:6px}
+.ring-goal b{color:var(--gold-l)}
+.mini-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:20px}
+.mini-stats div{background:#0F153199;border:1px solid var(--line-soft);border-radius:14px;padding:10px 8px;text-align:center}
+.mini-stats small{display:block;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+.mini-stats b{display:block;font-size:15px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:2px}
+
+/* Mola menüsü: 3 kutucuk (İhtiyaç · Yemek · Online Randevu) */
+.menu{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:9px;background:#0F1531cc}
+.menu button{flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:7px;
+  padding:16px 8px;border-radius:14px;border:1px solid var(--line-soft)!important;background:linear-gradient(170deg,var(--card-hi),var(--card));
+  transition:transform .15s,border-color .15s,background .15s}
+.menu button:hover{background:linear-gradient(170deg,#28336a,var(--card-hi));border-color:var(--mc,#D4AF6E)!important;transform:translateY(-2px)}
+.menu button:active{transform:scale(.97)}
+.menu .mi{width:46px;height:46px;border-radius:14px;font-size:21px}
+.menu .t{flex:none;font-size:13.5px}
+.menu .tag{font-size:8.5px;padding:2px 7px;border-radius:99px;background:#5B9BE61a;border:1px solid #5B9BE644}
+
+/* Gün zaman çizelgesi */
+.tl{background:linear-gradient(170deg,var(--card-hi),var(--card));border:1px solid var(--line-soft);border-radius:var(--r-md);
+  padding:14px 16px 12px;margin-bottom:12px;box-shadow:0 10px 26px -14px #000c, inset 0 1px 0 #ffffff0d}
+.tl-bar{display:flex;height:16px;border-radius:99px;overflow:hidden;background:#0F1531;gap:2px;
+  box-shadow:inset 0 1px 3px #0008}
+.tl-bar span{display:block;height:100%;min-width:3px;transition:flex-grow .6s ease}
+.tl-bar span.live{background-image:linear-gradient(90deg,transparent,#ffffff40,transparent)!important;
+  background-size:200% 100%;animation:shimmer 1.8s linear infinite}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+.tl-ax{display:flex;justify-content:space-between;font-size:11px;color:var(--faint);margin-top:7px;font-variant-numeric:tabular-nums;font-weight:700}
+.tl-leg{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:11.5px;color:var(--mute);font-weight:600}
+.tl-leg i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px;vertical-align:0}
+.tl-leg b{color:var(--ink);font-variant-numeric:tabular-nums}
+
+/* Akış listesinde canlı (açık) segment */
+.seg.live{border-style:dashed;border-left-style:solid;background:linear-gradient(170deg,#26315f,var(--card))}
+.seg .now{font-size:9px;font-weight:800;letter-spacing:.12em;color:#141B38;background:var(--green);padding:2px 7px;border-radius:6px;margin-left:8px;vertical-align:2px}
+.seg .mi{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;border:1px solid #ffffff14}
+
+/* Rapor: 3 kart + mola dağılımı */
+.stats.three{grid-template-columns:repeat(3,1fr)}
+@media(max-width:560px){.stats.three{grid-template-columns:1fr 1fr}.stats.three .stat:last-child{grid-column:1/-1}}
+.stat .alt{font-size:11.5px;color:var(--faint);margin-top:2px;font-weight:600}
+.brk{background:linear-gradient(170deg,var(--card-hi),var(--card));border:1px solid var(--line-soft);border-radius:var(--r-md);
+  padding:14px 16px;margin-top:10px;box-shadow:0 10px 26px -14px #000c}
+.brk-row{display:grid;grid-template-columns:38px 1fr auto;gap:4px 12px;align-items:center;padding:8px 0}
+.brk-row + .brk-row{border-top:1px solid var(--line-soft)}
+.brk-row .mi{grid-row:span 2}
+.brk-row b{font-size:13.5px}
+.brk-row b small{color:var(--faint);font-weight:600;font-size:11.5px;margin-left:6px}
+.brk-row .v{font-weight:800;font-variant-numeric:tabular-nums;font-size:14px;text-align:right}
+.brk-row .bar{grid-column:2/4;height:6px;border-radius:99px;background:#0F1531;overflow:hidden}
+.brk-row .bar span{display:block;height:100%;border-radius:99px;animation:grow .8s cubic-bezier(.2,.8,.2,1) both;transform-origin:left}
+@keyframes grow{from{transform:scaleX(0)}to{transform:none}}
+
+/* Bildirim (toast) */
+#toast{position:fixed;left:50%;bottom:26px;z-index:150;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  width:max-content;max-width:calc(100vw - 32px);text-align:center;background:linear-gradient(170deg,#2a3568,#1d2650);border:1px solid #D4AF6E66;color:var(--ink);
+  font-size:13.5px;font-weight:700;padding:12px 18px;border-radius:14px;box-shadow:0 18px 40px -12px #000e;
+  transition:opacity .25s,transform .25s}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* Telegram bağlama şeridi */
+.tg-bant{display:none;align-items:center;gap:14px;margin:16px 0 0;padding:13px 16px;border-radius:var(--r-md);
+  background:linear-gradient(135deg,#2AABEE22,#2AABEE0a);border:1px solid #2AABEE55;box-shadow:0 12px 30px -16px #000c;animation:rise .4s ease both}
+.tg-bant.show{display:flex}
+.tg-bant .ic{font-size:24px;flex-shrink:0}
+.tg-bant .tx{flex:1;min-width:0;font-size:13px;color:var(--mute);line-height:1.45}
+.tg-bant .tx b{color:var(--ink);display:block;font-size:14px}
+.tg-bant a.git{flex-shrink:0;text-decoration:none;font-weight:800;font-size:13px;color:#fff;padding:10px 16px;border-radius:12px;
+  background:linear-gradient(135deg,#37b6f5,#1d93d2);box-shadow:0 10px 22px -10px #2AABEEaa;white-space:nowrap}
+.tg-bant .kapat{background:none;border:0;color:var(--faint);font-size:18px;cursor:pointer;padding:0 2px}
+@media(max-width:560px){.tg-bant{flex-wrap:wrap;align-items:flex-start}.tg-bant .tx{flex:1 1 calc(100% - 80px)}
+  .tg-bant a.git{order:3;flex:1 1 100%;text-align:center}}
+
+/* Hoş geldin / akşam hatırlatma kutusu */
+.hg{position:fixed;inset:0;z-index:210;display:none;align-items:center;justify-content:center;padding:20px;
+  background:#050815b3;backdrop-filter:blur(6px)}
+.hg.show{display:flex}
+.hg-kart{position:relative;width:100%;max-width:420px;text-align:center;overflow:hidden;
+  background:linear-gradient(170deg,#2a3568,var(--card) 60%);border:1px solid #D4AF6E66;border-radius:26px;
+  padding:34px 26px 24px;box-shadow:0 40px 90px -24px #000, inset 0 1px 0 #ffffff1a;animation:hgIn .5s cubic-bezier(.2,.9,.25,1.2) both}
+.hg-kart::before{content:"";position:absolute;inset:-40% -20% auto;height:70%;pointer-events:none;
+  background:radial-gradient(closest-side,#D4AF6E33,transparent)}
+@keyframes hgIn{from{opacity:0;transform:translateY(30px) scale(.92)}to{opacity:1;transform:none}}
+.hg-emoji{font-size:54px;line-height:1;display:inline-block;animation:hgSalla 2.4s ease-in-out .5s infinite;position:relative}
+@keyframes hgSalla{0%,100%{transform:rotate(0)}15%{transform:rotate(14deg)}30%{transform:rotate(-10deg)}45%{transform:rotate(8deg)}60%{transform:rotate(0)}}
+.hg-kart h2{font-family:'Cormorant Garamond',Georgia,serif;font-weight:700;font-size:30px;line-height:1.15;margin-top:14px;position:relative}
+.hg-kart h2 em{font-style:normal;color:var(--gold-l)}
+.hg-kart p{font-size:14.5px;color:var(--ink);opacity:.9;margin-top:10px;line-height:1.6;position:relative}
+.hg-not{margin-top:16px;font-size:13px;font-weight:700;color:var(--gold-l);background:#D4AF6E14;border:1px dashed #D4AF6E66;
+  border-radius:14px;padding:11px 14px;line-height:1.5;position:relative}
+.hg-btns{display:flex;flex-direction:column;gap:9px;margin-top:20px;position:relative}
+.hg-btns .pwa-later{padding:12px}
+
+/* Online randevu: müşteri / proje bilgisi (zorunlu) */
+.gr-kart{text-align:left}
+.gr-kart .hg-emoji,.gr-kart h2,.gr-kart > p{text-align:center;display:block}
+.gr-kart label{font-size:12px;color:var(--mute);font-weight:700;display:block;margin:14px 0 6px;position:relative}
+.gr-kart label i{color:var(--brick);font-style:normal}
+.gr-kart input{font:inherit;color:var(--ink);width:100%;padding:13px 15px;position:relative;
+  border:1px solid var(--line);border-radius:var(--r-sm);background:#0F1531;outline:none;transition:border .15s,box-shadow .15s}
+.gr-kart input::placeholder{color:var(--faint)}
+.gr-kart input:focus{border-color:var(--gold);box-shadow:0 0 0 3px #D4AF6E26}
+.gr-kart input.hatali{border-color:var(--brick);box-shadow:0 0 0 3px #E0764E26}
+.gr-kart .login-err{position:relative}
+.gr-bilgi{margin-top:14px;font-size:12.5px;font-weight:700;color:#9cc3f0;background:#5B9BE614;border:1px solid #5B9BE644;
+  border-radius:var(--r-sm);padding:10px 14px;text-align:left;line-height:1.5;overflow-wrap:anywhere}
+
+@media(max-width:560px){
+  header{gap:12px}
+  .who-t{display:none}
+  .card{padding:26px 18px}
+  .mini-stats b{font-size:13.5px}
+}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="netBar" class="net-bar">⚠️ Sunucuya ulaşılamıyor — kayıtların cihazında güvende, bağlantı gelince otomatik gönderilecek</div>
+<div id="loginPg" style="display:none">
+  <video id="lgVideo" class="lg-video" muted loop playsinline preload="none" poster="giris-poster.jpg" aria-hidden="true"></video>
+  <div class="lg-ortu"></div>
+  <div class="login-card">
+    <div class="lg">
+      <div class="logo-plate lg-logo"><img src="logo-v2.png" alt="XRE · X Real Estate Türkiye"></div>
+      <div class="tr">MESAİ TAKİP SİSTEMİ</div>
+    </div>
+    <label for="lgKadi">Kullanıcı Adı</label>
+    <input id="lgKadi" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" autofocus placeholder="kullanıcı adınız" onkeydown="if(event.key==='Enter')$('lgPin').focus()">
+    <label for="lgPin">PIN</label>
+    <input id="lgPin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="••••" onkeydown="if(event.key==='Enter')girisYap()">
+    <div class="login-err" id="lgErr"></div>
+    <div class="btns" style="margin-top:20px">
+      <button class="btn btn-start" id="lgBtn" onclick="girisYap()">Giriş Yap</button>
+    </div>
+    <p style="font-size:11.5px;color:var(--faint);text-align:center;margin-top:14px">
+      Hesabınız yoksa yöneticinizden kullanıcı adı ve PIN isteyin.
+    </p>
+  </div>
+</div>
+
+<div class="wrap">
+  <header id="hdr">
+    <div class="brand-l">
+      <div class="logo-plate"><img src="logo-v2.png" alt="XRE · X Real Estate Türkiye"></div>
+      <div class="brand"><div class="tr" style="margin-top:0">MESAİ TAKİP SİSTEMİ</div></div>
+    </div>
+    <div class="who">
+      <div class="who-av" id="whoAv">—</div>
+      <div class="who-t"><b id="whoAd">—</b><span id="whoRol"></span></div>
+      <div class="who-r">
+        <div id="syncRozet" class="sync-rozet" title="Sunucuya kayıt durumu"><span class="dot"></span><span id="syncTxt">—</span></div>
+        <button class="cikis" onclick="cikisYap()">Oturumu kapat</button>
+      </div>
+    </div>
+  </header>
+
+  <nav>
+    <button id="tabMesai" class="on" onclick="sekme('mesai')">⏱ Mesai</button>
+    <button id="tabRapor" onclick="sekme('rapor')">📊 Rapor</button>
+    <button id="tabSira" onclick="sekme('sira')">🏆 Sıralama</button>
+  </nav>
+
+  <div id="pgMesai">
+    <div class="hello">
+      <div><p id="helloTarih"></p><h2 id="helloTxt">Merhaba</h2></div>
+      <span class="durum-pill" id="durumPill"><i></i><span id="durumPillTxt">Mesai başlamadı</span></span>
+    </div>
+    <div class="tg-bant" id="tgBant">
+      <span class="ic">🔔</span>
+      <div class="tx"><b>Telegram hatırlatmalarını aç</b>Mesaini kapatmayı unutursan bot sana özelden haber versin. Tek dokunuş: aç → BAŞLAT.</div>
+      <a class="git" id="tgBantLink" href="#" target="_blank" rel="noopener" onclick="tgBaglandiKontrol()">✈ Telegram'ı Bağla</a>
+      <button class="kapat" title="Şimdilik gizle" onclick="tgBantGizle()">✕</button>
+    </div>
+    <div class="mesai-grid">
+      <div class="card" id="tiltCard">
+        <div class="state" id="stateTxt">Mesai Başlamadı</div>
+        <div class="ring-wrap">
+          <div class="pulse" id="pulse"></div>
+          <svg viewBox="0 0 270 270">
+            <circle class="ring-track" cx="135" cy="135" r="120"/>
+            <circle class="ring-ticks" cx="135" cy="135" r="109"/>
+            <circle class="ring-bar" id="ringBar" cx="135" cy="135" r="120"/>
+          </svg>
+          <div class="ring-inner">
+            <div class="clock idle" id="clock">00:00:00</div>
+            <div class="sub" id="clockSub" style="display:none">Toplam çalışma <b id="totalTxt">00:00:00</b></div>
+            <div class="ring-goal" id="ringGoal">Günlük hedef <b id="goalTxt">%0</b></div>
+          </div>
+        </div>
+        <div class="mini-stats">
+          <div><small>Net çalışma</small><b id="msCal" style="color:var(--green)">0 dk</b></div>
+          <div><small>Mola</small><b id="msMola" style="color:var(--gold)">0 dk</b></div>
+          <div><small>Giriş</small><b id="msGiris">—</b></div>
+        </div>
+        <div id="konumSatir" style="margin-top:14px;font-size:12.5px;display:none"></div>
+        <div class="oh" id="ohCard" style="display:none">
+          <b>📋 Ön hazırlık süreci (09:00 – 10:00)</b>
+          <p>Yapılandır ve planlandır</p>
+        </div>
+        <div class="sync-not" id="syncNot"></div>
+        <div class="btns" id="btns"></div>
+      </div>
+      <div id="akisSec" style="display:none">
+        <h3 class="sec">Bugünün Akışı</h3>
+        <div id="zamanCiz"></div>
+        <div id="akis"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="pgRapor" style="display:none"></div>
+  <div id="pgSira" style="display:none"></div>
+</div>
+
+<div id="pwaGuide">
+  <div class="pwa-sheet">
+    <h2>📲 Uygulamayı telefonuna kur</h2>
+    <p class="sub">Mesai sistemini ana ekranına ekle — her sabah tek dokunuşla açılır, uygulama gibi çalışır.</p>
+    <div id="pwaSteps"></div>
+    <div class="pwa-actions">
+      <button class="btn btn-start" id="pwaKur" style="display:none" onclick="pwaKurTikla()">⬇ Şimdi Kur</button>
+      <button class="pwa-later" onclick="pwaKapat(true)">Anladım</button>
+      <button class="pwa-later" onclick="pwaKapat(false)">Sonra hatırlat</button>
+    </div>
+  </div>
+</div>
+
+<div id="konfeti"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="hosgeldin" class="hg" onclick="if(event.target===this)hgKapat()">
+  <div class="hg-kart" role="dialog" aria-modal="true" aria-labelledby="hgBaslik">
+    <div class="hg-emoji" id="hgEmoji">☀️</div>
+    <h2 id="hgBaslik"></h2>
+    <p id="hgMetin"></p>
+    <div class="hg-not" id="hgNot"></div>
+    <div class="hg-btns" id="hgBtns"></div>
+  </div>
+</div>
+<div id="gorusme" class="hg" onclick="if(event.target===this)gorusmeKapat()">
+  <form class="hg-kart gr-kart" role="dialog" aria-modal="true" aria-labelledby="grBaslik" onsubmit="gorusmeBasla(event)" novalidate>
+    <div class="hg-emoji">🎥</div>
+    <h2 id="grBaslik">Online Randevu</h2>
+    <p>Müşteri ve proje adı Telegram grubunda görüşmeyle birlikte paylaşılır.</p>
+    <label for="grMusteri">Müşteri adı <i>*</i></label>
+    <input id="grMusteri" list="grMusteriList" maxlength="80" autocomplete="off" placeholder="ör. Ahmet Yılmaz" required>
+    <label for="grProje">Proje adı <i>*</i></label>
+    <input id="grProje" list="grProjeList" maxlength="80" autocomplete="off" placeholder="ör. Beştepe Rezidans" required>
+    <datalist id="grMusteriList"></datalist>
+    <datalist id="grProjeList"></datalist>
+    <div class="login-err" id="grErr"></div>
+    <div class="hg-btns">
+      <button type="submit" class="btn btn-start">🎥 Görüşmeyi Başlat</button>
+      <button type="button" class="pwa-later" onclick="gorusmeKapat()">Vazgeç</button>
+    </div>
+  </form>
+</div>
+<button class="install" id="installBtn">⬇ Uygulamayı Yükle</button>
+
+<script>
+/* ---------- Oturum ---------- */
+const API = "api.php";
+let OT = JSON.parse(localStorage.getItem("xre-oturum") || "null"); // {token, ad, rol, kadi}
+
+/* Bağlantı durumu navigator.onLine'a değil, GERÇEK istek sonucuna göre belirlenir.
+   (Windows/Chrome'da sanal ağ bağdaştırıcıları, VPN vb. yüzünden navigator.onLine
+   internet varken de "false" dönebiliyor.) */
+let agHata = false;
+async function apiCall(action, body){
+  const ctrl = new AbortController();
+  const zamanAsimi = setTimeout(()=>ctrl.abort(), 15000); // 15 sn üst sınır — asılı kalmayı önler
+  try{
+    const r = await fetch(`${API}?action=${action}`, {
+      method: body ? "POST" : "GET",
+      headers: {"Content-Type":"application/json", "X-Token": OT?.token || ""},
+      body: body ? JSON.stringify(body) : undefined,
+      signal: ctrl.signal, keepalive: true, cache: "no-store"
+    });
+    clearTimeout(zamanAsimi);
+    if (agHata){ agHata = false; rozetGuncelle(); }
+    const txt = await r.text();
+    try { return JSON.parse(txt); }
+    catch(e){ return {ok:false, hata:"Sunucu yanıtı bozuk", http:r.status}; } // boş/500 → çevrimdışı sanma
+  }catch(e){ clearTimeout(zamanAsimi); agHata = true; rozetGuncelle(); return {ok:false, hata:"Bağlantı hatası", offline:true}; }
+}
+
+/* Giriş ekranı arka plan videosu: yalnızca giriş ekranı açıkken yüklenir/oynar.
+   Hareket azaltma ya da veri tasarrufu açıksa yalnızca ilk kare (poster) gösterilir. */
+function girisVideo(ac){
+  const v = $("lgVideo"); if (!v) return;
+  if (!ac){ try { v.pause(); v.removeAttribute("src"); v.load(); } catch(e){} return; }
+  const tasarruf = (navigator.connection && navigator.connection.saveData) ||
+    window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  v.classList.add("hazir");
+  if (tasarruf) return;
+  if (!v.getAttribute("src")) {
+    // Chrome/Android/Firefox: daha küçük WebM (330 KB). Safari/iPhone: MP4 (840 KB, en uyumlu).
+    const safari = /^((?!chrome|chromium|crios|fxios|android).)*safari/i.test(navigator.userAgent);
+    const webm = !safari && v.canPlayType('video/webm; codecs="vp9"') === "probably";
+    v.src = webm ? "giris-video.webm" : "giris-video.mp4";
+  }
+  v.muted = true;
+  const p = v.play(); if (p && p.catch) p.catch(()=>{}); // otomatik oynatma engellenirse poster kalır
+}
+function girisGoster(){ $("loginPg").style.display = "flex"; girisVideo(true); }
+
+async function girisYap(){
+  const kadi = $("lgKadi").value.trim(), pin = $("lgPin").value.trim();
+  const btn = $("lgBtn"), card = document.querySelector(".login-card");
+  if(!kadi || !pin){ lgHata("Kullanıcı adı ve PIN girin"); return; }
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Giriş yapılıyor…';
+  const r = await apiCall("login", {action:"login", kadi, pin});
+  btn.disabled = false; btn.textContent = "Giriş Yap";
+  if(!r || !r.ok){ lgHata(r?.hata || "Bağlantı hatası"); $("lgPin").value=""; return; }
+  OT = {token:r.token, ad:r.ad, rol:r.rol, kadi:r.kadi};
+  localStorage.setItem("xre-oturum", JSON.stringify(OT));
+  await sunucudanYukle(); // bu kullanıcının kendi günü (yerel + sunucu)
+  ekranAc();
+}
+function lgHata(m){
+  const e = $("lgErr"), card = document.querySelector(".login-card");
+  e.textContent = m; e.style.display = "block";
+  card.classList.remove("err-shake"); void card.offsetWidth; card.classList.add("err-shake");
+}
+function hata(m){ const e=$("lgErr"); e.style.display="block"; e.textContent=m; }
+function cikisYap(){
+  if (!confirm("Oturum kapatılsın mı?")) return;
+  localStorage.removeItem("xre-oturum"); OT=null; location.reload();
+}
+function ekranAc(){
+  $("loginPg").style.display = "none";
+  girisVideo(false);
+  $("whoAd").textContent = OT.ad;
+  $("whoRol").textContent = OT.rol;
+  $("whoAv").textContent = basHarf(OT.ad);
+  selamla();
+  ciz();
+  rozetGuncelle();
+  // Açılışta aktif/biten bir gün varsa sunucuyla bir kez uzlaştır (çevrimdışı biten
+  // mesai yeniden açıldığında da Bitrix'e/rapora ulaşsın).
+  if (S && S.durum && S.durum !== "hazir"){ dirty=true; rozetGuncelle(); planla(400); }
+  setTimeout(hosgeldinGoster, 500);
+  tgDurumYukle();
+}
+
+/* ---------- Sunucu senkronu: güvenilir kuyruk ----------
+   Eski sürüm 800 ms debounce içinde İKİNCİ değişikliği DÜŞÜRÜYORDU; hızlı
+   başlat→mola gibi geçişlerde "başlat" olayı sunucuya hiç gitmiyordu ve
+   Bitrix boşta kalıyordu. Yeni sürüm:
+   - her değişiklik "dirty" işaretlenir, tek gönderici en son durumu yollar
+     (birleştirme + son-durum-kazanır),
+   - başarısızlıkta veriyi korur ve artan bekleme ile yeniden dener,
+   - sekme kapanırken sendBeacon ile son durumu kurtarır,
+   - çevrimiçi olunca / periyodik olarak yeniden gönderir (Bitrix kendini onarır).  */
+let syncing=false, dirty=false, backoff=1500, sonSyncOk=0, syncTimer=null;
+function planla(gecikme){ clearTimeout(syncTimer); syncTimer=setTimeout(syncCalis, Math.max(0,gecikme)); }
+function isaretle(acil=false){ dirty=true; rozetGuncelle(); planla(acil ? 0 : 600); }
+
+async function syncCalis(){
+  if (!OT || syncing || !dirty){ rozetGuncelle(); return; }
+  syncing=true; dirty=false; rozetGuncelle();
+  const anlik = JSON.parse(JSON.stringify(S)); // gönderilecek durumu dondur
+  const r = await apiCall("gun_kaydet", {action:"gun_kaydet", gun: S.tarih || gunKey(), veri: anlik});
+  syncing=false;
+  if (r && r.ok){
+    sonSyncOk = Date.now(); backoff = 1500;
+    if (dirty) planla(150);            // gönderim sırasında yeni değişiklik olduysa tekrar yolla
+  } else {
+    dirty = true;                      // başarısız → koru ve tekrar dene
+    backoff = Math.min(Math.round(backoff*1.8), 30000);
+    planla(backoff);
+  }
+  rozetGuncelle();
+}
+
+function rozetGuncelle(){
+  const rz=$("syncRozet"), tx=$("syncTxt"), not=$("syncNot"), bar=$("netBar");
+  if (bar) bar.classList.toggle("show", agHata);
+  if (!rz || !tx) return;
+  let cls="ok", label="Hazır", notCls="", notTxt="";
+  if (agHata){
+    cls="offline"; label="Çevrimdışı";
+    if (dirty){ notCls="warn"; notTxt="⚠️ Sunucuya ulaşılamıyor — mesai kaydın cihazında tutuluyor. Bağlantı gelince otomatik gönderilecek."; }
+  } else if (syncing){
+    cls="pending"; label="Kaydediliyor…";
+  } else if (dirty){
+    cls="pending"; label="Bekliyor…";
+    notCls="wait"; notTxt="⏳ Sunucuya kaydediliyor…";
+  } else {
+    cls="ok"; label = sonSyncOk ? "Kayıtlı ✓" : "Hazır";
+  }
+  rz.className="sync-rozet "+cls; tx.textContent=label;
+  if (not){ not.className="sync-not "+notCls; not.textContent=notTxt; }
+}
+
+/* Sekme kapanırken/gizlenirken son durumu kurtar (başlık koyulamaz → gövdede _tok) */
+function flushBeacon(){
+  if (!OT || !dirty || !navigator.sendBeacon) return;
+  try{
+    const blob = new Blob([JSON.stringify({action:"gun_kaydet", gun:S.tarih||gunKey(), veri:S, _tok:OT.token})],
+                          {type:"application/json"});
+    if (navigator.sendBeacon(`${API}?action=gun_kaydet&beacon=1`, blob)) dirty=false;
+  }catch(e){}
+}
+
+async function sunucudanYukle(){
+  yerelYukle(); // önce bu kullanıcının yerel verisi
+  const r = await apiCall("gun_getir&gun=" + gunKey());
+  if (r.ok && r.veri && r.veri.gun === bugunStr()) {
+    S = r.veri;
+    localStorage.setItem(depoAnahtar(), JSON.stringify(S));
+  }
+  if (r.ok) sonSyncOk = Date.now();
+  rozetGuncelle();
+}
+
+/* ---------- Yapılandırma ---------- */
+const ROL = { onBas: 9, onBit: 10, not: "Yapılandır ve planlandır" };
+/* Çay ve tuvalet molası kaldırıldı → tek "İhtiyaç Molası". Eski kayıtlardaki cay/tuvalet
+   segmentleri menüde görünmez, ihtiyaç molası olarak gösterilir ve toplanır. */
+const MOLA = {
+  ihtiyac: { ad: "İhtiyaç Molası", emoji: "☕", renk: "#D4AF6E", sayilir: false },
+  yemek:   { ad: "Yemek Molası",   emoji: "🍽", renk: "#E0764E", sayilir: false },
+  randevu: { ad: "Online Randevu", emoji: "🎥", renk: "#5B9BE6", sayilir: true },
+  cay:     { ad: "İhtiyaç Molası", emoji: "☕", renk: "#D4AF6E", sayilir: false, esdeger: "ihtiyac" },
+  tuvalet: { ad: "İhtiyaç Molası", emoji: "☕", renk: "#D4AF6E", sayilir: false, esdeger: "ihtiyac" },
+};
+const molaAnahtar = (id) => (MOLA[id] && MOLA[id].esdeger) || id;
+const kucuk = (s) => s.toLocaleLowerCase("tr-TR");
+const STIL = {
+  onhazirlik: { renk: "#9C8CE8", emoji: "📋" },
+  calisma:    { renk: "#3DBF7A", emoji: "⏱" },
+  ...Object.fromEntries(Object.entries(MOLA).map(([k,v]) => [k, { renk:v.renk, emoji:v.emoji }])),
+};
+
+/* ---------- Durum (kullanıcıya özel, kalıcı) ---------- */
+const bugunStr = () => new Date().toDateString();
+const gunKey = () => { const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); };
+// tarih: kaydın ait olduğu gün (gece yarısını aşan mesai başladığı güne yazılır)
+const bosGun = () => ({ gun: bugunStr(), tarih: gunKey(), durum: "hazir", segs: [], bas: null, tip: null });
+const depoAnahtar = () => "xre-mesai:" + (OT ? OT.kadi : "misafir");
+let S = bosGun();
+function yerelYukle(){
+  const v = JSON.parse(localStorage.getItem(depoAnahtar()) || "null");
+  S = (v && v.gun === bugunStr()) ? v : bosGun();
+}
+const kaydet = (acil=false) => { localStorage.setItem(depoAnahtar(), JSON.stringify(S)); isaretle(acil); };
+
+/* ---------- Yardımcılar ---------- */
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = (ms) => { const s=Math.floor(ms/1000); return [s/3600,s%3600/60,s%60].map(x=>String(Math.floor(x)).padStart(2,"0")).join(":"); };
+const fmtSaat = (ms) => { const dk=Math.floor(ms/60000),h=Math.floor(dk/60),m=dk%60; if(!h&&!m) return Math.max(0,Math.floor(ms/1000))+" sn"; return h?(m?`${h} sa ${m} dk`:`${h} sa`):`${m} dk`; };
+const saat = (t) => new Date(t).toLocaleTimeString("tr-TR",{hour:"2-digit",minute:"2-digit"});
+
+const toplamlar = () => {
+  const t = { calisma:0, mola:0, molalar:{} };
+  for (const s of S.segs) {
+    const d = s.bit - s.bas;
+    if (s.tip==="calisma"||s.tip==="onhazirlik") t.calisma+=d;
+    else if (MOLA[s.tip]) { const k=molaAnahtar(s.tip); t.molalar[k]=(t.molalar[k]||0)+d; MOLA[s.tip].sayilir ? t.calisma+=d : t.mola+=d; }
+  }
+  return t;
+};
+const ohModu = () => { const h=new Date().getHours(); return h>=ROL.onBas && h<ROL.onBit; };
+const ohAktif = () => S.durum==="calisiyor" && ohModu() && !S.segs.some(s=>s.tip==="calisma");
+
+/* ---------- Konum ----------
+   Eski sürümdeki sorunlar:
+   - Yalnızca yüksek hassasiyet (GPS) isteniyordu; GPS'i olmayan bilgisayarlarda zaman
+     aşımına düşüp hiç konum alınamıyordu.
+   - Çıkışta rapor, konum gelmeden anında gönderiliyordu ("Çıkış konumu alınamadı").
+   Yeni sürüm: önce hızlı (ağ/Wi-Fi veya son 5 dk'lık önbellek) konum, paralelde hassas
+   GPS; en iyi okuma kaydedilir. Hata sebebi (izin yok / zaman aşımı) de kaydedilir.
+   Sunucu, mesai bitince raporu çıkış konumu gelene kadar ~40 sn bekletir. */
+const KONUM_SURE = 20000;
+const konumIs = {};      // alan -> şu an alınıyor mu
+const KONUM_HATA = {1:"konum izni verilmedi", 2:"konum bulunamadı", 3:"zaman aşımı"};
+function konumAl(alan){
+  if (!navigator.geolocation){ S[alan]={hata:true, neden:"tarayıcı desteklemiyor"}; kaydet(true); ciz(); return; }
+  if (konumIs[alan]) return;
+  konumIs[alan] = true; ciz();
+  let enIyi = null, bitti = false, sonHata = null, wid = null, tm = null;
+  const kapat = () => {
+    if (bitti) return; bitti = true;
+    if (wid !== null) navigator.geolocation.clearWatch(wid);
+    clearTimeout(tm); konumIs[alan] = false;
+    S[alan] = enIyi || { hata:true, neden: KONUM_HATA[sonHata] || "zaman aşımı" };
+    if (alan === "cikisKonum") delete S.konumBekliyor; // sunucu artık bitiş raporunu gönderebilir
+    kaydet(true); ciz();
+  };
+  const okuma = (p) => {
+    if (bitti) return;
+    const o = { lat:+p.coords.latitude.toFixed(6), lng:+p.coords.longitude.toFixed(6), dogruluk:Math.round(p.coords.accuracy) };
+    if (!enIyi || o.dogruluk < enIyi.dogruluk){ enIyi = o; S[alan] = o; kaydet(); ciz(); }
+    if (o.dogruluk <= 30) kapat(); // yeterince hassas — beklemeye gerek yok
+  };
+  const hata = (e) => { sonHata = e.code; if (e.code === 1) kapat(); };
+  // 1) hızlı: ağ konumu veya son 5 dk içindeki önbellek (bilgisayarlar için şart)
+  navigator.geolocation.getCurrentPosition(okuma, hata, { enableHighAccuracy:false, maximumAge:300000, timeout:KONUM_SURE });
+  // 2) hassas: GPS (telefon)
+  wid = navigator.geolocation.watchPosition(okuma, hata, { enableHighAccuracy:true, maximumAge:0, timeout:KONUM_SURE });
+  tm = setTimeout(kapat, KONUM_SURE);
+}
+/* Konumu önceden "ısıt": tarayıcı son konumu önbelleğe alır, çıkışta anında kullanılır */
+function konumIsit(){
+  if (!navigator.geolocation) return;
+  try { navigator.geolocation.getCurrentPosition(()=>{}, ()=>{}, { enableHighAccuracy:true, maximumAge:120000, timeout:15000 }); } catch(e){}
+}
+
+const mapsLink = (k) => `https://maps.google.com/?q=${k.lat},${k.lng}`;
+const konumEtiket = (k, ad, alan) => konumIs[alan]
+  ? `<span style="color:var(--gold-l)">📍 ${ad} konumu alınıyor…</span>`
+  : !k ? "" : k.hata
+  ? `<span style="color:var(--brick)">⚠ ${ad} konumu alınamadı${k.neden?` (${esc(k.neden)})`:""}</span>
+     <button class="cikis" style="color:var(--gold-l);margin-left:6px" onclick="konumAl('${alan}')">Tekrar dene</button>
+     ${k.neden==="konum izni verilmedi"?`<br><span style="color:var(--faint);font-size:11.5px">Adres çubuğundaki 🔒 simgesinden konuma izin verin${/windows/i.test(navigator.userAgent)?"; Windows'ta Ayarlar › Gizlilik › Konum açık olmalı":""}.</span>`:""}`
+  : `📍 <a href="${mapsLink(k)}" target="_blank" style="color:var(--blue);text-decoration:none;font-weight:600">${ad} konumu</a> <span style="color:var(--faint)">(±${k.dogruluk} m)</span>`;
+
+/* ---------- Aksiyonlar ---------- */
+function baslat(){ S.durum="calisiyor"; S.bas=Date.now(); S.tip=null; S.tarih=S.tarih||gunKey(); kaydet(true); konumAl("girisKonum"); ciz();
+  bildir("🟢 Mesai başladı — iyi çalışmalar!"); }
+function segKapat(){
+  const t=Date.now(), b=S.bas; let seg;
+  if (S.tip){
+    seg={tip:S.tip, ad:MOLA[S.tip].ad, bas:b, bit:t};
+    if (S.tip==="randevu" && S.randevu) Object.assign(seg, {musteri:S.randevu.musteri, proje:S.randevu.proje});
+  }
+  else {
+    const h=new Date(b).getHours();
+    seg = (h>=ROL.onBas&&h<ROL.onBit) ? {tip:"onhazirlik",ad:"Ön Hazırlık",bas:b,bit:t,not:ROL.not} : {tip:"calisma",ad:"Çalışma",bas:b,bit:t};
+  }
+  delete S.randevu;
+  S.segs.push(seg); return t;
+}
+/* Online randevu için müşteri + proje adı zorunlu (Telegram grubunda görünür) */
+function molaSec(id){ if (id==="randevu") gorusmeAc(); else molayaCik(id); }
+function molayaCik(id, detay){
+  S.bas=segKapat(); S.tip=id; S.durum="molada"; if (detay) S.randevu=detay;
+  menuAcik=false; kaydet(true); ciz();
+  bildir(`${MOLA[id].emoji} ${MOLA[id].ad} başladı${detay?` · ${detay.musteri}`:""} · ekibe bildiriliyor`);
+}
+const grDepo = () => "xre-gorusme-son:" + (OT ? OT.kadi : "misafir");
+function grSonlar(){ try { return JSON.parse(localStorage.getItem(grDepo()) || "null") || {musteri:[], proje:[]}; } catch(e){ return {musteri:[], proje:[]}; } }
+function gorusmeAc(){
+  const son = grSonlar();
+  $("grMusteriList").innerHTML = son.musteri.map(x=>`<option value="${esc(x)}">`).join("");
+  $("grProjeList").innerHTML = son.proje.map(x=>`<option value="${esc(x)}">`).join("");
+  $("grMusteri").value = ""; $("grProje").value = "";
+  $("grMusteri").classList.remove("hatali"); $("grProje").classList.remove("hatali");
+  $("grErr").style.display = "none";
+  $("gorusme").classList.add("show");
+  setTimeout(()=>$("grMusteri").focus(), 60);
+}
+function gorusmeKapat(){ $("gorusme").classList.remove("show"); }
+function gorusmeBasla(e){
+  e.preventDefault();
+  const temiz = (s) => s.replace(/\s+/g," ").trim().slice(0,80);
+  const musteri = temiz($("grMusteri").value), proje = temiz($("grProje").value);
+  // En az 2 harf/rakam: "." ya da "-" gibi geçiştirmeler kabul edilmez
+  const gecerli = (s) => (s.match(/[\p{L}\p{N}]/gu) || []).length >= 2;
+  $("grMusteri").classList.toggle("hatali", !gecerli(musteri));
+  $("grProje").classList.toggle("hatali", !gecerli(proje));
+  if (!gecerli(musteri) || !gecerli(proje)){
+    const err = $("grErr");
+    err.textContent = "Müşteri adı ve proje adı zorunlu (en az 2 harf).";
+    err.style.display = "block";
+    (gecerli(musteri) ? $("grProje") : $("grMusteri")).focus();
+    return;
+  }
+  if (S.durum !== "calisiyor"){ gorusmeKapat(); return; } // bu arada durum değiştiyse
+  const son = grSonlar(), ekle = (l, v) => [v, ...l.filter(x => kucuk(x) !== kucuk(v))].slice(0,15);
+  try { localStorage.setItem(grDepo(), JSON.stringify({musteri:ekle(son.musteri, musteri), proje:ekle(son.proje, proje)})); } catch(e){}
+  gorusmeKapat();
+  molayaCik("randevu", {musteri, proje});
+}
+const gorusmeEtiket = (s) => s && (s.musteri || s.proje) ? `👤 ${esc(s.musteri||"—")} · 📁 ${esc(s.proje||"—")}` : "";
+function devam(){
+  const m = S.tip ? MOLA[S.tip] : null, sure = S.bas ? Date.now()-S.bas : 0;
+  S.bas=segKapat(); S.tip=null; S.durum="calisiyor"; kaydet(true); ciz();
+  if (m) bildir(`▶️ ${fmtSaat(sure)} ${kucuk(m.ad)}${m.sayilir?'dan':'ndan'} döndün · ekibe bildiriliyor`);
+}
+function sonlandir(){
+  konumIsit(); // onay penceresi açıkken konum hazırlansın
+  if (!confirm("Mesaiyi sonlandırmak istiyor musun?")) return;
+  segKapat(); S.bas=null; S.tip=null; S.durum="bitti"; S.bitis=Date.now();
+  if (navigator.geolocation) S.konumBekliyor=true; // rapor çıkış konumunu beklesin
+  kaydet(true); konumAl("cikisKonum"); sekme("rapor");
+  bildir("🏁 Mesai tamamlandı · çıkış konumu alınıyor, birkaç saniye bekleyin");
+}
+/* Bitmiş günü SİLMEDEN mesaiye geri dön (eski "Yeni Gün Başlat" günün kayıtlarını sıfırlıyordu) */
+function yenidenBasla(){
+  S.durum="calisiyor"; S.bas=Date.now(); S.tip=null; delete S.bitis; delete S.cikisKonum; delete S.konumBekliyor;
+  kaydet(true); sekme("mesai"); bildir("🔄 Mesaiye geri döndün");
+}
+let toastT=null;
+function bildir(m){ const t=$("toast"); if(!t) return; t.textContent=m; t.classList.add("show");
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"), 3200); }
+let menuAcik=false;
+function toggleMenu(){ menuAcik=!menuAcik; ciz(); }
+
+/* Sunucudaki raporMetni() ile aynı biçim (önizleme) */
+function telegramMesaj(){
+  const t=toplamlar();
+  let m=`📋 ${esc(OT ? ilkAd(OT.ad) : "Çalışan")} bugün ${fmtSaat(t.calisma)} çalıştı`;
+  for (const id of ["yemek","ihtiyac"]) if (t.molalar[id]) m+=`, ${fmtSaat(t.molalar[id])} ${kucuk(MOLA[id].ad)}na çıktı`;
+  if (t.molalar.randevu) m+=`, ${fmtSaat(t.molalar.randevu)} online randevuda kaldı`;
+  m+=".";
+  for (const s of S.segs) if (s.tip==="randevu") m+=`<br>🎥 ${saat(s.bas)}–${saat(s.bit)} (${fmtSaat(s.bit-s.bas)}) ${gorusmeEtiket(s) || "müşteri/proje belirtilmedi"}`;
+  if (S.segs.length) m+=`<br>🕘 ${saat(S.segs[0].bas)} – ${saat(S.segs[S.segs.length-1].bit)} · ${t.mola ? "toplam mola "+fmtSaat(t.mola) : "mola yok"}`;
+  const k = (ad, v, alan) => konumIs[alan] ? `📍 ${ad}: alınıyor…`
+    : v && !v.hata ? `📍 ${ad}: <a href="${mapsLink(v)}" target="_blank" style="color:var(--blue)">haritada gör</a> (±${v.dogruluk} m)`
+    : `⚠️ ${ad} konumu alınamadı${v && v.neden ? " ("+esc(v.neden)+")" : ""}`;
+  m+=`<br>${k("Giriş", S.girisKonum, "girisKonum")}<br>${k("Çıkış", S.cikisKonum, "cikisKonum")}`;
+  return m;
+}
+
+/* ---------- Çizim ---------- */
+const C = 2*Math.PI*120;
+const HEDEF_MS = 8*3600000; // günlük hedef (sıralamadaki 5★ ile aynı: 8 sa)
+$("ringBar").style.strokeDasharray = C;
+
+/* Açık segment dahil (canlı) günün segmentleri */
+const canliSegler = () => {
+  const l = S.segs.slice();
+  if ((S.durum==="calisiyor"||S.durum==="molada") && S.bas){
+    const tip = S.tip || (ohAktif() ? "onhazirlik" : "calisma");
+    l.push({tip, ad: S.tip ? MOLA[S.tip].ad : (tip==="onhazirlik"?"Ön Hazırlık":"Çalışma"), bas:S.bas, bit:Date.now(), canli:true,
+      ...(S.tip==="randevu" && S.randevu ? {musteri:S.randevu.musteri, proje:S.randevu.proje} : {})});
+  }
+  return l;
+};
+const canliToplam = () => {
+  const t = { calisma:0, mola:0, molalar:{}, adet:{} };
+  for (const s of canliSegler()){
+    const d = s.bit - s.bas; if (d<=0) continue;
+    if (s.tip==="calisma"||s.tip==="onhazirlik") t.calisma+=d;
+    else if (MOLA[s.tip]) { const k=molaAnahtar(s.tip); t.molalar[k]=(t.molalar[k]||0)+d; t.adet[k]=(t.adet[k]||0)+1; MOLA[s.tip].sayilir ? t.calisma+=d : t.mola+=d; }
+  }
+  return t;
+};
+
+function selamla(){
+  const h = new Date().getHours();
+  const s = h<6 ? "İyi geceler" : h<12 ? "Günaydın" : h<18 ? "İyi günler" : "İyi akşamlar";
+  $("helloTxt").innerHTML = `${s}, <em>${esc(ilkAd(OT ? OT.ad : ""))}</em>`;
+  $("helloTarih").textContent = new Date().toLocaleDateString("tr-TR",{weekday:"long",day:"numeric",month:"long"});
+}
+
+function zamanCizelgesiHTML(segler){
+  if (!segler.length) return "";
+  const bas = segler[0].bas, bit = segler[segler.length-1].bit, top = Math.max(1, bit-bas);
+  const bar = segler.map(s=>{
+    const st = STIL[s.tip] || STIL.calisma;
+    return `<span class="${s.canli?"live":""}" title="${esc(s.ad)} · ${saat(s.bas)}–${saat(s.bit)} · ${fmtSaat(s.bit-s.bas)}"
+      style="flex-grow:${Math.max(.004,(s.bit-s.bas)/top).toFixed(4)};background-color:${st.renk}"></span>`;
+  }).join("");
+  const t = canliToplam();
+  const leg = [`<span><i style="background:${STIL.calisma.renk}"></i>Çalışma <b>${fmtSaat(t.calisma - (t.molalar.randevu||0))}</b></span>`]
+    .concat(Object.entries(t.molalar).map(([id,d])=>`<span><i style="background:${MOLA[id].renk}"></i>${MOLA[id].ad} <b>${fmtSaat(d)}</b></span>`)).join("");
+  return `<div class="tl"><div class="tl-bar">${bar}</div>
+    <div class="tl-ax"><span>${saat(bas)}</span><span>${S.durum==="bitti"?saat(bit):"şimdi · "+saat(bit)}</span></div>
+    <div class="tl-leg">${leg}</div></div>`;
+}
+
+let tickSay = 0;
+function tick(){
+  const aktif = S.bas ? Date.now()-S.bas : 0;
+  const t = canliToplam();
+  const mt = S.tip ? MOLA[S.tip] : null;
+  const renk = S.durum==="calisiyor" ? (ohAktif()?"#9C8CE8":"#3DBF7A") : S.durum==="molada" ? mt.renk : S.durum==="bitti" ? "#D4AF6E" : "#454F80";
+  const prog = Math.min(1, t.calisma / HEDEF_MS);
+  $("clock").textContent = S.durum==="bitti" ? fmt(t.calisma) : fmt(S.durum==="hazir"?0:aktif);
+  $("clock").classList.toggle("idle", S.durum==="hazir");
+  $("totalTxt").textContent = fmt(t.calisma);
+  $("goalTxt").textContent = "%" + Math.round(t.calisma / HEDEF_MS * 100);
+  $("ringBar").style.stroke = renk;
+  $("ringBar").style.strokeDashoffset = C*(1-prog);
+  $("stateTxt").style.color = renk;
+  $("msCal").textContent = fmtSaat(t.calisma);
+  $("msMola").textContent = fmtSaat(t.mola);
+  const ilk = S.segs[0]?.bas || S.bas;
+  $("msGiris").textContent = ilk ? saat(ilk) : "—";
+
+  // canlı bölümler
+  const z = $("zamanCiz"); if (z && S.durum!=="hazir") z.innerHTML = zamanCizelgesiHTML(canliSegler());
+  const cd = $("canliDur"); if (cd) cd.textContent = fmtSaat(aktif);
+  if (++tickSay % 20 === 0 && $("pgRapor").style.display==="block") cizRapor();
+}
+
+function segSatir(s, i){
+  const st = STIL[s.tip] || STIL.calisma;
+  return `<div class="seg${s.canli?" live":""}" style="border-left-color:${st.renk};animation-delay:${Math.min(i*0.04,0.3)}s">
+    <span class="mi" style="background:${st.renk}1a;color:${st.renk}">${st.emoji}</span>
+    <div class="info"><b>${esc(s.ad)}${s.canli?'<span class="now">ŞU AN</span>':""}</b>${s.not?`<span class="note">${esc(s.not)}</span>`:""}${s.tip==="randevu"&&gorusmeEtiket(s)?`<span class="note" style="display:block;overflow-wrap:anywhere">${gorusmeEtiket(s)}</span>`:""}
+      <small>${saat(s.bas)} – ${s.canli?"devam ediyor":saat(s.bit)}</small></div>
+    <div class="dur" style="color:${st.renk}"${s.canli?' id="canliDur"':""}>${fmtSaat(s.bit-s.bas)}</div>
+  </div>`;
+}
+
+function ciz(){
+  const st = {hazir:"Mesai Başlamadı", calisiyor: ohAktif()?"Ön Hazırlık":"Çalışıyor", molada: S.tip?MOLA[S.tip].ad:"", bitti:"Mesai Tamamlandı"}[S.durum];
+  $("stateTxt").textContent = st;
+  $("clockSub").style.display = S.durum==="hazir" ? "none":"block";
+  $("ohCard").style.display = ohAktif() ? "block":"none";
+  $("pulse").className = "pulse" + ((S.durum==="calisiyor"||S.durum==="molada")?" go":"");
+  $("pulse").style.background = S.durum==="molada" ? MOLA[S.tip].renk : "#3DBF7A";
+
+  // durum rozeti (selamlama satırı)
+  const pill = $("durumPill"), pRenk = S.durum==="calisiyor" ? "#3DBF7A" : S.durum==="molada" ? MOLA[S.tip].renk : S.durum==="bitti" ? "#D4AF6E" : "#9AA2C8";
+  pill.className = "durum-pill" + ((S.durum==="calisiyor"||S.durum==="molada") ? " canli" : "");
+  pill.style.color = pRenk; pill.style.borderColor = pRenk+"55"; pill.style.background = pRenk+"14";
+  $("durumPillTxt").textContent = S.durum==="molada" ? `${MOLA[S.tip].emoji} ${MOLA[S.tip].ad}` : st;
+
+  const kParts = [konumEtiket(S.girisKonum,"Giriş","girisKonum"), konumEtiket(S.cikisKonum,"Çıkış","cikisKonum")].filter(Boolean);
+  $("konumSatir").style.display = kParts.length ? "block" : "none";
+  $("konumSatir").innerHTML = kParts.join(" &nbsp;·&nbsp; ");
+
+  let b="";
+  if (S.durum==="hazir") b=`<button class="btn btn-start" onclick="baslat()">▶ Mesaiyi Başlat</button>`;
+  if (S.durum==="calisiyor"){
+    b=`<button class="btn btn-pause${menuAcik?" open":""}" onclick="toggleMenu()">${menuAcik?"✕ Vazgeç":"⏸ Molaya Çık"}</button>`;
+    if (menuAcik){
+      b+=`<div class="menu">`+Object.entries(MOLA).filter(([,m])=>!m.esdeger).map(([id,m])=>
+        `<button onclick="molaSec('${id}')" style="--mc:${m.renk}">
+          <span class="mi" style="background:${m.renk}1a;color:${m.renk}">${m.emoji}</span>
+          <span class="t">${m.ad}</span>
+          ${m.sayilir?`<span class="tag" style="color:${m.renk}">Mesai sayılır</span>`:""}
+        </button>`).join("")+`</div>`;
+    }
+    b+=`<button class="btn btn-stop" onclick="sonlandir()">⏹ Mesaiyi Sonlandır</button>`;
+  }
+  if (S.durum==="molada") b=(S.tip==="randevu" && S.randevu ? `<div class="gr-bilgi">🎥 Görüşme · ${gorusmeEtiket(S.randevu)}</div>` : "")
+    + `<button class="btn btn-resume" onclick="devam()">▶ Çalışmaya Devam Et</button>`;
+  if (S.durum==="bitti") b=`<button class="btn btn-ghost" onclick="yenidenBasla()">↻ Mesaiye Geri Dön</button>`;
+  if (S.durum!=="calisiyor") menuAcik=false;
+  $("btns").innerHTML=b;
+
+  const segler = canliSegler();
+  $("akisSec").style.display = segler.length ? "block":"none";
+  $("zamanCiz").innerHTML = zamanCizelgesiHTML(segler);
+  // en yeni üstte: açık (canlı) segment en başta görünür
+  $("akis").innerHTML = segler.slice().reverse().map(segSatir).join("");
+  tick();
+  cizRapor();
+}
+
+function cizRapor(){
+  const el=$("pgRapor");
+  const segler = canliSegler();
+  if (!segler.length){ el.innerHTML=`<div class="empty">Henüz kayıt yok.<br>Mesai sekmesinden güne başlayın.</div>`; return; }
+  const t=canliToplam();
+  const ilk=segler[0].bas, son=segler[segler.length-1].bit;
+  const molaMax = Math.max(1, ...Object.values(t.molalar));
+  const canli = S.durum==="calisiyor"||S.durum==="molada";
+  el.innerHTML=`
+    <div class="stats three">
+      <div class="stat" style="border-top-color:#3DBF7A"><small>Net Çalışma</small><div style="color:#3DBF7A">${fmtSaat(t.calisma)}</div>
+        <div class="alt">hedefin %${Math.round(t.calisma/HEDEF_MS*100)}'i</div></div>
+      <div class="stat" style="border-top-color:#D4AF6E"><small>Toplam Mola</small><div style="color:#D4AF6E">${fmtSaat(t.mola)}</div>
+        <div class="alt">${Object.values(t.adet).reduce((a,b)=>a+b,0)} mola</div></div>
+      <div class="stat" style="border-top-color:#5B9BE6"><small>Mesai Aralığı</small><div style="color:#5B9BE6">${saat(ilk)}–${canli?"…":saat(son)}</div>
+        <div class="alt">${canli?"devam ediyor":"tamamlandı"}</div></div>
+    </div>
+    <h3 class="sec">Günün Dağılımı${canli?" · canlı":""}</h3>
+    ${zamanCizelgesiHTML(segler)}
+    ${Object.keys(t.molalar).length ? `<div class="brk">${Object.entries(t.molalar).map(([id,d])=>{const m=MOLA[id];return `
+      <div class="brk-row">
+        <span class="mi" style="background:${m.renk}1a;color:${m.renk}">${m.emoji}</span>
+        <b>${m.ad}<small>${t.adet[id]} kez${m.sayilir?" · mesai sayılır":""}</small></b>
+        <span class="v" style="color:${m.renk}">${fmtSaat(d)}</span>
+        <div class="bar"><span style="width:${(d/molaMax*100).toFixed(1)}%;background:${m.renk}"></span></div>
+      </div>`}).join("")}</div>` : ""}
+    <h3 class="sec">✈ Telegram grubuna gidecek mesaj</h3>
+    <div class="tg">
+      <div class="bh"><span class="ba">XRE</span><span class="bn">XRE REAL ESTATE · Mesai</span></div>
+      <p>${telegramMesaj()}</p>
+      <div class="tick">${saat(Date.now())} ✓✓</div>
+    </div>
+    ${S.durum!=="bitti"?`<p style="font-size:12px;color:var(--faint);margin-top:8px">Mesai sonlandırıldığında otomatik gönderilir.</p>`:""}`;
+}
+
+function sekme(id){
+  $("pgMesai").style.display = id==="mesai"?"block":"none";
+  $("pgRapor").style.display = id==="rapor"?"block":"none";
+  $("pgSira").style.display  = id==="sira" ?"block":"none";
+  $("tabMesai").classList.toggle("on",id==="mesai");
+  $("tabRapor").classList.toggle("on",id==="rapor");
+  $("tabSira").classList.toggle("on",id==="sira");
+  if (id==="sira") siralamaYukle(true);
+  else ciz();
+}
+
+/* düşük hareket tercihi */
+const azHareket = () => window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+
+/* 3B işaretçi eğimi (yalnız masaüstü / ince işaretçi) */
+function egimBagla(el, max=7){
+  if (!el || azHareket() || !window.matchMedia("(pointer:fine)").matches) return;
+  el.addEventListener("pointermove", e=>{
+    const r=el.getBoundingClientRect();
+    const x=(e.clientX-r.left)/r.width-0.5, y=(e.clientY-r.top)/r.height-0.5;
+    el.style.transform=`perspective(1000px) rotateX(${(-y*max).toFixed(2)}deg) rotateY(${(x*max).toFixed(2)}deg)`;
+  });
+  el.addEventListener("pointerleave", ()=>{ el.style.transform="perspective(1000px)"; });
+}
+
+/* şampiyon konfetisi */
+function konfetiPatlat(){
+  if (azHareket()) return;
+  const c=$("konfeti"); if(!c) return;
+  const renk=["#D4AF6E","#EBD3A2","#3DBF7A","#5B9BE6","#ffffff","#33438C"];
+  for(let i=0;i<56;i++){
+    const s=document.createElement("span"); s.className="konf";
+    s.style.left=(Math.random()*100).toFixed(1)+"vw";
+    s.style.background=renk[i%renk.length];
+    s.style.setProperty("--d",(1.6+Math.random()*1.5).toFixed(2)+"s");
+    s.style.animationDelay=(Math.random()*0.35).toFixed(2)+"s";
+    if(Math.random()<0.5) s.style.borderRadius="50%";
+    c.appendChild(s);
+    setTimeout(()=>s.remove(), 3600);
+  }
+}
+
+/* ---------- Sıralama / Skor tablosu (oyunlaştırma) ---------- */
+const basHarf = ad => (ad||"").trim().split(/\s+/).map(k=>k[0]||"").join("").slice(0,2).toUpperCase();
+const yildizSay = ms => Math.max(0, Math.min(5, Math.round((ms/28800000)*5*2)/2)); // 8 sa/gün ort = 5★
+const yildizHTML = ms => { const y=yildizSay(ms); return `<span class="stars" title="${y}/5" style="--f:${y/5*100}%"><i>★★★★★</i>★★★★★</span>`; };
+const ilkAd = ad => (ad||"").trim().split(/\s+/)[0] || "";
+
+async function siralamaYukle(kutla=false){
+  const el = $("pgSira");
+  if (!el.innerHTML) el.innerHTML = `<div class="empty">Sıralama yükleniyor…</div>`;
+  const r = await apiCall("siralama");
+  if (!r || !r.ok){ el.innerHTML = `<div class="empty">Sıralama alınamadı.${r&&r.offline?"<br>İnternet bağlantısını kontrol edin." : ""}</div>`; return; }
+  const liste = r.liste || [];
+  const ay = new Date((r.bit||gunKey())+"T00:00:00").toLocaleDateString("tr-TR",{month:"long"}).toUpperCase();
+  if (!liste.length){
+    el.innerHTML = `<div class="sira-head"><h2>🏆 Bu Ayın Şampiyonları</h2></div>
+      <div class="empty">Bu ay henüz kayıt yok.<br>Mesai başlatan ilk sen ol! 🚀</div>`; return;
+  }
+  const benimIdx = liste.findIndex(p=>p.user_id===r.ben);
+
+  // Kişisel özet
+  let benimHTML = "";
+  if (benimIdx >= 0){
+    const b = liste[benimIdx];
+    benimHTML = `<div class="benim">
+      <div class="rk">${benimIdx+1}<small>SIRAN</small></div>
+      <div class="bi"><b>Sen — ${ilkAd(b.ad)}</b>
+        <div>Bu ay ${fmtSaat(b.calisma_ms)} · ${b.gun_sayisi} gün · ort. ${fmtSaat(b.gunluk_ortalama_ms)}/gün</div>
+        ${yildizHTML(b.gunluk_ortalama_ms)}</div>
+    </div>`;
+  }
+
+  // Podyum (ilk 3) — görsel dizilim 2·1·3
+  const top = liste.slice(0,3);
+  const podHTML = `<div class="podium">${[1,0,2].filter(i=>top[i]).map(i=>{
+    const p=top[i], yer=i+1, medal=["🥇","🥈","🥉"][i];
+    return `<div class="pod p${yer}${p.user_id===r.ben?" me":""}">
+      <div class="medal">${medal}</div>
+      <div class="pav">${basHarf(p.ad)}</div>
+      <div class="pn">${ilkAd(p.ad)}${p.aktif?'<span class="dot-live"></span>':''}</div>
+      <div class="ph">${fmtSaat(p.calisma_ms)}</div>
+      ${yildizHTML(p.gunluk_ortalama_ms)}
+    </div>`; }).join("")}</div>`;
+
+  // Tüm liste
+  const rowsHTML = liste.map((p,i)=>`
+    <div class="lb-row${p.user_id===r.ben?" me":""}" style="border-left-color:${i<3?'var(--gold)':'var(--line-soft)'};animation-delay:${Math.min(i*0.03,0.3)}s">
+      <div class="lb-rank">${i<3?["🥇","🥈","🥉"][i]:(i+1)}</div>
+      <div class="lb-av">${basHarf(p.ad)}</div>
+      <div class="lb-i"><b>${p.ad}${p.user_id===r.ben?'<span class="me-badge">SEN</span>':''}${p.aktif?'<span class="dot-live"></span>':''}</b>
+        <div class="sub">${p.rol} · ${p.gun_sayisi} gün</div></div>
+      <div class="lb-h"><b>${fmtSaat(p.calisma_ms)}</b><div class="sub">${yildizHTML(p.gunluk_ortalama_ms)}</div></div>
+    </div>`).join("");
+
+  el.innerHTML = `
+    <div class="sira-head"><h2>🏆 Bu Ayın Şampiyonları</h2><p>${ay} · net çalışmaya göre · canlı</p></div>
+    ${benimHTML}${podHTML}
+    <h3 class="sec">Tüm Sıralama</h3>
+    <div class="lb">${rowsHTML}</div>
+    <p style="font-size:11px;color:var(--faint);text-align:center;margin-top:12px">⭐ Yıldızlar günlük ortalama çalışmaya göre (8 sa/gün = 5★). 🟢 = şu an mesaide.</p>`;
+  if (kutla && liste.length) konfetiPatlat();
+}
+
+/* ---------- Telegram bağlama ----------
+   Kişiye özel linkle bot açılır; BAŞLAT'a basınca sunucu kişiyi eşleştirir ve bot "Bağlandın" der. */
+async function tgDurumYukle(bekle){
+  if (!OT) return;
+  let gizli = false; try { gizli = localStorage.getItem("xre-tg-gizle:"+OT.kadi) === gunKey(); } catch(e){}
+  const r = await apiCall("tg_durum" + (bekle ? "&bekle=1" : ""));
+  const goster = r && r.ok && r.aktif && !r.bagli && r.link && !gizli;
+  $("tgBant").classList.toggle("show", !!goster);
+  if (goster) $("tgBantLink").href = r.link;
+  return r;
+}
+function tgBantGizle(){ try { localStorage.setItem("xre-tg-gizle:"+OT.kadi, gunKey()); } catch(e){} $("tgBant").classList.remove("show"); }
+function tgBaglandiKontrol(){
+  // Kişi Telegram'da BAŞLAT'a basınca eşleşme birkaç saniye–1 dk içinde olur
+  let n = 0;
+  const t = setInterval(async ()=>{
+    const r = await tgDurumYukle(true); // sunucu bu sırada botun gelen kutusunu işler
+    if ((r && r.bagli) || ++n > 15){ clearInterval(t); if (r && r.bagli) bildir("✅ Telegram bağlandı — hatırlatmalar artık sana özelden gelecek"); }
+  }, 6000);
+}
+
+/* ---------- Hoş geldin / akşam hatırlatma kutusu ----------
+   Sabah: günün ilk açılışında bir kez. Akşam (18:00 sonrası): hâlâ mesaideyse bir kez. */
+const SABAH_SOZLERI = [
+  ["☕", "Kahven hazırsa başlıyoruz! Bugün harika işler çıkaracağına eminiz."],
+  ["🚀", "Çay demlendi, Bitrix hazır, sıra sende. Bugün senin günün!"],
+  ["🏆", "Sıralamada zirve seni bekliyor. Ama önce şu mesaiyi bir başlatalım 😉"],
+  ["🌞", "Erken kalkan yol alır, mesaisini başlatan sıralamada yükselir."],
+  ["💪", "Güzel bir gün geçirmeni dileriz. Şimdiden kolay gelsin, iyi çalışmalar!"],
+  ["🍀", "Bugün şans senden yana. Müşteriler de öyle olsun inşallah 🤞"],
+  ["🎯", "Hedef: 8 saat, bol satış, sıfır stres. Molalar da serbest ☕"],
+];
+const KAPAT_SAKALARI = [
+  "Çıkarken mesaiyi kapatmayı unutma, yoksa sistem seni gece yarısı hâlâ çalışıyor sanar 😄",
+  "Akşam ⏹ düğmesine basmayı unutma, Bitrix sana gece vardiyası yazmasın 🌙",
+  "Çıkarken mesaiyi kapat, yoksa yarın sabah 23 saat çalışmış görünürsün. Rekor olur ama kimse inanmaz 😅",
+  "Unutma: mesaiyi kapatmadan çıkan çalışan, raporda 'hâlâ mesaide' diye efsaneleşir 👻",
+];
+const sec = (l) => l[Math.floor(Math.random()*l.length)];
+function hgKapat(){ $("hosgeldin").classList.remove("show"); }
+function hosgeldinGoster(){
+  if (!OT || $("hosgeldin").classList.contains("show")) return;
+  const anahtar = "xre-hg:" + OT.kadi, gun = gunKey(), h = new Date().getHours();
+  let k = {}; try { k = JSON.parse(localStorage.getItem(anahtar) || "{}") || {}; } catch(e){}
+  const aktif = S.durum==="calisiyor" || S.durum==="molada";
+  const mod = (k.sabah !== gun && S.durum !== "bitti") ? "sabah" : (h >= 18 && aktif && k.aksam !== gun) ? "aksam" : null;
+  if (!mod) return;
+  k[mod] = gun; try { localStorage.setItem(anahtar, JSON.stringify(k)); } catch(e){}
+  const ad = esc(ilkAd(OT.ad));
+  if (mod === "sabah"){
+    const [emoji, soz] = sec(SABAH_SOZLERI);
+    const selam = h<6 ? "İyi geceler" : h<12 ? "Günaydın" : h<18 ? "İyi günler" : "İyi akşamlar";
+    $("hgEmoji").textContent = h<12 ? "☀️" : emoji;
+    $("hgBaslik").innerHTML = `${selam}, <em>${ad}</em>!`;
+    $("hgMetin").textContent = soz;
+    $("hgNot").textContent = "⏹ " + sec(KAPAT_SAKALARI);
+    $("hgBtns").innerHTML = S.durum==="hazir"
+      ? `<button class="btn btn-start" onclick="hgKapat();baslat()">▶ Mesaiyi Başlat</button>
+         <button class="pwa-later" onclick="hgKapat()">Birazdan başlayacağım</button>`
+      : `<button class="btn btn-start" onclick="hgKapat()">Hadi bakalım 💪</button>`;
+  } else {
+    $("hgEmoji").textContent = "🌙";
+    $("hgBaslik").innerHTML = `Mesai bitiyor mu, <em>${ad}</em>?`;
+    $("hgMetin").textContent = "Saat 18'i geçti, sen hâlâ mesaide görünüyorsun. Bugün emeğine sağlık! 👏";
+    $("hgNot").textContent = "📋 Çıkıyorsan mesaini kapat. Günün raporu saat 20:00'de gruba gidecek.";
+    $("hgBtns").innerHTML = `<button class="btn btn-stop" onclick="hgKapat();sonlandir()">⏹ Mesaiyi Sonlandır</button>
+      <button class="pwa-later" onclick="hgKapat()">Biraz daha çalışıyorum</button>`;
+  }
+  $("hosgeldin").classList.add("show");
+}
+
+/* ---------- PWA yükleme ---------- */
+let deferred=null;
+window.addEventListener("beforeinstallprompt",(e)=>{e.preventDefault();deferred=e;$("installBtn").classList.add("show");$("pwaKur").style.display="block";});
+$("installBtn").onclick=async()=>{ if(!deferred)return; deferred.prompt(); await deferred.userChoice; deferred=null; $("installBtn").classList.remove("show"); };
+async function pwaKurTikla(){ if(deferred){ deferred.prompt(); await deferred.userChoice; deferred=null; } pwaKapat(true); }
+function pwaKapat(kalici){
+  $("pwaGuide").classList.remove("show");
+  if(kalici) localStorage.setItem("xre-pwa-rehber","ok");
+}
+function pwaRehberGoster(){
+  // Zaten kuruluysa (standalone) veya "Anladım" denmişse gösterme
+  const kurulu = window.matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  if (kurulu || localStorage.getItem("xre-pwa-rehber")) return;
+  if ($("hosgeldin").classList.contains("show")){ setTimeout(pwaRehberGoster, 4000); return; }
+  // Sadece mobil cihazlarda göster
+  if (!/iphone|ipad|ipod|android/i.test(navigator.userAgent)) return;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const adim = (n,t)=>`<div class="pwa-step"><div class="no">${n}</div><div><p>${t}</p></div></div>`;
+  $("pwaSteps").innerHTML = ios
+    ? adim(1,"Safari'de alttaki <b>Paylaş</b> simgesine dokun (kare içinden yukarı ok)")
+      + adim(2,"Listeden <b>Ana Ekrana Ekle</b>'yi seç")
+      + adim(3,"Sağ üstten <b>Ekle</b>'ye dokun — XRE Mesai ana ekranında!")
+    : adim(1,"Tarayıcı menüsünü aç (sağ üstteki <b>⋮</b>)")
+      + adim(2,"<b>Ana ekrana ekle</b> / <b>Uygulamayı yükle</b>'ye dokun")
+      + adim(3,"Onayla — XRE Mesai ana ekranında!");
+  $("pwaGuide").classList.add("show");
+}
+setTimeout(pwaRehberGoster, 1200);
+/* Service worker + otomatik güncelleme: yeni sürüm yüklenince açık sayfa kendini bir kez yeniler */
+if ("serviceWorker" in navigator) {
+  const vardi = !!navigator.serviceWorker.controller;
+  let yenilendi = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!vardi || yenilendi) return; // ilk kurulumda yenileme yok
+    yenilendi = true; flushBeacon(); location.reload();
+  });
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then((reg) => {
+    const kontrol = () => reg.update().catch(()=>{});
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") kontrol(); });
+    setInterval(kontrol, 30 * 60000);
+  }).catch(()=>{});
+}
+
+setInterval(tick,1000);
+
+/* 3B eğim: mesai kartı + giriş kartı (masaüstü) */
+egimBagla($("tiltCard"), 6);
+egimBagla(document.querySelector(".login-card"), 5);
+
+/* ---------- Senkron dayanıklılığı ---------- */
+window.addEventListener("online",  ()=>{ if (dirty) planla(200); });
+document.addEventListener("visibilitychange", ()=>{
+  if (document.visibilityState === "hidden") flushBeacon();       // arka plana/kapatmaya karşı
+  else { rozetGuncelle(); if (dirty) planla(200); hosgeldinGoster(); } // geri dönünce hemen dene
+});
+window.addEventListener("pagehide", flushBeacon);
+document.addEventListener("keydown", (e)=>{ if (e.key==="Escape" && $("gorusme").classList.contains("show")) gorusmeKapat(); });
+window.addEventListener("beforeunload", flushBeacon);
+/* Kalp atışı: aktif mesaide her dakika sunucuya yeniden bildir.
+   Backend bunu Bitrix ile karşılaştırıp gerekirse hizalar (kendi kendini onarma):
+   kaçan bir başlat/mola en geç 1 dk içinde Bitrix'e telafi edilir. */
+let konumIsitSay = 0;
+setInterval(()=>{
+  if (!OT) return;
+  // Uygulama gece boyunca açık kaldıysa: bitmiş/başlamamış günü yeni güne çevir
+  if (S.gun !== bugunStr() && (S.durum==="hazir" || S.durum==="bitti")){ S = bosGun(); ciz(); selamla(); hosgeldinGoster(); }
+  if (S.durum==="calisiyor" || S.durum==="molada"){
+    isaretle();
+    if (document.visibilityState==="visible" && ++konumIsitSay % 5 === 0) konumIsit();
+  }
+  else if (dirty) planla(0);
+  // Sıralama sekmesi açıksa canlı tut
+  if ($("pgSira") && $("pgSira").style.display==="block") siralamaYukle();
+}, 60000);
+
+/* ---------- Açılış: oturum kontrolü ---------- */
+(async ()=>{
+  if (!OT){ girisGoster(); return; }
+  const r = await apiCall("ben");
+  if (r.ok){ OT.ad=r.ad; OT.rol=r.rol; localStorage.setItem("xre-oturum",JSON.stringify(OT)); await sunucudanYukle(); ekranAc(); }
+  else if (r.offline){ yerelYukle(); ekranAc(); } // internet yoksa bu kullanıcının yereliyle devam
+  else { localStorage.removeItem("xre-oturum"); OT=null; girisGoster(); }
+  if (S.durum==="bitti") sekme("rapor");
+})();
+</script>
+</body>
+</html>

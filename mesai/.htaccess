@@ -1,0 +1,26 @@
+# ---- XRE Mesai güvenlik ----
+Options -Indexes
+
+# config.php ve veritabanına doğrudan erişimi engelle
+<FilesMatch "^(config\.php|kisiler\.php|.*\.db|.*\.sqlite)$">
+  Require all denied
+</FilesMatch>
+
+# Yedek/geçici dosyalar servis edilmesin
+<FilesMatch "\.(bak|old|zip|sql|log|env)$">
+  Require all denied
+</FilesMatch>
+
+# Güvenlik başlıkları
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "DENY"
+  Header always set Referrer-Policy "same-origin"
+  Header always set Permissions-Policy "geolocation=(self), camera=(), microphone=()"
+  # Sayfa ve service worker her zaman güncel sürümü kontrol etsin (tarayıcı eski kopyada takılmasın)
+  <FilesMatch "\.(html|js|json)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  # HTTPS kullanıyorsanız aktif edin:
+  # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
