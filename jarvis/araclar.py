@@ -7,6 +7,7 @@ import base64
 import datetime
 import io
 import os
+import platform
 import re
 import subprocess
 import threading
@@ -16,6 +17,7 @@ import webbrowser
 from pathlib import Path
 
 KLASOR = Path(__file__).resolve().parent
+MAC = platform.system() == "Darwin"
 NOT_KLASORU = KLASOR / "notlar"
 
 # Ana program bunları doldurur (Claude çağrısı, hafıza, sesli bildirim)
@@ -33,19 +35,40 @@ def _sade(s):
 
 
 # ---------------- Uygulama açma ----------------
-BILINENLER = {
+SITELER = {
+    "bitrix": "https://xre.bitrix24.com.tr", "mesai": "https://xrex.com.tr/mesai/",
+    "youtube": "https://www.youtube.com", "gmail": "https://mail.google.com",
+}
+# Konuşmada söylenen ad → Mac'teki uygulama adı / Windows'taki komut
+MAC_UYGULAMALAR = {
+    "chrome": "Google Chrome", "google chrome": "Google Chrome", "tarayici": "Safari", "internet": "Safari",
+    "safari": "Safari", "not defteri": "TextEdit", "notlar": "Notes", "hesap makinesi": "Calculator",
+    "hesap makinasi": "Calculator", "dosyalar": "Finder", "finder": "Finder", "dosya gezgini": "Finder",
+    "ayarlar": "System Settings", "sistem ayarlari": "System Settings", "takvim": "Calendar",
+    "mail": "Mail", "posta": "Mail", "mesajlar": "Messages", "muzik": "Music", "terminal": "Terminal",
+    "excel": "Microsoft Excel", "word": "Microsoft Word", "powerpoint": "Microsoft PowerPoint",
+    "outlook": "Microsoft Outlook", "teams": "Microsoft Teams", "spotify": "Spotify", "whatsapp": "WhatsApp",
+    "zoom": "zoom.us", "slack": "Slack", "telegram": "Telegram",
+}
+WIN_UYGULAMALAR = {
     "chrome": "chrome", "google chrome": "chrome", "tarayici": "chrome", "internet": "chrome",
     "edge": "msedge", "not defteri": "notepad", "notepad": "notepad", "hesap makinesi": "calc",
     "hesap makinasi": "calc", "dosya gezgini": "explorer", "dosyalar": "explorer", "explorer": "explorer",
     "paint": "mspaint", "ayarlar": "ms-settings:", "gorev yoneticisi": "taskmgr",
     "excel": "excel", "word": "winword", "powerpoint": "powerpnt", "outlook": "outlook",
     "teams": "ms-teams:", "spotify": "spotify:", "whatsapp": "whatsapp:",
-    "bitrix": "https://xre.bitrix24.com.tr", "mesai": "https://xrex.com.tr/mesai/",
-    "youtube": "https://www.youtube.com", "gmail": "https://mail.google.com",
 }
 
 
-def _kisayollar():
+def _mac_uygulamalari():
+    for yer in (Path("/Applications"), Path("/System/Applications"), Path("/System/Applications/Utilities"),
+                Path.home() / "Applications"):
+        if yer.is_dir():
+            yield from yer.glob("*.app")
+            yield from yer.glob("*/*.app")
+
+
+def _win_kisayollari():
     yerler = [Path(os.environ.get("ProgramData", r"C:\ProgramData")) / r"Microsoft\Windows\Start Menu\Programs",
               Path(os.environ.get("APPDATA", "")) / r"Microsoft\Windows\Start Menu\Programs",
               Path.home() / "Desktop"]
@@ -55,24 +78,38 @@ def _kisayollar():
             yield from yer.rglob("*.url")
 
 
+def _en_iyi(adaylar, sade):
+    adaylar = [a for a in adaylar if sade in _sade(a.stem) and "uninstall" not in a.stem.lower()]
+    return min(adaylar, key=lambda a: len(a.stem)) if adaylar else None
+
+
 def uygulama_ac(p):
     ad = (p.get("ad") or "").strip()
     if not ad:
         return "Hangi uygulamayı açayım?"
     sade = _sade(ad)
-    hedef = BILINENLER.get(sade)
+    if sade in SITELER:
+        webbrowser.open(SITELER[sade])
+        return f"{ad} açıldı."
+    if MAC:
+        hedef = MAC_UYGULAMALAR.get(sade)
+        if hedef and subprocess.run(["open", "-a", hedef], capture_output=True).returncode == 0:
+            return f"{ad} açıldı."
+        uyg = _en_iyi(_mac_uygulamalari(), sade)
+        if uyg and subprocess.run(["open", str(uyg)], capture_output=True).returncode == 0:
+            return f"{uyg.stem} açıldı."
+        if subprocess.run(["open", "-a", ad], capture_output=True).returncode == 0:
+            return f"{ad} açıldı."
+        return f"{ad} adında bir uygulama bulamadım."
+    hedef = WIN_UYGULAMALAR.get(sade)
     if not hedef:  # Başlat menüsü ve masaüstü kısayollarında ara
-        adaylar = [k for k in _kisayollar() if sade in _sade(k.stem) and "uninstall" not in k.stem.lower()]
-        adaylar.sort(key=lambda k: len(k.stem))
-        if adaylar:
-            os.startfile(str(adaylar[0]))
-            return f"{adaylar[0].stem} açıldı."
+        kisayol = _en_iyi(_win_kisayollari(), sade)
+        if kisayol:
+            os.startfile(str(kisayol))
+            return f"{kisayol.stem} açıldı."
         hedef = ad
     try:
-        if hedef.startswith("http"):
-            webbrowser.open(hedef)
-        else:
-            os.startfile(hedef)
+        os.startfile(hedef)
         return f"{ad} açıldı."
     except OSError:
         try:
@@ -109,6 +146,9 @@ def ekrana_bak(p):
 
 
 def panoyu_oku(p):
+    if MAC:
+        metin = subprocess.run(["pbpaste"], capture_output=True, text=True).stdout
+        return "Panodaki metin:\n" + metin[:8000] if metin.strip() else "Panoda metin yok."
     import tkinter
     kok = tkinter.Tk()
     kok.withdraw()
@@ -194,7 +234,7 @@ def _s(aciklama):
 
 ARACLAR = [
     (_arac("uygulama_ac", "Bilgisayarda bir uygulamayı ya da bilinen bir siteyi açar (Chrome, Excel, Word, "
-                          "Outlook, Teams, Spotify, WhatsApp, hesap makinesi, Bitrix, mesai uygulaması…).",
+                          "Outlook, Teams, Spotify, WhatsApp, Zoom, hesap makinesi, Bitrix, mesai uygulaması…).",
            {"ad": _s("Uygulamanın adı, ör. 'excel', 'spotify'")}, ["ad"]), uygulama_ac),
     (_arac("web_ac", "Tarayıcıda bir adres açar ya da Google'da arama sonuçlarını açar. Kullanıcı bir şeyi "
                      "'aç', 'göster' derse kullan. Soruyu cevaplamak için değil (onun için derin_dusun web'de arar).",

@@ -1,7 +1,7 @@
-"""JARVIS — Windows için sesli asistan.
+"""JARVIS — Mac ve Windows için sesli asistan.
 
 Akış:
-  1. Arka planda "Hey Jarvis" uyandırma kelimesini (ya da Ctrl+Alt+J kısayolunu) bekler.
+  1. Arka planda "Hey Jarvis" uyandırma kelimesini (ya da Ctrl+Option+J / Ctrl+Alt+J) bekler.
      Uyandırma kelimesi bilgisayarda çalışır, internete ses gitmez.
   2. Uyanınca ElevenLabs'in canlı sesli asistanıyla konuşma başlar: sizi dinler, sözünü
      kesebilirsiniz, gerçekçi sesle cevap verir. Beyin: Claude.
@@ -9,7 +9,7 @@ Akış:
      (gerekirse internette arayarak) uzun uzun düşünür.
   4. Bilgisayarda iş yapar: uygulama/site açar, ekrana bakar, panodaki metni okur, hatırlatır.
   5. "Beni dinle" / "toplantıyı dinle" derseniz susar ve kaydeder (mikrofon + bilgisayarın
-     sesi, yani Teams/Zoom'daki karşı taraf da); "Hey Jarvis" deyince yazıya döker, Claude
+     sesi, yani Teams/Zoom'daki karşı taraf da — Mac'te BlackHole gerekir); "Hey Jarvis" deyince yazıya döker, Claude
      ile özetler, özeti sesli anlatır ve sorular sorar. Notlar "notlar" klasörüne kaydedilir.
   6. Her konuşmadan kısa bir not çıkarır ve sonraki konuşmalarda hatırlar.
 """
@@ -18,6 +18,7 @@ import hashlib
 import json
 import logging
 import os
+import platform
 import queue
 import random
 import socket
@@ -27,23 +28,26 @@ import time
 import wave
 from pathlib import Path
 
+import certifi
 import numpy as np
-import pyaudio
+import sounddevice as sd
 from dotenv import load_dotenv
 
 import anthropic
 from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import (
+    AudioInterface,
     ClientTools,
     Conversation,
     ConversationInitiationData,
 )
-from elevenlabs.conversational_ai.default_audio_interface import DefaultAudioInterface
 
 import araclar
 
 KLASOR = Path(__file__).resolve().parent
 load_dotenv(KLASOR / ".env")
+# Mac'te python.org Python'u sistem sertifikalarını görmez; güvenli bağlantılar (ElevenLabs) için gerekli
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 
 # ---------------- Ayarlar (.env) ----------------
 ELEVEN_KEY = os.getenv("ELEVENLABS_API_KEY", "").strip()
@@ -59,7 +63,9 @@ DUSUNME_MODELI = "claude-opus-5-5"
 KULAKLIK = os.getenv("JARVIS_KULAKLIK", "hayir").strip().lower() in ("evet", "1", "true", "yes")
 SOZ_KESME_ESIGI = int(os.getenv("JARVIS_SOZ_KESME_ESIGI", "2500"))
 UYANDIRMA_ESIGI = float(os.getenv("JARVIS_UYANDIRMA_ESIGI", "0.6"))
-KISAYOL = os.getenv("JARVIS_KISAYOL", "").strip() or "ctrl+alt+j"
+MAC = platform.system() == "Darwin"
+WINDOWS = platform.system() == "Windows"
+KISAYOL = "Ctrl+Option+J" if MAC else "Ctrl+Alt+J"
 AZAMI_KAYIT_DK = int(os.getenv("JARVIS_AZAMI_KAYIT_DK", "120"))
 BILGISAYAR_SESI = os.getenv("JARVIS_BILGISAYAR_SESINI_KAYDET", "evet").strip().lower() in ("evet", "1", "true", "yes")
 
@@ -264,45 +270,70 @@ def ajani_hazirla():
             yaz("⚠️", f"{model} ses modeli kabul edilmedi ({kisa_hata(e)}); {YEDEK_SES_MODELI} deneniyor.")
 
 
-class JarvisSesArayuzu(DefaultAudioInterface):
-    """ElevenLabs'in varsayılan ses arayüzü + yankı koruması:
-    Hoparlörde Jarvis kendi sesini duyup kendi sözünü kesebilir (Windows'ta Python'da yankı
-    giderme yok). Jarvis konuşurken mikrofon sesi, yalnızca hoparlör yankısından belirgin
-    şekilde yüksekse (siz araya girdiğinizde) gönderilir; değilse sessizlik gider.
-    Kulaklıkla (JARVIS_KULAKLIK=evet) bu koruma kapalıdır.
-    Ayrıca konuşma kapanırken son cümle (veda) yarıda kesilmeden çalınır."""
+class JarvisSesArayuzu(AudioInterface):
+    """ElevenLabs konuşması için mikrofon/hoparlör (sounddevice: Mac ve Windows'ta ek kurulum istemez).
+    Yankı koruması: hoparlörde Jarvis kendi sesini duyup kendi sözünü kesebilir. Jarvis konuşurken
+    mikrofon sesi yalnızca hoparlör yankısından belirgin şekilde yüksekse (siz araya girdiğinizde)
+    gönderilir, değilse sessizlik gider. Kulaklıkla (JARVIS_KULAKLIK=evet) bu koruma kapalıdır.
+    Konuşma kapanırken son cümle (veda) yarıda kesilmeden çalınır."""
 
     def start(self, input_callback):
+        self.input_callback = input_callback
+        self.kuyruk = queue.Queue()
+        self.dur = threading.Event()
         self._son_cikis = 0.0
         self._eko = 300.0  # Jarvis konuşurken mikrofona gelen yankının tahmini seviyesi (RMS)
-        super().start(input_callback)
+        self.cikis = sd.RawOutputStream(samplerate=ORNEKLEME, channels=1, dtype="int16", blocksize=1000)
+        self.giris = sd.RawInputStream(samplerate=ORNEKLEME, channels=1, dtype="int16", blocksize=4000,
+                                       callback=self._geldi)
+        self.cikis.start()
+        self.giris.start()
+        self.calici = threading.Thread(target=self._cal, daemon=True)
+        self.calici.start()
 
-    def _output_thread(self):
-        while not self.should_stop.is_set():
+    def _cal(self):
+        while not self.dur.is_set():
             try:
-                ses = self.output_queue.get(timeout=0.25)
-                self._son_cikis = time.time() + len(ses) / 32000  # 16 kHz, 16 bit
-                self.out_stream.write(ses)
+                ses = self.kuyruk.get(timeout=0.25)
             except queue.Empty:
-                pass
+                continue
+            self._son_cikis = time.time() + len(ses) / 32000  # 16 kHz, 16 bit
+            self.cikis.write(ses)
 
-    def _in_callback(self, in_data, frame_count, time_info, status):
-        if self.input_callback:
-            if not KULAKLIK and time.time() < self._son_cikis + 0.3:
-                rms = float(np.sqrt(np.mean(np.frombuffer(in_data, dtype=np.int16).astype(np.float32) ** 2)))
-                if rms > max(SOZ_KESME_ESIGI, 3.0 * self._eko):
-                    pass  # yüksek ses: kullanıcı araya giriyor, olduğu gibi gönder
-                else:
-                    self._eko = 0.9 * self._eko + 0.1 * rms
-                    in_data = b"\x00" * len(in_data)
-            self.input_callback(in_data)
-        return (None, self.pyaudio.paContinue)
+    def _geldi(self, veri, kare, zaman, durum):
+        veri = bytes(veri)
+        if not KULAKLIK and time.time() < self._son_cikis + 0.3:
+            rms = float(np.sqrt(np.mean(np.frombuffer(veri, dtype=np.int16).astype(np.float32) ** 2)))
+            if rms <= max(SOZ_KESME_ESIGI, 3.0 * self._eko):  # yüksek değilse yankıdır
+                self._eko = 0.9 * self._eko + 0.1 * rms
+                veri = b"\x00" * len(veri)
+        try:
+            self.input_callback(veri)
+        except Exception:
+            pass
+
+    def output(self, audio):
+        self.kuyruk.put(audio)
+
+    def interrupt(self):
+        try:
+            while True:
+                self.kuyruk.get(block=False)
+        except queue.Empty:
+            pass
 
     def stop(self):
         bitis = time.time() + 6
-        while not self.output_queue.empty() and time.time() < bitis:
+        while not self.kuyruk.empty() and time.time() < bitis:
             time.sleep(0.1)
-        super().stop()
+        self.dur.set()
+        self.calici.join(timeout=2)
+        for akis in (self.giris, self.cikis):
+            try:
+                akis.stop()
+                akis.close()
+            except Exception:
+                pass
 
 
 def sesli_bildir(metin):
@@ -316,11 +347,7 @@ def sesli_bildir(metin):
     try:
         ses = b"".join(eleven.text_to_speech.convert(
             SES_ID, text=metin, model_id="eleven_flash_v2_5", language_code="tr", output_format="pcm_16000"))
-        pa = pyaudio.PyAudio()
-        cikis = pa.open(format=pyaudio.paInt16, channels=1, rate=ORNEKLEME, output=True)
-        cikis.write(ses)
-        cikis.close()
-        pa.terminate()
+        sd.play(np.frombuffer(ses, dtype=np.int16), ORNEKLEME, blocking=True)
     except Exception as e:
         log.warning("Sesli bildirim çalınamadı: %s", kisa_hata(e))
 
@@ -426,33 +453,51 @@ def ozetle(yazi, konu):
 
 # ---------------- Bilgisayarın sesini kaydetme (Teams/Zoom'daki karşı taraf) ----------------
 class BilgisayarSesi:
-    """Windows'ta hoparlöre giden sesi (WASAPI loopback) ayrı bir dosyaya kaydeder.
-    Ses çalmadığı anlarda Windows veri göndermez; aradaki boşluk saat ile sessizlikle doldurulur
-    ki mikrofon kaydıyla zaman olarak hizalı kalsın."""
+    """Bilgisayardan çıkan sesi (Teams/Zoom'daki karşı taraf) ayrı bir dosyaya kaydeder.
+    - Mac: BlackHole sanal ses sürücüsü gerekir (README'de anlatılıyor); kuruluysa otomatik bulunur.
+    - Windows: hoparlöre giden ses (WASAPI loopback). Ses çalmadığı anlarda Windows veri göndermez;
+      aradaki boşluk saat ile sessizlikle doldurulur ki mikrofon kaydıyla hizalı kalsın."""
 
     def __init__(self, yol):
-        import pyaudiowpatch as pw
-        self.pw, self.yol = pw, yol
-        self.pa = pw.PyAudio()
-        cihaz = self.pa.get_default_wasapi_loopback()
-        self.oran, self.kanal = int(cihaz["defaultSampleRate"]), int(cihaz["maxInputChannels"])
+        self.kilit, self.yazilan, self.dur = threading.Lock(), 0, threading.Event()
+        self.dosya = None
+        if MAC:
+            cihaz = next((c for c in sd.query_devices()
+                          if "blackhole" in c["name"].lower() and c["max_input_channels"] > 0), None)
+            if not cihaz:
+                raise RuntimeError("BlackHole kurulu değil")
+            self.oran, self.kanal = int(cihaz["default_samplerate"]), min(2, int(cihaz["max_input_channels"]))
+            self._dosya_ac(yol)
+            self.akis = sd.RawInputStream(device=cihaz["index"], samplerate=self.oran, channels=self.kanal,
+                                          dtype="int16", callback=lambda v, n, *_: self._yaz(bytes(v), n))
+            self.akis.start()
+            self.kapat_fn = lambda: (self.akis.stop(), self.akis.close())
+        elif WINDOWS:
+            import pyaudiowpatch as pw
+            self.pa = pw.PyAudio()
+            cihaz = self.pa.get_default_wasapi_loopback()
+            self.oran, self.kanal = int(cihaz["defaultSampleRate"]), int(cihaz["maxInputChannels"])
+            self._dosya_ac(yol)
+            akis = self.pa.open(format=pw.paInt16, channels=self.kanal, rate=self.oran, input=True,
+                                input_device_index=cihaz["index"], frames_per_buffer=1024,
+                                stream_callback=lambda v, n, *_: (self._yaz(v, n), (None, pw.paContinue))[1])
+            self.kapat_fn = lambda: (akis.stop_stream(), akis.close(), self.pa.terminate())
+            threading.Thread(target=self._bosluk_doldur, daemon=True).start()
+        else:
+            raise RuntimeError("bu işletim sisteminde desteklenmiyor")
+
+    def _dosya_ac(self, yol):
         self.dosya = wave.open(str(yol), "wb")
         self.dosya.setnchannels(self.kanal)
         self.dosya.setsampwidth(2)
         self.dosya.setframerate(self.oran)
-        self.kilit, self.yazilan, self.dur = threading.Lock(), 0, threading.Event()
         self.basla = time.time()
-        self.akis = self.pa.open(format=pw.paInt16, channels=self.kanal, rate=self.oran, input=True,
-                                 input_device_index=cihaz["index"], frames_per_buffer=1024,
-                                 stream_callback=self._geldi)
-        threading.Thread(target=self._bosluk_doldur, daemon=True).start()
 
-    def _geldi(self, veri, n, *_):
+    def _yaz(self, veri, n):
         with self.kilit:
             if not self.dur.is_set():
                 self.dosya.writeframes(veri)
                 self.yazilan += n
-        return (None, self.pw.paContinue)
 
     def _bosluk_doldur(self):
         while not self.dur.wait(0.2):
@@ -465,12 +510,10 @@ class BilgisayarSesi:
     def kapat(self):
         self.dur.set()
         try:
-            self.akis.stop_stream()
-            self.akis.close()
+            self.kapat_fn()
         finally:
             with self.kilit:
                 self.dosya.close()
-            self.pa.terminate()
         return self.oran, self.kanal
 
 
@@ -510,15 +553,14 @@ class Kulak:
             yaz("⬇️", "Uyandırma kelimesi modeli indiriliyor (yalnızca ilk sefer)…")
             download_models(["hey_jarvis"])
             self.model = Model(**ayar)
-        self.pa = pyaudio.PyAudio()
         self.kisayol = threading.Event()
         self.sakin_kadar = 0.0  # konuşma bitince kısa süre uyanmasın (hoparlör yankısı tetiklemesin)
 
     def bekle(self, kayit_yolu=None, azami_sn=None):
         self.model.reset()
         self.kisayol.clear()
-        akis = self.pa.open(format=pyaudio.paInt16, channels=1, rate=ORNEKLEME, input=True,
-                            frames_per_buffer=PARCA)
+        akis = sd.RawInputStream(samplerate=ORNEKLEME, channels=1, dtype="int16", blocksize=PARCA)
+        akis.start()
         dosya = None
         if kayit_yolu:
             dosya = wave.open(str(kayit_yolu), "wb")
@@ -536,7 +578,7 @@ class Kulak:
                     yaz("⏱️", "Azami kayıt süresi doldu.")
                     sebep = "sure"
                     break
-                veri = akis.read(PARCA, exception_on_overflow=False)
+                veri = bytes(akis.read(PARCA)[0])
                 if dosya:
                     dosya.writeframes(veri)
                 puan = max(self.model.predict(np.frombuffer(veri, dtype=np.int16)).values())
@@ -545,7 +587,7 @@ class Kulak:
                 if ust_uste >= 2 and time.time() > sakin:
                     break
         finally:
-            akis.stop_stream()
+            akis.stop()
             akis.close()
             if dosya:
                 dosya.close()
@@ -717,6 +759,40 @@ KULAK = None
 KILIT = None
 
 
+def kisayol_kur(tetikle):
+    """Ctrl+Option+J (Mac) / Ctrl+Alt+J (Windows). Tuş kodu ile yakalanır: Mac'te Option harfi
+    değiştirdiği (J → ∆) için harf karşılaştırması çalışmaz.
+    Mac'te Terminal'e Ayarlar → Gizlilik ve Güvenlik → Giriş İzleme izni gerekir."""
+    try:
+        from pynput import keyboard as kb
+    except Exception as e:
+        yaz("⚠️", f"Kısayol kurulamadı ({e}). Yalnızca 'Hey Jarvis' ile çalışır.")
+        return
+    j_kodu = 38 if MAC else 0x4A
+    basili = set()
+    ctrl = {kb.Key.ctrl, kb.Key.ctrl_l, kb.Key.ctrl_r}
+    alt = {kb.Key.alt, kb.Key.alt_l, kb.Key.alt_r, getattr(kb.Key, "alt_gr", kb.Key.alt)}
+
+    def bas(tus):
+        if tus in ctrl:
+            basili.add("ctrl")
+        elif tus in alt:
+            basili.add("alt")
+        elif getattr(tus, "vk", None) == j_kodu and {"ctrl", "alt"} <= basili:
+            tetikle()
+
+    def birak(tus):
+        if tus in ctrl:
+            basili.discard("ctrl")
+        elif tus in alt:
+            basili.discard("alt")
+
+    try:
+        kb.Listener(on_press=bas, on_release=birak, daemon=True).start()
+    except Exception as e:
+        yaz("⚠️", f"Kısayol kurulamadı ({e}). Yalnızca 'Hey Jarvis' ile çalışır.")
+
+
 def tek_kopya():
     """Jarvis iki kez açılmasın (mikrofon ve kısayol çakışır)."""
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -752,16 +828,15 @@ def main():
         print(f"❌ ElevenLabs asistanı hazırlanamadı: {kisa_hata(e)}")
         sys.exit(1)
     KULAK = Kulak()
-    try:
-        import keyboard
-        keyboard.add_hotkey(KISAYOL, KULAK.kisayol.set)
-    except Exception as e:
-        yaz("⚠️", f"Kısayol ({KISAYOL}) kurulamadı: {e}. Yalnızca 'Hey Jarvis' ile çalışır.")
+    kisayol_kur(KULAK.kisayol.set)
 
     print("\n  J.A.R.V.I.S. hazır.\n"
           f"  Uyandırmak için 'Hey Jarvis' deyin ya da {KISAYOL} basın.\n"
           f"  Mod: {'kulaklık' if KULAKLIK else 'hoparlör (araya girmek için biraz yüksek sesle konuşun)'}\n"
           "  Kapatmak için bu pencerede Ctrl+C.\n", flush=True)
+    if MAC:
+        print("  İlk açılışta Mac mikrofon izni ister: İzin Ver deyin. Kısayol için Terminal'e\n"
+              "  Ayarlar → Gizlilik ve Güvenlik → Giriş İzleme izni verin.\n", flush=True)
 
     while True:
         KULAK.bekle()
