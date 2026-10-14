@@ -55,13 +55,41 @@ CREATE TABLE IF NOT EXISTS messages (
   updated_at    TEXT NOT NULL,
   UNIQUE (enrollment_id, step_id)
 );
+
+-- Bitrix kayıtlarının (lead/deal) son görülen aşaması: aşama değişmediyse akış yeniden başlatılmaz.
+CREATE TABLE IF NOT EXISTS bitrix_state (
+  entity     TEXT PRIMARY KEY,
+  stage      TEXT,
+  updated_at TEXT NOT NULL
+);
 `;
+
+// Var olan veritabanlarına sonradan eklenen sütunlar.
+const COLUMNS = {
+  campaigns: {
+    project: 'TEXT',
+    bitrix_entity: "TEXT CHECK (bitrix_entity IN ('lead', 'deal'))",
+    bitrix_stage: 'TEXT',
+    bitrix_project: 'TEXT',
+  },
+  enrollments: { source: 'TEXT' },
+};
+
+function migrate(db) {
+  for (const [table, cols] of Object.entries(COLUMNS)) {
+    const existing = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+    for (const [name, type] of Object.entries(cols)) {
+      if (!existing.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`);
+    }
+  }
+}
 
 function openDb(file = process.env.DB_FILE || path.join(__dirname, '..', 'data', 'sms.db')) {
   if (file !== ':memory:') fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
   db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
 }
 

@@ -36,7 +36,7 @@ function createScheduler({ db, provider, now = () => new Date(), log = console.l
       const current = now();
       const rows = db.prepare(`
         SELECT e.id AS enrollment_id, e.start_date, c.name AS customer_name, c.phone,
-               c.consent, c.opted_out, k.name AS campaign_name, k.active AS campaign_active
+               c.consent, c.opted_out, k.name AS campaign_name, k.project, k.active AS campaign_active
         FROM enrollments e
         JOIN customers c ON c.id = e.customer_id
         JOIN campaigns k ON k.id = e.campaign_id
@@ -60,6 +60,7 @@ function createScheduler({ db, provider, now = () => new Date(), log = console.l
             ad: row.customer_name.split(' ')[0],
             adsoyad: row.customer_name,
             kampanya: row.campaign_name,
+            proje: row.project || row.campaign_name,
           });
           const stamp = current.toISOString();
 

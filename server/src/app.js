@@ -3,6 +3,7 @@ const path = require('node:path');
 const fs = require('node:fs');
 const { computeDueAt, normalizePhone, todayInTurkey, isValidTime, isValidDate } = require('./schedule');
 const { enrollmentPlan } = require('./scheduler');
+const { createBitrixSync } = require('./bitrix');
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status; }
@@ -26,9 +27,17 @@ function validateSteps(steps) {
   }).sort((a, b) => a.day_offset - b.day_offset);
 }
 
-function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => new Date() }) {
+function validateBitrix({ bitrix_entity, bitrix_stage, bitrix_project }) {
+  if (!bitrix_entity) return { bitrix_entity: null, bitrix_stage: null, bitrix_project: null };
+  if (!['lead', 'deal'].includes(bitrix_entity)) throw new HttpError(400, 'Bitrix kayıt türü "lead" veya "deal" olmalı');
+  if (!bitrix_stage) throw new HttpError(400, 'Bitrix aşaması seçilmeli');
+  return { bitrix_entity, bitrix_stage: String(bitrix_stage), bitrix_project: bitrix_project ? String(bitrix_project) : null };
+}
+
+function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => new Date(), bitrix = null }) {
   const app = express();
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true })); // Bitrix giden webhook'ları form olarak gönderir
   const api = express.Router();
 
   // ---------- Kampanyalar (reklam / proje) ----------
@@ -53,9 +62,12 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
     for (const s of steps) upsert.run(campaignId, s.day_offset, s.send_time, s.message);
   };
 
+  let txDepth = 0;
   const transaction = (fn) => {
+    if (txDepth > 0) return fn(); // iç içe çağrılar dıştaki transaction'a katılır
     db.exec('BEGIN');
-    try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; }
+    txDepth += 1;
+    try { const r = fn(); db.exec('COMMIT'); return r; } catch (e) { db.exec('ROLLBACK'); throw e; } finally { txDepth -= 1; }
   };
 
   api.get('/campaigns', (req, res) => {
@@ -78,9 +90,11 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
     if (!name || !String(name).trim()) throw new HttpError(400, 'Kampanya adı gerekli');
     if (!['reklam', 'proje'].includes(type)) throw new HttpError(400, 'Tür "reklam" veya "proje" olmalı');
     const clean = validateSteps(steps);
+    const b = validateBitrix(req.body);
     const id = transaction(() => {
-      const { lastInsertRowid } = db.prepare('INSERT INTO campaigns (name, type, description, active) VALUES (?, ?, ?, ?)')
-        .run(String(name).trim(), type, description, active ? 1 : 0);
+      const { lastInsertRowid } = db.prepare(`INSERT INTO campaigns
+        (name, type, description, active, project, bitrix_entity, bitrix_stage, bitrix_project) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(String(name).trim(), type, description, active ? 1 : 0, req.body.project || null, b.bitrix_entity, b.bitrix_stage, b.bitrix_project);
       saveSteps(lastInsertRowid, clean);
       return lastInsertRowid;
     });
@@ -92,9 +106,12 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
     const { name = current.name, type = current.type, description = current.description, active = current.active, steps } = req.body;
     if (!['reklam', 'proje'].includes(type)) throw new HttpError(400, 'Tür "reklam" veya "proje" olmalı');
     const clean = steps === undefined ? null : validateSteps(steps);
+    const b = validateBitrix({ ...current, ...req.body });
+    const project = req.body.project === undefined ? current.project : req.body.project || null;
     transaction(() => {
-      db.prepare('UPDATE campaigns SET name = ?, type = ?, description = ?, active = ? WHERE id = ?')
-        .run(name, type, description, active ? 1 : 0, current.id);
+      db.prepare(`UPDATE campaigns SET name = ?, type = ?, description = ?, active = ?, project = ?,
+        bitrix_entity = ?, bitrix_stage = ?, bitrix_project = ? WHERE id = ?`)
+        .run(name, type, description, active ? 1 : 0, project, b.bitrix_entity, b.bitrix_stage, b.bitrix_project, current.id);
       if (clean) saveSteps(current.id, clean);
     });
     res.json(getCampaign(current.id));
@@ -129,23 +146,26 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
     return getCustomer(lastInsertRowid);
   };
 
-  const enroll = (customerId, campaignId, startDate) => {
+  const enroll = (customerId, campaignId, startDate, source = null) => {
     getCustomer(customerId);
     getCampaign(campaignId);
     const start = startDate || todayInTurkey(now());
     if (!isValidDate(start)) throw new HttpError(400, `Geçersiz başlangıç tarihi: ${start}`);
     const existing = db.prepare('SELECT * FROM enrollments WHERE customer_id = ? AND campaign_id = ?').get(customerId, campaignId);
     if (existing) {
-      if (existing.status === 'active') return existing;
+      if (existing.status === 'active') {
+        if (source && existing.source !== source) db.prepare('UPDATE enrollments SET source = ? WHERE id = ?').run(source, existing.id);
+        return db.prepare('SELECT * FROM enrollments WHERE id = ?').get(existing.id);
+      }
       // Tamamlanmış/iptal kaydı yeniden başlatılıyor: eski mesaj geçmişi sıfırlanır.
       transaction(() => {
         db.prepare('DELETE FROM messages WHERE enrollment_id = ?').run(existing.id);
-        db.prepare(`UPDATE enrollments SET start_date = ?, status = 'active' WHERE id = ?`).run(start, existing.id);
+        db.prepare(`UPDATE enrollments SET start_date = ?, status = 'active', source = ? WHERE id = ?`).run(start, source, existing.id);
       });
       return db.prepare('SELECT * FROM enrollments WHERE id = ?').get(existing.id);
     }
-    const { lastInsertRowid } = db.prepare('INSERT INTO enrollments (customer_id, campaign_id, start_date) VALUES (?, ?, ?)')
-      .run(customerId, campaignId, start);
+    const { lastInsertRowid } = db.prepare('INSERT INTO enrollments (customer_id, campaign_id, start_date, source) VALUES (?, ?, ?, ?)')
+      .run(customerId, campaignId, start, source);
     return db.prepare('SELECT * FROM enrollments WHERE id = ?').get(lastInsertRowid);
   };
 
@@ -248,6 +268,29 @@ function createApp({ db, scheduler, apiKey = process.env.API_KEY, now = () => ne
     });
     res.status(201).json(result);
   });
+
+  // ---------- Bitrix24 ----------
+  const bitrixSync = bitrix && createBitrixSync({ db, ...bitrix, upsertCustomer, enroll, transaction });
+  const requireBitrix = () => {
+    if (!bitrixSync) throw new HttpError(503, 'Bitrix bağlantısı yapılandırılmamış (BITRIX_WEBHOOK_URL)');
+    return bitrixSync;
+  };
+  const entityType = (t) => {
+    if (!['lead', 'deal'].includes(t)) throw new HttpError(400, 'Tür "lead" veya "deal" olmalı');
+    return t;
+  };
+
+  api.get('/bitrix/status', (req, res) => res.json({ configured: !!bitrixSync, project_field: bitrix?.config.projectField || null }));
+  // Bitrix > Geliştirici kaynakları > Giden webhook bu adrese bağlanır.
+  api.post('/bitrix/webhook', wrap(async (req, res) => res.json(await requireBitrix().handleEvent(req.body))));
+  // Elle tetikleme / test: { "type": "deal", "id": 123 }
+  api.post('/bitrix/sync', wrap(async (req, res) => {
+    res.json(await requireBitrix().sync(entityType(req.body.type), req.body.id, { force: true }));
+  }));
+  api.get('/bitrix/stages', wrap(async (req, res) => res.json(await requireBitrix().stages(entityType(req.query.type)))));
+  api.get('/bitrix/project-options', wrap(async (req, res) => {
+    res.json(await requireBitrix().projectOptions(entityType(req.query.type)));
+  }));
 
   // ---------- Mesaj geçmişi / zamanlayıcı ----------
   api.get('/messages', (req, res) => {

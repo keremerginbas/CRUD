@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, formatDate } from './api';
 
-const PRESET_DAYS = [3, 5, 10, 14, 30];
 const STATUS_LABELS = {
   pending: 'Bekliyor',
   sent: 'Gönderildi',
@@ -35,13 +34,83 @@ function smsInfo(text) {
 
 // ---------------- Kampanyalar ----------------
 
+// Yeni kampanyada hazır gelen teşvik serisi; köşeli parantezli yerler doldurulmalı.
+const SAMPLE_STEPS = [
+  [0, '00:00', 'Merhaba {ad}, {proje} projemizle ilgilendiğiniz için teşekkürler. Projemiz hakkında ne düşünüyorsunuz?'],
+  [3, '10:30', 'Merhaba {ad}, {proje} projemizi hâlâ değerlendiriyor musunuz? Size özel bir sunum için randevu planlayabiliriz.'],
+  [5, '10:30', '{ad}, {proje} güncel fiyat ve ödeme seçenekleri: [FİYAT / ÖDEME PLANI]. Detaylı bilgi için bize ulaşın.'],
+  [10, '10:30', '{ad}, {proje} projemizde sınırlı sayıda daire kaldı. Projeyi yerinde görmek ister misiniz? [LİNK]'],
+  [14, '10:30', '{ad}, {proje} için bu aya özel fırsat: [KAMPANYA DETAYI]. Fiyatlar değişmeden bilgi almak için bize yazın.'],
+  [30, '10:30', 'Merhaba {ad}, {proje} ile ilgili kararınızı verdiniz mi? Yardımcı olabileceğimiz bir konu varsa bize ulaşın.'],
+];
+
 const emptyCampaign = () => ({
   name: '',
-  type: 'reklam',
+  type: 'proje',
+  project: '',
   description: '',
   active: true,
-  steps: PRESET_DAYS.map((d) => ({ day_offset: d, send_time: '10:00', message: '' })),
+  bitrix_entity: '',
+  bitrix_stage: '',
+  bitrix_project: '',
+  steps: SAMPLE_STEPS.map(([day_offset, send_time, message]) => ({ day_offset, send_time, message })),
 });
+
+// Kampanyanın hangi Bitrix aşamasında otomatik başlayacağı.
+function BitrixTrigger({ form, set }) {
+  const [status, setStatus] = useState(null);
+  const [stages, setStages] = useState([]);
+  const [projects, setProjects] = useState([]);
+  useEffect(() => { api.get('/bitrix/status').then(setStatus, () => setStatus({ configured: false })); }, []);
+  useEffect(() => {
+    if (!status?.configured || !form.bitrix_entity) return;
+    api.get(`/bitrix/stages?type=${form.bitrix_entity}`).then(setStages, () => setStages([]));
+    api.get(`/bitrix/project-options?type=${form.bitrix_entity}`).then(setProjects, () => setProjects([]));
+  }, [status, form.bitrix_entity]);
+
+  return (
+    <>
+      <h4>Bitrix tetikleyicisi</h4>
+      <p className="hint">
+        Müşteri Bitrix'te seçilen aşamaya girdiği anda bu seri başlar; başka aşamaya geçince durur.
+        {status && !status.configured && ' (Sunucuda Bitrix bağlantısı tanımlı değil; değerleri elle girebilirsiniz.)'}
+      </p>
+      <div className="row">
+        <label>Kayıt türü
+          <select value={form.bitrix_entity || ''} onChange={(e) => set({ bitrix_entity: e.target.value, bitrix_stage: '', bitrix_project: '' })}>
+            <option value="">Bağlı değil (elle eklenir)</option>
+            <option value="deal">Anlaşma (Deal)</option>
+            <option value="lead">Potansiyel müşteri (Lead)</option>
+          </select>
+        </label>
+        {form.bitrix_entity && (
+          <label>Aşama / statü
+            {stages.length ? (
+              <select value={form.bitrix_stage || ''} onChange={(e) => set({ bitrix_stage: e.target.value })} required>
+                <option value="">Seçin…</option>
+                {stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            ) : (
+              <input value={form.bitrix_stage || ''} placeholder="ör. C3:NEW" onChange={(e) => set({ bitrix_stage: e.target.value })} required />
+            )}
+          </label>
+        )}
+        {form.bitrix_entity && (
+          <label>Proje alanı değeri (opsiyonel)
+            {projects.length ? (
+              <select value={form.bitrix_project || ''} onChange={(e) => set({ bitrix_project: e.target.value })}>
+                <option value="">Tüm projeler</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            ) : (
+              <input value={form.bitrix_project || ''} onChange={(e) => set({ bitrix_project: e.target.value })} />
+            )}
+          </label>
+        )}
+      </div>
+    </>
+  );
+}
 
 function CampaignForm({ initial, onSaved, onCancel }) {
   const [form, setForm] = useState(initial);
@@ -58,7 +127,11 @@ function CampaignForm({ initial, onSaved, onCancel }) {
     e.preventDefault();
     setError(null);
     try {
-      const payload = { ...form, steps: form.steps.map((s) => ({ ...s, day_offset: Number(s.day_offset) })) };
+      const payload = {
+        ...form,
+        bitrix_entity: form.bitrix_entity || null,
+        steps: form.steps.map((s) => ({ ...s, day_offset: Number(s.day_offset) })),
+      };
       if (form.id) await api.put(`/campaigns/${form.id}`, payload);
       else await api.post('/campaigns', payload);
       onSaved();
@@ -74,20 +147,23 @@ function CampaignForm({ initial, onSaved, onCancel }) {
         <label>Ad<input value={form.name} onChange={(e) => set({ name: e.target.value })} required /></label>
         <label>Tür
           <select value={form.type} onChange={(e) => set({ type: e.target.value })}>
-            <option value="reklam">Reklam</option>
             <option value="proje">Proje</option>
+            <option value="reklam">Reklam</option>
           </select>
         </label>
+        <label>Proje adı (mesajda {'{proje}'})<input value={form.project || ''} placeholder="ör. Ankaport Saray" onChange={(e) => set({ project: e.target.value })} /></label>
         <label className="check">
           <input type="checkbox" checked={!!form.active} onChange={(e) => set({ active: e.target.checked })} /> Aktif
         </label>
       </div>
       <label>Açıklama<input value={form.description || ''} onChange={(e) => set({ description: e.target.value })} /></label>
+      <BitrixTrigger form={form} set={set} />
 
       <h4>SMS adımları</h4>
       <p className="hint">
-        Gün, müşterinin akışa eklendiği günden itibaren sayılır (0 = aynı gün). Mesajda <code>{'{ad}'}</code>,{' '}
-        <code>{'{adsoyad}'}</code>, <code>{'{kampanya}'}</code> kullanabilirsiniz.
+        Gün, müşterinin akışa eklendiği (Bitrix'te aşamaya girdiği) günden itibaren sayılır. 0. gün 00:00 = hemen gönder.
+        Mesajda <code>{'{ad}'}</code>, <code>{'{adsoyad}'}</code>, <code>{'{proje}'}</code>, <code>{'{kampanya}'}</code> kullanabilirsiniz.
+        Köşeli parantezli yerleri (fiyat, link…) kendi bilgilerinizle değiştirin.
       </p>
       {form.steps.map((s, i) => (
         <div className="step" key={i}>
@@ -124,12 +200,15 @@ function Campaigns() {
     <>
       <div className="toolbar"><button className="primary" onClick={() => setEditing(emptyCampaign())}>+ Yeni kampanya</button></div>
       <table>
-        <thead><tr><th>Ad</th><th>Tür</th><th>Gönderim günleri</th><th>Aktif akış</th><th>Durum</th><th /></tr></thead>
+        <thead><tr><th>Ad</th><th>Bitrix tetikleyici</th><th>Gönderim günleri</th><th>Aktif akış</th><th>Durum</th><th /></tr></thead>
         <tbody>
           {(campaigns || []).map((c) => (
             <tr key={c.id}>
-              <td>{c.name}<div className="hint">ID: {c.id}</div></td>
-              <td>{c.type === 'proje' ? 'Proje' : 'Reklam'}</td>
+              <td>{c.name}<div className="hint">{c.project || (c.type === 'proje' ? 'Proje' : 'Reklam')} · ID: {c.id}</div></td>
+              <td>
+                {c.bitrix_entity ? `${c.bitrix_entity === 'deal' ? 'Deal' : 'Lead'} · ${c.bitrix_stage}` : <span className="hint">Elle</span>}
+                {c.bitrix_project && <div className="hint">proje değeri: {c.bitrix_project}</div>}
+              </td>
               <td>{c.steps.map((s) => `${s.day_offset}.`).join(' · ')} gün</td>
               <td>{c.active_count}</td>
               <td>{c.active ? <Badge status="active" /> : <Badge status="cancelled" />}</td>
