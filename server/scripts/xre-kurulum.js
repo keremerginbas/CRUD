@@ -38,11 +38,14 @@ const STOP_STAGES = [
   '5', '1', '2', '3', '4', '9', // Olumsuz / Ertelendi / Fiyat / Lokasyon / Kullanım Dışı / seçim araması
 ];
 
-// Seriler 3-5-10. gün; 0. gün "başvurunuz alındı" mesajı ayrı otomasyonla gidiyor.
+// Seriler 3-5-10-15-20-30. gün; 0. gün "başvurunuz alındı" mesajı ayrı otomasyonla gidiyor.
 const steps = (link = SITE) => [
   [3, `Merhaba, XRE Project {proje} projesini hala degerlendiriyor musunuz? Size ozel sunum icin randevu planlayabiliriz. ${link}`],
   [5, `Merhaba, XRE Project {proje} projesinin guncel fiyat ve odeme planlarini sizinle paylasmak isteriz. Detaylar: ${link}`],
   [10, `Merhaba, XRE Project {proje} projesini yerinde gormek ister misiniz? Size uygun bir gun icin randevu planlayalim. ${link}`],
+  [15, `Merhaba, XRE Project {proje} projesinde size uygun daire ve odeme seceneklerini hazirladik. Gorusmek ister misiniz? ${link}`],
+  [20, `Merhaba, XRE Project {proje} projesi hakkinda aklinizda soru kaldi mi? Danismanimiz yardimci olmaktan memnuniyet duyar. ${link}`],
+  [30, `Merhaba, XRE Project {proje} projesi ile ilgili kararinizi verdiniz mi? Sorulariniz icin her zaman buradayiz. ${link}`],
 ].map(([day_offset, message]) => ({ day_offset, send_time: '10:30', message }));
 
 // Projesi belli olmayan statüler (REKLAMDAN GELEN): proje adı geçmeyen genel seri.
@@ -54,6 +57,9 @@ const GENERIC = [
       [3, `Merhaba, XRE Project projemizle ilgilendiginiz icin tesekkurler. Hala degerlendiriyor musunuz? Size ozel randevu planlayalim. ${SITE}`],
       [5, `Merhaba, XRE Project projemizin guncel fiyat ve odeme planlarini sizinle paylasmak isteriz. Hala ilgileniyor musunuz? ${SITE}`],
       [10, `Merhaba, XRE Project projemizden memnun musunuz, hala istiyor musunuz? Sorulariniz icin buradayiz, randevu planlayalim. ${SITE}`],
+      [15, `Merhaba, XRE Project olarak size uygun daire ve odeme seceneklerini hazirladik. Gorusmek ister misiniz? ${SITE}`],
+      [20, `Merhaba, XRE Project projemiz hakkinda aklinizda soru kaldi mi? Danismanimiz yardimci olmaktan memnuniyet duyar. ${SITE}`],
+      [30, `Merhaba, XRE Project projemizle ilgili kararinizi verdiniz mi? Sorulariniz icin her zaman buradayiz. ${SITE}`],
     ].map(([day_offset, message]) => ({ day_offset, send_time: '10:30', message })),
   },
 ];
@@ -62,21 +68,26 @@ function run(db = openDb(), log = console.log) {
   const insertCampaign = db.prepare(`INSERT INTO campaigns (name, type, project, active, bitrix_entity, bitrix_stages)
     VALUES (?, 'proje', ?, 0, 'lead', ?)`);
   const insertStep = db.prepare('INSERT INTO campaign_steps (campaign_id, day_offset, send_time, message) VALUES (?, ?, ?, ?)');
+  // Var olan kampanya: eski 14. gün adımı kaldırılır, eksik günler eklenir; mevcut adımlara (ve elle yapılan
+  // düzenlemelere) dokunulmaz. Seriye girmiş müşteriler yeni adımları da alır.
+  const updateSteps = (campaignId, wanted, name) => {
+    const removed = db.prepare('DELETE FROM campaign_steps WHERE campaign_id = ? AND day_offset = 14').run(campaignId).changes;
+    const add = db.prepare(`INSERT OR IGNORE INTO campaign_steps (campaign_id, day_offset, send_time, message) VALUES (?, ?, ?, ?)`);
+    const added = wanted.filter((st) => add.run(campaignId, st.day_offset, st.send_time, st.message).changes).map((st) => st.day_offset);
+    const changes = [added.length && `${added.join(', ')}. gün eklendi`, removed && '14. gün kaldırıldı'].filter(Boolean);
+    log(changes.length ? `Güncellendi (${changes.join('; ')}): ${name}` : `Güncel: ${name}`);
+  };
   for (const p of PROJECTS) {
     const name = `${p.project} - Teşvik serisi`;
     const existing = db.prepare('SELECT id FROM campaigns WHERE name = ?').get(name);
-    if (existing) {
-      // Önceki kurulumdan kalan 14. ve 30. gün adımları kaldırılır (seriler artık 3-5-10).
-      const removed = db.prepare('DELETE FROM campaign_steps WHERE campaign_id = ? AND day_offset IN (14, 30)').run(existing.id).changes;
-      log(removed ? `Güncellendi (14. ve 30. gün kaldırıldı): ${name}` : `Var, atlandı: ${name}`);
-      continue;
-    }
+    if (existing) { updateSteps(existing.id, steps(p.link), name); continue; }
     const { lastInsertRowid } = insertCampaign.run(name, p.project, JSON.stringify(p.stages));
     for (const s of steps(p.link)) insertStep.run(lastInsertRowid, s.day_offset, s.send_time, s.message);
     log(`Oluşturuldu (pasif): ${name}`);
   }
   for (const g of GENERIC) {
-    if (db.prepare('SELECT 1 FROM campaigns WHERE name = ?').get(g.name)) { log(`Var, atlandı: ${g.name}`); continue; }
+    const existing = db.prepare('SELECT id FROM campaigns WHERE name = ?').get(g.name);
+    if (existing) { updateSteps(existing.id, g.steps, g.name); continue; }
     const { lastInsertRowid } = insertCampaign.run(g.name, null, JSON.stringify(g.stages));
     for (const st of g.steps) insertStep.run(lastInsertRowid, st.day_offset, st.send_time, st.message);
     log(`Oluşturuldu (pasif): ${g.name}`);
