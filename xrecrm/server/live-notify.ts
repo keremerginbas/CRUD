@@ -13,7 +13,7 @@ export function liveNotifyStore(base: Store): Store {
   const notify = async (kind: string, old: any, next: any, owner: string) => {
     const at = new Date().toISOString();
     if (kind === "message" && !old && (next.direction === "inbound" || next.direction === "in")) {
-      const name = (await leadName(owner, next.leadId)) || "Yeni kişi";
+      const name = (await leadName(owner, next.leadId)) || next.contactName || (next.phone ? `+${next.phone}` : "Yeni kişi");
       pushNotice(
         { id: crypto.randomUUID(), kind: "message", title: `${name} mesaj gönderdi`, body: String(next.text || "").slice(0, 140), leadId: next.leadId, at },
         { module: "whatsapp" },

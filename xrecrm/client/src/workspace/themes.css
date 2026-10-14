@@ -740,3 +740,7 @@ html[data-xre-theme] td {
 html[data-xre-theme] td strong {
   color: var(--xre-text);
 }
+html[data-xre-theme] .modal-footer {
+  background: var(--xre-surface);
+  border-color: var(--xre-border);
+}

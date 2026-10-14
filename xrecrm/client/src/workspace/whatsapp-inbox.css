@@ -1,0 +1,16 @@
+.wa-inbox .inbox-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wa-filters { display: flex; gap: 4px; padding: 0 12px 8px; flex-wrap: wrap; }
+.wa-filters button { font-size: 11.5px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--border); color: var(--xre-text-soft); }
+.wa-filters button b { font-weight: 600; margin-left: 2px; }
+.wa-filters button.active { background: var(--xre-accent-soft); color: var(--xre-accent-strong); border-color: var(--xre-accent); }
+.wa-inbox .conversation > div > span { display: flex; gap: 4px; flex-wrap: wrap; }
+.wa-inbox .conversation p { display: flex; gap: 4px; align-items: center; }
+.wa-window { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 12.5px; background: #fbf4e2; color: #7a5a14; border: 1px solid #f0e2bd; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+.wa-window span { flex: 1; min-width: 200px; }
+.wa-check { display: flex; gap: 10px; align-items: center; font-size: 12.5px; flex-wrap: wrap; }
+.wa-template-tag { display: block; font-size: 10.5px; opacity: 0.75; margin-bottom: 4px; }
+.wa-templates { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; margin-bottom: 12px; }
+.wa-templates button { text-align: left; border: 1px solid var(--border); border-radius: 10px; padding: 10px; color: var(--xre-text); }
+.wa-templates button.active { border-color: var(--xre-accent); background: var(--xre-accent-soft); }
+.wa-templates p { font-size: 12.5px; color: var(--xre-text-soft); margin-top: 4px; white-space: pre-wrap; }
+.wa-inbox .composer-line select { max-width: 260px; }

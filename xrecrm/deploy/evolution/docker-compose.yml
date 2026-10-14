@@ -1,0 +1,51 @@
+# Evolution API (WhatsApp QR oturumları) — XRE CRM ile aynı sunucuda çalıştırın.
+# Kullanım:  docker compose up -d   (bu klasörde)
+# Sonra XRE CRM > Entegrasyonlar > WhatsApp QR bölümüne:
+#   Evolution API adresi : http://SUNUCU_IP:8080   (aynı makinedeyse http://127.0.0.1:8080)
+#   Evolution API anahtarı: aşağıdaki AUTHENTICATION_API_KEY değeri
+# Not: CRM'den iç ağ adresine istek için Genel > İzinli iç ağ adresleri alanına 127.0.0.1 yazın.
+# Ortam değişkeni adlarını kurduğunuz sürümün belgesiyle karşılaştırın:
+# https://doc.evolution-api.com
+services:
+  evolution:
+    image: atendai/evolution-api:v2.2.3
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_URL: http://localhost:8080
+      AUTHENTICATION_API_KEY: BURAYA_UZUN_RASTGELE_BIR_ANAHTAR_YAZIN
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution_sifre@postgres:5432/evolution
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: redis://redis:6379/6
+      CACHE_LOCAL_ENABLED: "false"
+      CONFIG_SESSION_PHONE_CLIENT: XRE CRM
+      CONFIG_SESSION_PHONE_NAME: Chrome
+      LANGUAGE: tr
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      - postgres
+      - redis
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution_sifre
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_pg:/var/lib/postgresql/data
+  redis:
+    image: redis:7-alpine
+    restart: always
+    volumes:
+      - evolution_redis:/data
+volumes:
+  evolution_instances:
+  evolution_pg:
+  evolution_redis:

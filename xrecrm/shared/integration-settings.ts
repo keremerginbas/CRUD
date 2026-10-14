@@ -55,6 +55,9 @@ export const SETTING_GROUPS: SettingGroup[] = [
       { key: "EVOLUTION_API_KEY", label: "Evolution API anahtarı", secret: true },
       { key: "EVOLUTION_WEBHOOK_SECRET", label: "Webhook sırrı", secret: true },
       { key: "EVOLUTION_WEBHOOK_URL", label: "Webhook adresi (opsiyonel)", placeholder: "https://crm.xre.com.tr/api/webhooks/evolution" },
+      { key: "WHATSAPP_AUTO_LEAD", label: "Gelen mesajda otomatik müşteri aç", placeholder: "0", help: "0: WhatCRM gibi, kayıtsız sohbet olarak kalır (varsayılan). 1: her yeni numara için müşteri kartı açılır." },
+      { key: "WHATSAPP_DAILY_NEW_CONTACTS", label: "Günlük yeni kişi sınırı (hat başına)", placeholder: "40", help: "QR hatlarında ban riskini azaltmak için günde ilk mesaj atılabilecek yeni kişi sayısı." },
+      { key: "WHATSAPP_MIN_INTERVAL_MS", label: "Mesajlar arası en az süre (ms)", placeholder: "1500" },
     ],
   },
   {
@@ -67,6 +70,7 @@ export const SETTING_GROUPS: SettingGroup[] = [
       { key: "META_APP_SECRET", label: "Uygulama gizli anahtarı", secret: true },
       { key: "META_VERIFY_TOKEN", label: "Webhook doğrulama anahtarı", secret: true },
       { key: "META_LINE_MAP_JSON", label: "Hat eşleme (JSON)", multiline: true, placeholder: '{"office-2":"123456789012345"}' },
+      { key: "META_WABA_ID", label: "WhatsApp Business Hesap ID", placeholder: "1234567890", help: "Onaylı şablonları listelemek için gerekli." },
     ],
   },
   {

@@ -260,6 +260,7 @@ export function registerMediaRoutes(
   store: Store,
   deps: {
     providerFor(lineId: string, owner: string): Promise<"evolution" | "meta" | null>;
+    guard?(owner: string, lineId: string, phone: string, provider: "evolution" | "meta"): Promise<{ firstContact: boolean }>;
   },
 ) {
   const raw = rawStoreOf(store);
@@ -268,26 +269,33 @@ export function registerMediaRoutes(
   app.post("/api/messages/media", async (req: Request, res: Response) => {
     const auth = authOf(req);
     try {
-      const { leadId, lineId, caption = "", fileName = "", mime = "", data } = req.body || {};
-      if (!leadId || !lineId || typeof data !== "string")
-        return res.status(400).json({ error: "INVALID_MEDIA", message: "leadId, lineId ve dosya (base64) gerekli." });
-      const lead = (await store.get<Lead>("lead", String(leadId), auth.ownerOpenId))?.payload;
-      if (!lead) return res.status(404).json({ error: "NOT_FOUND", message: "Müşteri bulunamadı." });
+      const { leadId, to, lineId, caption = "", fileName = "", mime = "", data } = req.body || {};
+      if ((!leadId && !to) || !lineId || typeof data !== "string")
+        return res.status(400).json({ error: "INVALID_MEDIA", message: "Alıcı (leadId veya numara), lineId ve dosya gerekli." });
+      let lead = leadId ? (await store.get<Lead>("lead", String(leadId), auth.ownerOpenId))?.payload || null : null;
+      if (leadId && !lead) return res.status(404).json({ error: "NOT_FOUND", message: "Müşteri bulunamadı." });
+      const phone = normalizePhone(lead?.phone || to);
+      if (phone.length < 10) return res.status(400).json({ error: "INVALID_PHONE", message: "Geçerli bir telefon numarası girin." });
+      if (!lead)
+        lead = (await store.list<Lead>("lead", auth.ownerOpenId)).map((r) => r.payload).find((l) => normalizePhone(l.phone) === phone) || null;
       const buffer = Buffer.from(data.replace(/^data:[^,]+,/, ""), "base64");
       const provider = await deps.providerFor(String(lineId), auth.ownerOpenId);
       if (!provider)
         return res.status(503).json({ error: "WHATSAPP_NOT_CONFIGURED", message: "Bu hat için bağlı WhatsApp (Evolution) veya Meta yapılandırması yok." });
+      const guard = deps.guard ? await deps.guard(auth.ownerOpenId, String(lineId), phone, provider) : { firstContact: false };
       const media = await saveMedia(store, auth.ownerOpenId, buffer, String(mime), String(fileName));
       const text = String(caption).slice(0, 1024);
       const result =
         provider === "evolution"
-          ? await sendEvolutionMedia(String(lineId), lead.phone, media, buffer, text)
-          : await sendMetaMedia(String(lineId), lead.phone, media, buffer, text);
+          ? await sendEvolutionMedia(String(lineId), phone, media, buffer, text)
+          : await sendMetaMedia(String(lineId), phone, media, buffer, text);
       const providerMessageId = String(result?.messages?.[0]?.id || result?.key?.id || "");
       const message = {
         id: providerMessageId || `message-${crypto.randomUUID()}`,
-        leadId: lead.id,
+        leadId: lead?.id || null,
         lineId: String(lineId),
+        phone,
+        firstContact: guard.firstContact,
         provider,
         direction: "outbound",
         type: media.mediaType,

@@ -91,6 +91,7 @@ import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-
 import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
 import { registerBackupRoutes, startBackupScheduler } from "./backup.js";
 import { liveNotifyStore } from "./live-notify.js";
+import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
 import {
   captureEvolutionMedia,
@@ -219,6 +220,9 @@ function publicConnection(connection: Record<string, unknown>) {
     "updatedAt",
   ]);
 }
+function whatsappAutoLead(): boolean {
+  return process.env.WHATSAPP_AUTO_LEAD?.trim() === "1";
+}
 function mediaLabel(type?: string): string {
   return (
     { image: "[Fotoğraf]", video: "[Video]", audio: "[Sesli mesaj]", document: "[Belge]" } as Record<string, string>
@@ -244,6 +248,9 @@ function publicMessage(
       "fileName",
       "mediaType",
       "size",
+      "phone",
+      "contactName",
+      "templateName",
     ]),
     direction: inbound ? "inbound" : "outbound",
     text: message.text ?? "[Medya mesajı]",
@@ -782,13 +789,15 @@ async function processMetaWebhook(
       const lineId = String(value.metadata?.phone_number_id || "");
       const contact = value.contacts?.[0];
       for (const message of value.messages || []) {
-        const lead = await ensureInboundLead(
-          store,
-          owner,
-          message.from,
-          contact?.profile?.name,
-          "whatsapp",
-        );
+        const lead = whatsappAutoLead()
+          ? await ensureInboundLead(
+              store,
+              owner,
+              message.from,
+              contact?.profile?.name,
+              "whatsapp",
+            )
+          : await findLeadByPhone(store, owner, message.from);
         const messageId = String(message.id || id("meta-message"));
         const type = String(message.type || "unknown");
         const media = await captureMetaMedia(store, owner, message);
@@ -806,6 +815,8 @@ async function processMetaWebhook(
             id: messageId,
             leadId: lead?.id || null,
             lineId,
+            phone: normalizePhone(message.from),
+            contactName: String(contact?.profile?.name || "").slice(0, 120) || null,
             provider: "meta",
             direction: "inbound",
             type,
@@ -884,13 +895,17 @@ async function processEvolutionWebhook(
   const remoteJid = String(key.remoteJid || data?.remoteJid || "");
   const phone = remoteJid.split("@")[0];
   if (!phone) return;
-  const lead = await ensureInboundLead(
-    store,
-    owner,
-    phone,
-    data?.pushName || data?.notifyName,
-    "evolution",
-  );
+  // WhatCRM tarzı: varsayılan olarak gelen mesaj müşteri kartı açmaz;
+  // numara kayıtlıysa bağlanır. WHATSAPP_AUTO_LEAD=1 ile eski davranış.
+  const lead = whatsappAutoLead()
+    ? await ensureInboundLead(
+        store,
+        owner,
+        phone,
+        data?.pushName || data?.notifyName,
+        "evolution",
+      )
+    : await findLeadByPhone(store, owner, phone);
   const message = data?.message || {};
   const text =
     message.conversation ||
@@ -912,6 +927,8 @@ async function processEvolutionWebhook(
       id: messageId,
       leadId: lead?.id || null,
       lineId: body?.instance || body?.sender || null,
+      phone: normalizePhone(phone),
+      contactName: String(data?.pushName || data?.notifyName || "").slice(0, 120) || null,
       provider: "evolution",
       direction: "inbound",
       type: media.mediaType || Object.keys(message)[0] || "text",
@@ -1557,15 +1574,11 @@ export function createApp(
   });
   if (options.background) startBackupScheduler(baseStore);
   registerMediaRoutes(app, store, {
-    providerFor: async (lineId, owner) => {
-      const connected =
-        (await store.get<any>("connection", lineId, owner))?.payload?.status ===
-        "connected";
-      if (connected && providerConfigured("evolution")) return "evolution";
-      if (!connected && providerConfigured("meta")) return "meta";
-      return null;
-    },
+    providerFor: (lineId, owner) => lineProvider(store, owner, lineId),
+    guard: (owner, lineId, phone, provider) =>
+      guardOutbound(store, owner, { lineId, phone, provider }),
   });
+  registerWhatsappChatRoutes(app, store, { ensureLead: ensureInboundLead });
   registerQrApproveRoute(app, store);
 
   app.get("/api/state", async (req, res) => {

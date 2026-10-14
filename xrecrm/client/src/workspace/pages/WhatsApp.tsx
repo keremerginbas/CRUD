@@ -6,6 +6,7 @@ import { meetingShareText } from "../components/OnlineMeeting";
 import { Video, CalendarClock } from "lucide-react";
 import { dateTimeLabel } from "../suite";
 import { useState, useEffect, useRef } from "react";
+import WhatsAppInbox from "../components/WhatsAppInbox";
 import "../pbx.css";
 import {
   MessageCircle,
@@ -157,7 +158,7 @@ export default function WhatsApp({
       <PageTitle
         eyebrow="İLETİŞİM MERKEZİ"
         title="Sohbetten güçlü ilişkilere."
-        description="WhatsApp görüşmelerini müşterilerinizle eşleştirin, ekibinizle birlikte yanıtlayın."
+        description="Kayıtlı olsun olmasın herkese yazın. QR ile bağlı hatlarda ilk mesaj için şablon gerekmez."
         actions={
           <button
             className="btn primary"
@@ -192,259 +193,12 @@ export default function WhatsApp({
         </span>
       </div>
       {tab === "inbox" ? (
-        <section className="inbox-panel">
-          <aside className="conversation-list">
-            <div className="inbox-title">
-              <h3>Tüm konuşmalar</h3>
-              <Badge tone="green">{contacts.length}</Badge>
-            </div>
-            <div className="search-field compact">
-              <Search size={16} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Konuşma ara…"
-              />
-            </div>
-            <div className="conversations">
-              {contacts.map((l, i) => {
-                const last = data.messages
-                  .filter((m) => m.leadId === l.id)
-                  .at(-1);
-                return (
-                  <button
-                    key={l.id}
-                    className={`conversation ${selected === l.id ? "selected" : ""}`}
-                    onClick={() => {
-                      setSelected(l.id);
-                      setMessage("");
-                    }}
-                  >
-                    <Avatar name={l.name} size={40} />
-                    <div>
-                      <div>
-                        <strong>{l.name}</strong>
-                        <time>
-                          {new Date(
-                            last?.createdAt || l.lastActivity,
-                          ).toLocaleTimeString("tr-TR", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </time>
-                      </div>
-                      <p>{last?.text || l.company}</p>
-                      <span>
-                        <MessageCircle size={10} />
-                        {l.source} · {l.owner}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="inbox-bottom">
-              <span className="green-dot" />
-              {demo ? "Örnek görüşmeler" : "CRM konuşmaları"}
-            </div>
-          </aside>
-          <div className="chat-main">
-            {lead ? (
-              <>
-                <header className="chat-header">
-                  <Avatar name={lead.name} size={39} />
-                  <div>
-                    <strong>{lead.name}</strong>
-                    <p>
-                      {lead.phone}{" "}
-                      <span>· {demo ? "Örnek müşteri" : "CRM müşterisi"}</span>
-                    </p>
-                  </div>
-                  <button
-                    className="btn secondary small"
-                    onClick={() => onLead(lead)}
-                  >
-                    CRM kaydı
-                    <ArrowUpRight size={14} />
-                  </button>
-                  <button
-                    className="btn secondary small"
-                    disabled={!can("calls") || !lead.phone}
-                    onClick={() => openCustomerCall(lead.id)}
-                  >
-                    <Phone size={15} />
-                    Ara
-                  </button>
-                  <button
-                    className="btn primary small"
-                    disabled={!can("calendar")}
-                    onClick={() => openOnlineMeeting(lead.id)}
-                  >
-                    <Video size={15} />
-                    Online toplantı
-                  </button>
-                </header>
-                <div className="chat-messages">
-                  <div className="date-divider">
-                    Bugün{" "}
-                    <span>{demo ? "Demo görüşmesi" : "Mesaj geçmişi"}</span>
-                  </div>
-                  {data.activities
-                    .filter(
-                      (a) =>
-                        a.leadId === lead.id &&
-                        !a.cancelled &&
-                        (a.meetingUrl || a.conferenceStatus),
-                    )
-                    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-                    .map((a) => (
-                      <article key={a.id} className="v6-chat-meeting">
-                        <header>
-                          <Video size={17} />
-                          {a.title}
-                        </header>
-                        <p>
-                          <CalendarClock size={12} /> {dateTimeLabel(a.startAt)}{" "}
-                          · {a.assignee}
-                        </p>
-                        {a.meetingUrl ? (
-                          <div>
-                            <a
-                              href={a.meetingUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              Toplantıya katıl <ExternalLink size={12} />
-                            </a>
-                            <button
-                              className="text-button"
-                              onClick={() =>
-                                navigator.clipboard
-                                  .writeText(a.meetingUrl!)
-                                  .then(() =>
-                                    toast.success("Bağlantı kopyalandı."),
-                                  )
-                                  .catch(() =>
-                                    toast.error("Panoya erişilemedi."),
-                                  )
-                              }
-                            >
-                              <Copy size={12} />
-                              Kopyala
-                            </button>
-                            <button
-                              className="text-button"
-                              onClick={() =>
-                                setMessage(meetingShareText(a, lead.name))
-                              }
-                            >
-                              <MessageCircle size={12} />
-                              Mesaj taslağı
-                            </button>
-                          </div>
-                        ) : (
-                          <p>
-                            {demo
-                              ? "Demo planı · Meet bağlantısı oluşturulmadı"
-                              : "Konferans bağlantısı henüz hazır değil"}
-                          </p>
-                        )}
-                      </article>
-                    ))}
-                  {messages.map((m) => (
-                    <div className={`message-bubble ${m.direction}`} key={m.id}>
-                      <MessageMedia m={m as any} />
-                      {(m as any).mediaId && /^\[(Fotoğraf|Video|Sesli mesaj|Belge|Medya mesajı)\]$|^\[.+\..+\]$/.test(m.text) ? null : m.text}
-                      <span>
-                        {new Date(m.createdAt).toLocaleTimeString("tr-TR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                        {m.direction === "outbound" && <CheckCheck size={13} />}
-                      </span>
-                    </div>
-                  ))}
-                  {!messages.length && (
-                    <Empty
-                      title="İlk mesajı yazın"
-                      description="Bu müşteriyle görüşmeniz burada görünecek."
-                    />
-                  )}
-                </div>
-                <div className="composer">
-                  <div className="composer-line">
-                    <MessageCircle size={13} />
-                    <select
-                      value={line}
-                      onChange={(e) => setLine(e.target.value)}
-                      aria-label="Gönderen hat"
-                    >
-                      {lines.map((l) => (
-                        <option value={l.id} key={l.id}>
-                          {formatPhone(l.phone)}
-                        </option>
-                      ))}
-                    </select>
-                    <Badge tone={demo ? "amber" : "gray"}>
-                      {demo
-                        ? "Demo · Gönderim yapılmaz"
-                        : "Sağlayıcı doğrulaması gerekli"}
-                    </Badge>
-                  </div>
-                  <div className="composer-input">
-                    <textarea
-                      rows={2}
-                      value={message}
-                      onChange={(e) => setMessage(e.target.value)}
-                      placeholder="Mesajınızı yazın…"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          send();
-                        }
-                      }}
-                    />
-                    <input
-                      ref={fileInput}
-                      type="file"
-                      hidden
-                      accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) void sendFile(f);
-                      }}
-                    />
-                    <button
-                      className="icon-button"
-                      onClick={() => fileInput.current?.click()}
-                      disabled={sending}
-                      aria-label="Dosya ekle"
-                      title="Fotoğraf, video, ses veya belge gönder (yazdığınız metin açıklama olur)"
-                    >
-                      <Paperclip size={17} />
-                    </button>
-                    <button
-                      className="btn primary"
-                      onClick={send}
-                      disabled={sending || !message.trim()}
-                      aria-label="Mesaj gönder"
-                    >
-                      <Send size={17} />
-                    </button>
-                  </div>
-                  <div className="composer-note">
-                    Enter ile gönder · Shift + Enter ile yeni satır
-                  </div>
-                </div>
-              </>
-            ) : (
-              <Empty
-                title="Bir müşteri seçin"
-                description="Görüşme başlatmak için önce CRM müşterisi ekleyin."
-              />
-            )}
-          </div>
-        </section>
+        <WhatsAppInbox
+          initialLead={initialLead}
+          initialDraft={initialDraft}
+          onDraftConsumed={onDraftConsumed}
+          onLead={onLead}
+        />
       ) : (
         <>
           <div className="info-banner">

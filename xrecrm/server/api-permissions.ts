@@ -89,7 +89,7 @@ export function requireModulePermissions(
     module = writing ? "automations" : "crm";
   else if (/^\/feed(?:\/|$)/.test(path)) module = "feed";
   else if (/^\/members(?:\/|$)/.test(path)) module = "users";
-  else if (/^\/messages(?:\/|$)/.test(path)) module = "whatsapp";
+  else if (/^\/(messages|whatsapp)(?:\/|$)/.test(path)) module = "whatsapp";
   else if (/^\/media\/[^/]+$/.test(path)) {
     module = "whatsapp";
     action = "read";
