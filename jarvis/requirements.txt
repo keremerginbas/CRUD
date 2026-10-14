@@ -2,6 +2,8 @@ elevenlabs==2.72.0
 anthropic==1.14.0
 openwakeword==0.6.0
 pyaudio>=0.2.14
+PyAudioWPatch; sys_platform == "win32"
 numpy
+Pillow
 python-dotenv
 keyboard
