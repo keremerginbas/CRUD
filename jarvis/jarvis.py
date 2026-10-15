@@ -302,10 +302,29 @@ _asil_baglan = _konusma_modulu.connect
 _dogrudan_baglan = threading.Event()
 
 
+_son_baglanti = [None]  # kapanış sebebini okuyabilmek için son websocket bağlantısı
+
+
 def _baglan(url, **kw):
     if _dogrudan_baglan.is_set():
         kw["additional_headers"] = {"xi-api-key": ELEVEN_KEY}
-    return _asil_baglan(url, **kw)
+    baglanti = _asil_baglan(url, **kw)
+    _son_baglanti[0] = baglanti
+    return baglanti
+
+
+def kapanis_sebebi():
+    """ElevenLabs bağlantıyı kendisi kapattıysa sebebini (kod + açıklama) döner."""
+    b = _son_baglanti[0]
+    if b is None:
+        return None
+    try:
+        kod, aciklama = b.close_code, b.close_reason
+    except Exception:
+        return None
+    if kod is None:
+        return None
+    return kod, aciklama or ""
 
 
 _konusma_modulu.connect = _baglan
@@ -771,6 +790,11 @@ def sohbet_et(acilis=None, baglam=""):
         callback_end_session=bitti.set,
     )
     yaz("🎙️", f"Konuşma açık. (Kapatmak için 'görüşürüz' deyin ya da {KISAYOL} basın.)")
+    _son_baglanti[0] = None
+    jarvis_konustu = threading.Event()
+    eski_jarvis_dedi = konusma.callback_agent_response
+    konusma.callback_agent_response = lambda m: (jarvis_konustu.set(), eski_jarvis_dedi(m))
+    acilis_zamani = time.time()
     konusma.start_session()
     aktif_konusma = konusma
     try:
@@ -788,6 +812,13 @@ def sohbet_et(acilis=None, baglam=""):
     finally:
         aktif_konusma = None
         KULAK.sakin_kadar = time.time() + 2.5
+    sebep = kapanis_sebebi()
+    if sebep and not jarvis_konustu.is_set() and time.time() - acilis_zamani < 20:
+        kod, aciklama = sebep
+        bilinen = next((a for k, a in BILINEN_HATALAR if k in f"{kod} {aciklama}".lower()), None)
+        yaz("❌", f"ElevenLabs konuşmayı hemen kapattı (kod {kod}): {aciklama or 'sebep belirtilmedi'}")
+        if bilinen:
+            yaz("💡", bilinen)
     yaz("💤", "Konuşma kapandı.")
     threading.Thread(target=konusmadan_not_cikar, args=(list(gecmis),), daemon=True).start()
     return sonuc
@@ -875,7 +906,6 @@ BILINEN_HATALAR = [
                       "Subscription / Billing bölümünden kartınızı ya da bekleyen faturayı düzeltin."),
     ("quota", "ElevenLabs kredi ya da dakika hakkınız bitmiş. elevenlabs.io → Subscription bölümüne bakın."),
     ("limit", "ElevenLabs kullanım sınırına ulaşıldı. elevenlabs.io → Subscription bölümüne bakın."),
-    ("1008", "ElevenLabs bağlantıyı reddetti; API anahtarının ElevenAgents iznini kontrol edin."),
     ("401", "ElevenLabs anahtarı geçersiz; .env'deki ELEVENLABS_API_KEY'i kontrol edin."),
 ]
 
