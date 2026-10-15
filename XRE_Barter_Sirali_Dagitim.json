@@ -1,0 +1,980 @@
+{
+  "name": "XRE Barter - Şirket Kartı ile Kontrollü Aktarım - Sıralı Dağıtım",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "da663690-3b70-4be6-a9cc-1aa8af57d1a6",
+      "name": "Barter Yükle (Başlat)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        10608,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1PZaM2NBg2zs1HkX-dM4Z2FiJin6HpHDxAw5gDEX1kLA/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sayfa1"
+        },
+        "options": {}
+      },
+      "id": "1e885ccd-177a-4ded-bcf5-c2bb28247740",
+      "name": "Barter Satırlarını Oku",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        10816,
+        -800
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ ($json['Deal ID'] || '').toString().trim() }}",
+              "operator": {
+                "type": "string",
+                "operation": "empty"
+              },
+              "rightValue": ""
+            },
+            {
+              "id": "2",
+              "leftValue": "={{ (($json['İsim'] || '') + ($json['Telefon Numarası'] || '') + ($json['İlan ID'] || '')).toString().trim() }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "a4f08c8e-9a64-4b4d-8513-9778667c0def",
+      "name": "Deal ID Boş Olanlar",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        11008,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const r = $json;\n\nfunction clean(v) {\n  return String(v ?? '').replace(/\\u00A0/g, ' ').replace(/\\s+/g, ' ').trim();\n}\nfunction norm(s) {\n  return clean(s)\n    .replace(/²/g, '2')\n    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '')\n    .toUpperCase()\n    .replace(/[:：]/g, '')\n    .replace(/[^A-Z0-9]+/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\nfunction filled(v) {\n  return v !== undefined && v !== null && clean(v) !== '';\n}\n\nconst entries = Object.entries(r).map(([key, value]) => ({\n  key, nkey: norm(key), value\n}));\n\nfunction g(...names) {\n  const wanted = names.map(norm).filter(Boolean);\n\n  for (let i = entries.length - 1; i >= 0; i--) {\n    const e = entries[i];\n    if (!filled(e.value)) continue;\n    if (wanted.includes(e.nkey)) return clean(e.value);\n  }\n\n  for (let i = entries.length - 1; i >= 0; i--) {\n    const e = entries[i];\n    if (!filled(e.value)) continue;\n    if (wanted.some(w =>\n      e.nkey === w + ' 2' ||\n      e.nkey === w + '2' ||\n      e.nkey.startsWith(w + ' ')\n    )) return clean(e.value);\n  }\n\n  return '';\n}\n\nfunction normalizeTRPhone(v) {\n  let d = clean(v).replace(/\\D/g, '');\n  if (d.startsWith('0090')) d = d.slice(2);\n  if (d.length === 11 && d.startsWith('05')) d = '9' + d;\n  if (d.length === 10 && d.startsWith('5')) d = '90' + d;\n  const valid = /^905\\d{9}$/.test(d);\n  return { valid, digits: d, plus: valid ? '+' + d : '' };\n}\n\nfunction parseNumberTR(v) {\n  let s = clean(v).replace(/[^\\d.,-]/g, '');\n  if (!s) return 0;\n\n  if (s.includes(',') && s.includes('.')) {\n    s = s.replace(/\\./g, '').replace(',', '.');\n  } else if (s.includes(',')) {\n    s = s.replace(',', '.');\n  } else if (s.includes('.')) {\n    const p = s.split('.');\n    if (p.length > 2 || (p.length === 2 && p[1].length === 3)) {\n      s = s.replace(/\\./g, '');\n    }\n  }\n\n  const n = Number(s);\n  return Number.isFinite(n) ? n : 0;\n}\n\n// Sheet alanları\nconst ilanNo       = g('İlan No', 'İlan Numarası', 'İlan ID').replace(/\\.0+$/, '');\nconst ilanBasligi  = g('İlan Başlığı', 'Başlık');\nconst fiyat        = g('Fiyat (TL)', 'Fiyat', 'Satış Fiyatı');\nconst adaNo        = g('Ada No', 'Ada', 'Ada Numarası');\nconst parselNo     = g('Parsel No', 'Parsel', 'Parsel Numarası');\nconst m2           = g('m²', 'm2', 'Net m²', 'Net m2');\nconst m2Fiyati     = g('m² Fiyatı', 'm2 Fiyatı', 'Metrekare Fiyatı');\nconst tapuDurumu   = g('Tapu Durumu', 'Tapu', 'Tapu Tipi');\nconst magazaAdi    = g('Mağaza Adı', 'Mağaza');\nconst isim         = g('İsim', 'Ad Soyad', 'Satıcı');\nconst telefonRaw   = g('Telefon Numarası', 'Telefon', 'Cep Telefonu', 'GSM');\nconst il           = g('İl', 'Şehir');\nconst ilce         = g('İlçe');\nconst mahalle      = g('Mahalle', 'Mahalle / Mevki');\nconst takas        = g('Takas');\nconst ilanLinkRaw  = g('RESMİ İLAN LİNKİ', 'Resmi İlan Linki', 'RESMI ILAN LINKI', 'İlan Link', 'İlan Linki', 'Link', 'URL');\nconst sorumluKisi  = g('Sorumlu Kişi');\n\nconst phone = normalizeTRPhone(telefonRaw);\n\nlet fullLink = clean(ilanLinkRaw);\nif (fullLink && !/^https?:\\/\\//i.test(fullLink)) {\n  fullLink = 'https://www.sahibinden.com' +\n    (fullLink.startsWith('/') ? '' : '/') + fullLink;\n}\n\n// Sorumlu kişi: sheet'teki 'Sorumlu Kişi' sütununa göre (sıra sıra dağıtım)\nconst SORUMLULAR = [\n  { id: 25314, ad: 'Hatice Aldemir' },\n  { id: 27876, ad: 'Yiğitcan Dilek' },\n  { id: 27878, ad: 'Aleyna Özdemir' }\n];\nlet sorumlu = SORUMLULAR.find(s => norm(s.ad) === norm(sorumluKisi))\n  || SORUMLULAR.find(s => sorumluKisi && norm(s.ad).startsWith(norm(sorumluKisi).split(' ')[0]));\nif (!sorumlu) {\n  // Sütun boşsa / tanınmazsa satır numarasına göre sıra sıra ata\n  const rn = Number(r.row_number || 2);\n  sorumlu = SORUMLULAR[((rn - 2) % SORUMLULAR.length + SORUMLULAR.length) % SORUMLULAR.length];\n}\nconst assignedById = sorumlu.id;\n\nconst np = clean(isim || 'Bilinmeyen Satıcı').split(' ').filter(Boolean);\nconst adi = np.shift() || 'Bilinmeyen';\nconst soyadi = np.join(' ') || 'Satıcı';\n\nlet dealFields = {};\ntry {\n  dealFields = $('Bitrix Deal Alanlarını Oku').first().json.result || {};\n} catch (e) {}\n\nfunction rawLabels(def, id) {\n  const a = [];\n  if (def && typeof def === 'object') {\n    for (const k of ['listLabel', 'formLabel', 'filterLabel']) {\n      if (def[k]) a.push(clean(def[k]));\n    }\n  }\n  a.push(clean(id));\n  return a.filter(Boolean);\n}\n\nfunction fieldExact(exactLabels, fallbackNormalized = []) {\n  // 1) Ekrandaki yazıyla birebir eşleşme\n  for (const wanted of exactLabels) {\n    for (const [id, def] of Object.entries(dealFields)) {\n      if (!String(id).startsWith('UF_CRM_')) continue;\n      if (rawLabels(def, id).includes(wanted)) return id;\n    }\n  }\n\n  // 2) Büyük/küçük harf farkı\n  for (const wanted of exactLabels) {\n    const w = wanted.toLocaleLowerCase('tr-TR');\n    for (const [id, def] of Object.entries(dealFields)) {\n      if (!String(id).startsWith('UF_CRM_')) continue;\n      if (rawLabels(def, id).some(x => x.toLocaleLowerCase('tr-TR') === w)) return id;\n    }\n  }\n\n  // 3) Son çare normalize edilmiş tam eşleşme\n  const wantedNorm = [...exactLabels, ...fallbackNormalized].map(norm);\n  for (const [id, def] of Object.entries(dealFields)) {\n    if (!String(id).startsWith('UF_CRM_')) continue;\n    const labels = rawLabels(def, id).map(norm);\n    if (labels.some(x => wantedNorm.includes(x))) return id;\n  }\n\n  return '';\n}\n\nfunction coerceForField(id, value) {\n  const def = dealFields[id] || {};\n  if (def.type === 'double' || def.type === 'integer') {\n    return parseNumberTR(value);\n  }\n  return clean(value);\n}\n\nfunction putExact(fields, value, exactLabels, fallbackNormalized = []) {\n  if (!filled(value)) return '';\n  const id = fieldExact(exactLabels, fallbackNormalized);\n  if (!id) return '';\n  fields[id] = coerceForField(id, value);\n  return id;\n}\n\n// Anlaşma türü = XRE BARTER\nlet dealTypeId = '';\ntry {\n  const types = $('Bitrix Anlaşma Türlerini Oku').first().json.result || [];\n  const hit = types.find(x => norm(x.NAME) === 'XRE BARTER');\n  if (hit) dealTypeId = hit.STATUS_ID;\n} catch (e) {}\n\n// Kaynak = Sahibinden\nlet sourceId = '';\ntry {\n  const sources = $('Bitrix Kaynakları Oku').first().json.result || [];\n  const hit = sources.find(x => norm(x.NAME).includes('SAHIBINDEN'));\n  if (hit) sourceId = hit.STATUS_ID;\n} catch (e) {}\n\nlet title = [il, ilce, mahalle].filter(Boolean).join(' - ');\nif (!title) title = 'Yeni XRE Barter İlanı';\nif (ilanBasligi) title += ' - ' + ilanBasligi;\nif (ilanNo) title += ' (İlan No: ' + ilanNo + ')';\n\nconst fields = {\n  TITLE: title,\n  CATEGORY_ID: 30,\n  STAGE_ID: 'C30:UC_E2ZIWT',\n  ASSIGNED_BY_ID: assignedById,\n  OPPORTUNITY: parseNumberTR(fiyat),\n  CURRENCY_ID: 'TRY'\n};\n\nif (dealTypeId) fields.TYPE_ID = dealTypeId;\nif (sourceId) fields.SOURCE_ID = sourceId;\n\nconst mapped = {};\n\n// Ekranda gördüğümüz alanları birebir hedefle\nmapped.ilIlce = putExact(\n  fields,\n  [il, ilce].filter(Boolean).join(' / '),\n  ['İl / İlçe'],\n  ['IL ILCE']\n);\n\nmapped.mahalle = putExact(\n  fields,\n  mahalle,\n  ['Mahalle'],\n  ['MAHALLE']\n);\n\nmapped.ilanNo = putExact(\n  fields,\n  ilanNo,\n  ['İlan no', 'İlan No'],\n  ['ILAN NO']\n);\n\nmapped.resmiIlanLinki = putExact(\n  fields,\n  fullLink,\n  ['RESMİ İLAN LİNKİ', 'Resmi İlan Linki'],\n  ['RESMI ILAN LINKI']\n);\n\nmapped.kaynak = putExact(\n  fields,\n  'Sahibinden',\n  ['Kaynak'],\n  ['KAYNAK']\n);\n\nmapped.adaNo = putExact(\n  fields,\n  adaNo,\n  ['ADA NO:', 'ADA NO', 'Ada No'],\n  ['ADA NO']\n);\n\nmapped.parselNo = putExact(\n  fields,\n  parselNo,\n  ['PARSEL NO:', 'PARSEL NO', 'Parsel No'],\n  ['PARSEL NO']\n);\n\nmapped.m2 = putExact(\n  fields,\n  m2,\n  ['m²', 'M²'],\n  ['M2']\n);\n\nmapped.m2Fiyati = putExact(\n  fields,\n  m2Fiyati,\n  ['m² fiyatı', 'm² Fiyatı', 'M² FİYATI'],\n  ['M2 FIYATI']\n);\n\nmapped.tapuDurumu = putExact(\n  fields,\n  tapuDurumu,\n  ['Tapu Durumu', 'TAPU DURUMU'],\n  ['TAPU DURUMU']\n);\n\nmapped.fiyat = putExact(\n  fields,\n  fiyat,\n  ['Fiyat (TL)', 'FİYAT (TL)'],\n  ['FIYAT TL']\n);\n\n// Bunlar kartta varsa doldur\nmapped.ilanBasligi = putExact(fields, ilanBasligi, ['İlan Başlığı'], ['ILAN BASLIGI']);\nmapped.magazaAdi = putExact(fields, magazaAdi, ['Mağaza Adı'], ['MAGAZA ADI']);\nmapped.takas = putExact(fields, takas, ['Takas'], ['TAKAS']);\n\n// İlan linki artık SOURCE_DESCRIPTION / Kaynak bilgileri alanına yazılmıyor.\nfields.COMMENTS = [\n  `İlan No: ${ilanNo}`,\n  `İlan Başlığı: ${ilanBasligi}`,\n  `Fiyat (TL): ${fiyat}`,\n  `Ada No: ${adaNo}`,\n  `Parsel No: ${parselNo}`,\n  `m²: ${m2}`,\n  `m² Fiyatı: ${m2Fiyati}`,\n  `Tapu Durumu: ${tapuDurumu}`,\n  `Mağaza Adı: ${magazaAdi}`,\n  `İsim: ${isim}`,\n  `Telefon: ${phone.plus || telefonRaw}`,\n  `İl: ${il}`,\n  `İlçe: ${ilce}`,\n  `Mahalle: ${mahalle}`,\n  `Takas: ${takas}`,\n  `İlan Link: ${fullLink}`,\n  `Sorumlu Kişi: ${sorumlu.ad}`\n].join('\\n');\n\n// Mükerrer kontrolü için filtre (İlan No alanı, yoksa başlıktaki 'İlan No: X')\nlet dupFilter = { ID: 0 }; // İlan No yoksa kontrol yapılmaz\nif (ilanNo) {\n  dupFilter = mapped.ilanNo\n    ? { [mapped.ilanNo]: fields[mapped.ilanNo] }\n    : { '%TITLE': 'İlan No: ' + ilanNo + ')' };\n}\n\nreturn {\n  json: {\n    dupFilter,\n    ilanNo,\n    row_number: r.row_number || r['__rowNum__'] || 2,\n    adi,\n    soyadi,\n    telefonRaw,\n    assignedById,\n    sorumluAd: sorumlu.ad,\n    telefonPlus: phone.plus,\n    phoneValid: phone.valid,\n    dealTypeId,\n    sourceId,\n    mappedFieldIds: mapped,\n    body: {\n      fields,\n      params: { REGISTER_SONET_EVENT: 'Y' }\n    }\n  }\n};"
+      },
+      "id": "c5f69e31-d102-476a-9c14-761506573d4d",
+      "name": "Barter Verisi Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        11424,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.duplicate.findbycomm.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"type\": \"PHONE\",\n  \"values\": [\"{{ $('Barter Verisi Hazırla').item.json.telefonPlus }}\"],\n  \"entity_type\": \"CONTACT\"\n}",
+        "options": {}
+      },
+      "id": "ba7763fc-2c82-44f6-b4ee-afc950c28814",
+      "name": "Kişi Ara",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        12016,
+        -800
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ ($json.result && $json.result.CONTACT && $json.result.CONTACT.length) ? true : false }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              },
+              "rightValue": true
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "fa3ebf58-5e25-4801-a151-f98a9ca7e80e",
+      "name": "Kişi Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        12208,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const dv = $('Barter Verisi Hazırla').item.json;\nconst fields = Object.assign({}, dv.body.fields);\n\nlet contactId = '';\nlet found = null;\ntry { found = $('Kişi Ara').item.json.result; } catch(e){}\n\nif (found && found.CONTACT && found.CONTACT.length) {\n  contactId = found.CONTACT[0];\n} else {\n  try { contactId = $('Kişi Oluştur').item.json.result; } catch(e){}\n}\n\nif (contactId && (typeof contactId === 'number' || /^\\d+$/.test(String(contactId)))) {\n  fields['CONTACT_ID'] = contactId;\n}\n\nreturn { json: {\n  row_number: dv.row_number,\n  body: { fields: fields, params: { REGISTER_SONET_EVENT: 'Y' } }\n} };"
+      },
+      "id": "e1202a28-0b3e-4ad9-9904-dba4dabf86c7",
+      "name": "Deal Body Birleştir",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12608,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.contact.add.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  fields: {\n    NAME: $(\"Barter Verisi Hazırla\").item.json.adi,\n    LAST_NAME: $(\"Barter Verisi Hazırla\").item.json.soyadi,\n    OPENED: \"Y\",\n    TYPE_ID: \"CLIENT\",\n    ASSIGNED_BY_ID: $(\"Barter Verisi Hazırla\").item.json.assignedById,\n    ...($(\"Barter Verisi Hazırla\").item.json.telefonPlus\n      ? {\n          PHONE: [\n            {\n              VALUE: $(\"Barter Verisi Hazırla\").item.json.telefonPlus,\n              VALUE_TYPE: \"MOBILE\"\n            }\n          ]\n        }\n      : {})\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "cdba21ea-2480-4d3b-9ee7-4842e44a71ff",
+      "name": "Kişi Oluştur",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        12416,
+        -704
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "68d2f241-16c2-4744-aab9-6d4b2264e606",
+      "name": "Döngü - Tek Tek",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        11216,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.deal.add.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "1e94763c-2888-430e-93b7-e37b1826189a",
+      "name": "Bitrix - Barter Kartı Aç",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        12816,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "İlan No",
+              "value": "={{ $('Barter Verisi Hazırla').item.json.ilanNo }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "Durum",
+              "value": "={{ $json.result ? 'Eklendi' : 'HATA' }}",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "Deal ID",
+              "value": "={{ $json.result ? String($json.result) : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "İşlem Zamanı",
+              "value": "={{ $now.setZone('Europe/Istanbul').toFormat('dd.MM.yyyy HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "acc5e247-0523-44fc-90f2-5e43c15e703b",
+              "name": "row_number",
+              "value": "={{ $('Barter Verisi Hazırla').item.json.row_number }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ed4cec83-efe9-4bd0-862a-7ed3b75282c3",
+      "name": "Sonucu Hazırla",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        13008,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1PZaM2NBg2zs1HkX-dM4Z2FiJin6HpHDxAw5gDEX1kLA/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sayfa1"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "row_number": "={{ $json.row_number }}",
+            "Durum": "={{ $json.Durum }}",
+            "Deal ID": "={{ $json['Deal ID'] }}",
+            "İşlem Zamanı": "={{ $json['İşlem Zamanı'] }}"
+          },
+          "matchingColumns": [
+            "row_number"
+          ],
+          "schema": [
+            {
+              "id": "İlan ID",
+              "displayName": "İlan ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "İlan Başlığı",
+              "displayName": "İlan Başlığı",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fiyat (TL)",
+              "displayName": "Fiyat (TL)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Ada No",
+              "displayName": "Ada No",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Açıklama",
+              "displayName": "Açıklama",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "m²",
+              "displayName": "m²",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "m² Fiyatı",
+              "displayName": "m² Fiyatı",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Parsel No",
+              "displayName": "Parsel No",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Tapu Durumu",
+              "displayName": "Tapu Durumu",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Mağaza Adı",
+              "displayName": "Mağaza Adı",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "İsim",
+              "displayName": "İsim",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Telefon Numarası",
+              "displayName": "Telefon Numarası",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "İl",
+              "displayName": "İl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "İlçe",
+              "displayName": "İlçe",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Mahalle",
+              "displayName": "Mahalle",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Takas",
+              "displayName": "Takas",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "\r\nRESMİ İLAN LİNKİ",
+              "displayName": "\r\nRESMİ İLAN LİNKİ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Sorumlu Kişi",
+              "displayName": "Sorumlu Kişi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Durum",
+              "displayName": "Durum",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Deal ID",
+              "displayName": "Deal ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "İşlem Zamanı",
+              "displayName": "İşlem Zamanı",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "İlan No",
+              "displayName": "İlan No",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {
+          "cellFormat": "USER_ENTERED"
+        }
+      },
+      "id": "5acfd46b-af2f-41ca-8cef-41bdaf15eee2",
+      "name": "Sheet'e Sonucu Yaz",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        13216,
+        -800
+      ],
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "83c9ca61-0b46-4d12-a279-f83443e6108d",
+      "name": "Kısa Bekle (Rate)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        13408,
+        -800
+      ],
+      "webhookId": "4c1d739d-5d3a-4cdd-90d0-2f317f92c009"
+    },
+    {
+      "parameters": {
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.deal.fields.json",
+        "options": {}
+      },
+      "id": "c00a232f-8891-4e89-9875-fc07146c2861",
+      "name": "Bitrix Deal Alanlarını Oku",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        10816,
+        -992
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.status.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"filter\":{\"ENTITY_ID\":\"DEAL_TYPE\"}}",
+        "options": {}
+      },
+      "id": "03199baa-393c-49cc-9d7f-dd47fa4c9ffc",
+      "name": "Bitrix Anlaşma Türlerini Oku",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        11040,
+        -992
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.status.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\"filter\":{\"ENTITY_ID\":\"SOURCE\"}}",
+        "options": {}
+      },
+      "id": "31257eeb-2963-4609-a1af-54c246e454bd",
+      "name": "Bitrix Kaynakları Oku",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        11264,
+        -992
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.contact.update.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  id: $(\"Kişi Ara\").item.json.result.CONTACT[0],\n  fields: {\n    ASSIGNED_BY_ID: $(\"Barter Verisi Hazırla\").item.json.assignedById\n  }\n}) }}",
+        "options": {}
+      },
+      "id": "8cfa1bf5-f84e-4e45-9bf5-34cc89f11cfe",
+      "name": "Kişi Sorumlusunu Güncelle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        12416,
+        -896
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/z2lv0c5iaqymugjd/crm.deal.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ filter: $json.dupFilter, select: ['ID', 'TITLE', 'ASSIGNED_BY_ID'] }) }}",
+        "options": {}
+      },
+      "id": "f4572f37-dc7b-4d07-a9ea-d851e765f611",
+      "name": "Bitrix'te Daha Önce Var mı?",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        11616,
+        -800
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1",
+              "leftValue": "={{ Array.isArray($json.result) && $json.result.length > 0 }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "id": "f8ffc63f-c60f-476d-a055-1b4ca0ce87d9",
+      "name": "Zaten Yüklenmiş mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        11816,
+        -800
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "1",
+              "name": "İlan No",
+              "value": "={{ $('Barter Verisi Hazırla').item.json.ilanNo }}",
+              "type": "string"
+            },
+            {
+              "id": "2",
+              "name": "Durum",
+              "value": "Zaten Var (Atlandı)",
+              "type": "string"
+            },
+            {
+              "id": "3",
+              "name": "Deal ID",
+              "value": "={{ String($json.result[0].ID) }}",
+              "type": "string"
+            },
+            {
+              "id": "4",
+              "name": "İşlem Zamanı",
+              "value": "={{ $now.setZone('Europe/Istanbul').toFormat('dd.MM.yyyy HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "5",
+              "name": "row_number",
+              "value": "={{ $('Barter Verisi Hazırla').item.json.row_number }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "473b8dfd-7cda-44d1-b78b-29796d5aaa78",
+      "name": "Mükerrer Sonucu",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        12216,
+        -1100
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Barter Yükle (Başlat)": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Deal Alanlarını Oku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Barter Satırlarını Oku": {
+      "main": [
+        [
+          {
+            "node": "Deal ID Boş Olanlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal ID Boş Olanlar": {
+      "main": [
+        [
+          {
+            "node": "Döngü - Tek Tek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Barter Verisi Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Bitrix'te Daha Önce Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Ara": {
+      "main": [
+        [
+          {
+            "node": "Kişi Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Var mı?": {
+      "main": [
+        [
+          {
+            "node": "Kişi Sorumlusunu Güncelle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kişi Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal Body Birleştir": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Barter Kartı Aç",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Deal Body Birleştir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Döngü - Tek Tek": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Barter Verisi Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Barter Kartı Aç": {
+      "main": [
+        [
+          {
+            "node": "Sonucu Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sonucu Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Sheet'e Sonucu Yaz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet'e Sonucu Yaz": {
+      "main": [
+        [
+          {
+            "node": "Kısa Bekle (Rate)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kısa Bekle (Rate)": {
+      "main": [
+        [
+          {
+            "node": "Döngü - Tek Tek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Deal Alanlarını Oku": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Anlaşma Türlerini Oku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Anlaşma Türlerini Oku": {
+      "main": [
+        [
+          {
+            "node": "Bitrix Kaynakları Oku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix Kaynakları Oku": {
+      "main": [
+        [
+          {
+            "node": "Barter Satırlarını Oku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Sorumlusunu Güncelle": {
+      "main": [
+        [
+          {
+            "node": "Deal Body Birleştir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix'te Daha Önce Var mı?": {
+      "main": [
+        [
+          {
+            "node": "Zaten Yüklenmiş mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zaten Yüklenmiş mi?": {
+      "main": [
+        [
+          {
+            "node": "Mükerrer Sonucu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kişi Ara",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mükerrer Sonucu": {
+      "main": [
+        [
+          {
+            "node": "Sheet'e Sonucu Yaz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "8c450b81-8be6-41ae-8e44-dee1f5bbeebb",
+  "meta": {
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  },
+  "id": "OvrXGLRgpwLCILwx",
+  "tags": []
+}
