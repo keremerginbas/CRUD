@@ -28,8 +28,9 @@ export function cookieHeader(
   value: string,
   maxAge: number,
   secure: boolean,
+  partitioned = false,
 ): string {
-  return `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=${secure ? "None" : "Lax"}${secure ? "; Secure" : ""}`;
+  return `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=${secure ? "None" : "Lax"}${secure ? "; Secure" : ""}${secure && partitioned ? "; Partitioned" : ""}`;
 }
 
 export function publicHttps(req: Request): boolean {

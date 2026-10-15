@@ -65,6 +65,13 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const OnlineMeeting = lazy(() => import("./components/OnlineMeeting"));
 const CRM = lazy(() => import("./pages/CRM"));
 const WhatsApp = lazy(() => import("./pages/WhatsApp"));
+const WhatsAppInbox = lazy(() => import("./components/WhatsAppInbox"));
+// Bitrix24 yerel uygulaması içinde açılış: yalnızca WhatsApp gelen kutusu.
+const embedParams = new URLSearchParams(
+  typeof location === "undefined" ? "" : location.search,
+);
+const EMBED = embedParams.get("embed") === "bitrix";
+const EMBED_PHONE = embedParams.get("phone") || undefined;
 const Automations = lazy(() => import("./pages/Automations"));
 const Lines = lazy(() => import("./pages/Lines"));
 const Integrations = lazy(() => import("./pages/Integrations"));
@@ -238,6 +245,10 @@ function Workspace() {
             ? "/kanban"
             : path),
       )?.[1] || "Ayarlar";
+  // Bitrix içinde her zaman canlı veri gösterilir.
+  useEffect(() => {
+    if (EMBED && user && demo) setDemo(false);
+  }, [user, demo]);
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [authChecked, setAuthChecked] = useState(PREVIEW);
   const [authOpen, setAuthOpen] = useState(false);
@@ -307,6 +318,22 @@ function Workspace() {
     setDismissedNow(true);
     setAuthOpen(false);
   };
+  if (EMBED) {
+    if (!PREVIEW && loading) return <BootSplash />;
+    if (!user) return <EmbedNoSession />;
+    return (
+      <div className="bitrix-embed">
+        <Suspense fallback={<BootSplash />}>
+          <WhatsAppInbox
+            initialPhone={EMBED_PHONE}
+            onLead={(l) =>
+              window.open(`/whatsapp?lead=${encodeURIComponent(l.id)}`, "_blank", "noopener")
+            }
+          />
+        </Suspense>
+      </div>
+    );
+  }
   if (!PREVIEW && !dismissedSession && (loading || !authChecked))
     return <BootSplash />;
   if (path === "/qr-onay" && !authOpen && !autoLogin)
@@ -981,6 +1008,21 @@ function BootSplash() {
     <div className="initial-loading boot-splash" role="status">
       <img src="/xre-crm-logo-white.png" alt="XRE CRM" />
       <p>Çalışma alanınız hazırlanıyor…</p>
+    </div>
+  );
+}
+
+function EmbedNoSession() {
+  return (
+    <div className="initial-loading boot-splash embed-no-session" role="status">
+      <img src="/xre-crm-logo-white.png" alt="XRE CRM" />
+      <p>
+        CRM oturumu açılamadı. Tarayıcınız Bitrix içindeki çerezleri engelliyor
+        olabilir.
+      </p>
+      <a className="btn primary" href="/whatsapp" target="_blank" rel="noopener">
+        WhatsApp'ı yeni sekmede aç
+      </a>
     </div>
   );
 }

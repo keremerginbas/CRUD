@@ -152,6 +152,36 @@ export default function WhatsApp({
       setSending(false);
     }
   }
+  // Bağlantılar sekmesinde Evolution'daki gerçek durum ve bağlı numara okunur.
+  const syncConnections = async () => {
+    if (demo || !user) return;
+    try {
+      await request("/api/whatsapp/connections/sync", {});
+      await refresh();
+    } catch {
+      /* Evolution kapalıysa kartlar son bilinen durumu gösterir */
+    }
+  };
+  useEffect(() => {
+    if (tab === "connections") void syncConnections();
+  }, [tab]);
+  // QR açıkken eşleşme tamamlanınca pencereyi kendiliğinden kapat.
+  useEffect(() => {
+    if (!qrLine || !qr || demo) return;
+    const timer = setInterval(async () => {
+      await syncConnections();
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [qrLine, qr]);
+  useEffect(() => {
+    if (!qrLine || !qr) return;
+    const c = data.connections.find((x) => x.id === qrLine);
+    if (c?.status === "connected") {
+      toast.success(`WhatsApp bağlandı${c.phone ? `: ${formatPhone(`+${c.phone}`)}` : ""}.`);
+      setQrLine(null);
+      setQr(null);
+    }
+  }, [data.connections, qrLine, qr]);
   const lineItem = lines.find((l) => l.id === qrLine);
   return (
     <>
@@ -232,7 +262,14 @@ export default function WhatsApp({
                             : "Bulut"}{" "}
                         {l.id.split("-")[1]}
                       </h3>
-                      <p>{formatPhone(l.phone)}</p>
+                      <p>
+                        {connected && connection?.phone
+                          ? formatPhone(`+${connection.phone}`)
+                          : formatPhone(l.phone)}
+                        {connected && connection?.profileName
+                          ? ` · ${connection.profileName}`
+                          : ""}
+                      </p>
                     </div>
                     <MoreHorizontal size={18} />
                   </div>
@@ -248,6 +285,17 @@ export default function WhatsApp({
                       <dt>Hat kimliği</dt>
                       <dd>{l.id}</dd>
                     </div>
+                    {connected &&
+                      connection?.phone &&
+                      normalizeDigits(connection.phone) !==
+                        normalizeDigits(l.phone) && (
+                        <div>
+                          <dt>Envanterdeki numara</dt>
+                          <dd title="Hat yönetiminden güncelleyebilirsiniz">
+                            {formatPhone(l.phone)}
+                          </dd>
+                        </div>
+                      )}
                     <div>
                       <dt>CRM eşleştirmesi</dt>
                       <dd>Telefon numarası</dd>
@@ -259,7 +307,7 @@ export default function WhatsApp({
                       onClick={() => loadQr(l.id)}
                     >
                       <QrCode size={15} />
-                      QR ile bağla
+                      {connected ? "Yeniden bağla" : "QR ile bağla"}
                     </button>
                     <span className="muted">
                       {connected ? "Oturum açık" : "Henüz doğrulanmadı"}
@@ -342,3 +390,9 @@ function MessageMedia({ m }: { m: { mediaId?: string; mediaType?: string; fileNa
     </a>
   );
 }
+
+const normalizeDigits = (v: string) => {
+  let d = String(v || "").replace(/\D/g, "");
+  if (d.startsWith("0") && d.length === 11) d = `90${d.slice(1)}`;
+  return d;
+};

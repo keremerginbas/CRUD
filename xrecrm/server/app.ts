@@ -56,6 +56,7 @@ import {
   createVapiCall,
   evolutionConnectionState,
   getEvolutionQr,
+  jidPhone,
   providerConfigured,
   sendEvolutionText,
   sendMetaText,
@@ -84,6 +85,7 @@ import { verifyBitrixContext } from "./bitrix.js";
 import { lines } from "../shared/lines.js";
 import { registerLocalAccountRoutes, registerLocalAuthRoutes } from "./local-auth.js";
 import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.js";
+import { registerBitrixAppRoutes } from "./bitrix-app.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
@@ -872,22 +874,30 @@ async function processEvolutionWebhook(
     const state = String(
       data?.state || data?.instance?.state || "",
     ).toLowerCase();
-    if (instance && state)
+    if (instance && state) {
+      const open = ["open", "connected"].includes(state);
+      const previous =
+        (await store.get<any>("connection", instance, owner))?.payload || {};
+      const phone = open ? jidPhone(data?.wuid || body?.sender) : "";
       await store.put(
         "connection",
         instance,
         {
+          ...previous,
           id: instance,
           provider: "evolution",
           state,
-          status: ["open", "connected"].includes(state)
-            ? "connected"
-            : "disconnected",
-          connected: ["open", "connected"].includes(state),
+          status: open ? "connected" : "disconnected",
+          connected: open,
+          ...(phone ? { phone } : {}),
+          ...(open && data?.profileName
+            ? { profileName: String(data.profileName).slice(0, 120) }
+            : {}),
           updatedAt: now(),
         },
         owner,
       );
+    }
     if (eventName === "connection.update" || !data?.key) return;
   }
   const key = data?.key || data?.message?.key || {};
@@ -1529,6 +1539,7 @@ export function createApp(
 
   registerLocalAuthRoutes(app, store);
   registerSocialAuthRoutes(app, store);
+  registerBitrixAppRoutes(app, store);
   registerN8nInboundRoute(app, store, processInboundWebhook);
   const hubDeps = {
     ownerScope,

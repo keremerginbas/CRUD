@@ -16,6 +16,7 @@ import {
   readJsonResponse,
 } from "./security.js";
 import {
+  evolutionInstances,
   providerConfigured,
   resolveLineId,
   sendEvolutionText,
@@ -194,7 +195,16 @@ export function registerWhatsappChatRoutes(app: Express, store: Store, deps: Wha
   app.get("/api/whatsapp/lines", async (req, res) => {
     const owner = authOf(req).ownerOpenId;
     const result = await Promise.all(
-      lines.map(async (line) => ({ lineId: line.id, phone: line.phone, group: line.group, provider: await lineProvider(store, owner, line.id) })),
+      lines.map(async (line) => {
+        const connection = (await rawStoreOf(store).get<any>("connection", line.id, owner))?.payload;
+        return {
+          lineId: line.id,
+          // Bağlı WhatsApp'ın gerçek numarası envanterdeki numaradan önceliklidir.
+          phone: (connection?.status === "connected" && connection?.phone) || line.phone,
+          group: line.group,
+          provider: await lineProvider(store, owner, line.id),
+        };
+      }),
     );
     res.json({
       lines: result.filter((l) => l.provider),
@@ -202,6 +212,43 @@ export function registerWhatsappChatRoutes(app: Express, store: Store, deps: Wha
       dailyNewContacts: Number(env("WHATSAPP_DAILY_NEW_CONTACTS") || 40),
       templatesAvailable: Boolean(env("META_WABA_ID") && env("META_ACCESS_TOKEN")),
     });
+  });
+
+  // Evolution'daki oturumları okuyup hat kartlarına bağlı numarayı ve durumu yazar.
+  app.post("/api/whatsapp/connections/sync", async (req, res) => {
+    const owner = authOf(req).ownerOpenId;
+    try {
+      if (!providerConfigured("evolution")) return res.json({ synced: 0 });
+      const raw = rawStoreOf(store);
+      const known = new Set(lines.map((l) => l.id));
+      let synced = 0;
+      for (const info of await evolutionInstances()) {
+        if (!known.has(info.name)) continue;
+        const previous = (await raw.get<any>("connection", info.name, owner))?.payload || {};
+        const open = ["open", "connected"].includes(info.state);
+        await raw.put(
+          "connection",
+          info.name,
+          {
+            ...previous,
+            id: info.name,
+            provider: "evolution",
+            state: info.state || previous.state || "",
+            status: open ? "connected" : "disconnected",
+            connected: open,
+            ...(open && info.phone ? { phone: info.phone } : {}),
+            ...(open && info.profileName ? { profileName: info.profileName.slice(0, 120) } : {}),
+            updatedAt: new Date().toISOString(),
+          },
+          owner,
+        );
+        synced += 1;
+      }
+      res.json({ synced });
+    } catch (error) {
+      const e = error as Error & { statusCode?: number };
+      res.status(e.statusCode && e.statusCode < 600 ? e.statusCode : 502).json({ error: "SYNC_FAILED", message: e.message });
+    }
   });
 
   app.post("/api/whatsapp/send", async (req, res) => {

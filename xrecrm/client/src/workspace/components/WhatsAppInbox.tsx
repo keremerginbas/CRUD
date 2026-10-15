@@ -79,11 +79,14 @@ const time = (iso: string) => {
 
 export default function WhatsAppInbox({
   initialLead,
+  initialPhone,
   initialDraft,
   onDraftConsumed,
   onLead,
 }: {
   initialLead?: string;
+  /** Bu numaranın sohbetini aç (ör. Bitrix müşteri kartından). */
+  initialPhone?: string;
   initialDraft?: string;
   onDraftConsumed?: () => void;
   onLead: (l: Lead) => void;
@@ -106,6 +109,14 @@ export default function WhatsAppInbox({
   useEffect(() => {
     if (initialDraft) onDraftConsumed?.();
   }, []);
+  const phoneApplied = useRef("");
+  useEffect(() => {
+    const phone = normalizePhone(initialPhone || "");
+    if (!phone || phoneApplied.current === `${phone}:${data.leads.length}`) return;
+    phoneApplied.current = `${phone}:${data.leads.length}`;
+    const lead = data.leads.find((l) => normalizePhone(l.phone) === phone);
+    setSelected(lead ? `l:${lead.id}` : `p:${phone}`);
+  }, [initialPhone, data.leads]);
   useEffect(() => {
     if (!live) {
       setWaLines(lines.slice(0, 6).map((l) => ({ lineId: l.id, phone: l.phone, provider: "evolution" as const })));

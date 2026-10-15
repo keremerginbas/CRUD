@@ -109,6 +109,43 @@ export async function evolutionConnectionState(instance: string): Promise<any> {
   return readJsonResponse(response);
 }
 
+/** WhatsApp JID'sinden ("905...@s.whatsapp.net" / "905...:12@...") numara. */
+export function jidPhone(jid: unknown): string {
+  return String(jid || "").split("@")[0].split(":")[0].replace(/\D/g, "");
+}
+
+export interface EvolutionInstanceInfo {
+  name: string;
+  state: string;
+  phone: string;
+  profileName: string;
+}
+
+/** Evolution'daki tüm oturumlar ve bağlı WhatsApp numaraları (v1 ve v2 biçimi). */
+export async function evolutionInstances(): Promise<EvolutionInstanceInfo[]> {
+  if (!envConfigured("EVOLUTION_API_URL", "EVOLUTION_API_KEY"))
+    throw Object.assign(new Error("Evolution API yapılandırılmamış."), {
+      statusCode: 503,
+    });
+  const response = await fetchWithTimeout(
+    `${evolutionBase()}/instance/fetchInstances`,
+    { headers: { apikey: process.env.EVOLUTION_API_KEY! } },
+  );
+  const data = await readJsonResponse(response);
+  const list: any[] = Array.isArray(data) ? data : Array.isArray(data?.instances) ? data.instances : [];
+  return list
+    .map((item) => {
+      const i = item?.instance && typeof item.instance === "object" ? item.instance : item;
+      return {
+        name: String(i?.name || i?.instanceName || ""),
+        state: String(i?.connectionStatus || i?.status || i?.state || "").toLowerCase(),
+        phone: jidPhone(i?.ownerJid || i?.owner || i?.number || ""),
+        profileName: String(i?.profileName || ""),
+      };
+    })
+    .filter((i) => i.name);
+}
+
 /**
  * Evolution'ın gelen mesajları CRM'e iletmesi için webhook ayarı.
  * Tek adres (byEvents kapalı), gizli anahtar hem başlıkta hem adreste gönderilir.

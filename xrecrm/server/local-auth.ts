@@ -138,7 +138,16 @@ function recordFailure(key: string) {
   else entry.count += 1;
 }
 
-export async function setSession(req: Request, res: Response, account: LocalAccount) {
+/**
+ * partitioned: Bitrix24 gibi başka bir sitenin içinde (iframe) açılan oturum.
+ * Tarayıcı üçüncü taraf çerezlerini engellese de bu çerez o site içinde çalışır.
+ */
+export async function setSession(
+  req: Request,
+  res: Response,
+  account: LocalAccount,
+  options: { partitioned?: boolean } = {},
+) {
   const token = await createSessionToken({
     openId: account.openId,
     name: account.name,
@@ -146,7 +155,7 @@ export async function setSession(req: Request, res: Response, account: LocalAcco
   });
   res.setHeader(
     "Set-Cookie",
-    cookieHeader(SESSION_COOKIE, token, SESSION_SECONDS, publicHttps(req)),
+    cookieHeader(SESSION_COOKIE, token, SESSION_SECONDS, publicHttps(req), options.partitioned),
   );
 }
 

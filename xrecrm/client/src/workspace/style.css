@@ -3448,3 +3448,19 @@ td:first-child {
 }
 @keyframes boot-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .initial-loading img { animation: none; } }
+
+/* Bitrix24 yerel uygulaması (iframe) */
+.bitrix-embed {
+  height: 100vh;
+  padding: 10px;
+  box-sizing: border-box;
+  background: var(--bg, #f5f8fb);
+  overflow: hidden;
+}
+.bitrix-embed > * {
+  height: 100%;
+}
+.embed-no-session p {
+  max-width: 360px;
+  text-align: center;
+}
