@@ -253,9 +253,21 @@ claude_istemci = None
 aktif_konusma = None  # şu an açık Conversation (yoksa None)
 
 
-def ajani_hazirla():
-    """Asistanı ilk açılışta oluşturur; ayarlar değiştiyse günceller. Kimliği durum dosyasında tutar."""
+def ajani_unut():
+    """Kayıtlı asistan kimliğini siler; bir sonraki konuşmada bu anahtarın hesabında yenisi oluşturulur."""
     durum = json_oku(DURUM_DOSYASI, {})
+    durum.pop("agent_id", None)
+    durum.pop("imza", None)
+    json_yaz(DURUM_DOSYASI, durum)
+
+
+def ajani_hazirla():
+    """Asistanı ilk açılışta oluşturur; ayarlar değiştiyse günceller. Kimliği durum dosyasında tutar.
+    ElevenLabs anahtarı değiştiyse (başka hesap/çalışma alanı olabilir) asistan yeniden oluşturulur."""
+    durum = json_oku(DURUM_DOSYASI, {})
+    anahtar_izi = hashlib.sha256(ELEVEN_KEY.encode()).hexdigest()[:16]
+    if durum.get("anahtar") != anahtar_izi:
+        durum = {"anahtar": anahtar_izi}
     ses_modeli = SES_MODELI if os.getenv("JARVIS_SES_MODELI", "").strip() else (durum.get("ses_modeli") or SES_MODELI)
     for model in dict.fromkeys([ses_modeli, YEDEK_SES_MODELI]):
         cc, ps = ajan_ayarlari(model)
@@ -272,7 +284,7 @@ def ajani_hazirla():
                 agent_id = eleven.conversational_ai.agents.create(
                     conversation_config=cc, platform_settings=ps, name="JARVIS", tags=["jarvis"]).agent_id
                 yaz("✨", "ElevenLabs'te JARVIS asistanı oluşturuldu.")
-            durum.update({"agent_id": agent_id, "imza": imza, "ses_modeli": model})
+            durum.update({"agent_id": agent_id, "imza": imza, "ses_modeli": model, "anahtar": anahtar_izi})
             json_yaz(DURUM_DOSYASI, durum)
             return agent_id
         except Exception as e:  # ses modeli bu hesapta/dilde desteklenmiyorsa yedeğe geç
@@ -857,6 +869,8 @@ KILIT = None
 
 
 BILINEN_HATALAR = [
+    ("document_not_found", "Kayıtlı JARVIS asistanı bu ElevenLabs hesabında yok; yenisi oluşturulacak. "
+                           "Tekrar 'Hey Jarvis' deyin."),
     ("payment_issue", "ElevenLabs hesabınızda ödeme sorunu var. elevenlabs.io → sol alt profil → "
                       "Subscription / Billing bölümünden kartınızı ya da bekleyen faturayı düzeltin."),
     ("quota", "ElevenLabs kredi ya da dakika hakkınız bitmiş. elevenlabs.io → Subscription bölümüne bakın."),
@@ -869,6 +883,8 @@ BILINEN_HATALAR = [
 def hata_yakala(args):
     """Arka plandaki bağlantı hatalarını anlaşılır Türkçe mesaja çevirir."""
     metin = f"{args.exc_type.__name__}: {args.exc_value}"
+    if "document_not_found" in metin:
+        ajani_unut()
     for anahtar, aciklama in BILINEN_HATALAR:
         if anahtar in metin.lower():
             yaz("❌", aciklama)
@@ -976,7 +992,14 @@ def main():
         KULAK.bekle()
         yaz("⚡", "Uyandı.")
         try:
-            sonuc = sohbet_et()
+            try:
+                sonuc = sohbet_et()
+            except Exception as e:
+                if "document_not_found" not in str(e):
+                    raise
+                yaz("🔧", "Kayıtlı asistan bu ElevenLabs hesabında bulunamadı; yenisi oluşturuluyor…")
+                ajani_unut()
+                sonuc = sohbet_et()
             while sonuc.get("dinle"):
                 sonuc = dinle_ve_ozetle(sonuc.get("konu", ""))
         except KeyboardInterrupt:
