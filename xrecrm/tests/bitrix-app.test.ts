@@ -44,13 +44,14 @@ async function setup() {
 }
 
 const calls: { url: string; body: any }[] = [];
-function fakeBitrix(email = "Sahip@XRE.test") {
+function fakeBitrix(email = "Sahip@XRE.test", userId = "7", admin = false) {
   calls.length = 0;
   setBitrixAppFetch(async (url, init) => {
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     calls.push({ url, body });
     if (!url.includes("auth=good")) return { error: "invalid_token" };
-    if (url.includes("/user.current.json")) return { result: { ID: "7", NAME: "Kerem", EMAIL: email } };
+    if (url.includes("/user.current.json")) return { result: { ID: userId, NAME: "Kerem", LAST_NAME: "Bitrix", EMAIL: email } };
+    if (url.includes("/user.admin.json")) return { result: admin };
     if (url.includes("/crm.deal.get.json")) return { result: { ID: body.id, CONTACT_ID: "55", COMPANY_ID: "0" } };
     if (url.includes("/crm.contact.get.json")) return { result: { ID: body.id, PHONE: [{ VALUE: "0532 111 22 33" }] } };
     if (url.includes("/crm.lead.get.json")) return { result: { ID: body.id, PHONE: [] } };
@@ -88,7 +89,7 @@ describe("Bitrix24 yerel uygulaması", () => {
     );
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("/whatsapp?embed=bitrix&phone=905321112233");
-    expect(calls.map((c) => c.url.split("/rest/")[1].split(".json")[0])).toEqual(["user.current", "crm.deal.get", "crm.contact.get"]);
+    expect(calls.map((c) => c.url.split("/rest/")[1].split(".json")[0])).toEqual(["user.current", "user.admin", "crm.deal.get", "crm.contact.get"]);
 
     const noPhone = await fetch(
       `${base}/bitrix/app`,
@@ -98,7 +99,7 @@ describe("Bitrix24 yerel uygulaması", () => {
     expect(await noPhone.text()).toContain("telefon yok");
   });
 
-  it("başka portalı, geçersiz AUTH_ID'yi ve CRM'de olmayan e-postayı reddeder", async () => {
+  it("başka portalı ve geçersiz AUTH_ID'yi reddeder", async () => {
     const { base } = await setup();
     fakeBitrix();
     const other = await fetch(`${base}/bitrix/app`, form({ DOMAIN: "saldirgan.bitrix24.com", AUTH_ID: "good" }));
@@ -109,12 +110,40 @@ describe("Bitrix24 yerel uygulaması", () => {
     const bad = await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "bad" }));
     expect(bad.status).toBe(401);
     expect(bad.headers.get("set-cookie")).toBeNull();
+  });
 
-    fakeBitrix("yabanci@xre.test");
-    const stranger = await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }));
-    expect(stranger.status).toBe(403);
-    expect(await stranger.text()).toContain("yabanci@xre.test");
-    expect(stranger.headers.get("set-cookie")).toBeNull();
+  it("e-postası olmayan Bitrix kullanıcısına otomatik hesap açar ve kimliğiyle tekrar tanır", async () => {
+    const { store, base } = await setup();
+    const owner = (await store.resolveOwner())!;
+    fakeBitrix("", "42", false);
+    const first = await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }));
+    expect(first.status).toBe(303);
+    const me = await (await fetch(`${base}/api/me`, { headers: { cookie: (first.headers.get("set-cookie") || "").split(";")[0] } })).json();
+    expect(me.user).toMatchObject({ name: "Kerem Bitrix" });
+    expect(me.user.isOwner).toBeFalsy();
+    const accounts = (await store.list<any>("local-account", owner)).map((r) => r.payload);
+    const created = accounts.find((a) => a.email === "bitrix-42@xre.bitrix24.com.tr");
+    expect(created).toBeTruthy();
+    const employee = (await store.get<any>("employee", created.employeeId, owner))?.payload;
+    expect(employee.roleId).toBe("sales");
+
+    // Aynı Bitrix kullanıcısı ikinci kez geldiğinde yeni hesap açılmaz.
+    fakeBitrix("", "42", false);
+    await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }));
+    expect((await store.list("local-account", owner)).length).toBe(accounts.length);
+
+    // Bitrix yöneticisi Yönetici rolü alır.
+    fakeBitrix("erdal@bitrix.test", "1", true);
+    await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }));
+    const admin = (await store.list<any>("local-account", owner)).map((r) => r.payload).find((a) => a.email === "erdal@bitrix.test");
+    expect((await store.get<any>("employee", admin.employeeId, owner))?.payload.roleId).toBe("manager");
+
+    // Otomatik hesap kapatılabilir.
+    process.env.BITRIX_AUTO_ACCOUNTS = "0";
+    fakeBitrix("", "99", false);
+    const closed = await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }));
+    expect(closed.status).toBe(403);
+    expect(closed.headers.get("set-cookie")).toBeNull();
   });
 
   it("kurulumda müşteri kartlarına WhatsApp sekmesini bağlar", async () => {

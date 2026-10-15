@@ -28,10 +28,10 @@ Kaydedin. Kurulum ekranı açılır ve müşteri kartlarına "WhatsApp" sekmesi 
 ## Giriş nasıl çalışır
 
 1. Bitrix, uygulamayı açarken kullanıcının Bitrix oturum anahtarını gönderir.
-2. CRM bu anahtarı Bitrix'e sorarak doğrular ve kullanıcının e-postasını öğrenir.
-3. Aynı e-postayla CRM'de aktif bir hesap varsa şifre sorulmadan oturum açılır.
-4. Hesap yoksa ekranda hangi e-postanın eşleşmediği yazar. Çalışanın hesabı **Çalışanlar** sayfasından aynı e-postayla açılmalıdır.
+2. CRM bu anahtarı yalnız ayarlı portalda doğrular. Kullanıcıyı **Bitrix kullanıcı kimliğiyle** tanır; e-posta gerekmez.
+3. Kullanıcının CRM hesabı yoksa ilk girişte kendiliğinden açılır. Bitrix yöneticileri **Yönetici**, diğerleri **Satış danışmanı** rolünü alır. Bu hesapların şifresi yoktur, yalnız Bitrix'ten girilir.
+4. Aynı e-postayla önceden açılmış bir CRM hesabı varsa yenisi açılmaz, o hesaba bağlanır.
 
-Her çalışan yalnızca kendi CRM yetkileri kadar görür.
+Rolleri **Çalışanlar** ve **Erişim izinleri** sayfasından değiştirebilirsiniz. Otomatik hesap açmayı kapatmak için Entegrasyonlar → Bitrix24 → "Bitrix kullanıcılarına otomatik hesap" ayarını `0` yapın.
 
 Tarayıcı Bitrix içindeki çerezleri tamamen engelliyorsa (ör. Safari'nin katı modu) **"WhatsApp'ı yeni sekmede aç"** butonu çıkar.

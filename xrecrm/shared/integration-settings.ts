@@ -102,6 +102,7 @@ export const SETTING_GROUPS: SettingGroup[] = [
     fields: [
       { key: "BITRIX_DOMAIN", label: "Bitrix alan adı", placeholder: "xre.bitrix24.com.tr" },
       { key: "BITRIX_WEBHOOK", label: "Gelen webhook URL", secret: true, placeholder: "https://xre.bitrix24.com.tr/rest/1/xxxx/" },
+      { key: "BITRIX_AUTO_ACCOUNTS", label: "Bitrix kullanıcılarına otomatik hesap", placeholder: "1", help: "1 (varsayılan): Bitrix'ten ilk girişte CRM hesabı kendiliğinden açılır; Bitrix yöneticileri Yönetici, diğerleri Satış danışmanı olur. 0: yalnız elle açılan hesaplar girer." },
     ],
   },
   {

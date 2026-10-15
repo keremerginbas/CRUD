@@ -5,11 +5,13 @@
 // Bitrix kullanıcısının e-postası CRM'deki aktif bir hesapla eşleşirse oturum açılır.
 // Müşteri kartı sekmelerinde (lead / anlaşma / kişi / şirket) kaydın telefonu
 // okunur ve o numaranın sohbeti açılır.
+import crypto from "node:crypto";
 import express, { type Express, type Request, type Response } from "express";
 import type { Store } from "./db.js";
-import { rawStoreOf } from "./access.js";
+import type { AccessEmployee } from "../shared/access.js";
+import { allRoles, rawStoreOf } from "./access.js";
 import { forwardedOrigin } from "./auth.js";
-import { ACCOUNT_KIND, setSession, type LocalAccount } from "./local-auth.js";
+import { ACCOUNT_KIND, hashPassword, setSession, type LocalAccount } from "./local-auth.js";
 import { fetchWithTimeout, normalizePhone, readJsonResponse } from "./security.js";
 
 export const BITRIX_PLACEMENTS = [
@@ -135,11 +137,83 @@ async function verify(params: BitrixParams) {
   if (!params.authId) throw Object.assign(new Error("Bitrix oturum bilgisi gelmedi. Uygulamayı Bitrix içinden açın."), { statusCode: 401 });
   const user = await rest(params.domain, params.authId, "user.current").catch(() => null);
   if (!user?.ID) throw Object.assign(new Error("Bitrix oturumu doğrulanamadı."), { statusCode: 401 });
+  let admin = false;
+  try {
+    admin = (await rest(params.domain, params.authId, "user.admin")) === true;
+  } catch {
+    admin = false;
+  }
   return {
     id: String(user.ID),
     email: String(user.EMAIL || "").trim().toLowerCase(),
-    name: [user.NAME, user.LAST_NAME].filter(Boolean).join(" "),
+    name: [user.NAME, user.LAST_NAME].filter(Boolean).join(" ").trim() || `Bitrix kullanıcısı ${user.ID}`,
+    phone: String(user.PERSONAL_MOBILE || user.WORK_PHONE || "").slice(0, 40),
+    title: String(user.WORK_POSITION || "").slice(0, 120),
+    admin,
   };
+}
+
+export const BITRIX_IDENTITY_KIND = "bitrix-identity";
+type BitrixUser = Awaited<ReturnType<typeof verify>>;
+
+/**
+ * Bitrix kullanıcısını CRM hesabına bağlar. Önce Bitrix kullanıcı kimliğiyle
+ * (e-posta olmasa da çalışır), sonra e-postayla eşler; hiçbiri yoksa ve
+ * otomatik hesap kapalı değilse hesabı açar: Bitrix yöneticisi → Yönetici,
+ * diğerleri → Satış danışmanı. Otomatik hesapların şifresi yoktur; yalnızca
+ * Bitrix üzerinden girilir (sahip isterse sonradan şifre verebilir).
+ */
+export async function bitrixAccount(raw: Store, owner: string, domain: string, user: BitrixUser) {
+  const identityId = `${domain}:${user.id}`;
+  const accounts = (await raw.list<LocalAccount>(ACCOUNT_KIND, owner)).map((r) => r.payload);
+  const linked = (await raw.get<{ accountId: string }>(BITRIX_IDENTITY_KIND, identityId, owner))?.payload;
+  let account = linked ? accounts.find((a) => a.id === linked.accountId) : undefined;
+  if (!account && user.email) account = accounts.find((a) => a.email.toLowerCase() === user.email);
+  const now = new Date().toISOString();
+  if (!account) {
+    if (process.env.BITRIX_AUTO_ACCOUNTS?.trim() === "0") return null;
+    const roles = await allRoles(raw, owner);
+    const role =
+      roles.find((r) => r.id === (user.admin ? "manager" : "sales")) ||
+      roles.find((r) => r.id !== "owner");
+    if (!role) return null;
+    const id = `acc_${crypto.randomBytes(8).toString("hex")}`;
+    const openId = `local:${id}`;
+    const email =
+      user.email && !accounts.some((a) => a.email.toLowerCase() === user.email)
+        ? user.email
+        : `bitrix-${user.id.replace(/\D/g, "")}@${domain}`;
+    const employee: AccessEmployee = {
+      id: `employee_${crypto.randomBytes(6).toString("hex")}`,
+      name: user.name.slice(0, 120),
+      email,
+      openId,
+      departmentId: "",
+      roleId: role.id,
+      active: true,
+      title: user.title,
+      phone: user.phone,
+      createdAt: now,
+      updatedAt: now,
+    };
+    account = {
+      id,
+      openId,
+      name: employee.name,
+      email,
+      // Kullanılamaz rastgele şifre: hesap yalnız Bitrix'ten açılır.
+      passwordHash: await hashPassword(crypto.randomBytes(32).toString("base64url")),
+      active: true,
+      employeeId: employee.id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await raw.put("employee", employee.id, employee, owner);
+    await raw.put(ACCOUNT_KIND, id, account, owner);
+  }
+  if (!linked || linked.accountId !== account.id)
+    await raw.put(BITRIX_IDENTITY_KIND, identityId, { id: identityId, domain, bitrixUserId: user.id, accountId: account.id, linkedAt: now }, owner);
+  return account;
 }
 
 export function registerBitrixAppRoutes(app: Express, store: Store) {
@@ -152,16 +226,17 @@ export function registerBitrixAppRoutes(app: Express, store: Store) {
       const bitrixUser = await verify(params);
       const owner = await raw.resolveOwner();
       if (!owner) return page(res, 503, "CRM kurulumu tamamlanmamış", "<p>Önce CRM'de yönetici hesabı oluşturulmalı.</p>");
-      const accounts = (await raw.list<LocalAccount>(ACCOUNT_KIND, owner)).map((r) => r.payload);
-      const account = bitrixUser.email ? accounts.find((a) => a.email.toLowerCase() === bitrixUser.email) : undefined;
-      if (!account || !account.active)
+      const account = await bitrixAccount(raw, owner, params.domain, bitrixUser);
+      if (!account)
         return page(
           res,
           403,
           "CRM hesabınız bulunamadı",
-          `<p>Bitrix e-postanız <code>${escapeHtml(bitrixUser.email || "tanımsız")}</code> CRM'deki aktif bir hesapla eşleşmiyor.</p>
-<p>Yöneticiniz CRM'de <b>Çalışanlar</b> sayfasından aynı e-postayla giriş hesabı açmalı.</p>`,
+          `<p>${escapeHtml(bitrixUser.name)} için CRM'de hesap yok ve otomatik hesap açma kapalı.</p>
+<p>Yöneticiniz CRM'de <b>Çalışanlar</b> sayfasından hesap açmalı.</p>`,
         );
+      if (!account.active)
+        return page(res, 403, "CRM hesabınız pasif", "<p>Yöneticiniz CRM'de <b>Çalışanlar</b> sayfasından hesabınızı etkinleştirmeli.</p>");
       await setSession(req, res, account, { partitioned: true });
       await raw.put(ACCOUNT_KIND, account.id, { ...account, lastLoginAt: new Date().toISOString() }, owner);
       let phone = "";
