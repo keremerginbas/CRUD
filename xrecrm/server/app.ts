@@ -86,6 +86,7 @@ import { lines } from "../shared/lines.js";
 import { registerLocalAccountRoutes, registerLocalAuthRoutes } from "./local-auth.js";
 import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.js";
 import { registerBitrixAppRoutes } from "./bitrix-app.js";
+import { handleConnectorEvolution, isConnectorInstance, registerB24ConnectorRoutes } from "./b24-connector.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
@@ -1448,6 +1449,14 @@ export function createApp(
         )
       )
         return res.status(401).send("unauthorized");
+      // Bitrix pazar yeri bağlayıcısının oturumları CRM çalışma alanına girmez.
+      if (isConnectorInstance(req.body?.instance)) {
+        res.status(200).json({ ok: true });
+        void handleConnectorEvolution(baseStore, req.body).catch((error) =>
+          console.warn("Bitrix bağlayıcısına iletilemedi:", errorMessage(error)),
+        );
+        return;
+      }
       let owner: string;
       try {
         owner = await ownerScope(store);
@@ -1543,6 +1552,7 @@ export function createApp(
   registerLocalAuthRoutes(app, store);
   registerSocialAuthRoutes(app, store);
   registerBitrixAppRoutes(app, store);
+  registerB24ConnectorRoutes(app, baseStore);
   registerN8nInboundRoute(app, store, processInboundWebhook);
   const hubDeps = {
     ownerScope,

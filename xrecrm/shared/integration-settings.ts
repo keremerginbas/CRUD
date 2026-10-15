@@ -106,6 +106,15 @@ export const SETTING_GROUPS: SettingGroup[] = [
     ],
   },
   {
+    id: "b24-marketplace",
+    title: "Bitrix24 pazar yeri uygulaması (XRE WhatsApp)",
+    description: "Başka Bitrix24 portallarına satılan Açık Kanal bağlayıcısı. Kurulum: {origin}/b24/install, uygulama: {origin}/b24/app",
+    fields: [
+      { key: "B24_CLIENT_ID", label: "Uygulama kimliği (client_id)", placeholder: "app.xxxxxxxx.xxxxxxxx" },
+      { key: "B24_CLIENT_SECRET", label: "Uygulama anahtarı (client_secret)", secret: true },
+    ],
+  },
+  {
     id: "google-calendar",
     title: "Google Takvim / Meet",
     description: "Toplantı linki üretimi için OAuth istemcisi.",

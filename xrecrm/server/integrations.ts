@@ -15,7 +15,7 @@ const metaBase = () =>
     /\/$/,
     "",
   );
-const evolutionBase = () =>
+export const evolutionBase = () =>
   (process.env.EVOLUTION_API_URL || "").replace(/\/$/, "");
 const vapiBase = () =>
   (process.env.VAPI_API_URL || "https://api.vapi.ai").replace(/\/$/, "");

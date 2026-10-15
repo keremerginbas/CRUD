@@ -77,6 +77,22 @@ export async function saveMedia(
   return record;
 }
 
+/** Kaydedilmiş medyanın kaydı ve içeriği (sahip kapsamında). */
+export async function readMedia(
+  store: Store,
+  owner: string,
+  id: string,
+): Promise<{ record: MediaRecord; buffer: Buffer } | null> {
+  if (!/^med_[a-f0-9]{24}$/.test(id)) return null;
+  const record = (await rawStoreOf(store).get<MediaRecord>(MEDIA_KIND, id, owner))?.payload;
+  if (!record) return null;
+  try {
+    return { record, buffer: await fs.readFile(path.join(mediaDir(), id)) };
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Gönderim
 // ---------------------------------------------------------------------------
