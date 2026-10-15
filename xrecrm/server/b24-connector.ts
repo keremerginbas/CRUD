@@ -753,12 +753,21 @@ function registerPanelRoutes(
     "/b24/panel/state",
     json,
     panel(async (portal) => {
-      const users = await portalUsers(store, portal).catch(() => [] as B24User[]);
+      // Kartlar gerçek durumu göstersin: webhook kaçsa da Evolution'dan oku.
+      for (const line of Object.keys(portal.lines)) {
+        try {
+          await connectionStatus(store, (await fresh(portal)), line);
+        } catch {
+          /* WhatsApp sunucusuna ulaşılamazsa son bilinen durum gösterilir */
+        }
+      }
+      const current = await fresh(portal);
+      const users = await portalUsers(store, current).catch(() => [] as B24User[]);
       return {
-        domain: portal.domain,
-        connections: publicConnections(portal),
-        roles: portal.roles || [],
-        users: users.map((u) => ({ ...u, roleId: portal.assignments?.[u.id] || "" })),
+        domain: current.domain,
+        connections: publicConnections(current),
+        roles: current.roles || [],
+        users: users.map((u) => ({ ...u, roleId: current.assignments?.[u.id] || "" })),
       };
     }),
   );
