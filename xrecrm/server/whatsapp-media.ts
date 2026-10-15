@@ -160,9 +160,75 @@ export async function sendMetaMedia(
 // Gelen medya
 // ---------------------------------------------------------------------------
 
+// WhatsApp mesajları bazen bir zarfın içinde gelir (süreli mesaj, tek görümlük,
+// düzenlenmiş mesaj, açıklamalı belge). İçerik bu zarflardan çıkarılır.
+const WA_WRAPPERS = [
+  "ephemeralMessage",
+  "viewOnceMessage",
+  "viewOnceMessageV2",
+  "viewOnceMessageV2Extension",
+  "documentWithCaptionMessage",
+  "editedMessage",
+  "deviceSentMessage",
+];
+const WA_META_KEYS = new Set(["messageContextInfo", "senderKeyDistributionMessage", "base64", "mediaUrl"]);
+
+export function unwrapWaMessage(message: any): any {
+  let current = message && typeof message === "object" ? message : {};
+  for (let depth = 0; depth < 5; depth += 1) {
+    const wrapper = WA_WRAPPERS.find((k) => current[k]?.message);
+    if (!wrapper) break;
+    current = { ...current[wrapper].message, ...(current.base64 ? { base64: current.base64 } : {}) };
+  }
+  return current;
+}
+
+/** Mesajın asıl içerik türü (ör. imageMessage, locationMessage). */
+export function waContentKey(message: any): string {
+  return Object.keys(message || {}).find((k) => !WA_META_KEYS.has(k)) || "";
+}
+
+/** Silme/düzenleme bildirimi gibi sohbete yazılmayacak sistem mesajları. */
+export function isWaSystemMessage(message: any): boolean {
+  const key = waContentKey(message);
+  return !key || key === "protocolMessage" || key === "keepInChatMessage";
+}
+
+/** Metin, açıklama veya medya dışı içerikler (konum, kişi, anket...) için okunur metin. */
+export function waMessageText(m: any): string | null {
+  const loc = m.locationMessage || m.liveLocationMessage;
+  if (loc) {
+    const place = [loc.name, loc.address].filter(Boolean).join(" · ");
+    const coords = `${loc.degreesLatitude},${loc.degreesLongitude}`;
+    return `📍 Konum${place ? `: ${place}` : ""}\nhttps://maps.google.com/?q=${coords}`;
+  }
+  if (m.contactMessage) return `👤 Kişi kartı: ${m.contactMessage.displayName || "isimsiz"}`;
+  if (m.contactsArrayMessage)
+    return `👤 Kişi kartları: ${(m.contactsArrayMessage.contacts || []).map((c: any) => c.displayName).filter(Boolean).join(", ") || m.contactsArrayMessage.displayName || ""}`;
+  if (m.reactionMessage) return m.reactionMessage.text ? `Tepki: ${m.reactionMessage.text}` : "Tepki kaldırıldı";
+  const poll = m.pollCreationMessage || m.pollCreationMessageV2 || m.pollCreationMessageV3;
+  if (poll) return `📊 Anket: ${poll.name || ""}\n${(poll.options || []).map((o: any) => `• ${o.optionName}`).join("\n")}`;
+  const text =
+    m.conversation ||
+    m.extendedTextMessage?.text ||
+    m.imageMessage?.caption ||
+    m.videoMessage?.caption ||
+    m.documentMessage?.caption ||
+    m.buttonsResponseMessage?.selectedDisplayText ||
+    m.listResponseMessage?.title ||
+    m.templateButtonReplyMessage?.selectedDisplayText ||
+    m.interactiveResponseMessage?.body?.text ||
+    null;
+  if (text) return text;
+  const key = waContentKey(m);
+  if (key && !EVOLUTION_MEDIA_KEYS[key]) return `[Desteklenmeyen mesaj türü: ${key}]`;
+  return null;
+}
+
 const EVOLUTION_MEDIA_KEYS: Record<string, MediaType> = {
   imageMessage: "image",
   videoMessage: "video",
+  ptvMessage: "video",
   audioMessage: "audio",
   documentMessage: "document",
   documentWithCaptionMessage: "document",
@@ -179,11 +245,11 @@ export async function captureEvolutionMedia(
   instance: string,
   data: any,
 ): Promise<Partial<{ mediaId: string; mime: string; fileName: string; mediaType: MediaType; size: number }>> {
-  const message = data?.message || {};
+  const message = unwrapWaMessage(data?.message);
   const key = Object.keys(EVOLUTION_MEDIA_KEYS).find((k) => message[k]);
   if (!key) return {};
   const info = key === "documentWithCaptionMessage" ? message[key]?.message?.documentMessage || {} : message[key];
-  let base64: string = message.base64 || data?.base64 || "";
+  let base64: string = message.base64 || data?.message?.base64 || data?.base64 || "";
   if (!base64 && envConfigured("EVOLUTION_API_URL", "EVOLUTION_API_KEY") && instance) {
     try {
       const response = await fetchWithTimeout(

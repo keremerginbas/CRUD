@@ -108,6 +108,43 @@ describe("WhatsApp sohbet (WhatCRM tarzı)", () => {
     expect(state.leads.map((l: any) => l.phone)).toEqual(["905551118888"]);
   });
 
+  it("zarflı, konum, kişi ve sistem mesajlarını okunur kaydeder", async () => {
+    const { base, headers } = await setup();
+    process.env.EVOLUTION_WEBHOOK_SECRET = "hook-secret";
+    const inbound = (id: string, message: unknown) =>
+      fetch(`${base}/api/webhooks/evolution`, {
+        method: "POST",
+        headers: { "content-type": "application/json", authorization: "Bearer hook-secret" },
+        body: JSON.stringify({ event: "messages.upsert", instance: "cloud-1", data: { key: { id, remoteJid: "905551110000@s.whatsapp.net", fromMe: false }, pushName: "Murat", message } }),
+      });
+    await inbound("E-1", { ephemeralMessage: { message: { extendedTextMessage: { text: "Süreli selam" } } }, messageContextInfo: {} });
+    await inbound("E-2", { locationMessage: { degreesLatitude: 41.01, degreesLongitude: 28.97, name: "Ofis" } });
+    await inbound("E-3", { contactMessage: { displayName: "Ayşe Hanım" } });
+    await inbound("E-4", { viewOnceMessageV2: { message: { imageMessage: { mimetype: "image/jpeg", caption: "Tek görümlük" } } } });
+    await inbound("E-5", { ptvMessage: { mimetype: "video/mp4" } });
+    await inbound("E-6", { protocolMessage: { type: 0 } });
+    await inbound("E-7", { someNewMessage: {} });
+    const state = await (await fetch(`${base}/api/state`, { headers })).json();
+    const byId = Object.fromEntries(state.messages.map((m: any) => [m.id, m]));
+    expect(byId["E-1"].text).toBe("Süreli selam");
+    expect(byId["E-2"].text).toContain("📍 Konum: Ofis");
+    expect(byId["E-2"].text).toContain("maps.google.com/?q=41.01,28.97");
+    expect(byId["E-3"].text).toBe("👤 Kişi kartı: Ayşe Hanım");
+    expect(byId["E-4"]).toMatchObject({ text: "Tek görümlük", mediaType: "image" });
+    expect(byId["E-5"]).toMatchObject({ text: "[Video]", mediaType: "video" });
+    expect(byId["E-6"]).toBeUndefined();
+    expect(byId["E-7"].text).toBe("[Desteklenmeyen mesaj türü: someNewMessage]");
+  });
+
+  it("bağlı numara ve profil adı durum verisinde görünür", async () => {
+    const { base, headers, store, owner } = await setup();
+    await store.put("connection", "ai-1", { id: "ai-1", status: "connected", phone: "905321116976", profileName: "XRE", secretish: "x" }, owner);
+    const state = await (await fetch(`${base}/api/state`, { headers })).json();
+    const c = state.connections.find((x: any) => x.id === "ai-1");
+    expect(c).toMatchObject({ phone: "905321116976", profileName: "XRE" });
+    expect(c.secretish).toBeUndefined();
+  });
+
   it("Meta hattında 24 saat penceresi kapalıysa serbest metni engeller", async () => {
     const { base, headers } = await setup();
     Object.assign(process.env, { META_ACCESS_TOKEN: "meta", META_LINE_MAP_JSON: JSON.stringify({ "office-2": "12345" }) });

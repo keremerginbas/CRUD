@@ -96,6 +96,10 @@ import { liveNotifyStore } from "./live-notify.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
 import {
+  isWaSystemMessage,
+  unwrapWaMessage,
+  waContentKey,
+  waMessageText,
   captureEvolutionMedia,
   captureMetaMedia,
   registerMediaBodyParser,
@@ -219,6 +223,8 @@ function publicConnection(connection: Record<string, unknown>) {
     "state",
     "status",
     "connected",
+    "phone",
+    "profileName",
     "updatedAt",
   ]);
 }
@@ -916,13 +922,10 @@ async function processEvolutionWebhook(
         "evolution",
       )
     : await findLeadByPhone(store, owner, phone);
-  const message = data?.message || {};
-  const text =
-    message.conversation ||
-    message.extendedTextMessage?.text ||
-    message.imageMessage?.caption ||
-    message.videoMessage?.caption ||
-    null;
+  const message = unwrapWaMessage(data?.message);
+  // Silme/düzenleme bildirimleri ve şifreleme anahtarları sohbete yazılmaz.
+  if (isWaSystemMessage(message)) return;
+  const text = waMessageText(message);
   const messageId = String(key.id || data?.id || id("evolution-message"));
   const media = await captureEvolutionMedia(
     store,
@@ -941,7 +944,7 @@ async function processEvolutionWebhook(
       contactName: String(data?.pushName || data?.notifyName || "").slice(0, 120) || null,
       provider: "evolution",
       direction: "inbound",
-      type: media.mediaType || Object.keys(message)[0] || "text",
+      type: media.mediaType || waContentKey(message) || "text",
       text: text ?? mediaLabel(media.mediaType),
       status: "received",
       providerMessageId: messageId,

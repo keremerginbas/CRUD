@@ -74,7 +74,10 @@ export interface AppState extends SuiteState {
 export { lines, groupNames } from "../../../shared/lines";
 export type { Line } from "../../../shared/lines";
 export const formatPhone = (p: string) =>
-  p.replace(/^(\+90)(\d{3})(\d{3})(\d{2})(\d{2})$/, "$1 $2 $3 $4 $5");
+  (/^90\d{10}$/.test(p) ? `+${p}` : p).replace(
+    /^(\+90)(\d{3})(\d{3})(\d{2})(\d{2})$/,
+    "$1 $2 $3 $4 $5",
+  );
 export const money = (n: number) =>
   new Intl.NumberFormat("tr-TR", {
     style: "currency",
