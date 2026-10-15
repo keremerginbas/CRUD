@@ -97,8 +97,8 @@ const providers = [
     icon: Globe,
     tone: "blue",
     text: "Bitrix müşteri bağlamı ve mevcut WhatsApp uygulamasıyla birlikte çalışma.",
-    keys: ["BITRIX_WEBHOOK", "BITRIX_DOMAIN"],
-    path: "/api/bitrix/placement",
+    keys: ["BITRIX_DOMAIN", "BITRIX_WEBHOOK"],
+    path: "/bitrix/app",
   },
   {
     id: "webhook",
@@ -325,7 +325,11 @@ export default function Integrations({
               <div key={key}>
                 <code>{key}</code>
                 <Badge>
-                  {selected.id === "vapi"
+                  {selected.id === "bitrix"
+                    ? key === "BITRIX_DOMAIN"
+                      ? "Uygulama için gerekli"
+                      : "Yalnız veri aktarımı için"
+                    : selected.id === "vapi"
                     ? key === "VAPI_API_KEY" && status.vapi?.keyConfigured
                       ? "Güvenli kaydedildi"
                       : key === "VAPI_WEBHOOK_SECRET"
@@ -342,7 +346,11 @@ export default function Integrations({
               </div>
             ))}
           </div>
-          <h4 className="setup-heading">Webhook / uygulama uç noktası</h4>
+          <h4 className="setup-heading">
+            {selected.id === "bitrix"
+              ? "Bitrix yerel uygulaması · İşleyici yolu"
+              : "Webhook / uygulama uç noktası"}
+          </h4>
           <div className="code-line">
             <code>
               {base}
@@ -356,6 +364,41 @@ export default function Integrations({
               <Copy size={16} />
             </button>
           </div>
+          {selected.id === "bitrix" && (
+            <>
+              <h4 className="setup-heading">İlk kurulum yolu</h4>
+              <div className="code-line">
+                <code>{base}/bitrix/install</code>
+                <button
+                  className="icon-button"
+                  onClick={() => copy(`${base}/bitrix/install`)}
+                  aria-label="Kurulum yolunu kopyala"
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
+              <ol className="setup-footnote">
+                <li>
+                  Aşağıdaki "Anahtarlar ve bağlantı ayarları" → Bitrix24
+                  bölümüne <b>Bitrix alan adını</b> girip kaydedin (ör.
+                  xre.bitrix24.com.tr).
+                </li>
+                <li>
+                  Bitrix → Uygulamalar → Geliştirici kaynakları → Diğer →
+                  Yerel uygulama: yukarıdaki iki adresi girin, izinler{" "}
+                  <b>crm, user, placement</b>; "Yalnızca script" işaretlemeyin.
+                </li>
+                <li>
+                  Kaydedince müşteri kartlarına "WhatsApp" sekmesi eklenir.
+                  Çalışanların Bitrix e-postası CRM hesabıyla aynı olmalıdır.
+                </li>
+              </ol>
+              <p className="setup-footnote">
+                Gelen webhook adresi yalnızca Bitrix verilerini CRM'e aktarmak
+                için gerekir; uygulama onsuz çalışır.
+              </p>
+            </>
+          )}
           {selected.id === "evolution" && (
             <p className="setup-footnote">
               QR oturumları için sürekli çalışan bir Evolution API kurulumu
