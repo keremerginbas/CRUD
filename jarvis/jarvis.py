@@ -331,6 +331,8 @@ class JarvisSesArayuzu(AudioInterface):
         self.kuyruk.put(audio)
 
     def interrupt(self):
+        if not hasattr(self, "kuyruk"):
+            return
         self._calma_bitis = time.time()
         try:
             while True:
@@ -339,6 +341,8 @@ class JarvisSesArayuzu(AudioInterface):
             pass
 
     def stop(self):
+        if not hasattr(self, "kuyruk"):  # bağlantı ses başlamadan kapandı
+            return
         bitis = time.time() + 6
         while not self.kuyruk.empty() and time.time() < bitis:
             time.sleep(0.1)
@@ -819,6 +823,26 @@ KULAK = None
 KILIT = None
 
 
+BILINEN_HATALAR = [
+    ("payment_issue", "ElevenLabs hesabınızda ödeme sorunu var. elevenlabs.io → sol alt profil → "
+                      "Subscription / Billing bölümünden kartınızı ya da bekleyen faturayı düzeltin."),
+    ("quota", "ElevenLabs kredi ya da dakika hakkınız bitmiş. elevenlabs.io → Subscription bölümüne bakın."),
+    ("limit", "ElevenLabs kullanım sınırına ulaşıldı. elevenlabs.io → Subscription bölümüne bakın."),
+    ("1008", "ElevenLabs bağlantıyı reddetti; API anahtarının ElevenAgents iznini kontrol edin."),
+    ("401", "ElevenLabs anahtarı geçersiz; .env'deki ELEVENLABS_API_KEY'i kontrol edin."),
+]
+
+
+def hata_yakala(args):
+    """Arka plandaki bağlantı hatalarını anlaşılır Türkçe mesaja çevirir."""
+    metin = f"{args.exc_type.__name__}: {args.exc_value}"
+    for anahtar, aciklama in BILINEN_HATALAR:
+        if anahtar in metin.lower():
+            yaz("❌", aciklama)
+            return
+    yaz("❌", f"Bağlantı hatası: {metin[:300]}")
+
+
 def kisayol_kur(tetikle):
     """Ctrl+Option+J (Mac) / Ctrl+Alt+J (Windows). Tuş kodu ile yakalanır: Mac'te Option harfi
     değiştirdiği (J → ∆) için harf karşılaştırması çalışmaz.
@@ -879,6 +903,7 @@ def kontrol():
 
 def main():
     global eleven, claude_istemci, openai_istemci, KULAK
+    threading.excepthook = hata_yakala
     # Windows konsolu emoji/Türkçe karakter basamazsa programın çökmesin
     for akis in (sys.stdout, sys.stderr):
         try:
