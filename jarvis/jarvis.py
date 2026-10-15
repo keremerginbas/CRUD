@@ -879,6 +879,12 @@ def kontrol():
 
 def main():
     global eleven, claude_istemci, openai_istemci, KULAK
+    # Windows konsolu emoji/Türkçe karakter basamazsa programın çökmesin
+    for akis in (sys.stdout, sys.stderr):
+        try:
+            akis.reconfigure(errors="replace")
+        except Exception:
+            pass
     kontrol()
     global KILIT
     KILIT = tek_kopya()  # açık kaldıkça başka kopya açılamaz

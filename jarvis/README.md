@@ -73,11 +73,20 @@ Jarvis BlackHole'u kendisi bulur; dinleme modunda mikrofonla birleştirip kayded
 
 ## Windows'ta kurulum
 
-1. **Python 3.12** kurun (<https://www.python.org/downloads/>), ilk ekranda **"Add python.exe to PATH"**'i işaretleyin.
-2. **`KUR.bat`**'a çift tıklayın, açılan `.env`'e anahtarları yazın.
-3. **`BASLAT.bat`** ile çalıştırın. **`OTOMATIK_BASLAT.bat`**: Windows açılınca kendiliğinden başlar.
+1. **Python 3.12** kurun: <https://www.python.org/downloads/windows/> → "Windows installer (64-bit)".
+   Kurulumun **ilk ekranında en alttaki "Add python.exe to PATH" kutusunu işaretleyin**, sonra "Install Now".
+2. Zip'i açın; `jarvis` klasörünü örneğin **Belgeler**'e taşıyın.
+3. Klasördeki **`KUR.bat`**'a çift tıklayın. ("Windows bilgisayarınızı korudu" uyarısı çıkarsa
+   **Ek bilgi → Yine de çalıştır**.) Birkaç dakika sürer; sonunda `.env` dosyası Not Defteri'nde açılır.
+4. `.env`'e anahtarlarınızı yazın, **Ctrl+S** ile kaydedip kapatın:
+   - `ELEVENLABS_API_KEY=` → ElevenLabs anahtarı (`sk_` ile başlar)
+   - `OPENAI_API_KEY=` → OpenAI anahtarı (`sk-` ile başlar)
+   - `JARVIS_KULLANICI_ADI=` → adınız
+5. **`BASLAT.bat`**'a çift tıklayın. "J.A.R.V.I.S. hazır" yazınca **"Hey Jarvis"** deyin ya da **Ctrl+Alt+J**'ye basın.
+   Windows mikrofon izni sorarsa izin verin (Ayarlar → Gizlilik → Mikrofon → "Masaüstü uygulamalarının erişmesine izin ver" açık olmalı).
+6. İsterseniz **`OTOMATIK_BASLAT.bat`**: Windows açılınca Jarvis kendiliğinden başlar.
 
-Windows'ta toplantı sesi ek kurulum gerekmeden kaydedilir.
+Windows'ta toplantıdaki karşı tarafın sesi ek kurulum gerekmeden kaydedilir.
 
 ## Ses seçimi
 
