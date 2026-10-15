@@ -164,6 +164,47 @@ describe("Bitrix24 yerel uygulaması", () => {
   });
 });
 
+describe("XRE WhatsApp rolleri CRM gelen kutusunda", () => {
+  it("personel yalnız rolündeki numaranın hattını görür ve ondan yazar", async () => {
+    Object.assign(process.env, { EVOLUTION_API_URL: "http://127.0.0.1:9", EVOLUTION_API_KEY: "evo" });
+    const { store, base } = await setup();
+    const owner = (await store.resolveOwner())!;
+    await store.put("connection", "cloud-18", { id: "cloud-18", status: "connected", phone: "905337435976" }, owner);
+    await store.put("connection", "cloud-21", { id: "cloud-21", status: "connected", phone: "905337437435" }, owner);
+    await store.put("message", "m-arda", { id: "m-arda", lineId: "cloud-18", phone: "905551110001", direction: "inbound", text: "Arda hattı", createdAt: new Date().toISOString() }, owner);
+    await store.put("message", "m-zeliha", { id: "m-zeliha", lineId: "cloud-21", phone: "905551110002", direction: "inbound", text: "Zeliha hattı", createdAt: new Date().toISOString() }, owner);
+    await store.put(
+      "b24-portal",
+      "member123",
+      {
+        id: "member123",
+        domain: "xre.bitrix24.com.tr",
+        active: true,
+        lines: { "7": { instance: "b24-x-7", phone: "905337437435", status: "connected" }, "9": { instance: "b24-x-9", phone: "905337435976", status: "connected" } },
+        roles: [{ id: "r-zeliha", name: "7435", lines: ["7"] }],
+        assignments: { "42": "r-zeliha" },
+      },
+      "b24-connector",
+    );
+    fakeBitrix("", "42", false);
+    const login = await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }));
+    const headers = { "content-type": "application/json", cookie: (login.headers.get("set-cookie") || "").split(";")[0] };
+    const lines = await (await fetch(`${base}/api/whatsapp/lines`, { headers })).json();
+    expect(lines.lines.map((l: any) => l.lineId)).toEqual(["cloud-21"]);
+    const blocked = await fetch(`${base}/api/whatsapp/send`, { method: "POST", headers, body: JSON.stringify({ lineId: "cloud-18", to: "05551110001", text: "x" }) });
+    expect(blocked.status).toBe(403);
+    const state = await (await fetch(`${base}/api/state`, { headers })).json();
+    const texts = state.messages.map((m: any) => m.text);
+    expect(texts).not.toContain("Arda hattı");
+
+    // Rolü olmayan kullanıcı hiçbir hattı görmez
+    fakeBitrix("", "77", false);
+    const other = await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }));
+    const otherLines = await (await fetch(`${base}/api/whatsapp/lines`, { headers: { cookie: (other.headers.get("set-cookie") || "").split(";")[0] } })).json();
+    expect(otherLines.lines).toEqual([]);
+  });
+});
+
 describe("WhatsApp bağlantı eşitleme", () => {
   it("Evolution'daki bağlı numarayı hat kartına ve hat listesine yazar", async () => {
     Object.assign(process.env, { EVOLUTION_API_KEY: "evo" });

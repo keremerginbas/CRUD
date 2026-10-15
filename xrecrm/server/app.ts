@@ -86,6 +86,7 @@ import { lines } from "../shared/lines.js";
 import { registerLocalAccountRoutes, registerLocalAuthRoutes } from "./local-auth.js";
 import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.js";
 import { registerBitrixAppRoutes } from "./bitrix-app.js";
+import { allowedPhones, lineAccessGuard, lineAllowed, linePhones } from "./line-access.js";
 import { handleConnectorEvolution, isConnectorInstance, registerB24ConnectorRoutes } from "./b24-connector.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
@@ -1576,6 +1577,7 @@ export function createApp(
   registerMediaBodyParser(app);
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", requireAuth(store), requireModulePermissions);
+  app.use(["/api/messages", "/api/whatsapp/send"], lineAccessGuard(store));
   registerSuiteRoutes(app, store);
   registerPreferenceRoutes(app, rawStore);
   registerCrmWorkspaceRoutes(app, rawStore);
@@ -1624,13 +1626,15 @@ export function createApp(
           rawStoreOf(store).list<any>(STAGE_KIND, owner),
         ]);
       const visibleLeads = new Set(leads.map((r) => r.id));
+      const allowed = await allowedPhones(store, (req as Request & { auth?: AuthContext }).auth);
+      const phonesByLine = allowed ? await linePhones(store, owner) : new Map<string, string>();
       const since = Date.now() - 400 * 86_400_000;
       res.json({
         leads: leads.map((r) => r.payload),
         rules: rules.map((r) => r.payload),
-        messages: messages.map((r) =>
-          publicMessage(r.payload as Record<string, unknown>),
-        ),
+        messages: messages
+          .filter((r) => lineAllowed(allowed, phonesByLine, (r.payload as any)?.lineId) || !(r.payload as any)?.lineId)
+          .map((r) => publicMessage(r.payload as Record<string, unknown>)),
         events: events.map(publicEvent),
         connections: connections.map((r) =>
           publicConnection(r.payload as Record<string, unknown>),

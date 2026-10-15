@@ -933,3 +933,18 @@ await tick();poll=setInterval(tick,5000);}
 load();
 </script></body></html>`;
 }
+
+/**
+ * XRE WhatsApp panelindeki role göre bir Bitrix kullanıcısının kullanabileceği
+ * WhatsApp numaraları. null: kısıt yok (rol tanımlanmamış ya da "tüm numaralar").
+ * CRM'in kendi gelen kutusu da (Bitrix içindeki eski uygulama) bu listeye uyar.
+ */
+export async function allowedPhonesForBitrixUser(store: Store, domain: string, userId: string): Promise<string[] | null> {
+  const portals = (await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)).map((r) => r.payload);
+  const portal = portals.find((p) => p.active && p.domain === domain);
+  if (!portal || !(portal.roles || []).length) return null;
+  const role = roleOf(portal, userId);
+  if (!role) return [];
+  if (role.lines === "all") return null;
+  return role.lines.map((line) => portal.lines[line]?.phone || "").filter(Boolean);
+}

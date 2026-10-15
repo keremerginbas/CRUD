@@ -23,6 +23,7 @@ import {
   sendMetaText,
 } from "./integrations.js";
 import { lines } from "../shared/lines.js";
+import { allowedPhones, lineAllowed, linePhones } from "./line-access.js";
 
 const env = (k: string) => process.env[k]?.trim() || "";
 const DAY = 86_400_000;
@@ -206,8 +207,10 @@ export function registerWhatsappChatRoutes(app: Express, store: Store, deps: Wha
         };
       }),
     );
+    const allowed = await allowedPhones(store, authOf(req));
+    const phones = allowed ? await linePhones(store, owner) : new Map<string, string>();
     res.json({
-      lines: result.filter((l) => l.provider),
+      lines: result.filter((l) => l.provider && lineAllowed(allowed, phones, l.lineId)),
       autoLead: env("WHATSAPP_AUTO_LEAD") === "1",
       dailyNewContacts: Number(env("WHATSAPP_DAILY_NEW_CONTACTS") || 40),
       templatesAvailable: Boolean(env("META_WABA_ID") && env("META_ACCESS_TOKEN")),

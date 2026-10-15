@@ -11,6 +11,7 @@ import type { Store } from "./db.js";
 import type { AccessEmployee } from "../shared/access.js";
 import { allRoles, rawStoreOf } from "./access.js";
 import { forwardedOrigin } from "./auth.js";
+import { allowedPhonesForBitrixUser } from "./b24-connector.js";
 import { ACCOUNT_KIND, hashPassword, setSession, type LocalAccount } from "./local-auth.js";
 import { fetchWithTimeout, normalizePhone, readJsonResponse } from "./security.js";
 
@@ -237,6 +238,18 @@ export function registerBitrixAppRoutes(app: Express, store: Store) {
         );
       if (!account.active)
         return page(res, 403, "CRM hesabınız pasif", "<p>Yöneticiniz CRM'de <b>Çalışanlar</b> sayfasından hesabınızı etkinleştirmeli.</p>");
+      // XRE WhatsApp panelindeki rol, CRM gelen kutusunda hangi numaraların görüneceğini de belirler.
+      if (account.employeeId) {
+        const employee = (await raw.get<any>("employee", account.employeeId, owner))?.payload;
+        if (employee) {
+          const phones = await allowedPhonesForBitrixUser(raw, params.domain, bitrixUser.id);
+          const next = { ...employee };
+          if (phones) next.whatsappPhones = phones;
+          else delete next.whatsappPhones;
+          if (JSON.stringify(next.whatsappPhones) !== JSON.stringify(employee.whatsappPhones))
+            await raw.put("employee", employee.id, { ...next, updatedAt: new Date().toISOString() }, owner);
+        }
+      }
       await setSession(req, res, account, { partitioned: true });
       await raw.put(ACCOUNT_KIND, account.id, { ...account, lastLoginAt: new Date().toISOString() }, owner);
       let phone = "";
