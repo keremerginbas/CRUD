@@ -65,8 +65,18 @@ async function setup(opts: { evoState?: string } = {}) {
     bx.push({ method, body, url });
     if (body.auth === "admin-auth") return { result: method === "user.admin" ? true : { ID: "1" } };
     if (body.auth === "user-auth") return { result: method === "user.admin" ? false : { ID: "2" } };
+    if (body.auth === "merve-auth") return { result: method === "user.admin" ? false : { ID: "3" } };
     if (body.auth !== tokenValid) return { error: "expired_token", error_description: "expired" };
     if (method === "user.current") return { result: { ID: "1" } };
+    if (method === "imopenlines.config.add") return { result: 7 };
+    if (method === "user.get")
+      return {
+        result: [
+          { ID: "1", NAME: "Erdal", EMAIL: "erdal@x.test" },
+          { ID: "2", NAME: "Kaan", EMAIL: "" },
+          { ID: "3", NAME: "Merve", EMAIL: "merve@x.test" },
+        ],
+      };
     return { result: true };
   });
   const store = createMemoryStore();
@@ -202,5 +212,44 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
   it("imzasız medya adresini reddeder", async () => {
     const { base } = await setup();
     expect((await fetch(`${base}/b24/media/${MEMBER}/med_000000000000000000000000?e=9999999999&s=x`)).status).toBe(403);
+  });
+
+  it("yönetim paneli: bağlantı ekler, roller ve personel ile Açık Kanal kuyruklarını ayarlar", async () => {
+    const { base, bx } = await setup();
+    await install(base);
+    const home = await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }));
+    const html = await home.text();
+    expect(html).toContain("Bağlantı ekle");
+    const t = html.match(/const T="([^"]+)"/)?.[1];
+    const call = async (path: string, body: Record<string, unknown> = {}) => {
+      const r = await fetch(`${base}/b24/panel/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
+      return { status: r.status, body: await r.json() };
+    };
+    const added = await call("connection/add", { name: "Satış 7124" });
+    expect(added.body.line).toBe("7");
+    expect(bx.find((c) => c.method === "imopenlines.config.add")?.body.PARAMS).toEqual({ LINE_NAME: "Satış 7124 (WhatsApp)" });
+
+    // Kanal ayar bileti panel uçlarını açamaz.
+    const lineTicket = settingsTicket(MEMBER, "7");
+    expect((await fetch(`${base}/b24/panel/state`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: lineTicket }) })).status).toBe(401);
+
+    const sales = await call("role/save", { name: "Satış", lines: ["7"] });
+    await call("role/save", { name: "Sigorta", lines: [], isDefault: true });
+    bx.length = 0;
+    await call("user/role", { userId: "2", roleId: sales.body.role.id });
+    const update = bx.find((c) => c.method === "imopenlines.config.update");
+    expect(update?.body).toEqual(expect.objectContaining({ CONFIG_ID: "7", PARAMS: { QUEUE: [2] } }));
+
+    const state = await call("state");
+    expect(state.body.connections).toEqual([expect.objectContaining({ line: "7", name: "Satış 7124" })]);
+    expect(state.body.users.find((u: any) => u.id === "2").roleId).toBe(sales.body.role.id);
+
+    // Personel yalnız kendi rolündeki numaraları görür; panel açılmaz.
+    const kaan = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "user-auth" }))).text();
+    expect(kaan).toContain("Satış 7124");
+    expect(kaan).not.toContain("Bağlantı ekle");
+    const merve = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "merve-auth" }))).text();
+    expect(merve).toContain("Sigorta");
+    expect(merve).toContain("Size atanmış numara yok");
   });
 });

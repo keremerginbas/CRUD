@@ -8,6 +8,18 @@ Bu uygulama Wazzup / ChatApp benzeri bir üründür. Müşteri XRE CRM'i hiç g�
 
 Her Bitrix portalı (member_id) ayrı bir müşteridir. Her Açık Kanal için ayrı bir WhatsApp oturumu açılır (`b24-…` adlı Evolution oturumu). Bu veriler XRE CRM'in kendi çalışma alanına karışmaz.
 
+## Yönetim paneli (Bitrix sol menüsündeki uygulama)
+
+Bitrix yöneticisi uygulamayı açınca WhatCRM benzeri bir panel görür:
+
+- **Bağlantılar:** "Bağlantı ekle" ile her WhatsApp numarası için Bitrix'te otomatik olarak ayrı bir Açık Kanal açılır ve QR okutulur. Bağlantılar yeniden adlandırılabilir, bağlantısı kesilebilir veya silinebilir.
+- **Roller:** Her rolün hangi numaraları göreceği seçilir ("Tüm numaralar" ya da tek tek). Bir rol "varsayılan" yapılabilir; rol atanmamış personel bu rolü alır.
+- **Personel:** Bitrix çalışanları listelenir, her birine rol atanır.
+
+**Kim ne görür:** Rol veya personel değişince her Açık Kanal'ın operatör kuyruğu Bitrix'te güncellenir. Kuyrukta sadece rolü o numarayı içeren personel kalır. Sohbetler yalnız bu kişilere düşer; görünürlüğü Bitrix'in kendi Açık Kanal kuralı sağlar. Hiç rol oluşturulmadıysa kuyruklara dokunulmaz.
+
+Yönetici olmayan personel uygulamayı açınca kendi rolünü ve görebildiği numaraları görür.
+
 ## Adresler
 
 | | |
