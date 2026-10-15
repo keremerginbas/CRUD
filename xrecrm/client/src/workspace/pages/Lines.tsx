@@ -66,6 +66,49 @@ export default function Lines({
       `${l.phone} ${l.iccid || ""}`.includes(query.replace(/\s/g, "")),
   );
   const selected = lines.find((l) => l.id === detail);
+  const canEdit = !demo && Boolean(user?.isOwner);
+  const [form, setForm] = useState<{ phone: string; iccid: string; label: string } | null>(null);
+  const openDetail = (id: string) => {
+    const line = lines.find((l) => l.id === id);
+    setDetail(id);
+    setForm(line ? { phone: line.phone, iccid: line.iccid || "", label: line.label || "" } : null);
+  };
+  const connection = data.connections.find((c) => c.id === detail);
+  const waPhone = connection?.status === "connected" && connection?.phone ? `+${connection.phone}` : "";
+  const saveOne = async () => {
+    if (!selected || !form) return;
+    let digits = form.phone.replace(/\D/g, "");
+    if (digits.startsWith("0")) digits = `90${digits.slice(1)}`;
+    if (digits.length === 10) digits = `90${digits}`;
+    if (digits.length < 10 || digits.length > 15) {
+      toast.error("Geçerli bir telefon numarası girin (ör. 0533 743 59 76).");
+      return;
+    }
+    if (lines.some((l) => l.id !== selected.id && l.phone === `+${digits}`)) {
+      toast.error("Bu numara başka bir hatta kayıtlı.");
+      return;
+    }
+    const next = lines.map((l) =>
+      l.id === selected.id
+        ? {
+            id: l.id,
+            group: l.group,
+            phone: `+${digits}`,
+            ...(form.iccid.trim() ? { iccid: form.iccid.replace(/\D/g, "") } : {}),
+            ...(form.label.trim() ? { label: form.label.trim() } : {}),
+          }
+        : l,
+    );
+    try {
+      const r = await request("/api/lines", { lines: next }, "PUT");
+      setLineInventory(r.lines);
+      await refresh();
+      setDetail(null);
+      toast.success("Hat güncellendi.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
   const copy = (x: string) =>
     navigator.clipboard
       .writeText(x)
@@ -264,6 +307,15 @@ export default function Lines({
               />
             </div>
             <div className="toolbar-right">
+              {!demo && user?.isOwner && (
+                <button
+                  className="btn secondary small"
+                  onClick={() => setEditor(formatLineText(lines))}
+                >
+                  <Pencil size={14} />
+                  Toplu düzenle
+                </button>
+              )}
               <span className="muted">{filtered.length} hat</span>
               <select
                 value={group}
@@ -294,13 +346,14 @@ export default function Lines({
                 </thead>
                 <tbody>
                   {filtered.map((l) => (
-                    <tr key={l.id} onClick={() => setDetail(l.id)}>
+                    <tr key={l.id} onClick={() => openDetail(l.id)}>
                       <td>
                         <span className="line-phone">
                           <span className="line-icon">
                             <Phone size={14} />
                           </span>
                           {formatPhone(l.phone)}
+                          {l.label && <small className="muted"> · {l.label}</small>}
                         </span>
                       </td>
                       <td>
@@ -356,6 +409,43 @@ export default function Lines({
           onClose={() => setDetail(null)}
         >
           <div className="modal-content">
+            {canEdit && form && (
+              <div className="form-grid line-edit-form">
+                <label className="full">
+                  Telefon numarası
+                  <input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    placeholder="0533 743 59 76"
+                  />
+                </label>
+                {waPhone && waPhone !== selected.phone && (
+                  <button
+                    type="button"
+                    className="btn secondary small full"
+                    onClick={() => setForm({ ...form, phone: waPhone })}
+                  >
+                    Bağlı WhatsApp numarasını kullan ({formatPhone(waPhone)})
+                  </button>
+                )}
+                <label>
+                  Etiket / dahili
+                  <input
+                    value={form.label}
+                    onChange={(e) => setForm({ ...form, label: e.target.value })}
+                    placeholder="ör. NetGSM 105"
+                  />
+                </label>
+                <label>
+                  ICCID
+                  <input
+                    value={form.iccid}
+                    onChange={(e) => setForm({ ...form, iccid: e.target.value })}
+                    placeholder="8990…"
+                  />
+                </label>
+              </div>
+            )}
             <dl className="detail-dl">
               <div>
                 <dt>Hizmet grubu</dt>
@@ -385,18 +475,28 @@ export default function Lines({
               <div>
                 <dt>Bağlantı durumu</dt>
                 <dd>
-                  <Badge>Doğrulanmadı</Badge>
+                  {waPhone ? (
+                    <Badge tone="green">WhatsApp bağlı · {formatPhone(waPhone)}</Badge>
+                  ) : (
+                    <Badge>Doğrulanmadı</Badge>
+                  )}
                 </dd>
               </div>
             </dl>
-            <p className="muted">
-              Entegrasyon ayarları güvenli sunucu ortam değişkenleriyle yapılır.
-              Hat sahipliği envanterden çıkarılamaz.
-            </p>
+            {!canEdit && (
+              <p className="muted">
+                Hat bilgilerini yalnızca CRM sahibi düzenleyebilir.
+              </p>
+            )}
           </div>
           <footer className="modal-footer">
+            {canEdit && (
+              <button className="btn primary" onClick={() => void saveOne()}>
+                Kaydet
+              </button>
+            )}
             <button
-              className="btn primary"
+              className="btn secondary"
               onClick={() => {
                 setDetail(null);
                 navigate("/integrations");

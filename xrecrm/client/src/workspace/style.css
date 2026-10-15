@@ -3464,3 +3464,9 @@ td:first-child {
   max-width: 360px;
   text-align: center;
 }
+
+.line-edit-form {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line, #e3e9ee);
+}
