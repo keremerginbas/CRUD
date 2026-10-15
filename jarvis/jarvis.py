@@ -281,6 +281,39 @@ def ajani_hazirla():
             yaz("⚠️", f"{model} ses modeli kabul edilmedi ({kisa_hata(e)}); {YEDEK_SES_MODELI} deneniyor.")
 
 
+# ElevenLabs'in yeni uzun anahtarları (sk_ + 64 karakter) bazı hesaplarda "imzalı bağlantı" adresinde
+# "API key must be exactly 51 characters" hatası alıyor. O durumda konuşmaya anahtarı bağlantı
+# başlığında (xi-api-key) göndererek doğrudan bağlanılır.
+import elevenlabs.conversational_ai.conversation as _konusma_modulu  # noqa: E402
+
+_asil_baglan = _konusma_modulu.connect
+_dogrudan_baglan = threading.Event()
+
+
+def _baglan(url, **kw):
+    if _dogrudan_baglan.is_set():
+        kw["additional_headers"] = {"xi-api-key": ELEVEN_KEY}
+    return _asil_baglan(url, **kw)
+
+
+_konusma_modulu.connect = _baglan
+
+
+class JarvisKonusma(Conversation):
+    def start_session(self):
+        if not _dogrudan_baglan.is_set():
+            try:
+                return super().start_session()
+            except Exception as e:
+                metin = str(e).lower()
+                if "api_key" not in metin and "api key" not in metin and "authentication" not in metin:
+                    raise
+                yaz("ℹ️", "İmzalı bağlantı anahtarı kabul etmedi; anahtarla doğrudan bağlanılıyor.")
+                _dogrudan_baglan.set()
+        self.requires_auth = False
+        return super().start_session()
+
+
 class JarvisSesArayuzu(AudioInterface):
     """ElevenLabs konuşması için mikrofon/hoparlör (sounddevice: Mac ve Windows'ta ek kurulum istemez).
     Yankı koruması: hoparlörde Jarvis kendi sesini duyup kendi sözünü sanabilir. Bu yüzden Jarvis
@@ -716,7 +749,7 @@ def sohbet_et(acilis=None, baglam=""):
         },
         conversation_config_override={"agent": {"first_message": acilis or random.choice(ACILIS_CUMLELERI)}},
     )
-    konusma = Conversation(
+    konusma = JarvisKonusma(
         eleven, agent_id, requires_auth=True,
         audio_interface=JarvisSesArayuzu(),
         config=ayar,
