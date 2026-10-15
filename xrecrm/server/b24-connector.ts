@@ -425,6 +425,44 @@ function readBitrixParams(req: Request) {
   };
 }
 
+type BitrixParams = ReturnType<typeof readBitrixParams>;
+
+/**
+ * Portalı kaydeder ya da belirteçlerini yeniler ve bağlayıcıyı kaydeder.
+ * Yalnız portal yöneticisinin belirteciyle çalışır. Kurulum adresi çağrılmasa
+ * da (Bitrix "uygulama kurulumu kendisi tamamlar" kapalıyken) uygulama ilk
+ * açıldığında buradan kurulur.
+ */
+async function installPortal(store: Store, p: BitrixParams, base: string): Promise<B24Portal> {
+  const existing = await portalById(store, p.memberId);
+  if (existing?.active && existing.domain !== p.domain)
+    throw Object.assign(new Error("Bu portal kimliği başka bir alan adına kayıtlı."), { statusCode: 403 });
+  const now = new Date().toISOString();
+  const portal: B24Portal = {
+    roles: existing?.roles,
+    assignments: existing?.assignments,
+    id: p.memberId,
+    domain: p.domain,
+    clientEndpoint: `https://${p.domain}/rest/`,
+    accessToken: p.authId,
+    refreshToken: p.refreshId || existing?.refreshToken || "",
+    expiresAt: Date.now() + p.expires * 1000,
+    applicationToken: existing?.applicationToken,
+    installedAt: existing?.installedAt || now,
+    updatedAt: now,
+    active: true,
+    lines: existing?.lines || {},
+  };
+  // Belirteç gerçekten bu portala ve bir yöneticiye mi ait?
+  const user = await b24Call(store, portal, "user.current");
+  if (!user?.ID) throw new Error("Bitrix oturumu doğrulanamadı.");
+  if ((await b24Call(store, portal, "user.admin")) !== true)
+    throw Object.assign(new Error("Uygulamayı yalnız Bitrix24 yöneticisi kurabilir."), { statusCode: 403 });
+  await savePortal(store, portal);
+  await registerConnector(store, portal, base);
+  return portal;
+}
+
 // --- Rotalar -----------------------------------------------------------------
 
 export function registerB24ConnectorRoutes(app: Express, store: Store) {
@@ -436,26 +474,7 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
     if (!memberIdOk(p.memberId) || !p.domain || !p.authId)
       return page(res, 400, "Kurulum bilgisi eksik", "<p>Uygulamayı Bitrix24 içinden kurun.</p>");
     try {
-      const existing = await portalById(store, p.memberId);
-      const now = new Date().toISOString();
-      const portal: B24Portal = {
-        id: p.memberId,
-        domain: p.domain,
-        clientEndpoint: `https://${p.domain}/rest/`,
-        accessToken: p.authId,
-        refreshToken: p.refreshId || existing?.refreshToken || "",
-        expiresAt: Date.now() + p.expires * 1000,
-        applicationToken: existing?.applicationToken,
-        installedAt: existing?.installedAt || now,
-        updatedAt: now,
-        active: true,
-        lines: existing?.lines || {},
-      };
-      // Belirteç gerçekten bu portala mı ait?
-      const user = await b24Call(store, portal, "user.current");
-      if (!user?.ID) throw new Error("Bitrix oturumu doğrulanamadı.");
-      await savePortal(store, portal);
-      await registerConnector(store, portal, origin(req));
+      await installPortal(store, p, origin(req));
       page(
         res,
         200,
@@ -477,9 +496,17 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
   // Uygulama ana sayfası (sol menü): yöneticiye yönetim paneli, personele kendi numaraları.
   const home = async (req: Request, res: Response) => {
     const p = readBitrixParams(req);
-    const portal = memberIdOk(p.memberId) ? await portalById(store, p.memberId) : null;
+    let portal = memberIdOk(p.memberId) ? await portalById(store, p.memberId) : null;
+    if ((!portal || !portal.active) && memberIdOk(p.memberId) && p.domain && p.authId) {
+      try {
+        portal = await installPortal(store, p, origin(req));
+      } catch (error) {
+        console.warn("Bitrix bağlayıcı otomatik kurulumu başarısız:", (error as Error).message);
+        return page(res, 502, "Kurulum tamamlanamadı", `<p class="err">${escapeHtml((error as Error).message)}</p>`);
+      }
+    }
     if (!portal || !portal.active || portal.domain !== p.domain)
-      return page(res, 404, "Uygulama kurulu değil", "<p>Uygulamayı yeniden kurun.</p>");
+      return page(res, 404, "Uygulama kurulu değil", "<p>Uygulamayı Bitrix24 içinden açın.</p>");
     const viewer = { ...portal, accessToken: p.authId, refreshToken: "", expiresAt: 0 };
     let user: any;
     let admin = false;

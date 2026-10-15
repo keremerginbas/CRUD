@@ -252,4 +252,15 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(merve).toContain("Sigorta");
     expect(merve).toContain("Size atanmış numara yok");
   });
+
+  it("kurulum adresi çağrılmasa da ilk açılışta kendini kurar", async () => {
+    const { base, bx } = await setup();
+    const res = await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "ref-1" }));
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain("Bağlantı ekle");
+    expect(bx.some((c) => c.method === "imconnector.register")).toBe(true);
+    // Yönetici olmayan biri kuramaz
+    const other = await fetch(`${base}/b24/app`, formPost({ member_id: "baskaportal1", DOMAIN: "baska.bitrix24.com", AUTH_ID: "user-auth" }));
+    expect(other.status).toBe(502);
+  });
 });
