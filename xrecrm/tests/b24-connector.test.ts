@@ -63,7 +63,9 @@ async function setup(opts: { evoState?: string } = {}) {
     if (url.startsWith("https://oauth.bitrix.info/")) {
       bx.push({ method: "oauth.refresh", body: {}, url });
       tokenValid = "tok-2";
-      return { access_token: "tok-2", refresh_token: "ref-2", expires_in: 3600 };
+      const refreshToken = new URL(url).searchParams.get("refresh_token");
+      if (refreshToken === "forged") return { error: "invalid_grant" };
+      return { access_token: "tok-2", refresh_token: "ref-2", expires_in: 3600, member_id: MEMBER, client_endpoint: `https://${DOMAIN}/rest/` };
     }
     const method = url.split("/rest/")[1].replace(/\.json$/, "");
     const body = init?.body ? JSON.parse(String(init.body)) : {};
@@ -120,7 +122,9 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
       "OnImConnectorStatusDelete",
       "OnAppUninstall",
     ]);
-    expect(bx[0].url).toBe(`https://${DOMAIN}/rest/user.current.json`);
+    // Önce Bitrix OAuth sunucusunda doğrulanır, sonra portalın kendi adresi çağrılır
+    expect(bx[0].url).toMatch(/^https:\/\/oauth\.bitrix\.info\/oauth\/token\/\?grant_type=refresh_token/);
+    expect(bx[1].url).toBe(`https://${DOMAIN}/rest/user.current.json`);
   });
 
   it("ayar sayfası yalnız portal yöneticisine açılır; bağlanınca kanal etkinleşir", async () => {
@@ -186,7 +190,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const { base, evo, bx } = await setup({ evoState: "open" });
     await install(base);
     await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
-    const event = (token: string) =>
+    const event = (token: string, access = "") =>
       fetch(
         `${base}/b24/events`,
         formPost({
@@ -200,9 +204,14 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
           "data[MESSAGES][0][chat][id]": "905551234567",
           "auth[member_id]": MEMBER,
           "auth[application_token]": token,
+          ...(access ? { "auth[access_token]": access } : {}),
         }),
       );
-    expect((await event("app-token")).status).toBe(200);
+    // Anahtar henüz sabitlenmemişken sahte olay (geçersiz/eksik erişim belirteci) kabul edilmez
+    expect((await event("saldirgan-token", "sahte")).status).toBe(401);
+    expect((await event("saldirgan-token", "")).status).toBe(401);
+    expect(evo.some((c) => c.url.startsWith("/message/sendText/"))).toBe(false);
+    expect((await event("app-token", "tok-2")).status).toBe(200);
     await new Promise((r) => setTimeout(r, 100));
     const sendText = evo.find((c) => c.url === `/message/sendText/${instanceName(MEMBER, "3")}`);
     expect(sendText?.body).toMatchObject({ number: "905551234567", text: "Merhaba Ayşe hanım\nFiyat 3 milyon" });
@@ -210,6 +219,21 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     // Olayda temsilci yoksa sohbetin operatörü Bitrix'ten okunur.
     expect(bx.find((c) => c.method === "imopenlines.dialog.get")?.body).toMatchObject({ CHAT_ID: "77" });
     expect((await event("baska-token")).status).toBe(401);
+  });
+
+  it("sahte kurulumu reddeder: belirteç Bitrix OAuth sunucusunda doğrulanır", async () => {
+    const { base, bx, store } = await setup();
+    // Saldırganın kendi sunucusu "Bitrix" gibi davranıp evet dese bile kurulum olmaz
+    const forged = await fetch(`${base}/b24/install`, formPost({ member_id: "saldirganportal1", DOMAIN: "kotu.example.com", AUTH_ID: "tok-1", REFRESH_ID: "ref-1" }));
+    expect(forged.status).toBe(401);
+    const forged2 = await fetch(`${base}/b24/install`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "forged" }));
+    expect(forged2.status).toBe(401);
+    const noRefresh = await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1" }));
+    expect(noRefresh.status).toBe(502);
+    expect(bx.some((c) => c.url.includes("kotu.example.com"))).toBe(false);
+    expect(await store.get("b24-portal", "saldirganportal1", "b24-connector")).toBeFalsy();
+    expect(await store.get("b24-portal", MEMBER, "b24-connector")).toBeFalsy();
+    expect((await install(base)).status).toBe(200);
   });
 
   it("süresi dolan belirteci yeniler", async () => {
@@ -342,7 +366,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
           "data[MESSAGES][0][message][text]": text,
           "data[MESSAGES][0][chat][id]": "79161234567",
           "auth[member_id]": MEMBER,
-          "auth[application_token]": "app-token",
+          "auth[application_token]": "app-token", "auth[access_token]": "tok-2",
         }),
       );
     await reply("Fiyat 3 milyon");
@@ -408,7 +432,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(sent().at(-1)).toMatchObject({ chat: { id: "1203630001@g.us", name: "WhatsApp grubu" }, user: { id: "905559998877", name: "Ali" }, message: { text: "Grup selam" } });
 
     // Gruba cevap grup kimliğine gider; arama bildirimi kapalı
-    await fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][im][chat_id]": "5", "data[MESSAGES][0][message][id]": "6", "data[MESSAGES][0][message][text]": "Merhaba grup", "data[MESSAGES][0][chat][id]": "1203630001@g.us", "auth[member_id]": MEMBER, "auth[application_token]": "app-token" }));
+    await fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][im][chat_id]": "5", "data[MESSAGES][0][message][id]": "6", "data[MESSAGES][0][message][text]": "Merhaba grup", "data[MESSAGES][0][chat][id]": "1203630001@g.us", "auth[member_id]": MEMBER, "auth[application_token]": "app-token", "auth[access_token]": "tok-2" }));
     await wait();
     expect(evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1)?.body).toMatchObject({ number: "1203630001@g.us", text: "Merhaba grup" });
     const count = sent().length;
@@ -447,7 +471,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await inbound("L1");
     await new Promise((r) => setTimeout(r, 80));
     expect(forwarded()).toBe(before);
-    await fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][message][text]": "Cevap", "data[MESSAGES][0][chat][id]": "905551112233", "auth[member_id]": MEMBER, "auth[application_token]": "app-token" }));
+    await fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][message][text]": "Cevap", "data[MESSAGES][0][chat][id]": "905551112233", "auth[member_id]": MEMBER, "auth[application_token]": "app-token", "auth[access_token]": "tok-2" }));
     await new Promise((r) => setTimeout(r, 80));
     expect(evo.some((c) => c.url === `/message/sendText/${instance}`)).toBe(false);
     billing = await panel("billing/state");
@@ -555,7 +579,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
           "data[MESSAGES][0][message][text]": "Ben Kaan, yardımcı olayım.",
           "data[MESSAGES][0][chat][id]": "905301112233",
           "auth[member_id]": MEMBER,
-          "auth[application_token]": "app-token",
+          "auth[application_token]": "app-token", "auth[access_token]": "tok-2",
         }),
       );
       await new Promise((r) => setTimeout(r, 80));

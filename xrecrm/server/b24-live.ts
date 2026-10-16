@@ -45,6 +45,7 @@ export const DEFAULT_REPORTS: ReportSettings = { daily: false, weekly: false, mo
 export const reportSettings = (portal: B24Portal): ReportSettings => ({ ...DEFAULT_REPORTS, ...(portal.reports || {}) });
 
 export const REPORT_KIND = "b24-report";
+export const REPORT_TTL_DAYS = 90;
 const DAY = 86_400_000;
 const PERIOD_DAYS: Record<ReportPeriod, number> = { daily: 1, weekly: 7, monthly: 30 };
 export const PERIOD_LABEL: Record<ReportPeriod, string> = { daily: "Günlük", weekly: "Haftalık", monthly: "Aylık" };
@@ -420,6 +421,8 @@ export function registerLivePanelRoutes(app: Express, store: Store, panel: Panel
     if (!/^[\w-]{20,40}$/.test(token)) return res.status(404).send("Rapor bulunamadı.");
     const report = (await store.get<Report>(REPORT_KIND, token, SYSTEM_OWNER))?.payload;
     if (!report) return res.status(404).send("Rapor bulunamadı.");
+    // Bağlantılar 90 gün geçerlidir; eski raporlar paylaşılmış olsa da açılmaz.
+    if (Date.now() - Date.parse(report.createdAt) > REPORT_TTL_DAYS * DAY) return res.status(410).send("Bu raporun süresi doldu.");
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Robots-Tag", "noindex");
     res.setHeader("Referrer-Policy", "no-referrer");

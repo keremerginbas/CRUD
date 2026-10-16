@@ -753,21 +753,58 @@ type BitrixParams = ReturnType<typeof readBitrixParams>;
  * da (Bitrix "uygulama kurulumu kendisi tamamlar" kapalıyken) uygulama ilk
  * açıldığında buradan kurulur.
  */
+/** Kurulum belirtecini Bitrix OAuth sunucusunda doğrular (yenileme ile). */
+async function verifyInstallTokens(p: BitrixParams) {
+  if (!env("B24_CLIENT_ID") || !env("B24_CLIENT_SECRET"))
+    throw Object.assign(new Error("Sunucuda B24_CLIENT_ID / B24_CLIENT_SECRET tanımlı değil."), { statusCode: 503 });
+  if (!p.refreshId) throw Object.assign(new Error("Bitrix kurulum bilgisi eksik (REFRESH_ID)."), { statusCode: 400 });
+  const url = `https://oauth.bitrix.info/oauth/token/?${new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: env("B24_CLIENT_ID"),
+    client_secret: env("B24_CLIENT_SECRET"),
+    refresh_token: p.refreshId,
+  })}`;
+  const data = await fetcher(url, { method: "GET" }).catch(() => null);
+  const endpoint = String(data?.client_endpoint || "");
+  let host = "";
+  try {
+    const u = new URL(endpoint);
+    host = u.protocol === "https:" ? u.host.toLowerCase() : "";
+  } catch {
+    host = "";
+  }
+  if (!data?.access_token || String(data.member_id || "") !== p.memberId || !host || host !== p.domain)
+    throw Object.assign(new Error("Bitrix kurulum belirteci doğrulanamadı. Uygulamayı Bitrix24 içinden yeniden açın."), { statusCode: 401 });
+  return {
+    accessToken: String(data.access_token),
+    refreshToken: String(data.refresh_token || p.refreshId),
+    expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000,
+    clientEndpoint: `https://${host}/rest/`,
+  };
+}
+
 async function installPortal(store: Store, p: BitrixParams, base: string): Promise<B24Portal> {
   const existing = await portalById(store, p.memberId);
   if (existing?.active && existing.domain !== p.domain)
     throw Object.assign(new Error("Bu portal kimliği başka bir alan adına kayıtlı."), { statusCode: 403 });
   const now = new Date().toISOString();
+  // Belirteçler gerçekten Bitrix24'ün verdiği ve bu portala ait belirteçler mi?
+  // İstekteki alan adına sormak yetmez (sahte bir "Bitrix" sunucusu evet der);
+  // bu yüzden yenileme belirteci Bitrix'in OAuth sunucusunda, uygulamamızın
+  // gizli anahtarıyla doğrulanır. Dönen member_id ve portal adresi esas alınır.
+  const verified = await verifyInstallTokens(p);
   const portal: B24Portal = {
+    ...existing,
     roles: existing?.roles,
     assignments: existing?.assignments,
     id: p.memberId,
     domain: p.domain,
-    clientEndpoint: `https://${p.domain}/rest/`,
-    accessToken: p.authId,
-    refreshToken: p.refreshId || existing?.refreshToken || "",
-    expiresAt: Date.now() + p.expires * 1000,
-    applicationToken: existing?.applicationToken,
+    clientEndpoint: verified.clientEndpoint,
+    accessToken: verified.accessToken,
+    refreshToken: verified.refreshToken,
+    expiresAt: verified.expiresAt,
+    // Kaldırılıp yeniden kurulan uygulamaya Bitrix yeni anahtar verir.
+    applicationToken: existing?.active ? existing.applicationToken : undefined,
     installedAt: existing?.installedAt || now,
     updatedAt: now,
     active: true,
@@ -807,7 +844,8 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
       );
     } catch (error) {
       console.warn("Bitrix bağlayıcı kurulumu başarısız:", (error as Error).message);
-      page(res, 502, "Kurulum tamamlanamadı", `<p class="err">${escapeHtml((error as Error).message)}</p>`);
+      const code = (error as Error & { statusCode?: number }).statusCode;
+      page(res, code && code >= 400 && code < 500 ? code : 502, "Kurulum tamamlanamadı", `<p class="err">${escapeHtml((error as Error).message)}</p>`);
     }
   };
   app.get("/b24/install", install);
@@ -820,6 +858,9 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
     if ((!portal || !portal.active) && memberIdOk(p.memberId) && p.domain && p.authId) {
       try {
         portal = await installPortal(store, p, origin(req));
+        // installPortal açan kişinin bu portalın yöneticisi olduğunu doğruladı.
+        res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain));
+        return;
       } catch (error) {
         console.warn("Bitrix bağlayıcı otomatik kurulumu başarısız:", (error as Error).message);
         return page(res, 502, "Kurulum tamamlanamadı", `<p class="err">${escapeHtml((error as Error).message)}</p>`);
@@ -938,7 +979,19 @@ tick();
       const b = Buffer.from(token);
       if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return res.status(401).json({ error: "BAD_TOKEN" });
     } else {
-      // İlk olayda uygulama anahtarı sabitlenir; sonrakiler bununla doğrulanır.
+      // Anahtar henüz bilinmiyor: olayın içindeki erişim belirteciyle portalın
+      // kendi (kurulumda doğrulanmış) REST adresine sorarız. Ancak gerçek bir
+      // Bitrix olayıysa anahtar sabitlenir; sonrakiler bununla doğrulanır.
+      const accessToken = String(auth.access_token || "");
+      const sameDomain = !auth.domain || cleanDomain(auth.domain) === portal.domain;
+      const genuine =
+        accessToken && sameDomain
+          ? await b24Call(store, { ...portal, accessToken, refreshToken: "", expiresAt: 0 }, "app.info").then(
+              (r) => Boolean(r),
+              () => false,
+            )
+          : false;
+      if (!genuine) return res.status(401).json({ error: "UNVERIFIED" });
       portal.applicationToken = token;
       await savePortal(store, portal);
     }
