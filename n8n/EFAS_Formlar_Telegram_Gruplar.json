@@ -1,0 +1,226 @@
+{
+  "name": "EFAS Formları → Telegram Grupları (XRE Rapor Bot)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "efas-form-telegram",
+        "options": {}
+      },
+      "id": "b5439456-6afd-43b0-b188-d317da4c6679",
+      "name": "Bitrix Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        2896,
+        -1088
+      ],
+      "webhookId": "efas-form-telegram"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "bitrixWebhookUrl",
+              "type": "string",
+              "value": "https://xre.bitrix24.com.tr/rest/1/BURAYA_WEBHOOK_ANAHTARI/"
+            },
+            {
+              "id": "a2",
+              "name": "bitrixPortalUrl",
+              "type": "string",
+              "value": "https://xre.bitrix24.com.tr"
+            },
+            {
+              "id": "a3",
+              "name": "bitrixAppToken",
+              "type": "string",
+              "value": "BURAYA_GIDEN_WEBHOOK_TOKEN"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "865061e1-c1dc-4daf-aa6b-4e3e4f6c3bf1",
+      "name": "Ayarlar",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3120,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Bitrix giden webhook gövdesini çözer (urlencoded: iç içe ya da düz anahtar gelebilir)\nconst ayar = $('Ayarlar').first().json;\nconst b = $input.first().json.body || {};\nconst event = String(b.event || '').toUpperCase();\nconst id = (b.data && b.data.FIELDS && b.data.FIELDS.ID) || b['data[FIELDS][ID]'];\nconst token = (b.auth && b.auth.application_token) || b['auth[application_token]'];\n\nconst TIPLER = { ONCRMLEADADD: { ownerTypeId: 1, yol: 'lead' }, ONCRMDEALADD: { ownerTypeId: 2, yol: 'deal' } };\nconst tip = TIPLER[event];\nif (!tip || !id) return [];\nif (ayar.bitrixAppToken && ayar.bitrixAppToken !== 'BURAYA_GIDEN_WEBHOOK_TOKEN' && token !== ayar.bitrixAppToken) {\n  throw new Error('Geçersiz Bitrix application_token');\n}\nreturn [{ json: { ownerId: String(id), ...tip, bitrixUrl: ayar.bitrixWebhookUrl.replace(/\\/?$/, '/') } }];\n"
+      },
+      "id": "55e3b816-1c06-4ab4-a13c-c193b64c99ac",
+      "name": "Olayı Çöz",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3344,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "a04638fa-8d9b-4020-a863-9e1b1dc8aee2",
+      "name": "Aktivite için Bekle",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        3568,
+        -1088
+      ],
+      "webhookId": "efas-form-telegram-wait"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Olayı Çöz').first().json.bitrixUrl }}crm.activity.list.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ order: { ID: 'DESC' }, filter: { OWNER_TYPE_ID: $('Olayı Çöz').first().json.ownerTypeId, OWNER_ID: $('Olayı Çöz').first().json.ownerId, PROVIDER_ID: 'CRM_WEBFORM' }, select: ['ID','SUBJECT','PROVIDER_PARAMS','CREATED'] }) }}",
+        "options": {}
+      },
+      "id": "b5847cc6-7bf9-4073-be4b-89fa118394ec",
+      "name": "Form Aktivitesi Getir",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        3776,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// DAGITIM = 'sira' -> hangi form doldurulursa doldurulsun 10 gruba sırayla dağıtır (aktif: false olan atlanır)\n// DAGITIM = 'form' -> her başvuru doldurulan formun kendi grubuna gider\nconst DAGITIM = 'form';\n\n// Form adı -> Telegram grubu. Form adı, CRM_WEBFORM aktivitesinin konusundan okunur:\n// \"19 TİMUÇİN FORM\" başlıklı CRM formu gönderildi\nconst FORMS = [\n  { no: 10, ad: 'MELTEM EFAS FORM',         anahtar: 'MELTEM',        chatId: '-5106515364', kisi: 'Meltem',        aktif: true },\n  { no: 11, ad: 'BURCU EFAS FORM',          anahtar: 'BURCU',         chatId: '-5454384941', kisi: 'Burcu', aktif: true },\n  { no: 12, ad: 'CAFER EFAS FORM',          anahtar: 'CAFER',         chatId: '-5440932746', kisi: 'Cafer', aktif: true },\n  { no: 13, ad: 'MUSTAFA UTKU EFAS FORM',   anahtar: 'MUSTAFA UTKU',  chatId: '-5451627345', kisi: 'Mustafa Utku', aktif: true },\n  { no: 14, ad: 'MUSTAFA ALTAY EFAS FORM',  anahtar: 'MUSTAFA ALTAY', chatId: '-5250586334', kisi: 'Mustafa Altay', aktif: true },\n  { no: 15, ad: 'MURAT ER EFAS FORM',       anahtar: 'MURAT ER',      chatId: '-5483964717', kisi: 'Murat Er', aktif: true },\n  { no: 16, ad: 'BERKCAN KARTAL EFAS FORM', anahtar: 'BERKCAN',       chatId: '-5297361374', kisi: 'Berkcan Kartal', aktif: true },\n  { no: 17, ad: 'FATIH EFAS FORM',          anahtar: 'FATIH',         chatId: '-5104387991', kisi: 'Fatih', aktif: true },\n  { no: 18, ad: 'DEMET EFAS FORM',          anahtar: 'DEMET',         chatId: '-5300073899', kisi: 'Demet', aktif: true },\n  { no: 19, ad: 'TIMUCIN FORM',             anahtar: 'TIMUCIN',       chatId: '-5515073799', kisi: 'Timuçin', aktif: true },\n];\n\nconst norm = s => String(s || '').toLocaleUpperCase('tr-TR')\n  .replace(/İ/g, 'I').replace(/Ş/g, 'S').replace(/Ğ/g, 'G')\n  .replace(/Ü/g, 'U').replace(/Ö/g, 'O').replace(/Ç/g, 'C').replace(/\\s+/g, ' ').trim();\nconst esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst olay = $('Olayı Çöz').first().json;\nconst acts = $('Form Aktivitesi Getir').first().json.result || [];\n\nlet form = null, act = null, formAdi = '';\nfor (const a of acts) {\n  const m = String(a.SUBJECT || '').match(/\"([^\"]+)\"/);\n  if (!m) continue;\n  const ad = norm(m[1]);\n  // Ad \"<no> <anahtar> ...\" ile başlamalı (örn. \"19 TIMUCIN FORM\"); başka formlarla karışmasın\n  const f = FORMS.find(f => ad === `${f.no} ${f.ad}` || ad.startsWith(`${f.no} ${f.anahtar} `) || ad === `${f.no} ${f.anahtar}`);\n  if (f) { form = f; act = a; formAdi = m[1]; break; }\n}\nif (!form) return []; // bu 10 formdan biri değil -> sessizce dur\n\n// Hedef grubu seç\nlet hedef = form;\nlet siraNo = null;\nif (DAGITIM === 'sira') {\n  const aktifler = FORMS.filter(f => f.aktif);\n  if (!aktifler.length) throw new Error('Aktif kişi yok');\n  // Paylaşımlı sayaç (workflow static data) yerine Bitrix'in kendiliğinden artan\n  // lead/deal ID'sini kullan: hem state gerektirmiyor hem de aynı anda gelen\n  // birden fazla formda yarış durumu (race condition) oluşmasını engelliyor.\n  const id = parseInt(olay.ownerId, 10) || 0;\n  hedef = aktifler[id % aktifler.length];\n  siraNo = id;\n}\n\nconst alanlar = {};\nfor (const fld of (act.PROVIDER_PARAMS && act.PROVIDER_PARAMS.FIELDS) || []) {\n  alanlar[fld.type === 'phone' ? 'tel' : fld.type === 'email' ? 'mail' : fld.code] = (fld.value || []).join(', ');\n}\nconst ad = alanlar.LEAD_TITLE || alanlar.CONTACT_NAME || alanlar.LEAD_NAME || '-';\nconst not = (alanlar.LEAD_COMMENTS || alanlar.CONTACT_COMMENTS || '').replace(/_+/g, ' ').trim();\nconst portal = $('Ayarlar').first().json.bitrixPortalUrl.replace(/\\/$/, '');\nconst tarih = new Date(act.CREATED || Date.now()).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });\n\nconst satirlar = [\n  '🔔 <b>Yeni Form Başvurusu</b>',\n  '',\n  `👨‍💼 <b>Atanan:</b> ${esc(hedef.kisi)}`,\n  `📋 <b>Doldurulan form:</b> ${esc(formAdi)}`,\n  `👤 <b>Ad Soyad:</b> ${esc(ad)}`,\n  `📞 <b>Telefon:</b> ${esc(alanlar.tel || '-')}`,\n];\nif (alanlar.mail) satirlar.push(`✉️ <b>E-posta:</b> ${esc(alanlar.mail)}`);\nif (not) satirlar.push(`📝 <b>Cevap:</b> ${esc(not)}`);\nsatirlar.push(`🕒 <b>Tarih:</b> ${esc(tarih)}`);\nsatirlar.push(`🔗 <a href=\"${portal}/crm/${olay.yol}/details/${olay.ownerId}/\">Bitrix'te aç (#${olay.ownerId})</a>`);\n\nreturn [{ json: { chatId: hedef.chatId, atanan: hedef.kisi, form: formAdi, siraNo, text: satirlar.join('\\n') } }];\n"
+      },
+      "id": "24cf5c35-6db9-4a9c-927b-2b39555b77f9",
+      "name": "Forma Göre Grup Seç",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4000,
+        -1088
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "f8501a26-1c34-4d8f-a543-047a2f9a9a93",
+      "name": "Telegram Gruba Gönder",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        4224,
+        -1088
+      ],
+      "webhookId": "d70b125b-d7e7-4821-bff2-06ac7a4a407c",
+      "credentials": {
+        "telegramApi": {
+          "id": "9rdlvgk54bgsCz0s",
+          "name": "Telegram account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Bitrix Webhook": {
+      "main": [
+        [
+          {
+            "node": "Ayarlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ayarlar": {
+      "main": [
+        [
+          {
+            "node": "Olayı Çöz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Olayı Çöz": {
+      "main": [
+        [
+          {
+            "node": "Aktivite için Bekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aktivite için Bekle": {
+      "main": [
+        [
+          {
+            "node": "Form Aktivitesi Getir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form Aktivitesi Getir": {
+      "main": [
+        [
+          {
+            "node": "Forma Göre Grup Seç",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Forma Göre Grup Seç": {
+      "main": [
+        [
+          {
+            "node": "Telegram Gruba Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "Europe/Istanbul",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": true
+  },
+  "versionId": "a8d93bef-5a0d-47be-9aa4-21539d6c2990",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  },
+  "id": "8LfcXozmLiUI5MrR",
+  "tags": []
+}
