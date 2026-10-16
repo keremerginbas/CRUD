@@ -99,8 +99,11 @@ interface DayStat {
   memberId: string;
   day: string;
   agents: Record<string, { replies: number; responses: number; responseSec: number; maxSec: number }>;
-  lines: Record<string, { inbound: number; outbound: number; newChats: number }>;
+  lines: Record<string, { inbound: number; outbound: number; newChats: number; responses?: number; responseSec?: number; samples?: number[] }>;
+  /** Gelen mesajların saatlere dağılımı (İstanbul saati) */
+  hours?: number[];
 }
+const istanbulHour = (t = Date.now()) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", hour: "2-digit", hourCycle: "h23" }).format(new Date(t)));
 async function bumpStat(store: Store, memberId: string, fn: (s: DayStat) => void) {
   const day = istanbulDay();
   const id = `${memberId}:${day}`;
@@ -109,6 +112,10 @@ async function bumpStat(store: Store, memberId: string, fn: (s: DayStat) => void
   await store.put(STAT_KIND, id, stat, SYSTEM_OWNER);
 }
 const lineStat = (s: DayStat, line: string) => (s.lines[line] ||= { inbound: 0, outbound: 0, newChats: 0 });
+function recordInbound(s: DayStat) {
+  const hours = (s.hours ||= Array.from({ length: 24 }, () => 0));
+  hours[istanbulHour()] += 1;
+}
 const agentStat = (s: DayStat, agent: string) => (s.agents[agent] ||= { replies: 0, responses: 0, responseSec: 0, maxSec: 0 });
 
 /** Sohbeti nitelendirip Bitrix'teki lead (yoksa kişi) kartının zaman akışına yazar. */
@@ -132,8 +139,23 @@ async function qualifyChat(store: Store, portal: B24Portal, chat: B24Chat) {
   if (entityType === "lead" && q.budget && ["TRY", "USD", "EUR", "GBP"].includes(q.currency))
     await b24Call(store, portal, "crm.lead.update", { id: entityId, fields: { OPPORTUNITY: q.budget, CURRENCY_ID: q.currency } }).catch(() => undefined);
 }
+export interface B24LineOptions {
+  /** WhatsApp aramaları sohbete not olarak düşsün */
+  calls?: boolean;
+  /** Grup sohbetleri Açık Kanal'a aktarılsın */
+  groups?: boolean;
+  /** Silinen ve düzenlenen mesajlar sohbette gösterilsin */
+  edits?: boolean;
+}
+export const lineOptions = (l?: B24Line): Required<B24LineOptions> => ({
+  calls: l?.options?.calls !== false,
+  groups: l?.options?.groups === true,
+  edits: l?.options?.edits !== false,
+});
 export interface B24Line {
   instance: string;
+  options?: B24LineOptions;
+  connectedAt?: string;
   name?: string;
   phone?: string;
   profileName?: string;
@@ -323,6 +345,28 @@ async function activateLine(store: Store, portal: B24Portal, line: string, activ
   }
 }
 
+/** Müşteri adına Bitrix sohbetine kısa bir not (arama, silme, düzenleme). */
+async function sendClientMessage(
+  store: Store,
+  portal: B24Portal,
+  line: string,
+  msg: { phone: string; name: string; id: string; text: string; sender?: string },
+) {
+  const isGroup = msg.phone.endsWith("@g.us");
+  const userId = isGroup ? msg.sender || msg.phone : msg.phone;
+  await b24Call(store, portal, "imconnector.send.messages", {
+    CONNECTOR: CONNECTOR_ID,
+    LINE: line,
+    MESSAGES: [
+      {
+        user: { id: userId, name: msg.name || (isGroup ? "Grup üyesi" : `+${msg.phone}`), ...(isGroup && !msg.sender ? {} : { phone: `+${userId}`, skip_phone_validate: "Y" }) },
+        message: { id: msg.id, date: Math.floor(Date.now() / 1000), text: msg.text },
+        chat: { id: msg.phone, name: isGroup ? "WhatsApp grubu" : msg.name || `+${msg.phone}` },
+      },
+    ],
+  });
+}
+
 /** Evolution'dan gelen olay bir bağlayıcı oturumuna aitse işler. */
 export async function handleConnectorEvolution(store: Store, body: any, base = origin()) {
   const instance = String(body?.instance || "");
@@ -347,6 +391,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
           instance,
           phone: phone || previous?.phone,
           profileName: open && data?.profileName ? String(data.profileName).slice(0, 120) : previous?.profileName,
+          connectedAt: open ? (previous?.status === "connected" && previous?.connectedAt) || new Date().toISOString() : previous?.connectedAt,
           status: open ? "connected" : state || "disconnected",
           updatedAt: new Date().toISOString(),
         },
@@ -357,13 +402,52 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     return;
   }
 
+  const options = lineOptions(portal.lines[map.line]);
+
+  // WhatsApp araması: sohbete not olarak düşer.
+  if (event === "call" || event.startsWith("call")) {
+    if (!options.calls) return;
+    const calls: any[] = Array.isArray(data) ? data : [data];
+    for (const call of calls) {
+      if (String(call?.status || "offer") !== "offer" || call?.isGroup) continue;
+      const caller = normalizePhone(jidPhone(call?.from || call?.chatId || ""));
+      if (!caller) continue;
+      await sendClientMessage(store, portal, map.line, {
+        phone: caller,
+        name: "",
+        id: `call-${String(call?.id || crypto.randomUUID())}`,
+        text: call?.isVideo ? "🎥 Görüntülü WhatsApp araması geldi. Cevaplamak için telefonu kullanın." : "📞 WhatsApp araması geldi. Cevaplamak için telefonu kullanın.",
+      });
+    }
+    return;
+  }
+
   if (!event.startsWith("messages.upsert") && !data?.key) return;
   const key = data?.key || {};
   if (key.fromMe) return;
   const remoteJid = String(key.remoteJid || "");
-  if (!remoteJid.endsWith("@s.whatsapp.net")) return; // gruplar ve durumlar aktarılmaz
-  const phone = normalizePhone(remoteJid.split("@")[0]);
-  const message = unwrapWaMessage(data?.message);
+  const isGroup = remoteJid.endsWith("@g.us");
+  if (!remoteJid.endsWith("@s.whatsapp.net") && !(isGroup && options.groups)) return; // durumlar ve (kapalıysa) gruplar aktarılmaz
+  const sender = isGroup ? normalizePhone(jidPhone(key.participant || data?.participant || "")) : "";
+  const phone = isGroup ? `${remoteJid.split("@")[0]}@g.us` : normalizePhone(remoteJid.split("@")[0]);
+  const rawMessage = data?.message || {};
+  // Silinen ve düzenlenen mesajlar
+  const protocol = rawMessage.protocolMessage;
+  if (protocol) {
+    if (!options.edits) return;
+    const edited = protocol.editedMessage ? waMessageText(unwrapWaMessage(protocol.editedMessage)) : "";
+    const revoked = protocol.type === 0 || protocol.type === "REVOKE";
+    if (!edited && !revoked) return;
+    await sendClientMessage(store, portal, map.line, {
+      phone,
+      name: String(data?.pushName || "").slice(0, 120),
+      sender,
+      id: `${String(key.id || crypto.randomUUID())}-${edited ? "edit" : "del"}`,
+      text: edited ? `✏️ Müşteri mesajını düzenledi: ${edited}` : "🗑 Müşteri bir mesajını sildi.",
+    });
+    return;
+  }
+  const message = unwrapWaMessage(rawMessage);
   if (isWaSystemMessage(message)) return;
   const owner = `b24:${portal.id}`;
   const media = await captureEvolutionMedia(store, owner, instance, data);
@@ -408,6 +492,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     const l = lineStat(s, map.line);
     l.inbound += 1;
     if (isNew) l.newChats += 1;
+    recordInbound(s);
   });
   const files = media.mediaId
     ? [{ url: mediaUrl(base, portal.id, media.mediaId), name: media.fileName || "dosya" }]
@@ -417,19 +502,21 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     LINE: map.line,
     MESSAGES: [
       {
-        user: {
-          id: phone,
-          name: String(data?.pushName || "").slice(0, 120) || `+${phone}`,
-          phone: `+${phone}`,
-          skip_phone_validate: "Y",
-        },
+        user: isGroup
+          ? { id: sender || phone, name: String(data?.pushName || "").slice(0, 120) || (sender ? `+${sender}` : "Grup üyesi"), ...(sender ? { phone: `+${sender}`, skip_phone_validate: "Y" } : {}) }
+          : {
+              id: phone,
+              name: String(data?.pushName || "").slice(0, 120) || `+${phone}`,
+              phone: `+${phone}`,
+              skip_phone_validate: "Y",
+            },
         message: {
           id: String(key.id || crypto.randomUUID()),
           date: Math.floor(Number(data?.messageTimestamp || Date.now() / 1000)),
           text: display || (files.length ? "" : "[Medya]"),
           ...(files.length ? { files } : {}),
         },
-        chat: { id: phone, name: String(data?.pushName || `+${phone}`).slice(0, 120) },
+        chat: { id: phone, name: isGroup ? "WhatsApp grubu" : String(data?.pushName || `+${phone}`).slice(0, 120) },
       },
     ],
   });
@@ -471,7 +558,8 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
   if (!info?.instance) return;
   const delivered: any[] = [];
   for (const item of messages) {
-    const to = normalizePhone(item?.chat?.id || "");
+    const chatRef = String(item?.chat?.id || "");
+    const to = chatRef.endsWith("@g.us") ? `${chatRef.split("@")[0].replace(/\D/g, "")}@g.us` : normalizePhone(chatRef);
     if (!to) continue;
     const agentText = String(item?.message?.text || "")
       .replace(/\[br\]/gi, "\n")
@@ -517,7 +605,13 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
     if (agentText) chat.history.push({ from: "temsilci", text: agentText.replace(/^!/, ""), at: now });
     await saveChat(store, chat);
     await bumpStat(store, portal.id, (s) => {
-      lineStat(s, line).outbound += 1;
+      const ls = lineStat(s, line);
+      ls.outbound += 1;
+      if (waited !== null) {
+        ls.responses = (ls.responses || 0) + 1;
+        ls.responseSec = (ls.responseSec || 0) + waited;
+        ls.samples = [...(ls.samples || []), waited].slice(-500);
+      }
       const a = agentStat(s, agent);
       a.replies += 1;
       if (waited !== null) {
@@ -556,7 +650,7 @@ async function connectionStatus(store: Store, portal: B24Portal, line: string) {
       ...portal,
       lines: {
         ...portal.lines,
-        [line]: { ...known, instance, phone: owner.phone || known?.phone, profileName: owner.profileName || known?.profileName, status: "connected", updatedAt: new Date().toISOString() },
+        [line]: { ...known, instance, phone: owner.phone || known?.phone, profileName: owner.profileName || known?.profileName, connectedAt: known?.connectedAt || new Date().toISOString(), status: "connected", updatedAt: new Date().toISOString() },
       },
     };
     await savePortal(store, next);
@@ -914,7 +1008,26 @@ function publicConnections(portal: B24Portal) {
     phone: l.phone || "",
     profileName: l.profileName || "",
     status: l.status,
+    connectedAt: l.connectedAt || "",
+    options: lineOptions(l),
   }));
+}
+
+/** Kartlar için numara başına özet: son mesaj, bugünkü hacim, sohbet ve bekleyen sayısı. */
+async function connectionActivity(store: Store, portal: B24Portal) {
+  const chats = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((c) => c.memberId === portal.id);
+  const today = (await store.get<DayStat>(STAT_KIND, `${portal.id}:${istanbulDay()}`, SYSTEM_OWNER))?.payload;
+  const out: Record<string, { lastMessageAt: number; chats: number; waiting: number; todayIn: number; todayOut: number }> = {};
+  for (const line of Object.keys(portal.lines))
+    out[line] = { lastMessageAt: 0, chats: 0, waiting: 0, todayIn: today?.lines[line]?.inbound || 0, todayOut: today?.lines[line]?.outbound || 0 };
+  for (const c of chats) {
+    const a = out[c.line];
+    if (!a) continue;
+    a.chats += 1;
+    if (c.waitingSince) a.waiting += 1;
+    a.lastMessageAt = Math.max(a.lastMessageAt, c.lastInboundAt || 0, c.lastOutboundAt || 0);
+  }
+  return out;
 }
 
 const cleanName = (v: unknown, max = 80) => String(v || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, max);
@@ -951,9 +1064,10 @@ function registerPanelRoutes(
       }
       const current = await fresh(portal);
       const users = await portalUsers(store, current).catch(() => [] as B24User[]);
+      const activity = await connectionActivity(store, current);
       return {
         domain: current.domain,
-        connections: publicConnections(current),
+        connections: publicConnections(current).map((c) => ({ ...c, ...(activity[c.line] || {}) })),
         roles: current.roles || [],
         users: users.map((u) => ({ ...u, roleId: current.assignments?.[u.id] || "" })),
         settings: portalSettings(current),
@@ -1060,6 +1174,17 @@ function registerPanelRoutes(
   app.post("/b24/panel/connection/qr", json, panel((portal, body) => connectionQr(store, portal, lineOf(portal, body))));
   app.post("/b24/panel/connection/status", json, panel((portal, body) => connectionStatus(store, portal, lineOf(portal, body))));
   app.post("/b24/panel/connection/disconnect", json, panel((portal, body) => connectionDisconnect(store, portal, lineOf(portal, body))));
+  app.post(
+    "/b24/panel/connection/options",
+    json,
+    panel(async (portal, body) => {
+      const line = lineOf(portal, body);
+      const next = await fresh(portal);
+      next.lines[line] = { ...next.lines[line], options: { calls: body.calls !== false, groups: body.groups === true, edits: body.edits !== false } };
+      await savePortal(store, next);
+      return { options: lineOptions(next.lines[line]) };
+    }),
+  );
   app.post(
     "/b24/panel/connection/rename",
     json,

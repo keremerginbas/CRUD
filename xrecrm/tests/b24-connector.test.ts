@@ -356,4 +356,54 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(stats.lines[0]).toMatchObject({ line: "3", inbound: 3, outbound: 2, newChats: 1 });
     expect(stats.hot[0]).toMatchObject({ score: 82, temperature: "sıcak", lang: "ru" });
   });
+
+  it("numara ayarları: arama bildirimi, grup sohbeti ve silinen/düzenlenen mesajlar", async () => {
+    const { base, bx, evo } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const instance = instanceName(MEMBER, "3");
+    const hook = (payload: unknown) =>
+      fetch(`${base}/api/webhooks/evolution?token=hook-secret`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ instance, ...(payload as object) }) });
+    const sent = () => bx.filter((c) => c.method === "imconnector.send.messages").map((c) => c.body.MESSAGES[0]);
+    const wait = () => new Promise((r) => setTimeout(r, 80));
+
+    await hook({ event: "call", data: { id: "C1", from: "905551112233@s.whatsapp.net", status: "offer", isVideo: false } });
+    await wait();
+    expect(sent().at(-1)).toMatchObject({ chat: { id: "905551112233" }, message: { text: expect.stringContaining("WhatsApp araması") } });
+
+    await hook({ event: "messages.upsert", data: { key: { id: "D1", remoteJid: "905551112233@s.whatsapp.net" }, message: { protocolMessage: { type: 0, key: { id: "X" } } } } });
+    await wait();
+    expect(sent().at(-1)?.message.text).toContain("sildi");
+    await hook({ event: "messages.upsert", data: { key: { id: "E1", remoteJid: "905551112233@s.whatsapp.net" }, message: { protocolMessage: { type: 14, editedMessage: { conversation: "Yeni fiyat?" } } } } });
+    await wait();
+    expect(sent().at(-1)?.message.text).toContain("düzenledi: Yeni fiyat?");
+
+    // Grup kapalıyken aktarılmaz
+    const before = sent().length;
+    const group = () => hook({ event: "messages.upsert", data: { key: { id: `G${Math.random()}`, remoteJid: "1203630001@g.us", participant: "905559998877@s.whatsapp.net" }, pushName: "Ali", message: { conversation: "Grup selam" } } });
+    await group();
+    await wait();
+    expect(sent().length).toBe(before);
+
+    const home = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const t = home.match(/const T="([^"]+)"/)?.[1];
+    const opt = await (await fetch(`${base}/b24/panel/connection/options`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t, line: "3", calls: false, groups: true, edits: true }) })).json();
+    expect(opt.options).toEqual({ calls: false, groups: true, edits: true });
+    await group();
+    await wait();
+    expect(sent().at(-1)).toMatchObject({ chat: { id: "1203630001@g.us", name: "WhatsApp grubu" }, user: { id: "905559998877", name: "Ali" }, message: { text: "Grup selam" } });
+
+    // Gruba cevap grup kimliğine gider; arama bildirimi kapalı
+    await fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][im][chat_id]": "5", "data[MESSAGES][0][message][id]": "6", "data[MESSAGES][0][message][text]": "Merhaba grup", "data[MESSAGES][0][chat][id]": "1203630001@g.us", "auth[member_id]": MEMBER, "auth[application_token]": "app-token" }));
+    await wait();
+    expect(evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1)?.body).toMatchObject({ number: "1203630001@g.us", text: "Merhaba grup" });
+    const count = sent().length;
+    await hook({ event: "call", data: { id: "C2", from: "905551112233@s.whatsapp.net", status: "offer" } });
+    await wait();
+    expect(sent().length).toBe(count);
+
+    const state = await (await fetch(`${base}/b24/panel/state`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t }) })).json();
+    expect(state.connections[0]).toMatchObject({ line: "3", status: "connected", options: { groups: true }, chats: expect.any(Number) });
+    expect(state.connections[0].connectedAt).toBeTruthy();
+  });
 });

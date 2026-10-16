@@ -165,7 +165,7 @@ export function evolutionWebhookConfig() {
     byEvents: false,
     base64: true,
     headers: { authorization: `Bearer ${secret}` },
-    events: ["CONNECTION_UPDATE", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "QRCODE_UPDATED"],
+    events: ["CONNECTION_UPDATE", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "QRCODE_UPDATED", "CALL"],
   };
 }
 

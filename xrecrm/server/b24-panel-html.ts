@@ -95,6 +95,23 @@ label.field input{display:block;width:100%;margin-top:6px;padding:9px 11px;borde
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:var(--r-s);box-shadow:var(--shadow);display:none;max-width:min(560px,92vw);white-space:pre-line}
 .toast.show{display:block}
 .toast.err{background:var(--danger)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.ccard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);display:flex;flex-direction:column}
+.ccard.ok{border-top:3px solid var(--ok)}.ccard.off{border-top:3px solid var(--line)}
+.ccard header{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 16px 0}
+.ccard header .name{font-size:15px}
+.profile{display:flex;align-items:center;gap:10px;margin:12px 16px;padding:10px 12px;border-radius:var(--r-s);background:var(--paper)}
+.avatar{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:13px;background:var(--accent-soft);color:var(--accent);flex:none}
+.facts-dl{margin:0 16px;display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:13px}
+.facts-dl dt{color:var(--ink-3)}.facts-dl dd{margin:0;text-align:right;font-variant-numeric:tabular-nums}
+.ccard .chips{margin:12px 16px 0}
+.ccard footer{display:flex;gap:6px;padding:14px 16px;margin-top:auto}
+.ccard footer .btn{flex:1;justify-content:center}
+.view{display:inline-flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);padding:2px}
+.view button{border:0;background:none;padding:5px 10px;border-radius:5px;cursor:pointer;color:var(--ink-2);font-weight:600}
+.view button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
+.optrow{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line-2)}
+.optrow strong{display:block;font-size:13.5px}.optrow p{margin:2px 0 0;color:var(--ink-3);font-size:12.5px}
 .range{display:inline-flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);padding:2px}
 .range button{border:0;background:none;padding:5px 11px;border-radius:5px;cursor:pointer;color:var(--ink-2);font-weight:600}
 .range button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
@@ -160,11 +177,13 @@ function render(){
     const q=filter.toLowerCase();
     const list=S.connections.filter(c=>!q||(c.name+" "+c.phone+" "+c.profileName).toLowerCase().includes(q));
     m.innerHTML=(total?'<section class="board" aria-label="Hat durumu"><div><div class="count">'+ok+' <small>/ '+total+'</small></div><div class="caption">numara bağlı</div></div><div class="cells">'+S.connections.map(c=>'<button class="cell'+(c.status==="connected"?" ok":"")+'" title="'+esc(c.name+(c.phone?" · "+phone(c.phone):" · bağlı değil"))+'" aria-label="'+esc(c.name)+'" data-qr="'+esc(c.line)+'"></button>').join("")+'</div><button class="btn primary" id="add">Numara ekle</button></section>':'')
-      +(total?'<div class="bar"><input class="search" id="search" placeholder="Ad veya numara ara" value="'+esc(filter)+'"><span class="hint">Her numara Bitrix\\'te ayrı bir Açık Kanal\\'dır. Sohbetleri yalnız o numaraya yetkili personel alır.</span></div>'
-      +'<div class="list" role="table"><div class="row head" role="row"><span>Bağlantı</span><span>Numara</span><span>Durum</span><span>Erişen roller</span><span></span></div>'
-      +list.map(c=>'<div class="row" role="row"><div><div class="name">'+esc(c.name)+'</div><div class="sub">Açık Kanal #'+esc(c.line)+'</div></div><div><div class="phone">'+(c.phone?esc(phone(c.phone)):'<span class="sub">Henüz okutulmadı</span>')+'</div>'+(c.profileName?'<div class="sub">'+esc(c.profileName)+'</div>':'')+'</div><div><span class="status '+(c.status==="connected"?"ok":"off")+'">'+(c.status==="connected"?"Bağlı":"Bağlı değil")+'</span></div><div>'+chips(rolesFor(c.line).map(r=>r.name),"Rol yok")+'</div><div class="acts"><button class="btn'+(c.status==="connected"?"":" primary")+'" data-qr="'+esc(c.line)+'">'+(c.status==="connected"?"Yeniden bağla":"QR okut")+'</button><button class="btn ghost" data-edit="'+esc(c.line)+'" aria-label="'+esc(c.name)+' düzenle">Düzenle</button></div></div>').join("")
-      +(list.length?'':'<div class="empty">Aramayla eşleşen numara yok.</div>')+'</div>'
+      +(total?'<div class="bar"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input class="search" id="search" placeholder="Ad veya numara ara" value="'+esc(filter)+'"><div class="view" role="group" aria-label="Görünüm"><button data-view="cards" aria-pressed="'+(view==="cards")+'">Kart</button><button data-view="list" aria-pressed="'+(view==="list")+'">Liste</button></div></div><span class="hint">Her numara Bitrix\\'te ayrı bir Açık Kanal\\'dır. Sohbetleri yalnız o numaraya yetkili personel alır.</span></div>'
+      +(view==="cards"?'<div class="cards">'+list.map(card).join("")+'</div>'+(list.length?'':'<div class="list"><div class="empty">Aramayla eşleşen numara yok.</div></div>')
+      :'<div class="list" role="table"><div class="row head" role="row"><span>Bağlantı</span><span>Numara</span><span>Durum</span><span>Erişen roller</span><span></span></div>'
+      +list.map(c=>'<div class="row" role="row"><div><div class="name">'+esc(c.name)+'</div><div class="sub">Açık Kanal #'+esc(c.line)+'</div></div><div><div class="phone">'+(c.phone?esc(phone(c.phone)):'<span class="sub">Henüz okutulmadı</span>')+'</div>'+(c.profileName?'<div class="sub">'+esc(c.profileName)+'</div>':'')+'</div><div><span class="status '+(c.status==="connected"?"ok":"off")+'">'+(c.status==="connected"?"Bağlı":"Bağlı değil")+'</span></div><div>'+chips(rolesFor(c.line).map(r=>r.name),"Rol yok")+'</div><div class="acts"><button class="btn'+(c.status==="connected"?"":" primary")+'" data-qr="'+esc(c.line)+'">'+(c.status==="connected"?"Yeniden bağla":"QR okut")+'</button><button class="btn ghost" data-edit="'+esc(c.line)+'" aria-label="'+esc(c.name)+' ayarları">Ayarlar</button></div></div>').join("")
+      +(list.length?'':'<div class="empty">Aramayla eşleşen numara yok.</div>')+'</div>')
       :'<div class="list"><div class="empty"><strong>İlk WhatsApp numaranızı bağlayın</strong>Numara eklediğinizde Bitrix\\'te onun için bir Açık Kanal açılır ve QR kodu gösterilir.<br><button class="btn primary" id="add">Numara ekle</button></div></div>');
+    m.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{view=b.dataset.view;try{localStorage.setItem("xre-wa-view",view);}catch{}render();});
     $("#add").onclick=()=>connForm();
     const s=$("#search");if(s){s.oninput=()=>{filter=s.value;const pos=s.selectionStart;render();const n=$("#search");n.focus();n.setSelectionRange(pos,pos);};}
     m.querySelectorAll("[data-qr]").forEach(b=>b.onclick=()=>qr(b.dataset.qr));
@@ -224,19 +243,35 @@ async function perf(){
     +'<h3 class="section">Numaralar</h3>'+(d.lines.length?'<div class="list perf"><div class="row head"><span>Numara</span><span>Yeni sohbet</span><span>Gelen</span><span>Giden</span></div>'+d.lines.map(l=>'<div class="row"><div class="name">'+esc(lineName(l.line))+'</div><div>'+l.newChats+'</div><div>'+l.inbound+'</div><div>'+l.outbound+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Bu dönemde mesaj yok.</div></div>');
   m.querySelectorAll("[data-days]").forEach(b=>b.onclick=()=>{perfDays=Number(b.dataset.days);perf();});
 }
+let view="cards";try{view=localStorage.getItem("xre-wa-view")||"cards";}catch{}
+const initials=t=>String(t||"WA").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toLocaleUpperCase("tr-TR")||"WA";
+const ago=ms=>{if(!ms)return"—";const d=Math.max(0,Date.now()-ms)/60000;if(d<1)return"az önce";if(d<60)return Math.round(d)+" dk önce";if(d<1440)return Math.round(d/60)+" sa önce";return Math.round(d/1440)+" gün önce";};
+const day=iso=>{if(!iso)return"—";try{return new Date(iso).toLocaleDateString("tr-TR",{day:"numeric",month:"long",year:"numeric"});}catch{return"—";}};
+function card(c){const ok=c.status==="connected";
+  return '<article class="ccard '+(ok?"ok":"off")+'"><header><span class="name">'+esc(c.name)+'</span><span class="status '+(ok?"ok":"off")+'">'+(ok?"Bağlı":"Bağlı değil")+'</span></header>'
+  +'<div class="profile"><span class="avatar" aria-hidden="true">'+esc(initials(c.profileName||c.name))+'</span><div><b>'+esc(c.profileName||(ok?"WhatsApp profili":"Profil bekleniyor"))+'</b><div class="sub phone">'+(c.phone?esc(phone(c.phone)):"QR okutulmadı")+'</div></div></div>'
+  +'<dl class="facts-dl"><dt>Açık Kanal</dt><dd>#'+esc(c.line)+'</dd><dt>Bağlandı</dt><dd>'+(ok?day(c.connectedAt):"—")+'</dd><dt>Son mesaj</dt><dd>'+ago(c.lastMessageAt)+'</dd><dt>Bugün</dt><dd>'+(c.todayIn||0)+' gelen · '+(c.todayOut||0)+' giden</dd><dt>Sohbet</dt><dd>'+(c.chats||0)+(c.waiting?' · <span class="late">'+c.waiting+' bekliyor</span>':'')+'</dd></dl>'
+  +chips(rolesFor(c.line).map(r=>r.name),"Rol yok")
+  +'<footer><button class="btn'+(ok?"":" primary")+'" data-qr="'+esc(c.line)+'">'+(ok?"Yeniden bağla":"QR okut")+'</button><button class="btn" data-edit="'+esc(c.line)+'" aria-label="'+esc(c.name)+' ayarları">Ayarlar</button></footer></article>';}
 let lastFocus=null;
 function openSheet(title,body,footer){lastFocus=document.activeElement;$("#sheet").innerHTML='<header><h2 id="sheet-title">'+title+'</h2><button class="btn ghost" id="sheetClose" aria-label="Kapat">Kapat</button></header><div class="body">'+body+'</div>'+(footer?'<footer>'+footer+'</footer>':'');$("#sheet").classList.add("open");$("#scrim").classList.add("open");$("#sheetClose").onclick=closeSheet;const f=$("#sheet input");(f||$("#sheetClose")).focus();}
 function closeSheet(){$("#sheet").classList.remove("open");$("#scrim").classList.remove("open");if(poll){clearInterval(poll);poll=null;}if(lastFocus)lastFocus.focus();}
 $("#scrim").onclick=closeSheet;document.addEventListener("keydown",e=>{if(e.key==="Escape"&&$("#sheet").classList.contains("open"))closeSheet();});
 function connForm(c){
-  const editing=Boolean(c);
-  openSheet(editing?esc(c.name):"Numara ekle",
-    '<label class="field">Bağlantı adı<input id="cn" maxlength="80" placeholder="ör. Satış 7124" value="'+esc(c?c.name:"")+'"></label>'+(editing?'<p class="sub">Açık Kanal #'+esc(c.line)+(c.phone?' · '+esc(phone(c.phone)):'')+'</p>':'<p class="sub">Kaydedince Bitrix\\'te bu numara için bir Açık Kanal açılır ve QR kodu gösterilir.</p>')
-    +(editing?'<p class="note">Bağlantıyı silmek WhatsApp oturumunu kapatır. Bitrix\\'teki Açık Kanal ve sohbet geçmişi silinmez.</p>':''),
+  const editing=Boolean(c);const o=(c&&c.options)||{calls:true,groups:false,edits:true};
+  const sw=(id,on)=>'<label class="switch"><input type="checkbox" id="'+id+'"'+(on?" checked":"")+'><span></span></label>';
+  openSheet(editing?esc(c.name)+" · Ayarlar":"Numara ekle",
+    '<label class="field">Bağlantı adı<input id="cn" maxlength="80" placeholder="ör. Satış 7124" value="'+esc(c?c.name:"")+'"></label>'
+    +(editing?'<p class="sub">Açık Kanal #'+esc(c.line)+(c.phone?' · '+esc(phone(c.phone)):'')+'</p>'
+      +'<div class="optrow"><div><strong>Arama bildirimleri</strong><p>Bu numaraya gelen WhatsApp aramaları sohbete not olarak düşer.</p></div>'+sw("o-calls",o.calls)+'</div>'
+      +'<div class="optrow"><div><strong>Grup sohbetleri</strong><p>Numaranın üye olduğu WhatsApp grupları Açık Kanal\\'da tek sohbet olarak görünür.</p></div>'+sw("o-groups",o.groups)+'</div>'
+      +'<div class="optrow"><div><strong>Silinen ve düzenlenen mesajlar</strong><p>Müşteri mesajını silerse veya düzenlerse sohbette not olarak görünür.</p></div>'+sw("o-edits",o.edits)+'</div>'
+      +'<p class="note">Silmek WhatsApp oturumunu kapatır. Bitrix\\'teki Açık Kanal ve sohbet geçmişi silinmez.</p>'
+      :'<p class="sub">Kaydedince Bitrix\\'te bu numara için bir Açık Kanal açılır ve QR kodu gösterilir.</p>'),
     (editing?(c.status==="connected"?'<button class="btn" id="off">Bağlantıyı kes</button>':'')+'<button class="btn danger" id="del">Sil</button>':'')+'<button class="btn primary" id="save">'+(editing?"Kaydet":"Ekle ve QR okut")+'</button>');
   $("#cn").onkeydown=e=>{if(e.key==="Enter")$("#save").click();};
   $("#save").onclick=async()=>{const name=$("#cn").value.trim();if(!name){$("#cn").focus();return;}$("#save").disabled=true;
-    try{if(editing){await api("connection/rename",{line:c.line,name});closeSheet();toast("Kaydedildi.");load();}else{const r=await api("connection/add",{name});await load();qr(r.line);}}catch(e){toast(e.message,true);$("#save").disabled=false;}};
+    try{if(editing){if(name!==c.name)await api("connection/rename",{line:c.line,name});await api("connection/options",{line:c.line,calls:$("#o-calls").checked,groups:$("#o-groups").checked,edits:$("#o-edits").checked});closeSheet();toast("Kaydedildi.");load();}else{const r=await api("connection/add",{name});await load();qr(r.line);}}catch(e){toast(e.message,true);$("#save").disabled=false;}};
   if(editing&&$("#off"))$("#off").onclick=async()=>{try{await api("connection/disconnect",{line:c.line});closeSheet();toast("Bağlantı kesildi.");load();}catch(e){toast(e.message,true);}};
   if(editing)$("#del").onclick=async()=>{if(!confirm(c.name+" silinsin mi?"))return;try{await api("connection/delete",{line:c.line});closeSheet();toast("Silindi.");load();}catch(e){toast(e.message,true);}};
 }
