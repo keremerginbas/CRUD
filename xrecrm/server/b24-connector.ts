@@ -12,6 +12,8 @@ import { PANEL_STYLE, panelHtml } from "./b24-panel-html.js";
 import { onCustomerMessage, registerAgentPanelRoutes, type AgentConfig } from "./b24-agent.js";
 import { registerLivePanelRoutes, type ReportSettings } from "./b24-live.js";
 import { langOf, localizeMessage, normLang, pick, type Lang } from "./b24-i18n.js";
+import { logRestCall } from "./b24-restlog.js";
+import { registerLegalRoutes } from "./b24-legal.js";
 import { adminHtml } from "./b24-admin-html.js";
 import { getPricing, licenseState, lineUsable, registerBillingPanelRoutes, withTrialStarted } from "./b24-billing.js";
 import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
@@ -21,6 +23,7 @@ import { evolutionBase, evolutionWebhookConfig, getEvolutionQr, jidPhone } from 
 import { envConfigured, fetchWithTimeout, normalizePhone, readJsonResponse } from "./security.js";
 import {
   captureEvolutionMedia,
+  deleteMedia,
   isWaSystemMessage,
   readMedia,
   saveMedia,
@@ -288,11 +291,22 @@ export async function b24Call(store: Store, portalIn: B24Portal, method: string,
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ...params, auth: p.accessToken }),
     }).catch((error) => ({ error: "HTTP", error_description: error instanceof Error ? error.message : String(error) }));
+  const started = Date.now();
   let data = await call(portal);
   if ((data?.error === "expired_token" || data?.error === "invalid_token") && portal.refreshToken) {
     portal = await refresh(store, portal);
     data = await call(portal);
   }
+  logRestCall({
+    domain: portal.domain,
+    memberId: portal.id,
+    method,
+    params,
+    ms: Date.now() - started,
+    ok: !data?.error,
+    error: data?.error ? `${data.error}: ${data.error_description || ""}` : undefined,
+    result: data?.error ? undefined : data?.result,
+  });
   if (data?.error) throw new Error(`Bitrix ${method}: ${data.error_description || data.error}`);
   return data?.result;
 }
@@ -838,10 +852,34 @@ async function installPortal(store: Store, p: BitrixParams, base: string): Promi
   return portal;
 }
 
+/**
+ * Uygulama kaldırıldı: WhatsApp oturumları kapatılır, belirteçler ve müşteri
+ * verileri (sohbet geçmişi, istatistik, rapor, medya) silinir. Numara adları ve
+ * satın alınmış lisanslar korunur; aynı portal yeniden kurarsa ödediği süre kaybolmaz.
+ */
+export async function uninstallPortal(store: Store, portal: B24Portal) {
+  for (const l of Object.values(portal.lines)) {
+    if (l.instance) {
+      await evolution(`/instance/logout/${encodeURIComponent(l.instance)}`, { method: "DELETE" }).catch(() => undefined);
+      await store.delete(INSTANCE_KIND, l.instance, SYSTEM_OWNER).catch(() => undefined);
+    }
+  }
+  const lines = Object.fromEntries(
+    Object.entries(portal.lines).map(([id, l]) => [id, { ...l, status: "disconnected", phone: undefined, profileName: undefined, updatedAt: new Date().toISOString() }]),
+  );
+  await savePortal(store, { ...portal, active: false, accessToken: "", refreshToken: "", applicationToken: undefined, lines });
+  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report"]) {
+    for (const row of await store.list<{ memberId?: string }>(kind, SYSTEM_OWNER))
+      if (row.payload?.memberId === portal.id) await store.delete(kind, row.id, SYSTEM_OWNER);
+  }
+  await deleteMedia(store, `b24:${portal.id}`);
+}
+
 // --- Rotalar -----------------------------------------------------------------
 
 export function registerB24ConnectorRoutes(app: Express, store: Store) {
   const form = express.urlencoded({ extended: true, limit: "256kb" });
+  registerLegalRoutes(app);
 
   // Kurulum: belirteçleri sakla, bağlayıcıyı ve olayları kaydet.
   const install = async (req: Request, res: Response) => {
@@ -1046,9 +1084,7 @@ tick();
           await savePortal(store, { ...portal, lines });
         }
       } else if (event === "ONAPPUNINSTALL") {
-        for (const l of Object.values(portal.lines))
-          await evolution(`/instance/logout/${encodeURIComponent(l.instance)}`, { method: "DELETE" }).catch(() => undefined);
-        await savePortal(store, { ...portal, active: false, accessToken: "", refreshToken: "", lines: {} });
+        await uninstallPortal(store, portal);
       }
     } catch (error) {
       console.warn("Bitrix olayı işlenemedi:", (error as Error).message);

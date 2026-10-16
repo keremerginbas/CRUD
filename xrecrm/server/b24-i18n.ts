@@ -382,6 +382,16 @@ export const PANEL_EN: Record<string, string> = {
   "Alıcı seçilmedi; rapor yalnız oluşturuldu.": "No recipients selected; the report was only created.",
   "Bağlantı kopyalandı.": "Link copied.",
   "tr-TR": "en-US",
+  "dk": "min",
+  "sn": "s",
+  "sa": "h",
+  "saat": "hours",
+  "gecikti": "late",
+  "gelen": "in",
+  "indirim": "off",
+  "Banka:": "Bank:",
+  "IBAN:": "IBAN:",
+  "Referans:": "Reference:",
 };
 
 const PIECE_SPLIT = /([<>"]|(?<!\\)')/;

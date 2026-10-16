@@ -72,8 +72,8 @@ select.role{padding:6px 9px;border:1px solid var(--line);border-radius:var(--r-s
 /* Sağdan açılan panel */
 .scrim{position:fixed;inset:0;background:var(--scrim);display:none}
 .scrim.open{display:block}
-.sheet{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--surface);box-shadow:var(--shadow);transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column}
-.sheet.open{transform:none}
+.sheet{position:fixed;top:0;right:0;bottom:0;width:min(420px,100%);background:var(--surface);transform:translateX(100%);visibility:hidden;transition:transform .22s ease,visibility 0s .22s;display:flex;flex-direction:column}
+.sheet.open{transform:none;visibility:visible;box-shadow:var(--shadow);transition:transform .22s ease}
 @media (prefers-reduced-motion:reduce){.sheet{transition:none}}
 .sheet header{display:flex;justify-content:space-between;align-items:flex-start;padding:20px 22px 12px;border-bottom:1px solid var(--line-2)}
 .sheet h2{margin:0;font-size:17px}
@@ -306,6 +306,7 @@ const lineName=l=>{const c=S.connections.find(x=>x.line===String(l));return c?c.
 const nice=v=>{if(v<=4)return 4;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return (n<=1?1:n<=2?2:n<=5?5:10)*p;};
 const fmtDay=d=>{const [y,m,dd]=d.split("-");return dd+"."+m;};
 const longDay=d=>{try{return new Date(d+"T12:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long",weekday:"short"});}catch{return d;}};
+function endYs(a,b){if(Math.abs(a-b)>=13)return[a,b];const m=(a+b)/2;return a<=b?[m-7,m+7]:[m+7,m-7];}
 function lineChart(el,series){
   const W=640,H=220,L=36,R=40,T=10,B=24,iw=W-L-R,ih=H-T-B;
   const max=nice(Math.max(1,...series.map(p=>Math.max(p.inbound,p.outbound))));
@@ -319,8 +320,8 @@ function lineChart(el,series){
     +series.map((p,i)=>(i%step===0&&last-i>=Math.ceil(step/2))||i===last?'<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle">'+fmtDay(p.day)+'</text>':'').join("")+'</g>'
     +'<path d="'+path("outbound")+'" fill="none" stroke="var(--c-out)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
     +'<path d="'+path("inbound")+'" fill="none" stroke="var(--c-in)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
-    +'<text class="end-label" x="'+(x(last)+6)+'" y="'+(y(series[last].inbound)+4)+'">'+series[last].inbound+'</text>'
-    +'<text class="end-label" x="'+(x(last)+6)+'" y="'+(y(series[last].outbound)+(Math.abs(y(series[last].outbound)-y(series[last].inbound))<12?16:4))+'">'+series[last].outbound+'</text>'
+    +'<text class="end-label" x="'+(x(last)+6)+'" y="'+endYs(y(series[last].inbound)+4,y(series[last].outbound)+4)[0]+'">'+series[last].inbound+'</text>'
+    +'<text class="end-label" x="'+(x(last)+6)+'" y="'+endYs(y(series[last].inbound)+4,y(series[last].outbound)+4)[1]+'">'+series[last].outbound+'</text>'
     +'<line id="xh" y1="'+T+'" y2="'+(T+ih)+'" stroke="var(--ink-3)" stroke-width="1" visibility="hidden"/>'
     +'<circle id="mi" r="4.5" fill="var(--c-in)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/><circle id="mo" r="4.5" fill="var(--c-out)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>'
     +'<rect id="hit" x="'+L+'" y="'+T+'" width="'+iw+'" height="'+ih+'" fill="transparent"/></svg><div class="tip" id="ltip"></div>';
@@ -378,7 +379,7 @@ async function billing(){
   const st={active:"Aktif",free:"Ücretsiz",trial:"Deneme",expired:"Süresi doldu",new:"Bağlanmadı"};
   const bi={...(B.billing||{type:"kurumsal"})};if(billType)bi.type=billType;
   m.innerHTML='<div class="facts"><div class="fact"><b>'+cnt("active")+'</b><span>aktif lisans</span></div><div class="fact"><b>'+cnt("trial")+'</b><span>denemede</span></div><div class="fact'+(cnt("expired")?" alert":"")+'"><b>'+cnt("expired")+'</b><span>süresi dolmuş</span></div><div class="fact"><b>'+B.pricing.trialDays+' gün</b><span>ücretsiz deneme, numara bağlanınca başlar</span></div></div>'
-    +'<h3 class="section">Numara başına fiyat</h3><div class="prices" role="group" aria-label="Dönem">'+B.periods.map(p=>'<button class="price" data-months="'+p.months+'" aria-pressed="'+(p.months===buyMonths)+'"><span class="sub">'+(p.months===1?"Aylık":p.months+" aylık")+'</span><b>'+money(p.monthlyEquivalent,cur)+'<small class="sub" style="display:inline;font-size:13px"> / ay</small></b><span class="sub">'+(p.months>1?"dönem başına "+money(p.perLine,cur):"aylık ödeme")+'</span>'+(p.discount?'<span class="off">%'+p.discount+' indirim</span>':'')+'</button>').join("")+'</div>'
+    +'<h3 class="section">Numara başına fiyat</h3><div class="prices" role="group" aria-label="Dönem">'+B.periods.map(p=>'<button class="price" data-months="'+p.months+'" aria-pressed="'+(p.months===buyMonths)+'"><span class="sub">'+(p.months===1?"Aylık":p.months+" aylık")+'</span><b>'+money(p.monthlyEquivalent,cur)+'<small class="sub" style="display:inline;font-size:13px"> / ay</small></b><span class="sub">'+(p.months>1?"dönem başına "+money(p.perLine,cur):"aylık ödeme")+'</span>'+(p.discount?'<span class="off">'+(LANG==="tr"?"%"+p.discount:p.discount+"%")+' indirim</span>':'')+'</button>').join("")+'</div>'
     +'<h3 class="section">Lisanslarım</h3>'+(B.licenses.length?'<div class="list lic-list"><div class="row head"><span></span><span>Bağlantı</span><span>Numara</span><span>Durum</span><span>Bitiş</span></div>'
       +B.licenses.map(l=>'<label class="row" style="cursor:pointer"><input type="checkbox" data-sel="'+esc(l.line)+'"'+(buySel.has(l.line)?" checked":"")+(l.status==="free"?" disabled":"")+' aria-label="'+esc(l.name)+' seç"><div class="name">'+esc(l.name)+'</div><div class="phone">'+(l.phone?esc(phone(l.phone)):'<span class="sub">—</span>')+'</div><div><span class="lic '+esc(l.status)+'">'+st[l.status]+(l.status==="trial"?" · "+l.daysLeft+" gün":"")+'</span></div><div class="sub">'+(l.until?esc(day(l.until)):"—")+'</div></label>').join("")+'</div>'
       +'<div class="paybar"><div><span class="sub">'+buySel.size+' numara · '+(buyMonths===1?"1 ay":buyMonths+" ay")+'</span><br><b>'+money(period.perLine*buySel.size,cur)+'</b></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="redeem"'+(buySel.size?"":" disabled")+'>Lisans kodu kullan</button><button class="btn primary" id="pay"'+(buySel.size?"":" disabled")+'>Havale ile öde</button></div></div>'

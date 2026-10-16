@@ -9,6 +9,7 @@ import type { Express, RequestHandler, Request, Response } from "express";
 import type { Store } from "./db.js";
 import { aiConfigured, chatJson } from "./b24-ai.js";
 import { lineUsable } from "./b24-billing.js";
+import { deleteMedia } from "./whatsapp-media.js";
 import { langOf, pick, type Lang } from "./b24-i18n.js";
 import {
   b24Call,
@@ -357,10 +358,27 @@ export async function runReportSchedule(store: Store, now = Date.now()) {
   }
 }
 
+/** Bitrix'e aktarılan medya 7 gün içinde Bitrix tarafından indirilir; 8 günden eskisi silinir. */
+export const MEDIA_KEEP_DAYS = 8;
+export async function pruneConnectorMedia(store: Store, now = Date.now()) {
+  const limit = now - MEDIA_KEEP_DAYS * DAY;
+  let removed = 0;
+  for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER))
+    removed += await deleteMedia(store, `b24:${row.payload.id}`, (m) => Date.parse(m.createdAt) < limit);
+  return removed;
+}
+
 let scheduler: NodeJS.Timeout | null = null;
 export function startReportScheduler(store: Store) {
   if (scheduler) return;
-  scheduler = setInterval(() => void runReportSchedule(store).catch((e) => console.warn("Rapor zamanlayıcısı:", (e as Error).message)), 5 * 60_000);
+  let lastPrune = 0;
+  scheduler = setInterval(() => {
+    void runReportSchedule(store).catch((e) => console.warn("Rapor zamanlayıcısı:", (e as Error).message));
+    if (Date.now() - lastPrune > 3_600_000) {
+      lastPrune = Date.now();
+      void pruneConnectorMedia(store).catch((e) => console.warn("Medya temizliği:", (e as Error).message));
+    }
+  }, 5 * 60_000);
   scheduler.unref?.();
 }
 

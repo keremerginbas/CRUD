@@ -702,6 +702,10 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     // Stil dışında kalan Türkçe karakterler yalnız veri anahtarları olabilir (müşteri, sıcak, ılık, soğuk)
     const body = html.split("</style>")[1].replace(/"(müşteri|sıcak|ılık|soğuk)"/g, "");
     expect(body.match(/[^\s<>"']*[ğüşıöçĞÜŞİÖÇ][^\s<>"']*/g) || []).toEqual([]);
+    // Türkçe karakter içermeyen kısa Türkçe kelimeler de dizgilerde kalmamalı
+    const pieces = (script.match(/'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"/g) || []).flatMap((lit) => lit.slice(1, -1).split(/[<>"]|(?<!\\)'/).map((p) => p.trim()));
+    const turkishWords = ["dk", "sn", "sa", "saat", "gecikti", "gelen", "giden", "indirim", "Banka:", "Referans:", "Kart", "Liste", "Durum", "Kaydet", "Sil", "Ayarlar", "Personel", "Roller"];
+    expect(pieces.filter((p) => turkishWords.includes(p))).toEqual([]);
     expect(localizeMessage("Rol adı gerekli.", "en")).toBe("A role name is required.");
     expect(localizeMessage("Bu kod en fazla 3 numara için geçerli.", "en")).toBe("This code is valid for at most 3 numbers.");
     expect(localizeMessage("Rol adı gerekli.", "tr")).toBe("Rol adı gerekli.");
@@ -764,4 +768,54 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const bad = await (await fetch(`${base}/b24/panel/role/save`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t, lang: "en", name: "" }) })).json();
     expect(bad.message).toBe("A role name is required.");
   });
+
+  it("kaldırınca müşteri verisi silinir, lisans korunur; yasal sayfalar ve REST kaydı", async () => {
+    const { base, store, evo } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const instance = instanceName(MEMBER, "3");
+    await fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ event: "messages.upsert", instance, data: { key: { id: "U1", remoteJid: "905301112233@s.whatsapp.net" }, pushName: "Ayşe", message: { conversation: "Merhaba" } } }),
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    const portal = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+    portal.lines["3"].license = { trialStart: "2026-01-01T00:00:00.000Z", paidUntil: "2099-01-01T00:00:00.000Z" };
+    await store.put("b24-portal", MEMBER, portal, "b24-connector");
+    expect((await store.list("b24-chat", "b24-connector")).length).toBe(1);
+
+    const res = await fetch(`${base}/b24/events`, formPost({ event: "ONAPPUNINSTALL", "auth[member_id]": MEMBER, "auth[application_token]": "app-token", "auth[access_token]": "tok-2" }));
+    expect(res.status).toBe(200);
+    await new Promise((r) => setTimeout(r, 80));
+    expect(evo.some((c) => c.url === `/instance/logout/${instance}`)).toBe(true);
+    const after = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+    expect(after).toMatchObject({ active: false, accessToken: "", refreshToken: "" });
+    expect(after.applicationToken).toBeUndefined();
+    expect(after.lines["3"]).toMatchObject({ status: "disconnected", license: { paidUntil: "2099-01-01T00:00:00.000Z" } });
+    expect(await store.list("b24-chat", "b24-connector")).toEqual([]);
+    expect(await store.list("b24-stat", "b24-connector")).toEqual([]);
+
+    // Yeniden kurulum lisansı korur
+    expect((await install(base)).status).toBe(200);
+    expect((await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload.lines["3"].license.paidUntil).toBe("2099-01-01T00:00:00.000Z");
+
+    process.env.B24_VENDOR_NAME = "XRE Yazılım <A.Ş.>";
+    process.env.B24_SUPPORT_EMAIL = "support@example.com";
+    const terms = await (await fetch(`${base}/b24/legal/terms`)).text();
+    expect(terms).toContain("End User License Agreement");
+    expect(terms).toContain("XRE Yazılım &lt;A.Ş.&gt;");
+    expect(terms).toContain("XRE WhatsApp");
+    const privacy = await (await fetch(`${base}/b24/legal/privacy?lang=tr`)).text();
+    expect(privacy).toContain("Gizlilik Politikası");
+    expect(privacy).toContain("support@example.com");
+    expect((await fetch(`${base}/b24/support`)).status).toBe(200);
+
+    // REST kayıtları: belirteç yazılmaz
+    const dir = path.join(process.env.XRE_DATA_DIR!, "b24-rest");
+    const log = fs.readdirSync(dir).map((f) => fs.readFileSync(path.join(dir, f), "utf8")).join("");
+    expect(log).toContain('"method":"imconnector.register"');
+    expect(log).not.toContain("tok-2");
+  });
 });
+

@@ -93,6 +93,19 @@ export async function readMedia(
   }
 }
 
+/** Bir sahibin medyasını siler (filtre verilirse yalnız eşleşenleri); silinen sayısını döndürür. */
+export async function deleteMedia(store: Store, owner: string, filter: (record: MediaRecord) => boolean = () => true): Promise<number> {
+  const raw = rawStoreOf(store);
+  let count = 0;
+  for (const row of await raw.list<MediaRecord>(MEDIA_KIND, owner)) {
+    if (!filter(row.payload)) continue;
+    await fs.unlink(path.join(mediaDir(), row.payload.id)).catch(() => undefined);
+    await raw.delete(MEDIA_KIND, row.payload.id, owner);
+    count++;
+  }
+  return count;
+}
+
 // ---------------------------------------------------------------------------
 // Gönderim
 // ---------------------------------------------------------------------------

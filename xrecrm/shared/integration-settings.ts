@@ -113,6 +113,11 @@ export const SETTING_GROUPS: SettingGroup[] = [
       { key: "B24_CLIENT_ID", label: "Uygulama kimliği (client_id)", placeholder: "app.xxxxxxxx.xxxxxxxx" },
       { key: "B24_CLIENT_SECRET", label: "Uygulama anahtarı (client_secret)", secret: true },
       { key: "B24_FREE_DOMAINS", label: "Ücretsiz portallar", placeholder: "xre.bitrix24.com.tr", help: "Virgülle ayırın. Bu portallarda lisans istenmez (kendi şirketiniz)." },
+      { key: "B24_VENDOR_NAME", label: "Geliştirici (lisans veren) unvanı", placeholder: "XRE Yazılım A.Ş.", help: "Lisans sözleşmesi ve gizlilik politikasında görünür: {origin}/b24/legal/terms, {origin}/b24/legal/privacy" },
+      { key: "B24_VENDOR_ADDRESS", label: "Geliştirici adresi", placeholder: "Atatürk Cad. No:1, İstanbul, Türkiye" },
+      { key: "B24_SUPPORT_EMAIL", label: "Destek e-postası", placeholder: "support@xresoftware.com", help: "Pazar yeri uluslararası alan adı ister (.com gibi)." },
+      { key: "B24_SUPPORT_PHONE", label: "Destek telefonu", placeholder: "+90 850 000 00 00" },
+      { key: "B24_SUPPORT_HOURS", label: "Destek saatleri", placeholder: "Mon–Fri 09:00–18:00 (UTC+3), reply within 1 business day" },
     ],
   },
   {

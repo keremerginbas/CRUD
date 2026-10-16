@@ -78,7 +78,10 @@ Kartla ödeme (iyzico / PayTR) bu kayıtların üzerine sonradan eklenecek; mevc
 |---|---|
 | Kurulum yolu | `https://crm.xresoftware.com.tr/b24/install` |
 | Uygulama (işleyici) yolu | `https://crm.xresoftware.com.tr/b24/app` |
-| Gerekli izinler | `imconnector`, `imopenlines`, `im`, `crm`, `user`, `placement` |
+| Gerekli izinler | `imconnector`, `imopenlines`, `crm`, `user_basic` (gerekirse `user`), `im` |
+| Lisans sözleşmesi | `https://crm.xresoftware.com.tr/b24/legal/terms` |
+| Gizlilik politikası | `https://crm.xresoftware.com.tr/b24/legal/privacy` |
+| Destek | `https://crm.xresoftware.com.tr/b24/support` |
 
 ## Kendi portalınızda deneme (pazar yerine yüklemeden)
 
@@ -90,22 +93,30 @@ Kartla ödeme (iyzico / PayTR) bu kayıtların üzerine sonradan eklenecek; mevc
 
 ## Pazar yerine yükleme
 
-1. vendors.bitrix24.com üzerinden partner (geliştirici) hesabı açılır.
-2. Yeni uygulama oluşturulur. Aynı adresler ve izinler girilir.
-3. Pazar yerinin verdiği client_id/secret CRM'e girilir. Kendi portalınızda denediğiniz yerel uygulamanın anahtarlarıyla aynı anda kullanılamaz; yayına geçerken pazar yeri anahtarlarına geçilir.
-4. Açıklama, ekran görüntüleri ve fiyat girilip Bitrix'e incelemeye gönderilir.
+Uygulama `vendors.bitrix24.com` (geliştirici alanı) üzerinden yayımlanır; `partners.bitrix24.com` iş ortaklığı (kurulum/danışmanlık) programıdır, uygulama yüklemek için gerekmez. Kart metinleri, ikon, ekran görüntüleri ve adım adım kontrol listesi: [market/LISTING.md](market/LISTING.md).
+
+Bitrix24 Market kurallarına göre hazırladıklarım:
+
+- **İngilizce arayüz:** Bitrix'in gönderdiği dil Türkçe değilse panel, kurulum ve ayar sayfaları, hata mesajları, sohbet notları ve raporlar İngilizce. Çeviri hedefi portal dili.
+- **Yasal sayfalar:** `/b24/legal/terms` (lisans sözleşmesi), `/b24/legal/privacy` (gizlilik), `/b24/support` (destek). İngilizce varsayılan, `?lang=tr` Türkçe. Unvan ve iletişim bilgileri Entegrasyonlar ekranından gelir.
+- **REST kayıtları:** her Bitrix REST çağrısı (belirteçsiz, kısaltılmış) `data/b24-rest/YYYY-MM-DD.log` dosyasına yazılır ve 7 gün saklanır (kural: en az 3 gün).
+- **Kaldırma:** WhatsApp oturumları kapanır; belirteçler, sohbet geçmişi, istatistik, rapor ve medya silinir. Numara adları ve ödenmiş lisanslar korunur.
+- **Medya:** Bitrix'e aktarılan dosyalar 8 gün sonra sunucudan silinir.
+- **Kurulum:** kurulum bitince Bitrix uygulamayı yeniden yükler ve yönetim paneli açılır (boş sayfa kalmaz).
 
 ## Güvenlik
 
-- Kurulum belirteci, portalın kendi `user.current` çağrısıyla doğrulanır.
-- Kanal ayar ekranını yalnız portal yöneticisi açabilir. Ekranın arka uçları 2 saatlik imzalı biletle çalışır.
-- Bitrix olayları portalın `application_token` değeriyle doğrulanır. Değer ilk olayda kaydedilir, sonraki olaylar ona göre doğrulanır.
-- Gelen medya Bitrix'e 7 gün geçerli, imzalı adreslerle verilir.
-- Uygulama kaldırılınca portalın WhatsApp oturumları kapatılır, belirteçleri silinir.
+- Kurulum belirteci Bitrix'in OAuth sunucusunda (oauth.bitrix.info), uygulamanın gizli anahtarıyla doğrulanır. Portal kimliği ve adresi oradan alınır. Sahte bir "Bitrix" sunucusuyla portal kaydedilemez, kaldırılmış bir portalın kimliği ele geçirilemez. Kurulumu yalnız portal yöneticisi yapabilir.
+- Yönetim paneli ve kanal ayar ekranı yalnız portal yöneticisine açılır. Arka uçları 2 saatlik imzalı biletle çalışır.
+- Bitrix olayları portalın `application_token` değeriyle doğrulanır. Değer ancak olayın erişim belirteci portalın kendi REST adresinde doğrulanırsa sabitlenir; sahte ilk olay kabul edilmez.
+- Gelen medya Bitrix'e 7 gün geçerli, imzalı adreslerle verilir. Sunucudaki kopya 8 gün sonra silinir.
+- Rapor bağlantıları tahmin edilemez (144 bit), arama motorlarına kapalı ve 90 gün geçerlidir.
+- Müşteri mesajları yapay zekâya güvenilmeyen veri olarak verilir. Model yalnız metin üretir; hiçbir işlem tetiklemez.
+- Uygulama kaldırılınca WhatsApp oturumları kapatılır; belirteçler ve müşteri verileri silinir.
 
 ## Henüz yapılmadı
 
 - Hedef süreyi aşan sohbetler için yöneticiye Bitrix bildirimi (`im` izni gerekir).
 - Kartla ödeme (iyzico / PayTR).
 - Telefondan doğrudan yazılan mesajların Bitrix'e kopyalanması.
-- Pazar yeri açıklama sayfası ve İngilizce arayüz.
+- AI asistan ve rapor saatleri için portal saat dilimi (şimdilik UTC+3).
