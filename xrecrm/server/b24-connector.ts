@@ -8,6 +8,8 @@
 // CRM'in kendi çalışma alanından tamamen ayrıdır.
 import crypto from "node:crypto";
 import express, { type Express, type Request, type Response } from "express";
+import { panelHtml } from "./b24-panel-html.js";
+export { panelHtml };
 import type { Store } from "./db.js";
 import { evolutionBase, evolutionWebhookConfig, getEvolutionQr, jidPhone } from "./integrations.js";
 import { envConfigured, fetchWithTimeout, normalizePhone, readJsonResponse } from "./security.js";
@@ -874,65 +876,6 @@ function registerPanelRoutes(
   );
 }
 
-export function panelHtml(ticket: string, domain: string) {
-  return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XRE WhatsApp</title>
-<style>
-:root{--bg:#1f2329;--panel:#2a2f36;--card:#323841;--line:#3d444e;--text:#e8edf2;--muted:#9aa5b1;--green:#25D366;--green2:#1da851;--red:#ef5350;--amber:#f5b041}
-*{box-sizing:border-box}body{margin:0;font:13px/1.45 system-ui,-apple-system,Segoe UI,sans-serif;background:var(--bg);color:var(--text)}
-header{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:var(--panel);border-bottom:1px solid var(--line)}
-header b{font-size:14px}header small{color:var(--muted);display:block}.brand{color:var(--green);font-weight:800;letter-spacing:.5px}
-nav{display:flex;gap:4px;padding:10px 18px;border-bottom:1px solid var(--line)}nav button{background:none;border:0;color:var(--muted);padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:600}
-nav button.active{background:var(--card);color:var(--text)}main{padding:18px}
-.bar{display:flex;gap:10px;align-items:center;margin-bottom:14px}.btn{border:1px solid var(--line);background:var(--card);color:var(--text);padding:7px 12px;border-radius:8px;cursor:pointer;font-weight:600}
-.btn.primary{background:var(--green);border-color:var(--green);color:#06210f}.btn.danger{color:var(--red)}.btn:disabled{opacity:.5}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
-.card h3{margin:0 0 4px;font-size:14px;display:flex;gap:6px;align-items:center}.card .phone{color:var(--muted)}.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--line);color:var(--muted)}.row span:last-child{color:var(--text)}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:700;background:#3d444e}.badge.ok{background:rgba(37,211,102,.18);color:var(--green)}.badge.warn{background:rgba(245,176,65,.18);color:var(--amber)}
-.actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}table{width:100%;border-collapse:collapse;background:var(--panel);border-radius:12px;overflow:hidden}
-th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:11px;text-transform:uppercase}select,input[type=text]{background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
-.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;place-items:center;padding:16px}.modal.open{display:grid}.dialog{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(420px,100%);max-height:90vh;overflow:auto}
-.dialog h2{margin:0 0 12px;font-size:16px}.qr{display:grid;place-items:center;min-height:260px;background:#fff;border-radius:12px;margin:10px 0}.qr img{width:240px;height:240px}.qr p{color:#333}
-label.check{display:flex;gap:8px;align-items:center;padding:6px 0}.muted{color:var(--muted)}.warn{color:var(--amber);margin:10px 0;white-space:pre-line}.empty{color:var(--muted);padding:30px;text-align:center}
-</style></head><body>
-<header><div><b>${escapeHtml(domain)}</b><small>XRE WhatsApp yönetimi</small></div><span class="brand">XRE WHATSAPP</span></header>
-<nav><button data-tab="connections" class="active">Bağlantılar</button><button data-tab="staff">Personel</button><button data-tab="roles">Roller</button></nav>
-<main id="main"><p class="muted">Yükleniyor…</p></main>
-<div class="modal" id="modal"><div class="dialog" id="dialog"></div></div>
-<script>
-const T=${JSON.stringify(ticket)};let S={connections:[],roles:[],users:[]};let tab="connections";let poll=null;
-const $=s=>document.querySelector(s);const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
-async function api(path,body={}){const r=await fetch("/b24/panel/"+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,t:T})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.message||"İşlem başarısız.");return j;}
-function warn(w){if(w&&w.length)alert(w.join("\\n"));}
-async function load(){try{S=await api("state");render();}catch(e){$("#main").innerHTML='<p class="warn">'+esc(e.message)+'</p>';}}
-function close(){$("#modal").classList.remove("open");if(poll){clearInterval(poll);poll=null;}}
-function open(html){$("#dialog").innerHTML=html;$("#modal").classList.add("open");}
-$("#modal").onclick=e=>{if(e.target.id==="modal")close();};
-document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x===b));render();});
-const phone=p=>p?"+"+p.replace(/^(\\d{2})(\\d{3})(\\d{3})(\\d{2})(\\d{2})$/,"$1 $2 $3 $4 $5"):"Numara bağlı değil";
-function render(){const m=$("#main");
-if(tab==="connections"){m.innerHTML='<div class="bar"><button class="btn primary" id="add">+ Bağlantı ekle</button><span class="muted">Her bağlantı Bitrix\\'te ayrı bir Açık Kanal olur.</span></div>'+(S.connections.length?'<div class="grid">'+S.connections.map(c=>'<div class="card"><h3>'+(c.status==="connected"?"🟢":"⚪")+' '+esc(c.name)+'</h3><div class="phone">'+esc(phone(c.phone))+(c.profileName?' · '+esc(c.profileName):'')+'</div><div style="margin:8px 0">'+(c.status==="connected"?'<span class="badge ok">Bağlı</span>':'<span class="badge warn">Bağlı değil</span>')+'</div><div class="row"><span>Açık Kanal</span><span>#'+esc(c.line)+'</span></div><div class="row"><span>Erişen roller</span><span>'+esc(S.roles.filter(r=>r.lines==="all"||r.lines.includes(c.line)).map(r=>r.name).join(", ")||"—")+'</span></div><div class="actions"><button class="btn" data-qr="'+c.line+'">'+(c.status==="connected"?"Yeniden bağla":"QR ile bağla")+'</button><button class="btn" data-rename="'+c.line+'">Adı değiştir</button>'+(c.status==="connected"?'<button class="btn" data-off="'+c.line+'">Bağlantıyı kes</button>':'')+'<button class="btn danger" data-del="'+c.line+'">Sil</button></div></div>').join("")+'</div>':'<div class="empty">Henüz bağlantı yok. “Bağlantı ekle” ile ilk WhatsApp numaranızı bağlayın.</div>');
-$("#add").onclick=async()=>{const n=prompt("Bağlantı adı (ör. Satış 7124):");if(!n)return;try{const r=await api("connection/add",{name:n});await load();qr(r.line);}catch(e){alert(e.message);}};
-m.querySelectorAll("[data-qr]").forEach(b=>b.onclick=()=>qr(b.dataset.qr));
-m.querySelectorAll("[data-rename]").forEach(b=>b.onclick=async()=>{const c=S.connections.find(x=>x.line===b.dataset.rename);const n=prompt("Yeni ad:",c.name);if(!n)return;try{await api("connection/rename",{line:c.line,name:n});load();}catch(e){alert(e.message);}});
-m.querySelectorAll("[data-off]").forEach(b=>b.onclick=async()=>{if(!confirm("WhatsApp bağlantısı kesilsin mi?"))return;await api("connection/disconnect",{line:b.dataset.off}).catch(e=>alert(e.message));load();});
-m.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{if(!confirm("Bağlantı silinsin mi? WhatsApp oturumu kapanır, Bitrix Açık Kanalı ve sohbet geçmişi kalır."))return;await api("connection/delete",{line:b.dataset.del}).catch(e=>alert(e.message));load();});}
-if(tab==="staff"){const opts=r=>'<option value="">'+(S.roles.some(x=>x.isDefault)?"Varsayılan rol":"Rol yok")+'</option>'+S.roles.map(x=>'<option value="'+esc(x.id)+'"'+(x.id===r?" selected":"")+'>'+esc(x.name)+'</option>').join("");
-m.innerHTML=S.roles.length?'<table><thead><tr><th>İsim</th><th>Pozisyon</th><th>E-posta</th><th>Rol</th><th>Görebildiği numaralar</th></tr></thead><tbody>'+S.users.map(u=>{const role=S.roles.find(r=>r.id===u.roleId)||S.roles.find(r=>r.isDefault);const nums=!role?"Hiçbiri":role.lines==="all"?"Tümü":(S.connections.filter(c=>role.lines.includes(c.line)).map(c=>c.name).join(", ")||"Hiçbiri");return '<tr><td>'+esc(u.name)+'</td><td>'+esc(u.position)+'</td><td>'+esc(u.email)+'</td><td><select data-user="'+esc(u.id)+'">'+opts(u.roleId)+'</select></td><td>'+esc(nums)+'</td></tr>';}).join("")+'</tbody></table>':'<div class="empty">Önce “Roller” sekmesinden en az bir rol oluşturun.</div>';
-m.querySelectorAll("[data-user]").forEach(s=>s.onchange=async()=>{try{const r=await api("user/role",{userId:s.dataset.user,roleId:s.value});warn(r.warnings);load();}catch(e){alert(e.message);}});}
-if(tab==="roles"){m.innerHTML='<div class="bar"><button class="btn primary" id="addRole">+ Rol ekle</button><span class="muted">Personel yalnız rolündeki numaraların sohbetlerini alır.</span></div>'+(S.roles.length?'<table><thead><tr><th>Rol</th><th>Numaralar</th><th>Personel</th><th></th></tr></thead><tbody>'+S.roles.map(r=>'<tr><td>'+esc(r.name)+(r.isDefault?' <span class="badge ok">Varsayılan</span>':'')+'</td><td>'+esc(r.lines==="all"?"Tümü":(S.connections.filter(c=>r.lines.includes(c.line)).map(c=>c.name).join(", ")||"Hiçbiri"))+'</td><td>'+S.users.filter(u=>u.roleId===r.id||(!u.roleId&&r.isDefault)).length+'</td><td style="text-align:right"><button class="btn" data-edit="'+esc(r.id)+'">Düzenle</button> <button class="btn danger" data-rdel="'+esc(r.id)+'">Sil</button></td></tr>').join("")+'</tbody></table>':'<div class="empty">Henüz rol yok. Rol oluşturmadan Bitrix kuyruklarına dokunulmaz.</div>');
-$("#addRole").onclick=()=>roleForm();m.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>roleForm(S.roles.find(r=>r.id===b.dataset.edit)));
-m.querySelectorAll("[data-rdel]").forEach(b=>b.onclick=async()=>{if(!confirm("Rol silinsin mi?"))return;try{const r=await api("role/delete",{id:b.dataset.rdel});warn(r.warnings);load();}catch(e){alert(e.message);}});}}
-function roleForm(role){const r=role||{id:"",name:"",lines:[],isDefault:false};const all=r.lines==="all";
-open('<h2>'+(role?"Rolü düzenle":"Yeni rol")+'</h2><label>Adı<input type="text" id="rn" value="'+esc(r.name)+'"></label><p class="muted" style="margin:12px 0 4px">Görebileceği numaralar</p><label class="check"><input type="checkbox" id="rall"'+(all?" checked":"")+'> Tüm numaralar</label><div id="rlines">'+S.connections.map(c=>'<label class="check"><input type="checkbox" value="'+esc(c.line)+'"'+(!all&&r.lines.includes(c.line)?" checked":"")+'> '+esc(c.name)+' <span class="muted">'+esc(phone(c.phone))+'</span></label>').join("")+'</div><label class="check"><input type="checkbox" id="rdef"'+(r.isDefault?" checked":"")+'> Varsayılan rol (rol atanmamış personel)</label><div class="actions" style="justify-content:flex-end"><button class="btn" id="rc">Kapat</button><button class="btn primary" id="rs">Kaydet</button></div>');
-$("#rc").onclick=close;$("#rs").onclick=async()=>{const lines=$("#rall").checked?"all":[...document.querySelectorAll("#rlines input:checked")].map(i=>i.value);try{const res=await api("role/save",{id:r.id,name:$("#rn").value,lines,isDefault:$("#rdef").checked});close();warn(res.warnings);load();}catch(e){alert(e.message);}};}
-async function qr(line){const c=S.connections.find(x=>x.line===String(line))||{name:"WhatsApp"};
-open('<h2>'+esc(c.name)+' · QR ile bağla</h2><ol class="muted"><li>Telefonda WhatsApp → Ayarlar → Bağlı cihazlar</li><li>“Cihaz bağla” ile aşağıdaki kodu okutun</li></ol><div class="qr" id="qrbox"><p>QR hazırlanıyor…</p></div><div class="actions" style="justify-content:flex-end"><button class="btn" id="qc">Kapat</button></div>');
-$("#qc").onclick=()=>{close();load();};
-const tick=async()=>{try{const s=await api("connection/status",{line});if(s.status==="connected"){$("#qrbox").innerHTML='<p style="color:#128c4b;font-weight:700">Bağlandı: '+esc(phone(s.phone))+'</p>';clearInterval(poll);poll=null;setTimeout(()=>{close();load();},1500);return;}const q=await api("connection/qr",{line});if(q.qr)$("#qrbox").innerHTML='<img alt="WhatsApp QR" src="'+esc(q.qr)+'">';else $("#qrbox").innerHTML='<p>'+esc(q.message)+'</p>';}catch(e){$("#qrbox").innerHTML='<p>'+esc(e.message)+'</p>';}};
-await tick();poll=setInterval(tick,5000);}
-load();
-</script></body></html>`;
-}
 
 /**
  * XRE WhatsApp panelindeki role göre bir Bitrix kullanıcısının kullanabileceği

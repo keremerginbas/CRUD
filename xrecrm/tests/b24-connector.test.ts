@@ -219,7 +219,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await install(base);
     const home = await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }));
     const html = await home.text();
-    expect(html).toContain("Bağlantı ekle");
+    expect(html).toContain("Numara ekle");
     const t = html.match(/const T="([^"]+)"/)?.[1];
     const call = async (path: string, body: Record<string, unknown> = {}) => {
       const r = await fetch(`${base}/b24/panel/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
@@ -247,7 +247,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     // Personel yalnız kendi rolündeki numaraları görür; panel açılmaz.
     const kaan = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "user-auth" }))).text();
     expect(kaan).toContain("Satış 7124");
-    expect(kaan).not.toContain("Bağlantı ekle");
+    expect(kaan).not.toContain("Numara ekle");
     const merve = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "merve-auth" }))).text();
     expect(merve).toContain("Sigorta");
     expect(merve).toContain("Size atanmış numara yok");
@@ -257,7 +257,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const { base, bx } = await setup();
     const res = await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "ref-1" }));
     expect(res.status).toBe(200);
-    expect(await res.text()).toContain("Bağlantı ekle");
+    expect(await res.text()).toContain("Numara ekle");
     expect(bx.some((c) => c.method === "imconnector.register")).toBe(true);
     // Yönetici olmayan biri kuramaz
     const other = await fetch(`${base}/b24/app`, formPost({ member_id: "baskaportal1", DOMAIN: "baska.bitrix24.com", AUTH_ID: "user-auth" }));
