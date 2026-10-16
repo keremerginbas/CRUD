@@ -110,8 +110,10 @@ export const SETTING_GROUPS: SettingGroup[] = [
     title: "Bitrix24 pazar yeri uygulaması (XRE WhatsApp)",
     description: "Başka Bitrix24 portallarına satılan Açık Kanal bağlayıcısı. Kurulum: {origin}/b24/install, uygulama: {origin}/b24/app, lisans ve ödeme yönetimi: {origin}/b24/admin",
     fields: [
-      { key: "B24_CLIENT_ID", label: "Uygulama kimliği (client_id)", placeholder: "app.xxxxxxxx.xxxxxxxx" },
-      { key: "B24_CLIENT_SECRET", label: "Uygulama anahtarı (client_secret)", secret: true },
+      { key: "B24_CLIENT_ID", label: "Yerel uygulama kimliği (client_id)", placeholder: "local.xxxxxxxx.xxxxxxxx", help: "Kendi portalınızdaki yerel uygulamanın anahtarları." },
+      { key: "B24_CLIENT_SECRET", label: "Yerel uygulama anahtarı (client_secret)", secret: true },
+      { key: "B24_MARKET_CLIENT_ID", label: "Pazar yeri uygulama kimliği (client_id)", placeholder: "app.xxxxxxxx.xxxxxxxx", help: "vendors.bitrix24.com → uygulama → Test düğmesinde görünür. Yerel uygulamayla birlikte çalışır." },
+      { key: "B24_MARKET_CLIENT_SECRET", label: "Pazar yeri uygulama anahtarı (client_secret)", secret: true },
       { key: "B24_FREE_DOMAINS", label: "Ücretsiz portallar", placeholder: "xre.bitrix24.com.tr", help: "Virgülle ayırın. Bu portallarda lisans istenmez (kendi şirketiniz)." },
       { key: "B24_VENDOR_NAME", label: "Geliştirici (lisans veren) unvanı", placeholder: "XRE Yazılım A.Ş.", help: "Lisans sözleşmesi ve gizlilik politikasında görünür: {origin}/b24/legal/terms, {origin}/b24/legal/privacy" },
       { key: "B24_VENDOR_ADDRESS", label: "Geliştirici adresi", placeholder: "Atatürk Cad. No:1, İstanbul, Türkiye" },

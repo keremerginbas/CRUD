@@ -91,7 +91,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 ## Yayından önce kontrol listesi
 
 - [ ] vendors.bitrix24.com'da geliştirici hesabı ve tüzel kişi bilgileri; "Marketplace Policy" onayı (ücretsiz + uygulama içi ödeme için yeterli).
-- [ ] Uygulama kaydı → client_id / client_secret → CRM'de Entegrasyonlar → "Bitrix24 pazar yeri uygulaması" alanlarına girilmesi (mevcut yerel uygulamanın anahtarları yerine).
+- [ ] Uygulama kaydı → "Test" düğmesindeki client_id / client_secret → CRM'de Entegrasyonlar → "Bitrix24 pazar yeri uygulaması" → **Pazar yeri uygulama kimliği / anahtarı** alanları. Yerel uygulamanın anahtarlarına dokunmayın; ikisi birlikte çalışır.
 - [ ] Entegrasyonlar ekranında geliştirici unvanı, adres, destek e-postası (uluslararası alan adı), telefon ve saatlerin girilmesi; `/b24/legal/terms`, `/b24/legal/privacy` ve `/b24/support` sayfalarının kontrolü.
 - [ ] `/b24/admin` → Fiyatlar: para birimi **USD** (Bitrix global bölgede uygulama içi ödemeyi USD/EUR ister), aylık fiyat ve banka bilgileri (USD hesabı).
 - [ ] Temiz bir test portalında: kur → kullan → kaldır → yeniden kur; yönetici ve normal kullanıcı olarak ayrı ayrı dene. Geliştirme yaptığınız portalda test etmeyin.

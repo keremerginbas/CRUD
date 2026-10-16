@@ -57,6 +57,8 @@ export interface B24Portal {
   settings?: B24Settings;
   agent?: AgentConfig;
   reports?: ReportSettings;
+  /** Portalın kurulduğu Bitrix uygulamasının client_id'si (yoksa B24_CLIENT_ID). */
+  clientId?: string;
   /** Arayüz ve sohbet notlarının dili (Bitrix LANG); yoksa Türkçe. */
   lang?: Lang;
 }
@@ -258,15 +260,27 @@ function origin(req?: Request) {
 
 // --- Bitrix REST -------------------------------------------------------------
 
+/**
+ * Uygulama anahtarları. Aynı sunucu iki Bitrix uygulamasına hizmet edebilir:
+ * kendi portalımızdaki yerel uygulama (B24_CLIENT_ID) ve pazar yeri uygulaması
+ * (B24_MARKET_CLIENT_ID). Her portal hangi uygulamayla kurulduysa onun
+ * anahtarıyla yenilenir.
+ */
+export function appCredentials(): { id: string; secret: string }[] {
+  return [
+    { id: env("B24_CLIENT_ID"), secret: env("B24_CLIENT_SECRET") },
+    { id: env("B24_MARKET_CLIENT_ID"), secret: env("B24_MARKET_CLIENT_SECRET") },
+  ].filter((c, i, all) => c.id && c.secret && all.findIndex((x) => x.id === c.id) === i);
+}
+const noCredentials = () => Object.assign(new Error("Sunucuda B24_CLIENT_ID / B24_CLIENT_SECRET tanımlı değil."), { statusCode: 503 });
+const tokenUrl = (cred: { id: string; secret: string }, refreshToken: string) =>
+  `https://oauth.bitrix.info/oauth/token/?${new URLSearchParams({ grant_type: "refresh_token", client_id: cred.id, client_secret: cred.secret, refresh_token: refreshToken })}`;
+
 async function refresh(store: Store, portal: B24Portal): Promise<B24Portal> {
-  if (!env("B24_CLIENT_ID") || !env("B24_CLIENT_SECRET"))
-    throw Object.assign(new Error("B24_CLIENT_ID / B24_CLIENT_SECRET tanımlı değil."), { statusCode: 503 });
-  const url = `https://oauth.bitrix.info/oauth/token/?${new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: env("B24_CLIENT_ID"),
-    client_secret: env("B24_CLIENT_SECRET"),
-    refresh_token: portal.refreshToken,
-  })}`;
+  const creds = appCredentials();
+  if (!creds.length) throw noCredentials();
+  const cred = creds.find((c) => c.id === portal.clientId) || creds[0];
+  const url = tokenUrl(cred, portal.refreshToken);
   const data = await fetcher(url, { method: "GET" });
   if (!data?.access_token) throw new Error(`Bitrix belirteci yenilenemedi: ${data?.error_description || data?.error || "bilinmiyor"}`);
   const next: B24Portal = {
@@ -786,16 +800,20 @@ type BitrixParams = ReturnType<typeof readBitrixParams>;
  */
 /** Kurulum belirtecini Bitrix OAuth sunucusunda doğrular (yenileme ile). */
 async function verifyInstallTokens(p: BitrixParams) {
-  if (!env("B24_CLIENT_ID") || !env("B24_CLIENT_SECRET"))
-    throw Object.assign(new Error("Sunucuda B24_CLIENT_ID / B24_CLIENT_SECRET tanımlı değil."), { statusCode: 503 });
+  const creds = appCredentials();
+  if (!creds.length) throw noCredentials();
   if (!p.refreshId) throw Object.assign(new Error("Bitrix kurulum bilgisi eksik (REFRESH_ID)."), { statusCode: 400 });
-  const url = `https://oauth.bitrix.info/oauth/token/?${new URLSearchParams({
-    grant_type: "refresh_token",
-    client_id: env("B24_CLIENT_ID"),
-    client_secret: env("B24_CLIENT_SECRET"),
-    refresh_token: p.refreshId,
-  })}`;
-  const data = await fetcher(url, { method: "GET" }).catch(() => null);
+  // Yenileme belirteci yalnız kendi uygulamasının anahtarıyla kabul edilir; sırayla denenir.
+  let data: any = null;
+  let clientId = "";
+  for (const cred of creds) {
+    const res = await fetcher(tokenUrl(cred, p.refreshId), { method: "GET" }).catch(() => null);
+    if (res?.access_token) {
+      data = res;
+      clientId = cred.id;
+      break;
+    }
+  }
   const endpoint = String(data?.client_endpoint || "");
   let host = "";
   try {
@@ -811,6 +829,7 @@ async function verifyInstallTokens(p: BitrixParams) {
     refreshToken: String(data.refresh_token || p.refreshId),
     expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000,
     clientEndpoint: `https://${host}/rest/`,
+    clientId,
   };
 }
 
@@ -831,6 +850,7 @@ async function installPortal(store: Store, p: BitrixParams, base: string): Promi
     id: p.memberId,
     domain: p.domain,
     clientEndpoint: verified.clientEndpoint,
+    clientId: verified.clientId,
     accessToken: verified.accessToken,
     refreshToken: verified.refreshToken,
     expiresAt: verified.expiresAt,

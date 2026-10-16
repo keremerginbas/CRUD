@@ -67,6 +67,7 @@ async function setup(opts: { evoState?: string } = {}) {
       tokenValid = "tok-2";
       const refreshToken = new URL(url).searchParams.get("refresh_token");
       if (refreshToken === "forged") return { error: "invalid_grant" };
+      if (refreshToken?.startsWith("mref") && new URL(url).searchParams.get("client_id") !== "market.app") return { error: "invalid_client" };
       return { access_token: "tok-2", refresh_token: "ref-2", expires_in: 3600, member_id: MEMBER, client_endpoint: `https://${DOMAIN}/rest/` };
     }
     const method = url.split("/rest/")[1].replace(/\.json$/, "");
@@ -816,6 +817,24 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const log = fs.readdirSync(dir).map((f) => fs.readFileSync(path.join(dir, f), "utf8")).join("");
     expect(log).toContain('"method":"imconnector.register"');
     expect(log).not.toContain("tok-2");
+  });
+
+  it("yerel ve pazar yeri uygulama anahtarları birlikte çalışır", async () => {
+    process.env.B24_MARKET_CLIENT_ID = "market.app";
+    process.env.B24_MARKET_CLIENT_SECRET = "market-secret";
+    const { base, bx, store } = await setup();
+    const res = await fetch(`${base}/b24/install`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "mref-1" }));
+    expect(res.status).toBe(200);
+    const portal = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+    expect(portal.clientId).toBe("market.app");
+    // Önce yerel anahtar denendi ve reddedildi, sonra pazar yeri anahtarı kabul edildi
+    const tried = bx.filter((c) => c.method === "oauth.refresh").map((c) => new URL(c.url).searchParams.get("client_id"));
+    expect(tried).toEqual(["app.test", "market.app"]);
+    // Süresi dolunca kendi uygulamasının anahtarıyla yenilenir
+    await store.put("b24-portal", MEMBER, { ...portal, expiresAt: Date.now() - 1000 }, "b24-connector");
+    bx.length = 0;
+    await fetch(`${base}/b24/panel/state`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "all") }) });
+    expect(bx.filter((c) => c.method === "oauth.refresh").map((c) => new URL(c.url).searchParams.get("client_id"))[0]).toBe("market.app");
   });
 });
 
