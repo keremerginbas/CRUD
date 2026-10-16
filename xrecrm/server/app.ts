@@ -88,6 +88,7 @@ import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.
 import { registerBitrixAppRoutes } from "./bitrix-app.js";
 import { allowedPhones, lineAccessGuard, lineAllowed, linePhones } from "./line-access.js";
 import { handleConnectorEvolution, isConnectorInstance, registerB24ConnectorRoutes } from "./b24-connector.js";
+import { registerBillingAdminRoutes } from "./b24-billing.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
@@ -1578,6 +1579,7 @@ export function createApp(
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", requireAuth(store), requireModulePermissions);
   app.use(["/api/messages", "/api/whatsapp/send"], lineAccessGuard(store));
+  registerBillingAdminRoutes(app, baseStore);
   registerSuiteRoutes(app, store);
   registerPreferenceRoutes(app, rawStore);
   registerCrmWorkspaceRoutes(app, rawStore);

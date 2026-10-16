@@ -29,6 +29,24 @@ Bu özellikler için CRM'de **Entegrasyonlar → Yapay zekâ asistanı ve n8n �
 - **Müşteri nitelendirme:** Üç mesajda bir sohbetten bütçe, bölge, tür, oda sayısı, amaç ve zaman çıkarılır, 0–100 arası bir puan verilir. Sonuç Bitrix'teki lead kartının (yoksa kişi kartının) zaman akışına yazılır. Bütçe lead'in fırsat tutarına işlenir.
 - **Ekip performansı:** Temsilci başına ortalama ve en uzun ilk cevap süresi, gönderilen mesaj sayısı, numara başına yeni sohbet ve mesaj hacmi gösterilir. Yanıt bekleyen sohbetler listelenir, hedef süreyi aşanlar işaretlenir. Sıcak müşteriler puana göre sıralanır.
 
+## Lisans ve ödeme
+
+- **Model:** Her WhatsApp numarası ayrı lisans. Numara ilk kez bağlandığında ücretsiz deneme başlar (varsayılan 7 gün).
+- **Süre dolunca:** O numaranın mesajları Bitrix'e aktarılmaz ve Bitrix'ten gönderilmez. WhatsApp oturumu açık kalır, lisans uzatılınca kaldığı yerden devam eder. Kartta "Lisans al" butonu çıkar.
+- **Müşteri tarafı** (paneldeki **Ödeme** sekmesi):
+  - Dönem seçer: 1, 3, 6 veya 12 ay; uzun dönemde indirim uygulanır.
+  - Numaraları işaretleyip **Havale ile öde** der. Ekranda IBAN ve referans kodu (ör. `XRE-3F9A1C`) çıkar.
+  - Ya da elindeki **lisans kodunu** girer.
+  - Fatura bilgilerini (kurumsal veya bireysel) bu sekmeden kaydeder.
+- **XRE yönetimi:** `https://crm.xresoftware.com.tr/b24/admin` adresi CRM'e sahip hesabıyla giriş yapılmışken açılır.
+  - **Ödemeler:** Havale bildirimleri burada listelenir. **Onayla** deyince lisans kendiliğinden uzar.
+  - **Portallar:** Her müşteri ve numarası listelenir. Seçilen numaraların lisansı elle uzatılabilir.
+  - **Lisans kodları:** Süre ve numara sayısı belirlenerek tek kullanımlık kod üretilir.
+  - **Fiyatlar:** Aylık fiyat, dönem indirimleri, deneme süresi, IBAN ve banka bilgisi buradan ayarlanır.
+- **Ücretsiz portallar:** Kendi portalınız için **Entegrasyonlar → Bitrix24 pazar yeri uygulaması → Ücretsiz portallar** alanına alan adını yazın, lisans istenmez.
+
+Kartla ödeme (iyzico / PayTR) bu kayıtların üzerine sonradan eklenecek; mevcut lisanslar değişmez.
+
 ## Adresler
 
 | | |
@@ -64,6 +82,6 @@ Bu özellikler için CRM'de **Entegrasyonlar → Yapay zekâ asistanı ve n8n �
 
 - Hedef süreyi aşan sohbetler için yöneticiye Bitrix bildirimi (`im` izni gerekir).
 
-- Deneme süresi ve lisans/ödeme kontrolü.
+- Kartla ödeme (iyzico / PayTR).
 - Telefondan doğrudan yazılan mesajların Bitrix'e kopyalanması.
 - Pazar yeri açıklama sayfası ve İngilizce arayüz.

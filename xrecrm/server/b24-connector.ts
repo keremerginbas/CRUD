@@ -9,6 +9,8 @@
 import crypto from "node:crypto";
 import express, { type Express, type Request, type Response } from "express";
 import { panelHtml } from "./b24-panel-html.js";
+import { adminHtml } from "./b24-admin-html.js";
+import { getPricing, licenseState, lineUsable, registerBillingPanelRoutes, withTrialStarted } from "./b24-billing.js";
 import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
 export { panelHtml };
 import type { Store } from "./db.js";
@@ -25,8 +27,8 @@ import {
 } from "./whatsapp-media.js";
 
 export const CONNECTOR_ID = "xre_whatsapp";
-const SYSTEM_OWNER = "b24-connector";
-const PORTAL_KIND = "b24-portal";
+export const SYSTEM_OWNER = "b24-connector";
+export const PORTAL_KIND = "b24-portal";
 const INSTANCE_KIND = "b24-instance";
 const INSTANCE_PREFIX = "b24-";
 const env = (k: string) => process.env[k]?.trim() || "";
@@ -160,8 +162,14 @@ export const lineOptions = (l?: B24Line): Required<B24LineOptions> => ({
   groups: l?.options?.groups === true,
   edits: l?.options?.edits !== false,
 });
+export interface B24License {
+  /** Deneme, numara ilk bağlandığında başlar. */
+  trialStart?: string;
+  paidUntil?: string;
+}
 export interface B24Line {
   instance: string;
+  license?: B24License;
   options?: B24LineOptions;
   connectedAt?: string;
   name?: string;
@@ -276,10 +284,10 @@ export async function b24Call(store: Store, portalIn: B24Portal, method: string,
   return data?.result;
 }
 
-async function portalById(store: Store, memberId: string) {
+export async function portalById(store: Store, memberId: string) {
   return (await store.get<B24Portal>(PORTAL_KIND, memberId, SYSTEM_OWNER))?.payload || null;
 }
-async function savePortal(store: Store, portal: B24Portal) {
+export async function savePortal(store: Store, portal: B24Portal) {
   await store.put(PORTAL_KIND, portal.id, { ...portal, updatedAt: new Date().toISOString() }, SYSTEM_OWNER);
 }
 
@@ -400,6 +408,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
           phone: phone || previous?.phone,
           profileName: open && data?.profileName ? String(data.profileName).slice(0, 120) : previous?.profileName,
           connectedAt: open ? (previous?.status === "connected" && previous?.connectedAt) || new Date().toISOString() : previous?.connectedAt,
+          license: open ? withTrialStarted(previous) : previous?.license,
           status: open ? "connected" : state || "disconnected",
           updatedAt: new Date().toISOString(),
         },
@@ -411,6 +420,8 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   }
 
   const options = lineOptions(portal.lines[map.line]);
+  // Lisansı dolan numaranın mesajları aktarılmaz.
+  if (!(await lineUsable(store, portal, map.line))) return;
 
   // WhatsApp araması: sohbete not olarak düşer.
   if (event === "call" || event.startsWith("call")) {
@@ -564,6 +575,10 @@ async function agentOf(store: Store, portal: B24Portal, item: any): Promise<stri
 async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, messages: any[]) {
   const info = portal.lines[line];
   if (!info?.instance) return;
+  if (!(await lineUsable(store, portal, line))) {
+    console.warn(`XRE WhatsApp: ${portal.domain} kanal ${line} lisansı dolduğu için mesaj gönderilmedi.`);
+    return;
+  }
   const delivered: any[] = [];
   for (const item of messages) {
     const chatRef = String(item?.chat?.id || "");
@@ -658,7 +673,7 @@ async function connectionStatus(store: Store, portal: B24Portal, line: string) {
       ...portal,
       lines: {
         ...portal.lines,
-        [line]: { ...known, instance, phone: owner.phone || known?.phone, profileName: owner.profileName || known?.profileName, connectedAt: known?.connectedAt || new Date().toISOString(), status: "connected", updatedAt: new Date().toISOString() },
+        [line]: { ...known, instance, phone: owner.phone || known?.phone, profileName: owner.profileName || known?.profileName, connectedAt: known?.connectedAt || new Date().toISOString(), license: withTrialStarted(known), status: "connected", updatedAt: new Date().toISOString() },
       },
     };
     await savePortal(store, next);
@@ -821,6 +836,10 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
 ${mine.length ? `<ul>${mine.map((c) => `<li>${escapeHtml(c.name)} ${c.phone ? `(+${escapeHtml(c.phone)})` : ""}</li>`).join("")}</ul>` : "<p>Size atanmış numara yok. Yöneticinizle görüşün.</p>"}`,
     );
   };
+  // XRE yönetim ekranı: sayfa herkese açık iskelet, veriler CRM sahibi oturumuyla gelir.
+  app.get("/b24/admin", (_req, res) => {
+    res.type("html").setHeader("cache-control", "no-store").send(adminHtml());
+  });
   app.get("/b24/app", home);
   app.post("/b24/app", form, home);
 
@@ -1057,6 +1076,7 @@ function registerPanelRoutes(
     return line;
   };
   const fresh = async (portal: B24Portal) => (await portalById(store, portal.id)) || portal;
+  registerBillingPanelRoutes(app, store, panel, json);
 
   app.post(
     "/b24/panel/state",
@@ -1073,9 +1093,10 @@ function registerPanelRoutes(
       const current = await fresh(portal);
       const users = await portalUsers(store, current).catch(() => [] as B24User[]);
       const activity = await connectionActivity(store, current);
+      const pricing = await getPricing(store);
       return {
         domain: current.domain,
-        connections: publicConnections(current).map((c) => ({ ...c, ...(activity[c.line] || {}) })),
+        connections: publicConnections(current).map((c) => ({ ...c, ...(activity[c.line] || {}), license: licenseState(current, current.lines[c.line], pricing.trialDays) })),
         roles: current.roles || [],
         users: users.map((u) => ({ ...u, roleId: current.assignments?.[u.id] || "" })),
         settings: portalSettings(current),

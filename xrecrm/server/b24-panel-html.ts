@@ -3,12 +3,7 @@
 const escapeHtml = (v: string) =>
   v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-export function panelHtml(ticket: string, domain: string) {
-  return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>XRE WhatsApp</title>
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
+export const PANEL_STYLE = `
 :root{
   --paper:#f4f7fa;--surface:#ffffff;--ink:#10243a;--ink-2:#4a5d72;--ink-3:#7d8ea1;--line:#dfe6ee;--line-2:#eef2f6;
   --accent:#0f7f86;--accent-ink:#ffffff;--accent-soft:#e3f3f3;--ok:#1d9b50;--ok-soft:#e4f5ea;--warn:#b86e00;--warn-soft:#fbf0dc;
@@ -128,6 +123,20 @@ label.field input{display:block;width:100%;margin-top:6px;padding:9px 11px;borde
 .list.lines .row{grid-template-columns:minmax(160px,1.4fr) repeat(6,minmax(70px,.6fr))}
 select.filter{padding:6px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--surface)}
 @media (max-width:980px){.charts{grid-template-columns:1fr}}
+.lic{font-size:12.5px;font-weight:600}.lic.active,.lic.free{color:var(--ok)}.lic.trial{color:var(--warn)}.lic.expired{color:var(--danger)}.lic.new{color:var(--ink-3)}
+.prices{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:6px}
+.price{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:14px 16px;cursor:pointer;text-align:left}
+.price[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.price b{display:block;font-size:22px;letter-spacing:-.02em}.price .sub{display:block}
+.price .off{display:inline-block;margin-top:6px;font-size:11.5px;font-weight:700;color:var(--ok);background:var(--ok-soft);padding:1px 7px;border-radius:999px}
+.list.lic-list .row{grid-template-columns:32px minmax(180px,1.4fr) minmax(140px,1fr) 160px 160px}
+.paybar{position:sticky;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:12px 16px;margin-top:12px;box-shadow:var(--shadow)}
+.paybar b{font-size:18px}
+.bank{background:var(--paper);border-radius:var(--r-s);padding:12px 14px;margin:10px 0;font-size:13.5px;line-height:1.7}
+.bank code{font-size:14px;font-weight:700;letter-spacing:.02em;color:var(--ink)}
+.formgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.formgrid .full{grid-column:1/-1}
+.formgrid label.field input,.formgrid label.field textarea{display:block;width:100%;margin-top:6px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper)}
+.list.pay-list .row{grid-template-columns:140px minmax(160px,1.4fr) 120px 140px 120px}
 .range{display:inline-flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);padding:2px}
 .range button{border:0;background:none;padding:5px 11px;border-radius:5px;cursor:pointer;color:var(--ink-2);font-weight:600}
 .range button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
@@ -157,7 +166,14 @@ h3.section{font-size:15px;margin:22px 0 8px}
   .row.head{display:none}
   .acts{justify-content:flex-start}
 }
-</style></head><body>
+`;
+
+export function panelHtml(ticket: string, domain: string) {
+  return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XRE WhatsApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>${PANEL_STYLE}</style></head><body>
 <div class="top">
   <div><h1>WhatsApp hatları</h1><p>${escapeHtml(domain)}</p></div>
   <div class="tabs" role="tablist">
@@ -165,6 +181,7 @@ h3.section{font-size:15px;margin:22px 0 8px}
     <button role="tab" data-tab="staff" aria-selected="false">Personel</button>
     <button role="tab" data-tab="roles" aria-selected="false">Roller</button>
     <button role="tab" data-tab="perf" aria-selected="false">Performans</button>
+    <button role="tab" data-tab="billing" aria-selected="false">Ödeme</button>
     <button role="tab" data-tab="settings" aria-selected="false">Ayarlar</button>
   </div>
 </div>
@@ -200,6 +217,7 @@ function render(){
       +(list.length?'':'<div class="empty">Aramayla eşleşen numara yok.</div>')+'</div>')
       :'<div class="list"><div class="empty"><strong>İlk WhatsApp numaranızı bağlayın</strong>Numara eklediğinizde Bitrix\\'te onun için bir Açık Kanal açılır ve QR kodu gösterilir.<br><button class="btn primary" id="add">Numara ekle</button></div></div>');
     m.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{view=b.dataset.view;try{localStorage.setItem("xre-wa-view",view);}catch{}render();});
+    m.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{buySel=new Set([b.dataset.buy]);document.querySelector('[data-tab=billing]').click();});
     $("#add").onclick=()=>connForm();
     const s=$("#search");if(s){s.oninput=()=>{filter=s.value;const pos=s.selectionStart;render();const n=$("#search");n.focus();n.setSelectionRange(pos,pos);};}
     m.querySelectorAll("[data-qr]").forEach(b=>b.onclick=()=>qr(b.dataset.qr));
@@ -218,6 +236,7 @@ function render(){
     m.querySelectorAll("[data-user]").forEach(sel=>sel.onchange=async()=>{sel.disabled=true;try{const r=await api("user/role",{userId:sel.dataset.user,roleId:sel.value});warn(r.warnings);if(!(r.warnings||[]).length)toast("Rol güncellendi.");await load();}catch(e){toast(e.message,true);sel.disabled=false;}});
   }
   if(tab==="perf"){perf();return;}
+  if(tab==="billing"){billing();return;}
   if(tab==="settings"){
     const st=S.settings||{translate:true,transcribe:true,qualify:true,slaMinutes:15};
     const sw=(id,on)=>'<label class="switch"><input type="checkbox" id="'+id+'"'+(on?" checked":"")+'><span></span></label>';
@@ -308,6 +327,42 @@ async function perf(){
   m.querySelectorAll("[data-days]").forEach(b=>b.onclick=()=>{perfDays=Number(b.dataset.days);perf();});
   $("#pline").onchange=e=>{perfLine=e.target.value;perf();};
 }
+let buySel=new Set(),buyMonths=12,B=null,billType=null;
+const money=(v,c)=>new Intl.NumberFormat("tr-TR",{style:"currency",currency:c||"TRY",maximumFractionDigits:0}).format(v);
+async function billing(){
+  const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
+  try{B=await api("billing/state");}catch(e){m.innerHTML='<div class="empty"><strong>Ödeme bilgileri alınamadı</strong>'+esc(e.message)+'</div>';return;}
+  if(tab!=="billing")return;
+  const cur=B.pricing.currency,cnt=k=>B.licenses.filter(l=>l.status===k).length;
+  const period=B.periods.find(p=>p.months===buyMonths)||B.periods[0];
+  const st={active:"Aktif",free:"Ücretsiz",trial:"Deneme",expired:"Süresi doldu",new:"Bağlanmadı"};
+  const bi={...(B.billing||{type:"kurumsal"})};if(billType)bi.type=billType;
+  m.innerHTML='<div class="facts"><div class="fact"><b>'+cnt("active")+'</b><span>aktif lisans</span></div><div class="fact"><b>'+cnt("trial")+'</b><span>denemede</span></div><div class="fact'+(cnt("expired")?" alert":"")+'"><b>'+cnt("expired")+'</b><span>süresi dolmuş</span></div><div class="fact"><b>'+B.pricing.trialDays+' gün</b><span>ücretsiz deneme, numara bağlanınca başlar</span></div></div>'
+    +'<h3 class="section">Numara başına fiyat</h3><div class="prices" role="group" aria-label="Dönem">'+B.periods.map(p=>'<button class="price" data-months="'+p.months+'" aria-pressed="'+(p.months===buyMonths)+'"><span class="sub">'+(p.months===1?"Aylık":p.months+" aylık")+'</span><b>'+money(p.monthlyEquivalent,cur)+'<small class="sub" style="display:inline;font-size:13px"> / ay</small></b><span class="sub">'+(p.months>1?"dönem başına "+money(p.perLine,cur):"aylık ödeme")+'</span>'+(p.discount?'<span class="off">%'+p.discount+' indirim</span>':'')+'</button>').join("")+'</div>'
+    +'<h3 class="section">Lisanslarım</h3>'+(B.licenses.length?'<div class="list lic-list"><div class="row head"><span></span><span>Bağlantı</span><span>Numara</span><span>Durum</span><span>Bitiş</span></div>'
+      +B.licenses.map(l=>'<label class="row" style="cursor:pointer"><input type="checkbox" data-sel="'+esc(l.line)+'"'+(buySel.has(l.line)?" checked":"")+(l.status==="free"?" disabled":"")+' aria-label="'+esc(l.name)+' seç"><div class="name">'+esc(l.name)+'</div><div class="phone">'+(l.phone?esc(phone(l.phone)):'<span class="sub">—</span>')+'</div><div><span class="lic '+esc(l.status)+'">'+st[l.status]+(l.status==="trial"?" · "+l.daysLeft+" gün":"")+'</span></div><div class="sub">'+(l.until?esc(day(l.until)):"—")+'</div></label>').join("")+'</div>'
+      +'<div class="paybar"><div><span class="sub">'+buySel.size+' numara · '+(buyMonths===1?"1 ay":buyMonths+" ay")+'</span><br><b>'+money(period.perLine*buySel.size,cur)+'</b></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="redeem"'+(buySel.size?"":" disabled")+'>Lisans kodu kullan</button><button class="btn primary" id="pay"'+(buySel.size?"":" disabled")+'>Havale ile öde</button></div></div>'
+      :'<div class="list"><div class="empty">Henüz numara yok. Bağlantılar sekmesinden numara ekleyin.</div></div>')
+    +'<h3 class="section">Ödeme hareketleri</h3>'+((B.payments.length||B.codes.length)?'<div class="list pay-list"><div class="row head"><span>Tarih</span><span>İşlem</span><span>Referans</span><span>Tutar</span><span>Durum</span></div>'
+      +B.payments.map(p=>'<div class="row"><div class="sub">'+esc(day(p.createdAt))+'</div><div>Havale · '+p.lines.length+' numara · '+p.months+' ay</div><div><code>'+esc(p.reference)+'</code></div><div>'+money(p.amount,p.currency)+'</div><div><span class="lic '+(p.status==="approved"?"active":p.status==="pending"?"trial":"expired")+'">'+({pending:"Onay bekliyor",approved:"Onaylandı",rejected:"Reddedildi"})[p.status]+'</span></div></div>').join("")
+      +B.codes.map(c=>'<div class="row"><div class="sub">'+esc(day(c.usedAt))+'</div><div>Lisans kodu · '+c.lines.length+' numara · '+c.months+' ay</div><div><code>'+esc(c.code)+'</code></div><div>—</div><div><span class="lic active">Uygulandı</span></div></div>').join("")+'</div>'
+      :'<div class="list"><div class="empty">Henüz ödeme yok.</div></div>')
+    +'<h3 class="section">Fatura bilgileri</h3><div class="list" style="padding:16px 20px"><div class="range" role="group" aria-label="Fatura türü" style="margin-bottom:14px"><button data-btype="kurumsal" aria-pressed="'+(bi.type!=="bireysel")+'">Kurumsal</button><button data-btype="bireysel" aria-pressed="'+(bi.type==="bireysel")+'">Bireysel</button></div>'
+      +'<div class="formgrid"><label class="field full">'+(bi.type==="bireysel"?"Ad soyad":"Şirket unvanı")+'<input id="b-title" value="'+esc(bi.title||"")+'"></label><label class="field">'+(bi.type==="bireysel"?"TC kimlik no":"Vergi dairesi")+'<input id="b-office" value="'+esc(bi.type==="bireysel"?bi.taxNumber||"":bi.taxOffice||"")+'"></label>'+(bi.type==="bireysel"?'<label class="field">İl<input id="b-city" value="'+esc(bi.city||"")+'"></label>':'<label class="field">Vergi no<input id="b-no" value="'+esc(bi.taxNumber||"")+'"></label>')
+      +'<label class="field full">Adres<textarea id="b-addr" rows="2">'+esc(bi.address||"")+'</textarea></label>'+(bi.type==="bireysel"?'':'<label class="field">İl<input id="b-city" value="'+esc(bi.city||"")+'"></label>')+'<label class="field">Telefon<input id="b-phone" value="'+esc(bi.phone||"")+'"></label><label class="field full">Fatura e-postası<input id="b-mail" type="email" value="'+esc(bi.email||"")+'"></label></div>'
+      +'<div style="display:flex;justify-content:flex-end"><button class="btn primary" id="b-save">Fatura bilgilerini kaydet</button></div></div>';
+  m.querySelectorAll("[data-months]").forEach(b=>b.onclick=()=>{buyMonths=Number(b.dataset.months);billing();});
+  m.querySelectorAll("[data-sel]").forEach(c=>c.onchange=()=>{c.checked?buySel.add(c.dataset.sel):buySel.delete(c.dataset.sel);billing();});
+  m.querySelectorAll("[data-btype]").forEach(b=>b.onclick=()=>{billType=b.dataset.btype;billing();});
+  const lines=()=>[...buySel];
+  if($("#pay"))$("#pay").onclick=async()=>{try{const r=await api("billing/request",{lines:lines(),months:buyMonths});const bank=r.bank||{};
+    openSheet("Havale ile ödeme",'<p>Aşağıdaki hesaba <b>'+money(r.request.amount,r.request.currency)+'</b> gönderin. Açıklamaya referans kodunu yazmayı unutmayın.</p><div class="bank">Referans: <code>'+esc(r.request.reference)+'</code><br>Alıcı: <b>'+esc(bank.holder||"XRE")+'</b><br>'+(bank.bankName?'Banka: '+esc(bank.bankName)+'<br>':'')+'IBAN: <code>'+esc(bank.iban||"Henüz tanımlanmadı, destekle iletişime geçin")+'</code></div><p class="note">'+esc(bank.note||"")+'</p><p class="note">Ödemeniz onaylanınca '+r.request.lines.length+' numaranın lisansı '+r.request.months+' ay uzar. Onay durumu "Ödeme hareketleri" bölümünde görünür.</p>','<button class="btn primary" id="okpay">Tamam</button>');
+    $("#okpay").onclick=()=>{closeSheet();billing();};}catch(e){toast(e.message,true);}};
+  if($("#redeem"))$("#redeem").onclick=()=>{openSheet("Lisans kodu kullan",'<label class="field">Lisans kodu<input id="code" placeholder="ABCD-1234-EF56" autocomplete="off"></label><p class="note">Kod seçili '+buySel.size+' numaraya uygulanır.</p>','<button class="btn primary" id="apply">Uygula</button>');
+    $("#apply").onclick=async()=>{try{await api("billing/redeem",{code:$("#code").value,lines:lines()});closeSheet();toast("Lisans kodu uygulandı.");buySel.clear();billing();load();}catch(e){toast(e.message,true);}};};
+  $("#b-save").onclick=async()=>{const t=bi.type||"kurumsal";const v=id=>($(id)||{}).value||"";
+    try{await api("billing/info",t==="bireysel"?{type:t,title:v("#b-title"),taxNumber:v("#b-office"),city:v("#b-city"),address:v("#b-addr"),phone:v("#b-phone"),email:v("#b-mail")}:{type:t,title:v("#b-title"),taxOffice:v("#b-office"),taxNumber:v("#b-no"),city:v("#b-city"),address:v("#b-addr"),phone:v("#b-phone"),email:v("#b-mail")});toast("Fatura bilgileri kaydedildi.");}catch(e){toast(e.message,true);}};
+}
 let view="cards";try{view=localStorage.getItem("xre-wa-view")||"cards";}catch{}
 const initials=t=>String(t||"WA").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toLocaleUpperCase("tr-TR")||"WA";
 const ago=ms=>{if(!ms)return"—";const d=Math.max(0,Date.now()-ms)/60000;if(d<1)return"az önce";if(d<60)return Math.round(d)+" dk önce";if(d<1440)return Math.round(d/60)+" sa önce";return Math.round(d/1440)+" gün önce";};
@@ -315,9 +370,11 @@ const day=iso=>{if(!iso)return"—";try{return new Date(iso).toLocaleDateString(
 function card(c){const ok=c.status==="connected";
   return '<article class="ccard '+(ok?"ok":"off")+'"><header><span class="name">'+esc(c.name)+'</span><span class="status '+(ok?"ok":"off")+'">'+(ok?"Bağlı":"Bağlı değil")+'</span></header>'
   +'<div class="profile"><span class="avatar" aria-hidden="true">'+esc(initials(c.profileName||c.name))+'</span><div><b>'+esc(c.profileName||(ok?"WhatsApp profili":"Profil bekleniyor"))+'</b><div class="sub phone">'+(c.phone?esc(phone(c.phone)):"QR okutulmadı")+'</div></div></div>'
-  +'<dl class="facts-dl"><dt>Açık Kanal</dt><dd>#'+esc(c.line)+'</dd><dt>Bağlandı</dt><dd>'+(ok?day(c.connectedAt):"—")+'</dd><dt>Son mesaj</dt><dd>'+ago(c.lastMessageAt)+'</dd><dt>Bugün</dt><dd>'+(c.todayIn||0)+' gelen · '+(c.todayOut||0)+' giden</dd><dt>Sohbet</dt><dd>'+(c.chats||0)+(c.waiting?' · <span class="late">'+c.waiting+' bekliyor</span>':'')+'</dd></dl>'
+  +'<dl class="facts-dl"><dt>Açık Kanal</dt><dd>#'+esc(c.line)+'</dd><dt>Bağlandı</dt><dd>'+(ok?day(c.connectedAt):"—")+'</dd><dt>Son mesaj</dt><dd>'+ago(c.lastMessageAt)+'</dd><dt>Bugün</dt><dd>'+(c.todayIn||0)+' gelen · '+(c.todayOut||0)+' giden</dd><dt>Sohbet</dt><dd>'+(c.chats||0)+(c.waiting?' · <span class="late">'+c.waiting+' bekliyor</span>':'')+'</dd><dt>Lisans</dt><dd>'+licText(c.license)+'</dd></dl>'
   +chips(rolesFor(c.line).map(r=>r.name),"Rol yok")
-  +'<footer><button class="btn'+(ok?"":" primary")+'" data-qr="'+esc(c.line)+'">'+(ok?"Yeniden bağla":"QR okut")+'</button><button class="btn" data-edit="'+esc(c.line)+'" aria-label="'+esc(c.name)+' ayarları">Ayarlar</button></footer></article>';}
+  +'<footer>'+(c.license&&c.license.status==="expired"?'<button class="btn primary" data-buy="'+esc(c.line)+'">Lisans al</button>':'<button class="btn'+(ok?"":" primary")+'" data-qr="'+esc(c.line)+'">'+(ok?"Yeniden bağla":"QR okut")+'</button>')+'<button class="btn" data-edit="'+esc(c.line)+'" aria-label="'+esc(c.name)+' ayarları">Ayarlar</button></footer></article>';}
+function licText(l){if(!l)return"—";const d=l.until?day(l.until):"";
+  return {free:'<span class="lic free">Ücretsiz</span>',active:'<span class="lic active">Aktif · '+esc(d)+'</span>',trial:'<span class="lic trial">Deneme · '+l.daysLeft+' gün kaldı</span>',expired:'<span class="lic expired">Süresi doldu</span>',new:'<span class="lic new">Bağlanınca deneme başlar</span>'}[l.status]||"—";}
 let lastFocus=null;
 function openSheet(title,body,footer){lastFocus=document.activeElement;$("#sheet").innerHTML='<header><h2 id="sheet-title">'+title+'</h2><button class="btn ghost" id="sheetClose" aria-label="Kapat">Kapat</button></header><div class="body">'+body+'</div>'+(footer?'<footer>'+footer+'</footer>':'');$("#sheet").classList.add("open");$("#scrim").classList.add("open");$("#sheetClose").onclick=closeSheet;const f=$("#sheet input");(f||$("#sheetClose")).focus();}
 function closeSheet(){$("#sheet").classList.remove("open");$("#scrim").classList.remove("open");if(poll){clearInterval(poll);poll=null;}if(lastFocus)lastFocus.focus();}

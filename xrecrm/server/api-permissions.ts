@@ -31,6 +31,7 @@ export function requireModulePermissions(
     path === "/lines" ||
     path === "/audit" ||
     /^\/system\/backups(?:\/|$)/.test(path) ||
+    /^\/b24-admin(?:\/|$)/.test(path) ||
     path === "/pbx/test"
   )
     return next();

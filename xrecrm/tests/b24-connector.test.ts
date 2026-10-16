@@ -413,4 +413,71 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(state.connections[0]).toMatchObject({ line: "3", status: "connected", options: { groups: true }, chats: expect.any(Number) });
     expect(state.connections[0].connectedAt).toBeTruthy();
   });
+
+  it("lisans: deneme ilk bağlantıda başlar, dolunca mesaj durur, havale onayı ve kod ile açılır", async () => {
+    const { store, base, bx, evo } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const home = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const t = home.match(/const T="([^"]+)"/)?.[1];
+    const panel = async (path: string, body: Record<string, unknown> = {}) => {
+      const r = await fetch(`${base}/b24/panel/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
+      return { status: r.status, body: await r.json() };
+    };
+    let billing = await panel("billing/state");
+    expect(billing.body.licenses[0]).toMatchObject({ line: "3", status: "trial", daysLeft: 7 });
+    expect(billing.body.periods.find((p: any) => p.months === 12)).toMatchObject({ discount: 35, perLine: Math.round(750 * 12 * 0.65) });
+
+    // Deneme biter
+    const portal = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+    portal.lines["3"].license = { trialStart: new Date(Date.now() - 8 * 86_400_000).toISOString() };
+    await store.put("b24-portal", MEMBER, portal, "b24-connector");
+    const instance = instanceName(MEMBER, "3");
+    const inbound = (id: string) =>
+      fetch(`${base}/api/webhooks/evolution?token=hook-secret`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ event: "messages.upsert", instance, data: { key: { id, remoteJid: "905551112233@s.whatsapp.net" }, message: { conversation: "Merhaba" } } }) });
+    const forwarded = () => bx.filter((c) => c.method === "imconnector.send.messages").length;
+    const before = forwarded();
+    await inbound("L1");
+    await new Promise((r) => setTimeout(r, 80));
+    expect(forwarded()).toBe(before);
+    await fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][message][text]": "Cevap", "data[MESSAGES][0][chat][id]": "905551112233", "auth[member_id]": MEMBER, "auth[application_token]": "app-token" }));
+    await new Promise((r) => setTimeout(r, 80));
+    expect(evo.some((c) => c.url === `/message/sendText/${instance}`)).toBe(false);
+    billing = await panel("billing/state");
+    expect(billing.body.licenses[0].status).toBe("expired");
+
+    // Havale bildirimi
+    const request = await panel("billing/request", { lines: ["3"], months: 3 });
+    expect(request.body.request).toMatchObject({ status: "pending", amount: Math.round(750 * 3 * 0.9), currency: "TRY", months: 3 });
+    expect(request.body.request.reference).toMatch(/^XRE-[0-9A-F]{6}$/);
+
+    // XRE yönetimi onaylar (yalnız CRM sahibi)
+    const setupOwner = await fetch(`${base}/api/auth/setup`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "XRE", email: "xre@x.test", password: "Yonetici123" }) });
+    const cookie = (setupOwner.headers.get("set-cookie") || "").split(";")[0];
+    const admin = (path: string, body?: unknown) =>
+      fetch(`${base}/api/b24-admin/${path}`, { method: body === undefined ? "GET" : "POST", headers: { "content-type": "application/json", cookie }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    expect((await fetch(`${base}/api/b24-admin/state`)).status).toBe(401);
+    const adminState = await (await admin("state")).json();
+    expect(adminState.payments[0]).toMatchObject({ status: "pending", domain: DOMAIN });
+    expect(adminState.portals[0].lines[0]).toMatchObject({ line: "3", status: "expired" });
+    expect((await admin(`payments/${request.body.request.id}/approve`, {})).status).toBe(200);
+    billing = await panel("billing/state");
+    expect(billing.body.licenses[0]).toMatchObject({ status: "active" });
+    expect(billing.body.licenses[0].daysLeft).toBeGreaterThan(85);
+    await inbound("L2");
+    await new Promise((r) => setTimeout(r, 80));
+    expect(forwarded()).toBe(before + 1);
+
+    // Lisans kodu
+    const codes = await (await admin("codes", { months: 12, maxLines: 1, count: 1 })).json();
+    const code = codes.codes[0].id;
+    const redeemed = await panel("billing/redeem", { code: code.toLowerCase(), lines: ["3"] });
+    expect(redeemed.status).toBe(200);
+    expect(redeemed.body.licenses[0].daysLeft).toBeGreaterThan(450);
+    expect((await panel("billing/redeem", { code, lines: ["3"] })).status).toBe(409);
+
+    // Fiyat güncelleme
+    const pricing = await (await admin("pricing", { monthly: 900, trialDays: 14, discounts: { "12": 40 }, bank: { iban: "tr00 0000", holder: "XRE" } })).json();
+    expect(pricing.pricing).toMatchObject({ monthly: 900, trialDays: 14, discounts: { "12": 40 }, bank: { iban: "TR00 0000", holder: "XRE" } });
+  });
 });
