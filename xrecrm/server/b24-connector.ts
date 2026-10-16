@@ -9,6 +9,7 @@
 import crypto from "node:crypto";
 import express, { type Express, type Request, type Response } from "express";
 import { panelHtml } from "./b24-panel-html.js";
+import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
 export { panelHtml };
 import type { Store } from "./db.js";
 import { evolutionBase, evolutionWebhookConfig, getEvolutionQr, jidPhone } from "./integrations.js";
@@ -45,6 +46,91 @@ export interface B24Portal {
   roles?: B24Role[];
   /** Bitrix kullanıcı kimliği → rol kimliği */
   assignments?: Record<string, string>;
+  settings?: B24Settings;
+}
+export interface B24Settings {
+  translate?: boolean;
+  transcribe?: boolean;
+  qualify?: boolean;
+  slaMinutes?: number;
+}
+export function portalSettings(portal: B24Portal): Required<B24Settings> {
+  return {
+    translate: portal.settings?.translate !== false,
+    transcribe: portal.settings?.transcribe !== false,
+    qualify: portal.settings?.qualify !== false,
+    slaMinutes: Math.max(1, Math.min(1440, Number(portal.settings?.slaMinutes) || 15)),
+  };
+}
+
+// --- Sohbet durumu ve istatistik ---------------------------------------------
+
+const CHAT_KIND = "b24-chat";
+const STAT_KIND = "b24-stat";
+export interface B24Chat {
+  id: string;
+  memberId: string;
+  line: string;
+  phone: string;
+  name: string;
+  lang?: string;
+  waitingSince?: number | null;
+  lastInboundAt?: number;
+  lastOutboundAt?: number;
+  inbound: number;
+  outbound: number;
+  sinceQualify: number;
+  history: { from: "müşteri" | "temsilci"; text: string; at: number }[];
+  qualification?: Qualification & { at: number };
+}
+const chatId = (memberId: string, line: string, phone: string) => `${memberId}:${line}:${phone}`;
+async function loadChat(store: Store, memberId: string, line: string, phone: string, name = ""): Promise<B24Chat> {
+  const id = chatId(memberId, line, phone);
+  const found = (await store.get<B24Chat>(CHAT_KIND, id, SYSTEM_OWNER))?.payload;
+  return found || { id, memberId, line, phone, name, inbound: 0, outbound: 0, sinceQualify: 0, history: [] };
+}
+async function saveChat(store: Store, chat: B24Chat) {
+  chat.history = chat.history.slice(-40);
+  await store.put(CHAT_KIND, chat.id, chat, SYSTEM_OWNER);
+}
+const istanbulDay = (t = Date.now()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date(t));
+interface DayStat {
+  id: string;
+  memberId: string;
+  day: string;
+  agents: Record<string, { replies: number; responses: number; responseSec: number; maxSec: number }>;
+  lines: Record<string, { inbound: number; outbound: number; newChats: number }>;
+}
+async function bumpStat(store: Store, memberId: string, fn: (s: DayStat) => void) {
+  const day = istanbulDay();
+  const id = `${memberId}:${day}`;
+  const stat = (await store.get<DayStat>(STAT_KIND, id, SYSTEM_OWNER))?.payload || { id, memberId, day, agents: {}, lines: {} };
+  fn(stat);
+  await store.put(STAT_KIND, id, stat, SYSTEM_OWNER);
+}
+const lineStat = (s: DayStat, line: string) => (s.lines[line] ||= { inbound: 0, outbound: 0, newChats: 0 });
+const agentStat = (s: DayStat, agent: string) => (s.agents[agent] ||= { replies: 0, responses: 0, responseSec: 0, maxSec: 0 });
+
+/** Sohbeti nitelendirip Bitrix'teki lead (yoksa kişi) kartının zaman akışına yazar. */
+async function qualifyChat(store: Store, portal: B24Portal, chat: B24Chat) {
+  const q = await qualifyConversation(chat.history.map(({ from, text }) => ({ from, text })));
+  if (!q) return;
+  chat.qualification = { ...q, at: Date.now() };
+  chat.sinceQualify = 0;
+  await saveChat(store, chat);
+  const found = await b24Call(store, portal, "crm.duplicate.findbycomm", { entity_type: "LEAD", type: "PHONE", values: [`+${chat.phone}`] }).catch(() => null);
+  let entityType = "lead";
+  let ids: unknown[] = Array.isArray(found?.LEAD) ? found.LEAD : [];
+  if (!ids.length) {
+    const contacts = await b24Call(store, portal, "crm.duplicate.findbycomm", { entity_type: "CONTACT", type: "PHONE", values: [`+${chat.phone}`] }).catch(() => null);
+    ids = Array.isArray(contacts?.CONTACT) ? contacts.CONTACT : [];
+    entityType = "contact";
+  }
+  const entityId = Number(ids[ids.length - 1]);
+  if (!entityId) return;
+  await b24Call(store, portal, "crm.timeline.comment.add", { fields: { ENTITY_ID: entityId, ENTITY_TYPE: entityType, COMMENT: qualificationComment(q) } });
+  if (entityType === "lead" && q.budget && ["TRY", "USD", "EUR", "GBP"].includes(q.currency))
+    await b24Call(store, portal, "crm.lead.update", { id: entityId, fields: { OPPORTUNITY: q.budget, CURRENCY_ID: q.currency } }).catch(() => undefined);
 }
 export interface B24Line {
   instance: string;
@@ -281,7 +367,48 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   if (isWaSystemMessage(message)) return;
   const owner = `b24:${portal.id}`;
   const media = await captureEvolutionMedia(store, owner, instance, data);
-  const text = waMessageText(message);
+  const settings = portalSettings(portal);
+  let text = waMessageText(message) || "";
+  if (media.mediaType === "audio" && media.mediaId && settings.transcribe && aiConfigured()) {
+    try {
+      const audio = await readMedia(store, owner, media.mediaId);
+      const transcript = audio ? await transcribe(audio.buffer, audio.record.mime, audio.record.fileName) : "";
+      if (transcript) text = `🎤 Sesli mesaj: ${transcript}`;
+    } catch (error) {
+      console.warn("Sesli mesaj yazıya dökülemedi:", (error as Error).message);
+    }
+  }
+  const pushName = String(data?.pushName || "").slice(0, 120);
+  const chat = await loadChat(store, portal.id, map.line, phone, pushName);
+  const isNew = chat.inbound === 0 && chat.outbound === 0;
+  if (pushName) chat.name = pushName;
+  let display = text;
+  let turkish = text;
+  if (settings.translate && text && aiConfigured()) {
+    try {
+      const body = text.replace(/^🎤 Sesli mesaj: /, "");
+      const result = await detectAndTranslate(body);
+      if (result.lang) chat.lang = result.lang;
+      if (result.lang && result.lang !== "tr" && result.translation) {
+        turkish = (text.startsWith("🎤") ? "🎤 Sesli mesaj: " : "") + result.translation;
+        display = `🌐 ${languageName(result.lang)} → Türkçe:\n${turkish}\n\n[i]Orijinal: ${body}[/i]`;
+      }
+    } catch (error) {
+      console.warn("Çeviri yapılamadı:", (error as Error).message);
+    }
+  }
+  const now = Date.now();
+  chat.inbound += 1;
+  chat.sinceQualify += 1;
+  chat.lastInboundAt = now;
+  if (!chat.waitingSince) chat.waitingSince = now;
+  if (turkish) chat.history.push({ from: "müşteri", text: turkish, at: now });
+  await saveChat(store, chat);
+  await bumpStat(store, portal.id, (s) => {
+    const l = lineStat(s, map.line);
+    l.inbound += 1;
+    if (isNew) l.newChats += 1;
+  });
   const files = media.mediaId
     ? [{ url: mediaUrl(base, portal.id, media.mediaId), name: media.fileName || "dosya" }]
     : [];
@@ -299,13 +426,16 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
         message: {
           id: String(key.id || crypto.randomUUID()),
           date: Math.floor(Number(data?.messageTimestamp || Date.now() / 1000)),
-          text: text || (files.length ? "" : "[Medya]"),
+          text: display || (files.length ? "" : "[Medya]"),
           ...(files.length ? { files } : {}),
         },
         chat: { id: phone, name: String(data?.pushName || `+${phone}`).slice(0, 120) },
       },
     ],
   });
+  // Yeterli konuşma birikince müşteriyi nitelendir (arka planda).
+  if (settings.qualify && aiConfigured() && chat.sinceQualify >= 3 && chat.history.length >= 3)
+    void qualifyChat(store, portal, chat).catch((error) => console.warn("Nitelendirme yapılamadı:", (error as Error).message));
 }
 
 /** Bitrix temsilcisinin yazdığı mesajları WhatsApp'a iletir. */
@@ -316,10 +446,21 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
   for (const item of messages) {
     const to = normalizePhone(item?.chat?.id || "");
     if (!to) continue;
-    const text = String(item?.message?.text || "")
+    const agentText = String(item?.message?.text || "")
       .replace(/\[br\]/gi, "\n")
       .replace(/\[\/?(b|i|u|s|url[^\]]*)\]/gi, "")
       .trim();
+    const chat = await loadChat(store, portal.id, line, to);
+    // "!" ile başlayan mesaj çevrilmeden gönderilir.
+    const raw = agentText.startsWith("!");
+    let text = raw ? agentText.slice(1).trim() : agentText;
+    if (!raw && text && portalSettings(portal).translate && chat.lang && chat.lang !== "tr") {
+      try {
+        text = await translateTo(text, chat.lang);
+      } catch (error) {
+        console.warn("Cevap çevrilemedi, olduğu gibi gönderiliyor:", (error as Error).message);
+      }
+    }
     const files: any[] = Array.isArray(item?.message?.files) ? item.message.files : Object.values(item?.message?.files || {});
     let sentId = "";
     for (const file of files) {
@@ -340,6 +481,24 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
       sentId = String(result?.key?.id || sentId);
     }
     delivered.push({ im: item?.im, message: { id: [sentId || String(item?.message?.id || "")] }, chat: { id: item?.chat?.id } });
+    const now = Date.now();
+    const agent = String(item?.message?.user_id || item?.message?.author_id || item?.user?.id || item?.im?.user_id || "0");
+    const waited = chat.waitingSince ? Math.max(0, Math.round((now - chat.waitingSince) / 1000)) : null;
+    chat.outbound += 1;
+    chat.lastOutboundAt = now;
+    chat.waitingSince = null;
+    if (agentText) chat.history.push({ from: "temsilci", text: agentText.replace(/^!/, ""), at: now });
+    await saveChat(store, chat);
+    await bumpStat(store, portal.id, (s) => {
+      lineStat(s, line).outbound += 1;
+      const a = agentStat(s, agent);
+      a.replies += 1;
+      if (waited !== null) {
+        a.responses += 1;
+        a.responseSec += waited;
+        a.maxSec = Math.max(a.maxSec, waited);
+      }
+    });
   }
   if (delivered.length)
     await b24Call(store, portal, "imconnector.send.status.delivery", { CONNECTOR: CONNECTOR_ID, LINE: line, MESSAGES: delivered }).catch(() => undefined);
@@ -770,6 +929,87 @@ function registerPanelRoutes(
         connections: publicConnections(current),
         roles: current.roles || [],
         users: users.map((u) => ({ ...u, roleId: current.assignments?.[u.id] || "" })),
+        settings: portalSettings(current),
+        aiConfigured: aiConfigured(),
+      };
+    }),
+  );
+
+  app.post(
+    "/b24/panel/settings/save",
+    json,
+    panel(async (portal, body) => {
+      const next = await fresh(portal);
+      next.settings = {
+        translate: body.translate !== false,
+        transcribe: body.transcribe !== false,
+        qualify: body.qualify !== false,
+        slaMinutes: Math.max(1, Math.min(1440, Math.round(Number(body.slaMinutes) || 15))),
+      };
+      await savePortal(store, next);
+      return { settings: portalSettings(next) };
+    }),
+  );
+
+  // Ekip performansı: temsilci ilk cevap süreleri, numara hacimleri, bekleyen ve sıcak sohbetler.
+  app.post(
+    "/b24/panel/stats",
+    json,
+    panel(async (portal, body) => {
+      const days = [1, 7, 30].includes(Number(body.days)) ? Number(body.days) : 7;
+      const from = istanbulDay(Date.now() - (days - 1) * 86_400_000);
+      const stats = (await store.list<DayStat>(STAT_KIND, SYSTEM_OWNER))
+        .map((r) => r.payload)
+        .filter((s) => s.memberId === portal.id && s.day >= from);
+      const agents: Record<string, { replies: number; responses: number; responseSec: number; maxSec: number }> = {};
+      const lines: Record<string, { inbound: number; outbound: number; newChats: number }> = {};
+      for (const s of stats) {
+        for (const [id, a] of Object.entries(s.agents)) {
+          const t = (agents[id] ||= { replies: 0, responses: 0, responseSec: 0, maxSec: 0 });
+          t.replies += a.replies;
+          t.responses += a.responses;
+          t.responseSec += a.responseSec;
+          t.maxSec = Math.max(t.maxSec, a.maxSec);
+        }
+        for (const [id, l] of Object.entries(s.lines)) {
+          const t = (lines[id] ||= { inbound: 0, outbound: 0, newChats: 0 });
+          t.inbound += l.inbound;
+          t.outbound += l.outbound;
+          t.newChats += l.newChats;
+        }
+      }
+      const chats = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((c) => c.memberId === portal.id);
+      const now = Date.now();
+      const sla = portalSettings(portal).slaMinutes * 60_000;
+      const waiting = chats
+        .filter((c) => c.waitingSince)
+        .map((c) => ({ line: c.line, phone: c.phone, name: c.name, waitingMinutes: Math.round((now - (c.waitingSince as number)) / 60_000), late: now - (c.waitingSince as number) > sla }))
+        .sort((a, b) => b.waitingMinutes - a.waitingMinutes)
+        .slice(0, 50);
+      const hot = chats
+        .filter((c) => c.qualification && now - c.qualification.at < days * 86_400_000)
+        .sort((a, b) => (b.qualification!.score || 0) - (a.qualification!.score || 0))
+        .slice(0, 20)
+        .map((c) => ({
+          line: c.line,
+          phone: c.phone,
+          name: c.name,
+          lang: c.lang || "",
+          score: c.qualification!.score,
+          temperature: c.qualification!.temperature,
+          summary: c.qualification!.summary,
+          budget: c.qualification!.budget,
+          currency: c.qualification!.currency,
+          location: c.qualification!.location,
+        }));
+      return {
+        days,
+        slaMinutes: portalSettings(portal).slaMinutes,
+        agents: Object.entries(agents).map(([id, a]) => ({ id, replies: a.replies, avgSec: a.responses ? Math.round(a.responseSec / a.responses) : null, maxSec: a.maxSec })),
+        lines: Object.entries(lines).map(([line, l]) => ({ line, ...l })),
+        waiting,
+        hot,
+        foreign: chats.filter((c) => c.lang && c.lang !== "tr").length,
       };
     }),
   );

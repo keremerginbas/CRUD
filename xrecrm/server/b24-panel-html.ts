@@ -95,6 +95,28 @@ label.field input{display:block;width:100%;margin-top:6px;padding:9px 11px;borde
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:var(--r-s);box-shadow:var(--shadow);display:none;max-width:min(560px,92vw);white-space:pre-line}
 .toast.show{display:block}
 .toast.err{background:var(--danger)}
+.range{display:inline-flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);padding:2px}
+.range button{border:0;background:none;padding:5px 11px;border-radius:5px;cursor:pointer;color:var(--ink-2);font-weight:600}
+.range button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
+.facts{display:flex;gap:28px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:16px 20px;margin-bottom:18px}
+.fact b{display:block;font-size:24px;line-height:1.1;letter-spacing:-.02em}.fact span{color:var(--ink-2);font-size:13px}
+.fact.alert b{color:var(--danger)}
+h3.section{font-size:15px;margin:22px 0 8px}
+.list.perf .row{grid-template-columns:minmax(180px,1.4fr) minmax(120px,1fr) 130px 130px}
+.list.waiting .row{grid-template-columns:minmax(180px,1.4fr) minmax(140px,1fr) 160px}
+.list.hot .row{grid-template-columns:minmax(180px,1.2fr) 110px minmax(240px,2.4fr)}
+.late{color:var(--danger);font-weight:700}
+.score{font-weight:700;font-variant-numeric:tabular-nums}
+.temp-sıcak{color:var(--danger)}.temp-ılık{color:var(--warn)}.temp-soğuk{color:var(--ink-3)}
+.setting{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:16px 20px;border-top:1px solid var(--line-2)}
+.setting:first-child{border-top:0}.setting strong{display:block}.setting p{margin:2px 0 0;color:var(--ink-2);font-size:13px;max-width:62ch}
+.switch{position:relative;width:42px;height:24px}.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line);border-radius:999px;cursor:pointer;transition:background .15s}
+.switch span::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s}
+.switch input:checked+span{background:var(--accent)}.switch input:checked+span::after{transform:translateX(18px)}
+.switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
+.num{width:90px;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper)}
+.callout{background:var(--warn-soft);color:var(--warn);border-radius:var(--r-m);padding:12px 16px;margin-bottom:14px;font-weight:600}
 @media (max-width:820px){
   .top,main{padding-left:16px;padding-right:16px}
   .board{grid-template-columns:1fr}
@@ -109,6 +131,8 @@ label.field input{display:block;width:100%;margin-top:6px;padding:9px 11px;borde
     <button role="tab" data-tab="connections" aria-selected="true">Bağlantılar</button>
     <button role="tab" data-tab="staff" aria-selected="false">Personel</button>
     <button role="tab" data-tab="roles" aria-selected="false">Roller</button>
+    <button role="tab" data-tab="perf" aria-selected="false">Performans</button>
+    <button role="tab" data-tab="settings" aria-selected="false">Ayarlar</button>
   </div>
 </div>
 <main id="main" aria-live="polite"><p class="sub">Yükleniyor…</p></main>
@@ -158,6 +182,20 @@ function render(){
     const s=$("#search");s.oninput=()=>{filter=s.value;const pos=s.selectionStart;render();const n=$("#search");n.focus();n.setSelectionRange(pos,pos);};
     m.querySelectorAll("[data-user]").forEach(sel=>sel.onchange=async()=>{sel.disabled=true;try{const r=await api("user/role",{userId:sel.dataset.user,roleId:sel.value});warn(r.warnings);if(!(r.warnings||[]).length)toast("Rol güncellendi.");await load();}catch(e){toast(e.message,true);sel.disabled=false;}});
   }
+  if(tab==="perf"){perf();return;}
+  if(tab==="settings"){
+    const st=S.settings||{translate:true,transcribe:true,qualify:true,slaMinutes:15};
+    const sw=(id,on)=>'<label class="switch"><input type="checkbox" id="'+id+'"'+(on?" checked":"")+'><span></span></label>';
+    m.innerHTML=(S.aiConfigured?'':'<div class="callout">Yapay zekâ özellikleri için sunucuda OpenAI anahtarı tanımlı olmalı. Anahtar girilene kadar çeviri, ses ve nitelendirme çalışmaz.</div>')
+      +'<div class="list">'
+      +'<div class="setting"><div><strong>Otomatik çeviri</strong><p>Türkçe olmayan mesajlar Türkçe çevirisi ve orijinaliyle gösterilir. Cevabınız müşterinin dilinde gider. Çevirmeden göndermek için mesajı ! ile başlatın.</p></div>'+sw("s-tr",st.translate)+'</div>'
+      +'<div class="setting"><div><strong>Sesli mesajı yazıya dök</strong><p>Gelen sesli mesajlar dinlemeden okunabilir; ses dosyası da sohbette kalır.</p></div>'+sw("s-tx",st.transcribe)+'</div>'
+      +'<div class="setting"><div><strong>Müşteri nitelendirme</strong><p>Birkaç mesajda bir sohbetten bütçe, bölge, oda sayısı ve amaç çıkarılır; puan ve özet Bitrix lead kartının zaman akışına yazılır.</p></div>'+sw("s-q",st.qualify)+'</div>'
+      +'<div class="setting"><div><strong>Cevap süresi hedefi</strong><p>Bu süreden uzun bekleyen sohbetler Performans sekmesinde geciken olarak işaretlenir.</p></div><div><input class="num" type="number" min="1" max="1440" id="s-sla" value="'+st.slaMinutes+'"> dk</div></div>'
+      +'</div><div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="s-save">Ayarları kaydet</button></div>';
+    $("#s-save").onclick=async()=>{try{const r=await api("settings/save",{translate:$("#s-tr").checked,transcribe:$("#s-tx").checked,qualify:$("#s-q").checked,slaMinutes:Number($("#s-sla").value)});S.settings=r.settings;toast("Ayarlar kaydedildi.");}catch(e){toast(e.message,true);}};
+    return;
+  }
   if(tab==="roles"){
     m.innerHTML=S.roles.length?'<div class="bar"><span class="hint">Personel yalnız rolündeki numaraların sohbetlerini alır.</span><button class="btn primary" id="addRole">Rol oluştur</button></div><div class="list roles" role="table"><div class="row head" role="row"><span>Rol</span><span>Personel</span><span>Numaralar</span><span></span></div>'
       +S.roles.map(r=>{const count=S.users.filter(u=>u.roleId===r.id||(!u.roleId&&r.isDefault)).length;const nums=r.lines==="all"?["Tüm numaralar"]:S.connections.filter(c=>r.lines.includes(c.line)).map(c=>c.name);
@@ -166,6 +204,25 @@ function render(){
     $("#addRole").onclick=()=>roleForm();
     m.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>roleForm(S.roles.find(r=>r.id===b.dataset.role)));
   }
+}
+let perfDays=7;
+const dur=sec=>sec==null?"—":sec<60?sec+" sn":sec<3600?Math.round(sec/60)+" dk":(sec/3600).toFixed(1).replace(".",",")+" sa";
+const userName=id=>{const u=S.users.find(x=>x.id===String(id));return u?u.name:(id==="0"?"Bilinmeyen":"Kullanıcı #"+id);};
+const lineName=l=>{const c=S.connections.find(x=>x.line===String(l));return c?c.name:"Kanal #"+l;};
+async function perf(){
+  const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
+  let d;try{d=await api("stats",{days:perfDays});}catch(e){m.innerHTML='<div class="empty"><strong>Veriler alınamadı</strong>'+esc(e.message)+'</div>';return;}
+  if(tab!=="perf")return;
+  const late=d.waiting.filter(w=>w.late).length;
+  const totalIn=d.lines.reduce((a,l)=>a+l.inbound,0),totalNew=d.lines.reduce((a,l)=>a+l.newChats,0);
+  const resp=d.agents.filter(a=>a.avgSec!=null);const avg=resp.length?Math.round(resp.reduce((a,x)=>a+x.avgSec*1,0)/resp.length):null;
+  m.innerHTML='<div class="bar"><div class="range" role="group" aria-label="Dönem">'+[[1,"Bugün"],[7,"7 gün"],[30,"30 gün"]].map(([v,t])=>'<button data-days="'+v+'" aria-pressed="'+(v===perfDays)+'">'+t+'</button>').join("")+'</div><span class="hint">Cevap süresi hedefi: '+d.slaMinutes+' dk</span></div>'
+    +'<div class="facts"><div class="fact'+(late?" alert":"")+'"><b>'+d.waiting.length+'</b><span>yanıt bekleyen'+(late?' · '+late+' tanesi gecikti':'')+'</span></div><div class="fact"><b>'+dur(avg)+'</b><span>ortalama ilk cevap</span></div><div class="fact"><b>'+totalNew+'</b><span>yeni sohbet</span></div><div class="fact"><b>'+totalIn+'</b><span>gelen mesaj</span></div><div class="fact"><b>'+d.foreign+'</b><span>yabancı dilde sohbet</span></div></div>'
+    +'<h3 class="section">Yanıt bekleyenler</h3>'+(d.waiting.length?'<div class="list waiting"><div class="row head"><span>Müşteri</span><span>Numara</span><span>Bekliyor</span></div>'+d.waiting.map(w=>'<div class="row"><div><div class="name">'+esc(w.name||phone(w.phone))+'</div><div class="sub">'+esc(phone(w.phone))+'</div></div><div>'+esc(lineName(w.line))+'</div><div class="'+(w.late?"late":"")+'">'+dur(w.waitingMinutes*60)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Cevap bekleyen sohbet yok.</div></div>')
+    +'<h3 class="section">Temsilciler</h3>'+(d.agents.length?'<div class="list perf"><div class="row head"><span>Temsilci</span><span>Gönderilen mesaj</span><span>Ort. ilk cevap</span><span>En uzun bekleme</span></div>'+d.agents.sort((a,b)=>(a.avgSec??1e9)-(b.avgSec??1e9)).map(a=>'<div class="row"><div class="name">'+esc(userName(a.id))+'</div><div>'+a.replies+'</div><div'+(a.avgSec!=null&&a.avgSec>d.slaMinutes*60?' class="late"':'')+'>'+dur(a.avgSec)+'</div><div>'+dur(a.maxSec)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Bu dönemde temsilci cevabı yok.</div></div>')
+    +'<h3 class="section">Sıcak müşteriler</h3>'+(d.hot.length?'<div class="list hot"><div class="row head"><span>Müşteri</span><span>Puan</span><span>Özet</span></div>'+d.hot.map(h=>'<div class="row"><div><div class="name">'+esc(h.name||phone(h.phone))+'</div><div class="sub">'+esc(lineName(h.line))+(h.lang&&h.lang!=="tr"?' · '+esc(h.lang.toUpperCase()):'')+'</div></div><div class="score temp-'+esc(h.temperature)+'">'+h.score+' · '+esc(h.temperature)+'</div><div class="sub">'+esc(h.summary)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Henüz nitelendirilmiş müşteri yok. Birkaç mesajlık sohbetlerden sonra burada görünür.</div></div>')
+    +'<h3 class="section">Numaralar</h3>'+(d.lines.length?'<div class="list perf"><div class="row head"><span>Numara</span><span>Yeni sohbet</span><span>Gelen</span><span>Giden</span></div>'+d.lines.map(l=>'<div class="row"><div class="name">'+esc(lineName(l.line))+'</div><div>'+l.newChats+'</div><div>'+l.inbound+'</div><div>'+l.outbound+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Bu dönemde mesaj yok.</div></div>');
+  m.querySelectorAll("[data-days]").forEach(b=>b.onclick=()=>{perfDays=Number(b.dataset.days);perf();});
 }
 let lastFocus=null;
 function openSheet(title,body,footer){lastFocus=document.activeElement;$("#sheet").innerHTML='<header><h2 id="sheet-title">'+title+'</h2><button class="btn ghost" id="sheetClose" aria-label="Kapat">Kapat</button></header><div class="body">'+body+'</div>'+(footer?'<footer>'+footer+'</footer>':'');$("#sheet").classList.add("open");$("#scrim").classList.add("open");$("#sheetClose").onclick=closeSheet;const f=$("#sheet input");(f||$("#sheetClose")).focus();}

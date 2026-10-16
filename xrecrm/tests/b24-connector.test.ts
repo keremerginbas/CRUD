@@ -6,6 +6,7 @@ import http from "node:http";
 import { createApp } from "../server/app";
 import { createMemoryStore } from "../server/db";
 import { CONNECTOR_ID, instanceName, setB24Fetch, settingsTicket } from "../server/b24-connector";
+import { setAiFetch } from "../server/b24-ai";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -24,6 +25,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   setB24Fetch(null);
+  setAiFetch(null);
   for (const s of servers.splice(0)) s.close();
   for (const k of Object.keys(process.env)) if (!(k in savedEnv)) delete process.env[k];
   Object.assign(process.env, savedEnv);
@@ -47,6 +49,7 @@ async function setup(opts: { evoState?: string } = {}) {
       evo.push({ url: req.url || "", body: raw ? JSON.parse(raw) : {} });
       res.writeHead(200, { "content-type": "application/json" });
       if (req.url?.startsWith("/instance/connectionState")) return res.end(JSON.stringify({ instance: { state: opts.evoState || "close" } }));
+      if (req.url?.startsWith("/chat/getBase64FromMediaMessage")) return res.end(JSON.stringify({ base64: Buffer.from("OggS-ses").toString("base64") }));
       if (req.url?.startsWith("/instance/fetchInstances"))
         return res.end(JSON.stringify([{ name: instanceName(MEMBER, "3"), ownerJid: "905321110000@s.whatsapp.net", profileName: "Müşteri AŞ" }]));
       res.end(JSON.stringify({ key: { id: `WA-${evo.length}` } }));
@@ -69,6 +72,7 @@ async function setup(opts: { evoState?: string } = {}) {
     if (body.auth !== tokenValid) return { error: "expired_token", error_description: "expired" };
     if (method === "user.current") return { result: { ID: "1" } };
     if (method === "imopenlines.config.add") return { result: 7 };
+    if (method === "crm.duplicate.findbycomm") return { result: body.entity_type === "LEAD" ? { LEAD: [55] } : [] };
     if (method === "user.get")
       return {
         result: [
@@ -262,5 +266,91 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     // Yönetici olmayan biri kuramaz
     const other = await fetch(`${base}/b24/app`, formPost({ member_id: "baskaportal1", DOMAIN: "baska.bitrix24.com", AUTH_ID: "user-auth" }));
     expect(other.status).toBe(502);
+  });
+
+  it("yabancı dili çevirir, sesi yazıya döker, cevabı müşterinin dilinde gönderir, nitelendirir ve performansı ölçer", async () => {
+    process.env.XRE_OPENAI_API_KEY = "sk-test";
+    const ai: string[] = [];
+    setAiFetch((async (url: string, init: any) => {
+      if (String(url).includes("/audio/transcriptions")) {
+        ai.push("audio");
+        return new Response(JSON.stringify({ text: "Здравствуйте, ищу квартиру" }), { status: 200 });
+      }
+      const body = JSON.parse(init.body);
+      const name = body.response_format.json_schema.name;
+      ai.push(name);
+      const content =
+        name === "translation"
+          ? { language: "ru", turkish_translation: "Merhaba, daire arıyorum" }
+          : name === "outgoing_translation"
+            ? { translation: "Цена 3 миллиона" }
+            : { summary: "Antalya'da 3+1 daire arıyor.", budget: 300000, currency: "USD", location: "Antalya", property_type: "daire", rooms: "3+1", purpose: "vatandaşlık", timeline: "1 ay", score: 82, temperature: "sıcak", next_step: "Yer görme randevusu önerin." };
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] }), { status: 200 });
+    }) as any);
+    const { base, bx, evo } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const instance = instanceName(MEMBER, "3");
+    const hook = (id: string, message: unknown) =>
+      fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ event: "messages.upsert", instance, data: { key: { id, remoteJid: "79161234567@s.whatsapp.net" }, pushName: "Ivan", message } }),
+      });
+    await hook("R1", { conversation: "Здравствуйте, ищу квартиру" });
+    await new Promise((r) => setTimeout(r, 80));
+    const first = bx.filter((c) => c.method === "imconnector.send.messages").at(-1)!.body.MESSAGES[0].message.text;
+    expect(first).toContain("Rusça → Türkçe");
+    expect(first).toContain("Merhaba, daire arıyorum");
+    expect(first).toContain("Orijinal: Здравствуйте");
+
+    await hook("R2", { audioMessage: { mimetype: "audio/ogg", seconds: 4 } });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(ai).toContain("audio");
+    const voice = bx.filter((c) => c.method === "imconnector.send.messages").at(-1)!.body.MESSAGES[0].message;
+    expect(voice.text).toContain("🎤 Sesli mesaj: Merhaba, daire arıyorum");
+    expect(voice.files).toHaveLength(1);
+
+    await hook("R3", { conversation: "Бюджет 300 тысяч долларов, Анталья" });
+    await new Promise((r) => setTimeout(r, 150));
+    const comment = bx.find((c) => c.method === "crm.timeline.comment.add");
+    expect(comment?.body.fields).toMatchObject({ ENTITY_ID: 55, ENTITY_TYPE: "lead" });
+    expect(comment?.body.fields.COMMENT).toContain("sıcak müşteri (82/100)");
+    expect(bx.find((c) => c.method === "crm.lead.update")?.body).toMatchObject({ id: 55, fields: { OPPORTUNITY: 300000, CURRENCY_ID: "USD" } });
+
+    const reply = (text: string) =>
+      fetch(
+        `${base}/b24/events`,
+        formPost({
+          event: "ONIMCONNECTORMESSAGEADD",
+          "data[CONNECTOR]": CONNECTOR_ID,
+          "data[LINE]": "3",
+          "data[MESSAGES][0][im][chat_id]": "9",
+          "data[MESSAGES][0][im][message_id]": "10",
+          "data[MESSAGES][0][message][id]": "10",
+          "data[MESSAGES][0][message][user_id]": "2",
+          "data[MESSAGES][0][message][text]": text,
+          "data[MESSAGES][0][chat][id]": "79161234567",
+          "auth[member_id]": MEMBER,
+          "auth[application_token]": "app-token",
+        }),
+      );
+    await reply("Fiyat 3 milyon");
+    await new Promise((r) => setTimeout(r, 80));
+    const sends = evo.filter((c) => c.url === `/message/sendText/${instance}`);
+    expect(sends.at(-1)?.body).toMatchObject({ number: "79161234567", text: "Цена 3 миллиона" });
+    await reply("!Antalya");
+    await new Promise((r) => setTimeout(r, 80));
+    expect(evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1)?.body.text).toBe("Antalya");
+
+    const home = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const t = home.match(/const T="([^"]+)"/)?.[1];
+    const stats = await (await fetch(`${base}/b24/panel/stats`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t, days: 7 }) })).json();
+    expect(stats.waiting).toEqual([]);
+    expect(stats.foreign).toBe(1);
+    expect(stats.agents.find((a: any) => a.id === "2")).toMatchObject({ replies: 2 });
+    expect(stats.agents.find((a: any) => a.id === "2").avgSec).toBeGreaterThanOrEqual(0);
+    expect(stats.lines[0]).toMatchObject({ line: "3", inbound: 3, outbound: 2, newChats: 1 });
+    expect(stats.hot[0]).toMatchObject({ score: 82, temperature: "sıcak", lang: "ru" });
   });
 });

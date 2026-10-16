@@ -20,6 +20,15 @@ Bitrix yöneticisi uygulamayı açınca WhatCRM benzeri bir panel görür:
 
 Yönetici olmayan personel uygulamayı açınca kendi rolünü ve görebildiği numaraları görür.
 
+## WhatCRM'den farkımız (Ayarlar ve Performans sekmeleri)
+
+Bu özellikler için CRM'de **Entegrasyonlar → Yapay zekâ asistanı ve n8n → OpenAI API anahtarı** girilmiş olmalıdır.
+
+- **Otomatik çeviri:** Müşterinin dili algılanır. Türkçe olmayan mesaj temsilciye Türkçe çevirisi ve orijinaliyle gösterilir. Temsilcinin Türkçe cevabı müşterinin dilinde gider. `!` ile başlayan mesaj çevrilmeden gönderilir.
+- **Sesli mesajı yazıya dökme:** Gelen sesli mesaj yazıya dökülür (gerekirse çevrilir). Ses dosyası da sohbette kalır.
+- **Müşteri nitelendirme:** Üç mesajda bir sohbetten bütçe, bölge, tür, oda sayısı, amaç ve zaman çıkarılır, 0–100 arası bir puan verilir. Sonuç Bitrix'teki lead kartının (yoksa kişi kartının) zaman akışına yazılır. Bütçe lead'in fırsat tutarına işlenir.
+- **Ekip performansı:** Temsilci başına ortalama ve en uzun ilk cevap süresi, gönderilen mesaj sayısı, numara başına yeni sohbet ve mesaj hacmi gösterilir. Yanıt bekleyen sohbetler listelenir, hedef süreyi aşanlar işaretlenir. Sıcak müşteriler puana göre sıralanır.
+
 ## Adresler
 
 | | |
@@ -52,6 +61,8 @@ Yönetici olmayan personel uygulamayı açınca kendi rolünü ve görebildiği 
 - Uygulama kaldırılınca portalın WhatsApp oturumları kapatılır, belirteçleri silinir.
 
 ## Henüz yapılmadı
+
+- Hedef süreyi aşan sohbetler için yöneticiye Bitrix bildirimi (`im` izni gerekir).
 
 - Deneme süresi ve lisans/ödeme kontrolü.
 - Telefondan doğrudan yazılan mesajların Bitrix'e kopyalanması.
