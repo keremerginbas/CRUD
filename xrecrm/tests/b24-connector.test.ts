@@ -7,6 +7,8 @@ import { createApp } from "../server/app";
 import { createMemoryStore } from "../server/db";
 import { CONNECTOR_ID, instanceName, setB24Fetch, settingsTicket } from "../server/b24-connector";
 import { setAiFetch } from "../server/b24-ai";
+import { inWorkingHours, setAgentMergeDelay, DEFAULT_AGENT } from "../server/b24-agent";
+import { dueReports, DEFAULT_REPORTS } from "../server/b24-live";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -74,10 +76,15 @@ async function setup(opts: { evoState?: string } = {}) {
     if (method === "imopenlines.config.add") return { result: 7 };
     if (method === "imopenlines.dialog.get") return { result: { id: 1, owner: "3" } };
     if (method === "crm.duplicate.findbycomm") return { result: body.entity_type === "LEAD" ? { LEAD: [55] } : [] };
+    if (method === "crm.status.list") return { result: [{ STATUS_ID: "WEB", NAME: "Web sitesi" }, { STATUS_ID: "SAHIBINDEN", NAME: "Sahibinden" }] };
+    if (method === "crm.lead.list")
+      return { result: [{ ID: "1", TITLE: "Lead A", SOURCE_ID: "WEB", DATE_CREATE: new Date().toISOString() }, { ID: "2", TITLE: "Lead B", SOURCE_ID: "WEB" }, { ID: "3", TITLE: "Lead C", SOURCE_ID: "SAHIBINDEN" }] };
+    if (method === "crm.deal.list")
+      return { result: body.filter?.STAGE_SEMANTIC_ID === "S" ? [{ ID: "8", OPPORTUNITY: "2500000", CURRENCY_ID: "TRY" }] : [{ ID: "7", TITLE: "Daire satışı", OPPORTUNITY: "4200000", CURRENCY_ID: "TRY" }] };
     if (method === "user.get")
       return {
         result: [
-          { ID: "1", NAME: "Erdal", EMAIL: "erdal@x.test" },
+          { ID: "1", NAME: "Erdal", EMAIL: "erdal@x.test", IS_ONLINE: "Y" },
           { ID: "2", NAME: "Kaan", EMAIL: "" },
           { ID: "3", NAME: "Merve", EMAIL: "merve@x.test" },
         ],
@@ -479,5 +486,183 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     // Fiyat güncelleme
     const pricing = await (await admin("pricing", { monthly: 900, trialDays: 14, discounts: { "12": 40 }, bank: { iban: "tr00 0000", holder: "XRE" } })).json();
     expect(pricing.pricing).toMatchObject({ monthly: 900, trialDays: 14, discounts: { "12": 40 }, bank: { iban: "TR00 0000", holder: "XRE" } });
+  });
+
+  it("AI asistan bilgi tabanından cevap verir, temsilci yazınca susar, gerektiğinde devreder", async () => {
+    process.env.XRE_OPENAI_API_KEY = "sk-test";
+    setAgentMergeDelay(20);
+    const prompts: any[] = [];
+    let next = { reply: "1+1 daireler 4,2 milyon TL'den başlar.", handoff: false, reason: "" };
+    setAiFetch((async (_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      const name = body.response_format.json_schema.name;
+      let content: unknown = { language: "tr", turkish_translation: "" };
+      if (name === "agent_reply") {
+        prompts.push(body.messages);
+        content = next;
+      } else if (name === "lead_qualification")
+        content = { summary: "", budget: null, currency: "", location: "", property_type: "", rooms: "", purpose: "", timeline: "", score: 10, temperature: "soğuk", next_step: "" };
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] }), { status: 200 });
+    }) as any);
+    try {
+      const { base, bx, evo } = await setup({ evoState: "open" });
+      await install(base);
+      await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+      const t = settingsTicket(MEMBER, "all");
+      const post = (p: string, body: object) => fetch(`${base}/b24/panel/${p}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
+      const knowledge = "Deniz Konakları, Kartal. 1+1 daireler 4,2 milyon TL. " + "x".repeat(20000);
+      const saved = await (await post("agent/save", { enabled: true, name: "Ece", company: "XRE", knowledge, lines: "all", schedule: "always" })).json();
+      expect(saved.agent).toMatchObject({ enabled: true, name: "Ece", lines: "all" });
+      expect(saved.agent.knowledge.length).toBeGreaterThan(20000);
+
+      // Deneme sohbeti müşteriye bir şey göndermez
+      const before = evo.length;
+      const trial = await (await post("agent/test", { messages: [{ from: "müşteri", text: "Fiyatlar nedir?" }] })).json();
+      expect(trial.reply).toContain("4,2 milyon");
+      expect(evo.length).toBe(before);
+
+      const instance = instanceName(MEMBER, "3");
+      const hook = (id: string, jid: string, text: string) =>
+        fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ event: "messages.upsert", instance, data: { key: { id, remoteJid: `${jid}@s.whatsapp.net` }, pushName: "Ayşe", message: { conversation: text } } }),
+        });
+      const sendsTo = (n: string) => evo.filter((c) => c.url === `/message/sendText/${instance}` && c.body.number === n);
+      // Art arda iki mesaj tek cevapla karşılanır
+      await hook("A1", "905301112233", "Merhaba");
+      await hook("A2", "905301112233", "Kartal projesinin fiyatı nedir?");
+      await new Promise((r) => setTimeout(r, 200));
+      expect(sendsTo("905301112233")).toHaveLength(1);
+      expect(sendsTo("905301112233")[0].body.text).toContain("4,2 milyon");
+      expect(prompts).toHaveLength(2); // deneme + gerçek
+      expect(prompts[1][0].content).toContain("Deniz Konakları");
+      expect(JSON.parse(prompts[1][1].content).conversation.map((m: any) => m.text)).toEqual(["Merhaba", "Kartal projesinin fiyatı nedir?"]);
+      const mirrored = bx.filter((c) => c.method === "imconnector.send.messages").at(-1)!.body.MESSAGES[0].message.text;
+      expect(mirrored).toContain("🤖 Ece cevapladı");
+
+      // Temsilci Bitrix'ten yazınca asistan o sohbete karışmaz
+      await fetch(
+        `${base}/b24/events`,
+        formPost({
+          event: "ONIMCONNECTORMESSAGEADD",
+          "data[CONNECTOR]": CONNECTOR_ID,
+          "data[LINE]": "3",
+          "data[MESSAGES][0][im][chat_id]": "9",
+          "data[MESSAGES][0][im][message_id]": "11",
+          "data[MESSAGES][0][message][id]": "11",
+          "data[MESSAGES][0][message][user_id]": "2",
+          "data[MESSAGES][0][message][text]": "Ben Kaan, yardımcı olayım.",
+          "data[MESSAGES][0][chat][id]": "905301112233",
+          "auth[member_id]": MEMBER,
+          "auth[application_token]": "app-token",
+        }),
+      );
+      await new Promise((r) => setTimeout(r, 80));
+      await hook("A3", "905301112233", "Yer görmek istiyorum");
+      await new Promise((r) => setTimeout(r, 200));
+      expect(prompts).toHaveLength(2);
+      expect(sendsTo("905301112233").map((c) => c.body.text)).toEqual(["1+1 daireler 4,2 milyon TL'den başlar.", "Ben Kaan, yardımcı olayım."]);
+
+      // Devir: sonrasında asistan susar, müşteri temsilci beklemeye devam eder
+      next = { reply: "Sizi temsilcimize aktarıyorum.", handoff: true, reason: "Pazarlık" };
+      await hook("B1", "905309998877", "Son fiyat ne olur?");
+      await new Promise((r) => setTimeout(r, 200));
+      expect(sendsTo("905309998877")).toHaveLength(1);
+      expect(bx.filter((c) => c.method === "imconnector.send.messages").at(-1)!.body.MESSAGES[0].message.text).toContain("Temsilciye devredildi: Pazarlık");
+      await hook("B2", "905309998877", "Bekliyorum");
+      await new Promise((r) => setTimeout(r, 200));
+      expect(sendsTo("905309998877")).toHaveLength(1);
+      const stats = await (await post("stats", { days: 1 })).json();
+      expect(stats.waiting.map((w: any) => w.phone)).toContain("905309998877");
+      const state = await (await post("agent/state", {})).json();
+      expect(state.usage).toMatchObject({ today: 2, replies30: 2, handoffs30: 1 });
+
+      // Kapatınca cevap vermez
+      await post("agent/save", { enabled: false });
+      await hook("C1", "905305554433", "Merhaba");
+      await new Promise((r) => setTimeout(r, 200));
+      expect(sendsTo("905305554433")).toHaveLength(0);
+    } finally {
+      setAgentMergeDelay(null);
+    }
+  });
+
+  it("asistan mesai dışı modu ve rapor zamanlaması", () => {
+    const cfg = { ...DEFAULT_AGENT, schedule: "offhours" as const };
+    expect(inWorkingHours(cfg, new Date("2026-10-14T08:00:00Z"))).toBe(true); // Çarşamba 11:00
+    expect(inWorkingHours(cfg, new Date("2026-10-14T17:00:00Z"))).toBe(false); // 20:00
+    expect(inWorkingHours(cfg, new Date("2026-10-18T08:00:00Z"))).toBe(false); // Pazar
+    const r = { ...DEFAULT_REPORTS, daily: true, weekly: true, monthly: true, hour: 9 };
+    expect(dueReports(r, Date.parse("2026-10-12T05:00:00Z"))).toEqual([]); // Pazartesi 08:00
+    expect(dueReports(r, Date.parse("2026-10-12T07:00:00Z")).map((d) => d.period)).toEqual(["daily", "weekly"]);
+    expect(dueReports({ ...r, lastSent: { daily: "2026-10-12" } }, Date.parse("2026-10-12T07:00:00Z")).map((d) => d.period)).toEqual(["weekly"]);
+    expect(dueReports(r, Date.parse("2026-11-01T07:00:00Z")).map((d) => d.period)).toEqual(["daily", "monthly"]);
+  });
+
+  it("canlı monitör ve AI yönetici raporu", async () => {
+    process.env.XRE_OPENAI_API_KEY = "sk-test";
+    setAiFetch((async (_url: string, init: any) => {
+      const name = JSON.parse(init.body).response_format.json_schema.name;
+      const content =
+        name === "manager_report"
+          ? { headline: "Yoğun ve hızlı bir gün.", summary: "Ekip hızlı cevap verdi.", highlights: ["Cevap süresi düşük"], risks: ["<script>alert(1)</script>"], actions: ["Sahibinden ilanlarını artırın"] }
+          : { language: "tr", turkish_translation: "" };
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] }), { status: 200 });
+    }) as any);
+    const { base, evo, bx } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const instance = instanceName(MEMBER, "3");
+    await fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ event: "messages.upsert", instance, data: { key: { id: "L1", remoteJid: "905301112233@s.whatsapp.net" }, pushName: "Ayşe", message: { conversation: "Merhaba fiyat nedir" } } }),
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    const t = settingsTicket(MEMBER, "all");
+    const post = (p: string, body: object) => fetch(`${base}/b24/panel/${p}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
+
+    const live = await (await post("live", {})).json();
+    expect(live.online.map((u: any) => u.name)).toEqual(["Erdal"]);
+    expect(live.totalUsers).toBe(3);
+    expect(live.activeChats).toBe(1);
+    expect(live.waiting).toBe(1);
+    expect(live.today.inbound).toBe(1);
+    expect(live.feed[0]).toMatchObject({ from: "müşteri", text: "Merhaba fiyat nedir", phone: "905301112233" });
+    expect(live.crm).toMatchObject({ available: true, won: 1, wonAmount: { TRY: 2500000 }, bySource: { "Web sitesi": 2, Sahibinden: 1 } });
+    expect(live.crm.deals[0]).toMatchObject({ title: "Daire satışı", amount: 4200000 });
+
+    // Rapor ayarı: telefon olunca gönderim hattı zorunlu
+    expect((await post("reports/save", { daily: true, phones: ["0532 111 22 33"] })).status).toBe(400);
+    const saved = await (await post("reports/save", { daily: true, hour: 8, phones: "0532 111 22 33\n+90 533 000 00 00", line: "3", userIds: ["1"] })).json();
+    expect(saved.settings).toMatchObject({ daily: true, hour: 8, phones: ["905321112233", "905330000000"], line: "3", userIds: ["1"] });
+
+    const created = await (await post("reports/create", { period: "weekly", send: true })).json();
+    expect(created.url).toMatch(/^https:\/\/crm\.xre\.test\/b24\/report\/[\w-]{20,}$/);
+    expect(created.delivery).toEqual({ sent: 3, errors: [] });
+    const sent = evo.filter((c) => c.url === `/message/sendText/${instance}` && c.body.number === "905321112233");
+    expect(sent[0].body.text).toContain(created.url);
+    expect(sent[0].body.text).toContain("Yoğun ve hızlı bir gün.");
+    expect(bx.find((c) => c.method === "im.notify.system.add")?.body).toMatchObject({ USER_ID: 1 });
+
+    const page = await fetch(created.url.replace("https://crm.xre.test", base));
+    expect(page.status).toBe(200);
+    expect(page.headers.get("cache-control")).toContain("no-store");
+    const html = await page.text();
+    expect(html).toContain("Haftalık yönetici raporu");
+    expect(html).toContain("Yoğun ve hızlı bir gün.");
+    expect(html).toContain("Sahibinden");
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;");
+    expect((await fetch(`${base}/b24/report/olmayan-rapor-anahtari-123`)).status).toBe(404);
+
+    const list = await (await post("reports/state", {})).json();
+    expect(list.reports).toHaveLength(1);
+    expect(list.reports[0]).toMatchObject({ period: "weekly", headline: "Yoğun ve hızlı bir gün." });
+    expect(list.lines).toEqual([expect.objectContaining({ id: "3", open: true })]);
+    // Yetkisiz bilet panele erişemez
+    const bad = await fetch(`${base}/b24/panel/live`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    expect(bad.status).toBe(401);
   });
 });

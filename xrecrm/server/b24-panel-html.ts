@@ -159,6 +159,37 @@ h3.section{font-size:15px;margin:22px 0 8px}
 .switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 .num{width:90px;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper)}
 .callout{background:var(--warn-soft);color:var(--warn);border-radius:var(--r-m);padding:12px 16px;margin-bottom:14px;font-weight:600}
+.tabs{flex-wrap:wrap}
+.livegrid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;align-items:start}
+.stack{display:grid;gap:14px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:14px 18px}
+.box h4{margin:0 0 10px;font-size:14px}
+.feed{max-height:620px;overflow:auto}
+.feed .item{display:grid;grid-template-columns:46px 1fr;gap:10px;padding:9px 0;border-top:1px solid var(--line-2)}
+.feed .item:first-child{border-top:0}.feed time{color:var(--ink-3);font-size:12px;font-variant-numeric:tabular-nums;padding-top:2px}
+.feed .msg{color:var(--ink-2);overflow-wrap:anywhere}
+.who-müşteri{color:var(--c-in);font-size:12px;font-weight:700}.who-temsilci{color:var(--c-out);font-size:12px;font-weight:700}.who-asistan{color:var(--warn);font-size:12px;font-weight:700}
+.who{display:flex;align-items:center;gap:10px;padding:5px 0}.dot{width:9px;height:9px;border-radius:50%;background:var(--ok);flex:none}
+.pulse{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);margin-right:4px;animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(29,155,80,.5)}70%{box-shadow:0 0 0 7px rgba(29,155,80,0)}100%{box-shadow:0 0 0 0 rgba(29,155,80,0)}}
+@media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+.mini{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.mini b{display:block;font-size:20px}.mini span{color:var(--ink-2);font-size:12px}
+.lead{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-top:1px solid var(--line-2)}
+.src{margin:7px 0}.src div{display:flex;justify-content:space-between;gap:8px}.src i{display:block;height:7px;border-radius:4px;background:var(--c-in);margin-top:3px}
+.agentgrid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(280px,1fr);gap:18px;align-items:start}
+.testbox{position:sticky;top:12px}
+.chatlog{height:340px;overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-s);padding:10px;display:flex;flex-direction:column;gap:8px;margin:8px 0}
+.bubble{max-width:85%;padding:8px 11px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere}
+.bubble.me{align-self:flex-end;background:var(--accent);color:var(--accent-ink)}.bubble.ai{align-self:flex-start;background:var(--surface);border:1px solid var(--line)}
+.bubble small{display:block;margin-top:5px;color:var(--warn);font-weight:600}
+.send{display:flex;gap:8px;margin-bottom:6px}.send .txt{flex:1}
+.area,.txt,label.field select{display:block;width:100%;margin-top:6px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper);color:inherit;font:inherit}
+.formgrid label.field select{display:block;width:100%}
+.days{display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:10px}
+.userpick{max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:var(--r-s);padding:6px 10px;background:var(--surface);columns:2}
+a.btn{text-decoration:none;color:inherit}a.btn.primary{color:var(--accent-ink)}
+.list.reps .row{grid-template-columns:150px 170px minmax(200px,1fr) auto}
+@media (max-width:820px){.livegrid,.agentgrid{grid-template-columns:1fr}.testbox{position:static}.userpick{columns:1}}
 @media (max-width:820px){
   .top,main{padding-left:16px;padding-right:16px}
   .board{grid-template-columns:1fr}
@@ -178,9 +209,12 @@ export function panelHtml(ticket: string, domain: string) {
   <div><h1>WhatsApp hatları</h1><p>${escapeHtml(domain)}</p></div>
   <div class="tabs" role="tablist">
     <button role="tab" data-tab="connections" aria-selected="true">Bağlantılar</button>
+    <button role="tab" data-tab="live" aria-selected="false">Canlı</button>
     <button role="tab" data-tab="staff" aria-selected="false">Personel</button>
     <button role="tab" data-tab="roles" aria-selected="false">Roller</button>
     <button role="tab" data-tab="perf" aria-selected="false">Performans</button>
+    <button role="tab" data-tab="agent" aria-selected="false">AI Asistan</button>
+    <button role="tab" data-tab="reports" aria-selected="false">Raporlar</button>
     <button role="tab" data-tab="billing" aria-selected="false">Ödeme</button>
     <button role="tab" data-tab="settings" aria-selected="false">Ayarlar</button>
   </div>
@@ -236,6 +270,9 @@ function render(){
     m.querySelectorAll("[data-user]").forEach(sel=>sel.onchange=async()=>{sel.disabled=true;try{const r=await api("user/role",{userId:sel.dataset.user,roleId:sel.value});warn(r.warnings);if(!(r.warnings||[]).length)toast("Rol güncellendi.");await load();}catch(e){toast(e.message,true);sel.disabled=false;}});
   }
   if(tab==="perf"){perf();return;}
+  if(tab==="live"){live();return;}
+  if(tab==="agent"){agent();return;}
+  if(tab==="reports"){reports();return;}
   if(tab==="billing"){billing();return;}
   if(tab==="settings"){
     const st=S.settings||{translate:true,transcribe:true,qualify:true,slaMinutes:15};
@@ -418,6 +455,91 @@ async function qr(line){
       const q=await api("connection/qr",{line});$("#qrbox").innerHTML=q.qr?'<img alt="WhatsApp QR kodu" src="'+esc(q.qr)+'">':'<p>'+esc(q.message||"QR henüz hazır değil.")+'</p>';
     }catch(e){$("#qrbox").innerHTML='<p>'+esc(e.message)+'</p>';}};
   await tick();if($("#sheet").classList.contains("open")&&!poll)poll=setInterval(tick,5000);
+}
+let liveTimer=null;
+const clock=t=>new Date(t).toLocaleTimeString("tr-TR",{timeZone:"Europe/Istanbul",hour:"2-digit",minute:"2-digit"});
+const WHO={"müşteri":"Müşteri","temsilci":"Temsilci","asistan":"AI asistan"};
+async function live(silent){
+  const m=$("#main");if(!silent)m.innerHTML='<p class="sub">Yükleniyor…</p>';
+  let d;try{d=await api("live");}catch(e){if(!silent)m.innerHTML='<div class="empty"><strong>Canlı veriler alınamadı</strong>'+esc(e.message)+'</div>';return;}
+  if(tab!=="live")return;
+  const crm=d.crm,src=crm?Object.entries(crm.bySource).sort((a,b)=>b[1]-a[1]):[],maxSrc=Math.max(1,...src.map(s=>s[1]));
+  const sum=o=>Object.entries(o||{}).filter(x=>x[1]).map(([c,v])=>money(v,c)).join(" + ")||"—";
+  m.innerHTML='<div class="bar"><span class="hint"><span class="pulse" aria-hidden="true"></span> Canlı · her 20 saniyede yenilenir · son güncelleme '+clock(d.at)+'</span><button class="btn" id="lref">Yenile</button></div>'
+    +'<div class="facts"><div class="fact"><b>'+d.online.length+'</b><span>çevrimiçi personel / '+d.totalUsers+'</span></div><div class="fact"><b>'+d.activeChats+'</b><span>aktif sohbet (15 dk)</span></div><div class="fact'+(d.waiting?" alert":"")+'"><b>'+d.waiting+'</b><span>cevap bekleyen'+(d.waiting?" · en uzun "+d.longestWaitMin+" dk":"")+'</span></div><div class="fact"><b>'+d.today.inbound+'</b><span>bugün gelen</span></div><div class="fact"><b>'+d.today.outbound+'</b><span>bugün giden</span></div><div class="fact"><b>'+d.today.newChats+'</b><span>yeni kişi</span></div>'+(d.today.aiReplies?'<div class="fact"><b>'+d.today.aiReplies+'</b><span>AI cevabı</span></div>':'')+'</div>'
+    +'<div class="livegrid"><section class="box"><h4>Anlık sohbet akışı</h4>'+(d.feed.length?'<div class="feed">'+d.feed.map(f=>'<div class="item"><time>'+clock(f.at)+'</time><div><div><b>'+esc(f.name||phone(f.phone))+'</b> <span class="who-'+esc(f.from)+'">'+esc(WHO[f.from]||f.from)+'</span> <span class="sub">· '+esc(f.line)+'</span></div><div class="msg">'+esc(f.text)+'</div></div></div>').join("")+'</div>':'<div class="empty">Son 24 saatte mesaj yok.</div>')+'</section>'
+    +'<div class="stack"><section class="box"><h4>Çevrimiçi ekip</h4>'+(d.online.length?d.online.map(u=>'<div class="who"><span class="dot" aria-hidden="true"></span><div><div class="name">'+esc(u.name)+'</div>'+(u.position?'<div class="sub">'+esc(u.position)+'</div>':'')+'</div></div>').join(""):'<div class="sub">Şu an çevrimiçi kimse yok.</div>')+'</section>'
+    +'<section class="box"><h4>Bugün CRM</h4>'+(crm&&crm.available?'<div class="mini"><div><b>'+crm.leads.length+'</b><span>yeni lead</span></div><div><b>'+crm.deals.length+'</b><span>yeni anlaşma</span></div><div><b>'+crm.won+'</b><span>kazanılan · '+esc(sum(crm.wonAmount))+'</span></div></div>'
+      +(crm.leads.length?'<div class="sub" style="margin-top:10px;font-weight:600">Son leadler</div>'+crm.leads.slice(0,6).map(l=>'<div class="lead"><span>'+esc(l.title||("Lead #"+l.id))+'</span><span class="sub">'+esc(l.source||"")+' · '+clock(Date.parse(l.at))+'</span></div>').join(""):'')
+      +(crm.deals.length?'<div class="sub" style="margin-top:10px;font-weight:600">Son anlaşmalar</div>'+crm.deals.slice(0,6).map(x=>'<div class="lead"><span>'+esc(x.title||("Anlaşma #"+x.id))+'</span><span class="sub">'+(x.amount?esc(money(x.amount,x.currency)):"")+'</span></div>').join(""):'')
+      :'<div class="sub">CRM verisine erişilemedi (uygulamaya CRM izni verilmiş olmalı).</div>')+'</section>'
+    +'<section class="box"><h4>Bugünkü lead kaynakları</h4>'+(src.length?src.map(([n,v])=>'<div class="src"><div><span>'+esc(n)+'</span><b>'+v+'</b></div><i style="width:'+Math.max(3,v/maxSrc*100)+'%"></i></div>').join(""):'<div class="sub">Bugün lead yok.</div>')+'</section></div></div>';
+  $("#lref").onclick=()=>live(true);
+  if(!liveTimer)liveTimer=setInterval(()=>{if(tab==="live"&&!document.hidden)live(true);else if(tab!=="live"){clearInterval(liveTimer);liveTimer=null;}},20000);
+}
+let A=null,testMsgs=[];
+const DAYS=[[1,"Pzt"],[2,"Sal"],[3,"Çar"],[4,"Per"],[5,"Cum"],[6,"Cmt"],[0,"Paz"]];
+function agentForm(){const g=id=>$("#"+id);return{enabled:g("a-on").checked,name:g("a-name").value,company:g("a-co").value,tone:g("a-tone").value,instructions:g("a-ins").value,knowledge:g("a-kb").value,
+  lines:g("a-all").checked?"all":[...document.querySelectorAll("#a-lines input:checked")].map(i=>i.value),schedule:g("a-sch").value,workStart:g("a-ws").value,workEnd:g("a-we").value,
+  workDays:[...document.querySelectorAll("#a-days input:checked")].map(i=>Number(i.value)),mergeSeconds:Number(g("a-merge").value),maxReplies:Number(g("a-max").value),humanPauseHours:Number(g("a-pause").value),handoffMessage:g("a-hand").value};}
+async function agent(){
+  const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
+  try{A=await api("agent/state");}catch(e){m.innerHTML='<div class="empty"><strong>Asistan ayarları alınamadı</strong>'+esc(e.message)+'</div>';return;}
+  if(tab!=="agent")return;
+  const a=A.agent,all=a.lines==="all";
+  const sw=(id,on)=>'<label class="switch"><input type="checkbox" id="'+id+'"'+(on?" checked":"")+'><span></span></label>';
+  m.innerHTML=(A.aiConfigured?'':'<div class="callout">AI asistan için sunucuda OpenAI anahtarı tanımlı olmalı.</div>')
+    +'<div class="facts"><div class="fact"><b>'+(a.enabled?"Açık":"Kapalı")+'</b><span>asistan durumu</span></div><div class="fact"><b>'+A.usage.today+'</b><span>bugün cevap</span></div><div class="fact"><b>'+A.usage.replies30+'</b><span>30 günde cevap</span></div><div class="fact"><b>'+A.usage.handoffs30+'</b><span>temsilciye devir</span></div></div>'
+    +'<div class="agentgrid"><div>'
+    +'<div class="list"><div class="setting"><div><strong>AI asistanı çalıştır</strong><p>Asistan bilgi tabanına göre müşteriye cevap verir; bilmediği, pazarlık veya randevu gerektiren konularda sohbeti temsilciye devreder. Temsilci Bitrix’ten yazdığında o sohbette susar. Verdiği her cevap Bitrix sohbetinde 🤖 notuyla görünür.</p></div>'+sw("a-on",a.enabled)+'</div></div>'
+    +'<h3 class="section">Kimlik</h3><div class="formgrid"><label class="field">Asistan adı<input id="a-name" maxlength="40" value="'+esc(a.name)+'"></label><label class="field">Firma adı<input id="a-co" maxlength="80" value="'+esc(a.company)+'"></label>'
+    +'<label class="field">Üslup<select id="a-tone"><option value="samimi"'+(a.tone==="samimi"?" selected":"")+'>Samimi</option><option value="resmi"'+(a.tone==="resmi"?" selected":"")+'>Resmî</option><option value="kisa"'+(a.tone==="kisa"?" selected":"")+'>Kısa ve net</option></select></label>'
+    +'<label class="field">Çalışma zamanı<select id="a-sch"><option value="always"'+(a.schedule==="always"?" selected":"")+'>7/24</option><option value="offhours"'+(a.schedule==="offhours"?" selected":"")+'>Yalnız mesai dışında</option></select></label></div>'
+    +'<div id="a-hours"'+(a.schedule==="offhours"?'':' hidden')+'><div class="formgrid"><label class="field">Mesai başlangıcı<input id="a-ws" type="time" value="'+esc(a.workStart)+'"></label><label class="field">Mesai bitişi<input id="a-we" type="time" value="'+esc(a.workEnd)+'"></label></div>'
+    +'<div class="days" id="a-days" role="group" aria-label="Mesai günleri">'+DAYS.map(([v,t])=>'<label class="check"><input type="checkbox" value="'+v+'"'+(a.workDays.includes(v)?" checked":"")+'> '+t+'</label>').join("")+'</div></div>'
+    +'<h3 class="section">Bilgi tabanı</h3><p class="sub">Projeler, fiyat aralıkları, konumlar, ödeme planları, sık sorulan sorular… Asistan yalnız burada yazanları söyler.</p><textarea class="area" id="a-kb" rows="12" maxlength="40000" placeholder="ör. Proje: Deniz Konakları, Kartal. 1+1 daireler 4.2 milyon TL’den başlar. Teslim 2027 Haziran. %30 peşin, 24 ay vade...">'+esc(a.knowledge)+'</textarea><div class="sub" id="a-kbc" style="text-align:right"></div>'
+    +'<label class="field" style="margin-top:12px">Ek yönergeler<textarea class="area" id="a-ins" rows="4" maxlength="4000" placeholder="ör. Her sohbette müşterinin bütçesini ve istediği bölgeyi sor. Yer görme talebinde temsilciye devret.">'+esc(a.instructions)+'</textarea></label>'
+    +'<label class="field">Devir mesajı<input class="txt" id="a-hand" maxlength="300" value="'+esc(a.handoffMessage)+'"></label>'
+    +'<h3 class="section">Numaralar</h3><label class="check"><input type="checkbox" id="a-all"'+(all?" checked":"")+'> Tüm numaralarda çalışsın</label><div id="a-lines">'+S.connections.map(c=>'<label class="check"><input type="checkbox" value="'+esc(c.line)+'"'+(!all&&a.lines.includes(c.line)?" checked":"")+(all?" disabled":"")+'> <span>'+esc(c.name)+' <span class="sub">'+esc(phone(c.phone))+'</span></span></label>').join("")+'</div>'
+    +'<h3 class="section">Gelişmiş</h3><div class="list"><div class="setting"><div><strong>Mesaj birleştirme</strong><p>Müşteri art arda yazarsa bu kadar bekleyip tek cevap verir.</p></div><div><input class="num" type="number" min="0" max="60" id="a-merge" value="'+a.mergeSeconds+'"> sn</div></div>'
+    +'<div class="setting"><div><strong>Sohbet başına en fazla cevap</strong><p>Sınıra ulaşınca devir mesajını yazıp temsilciye bırakır.</p></div><div><input class="num" type="number" min="1" max="100" id="a-max" value="'+a.maxReplies+'"></div></div>'
+    +'<div class="setting"><div><strong>Temsilci yazdıktan sonra sessizlik</strong><p>Temsilci bir sohbete cevap verdiyse asistan bu süre boyunca o sohbete karışmaz.</p></div><div><input class="num" type="number" min="1" max="168" id="a-pause" value="'+a.humanPauseHours+'"> saat</div></div></div>'
+    +'<div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="a-save">Asistanı kaydet</button></div></div>'
+    +'<section class="box testbox"><h4>Deneyin</h4><p class="sub">Kaydetmeden önce asistanı burada deneyin; müşteriye hiçbir şey gönderilmez.</p><div class="chatlog" id="tlog"></div><div class="send"><input class="txt" id="tin" placeholder="Müşteri gibi yazın…" maxlength="1500"><button class="btn primary" id="tsend">Gönder</button></div><button class="btn ghost" id="treset">Sohbeti temizle</button></section></div>';
+  const kbc=()=>{$("#a-kbc").textContent=$("#a-kb").value.length.toLocaleString("tr-TR")+" / 40.000 karakter";};kbc();$("#a-kb").oninput=kbc;
+  $("#a-sch").onchange=()=>{$("#a-hours").hidden=$("#a-sch").value!=="offhours";};
+  $("#a-all").onchange=()=>document.querySelectorAll("#a-lines input").forEach(i=>i.disabled=$("#a-all").checked);
+  $("#a-save").onclick=async()=>{$("#a-save").disabled=true;try{const r=await api("agent/save",agentForm());A.agent=r.agent;toast(r.agent.enabled?"Asistan kaydedildi ve çalışıyor.":"Asistan kaydedildi (kapalı).");}catch(e){toast(e.message,true);}$("#a-save").disabled=false;};
+  const draw=()=>{$("#tlog").innerHTML=testMsgs.length?testMsgs.map(x=>'<div class="bubble '+(x.from==="asistan"?"ai":"me")+'">'+esc(x.text)+(x.handoff?'<small>Temsilciye devredilir'+(x.reason?": "+esc(x.reason):"")+'</small>':'')+'</div>').join(""):'<p class="sub">Ör. “Merhaba, Kartal’daki projenin fiyatları nedir?”</p>';$("#tlog").scrollTop=1e9;};draw();
+  const send=async()=>{const text=$("#tin").value.trim();if(!text)return;$("#tin").value="";testMsgs.push({from:"müşteri",text});draw();$("#tsend").disabled=true;
+    try{const f=agentForm();const r=await api("agent/test",{messages:testMsgs,config:f});testMsgs.push({from:"asistan",text:r.reply,handoff:r.handoff,reason:r.reason});}catch(e){toast(e.message,true);}draw();$("#tsend").disabled=false;$("#tin").focus();};
+  $("#tsend").onclick=send;$("#tin").onkeydown=e=>{if(e.key==="Enter")send();};$("#treset").onclick=()=>{testMsgs=[];draw();};
+}
+let R=null;
+const PL={daily:"Günlük",weekly:"Haftalık",monthly:"Aylık"};
+async function reports(){
+  const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
+  try{R=await api("reports/state");}catch(e){m.innerHTML='<div class="empty"><strong>Raporlar alınamadı</strong>'+esc(e.message)+'</div>';return;}
+  if(tab!=="reports")return;
+  const s=R.settings,sw=(id,on)=>'<label class="switch"><input type="checkbox" id="'+id+'"'+(on?" checked":"")+'><span></span></label>';
+  const hours=Array.from({length:24},(_,i)=>'<option value="'+i+'"'+(i===s.hour?" selected":"")+'>'+String(i).padStart(2,"0")+':00</option>').join("");
+  m.innerHTML=(R.aiConfigured?'':'<div class="callout">OpenAI anahtarı tanımlı değil: raporlar yine oluşur ama yapay zekâ yorumu (özet, riskler, öneriler) eklenmez.</div>')
+    +'<div class="bar"><span class="hint">Yönetici raporu: mesaj hacmi, cevap süreleri, temsilciler, sıcak müşteriler ve CRM sonuçları; yapay zekâ yorumuyla.</span><div style="display:flex;gap:8px;flex-wrap:wrap"><select class="filter" id="r-p"><option value="daily">Bugün</option><option value="weekly">Son 7 gün</option><option value="monthly">Son 30 gün</option></select><button class="btn" id="r-make">Anlık rapor oluştur</button><button class="btn primary" id="r-send">Oluştur ve gönder</button></div></div>'
+    +'<div class="list"><div class="setting"><div><strong>Günlük rapor</strong><p>Her sabah bir önceki günün özeti.</p></div>'+sw("r-d",s.daily)+'</div><div class="setting"><div><strong>Haftalık rapor</strong><p>Pazartesi sabahı son 7 günün özeti.</p></div>'+sw("r-w",s.weekly)+'</div><div class="setting"><div><strong>Aylık rapor</strong><p>Her ayın 1’inde son 30 günün özeti.</p></div>'+sw("r-m",s.monthly)+'</div>'
+    +'<div class="setting"><div><strong>Gönderim saati</strong><p>İstanbul saatiyle.</p></div><select class="filter" id="r-h">'+hours+'</select></div></div>'
+    +'<h3 class="section">Kime gitsin?</h3><div class="formgrid"><label class="field">WhatsApp numaraları<textarea class="area" id="r-ph" rows="3" placeholder="0532 000 00 00 (her satıra bir numara)">'+esc(s.phones.map(phone).join("\\n"))+'</textarea></label>'
+    +'<label class="field">Gönderen bağlantı<select id="r-l"><option value="">Seçin</option>'+R.lines.map(l=>'<option value="'+esc(l.id)+'"'+(l.id===s.line?" selected":"")+(l.open?"":" disabled")+'>'+esc(l.label)+(l.open?"":" (bağlı değil)")+'</option>').join("")+'</select></label></div>'
+    +'<p class="sub" style="font-weight:600;margin:4px 0">Bitrix bildirimi gidecek kişiler</p><div class="userpick" id="r-u">'+S.users.map(u=>'<label class="check"><input type="checkbox" value="'+esc(u.id)+'"'+(s.userIds.includes(String(u.id))?" checked":"")+'> '+esc(u.name)+'</label>').join("")+'</div>'
+    +'<div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="r-save">Ayarları kaydet</button></div>'
+    +'<h3 class="section">Oluşturulan raporlar</h3>'+(R.reports.length?'<div class="list reps"><div class="row head"><span>Rapor</span><span>Dönem</span><span>Özet</span><span></span></div>'+R.reports.map(r=>'<div class="row"><div><div class="name">'+esc(PL[r.period])+'</div><div class="sub">'+esc(new Date(r.createdAt).toLocaleString("tr-TR",{timeZone:"Europe/Istanbul"}))+'</div></div><div>'+esc(r.from===r.to?r.from:r.from+" – "+r.to)+'</div><div class="sub">'+esc(r.headline||"—")+'</div><div class="acts"><a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener">Aç</a><button class="btn ghost" data-copy="'+esc(r.url)+'">Bağlantıyı kopyala</button></div></div>').join("")+'</div>':'<div class="list"><div class="empty">Henüz rapor yok. “Anlık rapor oluştur” ile ilkini deneyin.</div></div>');
+  const form=()=>({daily:$("#r-d").checked,weekly:$("#r-w").checked,monthly:$("#r-m").checked,hour:Number($("#r-h").value),phones:$("#r-ph").value.split("\\n"),line:$("#r-l").value,userIds:[...document.querySelectorAll("#r-u input:checked")].map(i=>i.value),origin:location.origin});
+  $("#r-save").onclick=async()=>{try{await api("reports/save",form());toast("Rapor ayarları kaydedildi.");}catch(e){toast(e.message,true);}};
+  const make=async send=>{const btn=send?$("#r-send"):$("#r-make");btn.disabled=true;btn.textContent="Hazırlanıyor…";
+    try{if(send)await api("reports/save",form());const r=await api("reports/create",{period:$("#r-p").value,send,origin:location.origin});
+      if(send){const d=r.delivery||{sent:0,errors:[]};if(d.errors.length)toast((d.sent?d.sent+" alıcıya gönderildi. ":"")+d.errors.join(" · "),true);else toast(d.sent?d.sent+" alıcıya gönderildi.":"Alıcı seçilmedi; rapor yalnız oluşturuldu.",!d.sent);}else window.open(r.url,"_blank","noopener");
+      reports();}catch(e){toast(e.message,true);btn.disabled=false;btn.textContent=send?"Oluştur ve gönder":"Anlık rapor oluştur";}};
+  $("#r-make").onclick=()=>make(false);$("#r-send").onclick=()=>make(true);
+  m.querySelectorAll("[data-copy]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);toast("Bağlantı kopyalandı.");}catch{prompt("Bağlantı",b.dataset.copy);}});
 }
 load();
 </script></body></html>`;

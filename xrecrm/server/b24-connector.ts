@@ -9,6 +9,8 @@
 import crypto from "node:crypto";
 import express, { type Express, type Request, type Response } from "express";
 import { panelHtml } from "./b24-panel-html.js";
+import { onCustomerMessage, registerAgentPanelRoutes, type AgentConfig } from "./b24-agent.js";
+import { registerLivePanelRoutes, type ReportSettings } from "./b24-live.js";
 import { adminHtml } from "./b24-admin-html.js";
 import { getPricing, licenseState, lineUsable, registerBillingPanelRoutes, withTrialStarted } from "./b24-billing.js";
 import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
@@ -49,6 +51,8 @@ export interface B24Portal {
   /** Bitrix kullanıcı kimliği → rol kimliği */
   assignments?: Record<string, string>;
   settings?: B24Settings;
+  agent?: AgentConfig;
+  reports?: ReportSettings;
 }
 export interface B24Settings {
   translate?: boolean;
@@ -67,8 +71,8 @@ export function portalSettings(portal: B24Portal): Required<B24Settings> {
 
 // --- Sohbet durumu ve istatistik ---------------------------------------------
 
-const CHAT_KIND = "b24-chat";
-const STAT_KIND = "b24-stat";
+export const CHAT_KIND = "b24-chat";
+export const STAT_KIND = "b24-stat";
 export interface B24Chat {
   id: string;
   memberId: string;
@@ -82,21 +86,26 @@ export interface B24Chat {
   inbound: number;
   outbound: number;
   sinceQualify: number;
-  history: { from: "müşteri" | "temsilci"; text: string; at: number }[];
+  history: { from: "müşteri" | "temsilci" | "asistan"; text: string; at: number }[];
   qualification?: Qualification & { at: number };
+  createdAt?: number;
+  /** AI asistan durumu: temsilci yazdıysa "human", devredildiyse "handoff" */
+  agentState?: "human" | "handoff";
+  humanAt?: number;
+  aiReplies?: number;
 }
 const chatId = (memberId: string, line: string, phone: string) => `${memberId}:${line}:${phone}`;
-async function loadChat(store: Store, memberId: string, line: string, phone: string, name = ""): Promise<B24Chat> {
+export async function loadChat(store: Store, memberId: string, line: string, phone: string, name = ""): Promise<B24Chat> {
   const id = chatId(memberId, line, phone);
   const found = (await store.get<B24Chat>(CHAT_KIND, id, SYSTEM_OWNER))?.payload;
   return found || { id, memberId, line, phone, name, inbound: 0, outbound: 0, sinceQualify: 0, history: [] };
 }
-async function saveChat(store: Store, chat: B24Chat) {
+export async function saveChat(store: Store, chat: B24Chat) {
   chat.history = chat.history.slice(-40);
   await store.put(CHAT_KIND, chat.id, chat, SYSTEM_OWNER);
 }
-const istanbulDay = (t = Date.now()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date(t));
-interface DayStat {
+export const istanbulDay = (t = Date.now()) => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date(t));
+export interface DayStat {
   id: string;
   memberId: string;
   day: string;
@@ -107,7 +116,7 @@ interface DayStat {
   lineHours?: Record<string, number[]>;
 }
 const istanbulHour = (t = Date.now()) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", hour: "2-digit", hourCycle: "h23" }).format(new Date(t)));
-async function bumpStat(store: Store, memberId: string, fn: (s: DayStat) => void) {
+export async function bumpStat(store: Store, memberId: string, fn: (s: DayStat) => void) {
   const day = istanbulDay();
   const id = `${memberId}:${day}`;
   const stat = (await store.get<DayStat>(STAT_KIND, id, SYSTEM_OWNER))?.payload || { id, memberId, day, agents: {}, lines: {} };
@@ -293,7 +302,7 @@ export async function savePortal(store: Store, portal: B24Portal) {
 
 // --- Evolution ---------------------------------------------------------------
 
-async function evolution(path: string, init: RequestInit = {}) {
+export async function evolution(path: string, init: RequestInit = {}) {
   if (!envConfigured("EVOLUTION_API_URL", "EVOLUTION_API_KEY"))
     throw Object.assign(new Error("WhatsApp sunucusu yapılandırılmamış."), { statusCode: 503 });
   return readJsonResponse(
@@ -362,7 +371,7 @@ async function activateLine(store: Store, portal: B24Portal, line: string, activ
 }
 
 /** Müşteri adına Bitrix sohbetine kısa bir not (arama, silme, düzenleme). */
-async function sendClientMessage(
+export async function sendClientMessage(
   store: Store,
   portal: B24Portal,
   line: string,
@@ -484,6 +493,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   const pushName = String(data?.pushName || "").slice(0, 120);
   const chat = await loadChat(store, portal.id, map.line, phone, pushName);
   const isNew = chat.inbound === 0 && chat.outbound === 0;
+  if (!chat.createdAt) chat.createdAt = Date.now();
   if (pushName) chat.name = pushName;
   let display = text;
   let turkish = text;
@@ -542,6 +552,8 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   // Yeterli konuşma birikince müşteriyi nitelendir (arka planda).
   if (settings.qualify && aiConfigured() && chat.sinceQualify >= 3 && chat.history.length >= 3)
     void qualifyChat(store, portal, chat).catch((error) => console.warn("Nitelendirme yapılamadı:", (error as Error).message));
+  // AI asistan (gruplarda çalışmaz)
+  if (!isGroup) onCustomerMessage(store, portal, map.line, chat);
 }
 
 const agentCache = new Map<string, { id: string; at: number }>();
@@ -625,6 +637,9 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
     chat.outbound += 1;
     chat.lastOutboundAt = now;
     chat.waitingSince = null;
+    // Temsilci yazdı: AI asistan bu sohbette bir süre susar.
+    chat.agentState = "human";
+    chat.humanAt = now;
     if (agentText) chat.history.push({ from: "temsilci", text: agentText.replace(/^!/, ""), at: now });
     await saveChat(store, chat);
     await bumpStat(store, portal.id, (s) => {
@@ -975,14 +990,14 @@ tick();
 // numaranın sohbetlerini göreceği Bitrix'in kendi kuralıyla sağlanır: rolü o
 // numarayı içeren personel, o Açık Kanal'ın operatör kuyruğuna yazılır.
 
-interface B24User {
+export interface B24User {
   id: string;
   name: string;
   email: string;
   position: string;
 }
 
-async function portalUsers(store: Store, portal: B24Portal): Promise<B24User[]> {
+export async function portalUsers(store: Store, portal: B24Portal): Promise<B24User[]> {
   const users: B24User[] = [];
   for (let start = 0; start < 2000; start += 50) {
     const batch = await b24Call(store, portal, "user.get", { FILTER: { ACTIVE: true, USER_TYPE: "employee" }, start });
@@ -1077,6 +1092,8 @@ function registerPanelRoutes(
   };
   const fresh = async (portal: B24Portal) => (await portalById(store, portal.id)) || portal;
   registerBillingPanelRoutes(app, store, panel, json);
+  registerAgentPanelRoutes(app, store, panel, json);
+  registerLivePanelRoutes(app, store, panel, json);
 
   app.post(
     "/b24/panel/state",

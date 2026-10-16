@@ -29,6 +29,31 @@ Bu özellikler için CRM'de **Entegrasyonlar → Yapay zekâ asistanı ve n8n �
 - **Müşteri nitelendirme:** Üç mesajda bir sohbetten bütçe, bölge, tür, oda sayısı, amaç ve zaman çıkarılır, 0–100 arası bir puan verilir. Sonuç Bitrix'teki lead kartının (yoksa kişi kartının) zaman akışına yazılır. Bütçe lead'in fırsat tutarına işlenir.
 - **Ekip performansı:** Temsilci başına ortalama ve en uzun ilk cevap süresi, gönderilen mesaj sayısı, numara başına yeni sohbet ve mesaj hacmi gösterilir. Yanıt bekleyen sohbetler listelenir, hedef süreyi aşanlar işaretlenir. Sıcak müşteriler puana göre sıralanır.
 
+## AI Asistan, Canlı ve Raporlar sekmeleri
+
+- **AI Asistan:** Bilgi tabanına (en fazla 40.000 karakter: projeler, fiyatlar, ödeme planları, SSS) dayanarak müşteriye WhatsApp'tan kendisi cevap verir.
+  - 7/24 ya da yalnız mesai dışında çalışır.
+  - Müşteri art arda yazarsa birkaç saniye bekleyip tek cevap verir. Müşterinin dilinde yazar.
+  - Bilmediği konularda, pazarlıkta, randevuda ya da müşteri insan isterse sohbeti temsilciye devreder. Sohbet başına cevap sınırına ulaştığında da devreder.
+  - Temsilci Bitrix'ten yazdığı an o sohbette susar (varsayılan 12 saat).
+  - Verdiği her cevap Bitrix sohbetine "🤖" notuyla düşer.
+  - "Deneyin" kutusunda, müşteriye bir şey gitmeden önce denenebilir.
+- **Canlı:** 20 saniyede bir yenilenir. Gösterdikleri:
+  - Çevrimiçi personel, aktif ve cevap bekleyen sohbetler.
+  - Anlık mesaj akışı (müşteri / temsilci / AI).
+  - Bugünkü lead ve anlaşmalar ile kazanılan tutar.
+  - Lead kaynakları (Bitrix CRM).
+- **Raporlar:** Günlük, haftalık (pazartesi) ve aylık (ayın 1'i) yönetici raporu, seçilen saatte oluşturulur.
+  - Rapor bağlantısı seçilen bağlı numaradan yöneticilerin WhatsApp'ına gider, isteğe bağlı olarak Bitrix bildirimi olarak da düşer.
+  - Rapor sayfası (`/b24/report/<anahtar>`) tahmin edilemez bir bağlantıdır ve arama motorlarına kapalıdır.
+  - İçeriği: mesaj hacmi, ilk cevap süresi, temsilciler, numaralar, sıcak müşteriler, CRM sonuçları ve yapay zekâ yorumu (öne çıkanlar, riskler, öneriler).
+  - "Anlık rapor oluştur" ile istendiğinde de hazırlanır.
+  - Zamanlanmış gönderim için `PUBLIC_ORIGIN` tanımlı olmalı ya da panel bir kez açılıp ayarlar kaydedilmiş olmalı.
+
+## XRE yönetimi (`/b24/admin`)
+
+Portallar sekmesi firma firma listelenir. Firmaya tıklayınca numaraları açılır. Liste firma, alan adı ya da numarayla aranabilir. Seçilen numaraların lisansı oradan uzatılır.
+
 ## Lisans ve ödeme
 
 - **Model:** Her WhatsApp numarası ayrı lisans. Numara ilk kez bağlandığında ücretsiz deneme başlar (varsayılan 7 gün).
@@ -81,7 +106,6 @@ Kartla ödeme (iyzico / PayTR) bu kayıtların üzerine sonradan eklenecek; mevc
 ## Henüz yapılmadı
 
 - Hedef süreyi aşan sohbetler için yöneticiye Bitrix bildirimi (`im` izni gerekir).
-
 - Kartla ödeme (iyzico / PayTR).
 - Telefondan doğrudan yazılan mesajların Bitrix'e kopyalanması.
 - Pazar yeri açıklama sayfası ve İngilizce arayüz.
