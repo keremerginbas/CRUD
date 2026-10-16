@@ -9,6 +9,8 @@ import { CONNECTOR_ID, instanceName, setB24Fetch, settingsTicket } from "../serv
 import { setAiFetch } from "../server/b24-ai";
 import { inWorkingHours, setAgentMergeDelay, DEFAULT_AGENT } from "../server/b24-agent";
 import { dueReports, DEFAULT_REPORTS } from "../server/b24-live";
+import { panelHtml } from "../server/b24-panel-html";
+import { localizeMessage } from "../server/b24-i18n";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -105,7 +107,7 @@ const formPost = (fields: Record<string, string>) => ({
 });
 
 async function install(base: string) {
-  return fetch(`${base}/b24/install`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "ref-1", AUTH_EXPIRES: "3600" }));
+  return fetch(`${base}/b24/install`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "ref-1", AUTH_EXPIRES: "3600" }));
 }
 
 describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
@@ -130,7 +132,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
   it("ayar sayfası yalnız portal yöneticisine açılır; bağlanınca kanal etkinleşir", async () => {
     const { base, bx } = await setup({ evoState: "open" });
     await install(base);
-    const opts = { member_id: MEMBER, DOMAIN, PLACEMENT: "SETTING_CONNECTOR", PLACEMENT_OPTIONS: JSON.stringify({ LINE: "3" }) };
+    const opts = { LANG: "tr", member_id: MEMBER, DOMAIN, PLACEMENT: "SETTING_CONNECTOR", PLACEMENT_OPTIONS: JSON.stringify({ LINE: "3" }) };
     expect((await fetch(`${base}/b24/settings`, formPost({ ...opts, AUTH_ID: "user-auth" }))).status).toBe(403);
     const ok = await fetch(`${base}/b24/settings`, formPost({ ...opts, AUTH_ID: "admin-auth" }));
     expect(ok.status).toBe(200);
@@ -224,11 +226,11 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
   it("sahte kurulumu reddeder: belirteç Bitrix OAuth sunucusunda doğrulanır", async () => {
     const { base, bx, store } = await setup();
     // Saldırganın kendi sunucusu "Bitrix" gibi davranıp evet dese bile kurulum olmaz
-    const forged = await fetch(`${base}/b24/install`, formPost({ member_id: "saldirganportal1", DOMAIN: "kotu.example.com", AUTH_ID: "tok-1", REFRESH_ID: "ref-1" }));
+    const forged = await fetch(`${base}/b24/install`, formPost({ LANG: "tr", member_id: "saldirganportal1", DOMAIN: "kotu.example.com", AUTH_ID: "tok-1", REFRESH_ID: "ref-1" }));
     expect(forged.status).toBe(401);
-    const forged2 = await fetch(`${base}/b24/install`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "forged" }));
+    const forged2 = await fetch(`${base}/b24/install`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "forged" }));
     expect(forged2.status).toBe(401);
-    const noRefresh = await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1" }));
+    const noRefresh = await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1" }));
     expect(noRefresh.status).toBe(502);
     expect(bx.some((c) => c.url.includes("kotu.example.com"))).toBe(false);
     expect(await store.get("b24-portal", "saldirganportal1", "b24-connector")).toBeFalsy();
@@ -255,7 +257,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
   it("yönetim paneli: bağlantı ekler, roller ve personel ile Açık Kanal kuyruklarını ayarlar", async () => {
     const { base, bx } = await setup();
     await install(base);
-    const home = await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }));
+    const home = await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }));
     const html = await home.text();
     expect(html).toContain("Numara ekle");
     const t = html.match(/const T="([^"]+)"/)?.[1];
@@ -283,22 +285,22 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(state.body.users.find((u: any) => u.id === "2").roleId).toBe(sales.body.role.id);
 
     // Personel yalnız kendi rolündeki numaraları görür; panel açılmaz.
-    const kaan = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "user-auth" }))).text();
+    const kaan = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "user-auth" }))).text();
     expect(kaan).toContain("Satış 7124");
     expect(kaan).not.toContain("Numara ekle");
-    const merve = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "merve-auth" }))).text();
+    const merve = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "merve-auth" }))).text();
     expect(merve).toContain("Sigorta");
     expect(merve).toContain("Size atanmış numara yok");
   });
 
   it("kurulum adresi çağrılmasa da ilk açılışta kendini kurar", async () => {
     const { base, bx } = await setup();
-    const res = await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "ref-1" }));
+    const res = await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "ref-1" }));
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("Numara ekle");
     expect(bx.some((c) => c.method === "imconnector.register")).toBe(true);
     // Yönetici olmayan biri kuramaz
-    const other = await fetch(`${base}/b24/app`, formPost({ member_id: "baskaportal1", DOMAIN: "baska.bitrix24.com", AUTH_ID: "user-auth" }));
+    const other = await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: "baskaportal1", DOMAIN: "baska.bitrix24.com", AUTH_ID: "user-auth" }));
     expect(other.status).toBe(502);
   });
 
@@ -315,7 +317,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
       ai.push(name);
       const content =
         name === "translation"
-          ? { language: "ru", turkish_translation: "Merhaba, daire arıyorum" }
+          ? { language: "ru", translation: "Merhaba, daire arıyorum" }
           : name === "outgoing_translation"
             ? { translation: "Цена 3 миллиона" }
             : { summary: "Antalya'da 3+1 daire arıyor.", budget: 300000, currency: "USD", location: "Antalya", property_type: "daire", rooms: "3+1", purpose: "vatandaşlık", timeline: "1 ay", score: 82, temperature: "sıcak", next_step: "Yer görme randevusu önerin." };
@@ -377,7 +379,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await new Promise((r) => setTimeout(r, 80));
     expect(evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1)?.body.text).toBe("Antalya");
 
-    const home = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
     const t = home.match(/const T="([^"]+)"/)?.[1];
     const stats = await (await fetch(`${base}/b24/panel/stats`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t, days: 7 }) })).json();
     expect(stats.waiting).toEqual([]);
@@ -423,7 +425,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await wait();
     expect(sent().length).toBe(before);
 
-    const home = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
     const t = home.match(/const T="([^"]+)"/)?.[1];
     const opt = await (await fetch(`${base}/b24/panel/connection/options`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t, line: "3", calls: false, groups: true, edits: true }) })).json();
     expect(opt.options).toEqual({ calls: false, groups: true, edits: true });
@@ -449,7 +451,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const { store, base, bx, evo } = await setup({ evoState: "open" });
     await install(base);
     await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
-    const home = await (await fetch(`${base}/b24/app`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
     const t = home.match(/const T="([^"]+)"/)?.[1];
     const panel = async (path: string, body: Record<string, unknown> = {}) => {
       const r = await fetch(`${base}/b24/panel/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
@@ -520,7 +522,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     setAiFetch((async (_url: string, init: any) => {
       const body = JSON.parse(init.body);
       const name = body.response_format.json_schema.name;
-      let content: unknown = { language: "tr", turkish_translation: "" };
+      let content: unknown = { language: "tr", translation: "" };
       if (name === "agent_reply") {
         prompts.push(body.messages);
         content = next;
@@ -631,7 +633,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
       const content =
         name === "manager_report"
           ? { headline: "Yoğun ve hızlı bir gün.", summary: "Ekip hızlı cevap verdi.", highlights: ["Cevap süresi düşük"], risks: ["<script>alert(1)</script>"], actions: ["Sahibinden ilanlarını artırın"] }
-          : { language: "tr", turkish_translation: "" };
+          : { language: "tr", translation: "" };
       return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] }), { status: 200 });
     }) as any);
     const { base, evo, bx } = await setup({ evoState: "open" });
@@ -688,5 +690,78 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     // Yetkisiz bilet panele erişemez
     const bad = await fetch(`${base}/b24/panel/live`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
     expect(bad.status).toBe(401);
+  });
+
+  it("İngilizce arayüz: panelde çevrilmemiş metin kalmaz, JS bozulmaz", () => {
+    const html = panelHtml("ticket", "demo.bitrix24.com", "en");
+    expect(html).toContain('<html lang="en">');
+    expect(html).toContain("Connections");
+    expect(html).toContain("AI Assistant");
+    const script = html.split("<script>")[1].split("</script>")[0];
+    expect(() => new Function(script)).not.toThrow();
+    // Stil dışında kalan Türkçe karakterler yalnız veri anahtarları olabilir (müşteri, sıcak, ılık, soğuk)
+    const body = html.split("</style>")[1].replace(/"(müşteri|sıcak|ılık|soğuk)"/g, "");
+    expect(body.match(/[^\s<>"']*[ğüşıöçĞÜŞİÖÇ][^\s<>"']*/g) || []).toEqual([]);
+    expect(localizeMessage("Rol adı gerekli.", "en")).toBe("A role name is required.");
+    expect(localizeMessage("Bu kod en fazla 3 numara için geçerli.", "en")).toBe("This code is valid for at most 3 numbers.");
+    expect(localizeMessage("Rol adı gerekli.", "tr")).toBe("Rol adı gerekli.");
+  });
+
+  it("İngilizce portal: notlar, çeviri ve hata mesajları İngilizce", async () => {
+    process.env.XRE_OPENAI_API_KEY = "sk-test";
+    const targets: string[] = [];
+    setAiFetch((async (_url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      const name = body.response_format.json_schema.name;
+      if (name === "translation") targets.push(body.messages[0].content);
+      const content =
+        name === "translation"
+          ? { language: "de", translation: "Hello, I am looking for a flat" }
+          : name === "outgoing_translation"
+            ? { translation: "Der Preis beträgt 300.000" }
+            : { language: "en", translation: "" };
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify(content) } }] }), { status: 200 });
+    }) as any);
+    const { base, bx, evo } = await setup({ evoState: "open" });
+    const installed = await fetch(`${base}/b24/install`, formPost({ LANG: "en", member_id: MEMBER, DOMAIN, AUTH_ID: "tok-1", REFRESH_ID: "ref-1" }));
+    expect(await installed.text()).toContain("Installation complete");
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "en", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    expect(home).toContain("Add number");
+    const user = await (await fetch(`${base}/b24/app`, formPost({ LANG: "en", member_id: MEMBER, DOMAIN, AUTH_ID: "user-auth" }))).text();
+    expect(user).toContain("Your WhatsApp numbers");
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const instance = instanceName(MEMBER, "3");
+    await fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ event: "messages.upsert", instance, data: { key: { id: "E1", remoteJid: "4915112345678@s.whatsapp.net" }, pushName: "Jonas", message: { conversation: "Hallo, ich suche eine Wohnung" } } }),
+    });
+    await new Promise((r) => setTimeout(r, 80));
+    expect(targets[0]).toContain("translate it into English");
+    const shown = bx.filter((c) => c.method === "imconnector.send.messages").at(-1)!.body.MESSAGES[0].message.text;
+    expect(shown).toContain("🌐 German → English:");
+    expect(shown).toContain("Original: Hallo");
+    await fetch(
+      `${base}/b24/events`,
+      formPost({
+        event: "ONIMCONNECTORMESSAGEADD",
+        "data[CONNECTOR]": CONNECTOR_ID,
+        "data[LINE]": "3",
+        "data[MESSAGES][0][im][chat_id]": "9",
+        "data[MESSAGES][0][im][message_id]": "10",
+        "data[MESSAGES][0][message][id]": "10",
+        "data[MESSAGES][0][message][user_id]": "2",
+        "data[MESSAGES][0][message][text]": "The price is 300,000",
+        "data[MESSAGES][0][chat][id]": "4915112345678",
+        "auth[member_id]": MEMBER,
+        "auth[application_token]": "app-token",
+        "auth[access_token]": "tok-2",
+      }),
+    );
+    await new Promise((r) => setTimeout(r, 80));
+    expect(evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1)?.body.text).toBe("Der Preis beträgt 300.000");
+    const t = settingsTicket(MEMBER, "all");
+    const bad = await (await fetch(`${base}/b24/panel/role/save`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t, lang: "en", name: "" }) })).json();
+    expect(bad.message).toBe("A role name is required.");
   });
 });

@@ -8,9 +8,10 @@
 // CRM'in kendi çalışma alanından tamamen ayrıdır.
 import crypto from "node:crypto";
 import express, { type Express, type Request, type Response } from "express";
-import { panelHtml } from "./b24-panel-html.js";
+import { PANEL_STYLE, panelHtml } from "./b24-panel-html.js";
 import { onCustomerMessage, registerAgentPanelRoutes, type AgentConfig } from "./b24-agent.js";
 import { registerLivePanelRoutes, type ReportSettings } from "./b24-live.js";
+import { langOf, localizeMessage, normLang, pick, type Lang } from "./b24-i18n.js";
 import { adminHtml } from "./b24-admin-html.js";
 import { getPricing, licenseState, lineUsable, registerBillingPanelRoutes, withTrialStarted } from "./b24-billing.js";
 import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
@@ -53,6 +54,8 @@ export interface B24Portal {
   settings?: B24Settings;
   agent?: AgentConfig;
   reports?: ReportSettings;
+  /** Arayüz ve sohbet notlarının dili (Bitrix LANG); yoksa Türkçe. */
+  lang?: Lang;
 }
 export interface B24Settings {
   translate?: boolean;
@@ -139,7 +142,8 @@ const agentStat = (s: DayStat, agent: string) => (s.agents[agent] ||= { replies:
 
 /** Sohbeti nitelendirip Bitrix'teki lead (yoksa kişi) kartının zaman akışına yazar. */
 async function qualifyChat(store: Store, portal: B24Portal, chat: B24Chat) {
-  const q = await qualifyConversation(chat.history.map(({ from, text }) => ({ from, text })));
+  const lang = langOf(portal);
+  const q = await qualifyConversation(chat.history.map(({ from, text }) => ({ from, text })), lang);
   if (!q) return;
   chat.qualification = { ...q, at: Date.now() };
   chat.sinceQualify = 0;
@@ -154,7 +158,7 @@ async function qualifyChat(store: Store, portal: B24Portal, chat: B24Chat) {
   }
   const entityId = Number(ids[ids.length - 1]);
   if (!entityId) return;
-  await b24Call(store, portal, "crm.timeline.comment.add", { fields: { ENTITY_ID: entityId, ENTITY_TYPE: entityType, COMMENT: qualificationComment(q) } });
+  await b24Call(store, portal, "crm.timeline.comment.add", { fields: { ENTITY_ID: entityId, ENTITY_TYPE: entityType, COMMENT: qualificationComment(q, lang) } });
   if (entityType === "lead" && q.budget && ["TRY", "USD", "EUR", "GBP"].includes(q.currency))
     await b24Call(store, portal, "crm.lead.update", { id: entityId, fields: { OPPORTUNITY: q.budget, CURRENCY_ID: q.currency } }).catch(() => undefined);
 }
@@ -379,14 +383,15 @@ export async function sendClientMessage(
 ) {
   const isGroup = msg.phone.endsWith("@g.us");
   const userId = isGroup ? msg.sender || msg.phone : msg.phone;
+  const lang = langOf(portal);
   await b24Call(store, portal, "imconnector.send.messages", {
     CONNECTOR: CONNECTOR_ID,
     LINE: line,
     MESSAGES: [
       {
-        user: { id: userId, name: msg.name || (isGroup ? "Grup üyesi" : `+${msg.phone}`), ...(isGroup && !msg.sender ? {} : { phone: `+${userId}`, skip_phone_validate: "Y" }) },
+        user: { id: userId, name: msg.name || (isGroup ? pick(lang, "Grup üyesi", "Group member") : `+${msg.phone}`), ...(isGroup && !msg.sender ? {} : { phone: `+${userId}`, skip_phone_validate: "Y" }) },
         message: { id: msg.id, date: Math.floor(Date.now() / 1000), text: msg.text },
-        chat: { id: msg.phone, name: isGroup ? "WhatsApp grubu" : msg.name || `+${msg.phone}` },
+        chat: { id: msg.phone, name: isGroup ? pick(lang, "WhatsApp grubu", "WhatsApp group") : msg.name || `+${msg.phone}` },
       },
     ],
   });
@@ -444,7 +449,9 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
         phone: caller,
         name: "",
         id: `call-${String(call?.id || crypto.randomUUID())}`,
-        text: call?.isVideo ? "🎥 Görüntülü WhatsApp araması geldi. Cevaplamak için telefonu kullanın." : "📞 WhatsApp araması geldi. Cevaplamak için telefonu kullanın.",
+        text: call?.isVideo
+          ? pick(langOf(portal), "🎥 Görüntülü WhatsApp araması geldi. Cevaplamak için telefonu kullanın.", "🎥 Incoming WhatsApp video call. Use the phone to answer.")
+          : pick(langOf(portal), "📞 WhatsApp araması geldi. Cevaplamak için telefonu kullanın.", "📞 Incoming WhatsApp call. Use the phone to answer."),
       });
     }
     return;
@@ -471,7 +478,9 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
       name: String(data?.pushName || "").slice(0, 120),
       sender,
       id: `${String(key.id || crypto.randomUUID())}-${edited ? "edit" : "del"}`,
-      text: edited ? `✏️ Müşteri mesajını düzenledi: ${edited}` : "🗑 Müşteri bir mesajını sildi.",
+      text: edited
+        ? `${pick(langOf(portal), "✏️ Müşteri mesajını düzenledi", "✏️ The customer edited a message")}: ${edited}`
+        : pick(langOf(portal), "🗑 Müşteri bir mesajını sildi.", "🗑 The customer deleted a message."),
     });
     return;
   }
@@ -480,12 +489,14 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   const owner = `b24:${portal.id}`;
   const media = await captureEvolutionMedia(store, owner, instance, data);
   const settings = portalSettings(portal);
+  const uiLang = langOf(portal);
+  const voiceLabel = pick(uiLang, "🎤 Sesli mesaj: ", "🎤 Voice message: ");
   let text = waMessageText(message) || "";
   if (media.mediaType === "audio" && media.mediaId && settings.transcribe && aiConfigured()) {
     try {
       const audio = await readMedia(store, owner, media.mediaId);
       const transcript = audio ? await transcribe(audio.buffer, audio.record.mime, audio.record.fileName) : "";
-      if (transcript) text = `🎤 Sesli mesaj: ${transcript}`;
+      if (transcript) text = `${voiceLabel}${transcript}`;
     } catch (error) {
       console.warn("Sesli mesaj yazıya dökülemedi:", (error as Error).message);
     }
@@ -496,15 +507,17 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   if (!chat.createdAt) chat.createdAt = Date.now();
   if (pushName) chat.name = pushName;
   let display = text;
-  let turkish = text;
+  // Temsilcinin dilindeki metin (sohbet geçmişi ve AI için)
+  let local = text;
   if (settings.translate && text && aiConfigured()) {
     try {
-      const body = text.replace(/^🎤 Sesli mesaj: /, "");
-      const result = await detectAndTranslate(body);
+      const voice = text.startsWith(voiceLabel);
+      const body = voice ? text.slice(voiceLabel.length) : text;
+      const result = await detectAndTranslate(body, uiLang);
       if (result.lang) chat.lang = result.lang;
-      if (result.lang && result.lang !== "tr" && result.translation) {
-        turkish = (text.startsWith("🎤") ? "🎤 Sesli mesaj: " : "") + result.translation;
-        display = `🌐 ${languageName(result.lang)} → Türkçe:\n${turkish}\n\n[i]Orijinal: ${body}[/i]`;
+      if (result.lang && result.lang !== uiLang && result.translation) {
+        local = (voice ? voiceLabel : "") + result.translation;
+        display = `🌐 ${languageName(result.lang, uiLang)} → ${languageName(uiLang, uiLang)}:\n${local}\n\n[i]${pick(uiLang, "Orijinal", "Original")}: ${body}[/i]`;
       }
     } catch (error) {
       console.warn("Çeviri yapılamadı:", (error as Error).message);
@@ -515,7 +528,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   chat.sinceQualify += 1;
   chat.lastInboundAt = now;
   if (!chat.waitingSince) chat.waitingSince = now;
-  if (turkish) chat.history.push({ from: "müşteri", text: turkish, at: now });
+  if (local) chat.history.push({ from: "müşteri", text: local, at: now });
   await saveChat(store, chat);
   await bumpStat(store, portal.id, (s) => {
     const l = lineStat(s, map.line);
@@ -524,7 +537,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     recordInbound(s, map.line);
   });
   const files = media.mediaId
-    ? [{ url: mediaUrl(base, portal.id, media.mediaId), name: media.fileName || "dosya" }]
+    ? [{ url: mediaUrl(base, portal.id, media.mediaId), name: media.fileName || pick(uiLang, "dosya", "file") }]
     : [];
   await b24Call(store, portal, "imconnector.send.messages", {
     CONNECTOR: CONNECTOR_ID,
@@ -532,7 +545,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     MESSAGES: [
       {
         user: isGroup
-          ? { id: sender || phone, name: String(data?.pushName || "").slice(0, 120) || (sender ? `+${sender}` : "Grup üyesi"), ...(sender ? { phone: `+${sender}`, skip_phone_validate: "Y" } : {}) }
+          ? { id: sender || phone, name: String(data?.pushName || "").slice(0, 120) || (sender ? `+${sender}` : pick(uiLang, "Grup üyesi", "Group member")), ...(sender ? { phone: `+${sender}`, skip_phone_validate: "Y" } : {}) }
           : {
               id: phone,
               name: String(data?.pushName || "").slice(0, 120) || `+${phone}`,
@@ -542,10 +555,10 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
         message: {
           id: String(key.id || crypto.randomUUID()),
           date: Math.floor(Number(data?.messageTimestamp || Date.now() / 1000)),
-          text: display || (files.length ? "" : "[Medya]"),
+          text: display || (files.length ? "" : pick(uiLang, "[Medya]", "[Media]")),
           ...(files.length ? { files } : {}),
         },
-        chat: { id: phone, name: isGroup ? "WhatsApp grubu" : String(data?.pushName || `+${phone}`).slice(0, 120) },
+        chat: { id: phone, name: isGroup ? pick(uiLang, "WhatsApp grubu", "WhatsApp group") : String(data?.pushName || `+${phone}`).slice(0, 120) },
       },
     ],
   });
@@ -604,9 +617,9 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
     // "!" ile başlayan mesaj çevrilmeden gönderilir.
     const raw = agentText.startsWith("!");
     let text = raw ? agentText.slice(1).trim() : agentText;
-    if (!raw && text && portalSettings(portal).translate && chat.lang && chat.lang !== "tr") {
+    if (!raw && text && portalSettings(portal).translate && chat.lang && chat.lang !== langOf(portal)) {
       try {
-        text = await translateTo(text, chat.lang);
+        text = await translateTo(text, chat.lang, langOf(portal));
       } catch (error) {
         console.warn("Cevap çevrilemedi, olduğu gibi gönderiliyor:", (error as Error).message);
       }
@@ -709,18 +722,21 @@ async function connectionDisconnect(store: Store, portal: B24Portal, line: strin
 
 // --- HTML --------------------------------------------------------------------
 
-function page(res: Response, status: number, title: string, body: string, script = "") {
+function page(res: Response, status: number, title: string, body: string, script = "", lang: Lang = "tr") {
   res
     .status(status)
     .type("html")
     .setHeader("cache-control", "no-store")
-    .send(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XRE WhatsApp</title>
-<style>body{margin:0;font:14px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;background:#f5f8fb;color:#1d2b3a}
-.wrap{max-width:560px;margin:24px auto;padding:28px 30px;background:#fff;border:1px solid #dfe7ee;border-radius:14px;box-shadow:0 8px 30px rgba(15,40,70,.08)}
-h1{font-size:19px;margin:0 0 6px}p{margin:6px 0;color:#4b5d70}.qr{display:grid;place-items:center;min-height:270px;margin:16px 0;border:1px dashed #cfdae4;border-radius:12px}
-.qr img{width:250px;height:250px}.ok{color:#128c4b;font-weight:600}.err{color:#b42318}ol{padding-left:20px;color:#4b5d70}
-button{padding:9px 16px;border-radius:9px;border:1px solid #cfdae4;background:#fff;font-weight:600;cursor:pointer}button.primary{background:#25D366;border-color:#25D366;color:#fff}</style>${script}</head>
-<body><div class="wrap"><h1>${escapeHtml(title)}</h1>${body}</div></body></html>`);
+    .send(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XRE WhatsApp</title>
+<style>${PANEL_STYLE}
+.wrap{max-width:560px;margin:28px auto;padding:28px 30px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(15,40,70,.08)}
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:14px;color:var(--ink-3);font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.brand i{width:28px;height:28px;border-radius:8px;background:var(--accent);display:inline-block}
+.wrap h1{font-size:20px;margin:0 0 8px}.wrap p{margin:6px 0;color:var(--ink-2)}.wrap ol,.wrap ul{padding-left:20px;color:var(--ink-2)}
+.wrap .qr{margin:16px 0}.ok{color:var(--ok);font-weight:600}.err{color:var(--danger)}
+.wrap button{padding:9px 16px;border-radius:var(--r-s);border:1px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer}
+@media (max-width:600px){.wrap{margin:0;border-radius:0;border-width:0 0 1px;padding:22px 16px}}</style>${script}</head>
+<body><div class="wrap"><div class="brand"><i aria-hidden="true"></i>XRE WhatsApp</div><h1>${escapeHtml(title)}</h1>${body}</div></body></html>`);
 }
 
 function readBitrixParams(req: Request) {
@@ -741,6 +757,7 @@ function readBitrixParams(req: Request) {
     expires: Number(all.AUTH_EXPIRES || 3600),
     serverEndpoint: String(all.SERVER_ENDPOINT || ""),
     placement: String(all.PLACEMENT || ""),
+    lang: normLang(all.LANG || all.lang),
     options,
   };
 }
@@ -808,6 +825,7 @@ async function installPortal(store: Store, p: BitrixParams, base: string): Promi
     installedAt: existing?.installedAt || now,
     updatedAt: now,
     active: true,
+    lang: p.lang,
     lines: existing?.lines || {},
   };
   // Belirteç gerçekten bu portala ve bir yöneticiye mi ait?
@@ -829,23 +847,26 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
   const install = async (req: Request, res: Response) => {
     const p = readBitrixParams(req);
     if (!memberIdOk(p.memberId) || !p.domain || !p.authId)
-      return page(res, 400, "Kurulum bilgisi eksik", "<p>Uygulamayı Bitrix24 içinden kurun.</p>");
+      return page(res, 400, pick(p.lang, "Kurulum bilgisi eksik", "Installation data missing"), pick(p.lang, "<p>Uygulamayı Bitrix24 içinden kurun.</p>", "<p>Please install the app from inside Bitrix24.</p>"), "", p.lang);
     try {
       await installPortal(store, p, origin(req));
+      // Kurulum bitince Bitrix uygulamayı yeniden yükler ve yönetim paneli açılır.
       page(
         res,
         200,
-        "XRE WhatsApp kuruldu",
-        `<p class="ok">Kurulum tamamlandı.</p>
-<ol><li><b>İletişim Merkezi</b>'ni açın ve <b>XRE WhatsApp</b> kutucuğuna tıklayın.</li>
-<li>Açık Kanal seçip bağlanın; açılan ekranda telefonunuzla QR kodu okutun.</li>
-<li>WhatsApp mesajları artık Bitrix sohbetine düşer, cevaplarınız WhatsApp'tan gider.</li></ol>`,
+        pick(p.lang, "XRE WhatsApp kuruldu", "XRE WhatsApp is installed"),
+        pick(
+          p.lang,
+          `<p class="ok">Kurulum tamamlandı. Yönetim paneli açılıyor…</p>`,
+          `<p class="ok">Installation complete. Opening the dashboard…</p>`,
+        ),
         `<script src="https://api.bitrix24.com/api/v1/"></script><script>window.addEventListener("load",function(){try{BX24.init(function(){BX24.installFinish();});}catch(e){}});</script>`,
+        p.lang,
       );
     } catch (error) {
       console.warn("Bitrix bağlayıcı kurulumu başarısız:", (error as Error).message);
       const code = (error as Error & { statusCode?: number }).statusCode;
-      page(res, code && code >= 400 && code < 500 ? code : 502, "Kurulum tamamlanamadı", `<p class="err">${escapeHtml((error as Error).message)}</p>`);
+      page(res, code && code >= 400 && code < 500 ? code : 502, pick(p.lang, "Kurulum tamamlanamadı", "Installation failed"), `<p class="err">${escapeHtml(localizeMessage((error as Error).message, p.lang))}</p>`, "", p.lang);
     }
   };
   app.get("/b24/install", install);
@@ -859,15 +880,15 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
       try {
         portal = await installPortal(store, p, origin(req));
         // installPortal açan kişinin bu portalın yöneticisi olduğunu doğruladı.
-        res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain));
+        res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain, p.lang));
         return;
       } catch (error) {
         console.warn("Bitrix bağlayıcı otomatik kurulumu başarısız:", (error as Error).message);
-        return page(res, 502, "Kurulum tamamlanamadı", `<p class="err">${escapeHtml((error as Error).message)}</p>`);
+        return page(res, 502, pick(p.lang, "Kurulum tamamlanamadı", "Installation failed"), `<p class="err">${escapeHtml(localizeMessage((error as Error).message, p.lang))}</p>`, "", p.lang);
       }
     }
     if (!portal || !portal.active || portal.domain !== p.domain)
-      return page(res, 404, "Uygulama kurulu değil", "<p>Uygulamayı Bitrix24 içinden açın.</p>");
+      return page(res, 404, pick(p.lang, "Uygulama kurulu değil", "The app is not installed"), pick(p.lang, "<p>Uygulamayı Bitrix24 içinden açın.</p>", "<p>Please open the app from inside Bitrix24.</p>"), "", p.lang);
     const viewer = { ...portal, accessToken: p.authId, refreshToken: "", expiresAt: 0 };
     let user: any;
     let admin = false;
@@ -875,21 +896,26 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
       user = await b24Call(store, viewer, "user.current");
       admin = (await b24Call(store, viewer, "user.admin")) === true;
     } catch {
-      return page(res, 401, "Bitrix oturumu doğrulanamadı", "<p>Sayfayı Bitrix24 içinden yeniden açın.</p>");
+      return page(res, 401, pick(p.lang, "Bitrix oturumu doğrulanamadı", "Bitrix24 session could not be verified"), pick(p.lang, "<p>Sayfayı Bitrix24 içinden yeniden açın.</p>", "<p>Please reopen the page from inside Bitrix24.</p>"), "", p.lang);
     }
     if (admin) {
-      res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain));
+      // Sohbet notları ve raporlar yöneticinin Bitrix dilinde yazılır.
+      if (portal.lang !== p.lang) await savePortal(store, { ...((await portalById(store, portal.id)) || portal), lang: p.lang });
+      res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain, p.lang));
       return;
     }
     const role = roleOf(portal, String(user?.ID || ""));
     const mine = publicConnections(portal).filter((c) => roleAllows(role, c.line));
+    const L = p.lang;
     page(
       res,
       200,
-      "XRE WhatsApp",
-      `<p>WhatsApp sohbetleri Bitrix'in <b>Açık Kanallar</b> sohbetine düşer.</p>
-<p>Rolünüz: <b>${escapeHtml(role?.name || "atanmamış")}</b></p>
-${mine.length ? `<ul>${mine.map((c) => `<li>${escapeHtml(c.name)} ${c.phone ? `(+${escapeHtml(c.phone)})` : ""}</li>`).join("")}</ul>` : "<p>Size atanmış numara yok. Yöneticinizle görüşün.</p>"}`,
+      pick(L, "WhatsApp numaralarınız", "Your WhatsApp numbers"),
+      `<p>${pick(L, "WhatsApp sohbetleri Bitrix24'ün <b>Açık Kanallar</b> sohbetine düşer; cevaplarınız WhatsApp'tan gider.", "WhatsApp chats arrive in Bitrix24 <b>Open Channels</b>; your replies are sent via WhatsApp.")}</p>
+<p>${pick(L, "Rolünüz", "Your role")}: <b>${escapeHtml(role?.name || pick(L, "atanmamış", "not assigned"))}</b></p>
+${mine.length ? `<ul>${mine.map((c) => `<li>${escapeHtml(c.name)} ${c.phone ? `(+${escapeHtml(c.phone)})` : ""}</li>`).join("")}</ul>` : `<p>${pick(L, "Size atanmış numara yok. Yöneticinizle görüşün.", "No numbers are assigned to you. Please contact your administrator.")}</p>`}`,
+      "",
+      L,
     );
   };
   // XRE yönetim ekranı: sayfa herkese açık iskelet, veriler CRM sahibi oturumuyla gelir.
@@ -905,35 +931,43 @@ ${mine.length ? `<ul>${mine.map((c) => `<li>${escapeHtml(c.name)} ${c.phone ? `(
     const line = String(p.options.LINE || p.options.line || "").replace(/\D/g, "");
     const portal = memberIdOk(p.memberId) ? await portalById(store, p.memberId) : null;
     if (!portal || !portal.active || portal.domain !== p.domain)
-      return page(res, 404, "Uygulama kurulu değil", "<p>Uygulamayı yeniden kurun.</p>");
-    if (!line) return page(res, 400, "Açık Kanal seçilmedi", "<p>İletişim Merkezi'nden bir Açık Kanal seçin.</p>");
+      return page(res, 404, pick(p.lang, "Uygulama kurulu değil", "The app is not installed"), pick(p.lang, "<p>Uygulamayı yeniden kurun.</p>", "<p>Please reinstall the app.</p>"), "", p.lang);
+    if (!line) return page(res, 400, pick(p.lang, "Açık Kanal seçilmedi", "No Open Channel selected"), pick(p.lang, "<p>İletişim Merkezi'nden bir Açık Kanal seçin.</p>", "<p>Please select an Open Channel in the Contact Center.</p>"), "", p.lang);
     try {
       // AUTH_ID bu portalın geçerli bir yöneticisine mi ait?
       const viewer = { ...portal, accessToken: p.authId, refreshToken: "", expiresAt: 0 };
       const admin = await b24Call(store, viewer, "user.admin");
-      if (admin !== true) return page(res, 403, "Yetki gerekli", "<p>Kanalı yalnız Bitrix24 yöneticisi bağlayabilir.</p>");
+      if (admin !== true) return page(res, 403, pick(p.lang, "Yetki gerekli", "Permission required"), pick(p.lang, "<p>Kanalı yalnız Bitrix24 yöneticisi bağlayabilir.</p>", "<p>Only a Bitrix24 administrator can connect the channel.</p>"), "", p.lang);
     } catch {
-      return page(res, 401, "Bitrix oturumu doğrulanamadı", "<p>Sayfayı Bitrix24 içinden yeniden açın.</p>");
+      return page(res, 401, pick(p.lang, "Bitrix oturumu doğrulanamadı", "Bitrix24 session could not be verified"), pick(p.lang, "<p>Sayfayı Bitrix24 içinden yeniden açın.</p>", "<p>Please reopen the page from inside Bitrix24.</p>"), "", p.lang);
     }
     const ticket = settingsTicket(portal.id, line);
+    const L = p.lang;
+    const text = {
+      connected: pick(L, "Bağlandı", "Connected"),
+      arrive: pick(L, "Mesajlar bu Açık Kanal'a düşecek.", "Messages will arrive in this Open Channel."),
+      offline: pick(L, "Sunucuya ulaşılamadı.", "The server could not be reached."),
+      confirm: pick(L, "WhatsApp bağlantısı kesilsin mi?", "Disconnect WhatsApp?"),
+    };
     page(
       res,
       200,
-      `WhatsApp bağla · Açık Kanal ${line}`,
-      `<ol><li>Telefonunuzda WhatsApp'ı açın.</li><li><b>Ayarlar → Bağlı cihazlar → Cihaz bağla</b>.</li><li>Aşağıdaki kodu okutun.</li></ol>
-<div class="qr" id="qr"><p>QR hazırlanıyor…</p></div>
-<p><button id="disconnect" style="display:none">Bağlantıyı kes</button></p>`,
+      `${pick(L, "WhatsApp bağla", "Connect WhatsApp")} · ${pick(L, "Açık Kanal", "Open Channel")} ${line}`,
+      `<ol class="steps"><li>${pick(L, "Telefonunuzda WhatsApp'ı açın.", "Open WhatsApp on your phone.")}</li><li><b>${pick(L, "Ayarlar → Bağlı cihazlar → Cihaz bağla", "Settings → Linked devices → Link a device")}</b>.</li><li>${pick(L, "Aşağıdaki kodu okutun.", "Scan the code below.")}</li></ol>
+<div class="qr" id="qr"><p>${pick(L, "QR hazırlanıyor…", "Preparing QR…")}</p></div>
+<p><button id="disconnect" style="display:none">${pick(L, "Bağlantıyı kes", "Disconnect")}</button></p>`,
       `<script>
-const T=${JSON.stringify(ticket)};const q=s=>document.getElementById(s);
-async function api(path){const r=await fetch(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({t:T})});return r.json();}
+const T=${JSON.stringify(ticket)},X=${JSON.stringify(text).replace(/</g, "\\u003c")};const q=s=>document.getElementById(s);
+async function api(path){const r=await fetch(path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({t:T,lang:${JSON.stringify(L)}})});return r.json();}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);}
 async function tick(){try{const s=await api("/b24/api/status");
-if(s.status==="connected"){q("qr").innerHTML='<p class="ok">Bağlandı: +'+esc(s.phone||"")+'</p><p>Mesajlar bu Açık Kanal'+"'"+'a düşecek.</p>';q("disconnect").style.display="inline-block";return setTimeout(tick,15000);}
-const r=await api("/b24/api/qr");if(r.qr){q("qr").innerHTML='<img alt="WhatsApp QR" src="'+esc(r.qr)+'">';}else if(r.message){q("qr").innerHTML='<p class="err">'+esc(r.message)+'</p>';}}catch(e){q("qr").innerHTML='<p class="err">Sunucuya ulaşılamadı.</p>';}
+if(s.status==="connected"){q("qr").innerHTML='<p class="ok">'+esc(X.connected)+': +'+esc(s.phone||"")+'</p><p>'+esc(X.arrive)+'</p>';q("disconnect").style.display="inline-block";return setTimeout(tick,15000);}
+const r=await api("/b24/api/qr");if(r.qr){q("qr").innerHTML='<img alt="WhatsApp QR" src="'+esc(r.qr)+'">';}else if(r.message){q("qr").innerHTML='<p class="err">'+esc(r.message)+'</p>';}}catch(e){q("qr").innerHTML='<p class="err">'+esc(X.offline)+'</p>';}
 setTimeout(tick,5000);}
-q("disconnect").onclick=async()=>{if(!confirm("WhatsApp bağlantısı kesilsin mi?"))return;await api("/b24/api/disconnect");location.reload();};
+q("disconnect").onclick=async()=>{if(!confirm(X.confirm))return;await api("/b24/api/disconnect");location.reload();};
 tick();
 </script>`,
+      L,
     );
   };
   app.get("/b24/settings", settings);
@@ -943,21 +977,22 @@ tick();
   const ticketed = (handler: (portal: B24Portal, line: string, req: Request, res: Response) => Promise<unknown>) =>
     async (req: Request, res: Response) => {
       const ticket = readTicket(req.body?.t);
-      if (!ticket) return res.status(401).json({ error: "TICKET", message: "Sayfanın süresi doldu; yeniden açın." });
+      const reqLang = req.body?.lang === "en" || req.body?.lang === "tr" ? (req.body.lang as Lang) : null;
+      if (!ticket) return res.status(401).json({ error: "TICKET", message: localizeMessage("Sayfanın süresi doldu; yeniden açın.", reqLang || "tr") });
       const portal = await portalById(store, ticket.memberId);
       if (!portal || !portal.active) return res.status(404).json({ error: "NOT_INSTALLED" });
       try {
         await handler(portal, ticket.line, req, res);
       } catch (error) {
         const e = error as Error & { statusCode?: number };
-        res.status(e.statusCode && e.statusCode < 600 ? e.statusCode : 502).json({ error: "FAILED", message: e.message });
+        res.status(e.statusCode && e.statusCode < 600 ? e.statusCode : 502).json({ error: "FAILED", message: localizeMessage(e.message, reqLang || langOf(portal)) });
       }
     };
   const json = express.json({ limit: "8kb" });
   const lineTicketed = (fn: (portal: B24Portal, line: string) => Promise<unknown>) =>
     ticketed(async (portal, line, _req, res) => {
       if (!/^\d{1,9}$/.test(line)) return res.status(401).json({ error: "TICKET" });
-      res.json(await fn(portal, line));
+      res.json(localizeResult(await fn(portal, line), langOf(portal)));
     });
   app.post("/b24/api/qr", json, lineTicketed((portal, line) => connectionQr(store, portal, line)));
   app.post("/b24/api/status", json, lineTicketed((portal, line) => connectionStatus(store, portal, line)));
@@ -1127,6 +1162,15 @@ async function connectionActivity(store: Store, portal: B24Portal) {
 
 const cleanName = (v: unknown, max = 80) => String(v || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, max);
 
+/** Uç cevabındaki kullanıcıya dönük metinleri (message, warnings) çevirir. */
+function localizeResult(result: unknown, lang: Lang) {
+  if (lang === "tr" || !result || typeof result !== "object" || Array.isArray(result)) return result;
+  const out: Record<string, unknown> = { ...(result as Record<string, unknown>) };
+  if (typeof out.message === "string") out.message = localizeMessage(out.message, lang);
+  if (Array.isArray(out.warnings)) out.warnings = out.warnings.map((w) => (typeof w === "string" ? localizeMessage(w, lang) : w));
+  return out;
+}
+
 function registerPanelRoutes(
   app: Express,
   store: Store,
@@ -1136,7 +1180,8 @@ function registerPanelRoutes(
   const panel = (fn: (portal: B24Portal, body: any) => Promise<unknown>) =>
     ticketed(async (portal, scope, req, res) => {
       if (scope !== "all") return res.status(401).json({ error: "TICKET" });
-      res.json(await fn(portal, req.body || {}));
+      const lang = req.body?.lang === "en" || req.body?.lang === "tr" ? (req.body.lang as Lang) : langOf(portal);
+      res.json(localizeResult(await fn(portal, req.body || {}), lang));
     });
   const lineOf = (portal: B24Portal, body: any) => {
     const line = String(body.line || "").replace(/\D/g, "");

@@ -1,5 +1,7 @@
 // XRE WhatsApp yönetim paneli (Bitrix24 içinde açılır). Derleme gerektirmeyen
 // tek sayfa; verileri /b24/panel/* uçlarından bilet ile alır.
+import { localizeHtml, type Lang } from "./b24-i18n.js";
+
 const escapeHtml = (v: string) =>
   v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -199,8 +201,8 @@ a.btn{text-decoration:none;color:inherit}a.btn.primary{color:var(--accent-ink)}
 }
 `;
 
-export function panelHtml(ticket: string, domain: string) {
-  return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+export function panelHtml(ticket: string, domain: string, lang: Lang = "tr") {
+  return localizeHtml(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>XRE WhatsApp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -224,12 +226,13 @@ export function panelHtml(ticket: string, domain: string) {
 <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></aside>
 <div class="toast" id="toast" role="status"></div>
 <script>
-const T=${JSON.stringify(ticket)};
+const T=${JSON.stringify(ticket)},LANG=${JSON.stringify(lang)};
+const TEMP={"sıcak":"Sıcak","ılık":"Ilık","soğuk":"Soğuk"};
 let S={connections:[],roles:[],users:[]},tab="connections",poll=null,filter="";
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 const phone=p=>p?"+"+String(p).replace(/^(\\d{2})(\\d{3})(\\d{3})(\\d{2})(\\d{2})$/,"$1 $2 $3 $4 $5"):"";
-async function api(path,body={}){const r=await fetch("/b24/panel/"+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,t:T})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(r.status===401?"Oturum süresi doldu. Sayfayı yenileyin.":(j.message||"İşlem tamamlanamadı."));return j;}
+async function api(path,body={}){const r=await fetch("/b24/panel/"+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,t:T,lang:LANG})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(r.status===401?"Oturum süresi doldu. Sayfayı yenileyin.":(j.message||"İşlem tamamlanamadı."));return j;}
 let toastTimer;function toast(msg,err){const t=$("#toast");t.textContent=msg;t.className="toast show"+(err?" err":"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className="toast",err?7000:3200);}
 function warn(w){if(w&&w.length)toast(w.join("\\n"),true);}
 async function load(){try{S=await api("state");render();}catch(e){$("#main").innerHTML='<div class="empty"><strong>Panel yüklenemedi</strong>'+esc(e.message)+'</div>';}}
@@ -359,7 +362,7 @@ async function perf(){
     +'<h3 class="section">Numara bazında</h3>'+(d.lines.length?'<div class="list lines"><div class="row head"><span>Bağlantı</span><span>Gelen</span><span>Giden</span><span>Yeni kişi</span><span>Ort. cevap</span><span>Medyan</span><span>Bekleyen</span></div>'+d.lines.sort((a,b)=>b.inbound-a.inbound).map(l=>'<div class="row"><div class="name">'+esc(lineName(l.line))+'</div><div>'+l.inbound+'</div><div>'+l.outbound+'</div><div>'+l.newChats+'</div><div'+(l.avgSec!=null&&l.avgSec>d.slaMinutes*60?' class="late"':'')+'>'+dur(l.avgSec)+'</div><div>'+dur(l.medianSec)+'</div><div'+(l.waiting?' class="late"':'')+'>'+l.waiting+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Bu dönemde mesaj yok.</div></div>')
     +'<h3 class="section">Yanıt bekleyenler</h3>'+(d.waiting.length?'<div class="list waiting"><div class="row head"><span>Müşteri</span><span>Numara</span><span>Bekliyor</span></div>'+d.waiting.map(w=>'<div class="row"><div><div class="name">'+esc(w.name||phone(w.phone))+'</div><div class="sub">'+esc(phone(w.phone))+'</div></div><div>'+esc(lineName(w.line))+'</div><div class="'+(w.late?"late":"")+'">'+dur(w.waitingMinutes*60)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Cevap bekleyen sohbet yok.</div></div>')
     +'<h3 class="section">Temsilciler</h3>'+(d.agents.length?'<div class="list perf"><div class="row head"><span>Temsilci</span><span>Gönderilen mesaj</span><span>Ort. ilk cevap</span><span>En uzun bekleme</span></div>'+d.agents.sort((a,b)=>(a.avgSec??1e9)-(b.avgSec??1e9)).map(a=>'<div class="row"><div class="name">'+esc(userName(a.id))+'</div><div>'+a.replies+'</div><div'+(a.avgSec!=null&&a.avgSec>d.slaMinutes*60?' class="late"':'')+'>'+dur(a.avgSec)+'</div><div>'+dur(a.maxSec)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Bu dönemde temsilci cevabı yok.</div></div>')
-    +'<h3 class="section">Sıcak müşteriler</h3>'+(d.hot.length?'<div class="list hot"><div class="row head"><span>Müşteri</span><span>Puan</span><span>Özet</span></div>'+d.hot.map(h=>'<div class="row"><div><div class="name">'+esc(h.name||phone(h.phone))+'</div><div class="sub">'+esc(lineName(h.line))+(h.lang&&h.lang!=="tr"?' · '+esc(h.lang.toUpperCase()):'')+'</div></div><div class="score temp-'+esc(h.temperature)+'">'+h.score+' · '+esc(h.temperature)+'</div><div class="sub">'+esc(h.summary)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Henüz nitelendirilmiş müşteri yok. Birkaç mesajlık sohbetlerden sonra burada görünür.</div></div>');
+    +'<h3 class="section">Sıcak müşteriler</h3>'+(d.hot.length?'<div class="list hot"><div class="row head"><span>Müşteri</span><span>Puan</span><span>Özet</span></div>'+d.hot.map(h=>'<div class="row"><div><div class="name">'+esc(h.name||phone(h.phone))+'</div><div class="sub">'+esc(lineName(h.line))+(h.lang&&h.lang!=="tr"?' · '+esc(h.lang.toUpperCase()):'')+'</div></div><div class="score temp-'+esc(h.temperature)+'">'+h.score+' · '+esc(TEMP[h.temperature]||h.temperature)+'</div><div class="sub">'+esc(h.summary)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Henüz nitelendirilmiş müşteri yok. Birkaç mesajlık sohbetlerden sonra burada görünür.</div></div>');
   lineChart($("#lc"),d.series);barChart($("#bc"),d.hours);
   m.querySelectorAll("[data-days]").forEach(b=>b.onclick=()=>{perfDays=Number(b.dataset.days);perf();});
   $("#pline").onchange=e=>{perfLine=e.target.value;perf();};
@@ -542,5 +545,5 @@ async function reports(){
   m.querySelectorAll("[data-copy]").forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.copy);toast("Bağlantı kopyalandı.");}catch{prompt("Bağlantı",b.dataset.copy);}});
 }
 load();
-</script></body></html>`;
+</script></body></html>`, lang);
 }

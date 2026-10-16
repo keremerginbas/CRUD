@@ -9,6 +9,7 @@ import type { Express, RequestHandler, Request, Response } from "express";
 import type { Store } from "./db.js";
 import { aiConfigured, chatJson } from "./b24-ai.js";
 import { lineUsable } from "./b24-billing.js";
+import { langOf, pick, type Lang } from "./b24-i18n.js";
 import {
   b24Call,
   CHAT_KIND,
@@ -49,6 +50,8 @@ export const REPORT_TTL_DAYS = 90;
 const DAY = 86_400_000;
 const PERIOD_DAYS: Record<ReportPeriod, number> = { daily: 1, weekly: 7, monthly: 30 };
 export const PERIOD_LABEL: Record<ReportPeriod, string> = { daily: "Günlük", weekly: "Haftalık", monthly: "Aylık" };
+const PERIOD_LABEL_EN: Record<ReportPeriod, string> = { daily: "Daily", weekly: "Weekly", monthly: "Monthly" };
+export const periodLabel = (period: ReportPeriod, lang: Lang) => (lang === "tr" ? PERIOD_LABEL : PERIOD_LABEL_EN)[period];
 
 type PanelFactory = (fn: (portal: B24Portal, body: any) => Promise<unknown>) => (req: Request, res: Response) => Promise<unknown>;
 
@@ -80,6 +83,7 @@ async function leadSources(store: Store, portal: B24Portal): Promise<Record<stri
 
 /** Bitrix CRM'den belirli tarihten bu yana lead/anlaşma sayıları. */
 async function crmSince(store: Store, portal: B24Portal, fromDay: string, toDay?: string) {
+  const lang = langOf(portal);
   const from = dayStartIso(fromDay);
   const range = (field: string) => ({ [`>=${field}`]: from, ...(toDay ? { [`<${field}`]: dayStartIso(toDay) } : {}) });
   const [sources, leads, deals, won] = await Promise.all([
@@ -90,7 +94,7 @@ async function crmSince(store: Store, portal: B24Portal, fromDay: string, toDay?
   ]);
   const bySource: Record<string, number> = {};
   for (const l of leads || []) {
-    const name = sources[String(l.SOURCE_ID)] || (l.SOURCE_ID ? String(l.SOURCE_ID) : "Belirtilmemiş");
+    const name = sources[String(l.SOURCE_ID)] || (l.SOURCE_ID ? String(l.SOURCE_ID) : pick(lang, "Belirtilmemiş", "Not specified"));
     bySource[name] = (bySource[name] || 0) + 1;
   }
   const sum = (list: any[] | null) =>
@@ -115,7 +119,7 @@ async function portalChats(store: Store, memberId: string): Promise<B24Chat[]> {
 async function portalStats(store: Store, memberId: string, fromDay: string, toDay: string): Promise<DayStat[]> {
   return (await store.list<DayStat>(STAT_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((s) => s.memberId === memberId && s.day >= fromDay && s.day <= toDay);
 }
-const lineLabel = (portal: B24Portal, line: string) => portal.lines[line]?.name || portal.lines[line]?.phone || `Bağlantı ${line}`;
+const lineLabel = (portal: B24Portal, line: string) => portal.lines[line]?.name || portal.lines[line]?.phone || `${pick(langOf(portal), "Bağlantı", "Connection")} ${line}`;
 
 export async function liveSnapshot(store: Store, portal: B24Portal, now = Date.now()) {
   const today = istanbulDay(now);
@@ -158,6 +162,8 @@ export interface Report {
   memberId: string;
   domain: string;
   period: ReportPeriod;
+  /** Rapor dili (eski raporlarda yok: Türkçe) */
+  lang?: Lang;
   from: string;
   to: string;
   createdAt: string;
@@ -204,7 +210,7 @@ async function reportMetrics(store: Store, portal: B24Portal, from: string, to: 
     .filter((c) => c.qualification?.temperature === "sıcak")
     .sort((a, b) => (b.qualification?.score || 0) - (a.qualification?.score || 0))
     .slice(0, 10)
-    .map((c) => ({ name: c.name || "Müşteri", score: c.qualification!.score, summary: c.qualification!.summary.slice(0, 240), line: lineLabel(portal, c.line) }));
+    .map((c) => ({ name: c.name || pick(langOf(portal), "Müşteri", "Customer"), score: c.qualification!.score, summary: c.qualification!.summary.slice(0, 240), line: lineLabel(portal, c.line) }));
   const nextDay = istanbulDay(toT + 3 * 3_600_000);
   const crm = await safe(() => crmSince(store, portal, from, nextDay), null);
   const total = Object.values(lines).reduce((a, l) => ({ inbound: a.inbound + l.inbound, outbound: a.outbound + l.outbound, newChats: a.newChats + l.newChats }), { inbound: 0, outbound: 0, newChats: 0 });
@@ -222,12 +228,12 @@ async function reportMetrics(store: Store, portal: B24Portal, from: string, to: 
   };
 }
 
-async function aiSummary(period: ReportPeriod, from: string, to: string, metrics: Report["metrics"]): Promise<Report["ai"]> {
+async function aiSummary(period: ReportPeriod, from: string, to: string, metrics: Report["metrics"], lang: Lang = "tr"): Promise<Report["ai"]> {
   if (!aiConfigured()) return null;
   return safe(
     () =>
       chatJson<NonNullable<Report["ai"]>>(
-        `Bir emlak firmasının WhatsApp satış ekibi için ${PERIOD_LABEL[period].toLowerCase()} yönetici raporu yaz. Yalnız verilen metriklere dayan, sayı uydurma. Türkçe, net ve yönetici dilinde yaz.
+        `Bir emlak firmasının WhatsApp satış ekibi için ${PERIOD_LABEL[period].toLowerCase()} yönetici raporu yaz. Yalnız verilen metriklere dayan, sayı uydurma. ${lang === "tr" ? "Türkçe" : "İngilizce (English)"}, net ve yönetici dilinde yaz.
 - headline: tek cümlelik ana mesaj.
 - summary: 3-4 cümle genel değerlendirme (hacim, cevap hızı, temsilci performansı, sıcak müşteriler, CRM sonuçları).
 - highlights: en fazla 4 olumlu gelişme. risks: en fazla 4 risk/sorun (yavaş cevap, cevapsız kalan hat, düşük dönüşüm vb.). actions: en fazla 4 somut öneri.
@@ -260,11 +266,12 @@ export async function createReport(store: Store, portal: B24Portal, period: Repo
     memberId: portal.id,
     domain: portal.domain,
     period,
+    lang: langOf(portal),
     from,
     to,
     createdAt: new Date(now).toISOString(),
     metrics,
-    ai: await aiSummary(period, from, to, metrics),
+    ai: await aiSummary(period, from, to, metrics, langOf(portal)),
   };
   await store.put(REPORT_KIND, report.token, report, SYSTEM_OWNER);
   return report;
@@ -277,14 +284,18 @@ export const reportUrl = (portal: B24Portal, token: string) => `${publicOrigin(p
 export async function deliverReport(store: Store, portal: B24Portal, report: Report): Promise<{ sent: number; errors: string[] }> {
   const cfg = reportSettings(portal);
   const url = reportUrl(portal, report.token);
-  const title = `${PERIOD_LABEL[report.period]} XRE WhatsApp raporu (${report.from === report.to ? report.from : `${report.from} – ${report.to}`})`;
-  const text = `📊 ${title}\n${report.ai?.headline || `${report.metrics.total.inbound} gelen, ${report.metrics.total.outbound} giden mesaj; ${report.metrics.total.newChats} yeni sohbet.`}\n\n${url}`;
+  const lang = langOf(portal);
+  const range = report.from === report.to ? report.from : `${report.from} – ${report.to}`;
+  const title = pick(lang, `${PERIOD_LABEL[report.period]} XRE WhatsApp raporu (${range})`, `${PERIOD_LABEL_EN[report.period]} XRE WhatsApp report (${range})`);
+  const t = report.metrics.total;
+  const fallback = pick(lang, `${t.inbound} gelen, ${t.outbound} giden mesaj; ${t.newChats} yeni sohbet.`, `${t.inbound} incoming, ${t.outbound} outgoing messages; ${t.newChats} new chats.`);
+  const text = `📊 ${title}\n${report.ai?.headline || fallback}\n\n${url}`;
   const errors: string[] = [];
   let sent = 0;
   const line = portal.lines[cfg.line];
   if (cfg.phones.length) {
-    if (!line?.instance || line.status !== "connected") errors.push("Gönderim hattı bağlı değil.");
-    else if (!(await lineUsable(store, portal, cfg.line))) errors.push("Gönderim hattının lisansı bitmiş.");
+    if (!line?.instance || line.status !== "connected") errors.push(pick(lang, "Gönderim hattı bağlı değil.", "The sending connection is not connected."));
+    else if (!(await lineUsable(store, portal, cfg.line))) errors.push(pick(lang, "Gönderim hattının lisansı bitmiş.", "The sending connection’s license has expired."));
     else
       for (const phone of cfg.phones) {
         try {
@@ -300,7 +311,7 @@ export async function deliverReport(store: Store, portal: B24Portal, report: Rep
       await b24Call(store, portal, "im.notify.system.add", { USER_ID: Number(userId), MESSAGE: `📊 [URL=${url}]${title}[/URL]` });
       sent++;
     } catch (error) {
-      errors.push(`Bitrix bildirimi: ${(error as Error).message}`);
+      errors.push(`${pick(lang, "Bitrix bildirimi", "Bitrix24 notification")}: ${(error as Error).message}`);
     }
   }
   return { sent, errors };
@@ -418,11 +429,11 @@ export function registerLivePanelRoutes(app: Express, store: Store, panel: Panel
 
   app.get("/b24/report/:token", async (req, res) => {
     const token = String(req.params.token || "");
-    if (!/^[\w-]{20,40}$/.test(token)) return res.status(404).send("Rapor bulunamadı.");
+    if (!/^[\w-]{20,40}$/.test(token)) return res.status(404).send("Rapor bulunamadı / Report not found.");
     const report = (await store.get<Report>(REPORT_KIND, token, SYSTEM_OWNER))?.payload;
-    if (!report) return res.status(404).send("Rapor bulunamadı.");
+    if (!report) return res.status(404).send("Rapor bulunamadı / Report not found.");
     // Bağlantılar 90 gün geçerlidir; eski raporlar paylaşılmış olsa da açılmaz.
-    if (Date.now() - Date.parse(report.createdAt) > REPORT_TTL_DAYS * DAY) return res.status(410).send("Bu raporun süresi doldu.");
+    if (Date.now() - Date.parse(report.createdAt) > REPORT_TTL_DAYS * DAY) return res.status(410).send("Bu raporun süresi doldu / This report has expired.");
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Robots-Tag", "noindex");
     res.setHeader("Referrer-Policy", "no-referrer");
@@ -433,19 +444,22 @@ export function registerLivePanelRoutes(app: Express, store: Store, panel: Panel
 // ---------- Rapor sayfası ----------
 
 const esc = (v: unknown) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const nf = new Intl.NumberFormat("tr-TR");
-const money = (m: Record<string, number>) => Object.entries(m).filter(([, v]) => v).map(([c, v]) => `${nf.format(v)} ${c}`).join(" + ") || "—";
 
 export function reportHtml(r: Report): string {
   const m = r.metrics;
+  const lang: Lang = r.lang === "en" ? "en" : "tr";
+  const T = (tr: string, en: string) => pick(lang, tr, en);
+  const nf = new Intl.NumberFormat(lang === "tr" ? "tr-TR" : "en-US");
+  const money = (v: Record<string, number>) => Object.entries(v).filter(([, x]) => x).map(([c, x]) => `${nf.format(x)} ${c}`).join(" + ") || "—";
+  const min = T("dk", "min");
   const range = r.from === r.to ? r.from : `${r.from} – ${r.to}`;
   const kpi = (label: string, value: string, sub = "") => `<div class="kpi"><span>${esc(label)}</span><b>${esc(value)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</div>`;
   const list = (title: string, items: string[], cls: string) => (items.length ? `<section class="${cls}"><h3>${esc(title)}</h3><ul>${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul></section>` : "");
   const maxLine = Math.max(1, ...m.lines.map((l) => l.inbound));
   const sources = Object.entries(m.crm?.bySource || {}).sort((a, b) => b[1] - a[1]);
   const maxSource = Math.max(1, ...sources.map((s) => s[1]));
-  return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>${esc(PERIOD_LABEL[r.period])} rapor · XRE WhatsApp</title>
+  return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>${esc(periodLabel(r.period, lang))} ${T("rapor", "report")} · XRE WhatsApp</title>
 <style>
 :root{--paper:#f4f7fa;--surface:#fff;--ink:#10243a;--ink-2:#4a5d72;--ink-3:#7d8ea1;--line:#dfe6ee;--accent:#0f7f86;--ok:#1d9b50;--warn:#b86e00;--danger:#bb3a33;--bar:#00a0ab}
 @media (prefers-color-scheme:dark){:root{--paper:#0d1722;--surface:#14212f;--ink:#e6edf4;--ink-2:#a9b8c8;--ink-3:#7f91a5;--line:#243446;--accent:#3cb4ba;--ok:#4cc27c;--warn:#e0a03a;--danger:#ec6f66;--bar:#12939c}}
@@ -463,20 +477,20 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}td,t
 .bar{height:8px;border-radius:4px;background:var(--bar);margin-top:4px}.hot{padding:9px 0;border-bottom:1px solid var(--line)}.hot:last-child{border:0}.hot b{margin-right:6px}.hot p{margin:2px 0 0;color:var(--ink-2);font-size:14px}
 footer{margin-top:28px;color:var(--ink-3);font-size:12px;text-align:center}
 </style></head><body><main>
-<header><small>XRE WhatsApp · ${esc(r.domain)}</small><h1>${esc(PERIOD_LABEL[r.period])} yönetici raporu</h1><p>${esc(range)}</p></header>
+<header><small>XRE WhatsApp · ${esc(r.domain)}</small><h1>${esc(periodLabel(r.period, lang))} ${T("yönetici raporu", "manager report")}</h1><p>${esc(range)}</p></header>
 ${r.ai ? `<div class="headline"><b>${esc(r.ai.headline)}</b><p>${esc(r.ai.summary)}</p></div>` : ""}
 <div class="kpis">
-${kpi("Gelen mesaj", nf.format(m.total.inbound))}${kpi("Giden mesaj", nf.format(m.total.outbound))}${kpi("Yeni sohbet", nf.format(m.total.newChats))}
-${kpi("Ort. ilk cevap", m.avgResponseMin === null ? "—" : `${m.avgResponseMin} dk`)}${kpi("AI asistan cevabı", nf.format(m.ai.replies), m.ai.handoffs ? `${m.ai.handoffs} devir` : "")}
-${m.crm ? `${kpi("Yeni lead", nf.format(m.crm.leads))}${kpi("Yeni anlaşma", nf.format(m.crm.deals))}${kpi("Kazanılan", nf.format(m.crm.won), money(m.crm.wonAmount))}` : ""}
+${kpi(T("Gelen mesaj", "Incoming messages"), nf.format(m.total.inbound))}${kpi(T("Giden mesaj", "Outgoing messages"), nf.format(m.total.outbound))}${kpi(T("Yeni sohbet", "New chats"), nf.format(m.total.newChats))}
+${kpi(T("Ort. ilk cevap", "Avg. first response"), m.avgResponseMin === null ? "—" : `${m.avgResponseMin} ${min}`)}${kpi(T("AI asistan cevabı", "AI assistant replies"), nf.format(m.ai.replies), m.ai.handoffs ? `${m.ai.handoffs} ${T("devir", "handovers")}` : "")}
+${m.crm ? `${kpi(T("Yeni lead", "New leads"), nf.format(m.crm.leads))}${kpi(T("Yeni anlaşma", "New deals"), nf.format(m.crm.deals))}${kpi(T("Kazanılan", "Won"), nf.format(m.crm.won), money(m.crm.wonAmount))}` : ""}
 </div>
-${r.ai ? `<div class="grid">${list("Öne çıkanlar", r.ai.highlights, "good")}${list("Riskler", r.ai.risks, "risk")}${list("Öneriler", r.ai.actions, "act")}</div>` : ""}
+${r.ai ? `<div class="grid">${list(T("Öne çıkanlar", "Highlights"), r.ai.highlights, "good")}${list(T("Riskler", "Risks"), r.ai.risks, "risk")}${list(T("Öneriler", "Recommendations"), r.ai.actions, "act")}</div>` : ""}
 <div class="grid">
-${m.agents.length ? `<section><h3>Temsilciler</h3><table><tr><th>Temsilci</th><th>Cevap</th><th>Ort. ilk cevap</th></tr>${m.agents.map((a) => `<tr><td>${esc(a.name)}</td><td class="n">${nf.format(a.replies)}</td><td class="n">${a.avgResponseMin === null ? "—" : `${a.avgResponseMin} dk`}</td></tr>`).join("")}</table></section>` : ""}
-${m.lines.length ? `<section><h3>Bağlantılar</h3>${m.lines.map((l) => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><span>${esc(l.label)}</span><span>${nf.format(l.inbound)} gelen · ${nf.format(l.newChats)} yeni</span></div><div class="bar" style="width:${Math.max(2, (l.inbound / maxLine) * 100)}%"></div></div>`).join("")}</section>` : ""}
-${sources.length ? `<section><h3>Lead kaynakları</h3>${sources.map(([name, n]) => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><span>${esc(name)}</span><span>${nf.format(n)}</span></div><div class="bar" style="width:${Math.max(2, (n / maxSource) * 100)}%"></div></div>`).join("")}</section>` : ""}
+${m.agents.length ? `<section><h3>${T("Temsilciler", "Agents")}</h3><table><tr><th>${T("Temsilci", "Agent")}</th><th>${T("Cevap", "Replies")}</th><th>${T("Ort. ilk cevap", "Avg. first response")}</th></tr>${m.agents.map((a) => `<tr><td>${esc(a.name)}</td><td class="n">${nf.format(a.replies)}</td><td class="n">${a.avgResponseMin === null ? "—" : `${a.avgResponseMin} ${min}`}</td></tr>`).join("")}</table></section>` : ""}
+${m.lines.length ? `<section><h3>${T("Bağlantılar", "Connections")}</h3>${m.lines.map((l) => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><span>${esc(l.label)}</span><span>${nf.format(l.inbound)} ${T("gelen", "in")} · ${nf.format(l.newChats)} ${T("yeni", "new")}</span></div><div class="bar" style="width:${Math.max(2, (l.inbound / maxLine) * 100)}%"></div></div>`).join("")}</section>` : ""}
+${sources.length ? `<section><h3>${T("Lead kaynakları", "Lead sources")}</h3>${sources.map(([name, n]) => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><span>${esc(name)}</span><span>${nf.format(n)}</span></div><div class="bar" style="width:${Math.max(2, (n / maxSource) * 100)}%"></div></div>`).join("")}</section>` : ""}
 </div>
-${m.hot.length ? `<section><h3>🔥 Sıcak müşteriler</h3>${m.hot.map((h) => `<div class="hot"><b>${esc(h.name)}</b><span style="color:var(--ink-3)">${h.score}/100 · ${esc(h.line)}</span><p>${esc(h.summary)}</p></div>`).join("")}</section>` : ""}
-<footer>Oluşturulma: ${esc(new Date(r.createdAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" }))} · Bu bağlantı yalnız size gönderilmiştir.</footer>
+${m.hot.length ? `<section><h3>🔥 ${T("Sıcak müşteriler", "Hot leads")}</h3>${m.hot.map((h) => `<div class="hot"><b>${esc(h.name)}</b><span style="color:var(--ink-3)">${h.score}/100 · ${esc(h.line)}</span><p>${esc(h.summary)}</p></div>`).join("")}</section>` : ""}
+<footer>${T("Oluşturulma", "Created")}: ${esc(new Date(r.createdAt).toLocaleString(lang === "tr" ? "tr-TR" : "en-US", { timeZone: "Europe/Istanbul" }))} · ${T("Bu bağlantı yalnız size gönderilmiştir.", "This link was sent only to you.")}</footer>
 </main></body></html>`;
 }
