@@ -355,6 +355,13 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(stats.agents.find((a: any) => a.id === "2").avgSec).toBeGreaterThanOrEqual(0);
     expect(stats.lines[0]).toMatchObject({ line: "3", inbound: 3, outbound: 2, newChats: 1 });
     expect(stats.hot[0]).toMatchObject({ score: 82, temperature: "sıcak", lang: "ru" });
+    expect(stats.series).toHaveLength(7);
+    expect(stats.series.at(-1)).toMatchObject({ inbound: 3, outbound: 2 });
+    expect(stats.hours.reduce((a: number, b: number) => a + b, 0)).toBe(3);
+    expect(stats.lines[0].medianSec).toBeGreaterThanOrEqual(0);
+    const filtered = await (await fetch(`${base}/b24/panel/stats`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t, days: 90, line: "999" }) })).json();
+    expect(filtered.series).toHaveLength(90);
+    expect(filtered.lines).toEqual([]);
   });
 
   it("numara ayarları: arama bildirimi, grup sohbeti ve silinen/düzenlenen mesajlar", async () => {

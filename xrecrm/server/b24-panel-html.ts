@@ -13,12 +13,13 @@ export function panelHtml(ticket: string, domain: string) {
   --paper:#f4f7fa;--surface:#ffffff;--ink:#10243a;--ink-2:#4a5d72;--ink-3:#7d8ea1;--line:#dfe6ee;--line-2:#eef2f6;
   --accent:#0f7f86;--accent-ink:#ffffff;--accent-soft:#e3f3f3;--ok:#1d9b50;--ok-soft:#e4f5ea;--warn:#b86e00;--warn-soft:#fbf0dc;
   --danger:#bb3a33;--danger-soft:#fbe9e7;--scrim:rgba(16,36,58,.38);--shadow:0 18px 50px rgba(16,36,58,.18);
-  --r-s:6px;--r-m:10px;
+  --r-s:6px;--r-m:10px;--c-in:#00a0ab;--c-out:#5654d9;
 }
 @media (prefers-color-scheme:dark){:root{
   --paper:#0f1a26;--surface:#162434;--ink:#e6edf4;--ink-2:#a9b8c7;--ink-3:#7a8ca0;--line:#25384c;--line-2:#1c2d3f;
   --accent:#3bb7bc;--accent-ink:#06222a;--accent-soft:#163c43;--ok:#43c979;--ok-soft:#173a29;--warn:#e7a64a;--warn-soft:#3b2d16;
   --danger:#ef7b73;--danger-soft:#3d1f1d;--scrim:rgba(0,0,0,.55);--shadow:0 18px 50px rgba(0,0,0,.45);
+  --c-in:#12939c;--c-out:#7b78ea;
 }}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 Onest,system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -112,6 +113,21 @@ label.field input{display:block;width:100%;margin-top:6px;padding:9px 11px;borde
 .view button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
 .optrow{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line-2)}
 .optrow strong{display:block;font-size:13.5px}.optrow p{margin:2px 0 0;color:var(--ink-3);font-size:12.5px}
+.charts{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:14px;margin-bottom:6px}
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:14px 16px;position:relative}
+.chart h4{margin:0;font-size:14px}.chart .legend{display:flex;gap:14px;font-size:12.5px;color:var(--ink-2)}
+.chart .legend i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.chart-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px}
+.chart svg{width:100%;height:auto;display:block;overflow:visible}
+.chart .grid line{stroke:var(--line-2)}.chart .axis text{fill:var(--ink-3);font-size:10px}
+.chart .end-label{font-size:11px;font-weight:600;fill:var(--ink-2)}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-size:12px;padding:7px 10px;border-radius:6px;white-space:nowrap;display:none;z-index:2;box-shadow:var(--shadow)}
+.tip b{display:block;margin-bottom:2px}.tip i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.chart details{margin-top:6px;font-size:12.5px;color:var(--ink-2)}.chart details table{width:100%;border-collapse:collapse;margin-top:6px}
+.chart details td,.chart details th{padding:3px 6px;text-align:right;border-bottom:1px solid var(--line-2)}.chart details th:first-child,.chart details td:first-child{text-align:left}
+.list.lines .row{grid-template-columns:minmax(160px,1.4fr) repeat(6,minmax(70px,.6fr))}
+select.filter{padding:6px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--surface)}
+@media (max-width:980px){.charts{grid-template-columns:1fr}}
 .range{display:inline-flex;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);padding:2px}
 .range button{border:0;background:none;padding:5px 11px;border-radius:5px;cursor:pointer;color:var(--ink-2);font-weight:600}
 .range button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent)}
@@ -224,24 +240,73 @@ function render(){
     m.querySelectorAll("[data-role]").forEach(b=>b.onclick=()=>roleForm(S.roles.find(r=>r.id===b.dataset.role)));
   }
 }
-let perfDays=7;
+let perfDays=7,perfLine="";
 const dur=sec=>sec==null?"—":sec<60?sec+" sn":sec<3600?Math.round(sec/60)+" dk":(sec/3600).toFixed(1).replace(".",",")+" sa";
 const userName=id=>{const u=S.users.find(x=>x.id===String(id));return u?u.name:(id==="0"?"Bilinmeyen":"Kullanıcı #"+id);};
 const lineName=l=>{const c=S.connections.find(x=>x.line===String(l));return c?c.name:"Silinmiş bağlantı (#"+l+")";};
+const nice=v=>{if(v<=4)return 4;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return (n<=1?1:n<=2?2:n<=5?5:10)*p;};
+const fmtDay=d=>{const [y,m,dd]=d.split("-");return dd+"."+m;};
+const longDay=d=>{try{return new Date(d+"T12:00:00").toLocaleDateString("tr-TR",{day:"numeric",month:"long",weekday:"short"});}catch{return d;}};
+function lineChart(el,series){
+  const W=640,H=220,L=36,R=40,T=10,B=24,iw=W-L-R,ih=H-T-B;
+  const max=nice(Math.max(1,...series.map(p=>Math.max(p.inbound,p.outbound))));
+  const x=i=>L+(series.length<2?iw/2:i*iw/(series.length-1)),y=v=>T+ih-(v/max)*ih;
+  const path=k=>series.map((p,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(p[k]).toFixed(1)).join("");
+  const ticks=[0,.25,.5,.75,1].map(f=>Math.round(max*f));
+  const step=Math.max(1,Math.ceil(series.length/8));
+  const last=series.length-1;
+  let svg='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Günlük gelen ve giden mesaj"><g class="grid">'+ticks.map(t=>'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(t)+'" y2="'+y(t)+'"/>').join("")+'</g>'
+    +'<g class="axis">'+ticks.map(t=>'<text x="'+(L-6)+'" y="'+(y(t)+3)+'" text-anchor="end">'+t+'</text>').join("")
+    +series.map((p,i)=>(i%step===0&&last-i>=Math.ceil(step/2))||i===last?'<text x="'+x(i)+'" y="'+(H-6)+'" text-anchor="middle">'+fmtDay(p.day)+'</text>':'').join("")+'</g>'
+    +'<path d="'+path("outbound")+'" fill="none" stroke="var(--c-out)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    +'<path d="'+path("inbound")+'" fill="none" stroke="var(--c-in)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+    +'<text class="end-label" x="'+(x(last)+6)+'" y="'+(y(series[last].inbound)+4)+'">'+series[last].inbound+'</text>'
+    +'<text class="end-label" x="'+(x(last)+6)+'" y="'+(y(series[last].outbound)+(Math.abs(y(series[last].outbound)-y(series[last].inbound))<12?16:4))+'">'+series[last].outbound+'</text>'
+    +'<line id="xh" y1="'+T+'" y2="'+(T+ih)+'" stroke="var(--ink-3)" stroke-width="1" visibility="hidden"/>'
+    +'<circle id="mi" r="4.5" fill="var(--c-in)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/><circle id="mo" r="4.5" fill="var(--c-out)" stroke="var(--surface)" stroke-width="2" visibility="hidden"/>'
+    +'<rect id="hit" x="'+L+'" y="'+T+'" width="'+iw+'" height="'+ih+'" fill="transparent"/></svg><div class="tip" id="ltip"></div>';
+  el.innerHTML=svg;
+  const sv=el.querySelector("svg"),tip=el.querySelector("#ltip"),xh=el.querySelector("#xh"),mi=el.querySelector("#mi"),mo=el.querySelector("#mo");
+  const show=i=>{const p=series[i];[xh,mi,mo].forEach(n=>n.setAttribute("visibility","visible"));xh.setAttribute("x1",x(i));xh.setAttribute("x2",x(i));mi.setAttribute("cx",x(i));mi.setAttribute("cy",y(p.inbound));mo.setAttribute("cx",x(i));mo.setAttribute("cy",y(p.outbound));
+    tip.innerHTML='<b>'+esc(longDay(p.day))+'</b><div><i style="background:var(--c-in)"></i>'+p.inbound+' gelen</div><div><i style="background:var(--c-out)"></i>'+p.outbound+' giden</div>';tip.style.display="block";
+    const r=sv.getBoundingClientRect(),px=x(i)/W*r.width;tip.style.left=Math.min(Math.max(8,px+12),r.width-tip.offsetWidth-8)+"px";tip.style.top="28px";};
+  const hide=()=>{[xh,mi,mo].forEach(n=>n.setAttribute("visibility","hidden"));tip.style.display="none";};
+  el.querySelector("#hit").addEventListener("mousemove",e=>{const r=sv.getBoundingClientRect();const vx=(e.clientX-r.left)/r.width*W;const i=Math.round((vx-L)/(iw/Math.max(1,series.length-1)));show(Math.max(0,Math.min(last,i)));});
+  el.querySelector("#hit").addEventListener("mouseleave",hide);
+}
+function barChart(el,hours){
+  const W=420,H=220,L=30,R=6,T=10,B=24,iw=W-L-R,ih=H-T-B,gap=2,bw=iw/24-gap;
+  const max=nice(Math.max(1,...hours));const y=v=>T+ih-(v/max)*ih;const ticks=[0,.5,1].map(f=>Math.round(max*f));
+  const bar=(v,i)=>{const x0=L+i*(bw+gap),h=Math.max(0,T+ih-y(v)),r=Math.min(4,h,bw/2);if(!h)return"";const yt=T+ih-h;
+    return '<path data-h="'+i+'" d="M'+x0+' '+(T+ih)+'V'+(yt+r)+'Q'+x0+' '+yt+' '+(x0+r)+' '+yt+'H'+(x0+bw-r)+'Q'+(x0+bw)+' '+yt+' '+(x0+bw)+' '+(yt+r)+'V'+(T+ih)+'Z" fill="var(--c-in)"/>';};
+  el.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Gelen mesajların saat dağılımı"><g class="grid">'+ticks.map(t=>'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y(t)+'" y2="'+y(t)+'"/>').join("")+'</g><g class="axis">'+ticks.map(t=>'<text x="'+(L-5)+'" y="'+(y(t)+3)+'" text-anchor="end">'+t+'</text>').join("")
+    +[0,3,6,9,12,15,18,21].map(h=>'<text x="'+(L+h*(bw+gap)+bw/2)+'" y="'+(H-6)+'" text-anchor="middle">'+String(h).padStart(2,"0")+'</text>').join("")+'</g>'
+    +hours.map(bar).join("")+hours.map((v,i)=>'<rect data-h="'+i+'" x="'+(L+i*(bw+gap))+'" y="'+T+'" width="'+(bw+gap)+'" height="'+ih+'" fill="transparent"/>').join("")+'</svg><div class="tip" id="btip"></div>';
+  const sv=el.querySelector("svg"),tip=el.querySelector("#btip");
+  sv.querySelectorAll("rect[data-h]").forEach(rc=>{rc.addEventListener("mouseenter",()=>{const i=Number(rc.dataset.h);sv.querySelectorAll("path[data-h]").forEach(p=>p.style.opacity=p.dataset.h===rc.dataset.h?"1":".45");
+    tip.innerHTML='<b>'+String(i).padStart(2,"0")+':00–'+String((i+1)%24).padStart(2,"0")+':00</b>'+hours[i]+' gelen mesaj';tip.style.display="block";const r=sv.getBoundingClientRect();const px=(L+i*(bw+gap))/W*r.width;tip.style.left=Math.min(Math.max(8,px),r.width-tip.offsetWidth-8)+"px";tip.style.top="28px";});
+    rc.addEventListener("mouseleave",()=>{sv.querySelectorAll("path[data-h]").forEach(p=>p.style.opacity="1");tip.style.display="none";});});
+}
 async function perf(){
   const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
-  let d;try{d=await api("stats",{days:perfDays});}catch(e){m.innerHTML='<div class="empty"><strong>Veriler alınamadı</strong>'+esc(e.message)+'</div>';return;}
+  let d;try{d=await api("stats",{days:perfDays,line:perfLine});}catch(e){m.innerHTML='<div class="empty"><strong>Veriler alınamadı</strong>'+esc(e.message)+'</div>';return;}
   if(tab!=="perf")return;
   const late=d.waiting.filter(w=>w.late).length;
-  const totalIn=d.lines.reduce((a,l)=>a+l.inbound,0),totalNew=d.lines.reduce((a,l)=>a+l.newChats,0);
+  const totalIn=d.series.reduce((a,p)=>a+p.inbound,0),totalOut=d.series.reduce((a,p)=>a+p.outbound,0),totalNew=d.lines.reduce((a,l)=>a+l.newChats,0);
   const resp=d.agents.filter(a=>a.avgSec!=null);const avg=resp.length?Math.round(resp.reduce((a,x)=>a+x.avgSec*1,0)/resp.length):null;
-  m.innerHTML='<div class="bar"><div class="range" role="group" aria-label="Dönem">'+[[1,"Bugün"],[7,"7 gün"],[30,"30 gün"]].map(([v,t])=>'<button data-days="'+v+'" aria-pressed="'+(v===perfDays)+'">'+t+'</button>').join("")+'</div><span class="hint">Cevap süresi hedefi: '+d.slaMinutes+' dk</span></div>'
-    +'<div class="facts"><div class="fact'+(late?" alert":"")+'"><b>'+d.waiting.length+'</b><span>yanıt bekleyen'+(late?' · '+late+' tanesi gecikti':'')+'</span></div><div class="fact"><b>'+dur(avg)+'</b><span>ortalama ilk cevap</span></div><div class="fact"><b>'+totalNew+'</b><span>yeni sohbet</span></div><div class="fact"><b>'+totalIn+'</b><span>gelen mesaj</span></div><div class="fact"><b>'+d.foreign+'</b><span>yabancı dilde sohbet</span></div></div>'
+  m.innerHTML='<div class="bar"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><div class="range" role="group" aria-label="Dönem">'+[[1,"Bugün"],[7,"7 gün"],[30,"30 gün"],[90,"90 gün"]].map(([v,t])=>'<button data-days="'+v+'" aria-pressed="'+(v===perfDays)+'">'+t+'</button>').join("")+'</div>'
+      +'<select class="filter" id="pline" aria-label="Numara"><option value="">Tüm numaralar</option>'+S.connections.map(c=>'<option value="'+esc(c.line)+'"'+(c.line===perfLine?" selected":"")+'>'+esc(c.name)+'</option>').join("")+'</select></div><span class="hint">Cevap süresi hedefi: '+d.slaMinutes+' dk</span></div>'
+    +'<div class="facts"><div class="fact"><b>'+totalIn+'</b><span>gelen mesaj</span></div><div class="fact"><b>'+totalOut+'</b><span>giden mesaj</span></div><div class="fact"><b>'+totalNew+'</b><span>yeni kişi</span></div><div class="fact"><b>'+dur(avg)+'</b><span>ort. ilk cevap · medyan '+dur(d.medianSec)+'</span></div><div class="fact'+(late?" alert":"")+'"><b>'+d.waiting.length+'</b><span>yanıt bekleyen'+(late?' · '+late+' gecikti':'')+'</span></div><div class="fact"><b>'+d.foreign+'</b><span>yabancı dilde sohbet</span></div></div>'
+    +'<div class="charts"><section class="chart"><div class="chart-head"><h4>Günlük mesaj hacmi</h4><div class="legend"><span><i style="background:var(--c-in)"></i>Gelen</span><span><i style="background:var(--c-out)"></i>Giden</span></div></div><div id="lc" style="position:relative"></div>'
+      +'<details><summary>Tablo görünümü</summary><table><tr><th>Gün</th><th>Gelen</th><th>Giden</th></tr>'+d.series.slice().reverse().map(p=>'<tr><td>'+esc(longDay(p.day))+'</td><td>'+p.inbound+'</td><td>'+p.outbound+'</td></tr>').join("")+'</table></details></section>'
+    +'<section class="chart"><div class="chart-head"><h4>Gelen mesajların saat dağılımı</h4></div><div id="bc" style="position:relative"></div><details><summary>Tablo görünümü</summary><table><tr><th>Saat</th><th>Gelen</th></tr>'+d.hours.map((v,i)=>v?'<tr><td>'+String(i).padStart(2,"0")+':00</td><td>'+v+'</td></tr>':'').join("")+'</table></details></section></div>'
+    +'<h3 class="section">Numara bazında</h3>'+(d.lines.length?'<div class="list lines"><div class="row head"><span>Bağlantı</span><span>Gelen</span><span>Giden</span><span>Yeni kişi</span><span>Ort. cevap</span><span>Medyan</span><span>Bekleyen</span></div>'+d.lines.sort((a,b)=>b.inbound-a.inbound).map(l=>'<div class="row"><div class="name">'+esc(lineName(l.line))+'</div><div>'+l.inbound+'</div><div>'+l.outbound+'</div><div>'+l.newChats+'</div><div'+(l.avgSec!=null&&l.avgSec>d.slaMinutes*60?' class="late"':'')+'>'+dur(l.avgSec)+'</div><div>'+dur(l.medianSec)+'</div><div'+(l.waiting?' class="late"':'')+'>'+l.waiting+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Bu dönemde mesaj yok.</div></div>')
     +'<h3 class="section">Yanıt bekleyenler</h3>'+(d.waiting.length?'<div class="list waiting"><div class="row head"><span>Müşteri</span><span>Numara</span><span>Bekliyor</span></div>'+d.waiting.map(w=>'<div class="row"><div><div class="name">'+esc(w.name||phone(w.phone))+'</div><div class="sub">'+esc(phone(w.phone))+'</div></div><div>'+esc(lineName(w.line))+'</div><div class="'+(w.late?"late":"")+'">'+dur(w.waitingMinutes*60)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Cevap bekleyen sohbet yok.</div></div>')
     +'<h3 class="section">Temsilciler</h3>'+(d.agents.length?'<div class="list perf"><div class="row head"><span>Temsilci</span><span>Gönderilen mesaj</span><span>Ort. ilk cevap</span><span>En uzun bekleme</span></div>'+d.agents.sort((a,b)=>(a.avgSec??1e9)-(b.avgSec??1e9)).map(a=>'<div class="row"><div class="name">'+esc(userName(a.id))+'</div><div>'+a.replies+'</div><div'+(a.avgSec!=null&&a.avgSec>d.slaMinutes*60?' class="late"':'')+'>'+dur(a.avgSec)+'</div><div>'+dur(a.maxSec)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Bu dönemde temsilci cevabı yok.</div></div>')
-    +'<h3 class="section">Sıcak müşteriler</h3>'+(d.hot.length?'<div class="list hot"><div class="row head"><span>Müşteri</span><span>Puan</span><span>Özet</span></div>'+d.hot.map(h=>'<div class="row"><div><div class="name">'+esc(h.name||phone(h.phone))+'</div><div class="sub">'+esc(lineName(h.line))+(h.lang&&h.lang!=="tr"?' · '+esc(h.lang.toUpperCase()):'')+'</div></div><div class="score temp-'+esc(h.temperature)+'">'+h.score+' · '+esc(h.temperature)+'</div><div class="sub">'+esc(h.summary)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Henüz nitelendirilmiş müşteri yok. Birkaç mesajlık sohbetlerden sonra burada görünür.</div></div>')
-    +'<h3 class="section">Numaralar</h3>'+(d.lines.length?'<div class="list perf"><div class="row head"><span>Numara</span><span>Yeni sohbet</span><span>Gelen</span><span>Giden</span></div>'+d.lines.map(l=>'<div class="row"><div class="name">'+esc(lineName(l.line))+'</div><div>'+l.newChats+'</div><div>'+l.inbound+'</div><div>'+l.outbound+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Bu dönemde mesaj yok.</div></div>');
+    +'<h3 class="section">Sıcak müşteriler</h3>'+(d.hot.length?'<div class="list hot"><div class="row head"><span>Müşteri</span><span>Puan</span><span>Özet</span></div>'+d.hot.map(h=>'<div class="row"><div><div class="name">'+esc(h.name||phone(h.phone))+'</div><div class="sub">'+esc(lineName(h.line))+(h.lang&&h.lang!=="tr"?' · '+esc(h.lang.toUpperCase()):'')+'</div></div><div class="score temp-'+esc(h.temperature)+'">'+h.score+' · '+esc(h.temperature)+'</div><div class="sub">'+esc(h.summary)+'</div></div>').join("")+'</div>':'<div class="list"><div class="empty">Henüz nitelendirilmiş müşteri yok. Birkaç mesajlık sohbetlerden sonra burada görünür.</div></div>');
+  lineChart($("#lc"),d.series);barChart($("#bc"),d.hours);
   m.querySelectorAll("[data-days]").forEach(b=>b.onclick=()=>{perfDays=Number(b.dataset.days);perf();});
+  $("#pline").onchange=e=>{perfLine=e.target.value;perf();};
 }
 let view="cards";try{view=localStorage.getItem("xre-wa-view")||"cards";}catch{}
 const initials=t=>String(t||"WA").trim().split(/\s+/).slice(0,2).map(w=>w[0]).join("").toLocaleUpperCase("tr-TR")||"WA";

@@ -102,6 +102,7 @@ interface DayStat {
   lines: Record<string, { inbound: number; outbound: number; newChats: number; responses?: number; responseSec?: number; samples?: number[] }>;
   /** Gelen mesajların saatlere dağılımı (İstanbul saati) */
   hours?: number[];
+  lineHours?: Record<string, number[]>;
 }
 const istanbulHour = (t = Date.now()) => Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Istanbul", hour: "2-digit", hourCycle: "h23" }).format(new Date(t)));
 async function bumpStat(store: Store, memberId: string, fn: (s: DayStat) => void) {
@@ -112,10 +113,17 @@ async function bumpStat(store: Store, memberId: string, fn: (s: DayStat) => void
   await store.put(STAT_KIND, id, stat, SYSTEM_OWNER);
 }
 const lineStat = (s: DayStat, line: string) => (s.lines[line] ||= { inbound: 0, outbound: 0, newChats: 0 });
-function recordInbound(s: DayStat) {
-  const hours = (s.hours ||= Array.from({ length: 24 }, () => 0));
-  hours[istanbulHour()] += 1;
+function recordInbound(s: DayStat, line: string) {
+  const h = istanbulHour();
+  (s.hours ||= Array.from({ length: 24 }, () => 0))[h] += 1;
+  ((s.lineHours ||= {})[line] ||= Array.from({ length: 24 }, () => 0))[h] += 1;
 }
+const median = (values: number[]) => {
+  if (!values.length) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return Math.round(sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2);
+};
 const agentStat = (s: DayStat, agent: string) => (s.agents[agent] ||= { replies: 0, responses: 0, responseSec: 0, maxSec: 0 });
 
 /** Sohbeti nitelendirip Bitrix'teki lead (yoksa kişi) kartının zaman akışına yazar. */
@@ -492,7 +500,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     const l = lineStat(s, map.line);
     l.inbound += 1;
     if (isNew) l.newChats += 1;
-    recordInbound(s);
+    recordInbound(s, map.line);
   });
   const files = media.mediaId
     ? [{ url: mediaUrl(base, portal.id, media.mediaId), name: media.fileName || "dosya" }]
@@ -1097,13 +1105,29 @@ function registerPanelRoutes(
     "/b24/panel/stats",
     json,
     panel(async (portal, body) => {
-      const days = [1, 7, 30].includes(Number(body.days)) ? Number(body.days) : 7;
+      const days = [1, 7, 30, 90].includes(Number(body.days)) ? Number(body.days) : 7;
+      const onlyLine = String(body.line || "").replace(/\D/g, "");
       const from = istanbulDay(Date.now() - (days - 1) * 86_400_000);
       const stats = (await store.list<DayStat>(STAT_KIND, SYSTEM_OWNER))
         .map((r) => r.payload)
-        .filter((s) => s.memberId === portal.id && s.day >= from);
+        .filter((s) => s.memberId === portal.id && s.day >= from)
+        .sort((a, b) => a.day.localeCompare(b.day));
+      const pick = (s: DayStat) => Object.entries(s.lines).filter(([id]) => !onlyLine || id === onlyLine);
+      const byDay = new Map(stats.map((s) => [s.day, s]));
+      const series: { day: string; inbound: number; outbound: number }[] = [];
+      for (let i = days - 1; i >= 0; i -= 1) {
+        const d = istanbulDay(Date.now() - i * 86_400_000);
+        const s = byDay.get(d);
+        const rows = s ? pick(s) : [];
+        series.push({ day: d, inbound: rows.reduce((a, [, l]) => a + l.inbound, 0), outbound: rows.reduce((a, [, l]) => a + l.outbound, 0) });
+      }
+      const hours = Array.from({ length: 24 }, () => 0);
+      for (const s of stats) {
+        const src = onlyLine ? s.lineHours?.[onlyLine] : s.hours;
+        src?.forEach((v, i) => (hours[i] += v));
+      }
       const agents: Record<string, { replies: number; responses: number; responseSec: number; maxSec: number }> = {};
-      const lines: Record<string, { inbound: number; outbound: number; newChats: number }> = {};
+      const lines: Record<string, { inbound: number; outbound: number; newChats: number; responses: number; responseSec: number; samples: number[] }> = {};
       for (const s of stats) {
         for (const [id, a] of Object.entries(s.agents)) {
           const t = (agents[id] ||= { replies: 0, responses: 0, responseSec: 0, maxSec: 0 });
@@ -1112,14 +1136,17 @@ function registerPanelRoutes(
           t.responseSec += a.responseSec;
           t.maxSec = Math.max(t.maxSec, a.maxSec);
         }
-        for (const [id, l] of Object.entries(s.lines)) {
-          const t = (lines[id] ||= { inbound: 0, outbound: 0, newChats: 0 });
+        for (const [id, l] of pick(s)) {
+          const t = (lines[id] ||= { inbound: 0, outbound: 0, newChats: 0, responses: 0, responseSec: 0, samples: [] });
           t.inbound += l.inbound;
           t.outbound += l.outbound;
           t.newChats += l.newChats;
+          t.responses += l.responses || 0;
+          t.responseSec += l.responseSec || 0;
+          t.samples.push(...(l.samples || []));
         }
       }
-      const chats = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((c) => c.memberId === portal.id);
+      const chats = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((c) => c.memberId === portal.id && (!onlyLine || c.line === onlyLine));
       const now = Date.now();
       const sla = portalSettings(portal).slaMinutes * 60_000;
       const waiting = chats
@@ -1147,7 +1174,18 @@ function registerPanelRoutes(
         days,
         slaMinutes: portalSettings(portal).slaMinutes,
         agents: Object.entries(agents).map(([id, a]) => ({ id, replies: a.replies, avgSec: a.responses ? Math.round(a.responseSec / a.responses) : null, maxSec: a.maxSec })),
-        lines: Object.entries(lines).map(([line, l]) => ({ line, ...l })),
+        lines: Object.entries(lines).map(([line, l]) => ({
+          line,
+          inbound: l.inbound,
+          outbound: l.outbound,
+          newChats: l.newChats,
+          avgSec: l.responses ? Math.round(l.responseSec / l.responses) : null,
+          medianSec: median(l.samples),
+          waiting: chats.filter((c) => c.line === line && c.waitingSince).length,
+        })),
+        series,
+        hours,
+        medianSec: median(Object.values(lines).flatMap((l) => l.samples)),
         waiting,
         hot,
         foreign: chats.filter((c) => c.lang && c.lang !== "tr").length,
