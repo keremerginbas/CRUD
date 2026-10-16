@@ -24,13 +24,13 @@ export function panelHtml(ticket: string, domain: string) {
 html,body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.5 Onest,system-ui,-apple-system,"Segoe UI",sans-serif}
 button,input,select{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 28px 0;flex-wrap:wrap}
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 28px 0;flex-wrap:wrap;max-width:1560px;margin:0 auto}
 .top h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em}
 .top p{margin:2px 0 0;color:var(--ink-3);font-size:13px}
 .tabs{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:3px;gap:2px}
 .tabs button{border:0;background:none;padding:7px 14px;border-radius:7px;cursor:pointer;color:var(--ink-2);font-weight:600}
 .tabs button[aria-selected=true]{background:var(--ink);color:var(--paper)}
-main{padding:20px 28px 40px;max-width:1280px}
+main{padding:20px 28px 40px;max-width:1560px;margin:0 auto}
 /* Hat panosu: her numara bir hücre */
 .board{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:18px 20px;margin-bottom:18px;display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center}
 .board .count{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.02em}
@@ -208,7 +208,7 @@ function render(){
 let perfDays=7;
 const dur=sec=>sec==null?"—":sec<60?sec+" sn":sec<3600?Math.round(sec/60)+" dk":(sec/3600).toFixed(1).replace(".",",")+" sa";
 const userName=id=>{const u=S.users.find(x=>x.id===String(id));return u?u.name:(id==="0"?"Bilinmeyen":"Kullanıcı #"+id);};
-const lineName=l=>{const c=S.connections.find(x=>x.line===String(l));return c?c.name:"Kanal #"+l;};
+const lineName=l=>{const c=S.connections.find(x=>x.line===String(l));return c?c.name:"Silinmiş bağlantı (#"+l+")";};
 async function perf(){
   const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
   let d;try{d=await api("stats",{days:perfDays});}catch(e){m.innerHTML='<div class="empty"><strong>Veriler alınamadı</strong>'+esc(e.message)+'</div>';return;}

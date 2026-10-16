@@ -438,6 +438,33 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     void qualifyChat(store, portal, chat).catch((error) => console.warn("Nitelendirme yapılamadı:", (error as Error).message));
 }
 
+const agentCache = new Map<string, { id: string; at: number }>();
+/**
+ * Cevabı yazan temsilci. Olay gövdesinde yoksa Açık Kanal sohbetinin
+ * sorumlu operatörü (imopenlines.dialog.get → owner) kullanılır.
+ */
+async function agentOf(store: Store, portal: B24Portal, item: any): Promise<string> {
+  const direct = item?.message?.user_id || item?.message?.author_id || item?.message?.USER_ID || item?.user?.id || item?.im?.user_id || item?.im?.author_id;
+  if (direct && String(direct) !== "0") return String(direct);
+  const chatId = String(item?.im?.chat_id || "").replace(/\D/g, "");
+  if (!chatId) return "0";
+  const cacheKey = `${portal.id}:${chatId}`;
+  const cached = agentCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < 5 * 60_000) return cached.id;
+  try {
+    const dialog = await b24Call(store, portal, "imopenlines.dialog.get", { CHAT_ID: chatId });
+    const owner = String(dialog?.owner || dialog?.OWNER || dialog?.operator_id || "");
+    if (owner && owner !== "0") {
+      agentCache.set(cacheKey, { id: owner, at: Date.now() });
+      return owner;
+    }
+  } catch (error) {
+    console.warn("Temsilci belirlenemedi:", (error as Error).message);
+  }
+  console.info("Bitrix mesaj olayında temsilci alanı yok; alanlar:", JSON.stringify({ message: Object.keys(item?.message || {}), im: Object.keys(item?.im || {}) }));
+  return "0";
+}
+
 /** Bitrix temsilcisinin yazdığı mesajları WhatsApp'a iletir. */
 async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, messages: any[]) {
   const info = portal.lines[line];
@@ -482,7 +509,7 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
     }
     delivered.push({ im: item?.im, message: { id: [sentId || String(item?.message?.id || "")] }, chat: { id: item?.chat?.id } });
     const now = Date.now();
-    const agent = String(item?.message?.user_id || item?.message?.author_id || item?.user?.id || item?.im?.user_id || "0");
+    const agent = await agentOf(store, portal, item);
     const waited = chat.waitingSince ? Math.max(0, Math.round((now - chat.waitingSince) / 1000)) : null;
     chat.outbound += 1;
     chat.lastOutboundAt = now;

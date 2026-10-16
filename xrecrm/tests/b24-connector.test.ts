@@ -72,6 +72,7 @@ async function setup(opts: { evoState?: string } = {}) {
     if (body.auth !== tokenValid) return { error: "expired_token", error_description: "expired" };
     if (method === "user.current") return { result: { ID: "1" } };
     if (method === "imopenlines.config.add") return { result: 7 };
+    if (method === "imopenlines.dialog.get") return { result: { id: 1, owner: "3" } };
     if (method === "crm.duplicate.findbycomm") return { result: body.entity_type === "LEAD" ? { LEAD: [55] } : [] };
     if (method === "user.get")
       return {
@@ -199,6 +200,8 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const sendText = evo.find((c) => c.url === `/message/sendText/${instanceName(MEMBER, "3")}`);
     expect(sendText?.body).toMatchObject({ number: "905551234567", text: "Merhaba Ayşe hanım\nFiyat 3 milyon" });
     expect(bx.find((c) => c.method === "imconnector.send.status.delivery")?.body.MESSAGES[0]).toMatchObject({ im: { chat_id: "77", message_id: "88" } });
+    // Olayda temsilci yoksa sohbetin operatörü Bitrix'ten okunur.
+    expect(bx.find((c) => c.method === "imopenlines.dialog.get")?.body).toMatchObject({ CHAT_ID: "77" });
     expect((await event("baska-token")).status).toBe(401);
   });
 
