@@ -483,7 +483,7 @@ export function reportHtml(r: Report): string {
 @media (prefers-color-scheme:dark){:root{--paper:#0d1722;--surface:#14212f;--ink:#e6edf4;--ink-2:#a9b8c8;--ink-3:#7f91a5;--line:#243446;--accent:#3cb4ba;--ok:#4cc27c;--warn:#e0a03a;--danger:#ec6f66;--bar:#12939c}}
 *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
 main{max-width:860px;margin:0 auto;padding:28px 16px 60px}
-header small{color:var(--ink-3);font-weight:600;letter-spacing:.04em;text-transform:uppercase}h1{margin:4px 0 2px;font-size:24px}h1+p{margin:0;color:var(--ink-2)}
+header small{color:var(--ink-3);font-weight:600;letter-spacing:.04em;text-transform:uppercase}header small .dom{text-transform:none;letter-spacing:0}h1{margin:4px 0 2px;font-size:24px}h1+p{margin:0;color:var(--ink-2)}
 .headline{margin:22px 0;padding:18px 20px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:12px}
 .headline b{display:block;font-size:17px;margin-bottom:6px}.headline p{margin:0;color:var(--ink-2)}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0}
@@ -495,16 +495,16 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}td,t
 .bar{height:8px;border-radius:4px;background:var(--bar);margin-top:4px}.hot{padding:9px 0;border-bottom:1px solid var(--line)}.hot:last-child{border:0}.hot b{margin-right:6px}.hot p{margin:2px 0 0;color:var(--ink-2);font-size:14px}
 footer{margin-top:28px;color:var(--ink-3);font-size:12px;text-align:center}
 </style></head><body><main>
-<header><small>XRE WhatsApp · ${esc(r.domain)}</small><h1>${esc(periodLabel(r.period, lang))} ${T("yönetici raporu", "manager report")}</h1><p>${esc(range)}</p></header>
+<header><small>XRE WhatsApp · <span class="dom">${esc(r.domain)}</span></small><h1>${esc(periodLabel(r.period, lang))} ${T("yönetici raporu", "manager report")}</h1><p>${esc(range)}</p></header>
 ${r.ai ? `<div class="headline"><b>${esc(r.ai.headline)}</b><p>${esc(r.ai.summary)}</p></div>` : ""}
 <div class="kpis">
 ${kpi(T("Gelen mesaj", "Incoming messages"), nf.format(m.total.inbound))}${kpi(T("Giden mesaj", "Outgoing messages"), nf.format(m.total.outbound))}${kpi(T("Yeni sohbet", "New chats"), nf.format(m.total.newChats))}
-${kpi(T("Ort. ilk cevap", "Avg. first response"), m.avgResponseMin === null ? "—" : `${m.avgResponseMin} ${min}`)}${kpi(T("AI asistan cevabı", "AI assistant replies"), nf.format(m.ai.replies), m.ai.handoffs ? `${m.ai.handoffs} ${T("devir", "handovers")}` : "")}
+${kpi(T("Ort. ilk cevap", "Avg. first response"), m.avgResponseMin === null ? "—" : `${nf.format(m.avgResponseMin)} ${min}`)}${kpi(T("AI asistan cevabı", "AI assistant replies"), nf.format(m.ai.replies), m.ai.handoffs ? `${m.ai.handoffs} ${T("devir", "handovers")}` : "")}
 ${m.crm ? `${kpi(T("Yeni lead", "New leads"), nf.format(m.crm.leads))}${kpi(T("Yeni anlaşma", "New deals"), nf.format(m.crm.deals))}${kpi(T("Kazanılan", "Won"), nf.format(m.crm.won), money(m.crm.wonAmount))}` : ""}
 </div>
 ${r.ai ? `<div class="grid">${list(T("Öne çıkanlar", "Highlights"), r.ai.highlights, "good")}${list(T("Riskler", "Risks"), r.ai.risks, "risk")}${list(T("Öneriler", "Recommendations"), r.ai.actions, "act")}</div>` : ""}
 <div class="grid">
-${m.agents.length ? `<section><h3>${T("Temsilciler", "Agents")}</h3><table><tr><th>${T("Temsilci", "Agent")}</th><th>${T("Cevap", "Replies")}</th><th>${T("Ort. ilk cevap", "Avg. first response")}</th></tr>${m.agents.map((a) => `<tr><td>${esc(a.name)}</td><td class="n">${nf.format(a.replies)}</td><td class="n">${a.avgResponseMin === null ? "—" : `${a.avgResponseMin} ${min}`}</td></tr>`).join("")}</table></section>` : ""}
+${m.agents.length ? `<section><h3>${T("Temsilciler", "Agents")}</h3><table><tr><th>${T("Temsilci", "Agent")}</th><th>${T("Cevap", "Replies")}</th><th>${T("Ort. ilk cevap", "Avg. first response")}</th></tr>${m.agents.map((a) => `<tr><td>${esc(a.name)}</td><td class="n">${nf.format(a.replies)}</td><td class="n">${a.avgResponseMin === null ? "—" : `${nf.format(a.avgResponseMin)} ${min}`}</td></tr>`).join("")}</table></section>` : ""}
 ${m.lines.length ? `<section><h3>${T("Bağlantılar", "Connections")}</h3>${m.lines.map((l) => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><span>${esc(l.label)}</span><span>${nf.format(l.inbound)} ${T("gelen", "in")} · ${nf.format(l.newChats)} ${T("yeni", "new")}</span></div><div class="bar" style="width:${Math.max(2, (l.inbound / maxLine) * 100)}%"></div></div>`).join("")}</section>` : ""}
 ${sources.length ? `<section><h3>${T("Lead kaynakları", "Lead sources")}</h3>${sources.map(([name, n]) => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between"><span>${esc(name)}</span><span>${nf.format(n)}</span></div><div class="bar" style="width:${Math.max(2, (n / maxSource) * 100)}%"></div></div>`).join("")}</section>` : ""}
 </div>
