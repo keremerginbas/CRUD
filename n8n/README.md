@@ -62,8 +62,8 @@ Bitrix Webhook → Ayarlar ve Lead ID
   adaylarında Bitrix ad/telefonu lead'e değil kişi kartına yazdığı için bu gerekli.
 - `Başvuruyu Hazırla` çıktısındaki `form_alanlari` formdan okunan alanları gösterir.
 - Aynı lead tekrar işlenmez; test için her seferinde formu yeniden doldurun.
-- Erccell yanıtı `<RESULT>` kısa sayısal kod ise (örn. `11`) hata, uzun değer ise
-  gönderildi kabul edilir; sonuç Bitrix yorumunda `RESULT=...` olarak görünür.
+- Erccell yanıtı `RESULT=1` + `MSG_ID` ise gönderildi, diğer kodlar (örn. `11`) hata
+  kabul edilir; sonuç Bitrix yorumunda `RESULT=..., MSG_ID=...` olarak görünür.
 
 - SMS numara formatı `905XXXXXXXXX`. Erccell `5XXXXXXXXX` bekliyorsa
   `SMS_ULKE_KODU: false` yapın.
