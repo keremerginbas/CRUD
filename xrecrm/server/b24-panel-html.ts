@@ -288,9 +288,10 @@ function render(){
       +'<div class="setting"><div><strong>Otomatik çeviri</strong><p>Türkçe olmayan mesajlar Türkçe çevirisi ve orijinaliyle gösterilir. Cevabınız müşterinin dilinde gider. Çevirmeden göndermek için mesajı ! ile başlatın.</p></div>'+sw("s-tr",st.translate)+'</div>'
       +'<div class="setting"><div><strong>Sesli mesajı yazıya dök</strong><p>Gelen sesli mesajlar dinlemeden okunabilir; ses dosyası da sohbette kalır.</p></div>'+sw("s-tx",st.transcribe)+'</div>'
       +'<div class="setting"><div><strong>Müşteri nitelendirme</strong><p>Birkaç mesajda bir sohbetten bütçe, bölge, oda sayısı ve amaç çıkarılır; puan ve özet Bitrix lead kartının zaman akışına yazılır.</p></div>'+sw("s-q",st.qualify)+'</div>'
+      +'<div class="setting"><div><strong>Bitrix otomatik mesajları</strong><p>Açık Kanal karşılama, sohbet değerlendirme ve kapanış mesajları müşteriye WhatsApp’tan gitsin. Kapalıyken müşteri yalnız sizin ve AI asistanın yazdıklarını görür.</p></div>'+sw("s-bot",st.botMessages)+'</div>'
       +'<div class="setting"><div><strong>Cevap süresi hedefi</strong><p>Bu süreden uzun bekleyen sohbetler Performans sekmesinde geciken olarak işaretlenir.</p></div><div><input class="num" type="number" min="1" max="1440" id="s-sla" value="'+st.slaMinutes+'"> dk</div></div>'
       +'</div><div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="s-save">Ayarları kaydet</button></div>';
-    $("#s-save").onclick=async()=>{try{const r=await api("settings/save",{translate:$("#s-tr").checked,transcribe:$("#s-tx").checked,qualify:$("#s-q").checked,slaMinutes:Number($("#s-sla").value)});S.settings=r.settings;toast("Ayarlar kaydedildi.");}catch(e){toast(e.message,true);}};
+    $("#s-save").onclick=async()=>{try{const r=await api("settings/save",{botMessages:$("#s-bot").checked,translate:$("#s-tr").checked,transcribe:$("#s-tx").checked,qualify:$("#s-q").checked,slaMinutes:Number($("#s-sla").value)});S.settings=r.settings;if((r.warnings||[]).length)warn(r.warnings);else toast("Ayarlar kaydedildi.");}catch(e){toast(e.message,true);}};
     return;
   }
   if(tab==="roles"){

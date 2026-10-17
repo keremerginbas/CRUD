@@ -58,6 +58,8 @@ export interface B24Portal {
   settings?: B24Settings;
   agent?: AgentConfig;
   reports?: ReportSettings;
+  /** Açık Kanal otomatik mesajlarının kapatıldığı sürüm */
+  quietLines?: number;
   /** Kayıtlı CRM kart sekmelerinin sürümü */
   cardTabs?: number;
   /** Portalın kurulduğu Bitrix uygulamasının client_id'si (yoksa B24_CLIENT_ID). */
@@ -70,6 +72,8 @@ export interface B24Settings {
   transcribe?: boolean;
   qualify?: boolean;
   slaMinutes?: number;
+  /** Bitrix Açık Kanal otomatik mesajları (karşılama, değerlendirme, kapanış) müşteriye gitsin mi? */
+  botMessages?: boolean;
 }
 export function portalSettings(portal: B24Portal): Required<B24Settings> {
   return {
@@ -77,7 +81,37 @@ export function portalSettings(portal: B24Portal): Required<B24Settings> {
     transcribe: portal.settings?.transcribe !== false,
     qualify: portal.settings?.qualify !== false,
     slaMinutes: Math.max(1, Math.min(1440, Number(portal.settings?.slaMinutes) || 15)),
+    botMessages: portal.settings?.botMessages === true,
   };
+}
+
+/**
+ * Bitrix'in Açık Kanal otomatik mesajları ("Açık Kanal'a hoş geldiniz",
+ * sohbet değerlendirme, kapanış ve mesai dışı yanıtları) WhatsApp'ta müşteriye
+ * gider. Varsayılan olarak bizim kanallarımızda kapatılır.
+ */
+export const QUIET_LINE_PARAMS = {
+  WELCOME_MESSAGE: "N",
+  VOTE_MESSAGE: "N",
+  AGREEMENT_MESSAGE: "N",
+  CLOSE_RULE: "none",
+  AUTO_CLOSE_RULE: "none",
+  NO_ANSWER_RULE: "none",
+  WORKTIME_DAYOFF_RULE: "none",
+};
+export const QUIET_LINES_VERSION = 1;
+export async function applyLineAutoMessages(store: Store, portal: B24Portal, lines = Object.keys(portal.lines)): Promise<string[]> {
+  const on = portalSettings(portal).botMessages;
+  const params = on ? { WELCOME_MESSAGE: "Y", VOTE_MESSAGE: "Y" } : QUIET_LINE_PARAMS;
+  const warnings: string[] = [];
+  for (const line of lines) {
+    try {
+      await b24Call(store, portal, "imopenlines.config.update", { CONFIG_ID: line, PARAMS: params });
+    } catch (error) {
+      warnings.push(`${portal.lines[line]?.name || line}: ${(error as Error).message}`);
+    }
+  }
+  return warnings;
 }
 
 // --- Sohbet durumu ve istatistik ---------------------------------------------
@@ -1050,6 +1084,13 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
     if (admin) {
       // Sohbet notları ve raporlar yöneticinin Bitrix dilinde yazılır.
       if (portal.lang !== p.lang) await savePortal(store, { ...((await portalById(store, portal.id)) || portal), lang: p.lang });
+      // Mevcut kanallarda Bitrix'in otomatik mesajları bir kez kapatılır.
+      if (portal.quietLines !== QUIET_LINES_VERSION && Object.keys(portal.lines).length) {
+        const current = (await portalById(store, portal.id)) || portal;
+        const warnings = await applyLineAutoMessages(store, current);
+        if (!warnings.length) await savePortal(store, { ...current, quietLines: QUIET_LINES_VERSION });
+        else console.warn(`XRE WhatsApp otomatik mesajlar (${portal.domain}):`, warnings.join("; "));
+      }
       // Eski kurulumlarda CRM kart sekmesi yoksa bir kez eklenir.
       if (portal.cardTabs !== CARD_TABS_VERSION) {
         const warnings = await bindCardTabs(store, portal, origin(req));
@@ -1389,9 +1430,12 @@ function registerPanelRoutes(
         transcribe: body.transcribe !== false,
         qualify: body.qualify !== false,
         slaMinutes: Math.max(1, Math.min(1440, Math.round(Number(body.slaMinutes) || 15))),
+        botMessages: body.botMessages === true,
       };
+      const changed = portalSettings(next).botMessages !== portalSettings(portal).botMessages;
       await savePortal(store, next);
-      return { settings: portalSettings(next) };
+      const warnings = changed ? await applyLineAutoMessages(store, next) : [];
+      return { settings: portalSettings(next), warnings };
     }),
   );
 
@@ -1493,7 +1537,9 @@ function registerPanelRoutes(
     json,
     panel(async (portal, body) => {
       const name = cleanName(body.name) || "WhatsApp";
-      const created = await b24Call(store, portal, "imopenlines.config.add", { PARAMS: { LINE_NAME: `${name} (WhatsApp)` } });
+      const created = await b24Call(store, portal, "imopenlines.config.add", {
+        PARAMS: { LINE_NAME: `${name} (WhatsApp)`, ...(portalSettings(portal).botMessages ? {} : QUIET_LINE_PARAMS) },
+      });
       const line = String(created || "").replace(/\D/g, "");
       if (!line) throw new Error("Bitrix yeni Açık Kanal oluşturmadı.");
       const instance = instanceName(portal.id, line);

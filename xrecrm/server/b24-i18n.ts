@@ -72,6 +72,8 @@ export const PANEL_EN: Record<string, string> = {
   "Yapay zekâ özellikleri için sunucuda OpenAI anahtarı tanımlı olmalı. Anahtar girilene kadar çeviri, ses ve nitelendirme çalışmaz.":
     "AI features require an OpenAI key on the server. Until it is set, translation, voice transcription and qualification are off.",
   "Otomatik çeviri": "Automatic translation",
+  "Bitrix otomatik mesajları": "Bitrix24 automatic messages",
+  "Açık Kanal karşılama, sohbet değerlendirme ve kapanış mesajları müşteriye WhatsApp’tan gitsin. Kapalıyken müşteri yalnız sizin ve AI asistanın yazdıklarını görür.": "Send Open Channel welcome, rating and closing messages to the customer on WhatsApp. When off, the customer only sees messages from your team and the AI assistant.",
   "Türkçe olmayan mesajlar Türkçe çevirisi ve orijinaliyle gösterilir. Cevabınız müşterinin dilinde gider. Çevirmeden göndermek için mesajı ! ile başlatın.":
     "Messages in other languages are shown with a translation and the original. Your reply is sent in the customer’s language. Start a message with ! to send it untranslated.",
   "Sesli mesajı yazıya dök": "Transcribe voice messages",

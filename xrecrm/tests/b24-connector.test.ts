@@ -269,7 +269,12 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     };
     const added = await call("connection/add", { name: "Satış 7124" });
     expect(added.body.line).toBe("7");
-    expect(bx.find((c) => c.method === "imopenlines.config.add")?.body.PARAMS).toEqual({ LINE_NAME: "Satış 7124 (WhatsApp)" });
+    // Bitrix'in otomatik karşılama/değerlendirme mesajları kapalı açılır
+    expect(bx.find((c) => c.method === "imopenlines.config.add")?.body.PARAMS).toEqual({ LINE_NAME: "Satış 7124 (WhatsApp)", WELCOME_MESSAGE: "N", VOTE_MESSAGE: "N", AGREEMENT_MESSAGE: "N", CLOSE_RULE: "none", AUTO_CLOSE_RULE: "none", NO_ANSWER_RULE: "none", WORKTIME_DAYOFF_RULE: "none" });
+    bx.length = 0;
+    await call("settings/save", { botMessages: true });
+    expect(bx.find((c) => c.method === "imopenlines.config.update")?.body).toEqual(expect.objectContaining({ CONFIG_ID: "7", PARAMS: { WELCOME_MESSAGE: "Y", VOTE_MESSAGE: "Y" } }));
+    await call("settings/save", { botMessages: false });
 
     // Kanal ayar bileti panel uçlarını açamaz.
     const lineTicket = settingsTicket(MEMBER, "7");
@@ -914,7 +919,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const instance = instanceName(MEMBER, "3");
     const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
     const up = (body: Buffer, type: string, extra: Record<string, string> = {}) =>
-      fetch(`${base}/b24/chat/upload`, { method: "POST", headers: { "content-type": type, "x-xre-ticket": ct, "x-line": "3", "x-phone": "905301112233", "x-file-name": encodeURIComponent("plan.png"), ...extra }, body });
+      fetch(`${base}/b24/chat/upload`, { method: "POST", headers: { "content-type": type, "x-xre-ticket": ct, "x-line": "3", "x-phone": "905301112233", "x-file-name": encodeURIComponent("plan.png"), ...extra }, body: new Uint8Array(body) });
     const img = await up(png, "image/png", { "x-caption": encodeURIComponent("Kat planı") });
     expect(img.status).toBe(200);
     expect(evo.find((c) => c.url === `/message/sendMedia/${instance}`)?.body).toMatchObject({ number: "905301112233", mediatype: "image", caption: "Kat planı", fileName: "plan.png" });
@@ -929,7 +934,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(media.status).toBe(200);
     expect(media.headers.get("content-type")).toBe("image/png");
     // Başkasının bileti olmadan yüklenemez
-    expect((await fetch(`${base}/b24/chat/upload`, { method: "POST", headers: { "content-type": "image/png", "x-line": "3", "x-phone": "905301112233" }, body: png })).status).toBe(401);
+    expect((await fetch(`${base}/b24/chat/upload`, { method: "POST", headers: { "content-type": "image/png", "x-line": "3", "x-phone": "905301112233" }, body: new Uint8Array(png) })).status).toBe(401);
 
     // WhatsApp oturumu düştü: kontrol durumu düzeltir, gönderim açık bir hatayla durur
     evoState.evoState = "close";
