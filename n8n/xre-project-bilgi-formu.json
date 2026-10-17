@@ -80,21 +80,13 @@
         "options": {
           "response": {
             "response": {
-              "responseFormat": "text"
+              "responseFormat": "file",
+              "outputPropertyName": "data"
             }
           }
         },
         "method": "POST",
         "url": "={{ $('Ayarlar ve Lead ID').first().json.ERCCELL_URL }}",
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Accept-Encoding",
-              "value": "identity"
-            }
-          ]
-        },
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "text/xml; charset=UTF-8",
@@ -113,7 +105,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const m = $('Mesajları Hazırla').first().json;\nconst r = $input.first().json;\n\nlet basarili = false;\nlet detay = '';\n\nif (!m.sms_phone) {\n  detay = 'Geçerli cep telefonu numarası yok (' + m.phone + ')';\n} else if (r.error) {\n  detay = typeof r.error === 'string' ? r.error : (r.error.message || JSON.stringify(r.error));\n} else {\n  const yanit = String(r.data ?? '').trim();\n  const sonuc = (yanit.match(/<RESULT>\\s*([^<]*?)\\s*<\\/RESULT>/i) || [])[1];\n  if (sonuc !== undefined) {\n    // Erccell kısa sayısal kod döndürürse hata (örn. 11), uzun değer/ID dönerse gönderilmiştir\n    basarili = !/^-?\\d{1,3}$/.test(sonuc) && !/(hata|error|fail|invalid)/i.test(sonuc);\n    detay = 'RESULT=' + sonuc;\n  } else {\n    detay = (yanit || JSON.stringify(r)).slice(0, 300);\n    basarili = !!yanit && !/(hata|error|fail|invalid|ge[cç]ersiz|yetkisiz|unauthori|denied|ba[sş]ar[iı]s[iı]z)/i.test(yanit);\n  }\n}\n\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst telegram_text = [\n  '🔔 <b>Yeni Form Başvurusu</b>',\n  '',\n  '👨‍💼 Atanan: ' + esc(m.sorumlu),\n  '📋 Doldurulan form: ' + esc(m.form_adi),\n  '🏢 İlgilendiği proje: ' + esc(m.proje),\n  '👤 Ad Soyad: ' + esc(m.full_name),\n  '📞 Telefon: ' + esc(m.phone),\n  '✉️ E-posta: ' + esc(m.email),\n  '📝 Cevap: ' + esc(m.cevap),\n  '🕒 Tarih: ' + esc(m.tarih),\n  '📨 SMS: ' + (basarili ? 'Gönderildi ✅' : 'Gönderilemedi ❌'),\n  '🔗 <a href=\"' + esc(m.bitrix_link) + '\">Bitrix\\'te aç (#' + esc(m.lead_id) + ')</a>',\n].join('\\n');\n\nconst simdi = new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });\nconst bitrix_yorum = basarili\n  ? '✅ SMS GÖNDERİLDİ\\nTarih: ' + simdi + '\\nNumara: ' + m.phone + '\\nMesaj: ' + m.sms_mesaj + '\\nErccell yanıtı: ' + detay\n  : '❌ SMS GÖNDERİLEMEDİ\\nTarih: ' + simdi + '\\nNumara: ' + m.phone + '\\nSebep: ' + detay;\n\nreturn [{ json: { lead_id: m.lead_id, sms_basarili: basarili, sms_detay: detay, telegram_text, bitrix_yorum } }];"
+        "jsCode": "const m = $('Mesajları Hazırla').first().json;\nconst item = $input.first();\nconst r = item.json || {};\n\n// Erccell yanıtını oku (binary olarak alınıyor; n8n metin modunda gzip yanıtı çözemiyor)\nlet yanit = '';\nconst bin = item.binary && item.binary.data;\nif (bin) {\n  try {\n    if (bin.id || /^filesystem/.test(String(bin.data))) {\n      yanit = (await this.helpers.getBinaryDataBuffer(0, 'data')).toString('utf8');\n    } else {\n      yanit = Buffer.from(bin.data, 'base64').toString('utf8');\n    }\n  } catch (e) { yanit = ''; }\n} else if (typeof r.data === 'string') {\n  yanit = r.data;\n}\nyanit = yanit.trim();\n\n// durum: 'ok' | 'hata' | 'belirsiz' (istek gitti ama yanıt okunamadı)\nlet durum = 'hata';\nlet detay = '';\nconst hataMetni = r.error ? (typeof r.error === 'string' ? r.error : (r.error.message || JSON.stringify(r.error))) : '';\n\nif (!m.sms_phone) {\n  detay = 'Geçerli cep telefonu numarası yok (' + m.phone + ')';\n} else if (yanit) {\n  const sonuc = (yanit.match(/<RESULT>\\s*([^<]*?)\\s*<\\/RESULT>/i) || [])[1];\n  if (sonuc !== undefined) {\n    // Kısa sayısal kod (örn. 11) hata, uzun değer/ID gönderim kimliği\n    durum = !/^-?\\d{1,3}$/.test(sonuc) && !/(hata|error|fail|invalid)/i.test(sonuc) ? 'ok' : 'hata';\n    detay = 'RESULT=' + sonuc;\n  } else {\n    detay = yanit.slice(0, 300);\n    durum = /(hata|error|fail|invalid|ge[cç]ersiz|yetkisiz|unauthori|denied|ba[sş]ar[iı]s[iı]z)/i.test(yanit) ? 'hata' : 'ok';\n  }\n} else if (/circular structure/i.test(hataMetni)) {\n  // n8n yanıtı çözerken hata verdi; istek Erccell'e ulaştı\n  durum = 'belirsiz';\n  detay = 'Erccell yanıtı okunamadı';\n} else {\n  detay = (hataMetni || 'Erccell yanıt vermedi').slice(0, 300);\n}\nconst basarili = durum !== 'hata';\n\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst telegram_text = [\n  '🔔 <b>Yeni Form Başvurusu</b>',\n  '',\n  '👨‍💼 Atanan: ' + esc(m.sorumlu),\n  '📋 Doldurulan form: ' + esc(m.form_adi),\n  '🏢 İlgilendiği proje: ' + esc(m.proje),\n  '👤 Ad Soyad: ' + esc(m.full_name),\n  '📞 Telefon: ' + esc(m.phone),\n  '✉️ E-posta: ' + esc(m.email),\n  '📝 Cevap: ' + esc(m.cevap),\n  '🕒 Tarih: ' + esc(m.tarih),\n  '📨 SMS: ' + ({ ok: 'Gönderildi ✅', belirsiz: 'Gönderildi ✅ (yanıt okunamadı)', hata: 'Gönderilemedi ❌' })[durum],\n  '🔗 <a href=\"' + esc(m.bitrix_link) + '\">Bitrix\\'te aç (#' + esc(m.lead_id) + ')</a>',\n].join('\\n');\n\nconst simdi = new Date().toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' });\nconst bitrix_yorum = basarili\n  ? '✅ SMS GÖNDERİLDİ\\nTarih: ' + simdi + '\\nNumara: ' + m.phone + '\\nMesaj: ' + m.sms_mesaj +\n    (durum === 'ok' ? '\\nErccell yanıtı: ' + detay : '\\nNot: ' + detay)\n  : '❌ SMS GÖNDERİLEMEDİ\\nTarih: ' + simdi + '\\nNumara: ' + m.phone + '\\nSebep: ' + detay;\n\nreturn [{ json: { lead_id: m.lead_id, sms_basarili: basarili, sms_durum: durum, sms_detay: detay, erccell_yanit: yanit, telegram_text, bitrix_yorum } }];"
       },
       "name": "SMS Sonucu",
       "type": "n8n-nodes-base.code",
