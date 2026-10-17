@@ -28,8 +28,9 @@ Aynı lead için SMS/bildirim yalnızca bir kez gönderilir.
 ## Akış
 
 ```
-Bitrix Webhook → Ayarlar ve Lead ID → Lead Getir (crm.lead.get) → Başvuruyu Hazırla (statü + tekrar kontrolü)
-→ Sorumlu Getir (user.get) → Mesajları Hazırla → SMS Gönder (Erccell) → SMS Sonucu
+Bitrix Webhook → Ayarlar ve Lead ID
+→ Bitrix Verilerini Getir (batch: lead, bağlı kişi, sorumlu, CRM form kaydı, lead alanları)
+→ Başvuruyu Hazırla (statü + tekrar kontrolü) → Mesajları Hazırla → SMS Gönder (Erccell) → SMS Sonucu
 → Telegram Gruba Gönder → Bitrix Yorum Ekle (crm.timeline.comment.add)
 ```
 
@@ -39,9 +40,9 @@ Bitrix Webhook → Ayarlar ve Lead ID → Lead Getir (crm.lead.get) → Başvuru
 2. **Ayarlar:** `Ayarlar ve Lead ID` düğümündeki `AYARLAR` bloğunu doldurun:
    - `BITRIX_WEBHOOK_URL` – Bitrix24 gelen webhook adresi (izinler: `crm`, `user`).
    - `TELEGRAM_BOT_TOKEN`, `ERCCELL_USERNAME`, `ERCCELL_PASSWORD`.
-   - `PROJE_ALANI` – formdaki "ilgilendiği proje" bilgisi hangi lead alanına
-     yazılıyorsa (örn. `UF_CRM_1712345678`). Liste tipi bir alansa Bitrix ID
-     döner; bu durumda alanı metin tipine çevirmek en kolayı.
+   - `PROJE_ALANI` – genelde boş kalabilir: ad, telefon, e-posta ve
+     "İlgilendiğiniz Proje" doğrudan CRM form kaydından okunur. Form kaydı
+     bulunamazsa bu lead alanı, o da boşsa etiketinde "proje" geçen alan denenir.
    - Şifre değiştiğinde yalnızca bu blok güncellenir.
 3. **Telegram:** @xre_rapor_bot'u gruba üye olarak ekleyin. `chat not found`
    hatası gelirse `TELEGRAM_CHAT_ID` değerini `-1005156472580` yapın.
@@ -56,6 +57,13 @@ Bitrix Webhook → Ayarlar ve Lead ID → Lead Getir (crm.lead.get) → Başvuru
 5. Workflow'u **Active** yapın.
 
 ## Notlar
+
+- Veri önceliği: CRM form kaydı → lead → bağlı kişi kartı. Tekrarlayan müşteri
+  adaylarında Bitrix ad/telefonu lead'e değil kişi kartına yazdığı için bu gerekli.
+- `Başvuruyu Hazırla` çıktısındaki `form_alanlari` formdan okunan alanları gösterir.
+- Aynı lead tekrar işlenmez; test için her seferinde formu yeniden doldurun.
+- Erccell yanıtı `<RESULT>` kısa sayısal kod ise (örn. `11`) hata, uzun değer ise
+  gönderildi kabul edilir; sonuç Bitrix yorumunda `RESULT=...` olarak görünür.
 
 - SMS numara formatı `905XXXXXXXXX`. Erccell `5XXXXXXXXX` bekliyorsa
   `SMS_ULKE_KODU: false` yapın.
