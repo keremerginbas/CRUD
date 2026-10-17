@@ -58,6 +58,8 @@ export interface B24Portal {
   settings?: B24Settings;
   agent?: AgentConfig;
   reports?: ReportSettings;
+  /** Bitrix kullanıcı kimliği → kişisel Google Meet oda bağlantısı */
+  meetRooms?: Record<string, string>;
   /** Açık Kanal otomatik mesajlarının kapatıldığı sürüm */
   quietLines?: number;
   /** Kayıtlı CRM kart sekmelerinin sürümü */

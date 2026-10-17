@@ -29,6 +29,7 @@ import {
   refreshLines,
   roleAllows,
   roleOf,
+  savePortal,
   settingsTicket,
   type B24Chat,
   type B24Portal,
@@ -178,6 +179,8 @@ export async function entityPhones(store: Store, portal: B24Portal, placement: s
 
 // ---------- Uçlar ----------
 
+export const MEET_URL = /^https:\/\/meet\.google\.com\/(?:[a-z]{3}-[a-z]{4}-[a-z]{3}|lookup\/[A-Za-z0-9_-]{4,64})(?:\?[A-Za-z0-9=&._-]*)?$/;
+
 type Ctx = { portal: B24Portal; viewer: Viewer; lines: string[] };
 const fail = (status: number, message: string) => {
   throw Object.assign(new Error(message), { statusCode: status });
@@ -308,6 +311,25 @@ export function registerChatRoutes(app: Express, store: Store) {
     }),
   );
 
+  // Kişisel Google Meet odası: her temsilci kendi sabit bağlantısını bir kez kaydeder.
+  // Görüşme kayıtları Google'ın kendi düzeniyle oda sahibinin Drive'ına düşer.
+  app.post(
+    "/b24/chat/meet",
+    json,
+    withViewer(async (ctx, body) => {
+      const target = ctx.viewer.admin && body.userId ? String(body.userId).replace(/\D/g, "") : ctx.viewer.userId;
+      if (body.url === undefined) return { url: ctx.portal.meetRooms?.[target] || "" };
+      const url = String(body.url || "").trim();
+      if (url && !MEET_URL.test(url)) fail(400, "Geçerli bir Google Meet bağlantısı girin (https://meet.google.com/...).");
+      const fresh = (await portalById(store, ctx.portal.id)) || ctx.portal;
+      const meetRooms = { ...(fresh.meetRooms || {}) };
+      if (url) meetRooms[target] = url;
+      else delete meetRooms[target];
+      await savePortal(store, { ...fresh, meetRooms });
+      return { url };
+    }),
+  );
+
   // Dosya, görsel, video ve ses kaydı gönderimi (ham gövde, en fazla 16 MB).
   app.post(
     "/b24/chat/upload",
@@ -422,7 +444,10 @@ const TEXT = {
     cardStart: "Bu müşteriyle henüz WhatsApp yazışması yok. İlk mesajı buradan gönderebilirsiniz.", file: "Dosya", expired: "dosya süresi doldu",
     waitingTag: "Yanıt bekliyor", back: "Sohbetler", error: "İşlem tamamlanamadı.",
     attach: "Dosya, görsel veya video ekle", record: "Ses kaydı", stop: "Gönder", cancel: "Vazgeç", recording: "Kaydediliyor",
-    meeting: "Toplantı linki", meetingText: "📹 Görüntülü görüşme bağlantınız: ", call: "Ara", callPhone: "Telefonla ara (Bitrix)",
+    meeting: "Google Meet", meetingText: "📹 Görüntülü görüşme bağlantımız: ", meetSend: "Görüşme bağlantımı gönder",
+    meetChange: "Oda bağlantımı değiştir", meetSetup: "Google Meet odanız",
+    meetHelp: "Kendi sabit odanızı bir kez kaydedin: Google Takvim'de kendinize tekrar eden bir etkinlik oluşturup \"Google Meet ile görüntülü görüşme ekle\" deyin (ya da meet.google.com → Yeni toplantı → Sonraki bir toplantı için toplantı oluştur). Bağlantıyı buraya yapıştırın. Kayıtlar sizin Google Drive'ınıza düşer.",
+    save: "Kaydet", saved: "Oda bağlantınız kaydedildi.", call: "Ara", callPhone: "Telefonla ara (Bitrix)",
     callWa: "WhatsApp'ta aç", callNote: "WhatsApp aramaları bu bağlantı türünde sunucudan yapılamaz; WhatsApp uygulamanızda açılır.",
     connected: "Bağlı", disconnected: "Bağlantı yok", connecting: "Bağlanıyor",
     offAdmin: "Bu numaranın WhatsApp bağlantısı kopmuş. Panel → Bağlantılar'dan QR okutun.",
@@ -440,7 +465,10 @@ const TEXT = {
     cardStart: "No WhatsApp conversation with this customer yet. You can send the first message here.", file: "File", expired: "file expired",
     waitingTag: "Awaiting reply", back: "Chats", error: "The action could not be completed.",
     attach: "Attach file, image or video", record: "Voice message", stop: "Send", cancel: "Cancel", recording: "Recording",
-    meeting: "Meeting link", meetingText: "📹 Your video call link: ", call: "Call", callPhone: "Call by phone (Bitrix24)",
+    meeting: "Google Meet", meetingText: "📹 Our video call link: ", meetSend: "Send my meeting link",
+    meetChange: "Change my room link", meetSetup: "Your Google Meet room",
+    meetHelp: "Save your permanent room once: create a recurring event for yourself in Google Calendar and add Google Meet video conferencing (or meet.google.com → New meeting → Create a meeting for later). Paste the link here. Recordings are saved to your Google Drive.",
+    save: "Save", saved: "Your room link was saved.", call: "Call", callPhone: "Call by phone (Bitrix24)",
     callWa: "Open in WhatsApp", callNote: "WhatsApp calls cannot be placed from the server with this connection type; the chat opens in your WhatsApp app.",
     connected: "Connected", disconnected: "Disconnected", connecting: "Connecting",
     offAdmin: "This number's WhatsApp connection is lost. Scan the QR code again in Panel → Connections.",
@@ -605,7 +633,7 @@ function open(t){
     +'<form class="composer" id="cmp"><div class="offmsg" id="offmsg" hidden></div>'
     +'<div class="tools2" style="position:relative"><button type="button" class="ic" id="bAttach" title="'+esc(X.attach)+'" aria-label="'+esc(X.attach)+'">📎</button><input type="file" id="file" hidden accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">'
     +'<button type="button" class="ic" id="bRec" title="'+esc(X.record)+'" aria-label="'+esc(X.record)+'">🎤</button>'
-    +'<button type="button" class="ic" id="bMeet">📹 '+esc(X.meeting)+'</button>'
+    +'<button type="button" class="ic" id="bMeet">📹 '+esc(X.meeting)+'</button><div class="menu" id="meetMenu" hidden></div>'
     +'<button type="button" class="ic" id="bCall">📞 '+esc(X.call)+'</button><div class="menu" id="callMenu" hidden></div></div>'
     +'<div class="rec" id="recBar" hidden><span class="dot" aria-hidden="true"></span><b>'+esc(X.recording)+'</b> <span id="recT">0:00</span><button type="button" class="btn primary" id="recSend">'+esc(X.stop)+'</button><button type="button" class="btn ghost" id="recCancel">'+esc(X.cancel)+'</button></div>'
     +'<div class="row1" id="row1"><textarea id="txt" rows="1" placeholder="'+esc(X.placeholder)+'"></textarea><button class="btn primary" id="sendBtn">'+esc(X.send)+'</button></div><small>'+esc(X.hint)+'</small></form>';
@@ -616,12 +644,12 @@ function open(t){
   $("#bAttach").onclick=function(){$("#file").click()};
   $("#file").onchange=function(e){var f=e.target.files[0];e.target.value="";if(f)upload(f,f.name,false,$("#txt").value.trim())};
   $("#bRec").onclick=startRec;
-  $("#bMeet").onclick=meeting;
+  $("#bMeet").onclick=function(e){e.stopPropagation();meetMenu()};
   $("#bCall").onclick=function(e){e.stopPropagation();var m=$("#callMenu");m.hidden=!m.hidden;
     m.innerHTML='<button type="button" id="cPhone">☎️ '+esc(X.callPhone)+'</button><button type="button" id="cWa">💬 '+esc(X.callWa)+'</button><p>'+esc(X.callNote)+'</p>';
     $("#cPhone").onclick=function(){m.hidden=true;var num="+"+S.cur.phone;try{if(window.XRE_BX&&BX24.im&&BX24.im.phoneTo){BX24.im.phoneTo(num);return}}catch(x){}location.href="tel:"+num};
     $("#cWa").onclick=function(){m.hidden=true;window.open("https://wa.me/"+S.cur.phone,"_blank","noopener")}};
-  document.addEventListener("click",function(){var m=$("#callMenu");if(m)m.hidden=true});
+  document.addEventListener("click",function(e){var m=$("#callMenu");if(m)m.hidden=true;var mm=$("#meetMenu");if(mm&&!mm.contains(e.target))mm.hidden=true});
   lineState();ta.focus();loadMessages(true);
 }
 function upload(blob,name,voice,caption){
@@ -642,9 +670,22 @@ function startRec(){
     recTimer=setInterval(function(){var sec=Math.round((Date.now()-recStart)/1000);$("#recT").textContent=Math.floor(sec/60)+":"+String(sec%60).padStart(2,"0");if(sec>=300)rec.stop()},500);
     $("#recSend").onclick=function(){rec.stop()};$("#recCancel").onclick=function(){recCancelled=true;rec.stop()};
   }).catch(function(){toast(X.mic,true)})}
-function meeting(){
-  var a=new Uint8Array(6);crypto.getRandomValues(a);var slug="XRE-"+Array.prototype.map.call(a,function(b){return ("0"+b.toString(16)).slice(-2)}).join("");
-  var url="https://meet.jit.si/"+slug,ta=$("#txt");ta.value=(ta.value?ta.value+"\n":"")+X.meetingText+url;ta.focus();ta.oninput();window.open(url,"_blank","noopener")}
+var meetUrl=null;
+function getMeet(){return meetUrl!==null?Promise.resolve(meetUrl):api("meet",{}).then(function(d){meetUrl=d.url||"";return meetUrl})}
+function meetMenu(){
+  var m=$("#meetMenu");if(!m.hidden){m.hidden=true;return}
+  getMeet().then(function(url){
+    if(!url){meetForm("");return}
+    m.innerHTML='<button type="button" id="mSend">📹 '+esc(X.meetSend)+'</button><button type="button" id="mChange">⚙️ '+esc(X.meetChange)+'</button><p>'+esc(url)+'</p>';m.hidden=false;
+    $("#mSend").onclick=function(){m.hidden=true;insertMeet(url)};$("#mChange").onclick=function(e){e.stopPropagation();meetForm(url)};
+  }).catch(function(e){toast(e.message,true)})}
+function meetForm(cur){
+  var m=$("#meetMenu");m.style.minWidth="340px";
+  m.innerHTML='<p style="color:var(--ink);font-weight:600;font-size:13px">'+esc(X.meetSetup)+'</p><p>'+esc(X.meetHelp)+'</p><div style="display:flex;gap:6px;padding:4px 6px 6px"><input id="meetIn" style="flex:1;padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:inherit;font:inherit" placeholder="https://meet.google.com/abc-defg-hij" value="'+esc(cur)+'"><button type="button" class="btn primary" id="meetSave">'+esc(X.save)+'</button></div>';
+  m.hidden=false;$("#meetIn").focus();
+  $("#meetSave").onclick=function(e){e.stopPropagation();var v=$("#meetIn").value.trim();
+    api("meet",{url:v}).then(function(d){meetUrl=d.url;m.hidden=true;toast(X.saved);if(d.url)insertMeet(d.url)}).catch(function(err){toast(err.message,true)})}}
+function insertMeet(url){var ta=$("#txt");ta.value=(ta.value?ta.value+"\n":"")+X.meetingText+url;ta.focus();ta.oninput();window.open(url,"_blank","noopener")}
 function bubble(m){
   var media="";
   if(m.media&&m.media.id){var u=mediaUrl(m),ty=m.media.type;

@@ -950,5 +950,31 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await checkLineHealth(store, (await portalById(store, MEMBER))!, "3");
     expect((await portalById(store, MEMBER))!.lines["3"].status).toBe("connected");
   });
+
+  it("her temsilcinin kendi Google Meet odası", async () => {
+    const { base } = await setup({ evoState: "open" });
+    await install(base);
+    const ticketOf = async (auth: string) => {
+      const html = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: auth }))).text();
+      const m = html.match(/window\.XRE_CHAT=(\{.*?\});<\/script>/);
+      return m ? (JSON.parse(m[1]).t as string) : decodeURIComponent(html.match(/CHAT_URL="[^"]*t=([^&"]+)/)![1]);
+    };
+    const meet = (t: string, body: object = {}) => fetch(`${base}/b24/chat/meet`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
+    const kaan = await ticketOf("user-auth");
+    const merve = await ticketOf("merve-auth");
+    expect(await (await meet(kaan)).json()).toEqual({ url: "" });
+    expect((await meet(kaan, { url: "https://meet.jit.si/XRE-1" })).status).toBe(400);
+    expect((await meet(kaan, { url: "javascript:alert(1)" })).status).toBe(400);
+    expect((await meet(kaan, { url: "https://meet.google.com/abc-defg-hij" })).status).toBe(200);
+    expect(await (await meet(kaan)).json()).toEqual({ url: "https://meet.google.com/abc-defg-hij" });
+    // Herkesin odası ayrı; personel başkasının odasını değiştiremez
+    expect(await (await meet(merve)).json()).toEqual({ url: "" });
+    await meet(merve, { userId: "2", url: "https://meet.google.com/zzz-zzzz-zzz" });
+    expect(await (await meet(kaan)).json()).toEqual({ url: "https://meet.google.com/abc-defg-hij" });
+    // Yönetici personelin odasını ayarlayabilir
+    const admin = await ticketOf("admin-auth");
+    await meet(admin, { userId: "3", url: "https://meet.google.com/mer-vemm-eet" });
+    expect(await (await meet(merve)).json()).toEqual({ url: "https://meet.google.com/mer-vemm-eet" });
+  });
 });
 
