@@ -162,6 +162,7 @@ h3.section{font-size:15px;margin:22px 0 8px}
 .num{width:90px;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper)}
 .callout{background:var(--warn-soft);color:var(--warn);border-radius:var(--r-m);padding:12px 16px;margin-bottom:14px;font-weight:600}
 .tabs{flex-wrap:wrap}
+.chatframe{display:block;width:100%;height:calc(100vh - 120px);min-height:520px;border:1px solid var(--line);border-radius:var(--r-m);background:var(--surface)}
 .livegrid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;align-items:start}
 .stack{display:grid;gap:14px}
 .box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:14px 18px}
@@ -201,7 +202,7 @@ a.btn{text-decoration:none;color:inherit}a.btn.primary{color:var(--accent-ink)}
 }
 `;
 
-export function panelHtml(ticket: string, domain: string, lang: Lang = "tr") {
+export function panelHtml(ticket: string, domain: string, lang: Lang = "tr", chatUrl = "") {
   return localizeHtml(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>XRE WhatsApp</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -211,6 +212,7 @@ export function panelHtml(ticket: string, domain: string, lang: Lang = "tr") {
   <div><h1>WhatsApp hatları</h1><p>${escapeHtml(domain)}</p></div>
   <div class="tabs" role="tablist">
     <button role="tab" data-tab="connections" aria-selected="true">Bağlantılar</button>
+    <button role="tab" data-tab="chats" aria-selected="false">Sohbetler</button>
     <button role="tab" data-tab="live" aria-selected="false">Canlı</button>
     <button role="tab" data-tab="staff" aria-selected="false">Personel</button>
     <button role="tab" data-tab="roles" aria-selected="false">Roller</button>
@@ -226,7 +228,7 @@ export function panelHtml(ticket: string, domain: string, lang: Lang = "tr") {
 <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></aside>
 <div class="toast" id="toast" role="status"></div>
 <script>
-const T=${JSON.stringify(ticket)},LANG=${JSON.stringify(lang)};
+const T=${JSON.stringify(ticket)},LANG=${JSON.stringify(lang)},CHAT_URL=${JSON.stringify(chatUrl)};
 const TEMP={"sıcak":"Sıcak","ılık":"Ilık","soğuk":"Soğuk"};
 let S={connections:[],roles:[],users:[]},tab="connections",poll=null,filter="";
 const $=s=>document.querySelector(s);
@@ -274,6 +276,7 @@ function render(){
   }
   if(tab==="perf"){perf();return;}
   if(tab==="live"){live();return;}
+  if(tab==="chats"){m.innerHTML=CHAT_URL?'<iframe class="chatframe" title="Sohbetler" src="'+esc(CHAT_URL)+'"></iframe>':'<div class="list"><div class="empty">Sohbet ekranı için sayfayı Bitrix24 içinden yeniden açın.</div></div>';return;}
   if(tab==="agent"){agent();return;}
   if(tab==="reports"){reports();return;}
   if(tab==="billing"){billing();return;}

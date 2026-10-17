@@ -12,6 +12,7 @@ import { PANEL_STYLE, panelHtml } from "./b24-panel-html.js";
 import { onCustomerMessage, registerAgentPanelRoutes, type AgentConfig } from "./b24-agent.js";
 import { registerLivePanelRoutes, type ReportSettings } from "./b24-live.js";
 import { langOf, localizeMessage, normLang, pick, type Lang } from "./b24-i18n.js";
+import { appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
 import { logRestCall } from "./b24-restlog.js";
 import { registerLegalRoutes } from "./b24-legal.js";
 import { adminHtml } from "./b24-admin-html.js";
@@ -57,6 +58,8 @@ export interface B24Portal {
   settings?: B24Settings;
   agent?: AgentConfig;
   reports?: ReportSettings;
+  /** Kayıtlı CRM kart sekmelerinin sürümü */
+  cardTabs?: number;
   /** Portalın kurulduğu Bitrix uygulamasının client_id'si (yoksa B24_CLIENT_ID). */
   clientId?: string;
   /** Arayüz ve sohbet notlarının dili (Bitrix LANG); yoksa Türkçe. */
@@ -231,7 +234,7 @@ export function settingsTicket(memberId: string, line: string, ttlSeconds = 2 * 
   const payload = `${memberId}.${line}.${Math.floor(Date.now() / 1000) + ttlSeconds}`;
   return `${payload}.${sign(`ticket:${payload}`)}`;
 }
-function readTicket(ticket: unknown): { memberId: string; line: string } | null {
+export function readTicket(ticket: unknown): { memberId: string; line: string } | null {
   const parts = String(ticket || "").split(".");
   if (parts.length !== 4) return null;
   const [memberId, line, exp, mac] = parts;
@@ -558,6 +561,15 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   if (!chat.waitingSince) chat.waitingSince = now;
   if (local) chat.history.push({ from: "müşteri", text: local, at: now });
   await saveChat(store, chat);
+  await appendThread(store, chat, {
+    dir: "in",
+    text,
+    ...(local !== text ? { translation: local } : {}),
+    at: now,
+    waId: String(key.id || ""),
+    ...(isGroup && sender ? { sender: `+${sender}`, senderName: pushName } : {}),
+    ...(media.mediaId ? { media: { id: media.mediaId, name: media.fileName || "", type: media.mediaType || "", mime: media.mime || "" } } : {}),
+  });
   await bumpStat(store, portal.id, (s) => {
     const l = lineStat(s, map.line);
     l.inbound += 1;
@@ -624,6 +636,47 @@ async function agentOf(store: Store, portal: B24Portal, item: any): Promise<stri
   return "0";
 }
 
+/**
+ * Temsilci (Bitrix'ten ya da XRE sohbet ekranından) müşteriye yazdı: sohbet
+ * durumu, istatistik ve tam yazışma geçmişi güncellenir.
+ */
+export async function recordOutbound(
+  store: Store,
+  portal: B24Portal,
+  line: string,
+  chat: B24Chat,
+  msg: { agent: string; text: string; original?: string; local?: string; via: "bitrix" | "xre"; waId?: string; media?: ThreadMessage["media"] },
+) {
+  const now = Date.now();
+  const waited = chat.waitingSince ? Math.max(0, Math.round((now - chat.waitingSince) / 1000)) : null;
+  chat.outbound += 1;
+  chat.lastOutboundAt = now;
+  chat.waitingSince = null;
+  // Temsilci yazdı: AI asistan bu sohbette bir süre susar.
+  chat.agentState = "human";
+  chat.humanAt = now;
+  const local = msg.local ?? msg.original ?? msg.text;
+  if (local) chat.history.push({ from: "temsilci", text: local, at: now });
+  await saveChat(store, chat);
+  await appendThread(store, chat, { dir: "out", text: msg.text, ...(msg.original ? { original: msg.original } : {}), by: msg.agent, via: msg.via, at: now, ...(msg.waId ? { waId: msg.waId } : {}), ...(msg.media ? { media: msg.media } : {}) });
+  await bumpStat(store, portal.id, (s) => {
+    const ls = lineStat(s, line);
+    ls.outbound += 1;
+    if (waited !== null) {
+      ls.responses = (ls.responses || 0) + 1;
+      ls.responseSec = (ls.responseSec || 0) + waited;
+      ls.samples = [...(ls.samples || []), waited].slice(-500);
+    }
+    const a = agentStat(s, msg.agent);
+    a.replies += 1;
+    if (waited !== null) {
+      a.responses += 1;
+      a.responseSec += waited;
+      a.maxSec = Math.max(a.maxSec, waited);
+    }
+  });
+}
+
 /** Bitrix temsilcisinin yazdığı mesajları WhatsApp'a iletir. */
 async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, messages: any[]) {
   const info = portal.lines[line];
@@ -672,32 +725,15 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
       sentId = String(result?.key?.id || sentId);
     }
     delivered.push({ im: item?.im, message: { id: [sentId || String(item?.message?.id || "")] }, chat: { id: item?.chat?.id } });
-    const now = Date.now();
     const agent = await agentOf(store, portal, item);
-    const waited = chat.waitingSince ? Math.max(0, Math.round((now - chat.waitingSince) / 1000)) : null;
-    chat.outbound += 1;
-    chat.lastOutboundAt = now;
-    chat.waitingSince = null;
-    // Temsilci yazdı: AI asistan bu sohbette bir süre susar.
-    chat.agentState = "human";
-    chat.humanAt = now;
-    if (agentText) chat.history.push({ from: "temsilci", text: agentText.replace(/^!/, ""), at: now });
-    await saveChat(store, chat);
-    await bumpStat(store, portal.id, (s) => {
-      const ls = lineStat(s, line);
-      ls.outbound += 1;
-      if (waited !== null) {
-        ls.responses = (ls.responses || 0) + 1;
-        ls.responseSec = (ls.responseSec || 0) + waited;
-        ls.samples = [...(ls.samples || []), waited].slice(-500);
-      }
-      const a = agentStat(s, agent);
-      a.replies += 1;
-      if (waited !== null) {
-        a.responses += 1;
-        a.responseSec += waited;
-        a.maxSec = Math.max(a.maxSec, waited);
-      }
+    await recordOutbound(store, portal, line, chat, {
+      agent,
+      text,
+      original: !raw && text !== agentText ? agentText : undefined,
+      local: agentText.replace(/^!/, ""),
+      via: "bitrix",
+      waId: sentId,
+      media: files.length ? { name: String(files[0]?.name || "") } : undefined,
     });
   }
   if (delivered.length)
@@ -750,7 +786,7 @@ async function connectionDisconnect(store: Store, portal: B24Portal, line: strin
 
 // --- HTML --------------------------------------------------------------------
 
-function page(res: Response, status: number, title: string, body: string, script = "", lang: Lang = "tr") {
+export function page(res: Response, status: number, title: string, body: string, script = "", lang: Lang = "tr") {
   res
     .status(status)
     .type("html")
@@ -767,7 +803,7 @@ function page(res: Response, status: number, title: string, body: string, script
 <body><div class="wrap"><div class="brand"><i aria-hidden="true"></i>XRE WhatsApp</div><h1>${escapeHtml(title)}</h1>${body}</div></body></html>`);
 }
 
-function readBitrixParams(req: Request) {
+export function readBitrixParams(req: Request) {
   const all = { ...(req.query as Record<string, any>), ...((req.body as Record<string, any>) || {}) };
   let options: Record<string, any> = {};
   if (typeof all.PLACEMENT_OPTIONS === "string") {
@@ -869,8 +905,14 @@ async function installPortal(store: Store, p: BitrixParams, base: string): Promi
     throw Object.assign(new Error("Uygulamayı yalnız Bitrix24 yöneticisi kurabilir."), { statusCode: 403 });
   await savePortal(store, portal);
   await registerConnector(store, portal, base);
+  const tabWarnings = await bindCardTabs(store, portal, base);
+  if (tabWarnings.length) console.warn(`XRE WhatsApp kart sekmesi (${portal.domain}):`, tabWarnings.join("; "));
+  else await savePortal(store, { ...portal, cardTabs: CARD_TABS_VERSION });
   return portal;
 }
+
+const chatViewUrl = (memberId: string, userId: string, admin: boolean, lang: Lang) =>
+  userId ? `/b24/chat/view?t=${encodeURIComponent(chatTicket(memberId, userId, admin))}&lang=${lang}` : "";
 
 /**
  * Uygulama kaldırıldı: WhatsApp oturumları kapatılır, belirteçler ve müşteri
@@ -888,7 +930,7 @@ export async function uninstallPortal(store: Store, portal: B24Portal) {
     Object.entries(portal.lines).map(([id, l]) => [id, { ...l, status: "disconnected", phone: undefined, profileName: undefined, updatedAt: new Date().toISOString() }]),
   );
   await savePortal(store, { ...portal, active: false, accessToken: "", refreshToken: "", applicationToken: undefined, lines });
-  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report"]) {
+  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report", THREAD_KIND]) {
     for (const row of await store.list<{ memberId?: string }>(kind, SYSTEM_OWNER))
       if (row.payload?.memberId === portal.id) await store.delete(kind, row.id, SYSTEM_OWNER);
   }
@@ -900,6 +942,7 @@ export async function uninstallPortal(store: Store, portal: B24Portal) {
 export function registerB24ConnectorRoutes(app: Express, store: Store) {
   const form = express.urlencoded({ extended: true, limit: "256kb" });
   registerLegalRoutes(app);
+  registerChatRoutes(app, store);
 
   // Kurulum: belirteçleri sakla, bağlayıcıyı ve olayları kaydet.
   const install = async (req: Request, res: Response) => {
@@ -938,7 +981,7 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
       try {
         portal = await installPortal(store, p, origin(req));
         // installPortal açan kişinin bu portalın yöneticisi olduğunu doğruladı.
-        res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain, p.lang));
+        res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain, p.lang, chatViewUrl(portal.id, "", true, p.lang)));
         return;
       } catch (error) {
         console.warn("Bitrix bağlayıcı otomatik kurulumu başarısız:", (error as Error).message);
@@ -956,10 +999,23 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
     } catch {
       return page(res, 401, pick(p.lang, "Bitrix oturumu doğrulanamadı", "Bitrix24 session could not be verified"), pick(p.lang, "<p>Sayfayı Bitrix24 içinden yeniden açın.</p>", "<p>Please reopen the page from inside Bitrix24.</p>"), "", p.lang);
     }
+    const userId = String(user?.ID || "").replace(/\D/g, "");
     if (admin) {
       // Sohbet notları ve raporlar yöneticinin Bitrix dilinde yazılır.
       if (portal.lang !== p.lang) await savePortal(store, { ...((await portalById(store, portal.id)) || portal), lang: p.lang });
-      res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain, p.lang));
+      // Eski kurulumlarda CRM kart sekmesi yoksa bir kez eklenir.
+      if (portal.cardTabs !== CARD_TABS_VERSION) {
+        const warnings = await bindCardTabs(store, portal, origin(req));
+        if (!warnings.length) await savePortal(store, { ...((await portalById(store, portal.id)) || portal), cardTabs: CARD_TABS_VERSION });
+        else console.warn(`XRE WhatsApp kart sekmesi (${portal.domain}):`, warnings.join("; "));
+      }
+      res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain, p.lang, chatViewUrl(portal.id, userId, true, p.lang)));
+      return;
+    }
+    // Personel: WhatCRM benzeri sohbet ekranı, yalnız rolündeki numaralar.
+    if (userId) {
+      res.setHeader("referrer-policy", "no-referrer");
+      res.status(200).type("html").setHeader("cache-control", "no-store").send(chatHtml(chatTicket(portal.id, userId, false), p.lang, { mode: "inbox" }));
       return;
     }
     const role = roleOf(portal, String(user?.ID || ""));
@@ -1159,12 +1215,12 @@ export async function portalUsers(store: Store, portal: B24Portal): Promise<B24U
 }
 
 /** Bir kullanıcının rolü (atanmış yoksa varsayılan rol). */
-function roleOf(portal: B24Portal, userId: string): B24Role | undefined {
+export function roleOf(portal: B24Portal, userId: string): B24Role | undefined {
   const roles = portal.roles || [];
   const assigned = portal.assignments?.[userId];
   return roles.find((r) => r.id === assigned) || roles.find((r) => r.isDefault);
 }
-const roleAllows = (role: B24Role | undefined, line: string) =>
+export const roleAllows = (role: B24Role | undefined, line: string) =>
   Boolean(role && (role.lines === "all" || role.lines.includes(line)));
 
 /** Açık Kanal kuyruklarını rollere göre günceller; hataları döndürür. */

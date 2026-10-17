@@ -80,7 +80,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 | Sol menüye sayfa ekle | Evet |
 | BitrixMobile'a göm | Hayır (panel mobilde çalışır ama ilk sürümde gerekmez) |
 | Yönetici olmadan kurulabilir | Hayır |
-| İzinler (system sections) | `imconnector`, `imopenlines`, `crm`, `user_basic`, `im` *(yalnız rapor bildirimi için)*. Bitrix, tam `user` iznini yalnız zorunluysa ister. Test portalında `user_basic` ile personel listesi ve çevrimiçi durumu geliyorsa öyle bırakın, gelmiyorsa `user` seçin. Gereksiz izin moderasyondan döner. |
+| İzinler (system sections) | `imconnector`, `imopenlines`, `crm`, `user_basic`, `im` *(yalnız rapor bildirimi için)*, `placement` *(CRM kartlarındaki "XRE WhatsApp Chat" sekmesi için)*. Bitrix, tam `user` iznini yalnız zorunluysa ister. Test portalında `user_basic` ile personel listesi ve çevrimiçi durumu geliyorsa öyle bırakın, gelmiyorsa `user` seçin. Gereksiz izin moderasyondan döner. |
 | What's new | İlk sürümde boş bırakılır. |
 
 ## Ad ve marka

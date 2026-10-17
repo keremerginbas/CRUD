@@ -81,6 +81,7 @@ async function setup(opts: { evoState?: string } = {}) {
     if (method === "imopenlines.config.add") return { result: 7 };
     if (method === "imopenlines.dialog.get") return { result: { id: 1, owner: "3" } };
     if (method === "crm.duplicate.findbycomm") return { result: body.entity_type === "LEAD" ? { LEAD: [55] } : [] };
+    if (method === "crm.lead.get") return { result: { ID: String(body.id), TITLE: "Web lead", NAME: "Ayşe", LAST_NAME: "Y.", PHONE: [{ VALUE: "+90 530 111 22 33" }], CONTACT_ID: null } };
     if (method === "crm.status.list") return { result: [{ STATUS_ID: "WEB", NAME: "Web sitesi" }, { STATUS_ID: "SAHIBINDEN", NAME: "Sahibinden" }] };
     if (method === "crm.lead.list")
       return { result: [{ ID: "1", TITLE: "Lead A", SOURCE_ID: "WEB", DATE_CREATE: new Date().toISOString() }, { ID: "2", TITLE: "Lead B", SOURCE_ID: "WEB" }, { ID: "3", TITLE: "Lead C", SOURCE_ID: "SAHIBINDEN" }] };
@@ -285,13 +286,16 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(state.body.connections).toEqual([expect.objectContaining({ line: "7", name: "Satış 7124" })]);
     expect(state.body.users.find((u: any) => u.id === "2").roleId).toBe(sales.body.role.id);
 
-    // Personel yalnız kendi rolündeki numaraları görür; panel açılmaz.
+    // Personel panel yerine sohbet ekranını görür; yalnız kendi rolündeki numaralar.
     const kaan = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "user-auth" }))).text();
-    expect(kaan).toContain("Satış 7124");
     expect(kaan).not.toContain("Numara ekle");
+    const chatLines = async (pageHtml: string) => {
+      const ct = JSON.parse(pageHtml.match(/window\.XRE_CHAT=(\{.*?\});<\/script>/)![1]).t;
+      return (await (await fetch(`${base}/b24/chat/threads`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct }) })).json()).lines.map((l: any) => l.name);
+    };
+    expect(await chatLines(kaan)).toEqual(["Satış 7124"]);
     const merve = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "merve-auth" }))).text();
-    expect(merve).toContain("Sigorta");
-    expect(merve).toContain("Size atanmış numara yok");
+    expect(await chatLines(merve)).toEqual([]);
   });
 
   it("kurulum adresi çağrılmasa da ilk açılışta kendini kurar", async () => {
@@ -733,7 +737,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "en", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
     expect(home).toContain("Add number");
     const user = await (await fetch(`${base}/b24/app`, formPost({ LANG: "en", member_id: MEMBER, DOMAIN, AUTH_ID: "user-auth" }))).text();
-    expect(user).toContain("Your WhatsApp numbers");
+    expect(user).toContain('"newChat":"New chat"');
     await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
     const instance = instanceName(MEMBER, "3");
     await fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
@@ -835,6 +839,68 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     bx.length = 0;
     await fetch(`${base}/b24/panel/state`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "all") }) });
     expect(bx.filter((c) => c.method === "oauth.refresh").map((c) => new URL(c.url).searchParams.get("client_id"))[0]).toBe("market.app");
+  });
+
+  it("sohbet ekranı ve CRM kart sekmesi: rol yetkisi, yazışma, gönderim", async () => {
+    const { base, bx, evo } = await setup({ evoState: "open" });
+    await install(base);
+    // Kurulumda kart sekmeleri kaydedilir
+    const binds = bx.filter((c) => c.method === "placement.bind");
+    expect(binds.map((c) => c.body.PLACEMENT)).toEqual(["CRM_LEAD_DETAIL_TAB", "CRM_CONTACT_DETAIL_TAB", "CRM_DEAL_DETAIL_TAB", "CRM_COMPANY_DETAIL_TAB"]);
+    expect(binds[0].body.HANDLER).toBe("https://crm.xre.test/b24/card");
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const t = settingsTicket(MEMBER, "all");
+    const panel = (p: string, body: object) => fetch(`${base}/b24/panel/${p}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) }).then((r) => r.json());
+    const sales = await panel("role/save", { name: "Satış", lines: ["3"] });
+    await panel("role/save", { name: "Diğer", lines: [], isDefault: true });
+    await panel("user/role", { userId: "2", roleId: sales.role.id });
+
+    const instance = instanceName(MEMBER, "3");
+    await fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ event: "messages.upsert", instance, data: { key: { id: "C1", remoteJid: "905301112233@s.whatsapp.net" }, pushName: "Ayşe", message: { conversation: "Merhaba, fiyat alabilir miyim?" } } }),
+    });
+    await new Promise((r) => setTimeout(r, 80));
+
+    const ticketOf = async (auth: string) => {
+      const html = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: auth }))).text();
+      return JSON.parse(html.match(/window\.XRE_CHAT=(\{.*?\});<\/script>/)![1]).t as string;
+    };
+    const kaan = await ticketOf("user-auth");
+    const merve = await ticketOf("merve-auth");
+    const chat = (p: string, ct: string, body: object = {}) => fetch(`${base}/b24/chat/${p}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t: ct }) });
+
+    const list = await (await chat("threads", kaan)).json();
+    expect(list.threads).toEqual([expect.objectContaining({ line: "3", phone: "905301112233", name: "Ayşe", waiting: true })]);
+    expect((await (await chat("threads", merve)).json()).threads).toEqual([]);
+    expect((await chat("messages", merve, { line: "3", phone: "905301112233" })).status).toBe(403);
+
+    const sent = await chat("send", kaan, { line: "3", phone: "905301112233", text: "Merhaba Ayşe Hanım, hemen gönderiyorum." });
+    expect(sent.status).toBe(200);
+    expect(evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1)?.body).toMatchObject({ number: "905301112233", text: "Merhaba Ayşe Hanım, hemen gönderiyorum." });
+    const msgs = await (await chat("messages", kaan, { line: "3", phone: "905301112233" })).json();
+    expect(msgs.messages.map((m: any) => [m.dir, m.text, m.byName || ""])).toEqual([
+      ["in", "Merhaba, fiyat alabilir miyim?", ""],
+      ["out", "Merhaba Ayşe Hanım, hemen gönderiyorum.", "Kaan"],
+    ]);
+    expect((await (await chat("threads", kaan)).json()).threads[0].waiting).toBe(false);
+    // Yeni bir numaraya ilk mesaj
+    expect((await chat("send", kaan, { line: "3", phone: "0532 999 88 77", text: "İlk mesaj" })).status).toBe(200);
+    expect(evo.some((c) => c.body?.number === "905329998877")).toBe(true);
+    // Yetkisiz bağlantıdan gönderilemez, bilet olmadan erişilemez
+    expect((await chat("send", merve, { line: "3", phone: "905301112233", text: "x" })).status).toBe(403);
+    expect((await chat("threads", "sahte")).status).toBe(401);
+    expect((await fetch(`${base}/b24/chat/media/med_000000000000000000000000?t=${encodeURIComponent(kaan)}&line=3&phone=905301112233`)).status).toBe(404);
+
+    // CRM lead kartı: lead'in telefonu bulunur, sohbet o numarayla açılır
+    const card = await fetch(`${base}/b24/card`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "user-auth", PLACEMENT: "CRM_LEAD_DETAIL_TAB", PLACEMENT_OPTIONS: JSON.stringify({ ID: "55" }) }));
+    const cfg = JSON.parse((await card.text()).match(/window\.XRE_CHAT=(\{.*?\});<\/script>/)![1]);
+    expect(cfg).toMatchObject({ mode: "card", phones: ["905301112233"], title: "Ayşe Y." });
+    const only = await (await chat("threads", cfg.t, { phones: cfg.phones })).json();
+    expect(only.threads.map((x: any) => x.phone)).toEqual(["905301112233"]);
+    // Sahte oturumla kart açılmaz
+    expect((await fetch(`${base}/b24/card`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "yanlis", PLACEMENT: "CRM_LEAD_DETAIL_TAB" }))).status).toBe(401);
   });
 });
 

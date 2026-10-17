@@ -15,6 +15,8 @@ export const PANEL_EN: Record<string, string> = {
   "WhatsApp hatları": "WhatsApp lines",
   "Bağlantılar": "Connections",
   "Canlı": "Live",
+  "Sohbetler": "Chats",
+  "Sohbet ekranı için sayfayı Bitrix24 içinden yeniden açın.": "Reopen the page from inside Bitrix24 to use chats.",
   "Personel": "Staff",
   "Roller": "Roles",
   "Performans": "Performance",

@@ -10,6 +10,7 @@ import express, { type Express, type RequestHandler, type Request, type Response
 import type { Store } from "./db.js";
 import { aiConfigured, chatJson } from "./b24-ai.js";
 import { langOf, pick } from "./b24-i18n.js";
+import { appendThread } from "./b24-chat.js";
 import {
   bumpStat,
   evolution,
@@ -180,6 +181,7 @@ async function runAgent(store: Store, memberId: string, line: string, phone: str
   if (result.handoff) fresh.agentState = "handoff";
   else fresh.waitingSince = null; // asistan cevapladı; devirde müşteri temsilci beklemeye devam eder
   await saveChat(store, fresh);
+  await appendThread(store, fresh, { dir: "out", text: result.reply, by: "ai", via: "ai", at: now });
   await bumpStat(store, memberId, (s) => {
     const day = s as typeof s & { aiReplies?: number; aiHandoffs?: number };
     day.aiReplies = (day.aiReplies || 0) + 1;
