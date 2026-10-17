@@ -5,7 +5,7 @@ import path from "node:path";
 import http from "node:http";
 import { createApp } from "../server/app";
 import { createMemoryStore } from "../server/db";
-import { CONNECTOR_ID, instanceName, setB24Fetch, settingsTicket } from "../server/b24-connector";
+import { CONNECTOR_ID, checkLineHealth, instanceName, portalById, setB24Fetch, settingsTicket } from "../server/b24-connector";
 import { setAiFetch } from "../server/b24-ai";
 import { inWorkingHours, setAgentMergeDelay, DEFAULT_AGENT } from "../server/b24-agent";
 import { dueReports, DEFAULT_REPORTS } from "../server/b24-live";
@@ -901,6 +901,49 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(only.threads.map((x: any) => x.phone)).toEqual(["905301112233"]);
     // Sahte oturumla kart açılmaz
     expect((await fetch(`${base}/b24/card`, formPost({ member_id: MEMBER, DOMAIN, AUTH_ID: "yanlis", PLACEMENT: "CRM_LEAD_DETAIL_TAB" }))).status).toBe(401);
+  });
+
+  it("sohbet ekranından dosya ve ses kaydı gider; kopan bağlantı fark edilir ve gönderim durur", async () => {
+    const evoState = { evoState: "open" };
+    const { base, evo, store } = await setup(evoState);
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const html = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const chatUrl = html.match(/CHAT_URL="([^"]+)"/)![1];
+    const ct = decodeURIComponent(chatUrl.match(/t=([^&]+)/)![1]);
+    const instance = instanceName(MEMBER, "3");
+    const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+    const up = (body: Buffer, type: string, extra: Record<string, string> = {}) =>
+      fetch(`${base}/b24/chat/upload`, { method: "POST", headers: { "content-type": type, "x-xre-ticket": ct, "x-line": "3", "x-phone": "905301112233", "x-file-name": encodeURIComponent("plan.png"), ...extra }, body });
+    const img = await up(png, "image/png", { "x-caption": encodeURIComponent("Kat planı") });
+    expect(img.status).toBe(200);
+    expect(evo.find((c) => c.url === `/message/sendMedia/${instance}`)?.body).toMatchObject({ number: "905301112233", mediatype: "image", caption: "Kat planı", fileName: "plan.png" });
+    const voice = await up(Buffer.from("OggS-kayit"), "audio/webm", { "x-voice": "1", "x-file-name": "ses-kaydi.webm" });
+    expect(voice.status).toBe(200);
+    expect(evo.some((c) => c.url === `/message/sendWhatsAppAudio/${instance}`)).toBe(true);
+    const chat = (p: string, body: object = {}) => fetch(`${base}/b24/chat/${p}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t: ct }) });
+    const msgs = (await (await chat("messages", { line: "3", phone: "905301112233" })).json()).messages;
+    expect(msgs.map((m: any) => m.media?.type)).toEqual(["image", "audio"]);
+    expect(msgs[0].text).toBe("Kat planı");
+    const media = await fetch(`${base}/b24/chat/media/${msgs[0].media.id}?t=${encodeURIComponent(ct)}&line=3&phone=905301112233`);
+    expect(media.status).toBe(200);
+    expect(media.headers.get("content-type")).toBe("image/png");
+    // Başkasının bileti olmadan yüklenemez
+    expect((await fetch(`${base}/b24/chat/upload`, { method: "POST", headers: { "content-type": "image/png", "x-line": "3", "x-phone": "905301112233" }, body: png })).status).toBe(401);
+
+    // WhatsApp oturumu düştü: kontrol durumu düzeltir, gönderim açık bir hatayla durur
+    evoState.evoState = "close";
+    await checkLineHealth(store, (await portalById(store, MEMBER))!, "3");
+    expect((await portalById(store, MEMBER))!.lines["3"].status).toBe("disconnected");
+    const lines = (await (await chat("threads")).json()).lines;
+    expect(lines[0]).toMatchObject({ line: "3", connected: false, status: "disconnected" });
+    const blocked = await chat("send", { line: "3", phone: "905301112233", text: "Merhaba" });
+    expect(blocked.status).toBe(409);
+    expect((await blocked.json()).message).toContain("QR okutun");
+    // Yeniden bağlanınca kendiliğinden düzelir
+    evoState.evoState = "open";
+    await checkLineHealth(store, (await portalById(store, MEMBER))!, "3");
+    expect((await portalById(store, MEMBER))!.lines["3"].status).toBe("connected");
   });
 });
 

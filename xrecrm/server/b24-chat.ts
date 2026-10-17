@@ -11,7 +11,7 @@ import { lineUsable } from "./b24-billing.js";
 import { translateTo } from "./b24-ai.js";
 import { langOf, normLang, pick, type Lang } from "./b24-i18n.js";
 import { PANEL_STYLE } from "./b24-panel-html.js";
-import { readMedia } from "./whatsapp-media.js";
+import { MAX_MEDIA_BYTES, readMedia, saveMedia, sendEvolutionMedia } from "./whatsapp-media.js";
 import { normalizePhone } from "./security.js";
 import {
   CHAT_KIND,
@@ -26,6 +26,7 @@ import {
   readBitrixParams,
   readTicket,
   recordOutbound,
+  refreshLines,
   roleAllows,
   roleOf,
   settingsTicket,
@@ -188,7 +189,7 @@ export function registerChatRoutes(app: Express, store: Store) {
   const withViewer =
     (fn: (ctx: Ctx, body: any, req: Request, res: Response) => Promise<unknown>) =>
     async (req: Request, res: Response) => {
-      const viewer = viewerOf(req.body?.t ?? req.query.t);
+      const viewer = viewerOf(req.get("x-xre-ticket") || (req.body && !Buffer.isBuffer(req.body) ? req.body.t : undefined) || req.query.t);
       if (!viewer) return res.status(401).json({ error: "TICKET", message: "Oturum süresi doldu. Sayfayı yenileyin." });
       const portal = await portalById(store, viewer.memberId);
       if (!portal?.active) return res.status(404).json({ error: "NOT_INSTALLED" });
@@ -213,6 +214,8 @@ export function registerChatRoutes(app: Express, store: Store) {
     "/b24/chat/threads",
     json,
     withViewer(async (ctx, body) => {
+      // Ekran açıkken bağlantı durumu en fazla 1 dakika eski olsun.
+      ctx.portal = await refreshLines(store, ctx.portal, ctx.lines, 60_000);
       const only = Array.isArray(body.phones) ? new Set(body.phones.map(toWa).filter(Boolean)) : null;
       const chats = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER))
         .map((r) => r.payload)
@@ -233,7 +236,13 @@ export function registerChatRoutes(app: Express, store: Store) {
         })
         .sort((a, b) => b.lastAt - a.lastAt)
         .slice(0, 300);
-      const lines = ctx.lines.map((line) => ({ line, name: lineName(ctx.portal, line), phone: ctx.portal.lines[line].phone || "", connected: ctx.portal.lines[line].status === "connected" }));
+      const lines = ctx.lines.map((line) => ({
+        line,
+        name: lineName(ctx.portal, line),
+        phone: ctx.portal.lines[line].phone || "",
+        connected: ctx.portal.lines[line].status === "connected",
+        status: ctx.portal.lines[line].status,
+      }));
       return { threads: chats, lines, admin: ctx.viewer.admin };
     }),
   );
@@ -257,11 +266,13 @@ export function registerChatRoutes(app: Express, store: Store) {
     json,
     withViewer(async (ctx, body) => {
       const chat = await chatFor(ctx, body);
+      ctx.portal = await refreshLines(store, ctx.portal, [chat.line], 30_000);
       const info = ctx.portal.lines[chat.line];
       const lang = langOf(ctx.portal);
       let text = String(body.text || "").replace(/\r/g, "").trim().slice(0, 4000);
       if (!text) fail(400, "Mesaj boş olamaz.");
-      if (info.status !== "connected" || !info.instance) fail(409, "Bu numara şu an WhatsApp'a bağlı değil.");
+      if (info.status !== "connected" || !info.instance)
+        fail(409, ctx.viewer.admin ? "Bu numaranın WhatsApp bağlantısı kopmuş. Panel → Bağlantılar'dan QR okutun." : "Bu numaranın WhatsApp bağlantısı kopmuş. Yöneticinizden numarayı yeniden bağlamasını isteyin.");
       if (!(await lineUsable(store, ctx.portal, chat.line))) fail(402, "Bu numaranın lisans süresi doldu.");
       // "!" ile başlayan mesaj çevrilmez; aksi halde müşterinin diline çevrilir.
       const raw = text.startsWith("!");
@@ -274,10 +285,17 @@ export function registerChatRoutes(app: Express, store: Store) {
           console.warn("Cevap çevrilemedi, olduğu gibi gönderiliyor:", (error as Error).message);
         }
       }
-      const result = await evolution(`/message/sendText/${encodeURIComponent(info.instance)}`, {
-        method: "POST",
-        body: JSON.stringify({ number: chat.phone, text, linkPreview: true }),
-      });
+      let result: any;
+      try {
+        result = await evolution(`/message/sendText/${encodeURIComponent(info.instance)}`, {
+          method: "POST",
+          body: JSON.stringify({ number: chat.phone, text, linkPreview: true }),
+        });
+      } catch (error) {
+        // Bağlantı gönderim sırasında kopmuş olabilir: durumu hemen yenile.
+        await refreshLines(store, ctx.portal, [chat.line], 0).catch(() => undefined);
+        fail(502, `Mesaj gönderilemedi: ${(error as Error).message}`);
+      }
       await recordOutbound(store, ctx.portal, chat.line, chat, {
         agent: ctx.viewer.userId,
         text,
@@ -287,6 +305,50 @@ export function registerChatRoutes(app: Express, store: Store) {
         waId: String(result?.key?.id || ""),
       });
       return { ok: true, text, original };
+    }),
+  );
+
+  // Dosya, görsel, video ve ses kaydı gönderimi (ham gövde, en fazla 16 MB).
+  app.post(
+    "/b24/chat/upload",
+    express.raw({ type: () => true, limit: MAX_MEDIA_BYTES + 1024 }),
+    withViewer(async (ctx, _body, req) => {
+      const header = (k: string) => {
+        try {
+          return decodeURIComponent(String(req.get(k) || ""));
+        } catch {
+          return "";
+        }
+      };
+      const chat = await chatFor(ctx, { line: header("x-line"), phone: header("x-phone") });
+      const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+      if (!buffer.length) fail(400, "Dosya boş.");
+      if (buffer.length > MAX_MEDIA_BYTES) fail(413, "Dosya 16 MB sınırını aşıyor.");
+      ctx.portal = await refreshLines(store, ctx.portal, [chat.line], 30_000);
+      const info = ctx.portal.lines[chat.line];
+      if (info.status !== "connected" || !info.instance) fail(409, "Bu numaranın WhatsApp bağlantısı kopmuş.");
+      if (!(await lineUsable(store, ctx.portal, chat.line))) fail(402, "Bu numaranın lisans süresi doldu.");
+      const voice = req.get("x-voice") === "1";
+      const mime = String(req.get("content-type") || "application/octet-stream");
+      const name = header("x-file-name").slice(0, 120) || (voice ? "ses-kaydi.ogg" : "dosya");
+      const caption = header("x-caption").slice(0, 1000);
+      const record = await saveMedia(store, `b24:${ctx.portal.id}`, buffer, voice && !/^audio\//.test(mime) ? "audio/ogg" : mime, name);
+      let result: any;
+      try {
+        result = await sendEvolutionMedia(info.instance, chat.phone, record, buffer, caption);
+      } catch (error) {
+        await refreshLines(store, ctx.portal, [chat.line], 0).catch(() => undefined);
+        fail(502, `Dosya gönderilemedi: ${(error as Error).message}`);
+      }
+      await recordOutbound(store, ctx.portal, chat.line, chat, {
+        agent: ctx.viewer.userId,
+        text: caption,
+        local: caption || `[${record.mediaType === "audio" ? (voice ? "Sesli mesaj" : "Ses") : record.mediaType === "image" ? "Görsel" : record.mediaType === "video" ? "Video" : "Dosya"}]`,
+        via: "xre",
+        waId: String(result?.key?.id || ""),
+        media: { id: record.id, name: record.fileName, type: record.mediaType, mime: record.mime },
+      });
+      return { ok: true, id: record.id, type: record.mediaType };
     }),
   );
 
@@ -359,6 +421,14 @@ const TEXT = {
     notConnected: "bağlı değil", cardNoPhone: "Bu kartta telefon numarası yok. Karta numara ekleyin ya da aşağıdan yazın.",
     cardStart: "Bu müşteriyle henüz WhatsApp yazışması yok. İlk mesajı buradan gönderebilirsiniz.", file: "Dosya", expired: "dosya süresi doldu",
     waitingTag: "Yanıt bekliyor", back: "Sohbetler", error: "İşlem tamamlanamadı.",
+    attach: "Dosya, görsel veya video ekle", record: "Ses kaydı", stop: "Gönder", cancel: "Vazgeç", recording: "Kaydediliyor",
+    meeting: "Toplantı linki", meetingText: "📹 Görüntülü görüşme bağlantınız: ", call: "Ara", callPhone: "Telefonla ara (Bitrix)",
+    callWa: "WhatsApp'ta aç", callNote: "WhatsApp aramaları bu bağlantı türünde sunucudan yapılamaz; WhatsApp uygulamanızda açılır.",
+    connected: "Bağlı", disconnected: "Bağlantı yok", connecting: "Bağlanıyor",
+    offAdmin: "Bu numaranın WhatsApp bağlantısı kopmuş. Panel → Bağlantılar'dan QR okutun.",
+    offUser: "Bu numaranın WhatsApp bağlantısı kopmuş. Yöneticinizden numarayı yeniden bağlamasını isteyin.",
+    warnLines: "Bağlantısı kopan numara: ", mic: "Mikrofona erişilemedi. Tarayıcı izni verin ya da ekranı yeni sekmede açın.",
+    tooBig: "Dosya 16 MB sınırını aşıyor.", uploading: "Gönderiliyor…", newTab: "Yeni sekmede aç", caption: "Açıklama (isteğe bağlı)",
   },
   en: {
     chats: "Chats", search: "Search name or number", all: "All", waiting: "Awaiting reply", allLines: "All numbers",
@@ -369,6 +439,14 @@ const TEXT = {
     notConnected: "not connected", cardNoPhone: "This record has no phone number. Add one to the record or type it below.",
     cardStart: "No WhatsApp conversation with this customer yet. You can send the first message here.", file: "File", expired: "file expired",
     waitingTag: "Awaiting reply", back: "Chats", error: "The action could not be completed.",
+    attach: "Attach file, image or video", record: "Voice message", stop: "Send", cancel: "Cancel", recording: "Recording",
+    meeting: "Meeting link", meetingText: "📹 Your video call link: ", call: "Call", callPhone: "Call by phone (Bitrix24)",
+    callWa: "Open in WhatsApp", callNote: "WhatsApp calls cannot be placed from the server with this connection type; the chat opens in your WhatsApp app.",
+    connected: "Connected", disconnected: "Disconnected", connecting: "Connecting",
+    offAdmin: "This number's WhatsApp connection is lost. Scan the QR code again in Panel → Connections.",
+    offUser: "This number's WhatsApp connection is lost. Ask your administrator to reconnect it.",
+    warnLines: "Disconnected numbers: ", mic: "Microphone is not available. Allow access in the browser or open the screen in a new tab.",
+    tooBig: "The file exceeds the 16 MB limit.", uploading: "Sending…", newTab: "Open in new tab", caption: "Caption (optional)",
   },
 };
 
@@ -419,6 +497,20 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 .newform{padding:12px 14px;border-top:1px solid var(--line-2);display:grid;gap:8px;background:var(--paper)}
 .newform label{font-size:12px;font-weight:600;color:var(--ink-2);display:grid;gap:4px}
 .backbtn{display:none}
+.warn{margin:0 14px 10px;padding:8px 10px;border-radius:var(--r-s);background:var(--danger-soft);color:var(--danger);font-size:12.5px;font-weight:600;line-height:1.4}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:2px 9px;border-radius:999px;white-space:nowrap}
+.st::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.st.ok{color:var(--ok);background:var(--ok-soft)}.st.bad{color:var(--danger);background:var(--danger-soft)}.st.wait{color:var(--warn);background:var(--warn-soft)}
+.composer.off textarea,.composer.off button{opacity:.5;pointer-events:none}
+.tools2{display:flex;gap:4px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+.tools2 .ic{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-s);padding:5px 9px;cursor:pointer;font-size:13px;color:var(--ink-2);display:inline-flex;gap:5px;align-items:center}
+.tools2 .ic:hover{border-color:var(--ink-3)}
+.rec{display:flex;align-items:center;gap:10px;padding:8px 0}.rec .dot{width:10px;height:10px;border-radius:50%;background:var(--danger);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.3}}@media (prefers-reduced-motion:reduce){.rec .dot{animation:none}}
+.menu{position:absolute;bottom:100%;left:0;margin-bottom:6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);box-shadow:var(--shadow);min-width:240px;padding:6px;z-index:5}
+.menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:6px;cursor:pointer;color:inherit;font:inherit}
+.menu button:hover{background:var(--paper)}.menu p{margin:6px 10px;color:var(--ink-3);font-size:11.5px;line-height:1.4}
+.composer .offmsg{color:var(--danger);font-weight:600;font-size:12.5px;margin-bottom:8px}
 @media (max-width:720px){
   .app,.app.card{grid-template-columns:1fr}
   .app.open .side{display:none}.app:not(.open) .pane{display:none}
@@ -429,12 +521,14 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
   <aside class="side">
     <header><h1 id="ttl"></h1><button class="btn primary" id="newBtn"></button></header>
     <div class="tools"><input id="q" type="search"><select id="lineFilter"></select><div class="chips" id="chips"></div></div>
+    <div class="warn" id="warn" hidden></div>
     <div class="list" id="list" role="list"></div>
     <form class="newform" id="newForm" hidden></form>
   </aside>
   <section class="pane" id="pane"><div class="blank" id="blank"></div></section>
 </div>
 <div class="toast" id="toast" role="status"></div>
+<script src="https://api.bitrix24.com/api/v1/" async onload="try{BX24.init(function(){window.XRE_BX=true})}catch(e){}"></script>
 <script>window.XRE_CHAT=${JSON.stringify(cfg).replace(/</g, "\\u003c")};</script>
 <script>${CHAT_JS}</script>
 </body></html>`;
@@ -485,11 +579,18 @@ function renderList(){
   [].forEach.call(document.querySelectorAll(".item"),function(b){b.onclick=function(){var t=S.threads.find(function(x){return x.line===b.getAttribute("data-l")&&x.phone===b.getAttribute("data-p")});if(t)open(t)}});
 }
 function loadThreads(){return api("threads",C.mode==="card"?{phones:C.phones}:{}).then(function(d){
-  S.threads=d.threads;var first=!S.lines.length;S.lines=d.lines;
+  S.threads=d.threads;C.admin=d.admin;var first=!S.lines.length;S.lines=d.lines;
   if(first){$("#lineFilter").innerHTML='<option value="">'+esc(X.allLines)+'</option>'+S.lines.map(function(l){return '<option value="'+esc(l.line)+'">'+esc(l.name)+(l.connected?"":" ("+esc(X.notConnected)+")")+'</option>'}).join("");$("#lineFilter").hidden=S.lines.length<2;
     if(!S.lines.some(function(l){return l.connected}))$("#newBtn").hidden=true;
     if(C.mode==="card"){if(S.threads.length)open(S.threads[0]);else blankCard()}}
-  renderList()}).catch(function(e){$("#list").innerHTML='<div class="blank">'+esc(e.message)+'</div>'})}
+  var down=S.lines.filter(function(l){return l.status==="disconnected"||l.status==="connecting"});
+  $("#warn").hidden=!down.length;$("#warn").textContent=down.length?"⚠ "+X.warnLines+down.map(function(l){return l.name}).join(", "):"";
+  renderList();lineState()}).catch(function(e){$("#list").innerHTML='<div class="blank">'+esc(e.message)+'</div>'})}
+function curLine(){return S.cur&&S.lines.find(function(l){return l.line===S.cur.line})}
+function lineState(){var l=curLine(),st=$("#lst"),cmp=$("#cmp");if(!l||!st||!cmp)return;
+  var ok=l.status==="connected",k=ok?"ok":l.status==="connecting"?"wait":"bad";
+  st.className="st "+k;st.textContent=ok?X.connected:l.status==="connecting"?X.connecting:X.disconnected;
+  cmp.classList.toggle("off",!ok);$("#offmsg").hidden=ok;$("#offmsg").textContent=ok?"":(C.admin?X.offAdmin:X.offUser)}
 function blankCard(){
   var l=S.lines.find(function(x){return x.connected});
   $("#newForm").hidden=false;renderNew();
@@ -499,15 +600,51 @@ function blankCard(){
 
 function open(t){
   S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count=-1;$("#app").classList.add("open");renderList();
-  $("#pane").innerHTML='<header><button class="btn ghost backbtn" id="back">← '+esc(X.back)+'</button><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><div class="who"><b id="hn">'+esc(t.name||phone(t.phone))+'</b><span>'+esc(phone(t.phone))+(t.lineName?" · "+esc(t.lineName):"")+'</span></div></header>'
+  $("#pane").innerHTML='<header><button class="btn ghost backbtn" id="back">← '+esc(X.back)+'</button><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><div class="who"><b id="hn">'+esc(t.name||phone(t.phone))+'</b><span>'+esc(phone(t.phone))+(t.lineName?" · "+esc(t.lineName):"")+'</span></div><span class="st" id="lst"></span></header>'
     +'<div class="msgs" id="msgs" aria-live="polite"><div class="blank">'+esc(X.load)+'</div></div>'
-    +'<form class="composer" id="cmp"><div class="row1"><textarea id="txt" rows="1" placeholder="'+esc(X.placeholder)+'"></textarea><button class="btn primary" id="sendBtn">'+esc(X.send)+'</button></div><small>'+esc(X.hint)+'</small></form>';
+    +'<form class="composer" id="cmp"><div class="offmsg" id="offmsg" hidden></div>'
+    +'<div class="tools2" style="position:relative"><button type="button" class="ic" id="bAttach" title="'+esc(X.attach)+'" aria-label="'+esc(X.attach)+'">📎</button><input type="file" id="file" hidden accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">'
+    +'<button type="button" class="ic" id="bRec" title="'+esc(X.record)+'" aria-label="'+esc(X.record)+'">🎤</button>'
+    +'<button type="button" class="ic" id="bMeet">📹 '+esc(X.meeting)+'</button>'
+    +'<button type="button" class="ic" id="bCall">📞 '+esc(X.call)+'</button><div class="menu" id="callMenu" hidden></div></div>'
+    +'<div class="rec" id="recBar" hidden><span class="dot" aria-hidden="true"></span><b>'+esc(X.recording)+'</b> <span id="recT">0:00</span><button type="button" class="btn primary" id="recSend">'+esc(X.stop)+'</button><button type="button" class="btn ghost" id="recCancel">'+esc(X.cancel)+'</button></div>'
+    +'<div class="row1" id="row1"><textarea id="txt" rows="1" placeholder="'+esc(X.placeholder)+'"></textarea><button class="btn primary" id="sendBtn">'+esc(X.send)+'</button></div><small>'+esc(X.hint)+'</small></form>';
   $("#back").onclick=function(){$("#app").classList.remove("open")};
   var ta=$("#txt");ta.oninput=function(){ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px"};
   ta.onkeydown=function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
   $("#cmp").onsubmit=function(e){e.preventDefault();send()};
-  ta.focus();loadMessages(true);
+  $("#bAttach").onclick=function(){$("#file").click()};
+  $("#file").onchange=function(e){var f=e.target.files[0];e.target.value="";if(f)upload(f,f.name,false,$("#txt").value.trim())};
+  $("#bRec").onclick=startRec;
+  $("#bMeet").onclick=meeting;
+  $("#bCall").onclick=function(e){e.stopPropagation();var m=$("#callMenu");m.hidden=!m.hidden;
+    m.innerHTML='<button type="button" id="cPhone">☎️ '+esc(X.callPhone)+'</button><button type="button" id="cWa">💬 '+esc(X.callWa)+'</button><p>'+esc(X.callNote)+'</p>';
+    $("#cPhone").onclick=function(){m.hidden=true;var num="+"+S.cur.phone;try{if(window.XRE_BX&&BX24.im&&BX24.im.phoneTo){BX24.im.phoneTo(num);return}}catch(x){}location.href="tel:"+num};
+    $("#cWa").onclick=function(){m.hidden=true;window.open("https://wa.me/"+S.cur.phone,"_blank","noopener")}};
+  document.addEventListener("click",function(){var m=$("#callMenu");if(m)m.hidden=true});
+  lineState();ta.focus();loadMessages(true);
 }
+function upload(blob,name,voice,caption){
+  if(!S.cur)return;if(blob.size>16*1024*1024){toast(X.tooBig,true);return}var cur=S.cur;toast(X.uploading);
+  fetch("/b24/chat/upload",{method:"POST",headers:{"content-type":blob.type||"application/octet-stream","x-xre-ticket":C.t,"x-line":encodeURIComponent(cur.line),"x-phone":encodeURIComponent(cur.phone),"x-file-name":encodeURIComponent(name||""),"x-caption":encodeURIComponent(caption||""),"x-voice":voice?"1":"0"},body:blob})
+    .then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok)throw new Error(j.message||X.error);return j})})
+    .then(function(){if(caption){$("#txt").value=""}toast("✓");return loadMessages(true).then(loadThreads)}).catch(function(e){toast(e.message,true)})}
+var rec=null,recChunks=[],recTimer=null,recStart=0,recCancelled=false;
+function startRec(){
+  if(!navigator.mediaDevices||!window.MediaRecorder){toast(X.mic,true);return}
+  navigator.mediaDevices.getUserMedia({audio:true}).then(function(stream){
+    var type=["audio/ogg;codecs=opus","audio/webm;codecs=opus","audio/webm"].find(function(t){return MediaRecorder.isTypeSupported(t)})||"";
+    rec=new MediaRecorder(stream,type?{mimeType:type}:{});recChunks=[];recCancelled=false;
+    rec.ondataavailable=function(e){if(e.data.size)recChunks.push(e.data)};
+    rec.onstop=function(){stream.getTracks().forEach(function(t){t.stop()});clearInterval(recTimer);$("#recBar").hidden=true;$("#row1").hidden=false;
+      if(recCancelled||!recChunks.length)return;var mime=(rec.mimeType||"audio/webm").split(";")[0];var blob=new Blob(recChunks,{type:mime});upload(blob,"ses-kaydi."+(mime.indexOf("ogg")>=0?"ogg":"webm"),true,"")};
+    rec.start();recStart=Date.now();$("#recBar").hidden=false;$("#row1").hidden=true;
+    recTimer=setInterval(function(){var sec=Math.round((Date.now()-recStart)/1000);$("#recT").textContent=Math.floor(sec/60)+":"+String(sec%60).padStart(2,"0");if(sec>=300)rec.stop()},500);
+    $("#recSend").onclick=function(){rec.stop()};$("#recCancel").onclick=function(){recCancelled=true;rec.stop()};
+  }).catch(function(){toast(X.mic,true)})}
+function meeting(){
+  var a=new Uint8Array(6);crypto.getRandomValues(a);var slug="XRE-"+Array.prototype.map.call(a,function(b){return ("0"+b.toString(16)).slice(-2)}).join("");
+  var url="https://meet.jit.si/"+slug,ta=$("#txt");ta.value=(ta.value?ta.value+"\n":"")+X.meetingText+url;ta.focus();ta.oninput();window.open(url,"_blank","noopener")}
 function bubble(m){
   var media="";
   if(m.media&&m.media.id){var u=mediaUrl(m),ty=m.media.type;

@@ -775,6 +775,53 @@ async function connectionStatus(store: Store, portal: B24Portal, line: string) {
   return { status: connected ? "connected" : state || "disconnected", phone: known?.phone || "" };
 }
 
+/**
+ * Bir numaranın gerçek WhatsApp bağlantısını sorar ve kayıttaki durumu düzeltir.
+ * WhatsApp sunucusuna ulaşılamazsa durum değiştirilmez.
+ */
+export async function checkLineHealth(store: Store, portal: B24Portal, line: string): Promise<B24Line | undefined> {
+  const known = portal.lines[line];
+  if (!known?.instance) return known;
+  const state = await evolutionState(known.instance);
+  if (!state) return known;
+  if (["open", "connected"].includes(state)) {
+    if (known.status !== "connected") await connectionStatus(store, portal, line);
+  } else if (known.status === "connected" || known.status === "connecting") {
+    // Yalnız bağlı görünen numaralar düşürülür; hiç bağlanmamış olanlara dokunulmaz.
+    const status = state === "connecting" ? "connecting" : "disconnected";
+    if (known.status !== status) {
+      const fresh = (await portalById(store, portal.id)) || portal;
+      if (fresh.lines[line]) await savePortal(store, { ...fresh, lines: { ...fresh.lines, [line]: { ...fresh.lines[line], status, updatedAt: new Date().toISOString() } } });
+      console.warn(`XRE WhatsApp: ${portal.domain} kanal ${line} bağlantısı koptu (${state}).`);
+    }
+  }
+  lineChecks.set(`${portal.id}:${line}`, Date.now());
+  return ((await portalById(store, portal.id)) || portal).lines[line];
+}
+const lineChecks = new Map<string, number>();
+/** Son kontrolü maxAgeMs'den eski olan numaraları yeniden kontrol eder (paralel). */
+export async function refreshLines(store: Store, portal: B24Portal, lines: string[], maxAgeMs = 60_000) {
+  const stale = lines.filter((l) => portal.lines[l]?.instance && Date.now() - (lineChecks.get(`${portal.id}:${l}`) || 0) > maxAgeMs);
+  if (!stale.length) return portal;
+  await Promise.all(stale.map((l) => checkLineHealth(store, portal, l).catch(() => undefined)));
+  return (await portalById(store, portal.id)) || portal;
+}
+
+/** Arka planda tüm bağlı numaraları 2 dakikada bir kontrol eder. */
+let healthTimer: NodeJS.Timeout | null = null;
+export function startLineHealthMonitor(store: Store) {
+  if (healthTimer) return;
+  healthTimer = setInterval(() => {
+    void (async () => {
+      for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {
+        if (!row.payload.active) continue;
+        await refreshLines(store, row.payload, Object.keys(row.payload.lines), 90_000).catch(() => undefined);
+      }
+    })().catch((e) => console.warn("Bağlantı kontrolü:", (e as Error).message));
+  }, 2 * 60_000);
+  healthTimer.unref?.();
+}
+
 async function connectionDisconnect(store: Store, portal: B24Portal, line: string) {
   const instance = instanceName(portal.id, line);
   await evolution(`/instance/logout/${encodeURIComponent(instance)}`, { method: "DELETE" }).catch(() => undefined);

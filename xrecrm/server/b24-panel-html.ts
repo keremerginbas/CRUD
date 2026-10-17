@@ -276,7 +276,7 @@ function render(){
   }
   if(tab==="perf"){perf();return;}
   if(tab==="live"){live();return;}
-  if(tab==="chats"){m.innerHTML=CHAT_URL?'<iframe class="chatframe" title="Sohbetler" src="'+esc(CHAT_URL)+'"></iframe>':'<div class="list"><div class="empty">Sohbet ekranı için sayfayı Bitrix24 içinden yeniden açın.</div></div>';return;}
+  if(tab==="chats"){m.innerHTML=CHAT_URL?'<iframe class="chatframe" title="Sohbetler" allow="microphone; clipboard-write" src="'+esc(CHAT_URL)+'"></iframe>':'<div class="list"><div class="empty">Sohbet ekranı için sayfayı Bitrix24 içinden yeniden açın.</div></div>';return;}
   if(tab==="agent"){agent();return;}
   if(tab==="reports"){reports();return;}
   if(tab==="billing"){billing();return;}
