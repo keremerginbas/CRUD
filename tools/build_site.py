@@ -804,10 +804,10 @@ DESCRIPTIONS = {
                "named patient programs and market entry consulting."),
     },
     "about": {
-        "tr": ("Orphion Pharma hakkında: Orphion Group çatısı altında ilaç tedariki ve Türkiye ilaç pazarına "
-               "giriş danışmanlığı. Vizyonumuz, misyonumuz ve sayılarla biz."),
-        "en": ("About Orphion Pharma: pharmaceutical supply and Turkish market entry consulting under "
-               "Orphion Group. Our vision, mission and key figures."),
+        "tr": ("Orphion Pharma, ciddi ve nadir hastalıklarda yenilikçi tedavilere hasta erişimini hızlandıran "
+               "uluslararası bir ilaç ve hasta erişim şirketidir. Bridging Innovation and Life."),
+        "en": ("Orphion Pharma is an international pharmaceutical and patient-access company accelerating access "
+               "to innovative therapies for serious and rare diseases. Bridging Innovation and Life."),
     },
     "contact": {
         "tr": ("Orphion Pharma ile iletişime geçin: ilaç tedariki ve Türkiye pazarına giriş danışmanlığı "
@@ -837,19 +837,6 @@ DESCRIPTIONS = {
     },
 }
 
-CHECK_SVG = (
-    '<svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">'
-    '<path d="M13.8454 26.587C13.7658 26.587 13.6871 26.5705 13.6142 26.5386C13.5413 26.5067 13.4758 26.4601 13.4218 '
-    '26.4017L1.99947 14.046C1.92332 13.9636 1.87284 13.8608 1.85421 13.7502C1.83557 13.6396 1.84959 13.5259 1.89454 '
-    '13.4232C1.93949 13.3204 2.01343 13.233 2.10731 13.1716C2.20119 13.1101 2.31093 13.0774 2.4231 13.0774H7.92118C8.00373 '
-    '13.0775 8.08532 13.0952 8.16044 13.1294C8.23556 13.1636 8.30246 13.2136 8.35664 13.2758L12.174 17.6676C12.5866 '
-    '16.7857 13.3852 15.3173 14.7867 13.5281C16.8585 10.8829 20.7123 6.99263 27.3056 3.48079C27.433 3.41293 27.5813 '
-    '3.39531 27.721 3.43143C27.8608 3.46754 27.982 3.55476 28.0606 3.67585C28.1392 3.79695 28.1696 3.94312 28.1457 '
-    '4.08551C28.1218 4.2279 28.0454 4.35615 27.9315 4.44494C27.9064 4.46461 25.3642 6.46654 22.4385 10.1334C19.7459 '
-    '13.5078 16.1666 19.0255 14.4053 26.1488C14.3743 26.2739 14.3024 26.3851 14.2009 26.4646C14.0994 26.5441 13.9742 '
-    '26.5872 13.8453 26.5872L13.8454 26.587Z" fill="#2DCE98"/></svg>'
-)
-
 BUSINESS_LINES = {
     "tr": [
         "Doğrudan tedarik programları, devlet ihaleleri ve reçeteye dayalı programlar (Yurt Dışı İlaç Programı) için farmasötik ürünlerin tedarik edilmesi",
@@ -875,11 +862,9 @@ def home_body(lang):
         "is a reliable business partner for both government institutions and the private sector."
     )
     about_p = (
-        "Orphion Pharma, Orphion Group'un bir parçası olarak, uluslararası markaların Türkiye ilaç pazarına "
-        "erişimini kolaylaştırmaya odaklanmış genç ve dinamik bir şirkettir."
+        ABOUT["tr"]["intro"][0] + " " + ABOUT["tr"]["intro"][1]
         if tr else
-        "Orphion Pharma, as part of Orphion Group, is a young and dynamic company focused on facilitating "
-        "international brands' access to the Turkish pharmaceutical market."
+        ABOUT["en"]["intro"][0] + " " + ABOUT["en"]["intro"][1]
     )
     lines = "".join(
         f"""
@@ -977,40 +962,68 @@ def home_body(lang):
 """
 
 
+# Hakkımızda metni: Orphion_Hakkimizda_About_Us.docx
+TAGLINE = "Bridging Innovation and Life."
+
+ABOUT = {
+    "tr": {
+        "intro": [
+            "Orphion Pharma, yenilikçi ve ihtiyaç duyulan tedavilerin hastalara erişimini hızlandırmak amacıyla çalışan uluslararası bir ilaç ve hasta erişim şirketidir.",
+            "Özellikle karşılanmamış tıbbi ihtiyacın yüksek olduğu ciddi ve nadir hastalıklara odaklanıyor; dünyanın farklı noktalarında geliştirilen veya kullanıma sunulmuş tedaviler ile bu tedavilere ihtiyaç duyan hastalar arasındaki mesafeyi ortadan kaldırmak için çalışıyoruz.",
+        ],
+        "access_title": "Bizim için hasta erişimi yalnızca bir ilacın tedarik edilmesi değildir.",
+        "access_text": "Bir tedavinin hastaya ulaşması; regülasyon, pazar erişimi, geri ödeme, fiyatlandırma, tedarik zinciri, lojistik ve yerel paydaş yönetiminin birlikte ve doğru şekilde yürütülmesini gerektirir.",
+        "pillars": ["Regülasyon", "Pazar erişimi", "Geri ödeme", "Fiyatlandırma", "Tedarik zinciri", "Lojistik", "Yerel paydaş yönetimi"],
+        "partner": [
+            "Orphion, global ilaç ve biyoteknoloji şirketlerine bu yolculukta stratejik yerel ortak olarak eşlik eder.",
+            "Pazar fırsatlarını ve karşılanmamış klinik ihtiyaçları değerlendiriyor; düzenleyici ve ticari erişim yollarını oluşturuyor; sağlık otoriteleri, geri ödeme kurumları, hekimler ve diğer paydaşlarla gerekli süreçleri yönetiyoruz. Uygun olduğunda Named Patient ve erken erişim programlarından kamu tedariklerine ve uzun vadeli pazara giriş stratejilerine kadar süreci uçtan uca destekliyoruz.",
+        ],
+        "more_title": "Tedarikten fazlası. Temsilcilikten fazlası.",
+        "more": [
+            "Her tedaviyi kendi klinik ihtiyacı, hasta popülasyonu, düzenleyici yolu ve pazar dinamikleri içerisinde değerlendiriyoruz.",
+            "İş ortaklarımızın bilimsel ve ticari hedeflerini yerel sağlık sistemlerinin gerçekleriyle buluşturarak sürdürülebilir hasta erişimi oluşturmayı amaçlıyoruz.",
+            "Türkiye'deki güçlü yerel yapılanmamızı Dubai'deki uluslararası operasyonlarımız ve Amerika Birleşik Devletleri'ndeki erişim ağımızla birleştirerek, dünyanın farklı noktalarındaki ilaç ve biyoteknoloji şirketleri ile yerel sağlık sistemleri arasında güvenilir bir köprü kuruyoruz.",
+        ],
+        "closing": "Çünkü bizim için inovasyonun gerçek değeri, yalnızca keşfedildiğinde veya geliştirildiğinde değil, ona ihtiyaç duyan insanın hayatına ulaştığında ortaya çıkar.",
+        "why": "İşte Orphion'un varlık nedeni budur:",
+        "img_alt": "Orphion Pharma: yenilikçi tedavilere hasta erişimi",
+    },
+    "en": {
+        "intro": [
+            "Orphion Pharma is an international pharmaceutical and patient-access company dedicated to accelerating access to innovative and needed therapies.",
+            "We focus particularly on serious and rare diseases with significant unmet medical need, working to bridge the distance between treatments developed or made available around the world and the patients who need them.",
+        ],
+        "access_title": "For us, patient access goes far beyond the supply of a medicine.",
+        "access_text": "Bringing a therapy to patients requires the successful integration of regulatory strategy, market access, reimbursement, pricing, supply chain, logistics and local stakeholder engagement.",
+        "pillars": ["Regulatory strategy", "Market access", "Reimbursement", "Pricing", "Supply chain", "Logistics", "Local stakeholder engagement"],
+        "partner": [
+            "Orphion works alongside global pharmaceutical and biotechnology companies as a strategic local partner throughout this journey.",
+            "We identify market opportunities and unmet clinical needs, establish regulatory and commercial access pathways, and engage with healthcare authorities, reimbursement bodies, physicians and other relevant stakeholders. Where appropriate, we support the entire pathway — from Named Patient and early-access programs to public procurement and long-term market-entry strategies.",
+        ],
+        "more_title": "More than supply. More than representation.",
+        "more": [
+            "We evaluate each therapy within the context of its clinical need, patient population, regulatory pathway and individual market dynamics.",
+            "By connecting our partners' scientific and commercial objectives with the realities of local healthcare systems, we work to create sustainable patient access.",
+            "Combining our strong local capabilities in Türkiye with our international operations in Dubai and our outreach network in the United States, we build trusted bridges between pharmaceutical and biotechnology innovators around the world and the healthcare systems where their therapies are needed.",
+        ],
+        "closing": "Because we believe the true value of innovation is realized not simply when it is discovered or developed, but when it reaches and makes a difference in the life of the person who needs it.",
+        "why": "That is why Orphion exists.",
+        "img_alt": "Orphion Pharma: patient access to innovative therapies",
+    },
+}
+
+
 def about_body(lang):
-    tr = lang == "tr"
-    items = "".join(
-        f"""
-                                    <li>
-                                        {CHECK_SVG} {l}
-                                    </li>"""
-        for l in BUSINESS_LINES[lang]
+    a = ABOUT[lang]
+    intro = "".join(f'\n                                <p class="desc wow fadeInUp" data-wow-delay=".6s">{esc(p)}</p>' for p in a["intro"])
+    partner = "".join(f'\n                        <p>{esc(p)}</p>' for p in a["partner"])
+    more = "".join(f'\n                        <p>{esc(p)}</p>' for p in a["more"])
+    pillars = "".join(
+        f'\n                        <li><i class="fa-solid fa-check" aria-hidden="true"></i> {esc(p)}</li>' for p in a["pillars"]
     )
-
-
-    if tr:
-        h2 = 'Yenilikçi ilaçlara erişimi kolaylaştırarak <span class="color-text">hastaların umudu oluyoruz.</span>'
-        p1 = ("Orphion Pharma, Orphion Group'un bir parçası olarak, uluslararası markaların Türkiye ilaç pazarına "
-              "erişimini kolaylaştırmaya odaklanmış genç ve dinamik bir şirkettir.")
-        p2 = "Orphion Pharma iki ana iş koluna sahiptir:"
-        fact_sub, fact_title = 'Neden <span lang="en">Orphion Pharma</span>?', 'Verdiğimiz Hizmet <span class="color-text">Detayları</span>'
-        fact_desc = ("Orphion Pharma, dünyanın önde gelen ilaç firmaları ile iş birliği yapmaktadır. Güvenilirliğimiz "
-                     "ve profesyonelliğimiz sayesinde, uluslararası firmaların Türkiye pazarına sorunsuz bir şekilde "
-                     "giriş yapmasını sağlıyoruz.")
-        img_alt = "Orphion Pharma ekibi ve ilaç tedarik süreçleri"
-    else:
-        h2 = 'We become the hope of patients by <span class="color-text">facilitating access to innovative medicines.</span>'
-        p1 = ("Orphion Pharma, as part of Orphion Group, is a young and dynamic company focused on facilitating "
-              "international brands' access to the Turkish pharmaceutical market.")
-        p2 = "Orphion Pharma has two main business lines:"
-        fact_sub, fact_title = "Why Orphion Pharma?", 'Our Service <span class="color-text">at a Glance</span>'
-        fact_desc = ("Orphion Pharma collaborates with leading pharmaceutical companies worldwide. Thanks to our "
-                     "reliability and professionalism, we help international companies enter the Turkish market smoothly.")
-        img_alt = "Orphion Pharma team and pharmaceutical supply processes"
-
     return f"""{breadcrumb(lang, T[lang]['about'])}
-    <!-- About -->
-    <section class="about-section section-padding fix">
+    <!-- Intro -->
+    <section class="about-section section-tight fix">
         <div class="about-container-wrapper style2">
             <div class="container">
                 <div class="about-wrapper style2">
@@ -1019,18 +1032,14 @@ def about_body(lang):
                             <div class="about-content">
                                 <div class="section-title mxw-705">
                                     <p class="subtitle h6 wow fadeInUp" data-wow-delay=".3s">{T[lang]['about']}</p>
-                                    <h2 class="title wow fadeInUp" data-wow-delay=".6s">{h2}</h2>
-                                    <p class="desc mxw-564 wow fadeInUp" data-wow-delay=".8s">{p1}</p>
-                                    <p class="desc mxw-564 wow fadeInUp" data-wow-delay=".8s">{p2}</p>
-                                </div>
-                                <ul class="checklist style2 wow fadeInUp" data-wow-delay=".3s">{items}
-                                </ul>
+                                    <h2 class="title wow fadeInUp" data-wow-delay=".4s" lang="en">Bridging <span class="color-text">Innovation</span> and Life.</h2>
+                                </div>{intro}
                             </div>
                         </div>
                         <div class="col-xl-6 order-1 order-xl-2 d-flex justify-content-center">
                             <div class="about-thumb">
                                 <div class="main-thumb img-custom-anim-left wow fadeInUp" data-wow-delay=".3s">
-                                    <img src="assets/images/about/aboutThumb1_2.webp" width="570" height="502" alt="{img_alt}">
+                                    <img src="assets/images/about/aboutThumb1_2.webp" width="570" height="502" alt="{a['img_alt']}">
                                 </div>
                                 <div class="shape" aria-hidden="true">
                                     <img src="assets/images/shape/aboutShape2_1.webp" width="845" height="347" alt="">
@@ -1043,21 +1052,36 @@ def about_body(lang):
         </div>
     </section>
 
-    <!-- Facts -->
-    <section class="fact-section section-padding fix">
+    <!-- Patient access -->
+    <section class="section-tight access-band">
         <div class="container">
-            <div class="fact-wrapper style1">
-                <div class="row">
-                    <div class="col-xl-8">
-                        <div class="fact-content style1">
-                            <div class="section-title mxw-720">
-                                <p class="subtitle h6">{fact_sub}</p>
-                                <h2 class="title">{fact_title}</h2>
-                            </div>
-                            <p class="desc">{fact_desc}</p>
-                        </div>
-                    </div>
+            <div class="row g-4 align-items-center">
+                <div class="col-lg-6">
+                    <h2 class="h3 access-title wow fadeInUp" data-wow-delay=".3s">{esc(a['access_title'])}</h2>
+                    <p class="wow fadeInUp" data-wow-delay=".4s">{esc(a['access_text'])}</p>
                 </div>
+                <div class="col-lg-6">
+                    <ul class="pillars list-unstyled wow fadeInUp" data-wow-delay=".4s">{pillars}
+                    </ul>
+                </div>
+            </div>
+            <div class="partner-role wow fadeInUp" data-wow-delay=".3s">{partner}
+            </div>
+        </div>
+    </section>
+
+    <!-- More than supply -->
+    <section class="section-tight">
+        <div class="container">
+            <div class="more-than">
+                <h2 class="title wow fadeInUp" data-wow-delay=".3s">{esc(a['more_title'])}</h2>
+                <div class="wow fadeInUp" data-wow-delay=".4s">{more}
+                </div>
+            </div>
+            <div class="about-closing wow fadeInUp" data-wow-delay=".3s">
+                <p>{esc(a['closing'])}</p>
+                <p class="why">{esc(a['why'])}</p>
+                <p class="tagline" lang="en">{TAGLINE}</p>
             </div>
         </div>
     </section>
@@ -1406,7 +1430,7 @@ def chairman_body(lang):
     return f"""{breadcrumb(lang, T[lang]['chairman'])}
     <section class="section-tight">
         <div class="container">
-            <div class="row g-5 align-items-start">{photo_col}
+            <div class="row g-4 align-items-start">{photo_col}
                 <div class="{text_cls}">
                     <div class="legal-content chairman-text">{paras}{sign}
                     </div>
@@ -1514,7 +1538,7 @@ def hr_body(lang):
     return f"""{breadcrumb(lang, T[lang]['hr'])}
     <section class="section-tight">
         <div class="container">
-            <div class="row g-5">
+            <div class="row g-4">
                 <div class="col-lg-5">
                     <div class="section-title">
                         <p class="subtitle h6">{T[lang]['hr']}</p>
