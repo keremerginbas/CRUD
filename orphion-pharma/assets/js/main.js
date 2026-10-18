@@ -40,13 +40,15 @@
             sending: "Gönderiliyor...",
             success: "Teşekkürler! Mesajınız bize ulaştı, en kısa sürede dönüş yapacağız.",
             error: "Mesaj gönderilemedi. Lütfen tekrar deneyin veya info@orphionpharma.com adresine e-posta gönderin.",
-            invalid: "Lütfen zorunlu alanları doldurun ve KVKK onay kutusunu işaretleyin."
+            invalid: "Lütfen zorunlu alanları doldurun ve KVKK onay kutusunu işaretleyin.",
+            tooBig: "Dosya en fazla 5 MB olabilir."
         },
         en: {
             sending: "Sending...",
             success: "Thank you! Your message has been received. We will get back to you shortly.",
             error: "Your message could not be sent. Please try again or email info@orphionpharma.com.",
-            invalid: "Please fill in the required fields and tick the privacy consent box."
+            invalid: "Please fill in the required fields and tick the privacy consent box.",
+            tooBig: "The file can be at most 5 MB."
         }
     };
 
@@ -190,6 +192,7 @@
             var $status = $form.find(".form-status");
             var $button = $form.find("button[type=submit]");
             var t = i18n[pageLang];
+            var successText = $form.data("success") || t.success;
 
             // Bot koruması: formun ne zaman açıldığını kaydet.
             $form.find("input[name=ts]").val(Math.floor(Date.now() / 1000));
@@ -197,6 +200,15 @@
             function showStatus(type, text) {
                 $status.removeClass("success error").addClass("show " + type).text(text);
             }
+
+            // CV seçildiğinde dosya adını göster, 5 MB sınırını tarayıcıda da kontrol et
+            $form.find(".cv-input").on("change", function () {
+                var file = this.files && this.files[0];
+                var tooBig = file && file.size > 5 * 1024 * 1024;
+                this.setCustomValidity(tooBig ? t.tooBig : "");
+                $form.find(".cv-name").text(file ? file.name : "");
+                if (tooBig) showStatus("error", t.tooBig);
+            });
 
             $form.on("submit", function (ev) {
                 if (!window.fetch || !window.FormData) return; // eski tarayıcı: normal POST
@@ -219,8 +231,9 @@
                     return res.json().catch(function () { return { ok: false }; });
                 }).then(function (data) {
                     if (data && data.ok) {
-                        showStatus("success", t.success);
+                        showStatus("success", successText);
                         $form[0].reset();
+                        $form.find(".cv-name").text("");
                         $form.find("input[name=ts]").val(Math.floor(Date.now() / 1000));
                     } else {
                         showStatus("error", (data && data.message) || t.error);
@@ -235,7 +248,7 @@
             // JavaScript'siz gönderimden sonra dönülen sonuç (?sent=1 / ?sent=0)
             var match = /[?&]sent=([01])/.exec(window.location.search);
             if (match) {
-                showStatus(match[1] === "1" ? "success" : "error", match[1] === "1" ? t.success : t.error);
+                showStatus(match[1] === "1" ? "success" : "error", match[1] === "1" ? successText : t.error);
             }
         });
 

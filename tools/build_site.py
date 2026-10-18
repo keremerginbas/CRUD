@@ -27,27 +27,168 @@ COMPANY = {
     "name": "Orphion Pharma",
     "group": "Orphion Group",
     "email": "info@orphionpharma.com",
-    "phone_display": "+90 (532) 569 11 11",
-    "phone_tel": "+905325691111",
+    # Sitede görünen ana telefon: Merkez Ofis
+    "phone_display": "+90 (312) 215 50 10",
+    "phone_tel": "+903122155010",
+    # Cep numarası sitede yazılmaz; yalnızca WhatsApp butonunda kullanılır.
     "whatsapp": "https://wa.me/905325691111",
-    "address": "Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, U.A.E",
-    "maps_link": "https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand+Meydan+Road+Nad+Al+Sheba+Dubai",
-    "maps_embed": "https://maps.google.com/maps?q=Meydan%20Grandstand%2C%20Meydan%20Road%2C%20Nad%20Al%20Sheba%2C%20Dubai&z=15&output=embed",
 }
+
+# Ofisler: iletişim sayfası, footer, mobil menü ve KVKK metni buradan beslenir.
+OFFICES = [
+    {
+        "key": "main",
+        "title": {"tr": "Merkez Ofis", "en": "Main Office"},
+        "lines": [
+            "Kızılırmak Mahallesi Dumlupınar Bulvarı",
+            "NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23",
+            "Çankaya / Ankara, Türkiye",
+        ],
+        "phones": [("+90 (312) 215 50 10", "+903122155010"), ("+90 (312) 222 54 58", "+903122225458")],
+        "maps_query": "NEXT LEVEL İş Merkezi, Kızılırmak Mahallesi Dumlupınar Bulvarı, Çankaya, Ankara",
+    },
+    {
+        "key": "dubai",
+        "title": {"tr": "Dubai Ofisi", "en": "Dubai Office"},
+        "lines": ["Meydan Grandstand, 6th Floor", "Meydan Road, Nad Al Sheba", "Dubai, U.A.E."],
+        "phones": [],
+        "maps_query": "Meydan Grandstand, Meydan Road, Nad Al Sheba, Dubai",
+    },
+    {
+        "key": "us",
+        "title": {"tr": "ABD İrtibat Ofisi", "en": "US Outreach Office"},
+        "lines": ["3324 Sunbeam Place", "Batavia, OH 45103", "United States"],
+        "phones": [("+1 (513) 388-1634", "+15133881634")],
+        "maps_query": "3324 Sunbeam Place, Batavia, OH 45103",
+    },
+]
+MAIN_OFFICE = OFFICES[0]
+
+
+def maps_link(office):
+    from urllib.parse import quote_plus
+    return "https://www.google.com/maps/search/?api=1&query=" + quote_plus(office["maps_query"])
+
+
+def maps_embed(office):
+    from urllib.parse import quote
+    return "https://maps.google.com/maps?q=" + quote(office["maps_query"]) + "&z=15&output=embed"
+
+
+# Partner logoları: assets/images/partners/ klasörüne koyup buraya ekleyin.
+# Örnek: {"name": "Firma Adı", "logo": "assets/images/partners/firma.webp", "url": "https://..."}
+PARTNERS = []
+
+# YK Başkanı mesajı (Orphion_Chairmans_Message_TR_EN.docx). None yapılırsa sayfa üretilmez ve menüde görünmez.
+# Fotoğraf gelince assets/images/ altına koyup "photo" alanına yolunu yazın.
+CHAIRMAN = {'name': 'Fevzi Aydın',
+ 'role': 'Chairman & Managing Partner',
+ 'photo': None,
+ 'tr': ['Sağlık alanında çalışmanın diğer birçok sektörden farklı olduğuna inanıyorum.',
+        'Çünkü aldığımız kararların, kurduğumuz ortaklıkların ve dünyanın farklı noktalarından erişilebilir '
+        'hale getirdiğimiz tedavilerin nihai karşılığı bir bilanço kalemi değil, bir insan hayatıdır.',
+        'Bugün bilim ve tıp, daha önce tedavi seçeneği bulunmayan birçok hastalık için yeni umutlar '
+        'üretiyor. Ancak bir tedavinin geliştirilmiş veya dünyanın bir ülkesinde kullanıma sunulmuş olması, '
+        'ne yazık ki her hastanın ona ulaşabildiği anlamına gelmiyor.',
+        'Ülkeler arasındaki ruhsatlandırma süreçleri, geri ödeme sistemleri, tedarik zincirleri ve ticari '
+        'öncelikler nedeniyle; bilimsel olarak mevcut olan bir tedavi, ona ihtiyaç duyan bir hasta için hâlâ '
+        'binlerce kilometre uzakta olabilir.',
+        'Orphion Pharma’yı kurarken bizi harekete geçiren temel düşünce tam olarak buydu: Mesafeyi '
+        'kısaltmak.',
+        'Bizim için bir ilacın değeri, yalnızca geliştirildiği laboratuvarda veya aldığı ruhsatta değil, '
+        'ihtiyaç duyan hastaya gerçekten ulaştığı anda ortaya çıkar.',
+        'Bu nedenle özellikle ciddi, nadir ve karşılanmamış tıbbi ihtiyacın yüksek olduğu hastalıklarda; '
+        'yenilikçi tedavileri geliştiren şirketlerle, hekimlerle, sağlık otoriteleriyle ve erişim '
+        'ekosisteminin tüm paydaşlarıyla birlikte çalışıyoruz.',
+        'Amacımız yalnızca ürün tedarik etmek değildir.',
+        'Amacımız; dünyanın herhangi bir yerinde geliştirilen değerli bir tedavi ile ona ihtiyaç duyan hasta '
+        'arasında güvenilir, sürdürülebilir ve sorumlu bir köprü kurmaktır.',
+        'Bu yaklaşım aynı zamanda iş ortaklarımıza verdiğimiz sözün temelidir. Bir şirket bize bir '
+        'tedavisini emanet ettiğinde, onu yalnızca ticari bir ürün olarak görmeyiz. Arkasında yıllarca süren '
+        'bilimsel araştırmayı, emeği, yatırımı ve en önemlisi o tedaviyi bekleyen hastaları görürüz.',
+        'Bu nedenle yaptığımız her işte uzun vadeli ortaklığa, şeffaflığa, bilimsel doğruluğa ve etik '
+        'sorumluluğa inanıyoruz.',
+        "Türkiye'den başlayan yolculuğumuz bugün farklı coğrafyalara uzanıyor. Ancak nerede çalışırsak "
+        'çalışalım pusulamız değişmeyecek:',
+        'İhtiyacın olduğu yerde olmak.\n'
+        'Bilimin sunduğu imkân ile hastanın erişimi arasındaki mesafeyi azaltmak.\n'
+        'Ve yaptığımız her işin sonunda bir insan olduğunu asla unutmamak.',
+        'Önümüzde uzun bir yol olduğunun farkındayız.',
+        'Fakat Orphion’u yalnızca büyüyen bir ilaç şirketi olarak değil; güvenilen, sorumluluk alan ve '
+        'ihtiyaç duyulan yerde harekete geçen bir sağlık şirketi olarak inşa etmek istiyoruz.',
+        'Çünkü bizim için başarı yalnızca ne kadar büyüdüğümüzle değil, kaç hayatın daha iyi bir tedaviye '
+        'ulaşmasına katkıda bulunabildiğimizle ölçülür.'],
+ 'en': ['I believe working in healthcare carries a responsibility unlike that of almost any other industry.',
+        'Because ultimately, the decisions we make, the partnerships we build, and the treatments we help '
+        'make accessible across borders are not reflected merely in numbers on a balance sheet.',
+        'They can affect a human life.',
+        'Science and medicine are advancing at an extraordinary pace. Treatments are being developed today '
+        'for diseases that, not long ago, had few or sometimes no meaningful therapeutic options.',
+        'Yet the existence of a treatment somewhere in the world does not necessarily mean that every '
+        'patient who needs it can access it.',
+        'Regulatory pathways, reimbursement systems, supply chains and commercial priorities can leave an '
+        'effective treatment thousands of miles away from the patient waiting for it.',
+        'This is the idea that inspired Orphion Pharma: to shorten that distance.',
+        'We believe the true value of a medicine is realized not simply when it is discovered, developed or '
+        'approved, but when it reaches the patient who needs it.',
+        'That is why we focus particularly on serious and rare diseases and areas of significant unmet '
+        'medical need, working alongside innovative pharmaceutical and biotechnology companies, physicians, '
+        'healthcare authorities and other stakeholders across the patient-access ecosystem.',
+        'Our ambition goes beyond supplying medicines.',
+        'We aim to build a trusted, sustainable and responsible bridge between medical innovation, wherever '
+        'it originates, and patients who need access to it.',
+        'This philosophy also defines the responsibility we assume toward our partners.',
+        'When a company entrusts us with one of its therapies, we do not see merely a commercial product. We '
+        'recognize the years of scientific research behind it, the people who dedicated themselves to '
+        'developing it, the investment required to bring it forward and, most importantly, the patients who '
+        'may be waiting for it.',
+        'For that reason, we believe in long-term partnerships built on transparency, scientific integrity, '
+        'trust and ethical responsibility.',
+        'Our journey began in Türkiye and is increasingly reaching beyond its borders. Wherever that journey '
+        'takes us, however, our compass will remain the same:',
+        'To be present where the need exists.\n'
+        'To shorten the distance between scientific innovation and patient access.\n'
+        'And never to forget that behind everything we do, there is a human life.',
+        'We know that our journey is only beginning.',
+        'Our ambition is not simply to build a growing pharmaceutical company, but to build a healthcare '
+        'company that is trusted, takes responsibility and acts when and where patients need it.',
+        'Because ultimately, we believe success should not be measured solely by how much a company grows, '
+        'but by how many lives it helps bring closer to better treatment.']}
 
 # Sayfa anahtarı -> dil -> dosya adı
 PAGES = {
     "home": {"tr": "index.html", "en": "index-en.html"},
     "about": {"tr": "about.html", "en": "about-en.html"},
+    "chairman": {"tr": "yk-baskani-mesaji.html", "en": "chairman-message-en.html"},
+    "mission": {"tr": "misyon-vizyon.html", "en": "mission-vision-en.html"},
+    "hr": {"tr": "insan-kaynaklari.html", "en": "human-resources-en.html"},
+    "partners": {"tr": "partnerler.html", "en": "partners-en.html"},
     "contact": {"tr": "contact.html", "en": "contact-en.html"},
     "privacy": {"tr": "kvkk.html", "en": "privacy-en.html"},
 }
+if CHAIRMAN is None:
+    del PAGES["chairman"]
+
+# Üst menü: (etiket anahtarı, sayfa anahtarı, alt menü [(etiket, sayfa, #çapa)])
+MENU = [
+    ("home", "home", []),
+    ("corporate", "about", [("about", "about", ""), ("chairman", "chairman", ""),
+                            ("mission", "mission", ""), ("hr", "hr", "")]),
+    ("partners", "partners", [("partners", "partners", ""), ("portfolio", "partners", "#portfolio")]),
+    ("contact", "contact", []),
+]
 
 T = {
     "tr": {
         "locale": "tr_TR",
         "home": "Ana Sayfa",
+        "corporate": "Kurumsal",
         "about": "Hakkımızda",
+        "chairman": "YK Başkanının Mesajı",
+        "mission": "Misyon ve Vizyon",
+        "hr": "İnsan Kaynakları",
+        "partners": "Partnerlerimiz",
+        "portfolio": "Ürün Portföyümüz",
         "contact": "İletişim",
         "contact_us": "Bize Ulaşın",
         "quote": "Teklif Alın",
@@ -80,7 +221,13 @@ T = {
     "en": {
         "locale": "en_US",
         "home": "Home",
+        "corporate": "Corporate",
         "about": "About Us",
+        "chairman": "Message from the Chairman",
+        "mission": "Mission & Vision",
+        "hr": "Human Resources",
+        "partners": "Our Partners",
+        "portfolio": "Our Product Portfolio",
         "contact": "Contact",
         "contact_us": "Contact Us",
         "quote": "Get a Quote",
@@ -227,7 +374,7 @@ def contact_list_offcanvas(lang):
                                     <i class="fa-solid fa-location-dot" aria-hidden="true"></i>
                                 </div>
                                 <div class="offcanvas__contact-text">
-                                    <a target="_blank" rel="noopener" href="{c['maps_link']}">{c['address']}</a>
+                                    <a target="_blank" rel="noopener" href="{maps_link(MAIN_OFFICE)}">{', '.join(MAIN_OFFICE['lines'])}</a>
                                 </div>
                             </li>
                             <li class="d-flex align-items-center">
@@ -262,14 +409,28 @@ def header(page, lang):
     c = COMPANY
     home = PAGES["home"][lang]
 
-    def item(key):
-        current = ' aria-current="page"' if key == page else ""
-        return f"""
+    def item(label, key, children):
+        children = [ch for ch in children if ch[1] in PAGES]
+        current = ' aria-current="page"' if key == page and not children else ""
+        if not children:
+            return f"""
                                             <li>
-                                                <a href="{PAGES[key][lang]}"{current}>{t[key]}</a>
+                                                <a href="{PAGES[key][lang]}"{current}>{t[label]}</a>
+                                            </li>"""
+        active = " active" if any(ch[1] == page for ch in children) else ""
+        subs = "".join(
+            f"""
+                                                    <li><a href="{PAGES[ck][lang]}{anchor}"{' aria-current="page"' if ck == page and not anchor else ''}>{t[cl]}</a></li>"""
+            for cl, ck, anchor in children
+        )
+        return f"""
+                                            <li class="has-dropdown">
+                                                <a href="{PAGES[key][lang]}" class="{active.strip()}">{t[label]} <i class="fa-solid fa-chevron-down" aria-hidden="true"></i></a>
+                                                <ul class="submenu">{subs}
+                                                </ul>
                                             </li>"""
 
-    menu = "".join(item(k) for k in ("home", "about", "contact"))
+    menu = "".join(item(*m) for m in MENU)
     return f"""
     <!-- Mouse Cursor -->
     <div class="mouse-cursor cursor-outer"></div>
@@ -438,7 +599,7 @@ def contact_form(lang, field_class=""):
             "company": "Firma (isteğe bağlı)", "message": "Mesajınız",
             "consent": (f'<a href="{privacy}" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a>’ni '
                         "okudum. Talebimin yanıtlanması amacıyla kişisel verilerimin işlenmesine ve "
-                        "yurt dışındaki veri sorumlusuna aktarılmasına açık rıza veriyorum."),
+                        "yurt dışına aktarılmasına açık rıza veriyorum."),
             "send": "GÖNDER", "hp": "Bu alanı boş bırakın",
         }
     else:
@@ -491,6 +652,33 @@ def contact_form(lang, field_class=""):
                                 </form>"""
 
 
+def phones_html(office):
+    return "<br>".join(f'<a href="tel:{tel}">{disp}</a>' for disp, tel in office["phones"])
+
+
+def footer_offices(lang):
+    out = ""
+    for o in OFFICES:
+        phones = (f"""
+                            <li class="d-flex align-items-start">
+                                <img src="assets/images/icon/phone-white.svg" width="20" height="20" alt="" aria-hidden="true">
+                                <p>{phones_html(o)}</p>
+                            </li>""" if o["phones"] else "")
+        out += f"""
+                <div class="col-lg-4 col-md-6">
+                    <div class="footer-widget">
+                        <h4 class="widget-title">{o['title'][lang]}</h4>
+                        <ul class="list-unstyled contact-info">
+                            <li class="d-flex align-items-start">
+                                <img src="assets/images/icon/location-white.svg" width="20" height="20" alt="" aria-hidden="true">
+                                <p><a href="{maps_link(o)}" target="_blank" rel="noopener">{'<br>'.join(o['lines'])}</a></p>
+                            </li>{phones}
+                        </ul>
+                    </div>
+                </div>"""
+    return out
+
+
 def footer(lang):
     t = T[lang]
     c = COMPANY
@@ -508,19 +696,10 @@ def footer(lang):
                     </div>
                 </div>
             </div>
-            <div class="row g-4">
-                <div class="col-lg-12 col-md-6">
-                    <div class="footer-widget">
-                        <h4 class="widget-title">{t['contact']}</h4>
+            <div class="row g-4">{footer_offices(lang)}
+                <div class="col-12">
+                    <div class="footer-widget footer-email">
                         <ul class="list-unstyled contact-info">
-                            <li class="d-flex align-items-start">
-                                <img src="assets/images/icon/location-white.svg" width="20" height="20" alt="" aria-hidden="true">
-                                <p><a href="{c['maps_link']}" target="_blank" rel="noopener">{c['address']}</a></p>
-                            </li>
-                            <li class="d-flex align-items-start">
-                                <img src="assets/images/icon/phone-white.svg" width="20" height="20" alt="" aria-hidden="true">
-                                <p><a href="tel:{c['phone_tel']}">{c['phone_display']}</a></p>
-                            </li>
                             <li class="d-flex align-items-start">
                                 <img src="assets/images/icon/mail-white.svg" width="20" height="20" alt="" aria-hidden="true">
                                 <p><a href="mailto:{c['email']}">{c['email']}</a></p>
@@ -574,9 +753,10 @@ def organization_schema(lang):
         "parentOrganization": {"@type": "Organization", "name": c["group"]},
         "address": {
             "@type": "PostalAddress",
-            "streetAddress": "Meydan Grandstand, 6th floor, Meydan Road",
-            "addressLocality": "Nad Al Sheba, Dubai",
-            "addressCountry": "AE",
+            "streetAddress": "Kızılırmak Mahallesi Dumlupınar Bulvarı, NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23",
+            "addressLocality": "Çankaya",
+            "addressRegion": "Ankara",
+            "addressCountry": "TR",
         },
         "contactPoint": {
             "@type": "ContactPoint",
@@ -638,6 +818,22 @@ DESCRIPTIONS = {
     "privacy": {
         "tr": "Orphion Pharma KVKK aydınlatma metni ve çerez politikası.",
         "en": "Orphion Pharma privacy notice and cookie policy.",
+    },
+    "chairman": {
+        "tr": "Orphion Pharma Yönetim Kurulu Başkanının mesajı.",
+        "en": "A message from the Chairman of the Board of Orphion Pharma.",
+    },
+    "mission": {
+        "tr": "Orphion Pharma'nın misyonu ve vizyonu: Türkiye ilaç pazarında uluslararası firmaların ilk adresi olmak.",
+        "en": "Orphion Pharma's mission and vision: to be the first address for international companies in the Turkish pharmaceutical market.",
+    },
+    "hr": {
+        "tr": "Orphion Pharma'da kariyer: özgeçmişinizi yükleyin, ekibimize katılın.",
+        "en": "Careers at Orphion Pharma: upload your CV and join our team.",
+    },
+    "partners": {
+        "tr": "Orphion Pharma partnerleri ve ürün portföyü. Ürünlerimiz hakkında bilgi almak için bize e-posta gönderin.",
+        "en": "Orphion Pharma partners and product portfolio. Email us to learn more about our products.",
     },
 }
 
@@ -797,13 +993,6 @@ def about_body(lang):
         p1 = ("Orphion Pharma, Orphion Group'un bir parçası olarak, uluslararası markaların Türkiye ilaç pazarına "
               "erişimini kolaylaştırmaya odaklanmış genç ve dinamik bir şirkettir.")
         p2 = "Orphion Pharma iki ana iş koluna sahiptir:"
-        vision_t, vision = "Vizyonumuz", (
-            "Vizyonumuz, Türkiye ilaç pazarında iş birliği arayışında olan uluslararası firmaların ilk adresi olmak "
-            "ve hastaların yeni orijinal ilaçlara ve daha iyi jenerik ilaçlara erişimini artırmaktır.")
-        mission_t, mission = "Misyonumuz", (
-            "Misyonumuz, Türkiye'de ilaç tedarik eden uluslararası firmalar ile Türk bürokrasisi ve ilaç tedarikçisi "
-            "kurumlar arasında sürdürülebilir ilişkiler kurarak sinerji yaratmaktır.")
-        quote = "“Türkiye’nin ilaç tedarikinde güvenilir markası.”"
         fact_sub, fact_title = 'Neden <span lang="en">Orphion Pharma</span>?', 'Verdiğimiz Hizmet <span class="color-text">Detayları</span>'
         fact_desc = ("Orphion Pharma, dünyanın önde gelen ilaç firmaları ile iş birliği yapmaktadır. Güvenilirliğimiz "
                      "ve profesyonelliğimiz sayesinde, uluslararası firmaların Türkiye pazarına sorunsuz bir şekilde "
@@ -814,13 +1003,6 @@ def about_body(lang):
         p1 = ("Orphion Pharma, as part of Orphion Group, is a young and dynamic company focused on facilitating "
               "international brands' access to the Turkish pharmaceutical market.")
         p2 = "Orphion Pharma has two main business lines:"
-        vision_t, vision = "Our Vision", (
-            "Our vision is to become the first address for international companies seeking cooperation in the Turkish "
-            "pharmaceutical market and to increase patients' access to new original medicines and better generics.")
-        mission_t, mission = "Our Mission", (
-            "Our mission is to create synergy by building sustainable relationships between international companies "
-            "supplying pharmaceuticals in Türkiye and Turkish public authorities and pharmaceutical procurement institutions.")
-        quote = "“The trusted brand in Türkiye’s pharmaceutical supply.”"
         fact_sub, fact_title = "Why Orphion Pharma?", 'Our Service <span class="color-text">at a Glance</span>'
         fact_desc = ("Orphion Pharma collaborates with leading pharmaceutical companies worldwide. Thanks to our "
                      "reliability and professionalism, we help international companies enter the Turkish market smoothly.")
@@ -854,27 +1036,6 @@ def about_body(lang):
                                     <img src="assets/images/shape/aboutShape2_1.webp" width="845" height="347" alt="">
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Vision & Mission -->
-    <section class="blog-details-section">
-        <div class="container">
-            <div class="row g-4">
-                <div class="col-lg-12">
-                    <div class="blog-details">
-                        <div class="content">
-                            <h2 class="title h4 wow fadeInUp" data-wow-delay=".3s">{vision_t}</h2>
-                            <p class="wow fadeInUp mb-5" data-wow-delay=".3s">{vision}</p>
-                            <h2 class="title h4 wow fadeInUp" data-wow-delay=".3s">{mission_t}</h2>
-                            <p class="wow fadeInUp" data-wow-delay=".3s">{mission}</p>
-                            <blockquote>
-                                <p class="h5">{quote} ~Orphion Pharma</p>
-                            </blockquote>
                         </div>
                     </div>
                 </div>
@@ -937,15 +1098,37 @@ def contact_body(lang):
                                 </li>"""
 
     infos = (
-        info("location", t["address"], f'<a href="{c["maps_link"]}" target="_blank" rel="noopener">{c["address"]}</a>')
-        + info("mail", t["email"], f'<a href="mailto:{c["email"]}">{c["email"]}</a>')
+        info("mail", t["email"], f'<a href="mailto:{c["email"]}">{c["email"]}</a>')
         + info("phone", t["phone"], f'<a href="tel:{c["phone_tel"]}">{c["phone_display"]}</a><br>'
                f'<a href="{c["whatsapp"]}" target="_blank" rel="noopener">{t["whatsapp"]}</a>')
     )
 
+    def office_card(o):
+        phones = (f"""
+                                <p class="office-phone"><i class="fa-solid fa-phone" aria-hidden="true"></i> <span>{phones_html(o)}</span></p>"""
+                  if o["phones"] else "")
+        return f"""
+                <div class="col-lg-4 col-md-6">
+                    <div class="office-card wow fadeInUp" data-wow-delay=".3s">
+                        <h2 class="h4"><i class="fa-solid fa-building" aria-hidden="true"></i> {o['title'][lang]}</h2>
+                        <p class="office-address"><i class="fa-solid fa-location-dot" aria-hidden="true"></i>
+                            <span><a href="{maps_link(o)}" target="_blank" rel="noopener">{'<br>'.join(o['lines'])}</a></span></p>{phones}
+                    </div>
+                </div>"""
+
+    offices = "".join(office_card(o) for o in OFFICES)
+
     return f"""{breadcrumb(lang, t['contact_us'])}
+    <!-- Offices -->
+    <section class="service-details-section section-tight-top">
+        <div class="container">
+            <div class="row g-4">{offices}
+            </div>
+        </div>
+    </section>
+
     <!-- Contact -->
-    <section class="service-details-section section-padding">
+    <section class="service-details-section section-tight">
         <div class="container">
             <div class="row g-4">
                 <div class="col-lg-5">
@@ -965,11 +1148,12 @@ def contact_body(lang):
                     </div>
                 </div>
                 <div class="col-12">
-                    <div class="map-consent" data-map-src="{esc(c['maps_embed'])}" data-map-title="{map_title}">
+                    <div class="map-consent" data-map-src="{esc(maps_embed(MAIN_OFFICE))}" data-map-title="{map_title}">
                         <div>
+                            <p><strong>{MAIN_OFFICE['title'][lang]}</strong></p>
                             <p>{map_text}</p>
                             <button type="button" class="theme-btn js-load-map">{map_btn}</button>
-                            <p class="mt-3 mb-0"><a href="{c['maps_link']}" target="_blank" rel="noopener">{map_link}</a></p>
+                            <p class="mt-3 mb-0"><a href="{maps_link(MAIN_OFFICE)}" target="_blank" rel="noopener">{map_link}</a></p>
                         </div>
                     </div>
                 </div>
@@ -991,7 +1175,7 @@ def privacy_body(lang):
 
                 <h2>1. Veri Sorumlusu</h2>
                 <p>{c['name']} ({c['group']} bünyesinde)<br>
-                Adres: {c['address']}<br>
+                Merkez Ofis: {', '.join(MAIN_OFFICE['lines'])}<br>
                 E-posta: <a href="mailto:{c['email']}">{c['email']}</a><br>
                 Telefon: <a href="tel:{c['phone_tel']}">{c['phone_display']}</a></p>
 
@@ -1003,6 +1187,7 @@ def privacy_body(lang):
                         <tr><td>İletişim</td><td>E-posta adresi, telefon numarası (isteğe bağlı)</td></tr>
                         <tr><td>Mesleki bilgi</td><td>Firma adı (isteğe bağlı)</td></tr>
                         <tr><td>Talep / şikâyet bilgisi</td><td>Mesaj içeriğiniz</td></tr>
+                        <tr><td>Özlük / iş başvurusu</td><td>İnsan Kaynakları formuyla gönderdiğiniz özgeçmiş (CV), eğitim ve iş deneyimi bilgileri, başvurulan pozisyon</td></tr>
                         <tr><td>İşlem güvenliği</td><td>IP adresi, gönderim zamanı (kötüye kullanımı önlemek için)</td></tr>
                     </tbody>
                 </table>
@@ -1011,6 +1196,7 @@ def privacy_body(lang):
                 <ul>
                     <li>Talep, soru ve teklif isteklerinizin alınması, değerlendirilmesi ve yanıtlanması,</li>
                     <li>Olası iş birliği ve sözleşme süreçlerinin yürütülmesi,</li>
+                    <li>İş başvurularının değerlendirilmesi ve işe alım süreçlerinin yürütülmesi,</li>
                     <li>Web sitesi ve form güvenliğinin sağlanması, spam ve kötüye kullanımın önlenmesi,</li>
                     <li>Hukuki yükümlülüklerin yerine getirilmesi ve yetkili mercilere bilgi verilmesi.</li>
                 </ul>
@@ -1029,14 +1215,17 @@ def privacy_body(lang):
                 <p>Kişisel verileriniz, yukarıdaki amaçlarla sınırlı olarak; {c['group']} şirketlerine, e-posta ve
                 barındırma (hosting) hizmeti aldığımız tedarikçilere, iş ortaklarımıza ve talep hâlinde yetkili kamu
                 kurum ve kuruluşlarına aktarılabilir.</p>
-                <p>Veri sorumlusunun merkezi Birleşik Arap Emirlikleri’nde bulunduğundan ve kullanılan e-posta /
+                <p>Şirketimizin Dubai (Birleşik Arap Emirlikleri) ve ABD ofisleri bulunduğundan ve kullanılan e-posta /
                 barındırma hizmetlerinin sunucuları yurt dışında olabileceğinden, kişisel verileriniz KVKK’nın 9. maddesi
-                kapsamında yurt dışına aktarılabilir. İletişim formunda bu aktarım için açık rızanız alınmaktadır.</p>
+                kapsamında yurt dışına aktarılabilir. Formlarımızda bu aktarım için açık rızanız alınmaktadır.</p>
 
                 <h2>6. Saklama Süresi</h2>
                 <p>Kişisel verileriniz, talebinizin sonuçlandırılması için gerekli süre ve ilgili mevzuatta öngörülen
                 zamanaşımı süreleri boyunca saklanır; bu sürelerin sonunda silinir, yok edilir veya anonim hâle getirilir.
+                İş başvurusu kapsamında iletilen özgeçmişler, başvurunun sonuçlanmasından itibaren en fazla 2 yıl saklanır.
                 Kötüye kullanımı önlemek için tutulan IP kayıtları en fazla 1 saat saklanır.</p>
+                <p>Lütfen özgeçmişinizde sağlık, din, mezhep, dernek üyeliği, ceza mahkûmiyeti gibi özel nitelikli kişisel
+                verilere ve fotoğrafa yer vermeyin.</p>
 
                 <h2>7. KVKK Madde 11 Kapsamındaki Haklarınız</h2>
                 <ul>
@@ -1075,7 +1264,7 @@ def privacy_body(lang):
 
                 <h2>1. Data Controller</h2>
                 <p>{c['name']} (part of {c['group']})<br>
-                Address: {c['address']}<br>
+                Main Office: {', '.join(MAIN_OFFICE['lines'])}<br>
                 Email: <a href="mailto:{c['email']}">{c['email']}</a><br>
                 Phone: <a href="tel:{c['phone_tel']}">{c['phone_display']}</a></p>
 
@@ -1087,6 +1276,7 @@ def privacy_body(lang):
                         <tr><td>Contact</td><td>Email address, phone number (optional)</td></tr>
                         <tr><td>Professional</td><td>Company name (optional)</td></tr>
                         <tr><td>Enquiry</td><td>The content of your message</td></tr>
+                        <tr><td>Job application</td><td>CV, education and work history, position applied for (via the Human Resources form)</td></tr>
                         <tr><td>Security</td><td>IP address and time of submission (to prevent abuse)</td></tr>
                     </tbody>
                 </table>
@@ -1095,6 +1285,7 @@ def privacy_body(lang):
                 <ul>
                     <li>Receiving, assessing and responding to your enquiries and quote requests,</li>
                     <li>Carrying out potential business cooperation and contract processes,</li>
+                    <li>Evaluating job applications and running recruitment processes,</li>
                     <li>Keeping the website and form secure and preventing spam and abuse,</li>
                     <li>Complying with legal obligations and requests from competent authorities.</li>
                 </ul>
@@ -1106,15 +1297,16 @@ def privacy_body(lang):
 
                 <h2>5. Transfers</h2>
                 <p>Your data may be shared, only for the purposes above, with {c['group']} companies, our email and
-                hosting providers, business partners and, on request, competent public authorities. As the data
-                controller is based in the United Arab Emirates and our service providers' servers may be located
-                abroad, your data may be transferred outside Türkiye. Your explicit consent for this transfer is
-                obtained on the contact form.</p>
+                hosting providers, business partners and, on request, competent public authorities. As we have offices in
+                Dubai (UAE) and the United States and our service providers' servers may be located abroad, your data may
+                be transferred outside Türkiye. Your explicit consent for this transfer is obtained on our forms.</p>
 
                 <h2>6. Retention</h2>
                 <p>We keep your data for as long as necessary to handle your enquiry and for the statutory limitation
-                periods, after which it is deleted, destroyed or anonymised. IP records kept to prevent abuse are stored
-                for no longer than 1 hour.</p>
+                periods, after which it is deleted, destroyed or anonymised. CVs submitted with job applications are kept
+                for up to 2 years after the application is concluded. IP records kept to prevent abuse are stored
+                for no longer than 1 hour. Please do not include special categories of personal data (health, religion,
+                criminal records, etc.) or a photo in your CV.</p>
 
                 <h2>7. Your Rights</h2>
                 <p>You may request information about whether and how your data is processed, learn the third parties it
@@ -1136,7 +1328,7 @@ def privacy_body(lang):
                 in the footer, or delete cookies in your browser settings.</p>"""
 
     return f"""{breadcrumb(lang, title)}
-    <section class="section-padding">
+    <section class="section-tight">
         <div class="container">
             <div class="legal-content">{content}
             </div>
@@ -1146,6 +1338,258 @@ def privacy_body(lang):
 
 
 # ---------------------------------------------------------------------------
+
+def mission_body(lang):
+    tr = lang == "tr"
+    if tr:
+        vision_t, vision = "Vizyonumuz", (
+            "Vizyonumuz, Türkiye ilaç pazarında iş birliği arayışında olan uluslararası firmaların ilk adresi olmak "
+            "ve hastaların yeni orijinal ilaçlara ve daha iyi jenerik ilaçlara erişimini artırmaktır.")
+        mission_t, mission = "Misyonumuz", (
+            "Misyonumuz, Türkiye'de ilaç tedarik eden uluslararası firmalar ile Türk bürokrasisi ve ilaç tedarikçisi "
+            "kurumlar arasında sürdürülebilir ilişkiler kurarak sinerji yaratmaktır.")
+        quote = "“Türkiye’nin ilaç tedarikinde güvenilir markası.”"
+    else:
+        vision_t, vision = "Our Vision", (
+            "Our vision is to become the first address for international companies seeking cooperation in the Turkish "
+            "pharmaceutical market and to increase patients' access to new original medicines and better generics.")
+        mission_t, mission = "Our Mission", (
+            "Our mission is to create synergy by building sustainable relationships between international companies "
+            "supplying pharmaceuticals in Türkiye and Turkish public authorities and pharmaceutical procurement institutions.")
+        quote = "“The trusted brand in Türkiye’s pharmaceutical supply.”"
+    return f"""{breadcrumb(lang, T[lang]['mission'])}
+    <section class="section-tight">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="mv-card wow fadeInUp" data-wow-delay=".3s">
+                        <h2 class="h3">{vision_t}</h2>
+                        <p>{vision}</p>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="mv-card wow fadeInUp" data-wow-delay=".5s">
+                        <h2 class="h3">{mission_t}</h2>
+                        <p>{mission}</p>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="blog-details-section p-0">
+                        <div class="blog-details"><div class="content">
+                            <blockquote class="mb-0">
+                                <p class="h5">{quote} ~Orphion Pharma</p>
+                            </blockquote>
+                        </div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+{marquee(lang, rows=1, extra_class=" section-padding1 pt-0")}"""
+
+
+def chairman_body(lang):
+    ch = CHAIRMAN
+    paras = "".join(
+        f"\n                        <p>{esc(p).replace(chr(10), '<br>')}</p>" for p in ch[lang]
+    )
+    sign = f"""
+                        <p class="chairman-sign"><strong>{esc(ch['name'])}</strong><br>{esc(ch['role'])}<br>{COMPANY['name']}</p>"""
+    if ch.get("photo"):
+        photo_col = f"""
+                <div class="col-lg-4">
+                    <img class="chairman-photo" src="{ch['photo']}" alt="{esc(ch['name'])}" loading="lazy">
+                </div>"""
+        text_cls = "col-lg-8"
+    else:
+        photo_col, text_cls = "", "col-lg-10 col-xl-9 mx-auto"
+    return f"""{breadcrumb(lang, T[lang]['chairman'])}
+    <section class="section-tight">
+        <div class="container">
+            <div class="row g-5 align-items-start">{photo_col}
+                <div class="{text_cls}">
+                    <div class="legal-content chairman-text">{paras}{sign}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+"""
+
+
+def hr_form(lang):
+    privacy = PAGES["privacy"][lang]
+    if lang == "tr":
+        lbl = {
+            "name": "Ad Soyad", "email": "E-posta", "phone": "Telefon", "position": "Başvurulan pozisyon (isteğe bağlı)",
+            "message": "Ön yazı (isteğe bağlı)", "cv": "Özgeçmiş (CV) yükleyin", "cv_hint": "PDF, DOC veya DOCX · en fazla 5 MB",
+            "consent": (f'<a href="{privacy}" target="_blank" rel="noopener">KVKK Aydınlatma Metni</a>’ni okudum. '
+                        "İş başvurumun değerlendirilmesi amacıyla özgeçmişimdeki kişisel verilerin işlenmesine ve "
+                        "yurt dışına aktarılmasına açık rıza veriyorum."),
+            "send": "BAŞVURUYU GÖNDER", "hp": "Bu alanı boş bırakın",
+            "success": "Teşekkürler! Başvurunuz bize ulaştı. Uygun bir pozisyon olduğunda sizinle iletişime geçeceğiz.",
+        }
+    else:
+        lbl = {
+            "name": "Full Name", "email": "Email", "phone": "Phone", "position": "Position applied for (optional)",
+            "message": "Cover letter (optional)", "cv": "Upload your CV", "cv_hint": "PDF, DOC or DOCX · max 5 MB",
+            "consent": (f'I have read the <a href="{privacy}" target="_blank" rel="noopener">Privacy Notice</a> and '
+                        "consent to the personal data in my CV being processed and transferred abroad in order to "
+                        "evaluate my application."),
+            "send": "SUBMIT APPLICATION", "hp": "Leave this field empty",
+            "success": "Thank you! Your application has been received. We will contact you when a suitable position opens.",
+        }
+    return f"""
+                        <form class="row gy-3 js-contact-form" action="contact.php" method="post" enctype="multipart/form-data" novalidate data-success="{esc(lbl['success'])}">
+                            <input type="hidden" name="lang" value="{lang}">
+                            <input type="hidden" name="form" value="hr">
+                            <input type="hidden" name="ts" value="">
+                            <div class="hp-field" aria-hidden="true">
+                                <label for="hr-website">{lbl['hp']}</label>
+                                <input type="text" id="hr-website" name="website" tabindex="-1" autocomplete="off">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="sr-only" for="hr-name">{lbl['name']}</label>
+                                <input type="text" id="hr-name" name="name" placeholder="{lbl['name']} *" autocomplete="name" minlength="2" maxlength="100" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="sr-only" for="hr-email">{lbl['email']}</label>
+                                <input type="email" id="hr-email" name="email" placeholder="{lbl['email']} *" autocomplete="email" maxlength="200" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="sr-only" for="hr-phone">{lbl['phone']}</label>
+                                <input type="tel" id="hr-phone" name="phone" placeholder="{lbl['phone']} *" autocomplete="tel" maxlength="40" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="sr-only" for="hr-position">{lbl['position']}</label>
+                                <input type="text" id="hr-position" name="position" placeholder="{lbl['position']}" maxlength="150">
+                            </div>
+                            <div class="col-12">
+                                <label class="sr-only" for="hr-message">{lbl['message']}</label>
+                                <textarea id="hr-message" name="message" placeholder="{lbl['message']}" rows="4" maxlength="5000"></textarea>
+                            </div>
+                            <div class="col-12 cv-field">
+                                <label class="cv-upload" for="hr-cv">
+                                    <i class="fa-solid fa-upload" aria-hidden="true"></i>
+                                    <span class="cv-label">{lbl['cv']} *</span>
+                                    <span class="cv-hint">{lbl['cv_hint']}</span>
+                                    <span class="cv-name" aria-live="polite"></span>
+                                </label>
+                                <input type="file" id="hr-cv" name="cv" class="cv-input" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
+                            </div>
+                            <div class="col-12">
+                                <label class="consent">
+                                    <input type="checkbox" name="kvkk_consent" value="1" required>
+                                    <span>{lbl['consent']}</span>
+                                </label>
+                            </div>
+                            <div class="col-12 form-group mb-0">
+                                <button type="submit" class="theme-btn style5">{lbl['send']} <i class="fa-solid fa-arrow-right-long bg-transparent text-white" aria-hidden="true"></i></button>
+                                <div class="form-status" role="status" aria-live="polite"></div>
+                            </div>
+                        </form>"""
+
+
+def hr_body(lang):
+    tr = lang == "tr"
+    if tr:
+        h2 = 'Ekibimize <span class="color-text">katılın</span>'
+        paras = [
+            "Orphion Pharma olarak, uluslararası ilaç firmalarının Türkiye pazarına erişimini kolaylaştıran ekibimizi "
+            "alanında yetkin, çözüm odaklı ve gelişime açık profesyonellerle büyütüyoruz.",
+            "Açık pozisyonlarımız veya ileride oluşabilecek fırsatlar için özgeçmişinizi aşağıdaki formdan "
+            "yükleyebilirsiniz. Başvurunuz İnsan Kaynakları ekibimiz tarafından değerlendirilecektir.",
+        ]
+        form_title = "Başvuru Formu"
+    else:
+        h2 = 'Join <span class="color-text">our team</span>'
+        paras = [
+            "At Orphion Pharma we are growing the team that helps international pharmaceutical companies access the "
+            "Turkish market, with competent, solution-oriented professionals who are eager to grow.",
+            "Upload your CV using the form below for current openings or future opportunities. "
+            "Your application will be reviewed by our Human Resources team.",
+        ]
+        form_title = "Application Form"
+    text = "".join(f'\n                        <p class="desc">{p}</p>' for p in paras)
+    return f"""{breadcrumb(lang, T[lang]['hr'])}
+    <section class="section-tight">
+        <div class="container">
+            <div class="row g-5">
+                <div class="col-lg-5">
+                    <div class="section-title">
+                        <p class="subtitle h6">{T[lang]['hr']}</p>
+                        <h2 class="title">{h2}</h2>{text}
+                    </div>
+                </div>
+                <div class="col-lg-7" id="application-form">
+                    <div class="contact-form contact-page-form">
+                        <h2 class="h3 mb-4"><i class="fa-solid fa-briefcase" aria-hidden="true"></i> {form_title}</h2>{hr_form(lang)}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+"""
+
+
+def partners_body(lang):
+    from urllib.parse import quote
+    tr = lang == "tr"
+    c = COMPANY
+    if tr:
+        intro = ("Orphion Pharma, dünyanın önde gelen ilaç firmaları ile iş birliği yapmaktadır. Partnerlerimizin "
+                 "ürünlerini doğrudan tedarik programları, devlet ihaleleri ve Yurt Dışı İlaç Programı kapsamında "
+                 "Türkiye'deki hastalara ulaştırıyoruz.")
+        pf_title = 'Ürün <span class="color-text">Portföyümüz</span>'
+        pf_text = ("Partnerlerimizin ürün portföyü ve ürünlerin temin süreçleri hakkında detaylı bilgi almak için "
+                   "bize e-posta gönderin; ekibimiz en kısa sürede size dönüş yapacaktır.")
+        pf_btn = "Bilgi almak için e-posta gönderin"
+        subject = "Ürün portföyü hakkında bilgi talebi"
+    else:
+        intro = ("Orphion Pharma collaborates with leading pharmaceutical companies worldwide. We bring our partners' "
+                 "products to patients in Türkiye through direct supply programs, government tenders and the "
+                 "Named Patient Program.")
+        pf_title = 'Our Product <span class="color-text">Portfolio</span>'
+        pf_text = ("Email us for detailed information about our partners' product portfolio and supply processes; "
+                   "our team will get back to you shortly.")
+        pf_btn = "Email us for information"
+        subject = "Product portfolio information request"
+    logos = ""
+    if PARTNERS:
+        items = "".join(
+            f"""
+                <div class="col-6 col-md-4 col-lg-3">
+                    <{'a href="' + esc(p['url']) + '" target="_blank" rel="noopener"' if p.get('url') else 'div'} class="partner-logo">
+                        <img src="{p['logo']}" alt="{esc(p['name'])}" loading="lazy">
+                    </{'a' if p.get('url') else 'div'}>
+                </div>"""
+            for p in PARTNERS
+        )
+        logos = f"""
+            <div class="row g-4 mt-2">{items}
+            </div>"""
+    return f"""{breadcrumb(lang, T[lang]['partners'])}
+    <section class="section-tight-top">
+        <div class="container">
+            <div class="section-title mxw-720">
+                <p class="subtitle h6">{T[lang]['partners']}</p>
+                <p class="desc">{intro}</p>
+            </div>{logos}
+        </div>
+    </section>
+
+    <section class="section-tight" id="portfolio">
+        <div class="container">
+            <div class="portfolio-cta wow fadeInUp" data-wow-delay=".3s">
+                <h2 class="title">{pf_title}</h2>
+                <p>{pf_text}</p>
+                <a class="theme-btn" href="mailto:{c['email']}?subject={quote(subject)}"><i class="fa-solid fa-envelope" aria-hidden="true"></i> {pf_btn}</a>
+                <p class="mt-3 mb-0"><a href="mailto:{c['email']}">{c['email']}</a></p>
+            </div>
+        </div>
+    </section>
+"""
+
 
 TITLES = {
     "home": {
@@ -1158,7 +1602,16 @@ TITLES = {
                 "en": "Privacy Notice & Cookie Policy | Orphion Pharma"},
 }
 
-BODIES = {"home": home_body, "about": about_body, "contact": contact_body, "privacy": privacy_body}
+TITLES.update({
+    "chairman": {"tr": "YK Başkanının Mesajı | Orphion Pharma", "en": "Message from the Chairman | Orphion Pharma"},
+    "mission": {"tr": "Misyon ve Vizyon | Orphion Pharma", "en": "Mission & Vision | Orphion Pharma"},
+    "hr": {"tr": "İnsan Kaynakları | Orphion Pharma", "en": "Human Resources | Orphion Pharma"},
+    "partners": {"tr": "Partnerlerimiz ve Ürün Portföyümüz | Orphion Pharma",
+                 "en": "Our Partners & Product Portfolio | Orphion Pharma"},
+})
+
+BODIES = {"home": home_body, "about": about_body, "contact": contact_body, "privacy": privacy_body,
+          "chairman": chairman_body, "mission": mission_body, "hr": hr_body, "partners": partners_body}
 
 
 def sitemap():

@@ -31,6 +31,11 @@
 .fa-solid { font-family: "Font Awesome 6 Pro"; font-weight: 900; }
 .fa-brands { font-family: "Font Awesome 6 Brands"; font-weight: 400; }
 .fa-chevron-up::before { content: "\f077"; }
+.fa-chevron-down::before { content: "\f078"; }
+.fa-upload::before { content: "\f093"; }
+.fa-file::before { content: "\f15b"; }
+.fa-building::before { content: "\f1ad"; }
+.fa-briefcase::before { content: "\f0b1"; }
 .fa-xmark::before { content: "\f00d"; }
 .fa-bars::before { content: "\f0c9"; }
 .fa-plus::before { content: "\f067"; }
@@ -369,4 +374,141 @@ a[href^="mailto:"] { text-transform: none !important; }
   .breadcrumb-section .breadcrumb-bg { padding: 38px 20px 40px; border-radius: 20px; }
   .breadcrumb-section .breadcrumb-bg .breadcrumb-text .breadcrumb-title { font-size: 28px; }
   .breadcrumb-section .breadcrumb-bg .breadcrumb-text ul li { font-size: 13px; }
+}
+
+/* ---------- Açılır menü: Türkçe karakterleri bozmasın ---------- */
+.header-main .main-menu ul li .submenu li a { text-transform: none; }
+.header-main .main-menu ul li a i.fa-chevron-down { font-size: 11px; margin-left: 5px; }
+
+/* ---------- Ofis kartları (İletişim) ---------- */
+.office-card {
+  height: 100%;
+  padding: 30px;
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: 0 6px 30px rgba(34, 44, 62, 0.08);
+  border-top: 4px solid var(--theme);
+}
+.office-card h2 { margin-bottom: 16px; }
+.office-card h2 i { color: var(--theme); margin-right: 6px; }
+.office-card p { display: flex; gap: 10px; margin-bottom: 10px; line-height: 1.6; }
+.office-card p i { color: var(--theme); margin-top: 5px; flex: 0 0 16px; }
+.office-card a { color: var(--title); }
+.office-card a:hover { color: var(--theme); }
+
+/* Footer: ofis başlıkları */
+.footer-section-two .footer-widget .widget-title { font-size: 20px; }
+.footer-section-two .footer-email { margin-top: -10px; }
+
+/* ---------- Misyon / Vizyon ---------- */
+.mv-card {
+  height: 100%;
+  padding: 40px;
+  border-radius: 20px;
+  background: #f6f7f9;
+  border-left: 5px solid var(--theme);
+}
+.mv-card h2 { margin-bottom: 14px; }
+.mv-card p { line-height: 1.8; margin: 0; }
+
+/* ---------- CV yükleme ---------- */
+.cv-field { position: relative; }
+.cv-input {
+  position: absolute !important;
+  left: 50%;
+  bottom: 0;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+}
+.cv-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 26px 20px;
+  border: 2px dashed rgba(218, 149, 2, 0.5);
+  border-radius: 10px;
+  background: #fffaf0;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.cv-upload:hover,
+.cv-input:focus + .cv-upload,
+.cv-upload:focus-within { border-color: var(--theme); background: #fff4dc; }
+.cv-upload i { font-size: 26px; color: var(--theme); }
+.cv-upload .cv-label { font-weight: 600; color: var(--title); }
+.cv-upload .cv-hint { font-size: 14px; color: var(--text); }
+.cv-upload .cv-name { font-size: 14px; font-weight: 600; color: #0f6b43; }
+
+/* ---------- Partnerler ---------- */
+.partner-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 130px;
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 4px 20px rgba(34, 44, 62, 0.07);
+}
+.partner-logo img { max-height: 80px; max-width: 100%; object-fit: contain; }
+.portfolio-cta {
+  padding: 50px 40px;
+  border-radius: 24px;
+  background: #f6f7f9;
+  text-align: center;
+}
+.portfolio-cta p { max-width: 640px; margin: 14px auto 24px; }
+.portfolio-cta .theme-btn i { margin-right: 8px; }
+
+/* ---------- YK Başkanı ---------- */
+.chairman-photo { width: 100%; border-radius: 20px; }
+.chairman-sign { margin-top: 24px; }
+
+/* ---------- Menü tek satıra sığsın ---------- */
+.header-3 .header-main .main-menu ul li { margin-inline-end: 26px; }
+.header-3 .header-main .main-menu > nav > ul { white-space: nowrap; }
+.header-3 .header-main .main-menu ul li .submenu { white-space: normal; }
+.header-phone a { white-space: nowrap; }
+@media (max-width: 1599px) {
+  .header-3 .header-main .main-menu ul li { margin-inline-end: 20px; }
+  .header-3 .header-main .main-menu ul li a { font-size: 15px; letter-spacing: 0; }
+  .header-3 .header-logo img { width: 230px; }
+}
+@media (min-width: 1200px) and (max-width: 1399px) {
+  .header-3 .header-phone { display: none !important; }
+}
+
+/* ---------- Kompakt bölüm aralıkları (iç sayfalar) ---------- */
+.section-tight { padding-top: 60px; padding-bottom: 60px; }
+.section-tight-top { padding-top: 60px; }
+@media (max-width: 767px) {
+  .section-tight { padding-top: 40px; padding-bottom: 40px; }
+  .section-tight-top { padding-top: 40px; }
+}
+.office-card .office-phone span { display: block; }
+/* İletişim sayfası: şablonun 140px'lik dış boşluğunu kaldır */
+.service-details-section.section-tight,
+.service-details-section.section-tight-top { margin: 0; }
+.service-details-section .service-sidebar .sidebar-widget { margin-bottom: 0; }
+
+/* YK Başkanı mesajı: okunaklı paragraflar */
+.chairman-text p {
+  margin-bottom: 18px;
+  font-size: 17px;
+  line-height: 1.85;
+  color: #4a5260;
+}
+.chairman-text .chairman-sign {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 2px solid var(--theme);
+  color: var(--title);
+  display: inline-block;
 }
