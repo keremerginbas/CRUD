@@ -1,0 +1,592 @@
+/*-----------------------------------------------------------------
+  Rome Pharma - site özel stilleri
+  (ikon fontu, dil değiştirici, iletişim formu, çerez bildirimi,
+  yasal metin sayfaları)
+------------------------------------------------------------------*/
+
+/* ---------- İkonlar (Font Awesome alt kümesi, yalnızca kullanılan ikonlar) ---------- */
+@font-face {
+  font-family: "Font Awesome 6 Pro";
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url(../fonts/fa-solid-subset.woff2) format("woff2");
+}
+@font-face {
+  font-family: "Font Awesome 6 Brands";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(../fonts/fa-brands-subset.woff2) format("woff2");
+}
+.fa-solid,
+.fa-brands {
+  display: inline-block;
+  font-style: normal;
+  font-variant: normal;
+  line-height: 1;
+  text-rendering: auto;
+  -webkit-font-smoothing: antialiased;
+}
+.fa-solid { font-family: "Font Awesome 6 Pro"; font-weight: 900; }
+.fa-brands { font-family: "Font Awesome 6 Brands"; font-weight: 400; }
+.fa-chevron-up::before { content: "\f077"; }
+.fa-chevron-down::before { content: "\f078"; }
+.fa-upload::before { content: "\f093"; }
+.fa-file::before { content: "\f15b"; }
+.fa-building::before { content: "\f1ad"; }
+.fa-briefcase::before { content: "\f0b1"; }
+.fa-xmark::before { content: "\f00d"; }
+.fa-bars::before { content: "\f0c9"; }
+.fa-plus::before { content: "\f067"; }
+.fa-minus::before { content: "\f068"; }
+.fa-arrow-right-long::before { content: "\f178"; }
+.fa-location-dot::before { content: "\f3c5"; }
+.fa-envelope::before { content: "\f0e0"; }
+.fa-clock::before { content: "\f017"; }
+.fa-phone::before { content: "\f095"; }
+.fa-check::before { content: "\f00c"; }
+.fa-paper-plane::before { content: "\f1d8"; }
+.fa-globe::before { content: "\f0ac"; }
+.fa-whatsapp::before { content: "\f232"; }
+.fa-linkedin-in::before { content: "\f0e1"; }
+
+/* ---------- Erişilebilirlik ---------- */
+.visually-hidden-focusable:not(:focus):not(:focus-within),
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+/* ---------- Dil değiştirici (TR / EN) ---------- */
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(34, 44, 62, 0.15);
+  border-radius: 999px;
+  padding: 3px;
+  margin-right: 16px;
+  background: var(--white);
+}
+.lang-switch a {
+  display: inline-block;
+  min-width: 40px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  text-align: center;
+  color: var(--title);
+  transition: background-color 0.2s, color 0.2s;
+}
+.lang-switch a:hover {
+  color: var(--theme);
+}
+.lang-switch a.active {
+  background: var(--theme);
+  color: var(--white);
+}
+.offcanvas__info .lang-switch {
+  margin: 0 0 24px;
+}
+@media (max-width: 575px) {
+  .header-right .lang-switch { margin-right: 10px; }
+  .lang-switch a { min-width: 34px; padding: 6px 8px; font-size: 13px; }
+}
+
+/* Türkçe sayfada, tarayıcısı Türkçe olmayan ziyaretçiye gösterilen öneri */
+.lang-suggest {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 10000;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 10px 14px 10px 18px;
+  border-radius: 12px;
+  background: var(--title);
+  color: var(--white);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  font-size: 15px;
+}
+.lang-suggest.show { display: flex; }
+.lang-suggest span { flex: 1 1 auto; }
+.lang-suggest a {
+  color: var(--white);
+  background: var(--theme);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lang-suggest button {
+  background: transparent;
+  border: 0;
+  color: var(--white);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px;
+}
+
+/* ---------- WhatsApp butonu ---------- */
+.whatsapp-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #25d366;
+  color: #fff;
+  font-weight: 600;
+  line-height: 1;
+}
+.whatsapp-button i { font-size: 20px; }
+.whatsapp-button:hover { background: #1ebe5b; color: #fff; }
+
+/* ---------- İletişim formu ---------- */
+.contact-form .form-field label.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--title);
+}
+.contact-form .consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+}
+.contact-form .consent input[type=checkbox] {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 3px;
+  padding: 0;
+  accent-color: var(--theme);
+  visibility: visible;
+  opacity: 1;
+  cursor: pointer;
+}
+.contact-form .consent a {
+  color: var(--theme);
+  text-decoration: underline;
+}
+.contact-form .hp-field {
+  position: absolute !important;
+  left: -10000px !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+.contact-form .form-status {
+  display: none;
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+}
+.contact-form .form-status.show { display: block; }
+.contact-form .form-status.success { background: #e6f7ef; color: #0f6b43; }
+.contact-form .form-status.error { background: #fdecec; color: #a12626; }
+.contact-form button[disabled] { opacity: 0.6; cursor: wait; }
+
+/* İletişim sayfası formu */
+.contact-page-form {
+  background: var(--white);
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 6px 30px rgba(34, 44, 62, 0.08);
+}
+.contact-page-form input,
+.contact-page-form textarea {
+  background: #f6f6f6;
+  border-radius: 5px;
+}
+.contact-page-form textarea {
+  width: 100%;
+  border: 0;
+  padding: 18px 30px;
+}
+@media (max-width: 767px) {
+  .contact-page-form { padding: 24px; }
+}
+
+/* ---------- Harita (tıklayınca yüklenir) ---------- */
+.map-consent {
+  position: relative;
+  min-height: 380px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #eef1f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+}
+.map-consent p { max-width: 520px; margin: 0 auto 16px; }
+.map-consent iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* ---------- Çerez bildirimi ---------- */
+.cookie-banner {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  display: none;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  border-radius: 14px;
+  background: var(--white);
+  color: var(--title);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.18);
+  font-size: 15px;
+  line-height: 1.6;
+}
+.cookie-banner.show { display: block; }
+.cookie-banner p { margin: 0 0 14px; }
+.cookie-banner a { color: var(--theme); text-decoration: underline; }
+.cookie-banner .cookie-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.cookie-banner button {
+  border: 1px solid var(--theme);
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-weight: 600;
+  background: var(--white);
+  color: var(--theme);
+}
+.cookie-banner button.accept { background: var(--theme); color: var(--white); }
+
+/* ---------- Yasal metin sayfaları ---------- */
+.legal-content {
+  max-width: 900px;
+  margin: 0 auto;
+}
+.legal-content h2 { font-size: 28px; margin: 36px 0 14px; }
+.legal-content h3 { font-size: 21px; margin: 26px 0 10px; }
+.legal-content p,
+.legal-content li { line-height: 1.75; }
+.legal-content ul { padding-left: 22px; margin-bottom: 16px; list-style: disc; }
+.legal-content table { width: 100%; margin: 12px 0 20px; border-collapse: collapse; }
+.legal-content th,
+.legal-content td { border: 1px solid #e3e6ea; padding: 10px 12px; vertical-align: top; }
+.legal-content .updated { color: var(--text); font-size: 14px; }
+
+/* Ana sayfa "İki ana iş kolu" listesi */
+.business-lines { margin-top: 18px; }
+.business-lines h3 { font-size: 22px; margin-bottom: 12px; }
+.business-lines li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 10px;
+  line-height: 1.6;
+}
+.business-lines li i {
+  position: absolute;
+  left: 0;
+  top: 5px;
+  color: #2dce98;
+}
+
+/* Footer yasal linkler */
+.footer-legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+  margin-top: 8px;
+}
+.footer-legal-links a,
+.footer-legal-links button {
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  font: inherit;
+}
+
+/* ---------- Mobil header: logo + dil + menü tek satıra sığsın ---------- */
+.header-3 .header-logo img,
+.offcanvas__logo img,
+.footer-section-two .logo img {
+  max-width: 100%;
+  height: auto;
+}
+@media (max-width: 767px) {
+  .header-3 .header-left { min-width: 0; flex: 1 1 auto; }
+  .header-3 .header-logo img { width: 190px; }
+}
+@media (max-width: 400px) {
+  .header-3 .header-logo img { width: 150px; }
+}
+html, body { overflow-x: hidden; }
+
+/* E-posta adresleri her zaman küçük harf görünsün */
+a[href^="mailto:"] { text-transform: none !important; }
+
+/* Şablonun "capitalize" dönüşümü Türkçe i/ı harflerini bozuyor; metinler zaten doğru yazıldı */
+.section-title .title,
+.section-title .title span {
+  text-transform: none;
+}
+
+/* ---------- Sayfa başlığı bandı (Hakkımızda / İletişim / KVKK): daha kompakt ---------- */
+.breadcrumb-section .breadcrumb-bg {
+  padding: 70px 30px 75px;
+  border-radius: 28px;
+}
+.breadcrumb-section .breadcrumb-bg .breadcrumb-text .breadcrumb-title {
+  font-size: 46px;
+  margin-bottom: 10px;
+}
+.breadcrumb-section .breadcrumb-bg .breadcrumb-text ul li {
+  font-size: 16px;
+}
+@media (max-width: 1199.98px) {
+  .breadcrumb-section .breadcrumb-bg { padding: 55px 24px 60px; }
+  .breadcrumb-section .breadcrumb-bg .breadcrumb-text .breadcrumb-title { font-size: 38px; }
+}
+@media (max-width: 767.98px) {
+  .breadcrumb-section .breadcrumb-bg { padding: 38px 20px 40px; border-radius: 20px; }
+  .breadcrumb-section .breadcrumb-bg .breadcrumb-text .breadcrumb-title { font-size: 28px; }
+  .breadcrumb-section .breadcrumb-bg .breadcrumb-text ul li { font-size: 13px; }
+}
+
+/* ---------- Açılır menü: Türkçe karakterleri bozmasın ---------- */
+.header-main .main-menu ul li .submenu li a { text-transform: none; }
+.header-main .main-menu ul li a i.fa-chevron-down { font-size: 11px; margin-left: 5px; }
+
+/* ---------- Ofis kartları (İletişim) ---------- */
+.office-card {
+  height: 100%;
+  padding: 30px;
+  border-radius: 20px;
+  background: var(--white);
+  box-shadow: 0 6px 30px rgba(34, 44, 62, 0.08);
+  border-top: 4px solid var(--theme);
+}
+.office-card h2 { margin-bottom: 16px; }
+.office-card h2 i { color: var(--theme); margin-right: 6px; }
+.office-card p { display: flex; gap: 10px; margin-bottom: 10px; line-height: 1.6; }
+.office-card p i { color: var(--theme); margin-top: 5px; flex: 0 0 16px; }
+.office-card a { color: var(--title); }
+.office-card a:hover { color: var(--theme); }
+
+/* Footer: ofis başlıkları */
+.footer-section-two .footer-widget .widget-title { font-size: 20px; }
+.footer-section-two .footer-email { margin-top: -10px; }
+
+/* ---------- Misyon / Vizyon ---------- */
+.mv-card {
+  height: 100%;
+  padding: 40px;
+  border-radius: 20px;
+  background: #f6f7f9;
+  border-left: 5px solid var(--theme);
+}
+.mv-card h2 { margin-bottom: 14px; }
+.mv-card p { line-height: 1.8; margin: 0; }
+
+/* ---------- CV yükleme ---------- */
+.cv-field { position: relative; }
+.cv-input {
+  position: absolute !important;
+  left: 50%;
+  bottom: 0;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  opacity: 0;
+  pointer-events: none;
+}
+.cv-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 26px 20px;
+  border: 2px dashed rgba(218, 149, 2, 0.5);
+  border-radius: 10px;
+  background: #fffaf0;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.cv-upload:hover,
+.cv-input:focus + .cv-upload,
+.cv-upload:focus-within { border-color: var(--theme); background: #fff4dc; }
+.cv-upload i { font-size: 26px; color: var(--theme); }
+.cv-upload .cv-label { font-weight: 600; color: var(--title); }
+.cv-upload .cv-hint { font-size: 14px; color: var(--text); }
+.cv-upload .cv-name { font-size: 14px; font-weight: 600; color: #0f6b43; }
+
+/* ---------- Partnerler ---------- */
+.partner-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 130px;
+  padding: 20px;
+  border-radius: 14px;
+  background: var(--white);
+  box-shadow: 0 4px 20px rgba(34, 44, 62, 0.07);
+}
+.partner-logo img { max-height: 80px; max-width: 100%; object-fit: contain; }
+.portfolio-cta {
+  padding: 50px 40px;
+  border-radius: 24px;
+  background: #f6f7f9;
+  text-align: center;
+}
+.portfolio-cta p { max-width: 640px; margin: 14px auto 24px; }
+.portfolio-cta .theme-btn i { margin-right: 8px; }
+
+/* ---------- YK Başkanı ---------- */
+.chairman-photo { width: 100%; border-radius: 20px; }
+.chairman-sign { margin-top: 24px; }
+
+/* ---------- Menü tek satıra sığsın ---------- */
+.header-3 .header-main .main-menu ul li { margin-inline-end: 26px; }
+.header-3 .header-main .main-menu > nav > ul { white-space: nowrap; }
+.header-3 .header-main .main-menu ul li .submenu { white-space: normal; }
+.header-phone a { white-space: nowrap; }
+@media (max-width: 1599px) {
+  .header-3 .header-main .main-menu ul li { margin-inline-end: 20px; }
+  .header-3 .header-main .main-menu ul li a { font-size: 15px; letter-spacing: 0; }
+  .header-3 .header-logo img { width: 230px; }
+}
+@media (min-width: 1200px) and (max-width: 1399px) {
+  .header-3 .header-phone { display: none !important; }
+}
+
+/* ---------- Kompakt bölüm aralıkları (iç sayfalar) ---------- */
+.section-tight { padding-top: 60px; padding-bottom: 60px; }
+.section-tight-top { padding-top: 60px; }
+@media (max-width: 767px) {
+  .section-tight { padding-top: 40px; padding-bottom: 40px; }
+  .section-tight-top { padding-top: 40px; }
+}
+.office-card .office-phone span { display: block; }
+/* İletişim sayfası: şablonun 140px'lik dış boşluğunu kaldır */
+.service-details-section.section-tight,
+.service-details-section.section-tight-top { margin: 0; }
+.service-details-section .service-sidebar .sidebar-widget { margin-bottom: 0; }
+
+/* YK Başkanı mesajı: okunaklı paragraflar */
+.chairman-text p {
+  margin-bottom: 18px;
+  font-size: 17px;
+  line-height: 1.85;
+  color: #4a5260;
+}
+.chairman-text .chairman-sign {
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 2px solid var(--theme);
+  color: var(--title);
+  display: inline-block;
+}
+
+/* ---------- Hakkımızda ---------- */
+.access-band { background: #f6f7f9; }
+.access-band .access-title { line-height: 1.35; margin-bottom: 16px; }
+.access-band p { line-height: 1.8; }
+.pillars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+}
+.pillars li {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--white);
+  box-shadow: 0 3px 12px rgba(34, 44, 62, 0.07);
+  font-weight: 500;
+  color: var(--title);
+}
+.pillars li i { color: var(--theme); font-size: 13px; }
+.partner-role {
+  margin-top: 40px;
+  padding: 32px 36px;
+  border-left: 5px solid var(--theme);
+  border-radius: 16px;
+  background: var(--white);
+}
+.partner-role p { line-height: 1.8; }
+.partner-role p:first-child { font-size: 19px; font-weight: 600; color: var(--title); }
+.partner-role p:last-child { margin-bottom: 0; }
+.more-than { max-width: 900px; }
+.more-than .title { margin-bottom: 20px; }
+.more-than p { line-height: 1.8; margin-bottom: 14px; }
+.about-closing {
+  margin-top: 50px;
+  padding: 50px 40px;
+  border-radius: 24px;
+  background: var(--title);
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+}
+.about-closing p { max-width: 760px; margin: 0 auto 12px; font-size: 18px; line-height: 1.75; }
+.about-closing .why { color: var(--white); font-weight: 600; }
+.about-closing .tagline {
+  margin-top: 18px;
+  margin-bottom: 0;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--theme);
+}
+@media (max-width: 767px) {
+  .partner-role { padding: 24px; }
+  .about-closing { padding: 34px 22px; }
+  .about-closing .tagline { font-size: 24px; }
+}
+/* İçerik başlıkları: şablonun capitalize dönüşümü Türkçe i/ı'yı bozuyor */
+main h2, main h3 { text-transform: none; }
+.chairman-photo { height: auto; box-shadow: 0 10px 30px rgba(34, 44, 62, 0.15); }
+.chairman-caption { margin-top: 16px; text-align: center; color: var(--title); line-height: 1.6; }
+@media (min-width: 992px) {
+  .chairman-photo-col { position: sticky; top: 120px; }
+}
+@media (max-width: 991px) {
+  .chairman-photo { max-width: 320px; display: block; margin: 0 auto; }
+}
+.chairman-caption strong, .chairman-caption span { display: block; }
+.chairman-text .chairman-sign strong,
+.chairman-text .chairman-sign span { display: block; }
+.chairman-text .chairman-sign strong { font-size: 19px; margin-bottom: 2px; }
+/* Mobilde çerez bildirimi daha az yer kaplasın */
+@media (max-width: 575px) {
+  .cookie-banner { left: 10px; right: 10px; bottom: 10px; padding: 14px 16px; font-size: 13px; line-height: 1.5; }
+  .cookie-banner p { margin-bottom: 10px; }
+  .cookie-banner button { padding: 7px 16px; font-size: 14px; }
+}

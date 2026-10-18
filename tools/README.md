@@ -1,4 +1,4 @@
-# Orphion Pharma web sitesi
+# Orphion Pharma ve Rome Pharma web siteleri
 
 Yayına alınacak dosyalar `orphion-pharma/` klasöründedir (sunucunun web köküne olduğu gibi yüklenir).
 
@@ -18,3 +18,13 @@ bu dosyada yapıp şunu çalıştırın:
 - YK Başkanı fotoğrafı: `assets/images/` altına koyup `CHAIRMAN["photo"]` alanına yolunu yazın.
 - `no-reply@orphionpharma.com` adresinin alan adı SPF kaydında izinli olduğundan emin olun.
 - KVKK aydınlatma metnini (`kvkk.html`, `privacy-en.html`) bir hukukçuya kontrol ettirin.
+
+## Rome Pharma
+Yayına alınacak dosyalar `rome-pharma/` klasöründedir (romepharma.com web kökü).
+
+    python3 tools/build_rome.py
+
+Rome, Orphion üreticisini kendi logosu, renkleri ve metinleriyle çalıştırır. İletişim kısmı
+(ofisler, telefonlar) Orphion ile aynıdır; e-posta `fevziaydin@rome-pharma.com`.
+CSS/JS/form dosyaları her çalıştırmada Orphion'dan kopyalanır; Rome'a özel bir düzeltme
+gerekiyorsa `tools/build_rome.py` içindeki `sync_shared_files()` fonksiyonuna ekleyin.

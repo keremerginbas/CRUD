@@ -23,6 +23,16 @@ ROOT = Path(__file__).resolve().parent.parent / "orphion-pharma"
 SITE_URL = "https://orphionpharma.com/"
 LAST_UPDATED = "2026-10-18"
 
+# Marka ayarları: logolar, açılış animasyonu, tema rengi.
+# Rome Pharma için tools/build_rome.py bu değerleri değiştirir.
+BRAND = {
+    "word": "Orphion",                 # ana sayfa başlığı ve açılış animasyonu
+    "theme_color": "#da9502",
+    "logo_header": ("assets/images/orphion-logo.webp", 289, 125),   # açık zemin
+    "logo_dark_bg": ("assets/images/orphion-logo.webp", 400, 174),  # koyu zemin (footer, mobil menü)
+    "logo_png": "assets/images/orphion-logo.png",                    # Google / schema
+}
+
 COMPANY = {
     "name": "Orphion Pharma",
     "group": "Orphion Group",
@@ -202,7 +212,7 @@ T = {
         "menu_close": "Menüyü kapat",
         "back_top": "Sayfanın başına dön",
         "lang_label": "Dil seçimi",
-        "logo_alt": "Orphion Pharma logosu",
+        "logo_alt": "{name} logosu",
         "address": "Adres",
         "email": "E-posta",
         "phone": "Telefon",
@@ -241,7 +251,7 @@ T = {
         "menu_close": "Close menu",
         "back_top": "Back to top",
         "lang_label": "Language",
-        "logo_alt": "Orphion Pharma logo",
+        "logo_alt": "{name} logo",
         "address": "Address",
         "email": "Email",
         "phone": "Phone",
@@ -264,6 +274,10 @@ def asset(path):
     import hashlib
     digest = hashlib.md5((ROOT / path).read_bytes()).hexdigest()[:8]
     return f"{path}?v={digest}"
+
+
+def logo_alt(lang):
+    return T[lang]["logo_alt"].format(name=COMPANY["name"])
 
 
 def esc(s):
@@ -291,7 +305,7 @@ def head(page, lang, title, description, extra=""):
     <meta name="author" content="{COMPANY['name']}">
     <meta name="description" content="{esc(description)}">
     <meta name="robots" content="index, follow">
-    <meta name="theme-color" content="#da9502">
+    <meta name="theme-color" content="{BRAND['theme_color']}">
     <!-- Google Search Console doğrulaması: Search Console'un verdiği kodu aşağıya ekleyin
          (veya alan adını DNS TXT kaydıyla doğrulayın).
     <meta name="google-site-verification" content="BURAYA_KOD">
@@ -310,7 +324,7 @@ def head(page, lang, title, description, extra=""):
     <meta property="og:image" content="{og_image}">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
-    <meta property="og:image:alt" content="{T[lang]['logo_alt']}">
+    <meta property="og:image:alt" content="{logo_alt(lang)}">
     <meta property="og:locale" content="{T[lang]['locale']}">
     <meta property="og:locale:alternate" content="{T[other]['locale']}">
     <meta name="twitter:card" content="summary_large_image">
@@ -336,7 +350,7 @@ def preloader():
     letters = "".join(
         f"""
                 <span data-text-preloader="{c}" class="letters-loading">{c}</span>"""
-        for c in "ORPHION"
+        for c in BRAND["word"].upper()
     )
     return f"""
     <!-- Preloader -->
@@ -458,7 +472,7 @@ def header(page, lang):
                     <div class="offcanvas__top mb-5 d-flex justify-content-between align-items-center">
                         <div class="offcanvas__logo">
                             <a href="{home}">
-                                <img src="assets/images/orphion-logo.webp" width="200" height="87" alt="{t['logo_alt']}">
+                                <img src="{BRAND['logo_dark_bg'][0]}" width="200" height="{round(200 * BRAND['logo_dark_bg'][2] / BRAND['logo_dark_bg'][1])}" alt="{logo_alt(lang)}">
                             </a>
                         </div>
                         <div class="offcanvas__close">
@@ -492,7 +506,7 @@ def header(page, lang):
                         <div class="header-left">
                             <div class="logo">
                                 <a href="{home}" class="header-logo">
-                                    <img src="assets/images/orphion-logo.webp" width="289" height="125" alt="{t['logo_alt']}">
+                                    <img src="{BRAND['logo_header'][0]}" width="{BRAND['logo_header'][1]}" height="{BRAND['logo_header'][2]}" alt="{logo_alt(lang)}">
                                 </a>
                             </div>
                         </div>
@@ -699,7 +713,7 @@ def footer(lang):
                 <div class="row g-12">
                     <div class="col-lg-12 center">
                         <div class="logo">
-                            <img src="assets/images/orphion-logo.webp" width="400" height="174" alt="{t['logo_alt']}" loading="lazy">
+                            <img src="{BRAND['logo_dark_bg'][0]}" width="{BRAND['logo_dark_bg'][1]}" height="{BRAND['logo_dark_bg'][2]}" alt="{logo_alt(lang)}" loading="lazy">
                             <p>{t['tagline']}</p>
                         </div>
                     </div>
@@ -754,7 +768,7 @@ def organization_schema(lang):
         "@type": "Organization",
         "name": c["name"],
         "url": SITE_URL,
-        "logo": SITE_URL + "assets/images/orphion-logo.png",
+        "logo": SITE_URL + BRAND["logo_png"],
         "image": SITE_URL + "assets/images/og-image.jpg",
         "email": c["email"],
         "telephone": c["phone_tel"],
@@ -857,24 +871,27 @@ BUSINESS_LINES = {
     ],
 }
 
+HOME_INTRO = {
+    "tr": ("Orphion Pharma, Orphion Group çatısı altında faaliyet gösteren, uluslararası ilaç firmalarının "
+           "Türkiye pazarına erişimini kolaylaştırmayı misyon edinen, yenilikçi ve dinamik bir ilaç tedarik ve "
+           "danışmanlık şirketidir. Global farmasötik çözümleri Türkiye'nin sağlık sektörüne entegre eden "
+           "Orphion Pharma, hem devlet kurumlarına hem de özel sektöre yönelik çözümleri ile güvenilir bir iş ortağıdır."),
+    "en": ("Orphion Pharma, operating under Orphion Group, is an innovative and dynamic pharmaceutical supply and "
+           "consulting company whose mission is to facilitate international pharmaceutical companies' access to the "
+           "Turkish market. Integrating global pharmaceutical solutions into Türkiye's healthcare sector, Orphion Pharma "
+           "is a reliable business partner for both government institutions and the private sector."),
+}
+
+
+def home_about_text(lang):
+    """Ana sayfadaki Hakkımızda özeti (Hakkımızda sayfasının giriş paragrafları)."""
+    return ABOUT[lang]["intro"][0] + " " + ABOUT[lang]["intro"][1]
+
+
 def home_body(lang):
     tr = lang == "tr"
-    intro = (
-        "Orphion Pharma, Orphion Group çatısı altında faaliyet gösteren, uluslararası ilaç firmalarının "
-        "Türkiye pazarına erişimini kolaylaştırmayı misyon edinen, yenilikçi ve dinamik bir ilaç tedarik ve "
-        "danışmanlık şirketidir. Global farmasötik çözümleri Türkiye'nin sağlık sektörüne entegre eden "
-        "Orphion Pharma, hem devlet kurumlarına hem de özel sektöre yönelik çözümleri ile güvenilir bir iş ortağıdır."
-        if tr else
-        "Orphion Pharma, operating under Orphion Group, is an innovative and dynamic pharmaceutical supply and "
-        "consulting company whose mission is to facilitate international pharmaceutical companies' access to the "
-        "Turkish market. Integrating global pharmaceutical solutions into Türkiye's healthcare sector, Orphion Pharma "
-        "is a reliable business partner for both government institutions and the private sector."
-    )
-    about_p = (
-        ABOUT["tr"]["intro"][0] + " " + ABOUT["tr"]["intro"][1]
-        if tr else
-        ABOUT["en"]["intro"][0] + " " + ABOUT["en"]["intro"][1]
-    )
+    intro = HOME_INTRO[lang]
+    about_p = home_about_text(lang)
     lines = "".join(
         f"""
                                         <li><i class="fa-solid fa-check" aria-hidden="true"></i>{l}</li>"""
@@ -891,7 +908,7 @@ def home_body(lang):
                     <div class="intro-up">
                         <div class="row">
                             <div class="col-xl-6">
-                                <h1 class="intro-title wow fadeInUp" data-wow-delay=".3s" lang="en">Orphion
+                                <h1 class="intro-title wow fadeInUp" data-wow-delay=".3s" lang="en">{BRAND['word']}
                                     <span>PHARMA</span>
                                 </h1>
                             </div>
@@ -924,7 +941,7 @@ def home_body(lang):
                             <div class="about-content">
                                 <div class="section-title mxw-705">
                                     <h2 class="subtitle h6 wow fadeInUp" data-wow-delay=".3s">{T[lang]['about']}</h2>
-                                    <p class="title h2 wow fadeInUp" data-wow-delay=".6s">Orphion <span class="color-text">Pharma</span></p>
+                                    <p class="title h2 wow fadeInUp" data-wow-delay=".6s">{BRAND['word']} <span class="color-text">Pharma</span></p>
                                     <p class="desc mxw-690 wow fadeInUp" data-wow-delay=".3s">{about_p}</p>
                                     <div class="business-lines wow fadeInUp" data-wow-delay=".3s">
                                         <h3>{'İki Ana İş Kolumuz' if tr else 'Our Two Main Business Lines'}</h3>
@@ -937,7 +954,7 @@ def home_body(lang):
                         <div class="col-xl-6 d-flex justify-content-center">
                             <div class="about-thumb">
                                 <div class="main-thumb img-custom-anim-left wow fadeInUp" data-wow-delay=".3s">
-                                    <img src="assets/images/about/aboutThumb3_1.webp" width="775" height="634" loading="lazy" alt="{'Orphion Pharma ilaç tedarik ve danışmanlık hizmetleri' if tr else 'Orphion Pharma pharmaceutical supply and consulting services'}">
+                                    <img src="assets/images/about/aboutThumb3_1.webp" width="775" height="634" loading="lazy" alt="{COMPANY['name'] + ' ilaç tedarik ve danışmanlık hizmetleri' if tr else COMPANY['name'] + ' pharmaceutical supply and consulting services'}">
                                 </div>
                             </div>
                         </div>
@@ -956,7 +973,7 @@ def home_body(lang):
                         <div class="col-xl-8">
                             <div class="contact-form style2">
                                 <div class="section-title mxw-720 wow fadeInUp" data-wow-delay=".3s">
-                                    <h2 class="title">{T[lang]['contact_us']} / <span class="color-text">Orphion Pharma</span></h2>
+                                    <h2 class="title">{T[lang]['contact_us']} / <span class="color-text">{COMPANY['name']}</span></h2>
                                 </div>{contact_form(lang)}
                             </div>
                         </div>
@@ -1116,7 +1133,7 @@ def contact_body(lang):
     )
     map_btn = "Haritayı göster" if tr else "Show map"
     map_link = "Google Haritalar'da aç" if tr else "Open in Google Maps"
-    map_title = "Orphion Pharma konum haritası" if tr else "Orphion Pharma location map"
+    map_title = f"{c['name']} konum haritası" if tr else f"{c['name']} location map"
 
     def info(icon, title, value):
         return f"""
@@ -1220,7 +1237,7 @@ def privacy_body(lang):
                         <tr><td>İletişim</td><td>E-posta adresi, telefon numarası (isteğe bağlı)</td></tr>
                         <tr><td>Mesleki bilgi</td><td>Firma adı (isteğe bağlı)</td></tr>
                         <tr><td>Talep / şikâyet bilgisi</td><td>Mesaj içeriğiniz</td></tr>
-                        <tr><td>Özlük / iş başvurusu</td><td>İnsan Kaynakları formuyla gönderdiğiniz özgeçmiş (CV), eğitim ve iş deneyimi bilgileri, başvurulan pozisyon</td></tr>
+<!--hr--><tr><td>Özlük / iş başvurusu</td><td>İnsan Kaynakları formuyla gönderdiğiniz özgeçmiş (CV), eğitim ve iş deneyimi bilgileri, başvurulan pozisyon</td></tr><!--/hr-->
                         <tr><td>İşlem güvenliği</td><td>IP adresi, gönderim zamanı (kötüye kullanımı önlemek için)</td></tr>
                     </tbody>
                 </table>
@@ -1229,7 +1246,7 @@ def privacy_body(lang):
                 <ul>
                     <li>Talep, soru ve teklif isteklerinizin alınması, değerlendirilmesi ve yanıtlanması,</li>
                     <li>Olası iş birliği ve sözleşme süreçlerinin yürütülmesi,</li>
-                    <li>İş başvurularının değerlendirilmesi ve işe alım süreçlerinin yürütülmesi,</li>
+<!--hr--><li>İş başvurularının değerlendirilmesi ve işe alım süreçlerinin yürütülmesi,</li><!--/hr-->
                     <li>Web sitesi ve form güvenliğinin sağlanması, spam ve kötüye kullanımın önlenmesi,</li>
                     <li>Hukuki yükümlülüklerin yerine getirilmesi ve yetkili mercilere bilgi verilmesi.</li>
                 </ul>
@@ -1255,10 +1272,10 @@ def privacy_body(lang):
                 <h2>6. Saklama Süresi</h2>
                 <p>Kişisel verileriniz, talebinizin sonuçlandırılması için gerekli süre ve ilgili mevzuatta öngörülen
                 zamanaşımı süreleri boyunca saklanır; bu sürelerin sonunda silinir, yok edilir veya anonim hâle getirilir.
-                İş başvurusu kapsamında iletilen özgeçmişler, başvurunun sonuçlanmasından itibaren en fazla 2 yıl saklanır.
+                <!--hr-->İş başvurusu kapsamında iletilen özgeçmişler, başvurunun sonuçlanmasından itibaren en fazla 2 yıl saklanır.<!--/hr-->
                 Kötüye kullanımı önlemek için tutulan IP kayıtları en fazla 1 saat saklanır.</p>
-                <p>Lütfen özgeçmişinizde sağlık, din, mezhep, dernek üyeliği, ceza mahkûmiyeti gibi özel nitelikli kişisel
-                verilere ve fotoğrafa yer vermeyin.</p>
+                <!--hr--><p>Lütfen özgeçmişinizde sağlık, din, mezhep, dernek üyeliği, ceza mahkûmiyeti gibi özel nitelikli kişisel
+                verilere ve fotoğrafa yer vermeyin.</p><!--/hr-->
 
                 <h2>7. KVKK Madde 11 Kapsamındaki Haklarınız</h2>
                 <ul>
@@ -1309,7 +1326,7 @@ def privacy_body(lang):
                         <tr><td>Contact</td><td>Email address, phone number (optional)</td></tr>
                         <tr><td>Professional</td><td>Company name (optional)</td></tr>
                         <tr><td>Enquiry</td><td>The content of your message</td></tr>
-                        <tr><td>Job application</td><td>CV, education and work history, position applied for (via the Human Resources form)</td></tr>
+<!--hr--><tr><td>Job application</td><td>CV, education and work history, position applied for (via the Human Resources form)</td></tr><!--/hr-->
                         <tr><td>Security</td><td>IP address and time of submission (to prevent abuse)</td></tr>
                     </tbody>
                 </table>
@@ -1318,7 +1335,7 @@ def privacy_body(lang):
                 <ul>
                     <li>Receiving, assessing and responding to your enquiries and quote requests,</li>
                     <li>Carrying out potential business cooperation and contract processes,</li>
-                    <li>Evaluating job applications and running recruitment processes,</li>
+<!--hr--><li>Evaluating job applications and running recruitment processes,</li><!--/hr-->
                     <li>Keeping the website and form secure and preventing spam and abuse,</li>
                     <li>Complying with legal obligations and requests from competent authorities.</li>
                 </ul>
@@ -1336,10 +1353,10 @@ def privacy_body(lang):
 
                 <h2>6. Retention</h2>
                 <p>We keep your data for as long as necessary to handle your enquiry and for the statutory limitation
-                periods, after which it is deleted, destroyed or anonymised. CVs submitted with job applications are kept
-                for up to 2 years after the application is concluded. IP records kept to prevent abuse are stored
-                for no longer than 1 hour. Please do not include special categories of personal data (health, religion,
-                criminal records, etc.) or a photo in your CV.</p>
+                periods, after which it is deleted, destroyed or anonymised. <!--hr-->CVs submitted with job applications are kept
+                for up to 2 years after the application is concluded. <!--/hr-->IP records kept to prevent abuse are stored
+                for no longer than 1 hour. <!--hr-->Please do not include special categories of personal data (health, religion,
+                criminal records, etc.) or a photo in your CV.<!--/hr--></p>
 
                 <h2>7. Your Rights</h2>
                 <p>You may request information about whether and how your data is processed, learn the third parties it
@@ -1359,6 +1376,13 @@ def privacy_body(lang):
                 </table>
                 <p>You can change your choice at any time via <button type="button" class="js-cookie-settings btn btn-link p-0 align-baseline">Cookie Settings</button>
                 in the footer, or delete cookies in your browser settings.</p>"""
+
+    # İK sayfası yoksa iş başvurusuyla ilgili bölümleri çıkar
+    import re
+    if "hr" in PAGES:
+        content = content.replace("<!--hr-->", "").replace("<!--/hr-->", "")
+    else:
+        content = re.sub(r"<!--hr-->.*?<!--/hr-->", "", content, flags=re.S)
 
     return f"""{breadcrumb(lang, title)}
     <section class="section-tight">
@@ -1410,7 +1434,7 @@ def mission_body(lang):
                     <div class="blog-details-section p-0">
                         <div class="blog-details"><div class="content">
                             <blockquote class="mb-0">
-                                <p class="h5">{quote} ~Orphion Pharma</p>
+                                <p class="h5">{quote} ~{COMPANY['name']}</p>
                             </blockquote>
                         </div></div>
                     </div>
