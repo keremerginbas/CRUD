@@ -348,3 +348,25 @@ a[href^="mailto:"] { text-transform: none !important; }
 .section-title .title span {
   text-transform: none;
 }
+
+/* ---------- Sayfa başlığı bandı (Hakkımızda / İletişim / KVKK): daha kompakt ---------- */
+.breadcrumb-section .breadcrumb-bg {
+  padding: 70px 30px 75px;
+  border-radius: 28px;
+}
+.breadcrumb-section .breadcrumb-bg .breadcrumb-text .breadcrumb-title {
+  font-size: 46px;
+  margin-bottom: 10px;
+}
+.breadcrumb-section .breadcrumb-bg .breadcrumb-text ul li {
+  font-size: 16px;
+}
+@media (max-width: 1199.98px) {
+  .breadcrumb-section .breadcrumb-bg { padding: 55px 24px 60px; }
+  .breadcrumb-section .breadcrumb-bg .breadcrumb-text .breadcrumb-title { font-size: 38px; }
+}
+@media (max-width: 767.98px) {
+  .breadcrumb-section .breadcrumb-bg { padding: 38px 20px 40px; border-radius: 20px; }
+  .breadcrumb-section .breadcrumb-bg .breadcrumb-text .breadcrumb-title { font-size: 28px; }
+  .breadcrumb-section .breadcrumb-bg .breadcrumb-text ul li { font-size: 13px; }
+}
