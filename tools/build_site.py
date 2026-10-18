@@ -1427,7 +1427,7 @@ def chairman_body(lang):
         f"\n                        <p>{esc(p).replace(chr(10), '<br>')}</p>" for p in ch[lang]
     )
     sign = f"""
-                        <p class="chairman-sign"><strong>{esc(ch['name'])}</strong><br>{esc(ch['role'])}<br>{COMPANY['name']}</p>"""
+                        <p class="chairman-sign"><strong>{esc(ch['name'])}</strong><span>{esc(ch['role'])}</span><span>{COMPANY['name']}</span></p>"""
     if ch.get("photo"):
         photo_col = f"""
                 <div class="col-lg-4 chairman-photo-col">

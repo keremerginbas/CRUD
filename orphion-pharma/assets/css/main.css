@@ -1987,11 +1987,6 @@ input[type=radio]:checked ~ label::before {
   transition: all 900ms linear;
 }
 
-@media (max-width: 767px) {
-  br {
-    display: none;
-  }
-}
 
 /* background */
 .bg-cover {

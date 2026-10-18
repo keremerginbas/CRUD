@@ -581,3 +581,12 @@ main h2, main h3 { text-transform: none; }
   .chairman-photo { max-width: 320px; display: block; margin: 0 auto; }
 }
 .chairman-caption strong, .chairman-caption span { display: block; }
+.chairman-text .chairman-sign strong,
+.chairman-text .chairman-sign span { display: block; }
+.chairman-text .chairman-sign strong { font-size: 19px; margin-bottom: 2px; }
+/* Mobilde çerez bildirimi daha az yer kaplasın */
+@media (max-width: 575px) {
+  .cookie-banner { left: 10px; right: 10px; bottom: 10px; padding: 14px 16px; font-size: 13px; line-height: 1.5; }
+  .cookie-banner p { margin-bottom: 10px; }
+  .cookie-banner button { padding: 7px 16px; font-size: 14px; }
+}
