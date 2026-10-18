@@ -63,6 +63,7 @@ OFFICES = [
     },
 ]
 MAIN_OFFICE = OFFICES[0]
+CHAIRMAN_PHOTO_H = 994
 
 
 def maps_link(office):
@@ -83,7 +84,7 @@ PARTNERS = []
 # Fotoğraf gelince assets/images/ altına koyup "photo" alanına yolunu yazın.
 CHAIRMAN = {'name': 'Fevzi Aydın',
  'role': 'Chairman & Managing Partner',
- 'photo': None,
+ 'photo': 'assets/images/chairman-fevzi-aydin.webp',
  'tr': ['Sağlık alanında çalışmanın diğer birçok sektörden farklı olduğuna inanıyorum.',
         'Çünkü aldığımız kararların, kurduğumuz ortaklıkların ve dünyanın farklı noktalarından erişilebilir '
         'hale getirdiğimiz tedavilerin nihai karşılığı bir bilanço kalemi değil, bir insan hayatıdır.',
@@ -1421,8 +1422,9 @@ def chairman_body(lang):
                         <p class="chairman-sign"><strong>{esc(ch['name'])}</strong><br>{esc(ch['role'])}<br>{COMPANY['name']}</p>"""
     if ch.get("photo"):
         photo_col = f"""
-                <div class="col-lg-4">
-                    <img class="chairman-photo" src="{ch['photo']}" alt="{esc(ch['name'])}" loading="lazy">
+                <div class="col-lg-4 chairman-photo-col">
+                    <img class="chairman-photo" src="{ch['photo']}" width="720" height="{CHAIRMAN_PHOTO_H}" alt="{esc(ch['name'])}, {esc(ch['role'])}">
+                    <p class="chairman-caption"><strong>{esc(ch['name'])}</strong><span>{esc(ch['role'])}</span></p>
                 </div>"""
         text_cls = "col-lg-8"
     else:

@@ -572,3 +572,12 @@ a[href^="mailto:"] { text-transform: none !important; }
 }
 /* İçerik başlıkları: şablonun capitalize dönüşümü Türkçe i/ı'yı bozuyor */
 main h2, main h3 { text-transform: none; }
+.chairman-photo { height: auto; box-shadow: 0 10px 30px rgba(34, 44, 62, 0.15); }
+.chairman-caption { margin-top: 16px; text-align: center; color: var(--title); line-height: 1.6; }
+@media (min-width: 992px) {
+  .chairman-photo-col { position: sticky; top: 120px; }
+}
+@media (max-width: 991px) {
+  .chairman-photo { max-width: 320px; display: block; margin: 0 auto; }
+}
+.chairman-caption strong, .chairman-caption span { display: block; }
