@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://orphionpharma.com/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/index-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/index-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/index-en.html</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/index-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/index-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/about.html</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/about.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/about-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/about-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/about-en.html</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/about.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/about-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/about-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/contact.html</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/contact.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/contact-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/contact-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/contact-en.html</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/contact.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/contact-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/contact-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/kvkk.html</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/kvkk.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/privacy-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/privacy-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/privacy-en.html</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.3</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/kvkk.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/privacy-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/privacy-en.html"/>
+  </url>
+</urlset>

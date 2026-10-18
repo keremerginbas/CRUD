@@ -1,0 +1,64 @@
+# ------------------------------------------------------------
+# Orphion Pharma - Apache ayarları
+# ------------------------------------------------------------
+DirectoryIndex index.html
+Options -Indexes
+AddDefaultCharset UTF-8
+
+RewriteEngine On
+
+# HTTPS yönlendirme
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+# Dil yönlendirmesi YOK: GeoIP / IP tabanlı yönlendirme kaldırıldı.
+# - GeoIP modülü olmayan sunucuda herkesi (Türkiye dahil) İngilizceye atıyordu.
+# - Googlebot ABD IP'sinden geldiği için Türkçe ana sayfa indekslenmiyordu.
+# Ziyaretçi dili sağ üstteki TR / EN butonuyla seçer; arama motorları
+# doğru dili hreflang etiketlerinden öğrenir.
+
+# Gizli dosya ve klasörleri engelle (.well-known hariç: SSL sertifikası için gerekli)
+RewriteRule (^|/)\.(?!well-known/) - [F]
+
+# Kaynak / yardımcı dosyaları dışarı açma
+<FilesMatch "\.(md|py|sh|log|json)$">
+    Require all denied
+</FilesMatch>
+
+# Özel 404 yoksa ana sayfaya düşmesin, varsayılan 404 kalsın.
+
+# ------------------------------------------------------------
+# Güvenlik başlıkları
+# ------------------------------------------------------------
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
+# ------------------------------------------------------------
+# Sıkıştırma ve önbellek
+# ------------------------------------------------------------
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json image/svg+xml application/xml text/xml text/plain
+</IfModule>
+
+<IfModule mod_mime.c>
+    AddType image/webp .webp
+    AddType font/woff2 .woff2
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresDefault "access plus 1 hour"
+    ExpiresByType text/html "access plus 0 seconds"
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType text/javascript "access plus 1 month"
+    ExpiresByType image/webp "access plus 6 months"
+    ExpiresByType image/png "access plus 6 months"
+    ExpiresByType image/jpeg "access plus 6 months"
+    ExpiresByType image/svg+xml "access plus 6 months"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
