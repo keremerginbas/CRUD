@@ -258,6 +258,14 @@ T = {
 }
 
 
+def asset(path):
+    """Dosya içeriğinden kısa bir sürüm ekler (ör. main.css?v=1a2b3c4d).
+    Dosya değişince adres de değişir; tarayıcı eski önbelleği kullanmaz."""
+    import hashlib
+    digest = hashlib.md5((ROOT / path).read_bytes()).hexdigest()[:8]
+    return f"{path}?v={digest}"
+
+
 def esc(s):
     return html.escape(s, quote=True)
 
@@ -315,11 +323,11 @@ def head(page, lang, title, description, extra=""):
     <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
     <!-- Stiller -->
     <link rel="preload" href="assets/fonts/roboto-latin.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="assets/css/bootstrap.min.css">
-    <link rel="stylesheet" href="assets/css/animate.css">
-    <link rel="stylesheet" href="assets/css/meanmenu.css">
-    <link rel="stylesheet" href="assets/css/main.css">
-    <link rel="stylesheet" href="assets/css/custom.css">{extra}
+    <link rel="stylesheet" href="{asset('assets/css/bootstrap.min.css')}">
+    <link rel="stylesheet" href="{asset('assets/css/animate.css')}">
+    <link rel="stylesheet" href="{asset('assets/css/meanmenu.css')}">
+    <link rel="stylesheet" href="{asset('assets/css/main.css')}">
+    <link rel="stylesheet" href="{asset('assets/css/custom.css')}">{extra}
 </head>
 """
 
@@ -729,10 +737,10 @@ def footer(lang):
     </div>
 
     <!-- JS -->
-    <script src="assets/js/jquery-3.7.1.min.js"></script>
-    <script src="assets/js/jquery.meanmenu.min.js"></script>
-    <script src="assets/js/wow.min.js"></script>
-    <script src="assets/js/main.js"></script>
+    <script src="{asset('assets/js/jquery-3.7.1.min.js')}"></script>
+    <script src="{asset('assets/js/jquery.meanmenu.min.js')}"></script>
+    <script src="{asset('assets/js/wow.min.js')}"></script>
+    <script src="{asset('assets/js/main.js')}"></script>
 </body>
 
 </html>
