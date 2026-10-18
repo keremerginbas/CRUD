@@ -342,3 +342,9 @@ html, body { overflow-x: hidden; }
 
 /* E-posta adresleri her zaman küçük harf görünsün */
 a[href^="mailto:"] { text-transform: none !important; }
+
+/* Şablonun "capitalize" dönüşümü Türkçe i/ı harflerini bozuyor; metinler zaten doğru yazıldı */
+.section-title .title,
+.section-title .title span {
+  text-transform: none;
+}

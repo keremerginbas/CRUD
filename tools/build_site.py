@@ -797,7 +797,6 @@ def about_body(lang):
         p1 = ("Orphion Pharma, Orphion Group'un bir parçası olarak, uluslararası markaların Türkiye ilaç pazarına "
               "erişimini kolaylaştırmaya odaklanmış genç ve dinamik bir şirkettir.")
         p2 = "Orphion Pharma iki ana iş koluna sahiptir:"
-        patients = ("Toplam Ulaşılan Hasta", "1.1 Milyon")
         vision_t, vision = "Vizyonumuz", (
             "Vizyonumuz, Türkiye ilaç pazarında iş birliği arayışında olan uluslararası firmaların ilk adresi olmak "
             "ve hastaların yeni orijinal ilaçlara ve daha iyi jenerik ilaçlara erişimini artırmaktır.")
@@ -805,7 +804,7 @@ def about_body(lang):
             "Misyonumuz, Türkiye'de ilaç tedarik eden uluslararası firmalar ile Türk bürokrasisi ve ilaç tedarikçisi "
             "kurumlar arasında sürdürülebilir ilişkiler kurarak sinerji yaratmaktır.")
         quote = "“Türkiye’nin ilaç tedarikinde güvenilir markası.”"
-        fact_sub, fact_title = "Sayılarla Biz", 'Verdiğimiz Hizmet <span class="color-text">Detayları</span>'
+        fact_sub, fact_title = 'Neden <span lang="en">Orphion Pharma</span>?', 'Verdiğimiz Hizmet <span class="color-text">Detayları</span>'
         fact_desc = ("Orphion Pharma, dünyanın önde gelen ilaç firmaları ile iş birliği yapmaktadır. Güvenilirliğimiz "
                      "ve profesyonelliğimiz sayesinde, uluslararası firmaların Türkiye pazarına sorunsuz bir şekilde "
                      "giriş yapmasını sağlıyoruz.")
@@ -815,7 +814,6 @@ def about_body(lang):
         p1 = ("Orphion Pharma, as part of Orphion Group, is a young and dynamic company focused on facilitating "
               "international brands' access to the Turkish pharmaceutical market.")
         p2 = "Orphion Pharma has two main business lines:"
-        patients = ("Total Patients Reached", "1.1 Million")
         vision_t, vision = "Our Vision", (
             "Our vision is to become the first address for international companies seeking cooperation in the Turkish "
             "pharmaceutical market and to increase patients' access to new original medicines and better generics.")
@@ -823,7 +821,7 @@ def about_body(lang):
             "Our mission is to create synergy by building sustainable relationships between international companies "
             "supplying pharmaceuticals in Türkiye and Turkish public authorities and pharmaceutical procurement institutions.")
         quote = "“The trusted brand in Türkiye’s pharmaceutical supply.”"
-        fact_sub, fact_title = "In Numbers", 'Our Service <span class="color-text">at a Glance</span>'
+        fact_sub, fact_title = "Why Orphion Pharma?", 'Our Service <span class="color-text">at a Glance</span>'
         fact_desc = ("Orphion Pharma collaborates with leading pharmaceutical companies worldwide. Thanks to our "
                      "reliability and professionalism, we help international companies enter the Turkish market smoothly.")
         img_alt = "Orphion Pharma team and pharmaceutical supply processes"
@@ -854,13 +852,6 @@ def about_body(lang):
                                 </div>
                                 <div class="shape" aria-hidden="true">
                                     <img src="assets/images/shape/aboutShape2_1.webp" width="845" height="347" alt="">
-                                </div>
-                                <div class="about-thumb-box wow fadeInUp" data-wow-delay=".3s">
-                                    <ul class="profile-img" aria-hidden="true">
-                                        <li><img src="assets/images/about/aboutProfileThumb1_1.webp" width="90" height="40" alt=""></li>
-                                    </ul>
-                                    <h3 class="h6">{patients[0]}</h3>
-                                    <p class="h4">{patients[1]}</p>
                                 </div>
                             </div>
                         </div>

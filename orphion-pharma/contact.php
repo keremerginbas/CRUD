@@ -15,7 +15,7 @@ declare(strict_types=1);
 // ------------------------------------------------------------------
 // Ayarlar
 // ------------------------------------------------------------------
-const MAIL_TO      = 'info@orphionpharma.com';
+const MAIL_TO      = 'fevziaydin@orphionpharma.com';
 const MAIL_FROM    = 'no-reply@orphionpharma.com'; // alan adınıza ait olmalı (SPF)
 const MIN_SECONDS  = 3;    // formu bundan hızlı gönderen bot sayılır
 const RATE_LIMIT   = 5;    // aynı IP için saatlik en fazla gönderim
