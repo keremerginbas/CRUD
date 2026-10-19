@@ -11,10 +11,18 @@ export const waLink = (text = site.whatsappText) => `https://wa.me/${site.whatsa
 const ROBOTS = 'index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1';
 
 // ---------------------------------------------------------------- medya
-export function picture(scene, alt, { cls = '', eager = false, blog = false } = {}) {
+const tallSrc = (base) => `${base}-p-sm.webp 600w, ${base}-p.webp 900w`;
+
+/** hero: mobilde dikey (3:4) kırpım kullanılır; portrait: her ekranda dikey kırpım */
+export function picture(scene, alt, { cls = '', eager = false, blog = false, hero = false, portrait = false, sizes = '(max-width: 768px) 100vw, 50vw' } = {}) {
   const base = blog ? `/assets/img/blog/${scene}` : `/assets/img/${scene}`;
-  return `<img src="${base}.webp" srcset="${base}-sm.webp 640w, ${base}.webp 1280w" sizes="(max-width: 768px) 100vw, 50vw"
-    width="1280" height="720" alt="${esc(alt)}" class="${cls}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
+  const load = eager ? 'fetchpriority="high"' : 'loading="lazy"';
+  if (portrait) {
+    return `<img src="${base}-p.webp" srcset="${tallSrc(base)}" sizes="${sizes}" width="900" height="1200" alt="${esc(alt)}" class="${cls}" ${load} decoding="async">`;
+  }
+  const img = `<img src="${base}.webp" srcset="${base}-sm.webp 640w, ${base}.webp 1280w" sizes="${hero ? '100vw' : sizes}"
+    width="1280" height="720" alt="${esc(alt)}" class="${cls}" ${load} decoding="async">`;
+  return hero ? `<picture><source media="(max-width: 767px)" srcset="${tallSrc(base)}" sizes="100vw">${img}</picture>` : img;
 }
 
 // Gerçek medya: scripts/import_photos.py, src/photos/ içindeki fotoğraf/videoları işler ve
@@ -26,11 +34,11 @@ const MEDIA = (() => {
 const VIDEO_ALIAS = { temel: 'hafriyat', altyapi: 'hafriyat', yol: 'nakliye', dolgu: 'makine' };
 export const media = (scene) => MEDIA[scene] || {};
 
-export function video(scene, label, { cls = '', lazy = true } = {}) {
+export function video(scene, label, { cls = '', lazy = true, portrait = false } = {}) {
   const m = media(scene);
   if (m.photo && !m.video) {
-    return `<img src="/assets/img/${scene}.webp" srcset="/assets/img/${scene}-sm.webp 640w, /assets/img/${scene}.webp 1280w" sizes="100vw"
-    width="1280" height="720" alt="${esc(label.replace(/ videosu$/, ''))}" class="${cls} photo-motion" ${lazy ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async">`;
+    const alt = label.replace(/ videosu$/, '');
+    return picture(scene, alt, { cls, eager: !lazy, portrait, hero: !portrait, sizes: '100vw' });
   }
   const v = m.video || fs.existsSync(new URL(`../../dist/assets/video/${scene}.mp4`, import.meta.url)) ? scene : (VIDEO_ALIAS[scene] || scene);
   // Lazy: kaynaklar görünür olunca site.js tarafından yüklenir (data-src)

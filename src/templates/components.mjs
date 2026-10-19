@@ -30,8 +30,8 @@ export function pageHero({ h1, lead, scene, crumbs, kicker, videoBg = true, blog
   return `
 <section class="page-hero">
   <div class="absolute inset-0">
-    ${videoBg && !blog ? video(scene, h1, { cls: 'hero-media' }) : picture(scene, h1, { cls: 'hero-media', eager: true, blog })}
-    <div class="absolute inset-0 bg-gradient-to-r from-ink-950/95 via-ink-950/75 to-ink-950/30"></div>
+    ${videoBg && !blog ? video(scene, h1, { cls: 'hero-media' }) : picture(scene, h1, { cls: 'hero-media', eager: true, blog, hero: true })}
+    <div class="absolute inset-0 bg-gradient-to-r from-ink-950/85 via-ink-950/60 to-ink-950/20"></div>
     <div class="absolute inset-0 bg-gradient-to-t from-ink-950/80 to-transparent"></div>
   </div>
   <div class="container-x relative pt-36 pb-16 md:pt-44 md:pb-24">

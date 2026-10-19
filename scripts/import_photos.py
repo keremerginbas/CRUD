@@ -55,6 +55,10 @@ def save_set(im, out_base, og_path=None, shift=0.5):
     wide = crop(im, 16 / 9, shift).resize((1280, 720), Image.LANCZOS)
     wide.save(out_base + ".webp", quality=82, method=6)
     wide.resize((640, 360), Image.LANCZOS).save(out_base + "-sm.webp", quality=80, method=6)
+    # mobil ve dikey kutular için 3:4 sürüm (dikey çekilmiş fotoğraflar neredeyse hiç kırpılmaz)
+    tall = crop(im, 3 / 4, 0.5).resize((900, 1200), Image.LANCZOS)
+    tall.save(out_base + "-p.webp", quality=80, method=6)
+    tall.resize((600, 800), Image.LANCZOS).save(out_base + "-p-sm.webp", quality=78, method=6)
     if og_path:
         crop(im, 1200 / 630, shift).resize((1200, 630), Image.LANCZOS).save(og_path, quality=84, optimize=True, progressive=True)
     return wide

@@ -70,7 +70,7 @@
   .hero-slide.is-active { @apply opacity-100; }
   .hero-media { @apply absolute inset-0 w-full h-full object-cover; }
   .hero-slide.is-active .hero-media { animation: kenburns 9s ease-out both; }
-  @keyframes kenburns { from { transform: scale(1.12); } to { transform: scale(1); } }
+  @keyframes kenburns { from { transform: scale(1.06); } to { transform: scale(1); } }
   .hero-copy { @apply absolute opacity-0 pointer-events-none; }
   .hero-copy.is-active { @apply relative opacity-100 pointer-events-auto; }
   .hero-copy.is-active > * { animation: rise .9s cubic-bezier(.2,.8,.2,1) both; }
@@ -225,7 +225,3 @@
   [data-reveal], .split-word > span { opacity: 1 !important; transform: none !important; }
 }
 [hidden] { display: none !important; }
-/* Gerçek fotoğraflarda video hissi veren yavaş yakınlaşma/kayma */
-.photo-motion { animation: photo-motion 18s ease-in-out infinite alternate; }
-@keyframes photo-motion { from { transform: scale(1.04) translate3d(-1%, 0, 0); } to { transform: scale(1.14) translate3d(1.5%, -1%, 0); } }
-@media (prefers-reduced-motion: reduce) { .photo-motion { animation: none; } }

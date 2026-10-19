@@ -156,7 +156,7 @@ export function home({ services, posts }) {
   const about = `<section class="section overflow-hidden">
   <div class="container-x grid gap-16 lg:grid-cols-2 items-center">
     <div class="relative" data-reveal="left">
-      <div class="relative rounded-3xl overflow-hidden shadow-2xl aspect-[4/3]">${video('insaat', 'CMS Hafriyat inşaat sahası videosu', { cls: 'absolute inset-0 w-full h-full object-cover' })}</div>
+      <div class="relative rounded-3xl overflow-hidden shadow-2xl aspect-[4/5] max-h-[620px] mx-auto">${video('insaat', 'CMS Hafriyat inşaat sahası', { cls: 'absolute inset-0 w-full h-full object-cover', portrait: true })}</div>
       <div class="absolute -bottom-8 -right-4 md:-right-8 bg-brand-500 text-ink-950 rounded-2xl p-6 shadow-xl max-w-[15rem] float-y">
         <p class="font-display text-4xl font-extrabold leading-none">8</p><p class="mt-1 font-semibold">farklı alanda güvenilir hizmet</p>
       </div>
@@ -291,7 +291,7 @@ ${pageHero({ h1: 'Hakkımızda: Güven, Kalite ve Güçlü İş Ortaklığı', l
       <blockquote>Bizim için başarı, yalnızca bir işi tamamlamak değil; iş ortaklarımızın güvenini kazanmak, kalıcı ilişkiler kurmak ve her projede sürdürülebilir değer oluşturmaktır.</blockquote>
     </div>
     <div class="relative rounded-3xl overflow-hidden shadow-2xl aspect-[4/5] lg:sticky lg:top-28" data-reveal="right">
-      ${video('hafriyat', 'CMS Hafriyat hafriyat operasyonu videosu', { cls: 'absolute inset-0 w-full h-full object-cover' })}
+      ${video('hafriyat', 'CMS Hafriyat hafriyat operasyonu', { cls: 'absolute inset-0 w-full h-full object-cover', portrait: true })}
       <div class="absolute inset-x-0 bottom-0 p-8 bg-gradient-to-t from-ink-950/90 to-transparent"><p class="font-display text-3xl font-extrabold uppercase text-white leading-none">Güvenle Başlar,<br><span class="text-brand-400">Değerle Büyür.</span></p></div>
     </div>
   </div>
