@@ -25,12 +25,18 @@ button,input,select{font:inherit;color:inherit}
 .top{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:20px 28px 0;flex-wrap:wrap;max-width:1560px;margin:0 auto}
 .top h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em}
 .top p{margin:2px 0 0;color:var(--ink-3);font-size:13px}
-.tabs{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:3px;gap:2px}
-.tabs button{border:0;background:none;padding:7px 14px;border-radius:7px;cursor:pointer;color:var(--ink-2);font-weight:600}
+.tabs{display:inline-flex;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:3px;gap:2px;max-width:100%;overflow-x:auto;scrollbar-width:thin;box-shadow:0 1px 2px rgba(16,36,58,.04)}
+.tabs button{border:0;background:none;padding:7px 14px;border-radius:7px;cursor:pointer;color:var(--ink-2);font-weight:600;white-space:nowrap}
+.tabs button:hover{color:var(--ink);background:var(--line-2)}
+.top .brandrow{display:flex;align-items:center;gap:12px}
+.notice{display:flex;align-items:center;gap:14px;flex-wrap:wrap;max-width:1560px;margin:16px auto 0;padding:12px 16px;border-radius:var(--r-m);border:1px solid var(--accent);background:var(--accent-soft);color:var(--ink)}
+.notice.bad{border-color:var(--danger);background:var(--danger-soft)}
+.notice p{margin:0;flex:1;min-width:220px}.notice b{font-weight:700}
+.notice-wrap{padding:0 28px}
 .tabs button[aria-selected=true]{background:var(--ink);color:var(--paper)}
 main{padding:20px 28px 40px;max-width:1560px;margin:0 auto}
 /* Hat panosu: her numara bir hücre */
-.board{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:18px 20px;margin-bottom:18px;display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center}
+.board{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);box-shadow:0 1px 2px rgba(16,36,58,.04);padding:18px 20px;margin-bottom:18px;display:grid;grid-template-columns:auto 1fr auto;gap:22px;align-items:center}
 .board .count{font-size:30px;font-weight:700;line-height:1;letter-spacing:-.02em}
 .board .count small{font-size:15px;color:var(--ink-3);font-weight:500}
 .board .caption{color:var(--ink-2);font-size:13px;margin-top:4px}
@@ -49,7 +55,7 @@ main{padding:20px 28px 40px;max-width:1560px;margin:0 auto}
 .bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 10px;flex-wrap:wrap}
 .bar .hint{color:var(--ink-3);font-size:13px}
 .search{min-width:220px;padding:7px 11px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--surface)}
-.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden}
+.list{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);overflow:hidden;box-shadow:0 1px 2px rgba(16,36,58,.04)}
 .row{display:grid;grid-template-columns:minmax(180px,1.4fr) minmax(150px,1fr) 120px minmax(140px,1.2fr) 230px;gap:14px;align-items:center;padding:12px 18px;border-top:1px solid var(--line-2)}
 .row:first-child{border-top:0}
 .list.staff .row{grid-template-columns:minmax(180px,1.3fr) minmax(120px,.8fr) 220px minmax(160px,1.6fr)}
@@ -132,6 +138,8 @@ select.filter{padding:6px 9px;border:1px solid var(--line);border-radius:var(--r
 .plan h4{margin:0;font-size:16px}.plan b{font-size:24px;letter-spacing:-.02em}.plan b small{font-size:13px;font-weight:500;color:var(--ink-2)}
 .plan ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:5px;font-size:13px}
 .plan li:before{content:"✓";color:var(--ok);font-weight:700;margin-right:7px}.plan li.no{color:var(--ink-3)}.plan li.no:before{content:"–";color:var(--ink-3)}
+.plan{position:relative}.plan.rec{border-color:var(--accent)}
+.plan .rectag{position:absolute;top:-10px;right:14px;font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--accent-ink);background:var(--accent);padding:2px 9px;border-radius:999px}
 .plan .now{align-self:flex-start;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 8px;border-radius:999px}
 .tabs button.locked:after{content:"🔒";font-size:10px;margin-left:4px;opacity:.7}
 .planbadge{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:2px 9px;border-radius:999px;vertical-align:middle}
@@ -221,7 +229,7 @@ export function panelHtml(ticket: string, domain: string, lang: Lang = "tr", cha
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${PANEL_STYLE}</style></head><body>
 <div class="top">
-  <div><h1>WhatsApp hatları<span class="planbadge" id="planbadge" hidden></span></h1><p>${escapeHtml(domain)}</p></div>
+  <div class="brandrow"><svg width="36" height="36" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="9" fill="var(--accent)"/><path d="M9 11.5h14v8H15l-4 3v-3H9z" fill="none" stroke="var(--accent-ink)" stroke-width="2" stroke-linejoin="round"/></svg><div><h1>WhatsApp hatları<span class="planbadge" id="planbadge" hidden></span></h1><p>${escapeHtml(domain)}</p></div></div>
   <div class="tabs" role="tablist">
     <button role="tab" data-tab="connections" aria-selected="true">Bağlantılar</button>
     <button role="tab" data-tab="chats" aria-selected="false">Sohbetler</button>
@@ -236,6 +244,7 @@ export function panelHtml(ticket: string, domain: string, lang: Lang = "tr", cha
     <button role="tab" data-tab="settings" aria-selected="false">Ayarlar</button>
   </div>
 </div>
+<div class="notice-wrap"><div class="notice" id="notice" hidden></div></div>
 <main id="main" aria-live="polite"><p class="sub">Yükleniyor…</p></main>
 <div class="scrim" id="scrim"></div>
 <aside class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title"></aside>
@@ -251,7 +260,7 @@ async function api(path,body={}){const r=await fetch("/b24/panel/"+path,{method:
 let toastTimer;function toast(msg,err){const t=$("#toast");t.textContent=msg;t.className="toast show"+(err?" err":"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className="toast",err?7000:3200);}
 function warn(w){if(w&&w.length)toast(w.join("\\n"),true);}
 async function load(){try{S=await api("state");markTabs();render();}catch(e){$("#main").innerHTML='<div class="empty"><strong>Panel yüklenemedi</strong>'+esc(e.message)+'</div>';}}
-document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",String(x===b)));filter="";render();});
+document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",String(x===b)));filter="";showNotice();render();});
 function rolesFor(line){return S.roles.filter(r=>r.lines==="all"||r.lines.includes(line));}
 function roleOfUser(u){return S.roles.find(r=>r.id===u.roleId)||S.roles.find(r=>r.isDefault);}
 function chips(list,emptyText){return list.length?'<div class="chips">'+list.map(x=>'<span class="chip">'+esc(x)+'</span>').join("")+'</div>':'<div class="chips"><span class="chip none">'+esc(emptyText)+'</span></div>';}
@@ -262,13 +271,24 @@ const PLAN_RANK={basic:0,pro:1,proplus:2};
 const PLAN_FEATURES=[["Numara bağlama ve Bitrix’ten yazışma","basic"],["Görsel, video, ses kaydı ve belge","basic"],["Sohbet ekranı ve CRM kart sekmesi","basic"],["Roller ve personel atama","basic"],["Canlı izleme ve performans analizi","pro"],["Meta hesabıyla toplu kampanya","pro"],["Otomatik çeviri ve sesli mesajı yazıya dökme","proplus"],["7/24 AI asistan","proplus"],["AI ile sohbet analizi ve lead puanı","proplus"],["Yöneticiye günlük AI rapor","proplus"]];
 function allowed(f){return !S.plan||!S.plan.features||S.plan.features[f]!==false;}
 function planCards(sel,prices,cur,onPick){
-  return '<div class="plans" role="group" aria-label="Paket">'+["basic","pro","proplus"].map(id=>'<button type="button" class="plan" data-plan="'+id+'" aria-pressed="'+(id===sel)+'">'+(S.plan&&S.plan.source==="paid"&&S.plan.plan===id?'<span class="now">'+esc("Mevcut paket")+'</span>':'')+'<h4>'+PLAN_NAMES[id]+'</h4>'+(prices?'<b>'+money(prices[id],cur)+' <small>'+esc("numara başına / ay")+'</small></b>':'')
+  return '<div class="plans" role="group" aria-label="Paket">'+["basic","pro","proplus"].map(id=>'<button type="button" class="plan'+(id==="proplus"?" rec":"")+'" data-plan="'+id+'" aria-pressed="'+(id===sel)+'">'+(id==="proplus"?'<span class="rectag">'+esc("Önerilen")+'</span>':'')+(S.plan&&S.plan.source==="paid"&&S.plan.plan===id?'<span class="now">'+esc("Mevcut paket")+'</span>':'')+'<h4>'+PLAN_NAMES[id]+'</h4>'+(prices?'<b>'+money(prices[id],cur)+' <small>'+esc("numara başına / ay")+'</small></b>':'')
     +'<ul>'+PLAN_FEATURES.map(([t,min])=>'<li'+(PLAN_RANK[id]>=PLAN_RANK[min]?'':' class="no"')+'>'+esc(t)+'</li>').join("")+'</ul></button>').join("")+'</div>';
 }
 function markTabs(){
   document.querySelectorAll(".tabs button").forEach(b=>{const f=TAB_FEATURE[b.dataset.tab];b.classList.toggle("locked",!!f&&!allowed(f));});
+  showNotice();
   const pb=$("#planbadge");if(!pb||!S.plan)return;
   pb.hidden=false;pb.textContent=PLAN_NAMES[S.plan.plan]+(S.plan.source==="trial"?" · "+"Deneme":S.plan.source==="free"?" · "+"Ücretsiz":"");
+}
+function showNotice(){
+  const n=$("#notice");if(!n)return;
+  const expired=(S.connections||[]).filter(c=>c.license&&c.license.status==="expired").length;
+  const trials=(S.connections||[]).filter(c=>c.license&&c.license.status==="trial").map(c=>c.license.daysLeft);
+  let html="";
+  if(tab!=="billing"&&expired)html='<p class="bad-text"><b>'+esc(("{n} numaranın lisans süresi doldu.").replace("{n}",expired))+'</b> '+esc("Bu numaralarda mesajlar Bitrix’e aktarılmıyor. Lisansı uzatınca kaldığı yerden devam eder.")+'</p><button class="btn primary" data-nb="1">Lisansı uzat</button>';
+  else if(tab!=="billing"&&S.plan&&S.plan.source==="trial"&&trials.length)html='<p><b>'+esc(("Ücretsiz deneme: {n} gün kaldı.").replace("{n}",Math.min(...trials)))+'</b> '+esc("Şu an tüm Pro+ özellikleri açık. Deneme bitmeden paketinizi seçin, numaralarınız kesintisiz çalışsın.")+'</p><button class="btn primary" data-nb="1">Paket seç</button>';
+  n.hidden=!html;n.className="notice"+(expired&&tab!=="billing"?" bad":"");n.innerHTML=html;
+  const b=n.querySelector("[data-nb]");if(b)b.onclick=()=>document.querySelector('[data-tab=billing]').click();
 }
 function upsell(f){
   const need=FEATURE_PLAN[f];

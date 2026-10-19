@@ -91,7 +91,7 @@ import { handleConnectorEvolution, isConnectorInstance, registerB24ConnectorRout
 import { startReportScheduler } from "./b24-live.js";
 import { startLineHealthMonitor } from "./b24-connector.js";
 import { resumeCampaigns } from "./b24-campaigns.js";
-import { registerBillingAdminRoutes } from "./b24-billing.js";
+import { registerBillingAdminRoutes, startBillingReminders } from "./b24-billing.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
@@ -1610,6 +1610,7 @@ export function createApp(
   if (options.background) startBackupScheduler(baseStore);
   if (options.background) startReportScheduler(baseStore);
   if (options.background) startLineHealthMonitor(baseStore);
+  if (options.background) startBillingReminders(baseStore);
   if (options.background) void resumeCampaigns(baseStore).catch((e) => console.warn("Kampanyalar devam ettirilemedi:", (e as Error).message));
   registerMediaRoutes(app, store, {
     providerFor: (lineId, owner) => lineProvider(store, owner, lineId),

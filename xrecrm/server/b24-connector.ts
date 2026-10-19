@@ -17,7 +17,7 @@ import { appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, re
 import { logRestCall } from "./b24-restlog.js";
 import { registerLegalRoutes } from "./b24-legal.js";
 import { adminHtml } from "./b24-admin-html.js";
-import { getPricing, licenseState, lineUsable, planOf, portalPlan, registerBillingPanelRoutes, requireFeature, withTrialStarted } from "./b24-billing.js";
+import { getPricing, licenseState, lineUsable, notifyOwner, planOf, portalPlan, registerBillingPanelRoutes, requireFeature, withTrialStarted } from "./b24-billing.js";
 import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
 export { panelHtml };
 import type { Store } from "./db.js";
@@ -69,6 +69,8 @@ export interface B24Portal {
   clientId?: string;
   /** Arayüz ve sohbet notlarının dili (Bitrix LANG); yoksa Türkçe. */
   lang?: Lang;
+  /** Uygulamayı kuran / açan Bitrix yöneticileri; lisans hatırlatmaları bunlara gider. */
+  adminIds?: string[];
 }
 export interface B24Settings {
   translate?: boolean;
@@ -233,6 +235,8 @@ export interface B24License {
   paidUntil?: string;
   /** Ödenen paket; eski lisanslarda yoktur ve Pro+ sayılır. */
   plan?: "basic" | "pro" | "proplus";
+  /** Gönderilen hatırlatmalar (aynı bitiş için bir kez): deneme başlangıcı / lisans bitişi */
+  notified?: { trial?: string; paid?: string; expired?: string };
 }
 export interface B24Line {
   instance: string;
@@ -963,6 +967,11 @@ async function verifyInstallTokens(p: BitrixParams) {
   };
 }
 
+const withAdmin = (list: string[] | undefined, id: unknown) => {
+  const uid = String(id || "").replace(/\D/g, "");
+  return uid ? [uid, ...(list || []).filter((x) => x !== uid)].slice(0, 10) : list || [];
+};
+
 async function installPortal(store: Store, p: BitrixParams, base: string): Promise<B24Portal> {
   const existing = await portalById(store, p.memberId);
   if (existing?.active && existing.domain !== p.domain)
@@ -997,7 +1006,9 @@ async function installPortal(store: Store, p: BitrixParams, base: string): Promi
   if (!user?.ID) throw new Error("Bitrix oturumu doğrulanamadı.");
   if ((await b24Call(store, portal, "user.admin")) !== true)
     throw Object.assign(new Error("Uygulamayı yalnız Bitrix24 yöneticisi kurabilir."), { statusCode: 403 });
+  portal.adminIds = withAdmin(portal.adminIds, user.ID);
   await savePortal(store, portal);
+  if (!existing?.active) notifyOwner("install", `Yeni kurulum: ${portal.domain}`, { domain: portal.domain, lang: portal.lang || "" });
   await registerConnector(store, portal, base);
   const tabWarnings = await bindCardTabs(store, portal, base);
   if (tabWarnings.length) console.warn(`WhatsApp by XRE kart sekmesi (${portal.domain}):`, tabWarnings.join("; "));
@@ -1030,6 +1041,7 @@ const chatViewUrl = (memberId: string, userId: string, admin: boolean, lang: Lan
  * satın alınmış lisanslar korunur; aynı portal yeniden kurarsa ödediği süre kaybolmaz.
  */
 export async function uninstallPortal(store: Store, portal: B24Portal) {
+  notifyOwner("uninstall", `Uygulama kaldırıldı: ${portal.domain}`, { domain: portal.domain });
   for (const l of Object.values(portal.lines)) {
     if (l.instance) {
       await evolution(`/instance/logout/${encodeURIComponent(l.instance)}`, { method: "DELETE" }).catch(() => undefined);
@@ -1114,6 +1126,10 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
     }
     const userId = String(user?.ID || "").replace(/\D/g, "");
     if (admin) {
+      if (userId && !(portal.adminIds || []).includes(userId)) {
+        const current = (await portalById(store, portal.id)) || portal;
+        await savePortal(store, { ...current, adminIds: withAdmin(current.adminIds, userId) });
+      }
       // Sohbet notları ve raporlar yöneticinin Bitrix dilinde yazılır.
       if (portal.lang !== p.lang) await savePortal(store, { ...((await portalById(store, portal.id)) || portal), lang: p.lang });
       // Mevcut kanallarda Bitrix'in otomatik mesajları bir kez kapatılır.

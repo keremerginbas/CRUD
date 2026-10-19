@@ -120,6 +120,7 @@ export const SETTING_GROUPS: SettingGroup[] = [
       { key: "B24_SUPPORT_EMAIL", label: "Destek e-postası", placeholder: "support@xresoftware.com", help: "Pazar yeri uluslararası alan adı ister (.com gibi)." },
       { key: "B24_SUPPORT_PHONE", label: "Destek telefonu", placeholder: "+90 850 000 00 00" },
       { key: "B24_SUPPORT_HOURS", label: "Destek saatleri", placeholder: "Mon–Fri 09:00–18:00 (UTC+3), reply within 1 business day" },
+      { key: "B24_ADMIN_WEBHOOK", label: "XRE bildirim webhook'u", placeholder: "https://n8n.example.com/webhook/xre-wa", help: "Yeni kurulum ve havale bildiriminde bu adrese JSON gönderilir (ör. n8n → Telegram)." },
     ],
   },
   {

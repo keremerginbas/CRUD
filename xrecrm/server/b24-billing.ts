@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import type { Express, Request, Response, RequestHandler } from "express";
 import type { Store } from "./db.js";
 import type { AuthContext } from "./types.js";
-import { PORTAL_KIND, SYSTEM_OWNER, portalById, savePortal, type B24Line, type B24Portal } from "./b24-connector.js";
+import { PORTAL_KIND, SYSTEM_OWNER, b24Call, portalById, savePortal, type B24Line, type B24Portal } from "./b24-connector.js";
 
 const PRICING_KIND = "b24-pricing";
 const PAYMENT_KIND = "b24-payment";
@@ -205,6 +205,152 @@ export function extendLines(portal: B24Portal, lines: string[], months: number, 
   return next;
 }
 
+let ownerFetch: typeof fetch = (...args) => fetch(...args);
+/** Testler için sahip bildirimini yönlendirir. */
+export function setOwnerNotifyFetch(fn: typeof fetch) {
+  ownerFetch = fn;
+}
+
+/**
+ * XRE'ye (uygulama sahibine) olay bildirimi: B24_ADMIN_WEBHOOK adresine JSON
+ * gönderilir (ör. n8n → Telegram). Adres yoksa sessizce geçilir.
+ */
+export function notifyOwner(event: "install" | "payment_request" | "uninstall", text: string, data: Record<string, unknown> = {}) {
+  const url = env("B24_ADMIN_WEBHOOK");
+  if (!/^https:\/\//.test(url)) return;
+  void ownerFetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ app: "whatsapp-by-xre", event, text, at: new Date().toISOString(), ...data }) }).catch((e) =>
+    console.warn("XRE bildirimi gönderilemedi:", (e as Error).message),
+  );
+}
+
+const fmtMoney = (v: number, c: string) => `${Number.isInteger(v) ? v : v.toFixed(2)} ${c}`;
+
+type Reminder = { kind: "trial" | "paid" | "expired"; line: string; name: string; key: string; daysLeft: number };
+
+/** Hangi numaralar için hatırlatma gerekir? (her bitiş için bir kez) */
+export function dueReminders(portal: B24Portal, trialDays: number, now = Date.now()): Reminder[] {
+  if (freeDomains().includes(portal.domain)) return [];
+  const out: Reminder[] = [];
+  for (const [id, l] of Object.entries(portal.lines || {})) {
+    const st = licenseState(portal, l, trialDays, now);
+    const name = l.name || `WhatsApp ${id}`;
+    const n = l.license?.notified || {};
+    if (st.status === "trial" && st.until && Date.parse(st.until) - now <= 2 * DAY && n.trial !== l.license?.trialStart)
+      out.push({ kind: "trial", line: id, name, key: String(l.license?.trialStart), daysLeft: st.daysLeft ?? 0 });
+    if (st.status === "active" && st.until && Date.parse(st.until) - now <= 7 * DAY && n.paid !== st.until)
+      out.push({ kind: "paid", line: id, name, key: st.until, daysLeft: st.daysLeft ?? 0 });
+    // Süresi yeni dolanlar (30 günden eski bitişler için rahatsız edilmez)
+    if (st.status === "expired" && st.until && now - Date.parse(st.until) < 30 * DAY && n.expired !== st.until)
+      out.push({ kind: "expired", line: id, name, key: st.until, daysLeft: 0 });
+  }
+  return out;
+}
+
+function reminderText(r: Reminder[], lang: "tr" | "en") {
+  const list = (k: Reminder["kind"]) => r.filter((x) => x.kind === k).map((x) => x.name).join(", ");
+  const parts: string[] = [];
+  if (lang === "en") {
+    if (list("trial")) parts.push(`The free trial ends within 2 days for: ${list("trial")}.`);
+    if (list("paid")) parts.push(`The license ends within 7 days for: ${list("paid")}.`);
+    if (list("expired")) parts.push(`The license has expired for: ${list("expired")}. Messages on these numbers are paused.`);
+    return `WhatsApp by XRE: ${parts.join(" ")} Open the app → Billing tab to renew.`;
+  }
+  if (list("trial")) parts.push(`Ücretsiz deneme 2 gün içinde bitiyor: ${list("trial")}.`);
+  if (list("paid")) parts.push(`Lisans 7 gün içinde bitiyor: ${list("paid")}.`);
+  if (list("expired")) parts.push(`Lisans süresi doldu: ${list("expired")}. Bu numaralarda mesajlar durduruldu.`);
+  return `WhatsApp by XRE: ${parts.join(" ")} Uzatmak için uygulamayı açıp Ödeme sekmesine gidin.`;
+}
+
+/** Saatlik: deneme ve lisans bitişlerini portal yöneticilerine Bitrix bildirimiyle haber verir. */
+export async function runBillingReminders(store: Store, now = Date.now()) {
+  const { trialDays } = await getPricing(store);
+  const portals = (await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((p) => p.active);
+  for (const portal of portals) {
+    const due = dueReminders(portal, trialDays, now);
+    if (!due.length) continue;
+    // Önce işaretle: bildirim yarıda kalsa da tekrar tekrar gitmesin.
+    const fresh = (await portalById(store, portal.id)) || portal;
+    const next = { ...fresh, lines: { ...fresh.lines } };
+    for (const r of due) {
+      const l = next.lines[r.line];
+      if (l) next.lines[r.line] = { ...l, license: { ...(l.license || {}), notified: { ...(l.license?.notified || {}), [r.kind]: r.key } } };
+    }
+    await savePortal(store, next);
+    const message = reminderText(due, portal.lang === "en" ? "en" : "tr");
+    for (const userId of (portal.adminIds || []).slice(0, 5))
+      await b24Call(store, next, "im.notify.system.add", { USER_ID: Number(userId), MESSAGE: message }).catch((e) =>
+        console.warn(`Lisans hatırlatması gönderilemedi (${portal.domain}):`, (e as Error).message),
+      );
+  }
+}
+
+let reminderTimer: NodeJS.Timeout | null = null;
+export function startBillingReminders(store: Store) {
+  if (reminderTimer) return;
+  const tick = () => void runBillingReminders(store).catch((e) => console.warn("Lisans hatırlatmaları:", (e as Error).message));
+  reminderTimer = setInterval(tick, 60 * 60_000);
+  reminderTimer.unref?.();
+  setTimeout(tick, 60_000).unref?.();
+}
+
+/** Yönetim ekranı için gelir ve dönüşüm özeti. */
+export function revenueMetrics(portals: B24Portal[], payments: PaymentRequest[], pricing: Pricing, now = Date.now()) {
+  const month = (iso: string) => iso.slice(0, 7);
+  const thisMonth = new Date(now).toISOString().slice(0, 7);
+  const approved = payments.filter((p) => p.status === "approved");
+  const months: string[] = [];
+  for (let i = 5; i >= 0; i -= 1) {
+    const d = new Date(now);
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() - i);
+    months.push(d.toISOString().slice(0, 7));
+  }
+  const byMonth = months.map((m) => ({ month: m, amount: Math.round(approved.filter((p) => month(p.decidedAt || p.createdAt) === m).reduce((a, p) => a + p.amount, 0) * 100) / 100 }));
+  let mrr = 0;
+  let trials = 0;
+  let activeLines = 0;
+  let expiringSoon: { domain: string; firm: string; line: string; name: string; status: LicenseStatus; daysLeft: number }[] = [];
+  const planMix: Record<PlanId, number> = { basic: 0, pro: 0, proplus: 0 };
+  let tried = 0;
+  let converted = 0;
+  for (const p of portals.filter((x) => x.active && !freeDomains().includes(x.domain))) {
+    const firm = (p as B24Portal & { billing?: BillingInfo }).billing?.title || p.domain;
+    const plan = portalPlan(p, pricing.trialDays, now);
+    if (plan.source === "paid") planMix[plan.plan] += 1;
+    const lines = Object.entries(p.lines || {});
+    if (lines.some(([, l]) => l.license?.trialStart)) tried += 1;
+    if (lines.some(([, l]) => l.license?.paidUntil)) converted += 1;
+    for (const [id, l] of lines) {
+      const st = licenseState(p, l, pricing.trialDays, now);
+      if (st.status === "active") {
+        activeLines += 1;
+        mrr += pricing.plans[isPlan(l.license?.plan) ? l.license!.plan! : "proplus"];
+      }
+      if (st.status === "trial") trials += 1;
+      if ((st.status === "trial" && (st.daysLeft ?? 99) <= 3) || (st.status === "active" && (st.daysLeft ?? 99) <= 14))
+        expiringSoon.push({ domain: p.domain, firm, line: id, name: l.name || `WhatsApp ${id}`, status: st.status, daysLeft: st.daysLeft ?? 0 });
+    }
+  }
+  expiringSoon = expiringSoon.sort((a, b) => a.daysLeft - b.daysLeft).slice(0, 20);
+  const pending = payments.filter((p) => p.status === "pending");
+  return {
+    currency: pricing.currency,
+    mrr: Math.round(mrr * 100) / 100,
+    thisMonth: byMonth.find((m) => m.month === thisMonth)?.amount || 0,
+    total: Math.round(approved.reduce((a, p) => a + p.amount, 0) * 100) / 100,
+    pendingCount: pending.length,
+    pendingAmount: Math.round(pending.reduce((a, p) => a + p.amount, 0) * 100) / 100,
+    portals: portals.filter((x) => x.active).length,
+    payingPortals: converted,
+    conversion: tried ? Math.round((converted / tried) * 100) : null,
+    activeLines,
+    trials,
+    planMix,
+    byMonth,
+    expiringSoon,
+  };
+}
+
 const reference = () => `XRE-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
 const newCode = () =>
   Array.from({ length: 3 }, () => crypto.randomBytes(3).toString("hex").toUpperCase().slice(0, 4)).join("-");
@@ -281,6 +427,15 @@ export function registerBillingPanelRoutes(app: Express, store: Store, panel: Pa
         createdAt: new Date().toISOString(),
       };
       await store.put(PAYMENT_KIND, request.id, request, SYSTEM_OWNER);
+      notifyOwner("payment_request", `Havale bildirimi: ${portal.domain} · ${PLAN_NAMES[plan]} · ${lines.length} numara · ${months} ay · ${fmtMoney(request.amount, request.currency)} · ${request.reference}`, {
+        domain: portal.domain,
+        plan,
+        months,
+        lines: lines.length,
+        amount: request.amount,
+        currency: request.currency,
+        reference: request.reference,
+      });
       return { request, bank: pricing.bank };
     }),
   );
@@ -347,6 +502,7 @@ export function registerBillingAdminRoutes(app: Express, store: Store) {
     const codes = (await store.list<LicenseCode>(CODE_KIND, SYSTEM_OWNER)).map((r) => r.payload).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return {
       pricing,
+      metrics: revenueMetrics(portals, payments, pricing),
       portals: portals.map((p) => ({
         id: p.id,
         domain: p.domain,

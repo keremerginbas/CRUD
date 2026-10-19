@@ -12,6 +12,7 @@ import { dueReports, DEFAULT_REPORTS } from "../server/b24-live";
 import { panelHtml } from "../server/b24-panel-html";
 import { localizeMessage } from "../server/b24-i18n";
 import { normalizeRecipient, setCampaignGap, setMetaFetch } from "../server/b24-campaigns";
+import { revenueMetrics, runBillingReminders, setOwnerNotifyFetch, DEFAULT_PRICING } from "../server/b24-billing";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -609,6 +610,54 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await store.put("b24-portal", MEMBER, portal, "b24-connector");
     expect((await panel("campaigns/state")).status).toBe(200);
     expect((await panel("agent/test", { messages: [{ from: "müşteri", text: "Merhaba" }] })).status).not.toBe(200);
+  });
+
+  it("lisans hatırlatmaları bir kez gider; havale bildirimi XRE'ye iletilir; gelir özeti hesaplanır", async () => {
+    const hooks: any[] = [];
+    process.env.B24_ADMIN_WEBHOOK = "https://hook.example.test/xre";
+    setOwnerNotifyFetch((async (_url: string, init: any) => { hooks.push(JSON.parse(init.body)); return new Response("{}"); }) as any);
+    try {
+      const { store, base, bx } = await setup({ evoState: "open" });
+      await install(base);
+      await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+      expect(hooks.map((h) => h.event)).toContain("install");
+      const portal = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+      expect(portal.adminIds?.length).toBeGreaterThan(0);
+      // Deneme yarın bitiyor
+      portal.lines["3"].license = { trialStart: new Date(Date.now() - 6 * 86_400_000).toISOString() };
+      await store.put("b24-portal", MEMBER, portal, "b24-connector");
+      const notes = () => bx.filter((c) => c.method === "im.notify.system.add");
+      await runBillingReminders(store);
+      expect(notes()).toHaveLength(portal.adminIds.length);
+      expect(String(notes()[0].body.MESSAGE)).toContain("deneme");
+      await runBillingReminders(store);
+      expect(notes()).toHaveLength(portal.adminIds.length);
+
+      // Havale bildirimi → XRE webhook'u
+      const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+      const t = home.match(/const T="([^"]+)"/)?.[1];
+      await fetch(`${base}/b24/panel/billing/request`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t, lines: ["3"], months: 12, plan: "pro" }) });
+      await new Promise((r) => setTimeout(r, 20));
+      expect(hooks.find((h) => h.event === "payment_request")).toMatchObject({ domain: DOMAIN, plan: "pro", amount: 195, currency: "USD" });
+    } finally {
+      delete process.env.B24_ADMIN_WEBHOOK;
+    }
+
+    const now = Date.parse("2026-10-19T12:00:00Z");
+    const day = 86_400_000;
+    const portals: any[] = [
+      { id: "a", domain: "a.bitrix24.com", active: true, lines: { "1": { license: { trialStart: new Date(now - 40 * day).toISOString(), paidUntil: new Date(now + 10 * day).toISOString(), plan: "pro" } }, "2": { license: { trialStart: new Date(now - 40 * day).toISOString(), paidUntil: new Date(now + 200 * day).toISOString(), plan: "pro" } } } },
+      { id: "b", domain: "b.bitrix24.com", active: true, lines: { "1": { license: { trialStart: new Date(now - 5 * day).toISOString() } } } },
+    ];
+    const payments: any[] = [
+      { status: "approved", amount: 195, currency: "USD", createdAt: "2026-10-02T00:00:00Z", decidedAt: "2026-10-03T00:00:00Z" },
+      { status: "approved", amount: 15, currency: "USD", createdAt: "2026-08-02T00:00:00Z" },
+      { status: "pending", amount: 35, currency: "USD", createdAt: "2026-10-18T00:00:00Z" },
+    ];
+    const m = revenueMetrics(portals, payments, { ...DEFAULT_PRICING }, now);
+    expect(m).toMatchObject({ mrr: 50, thisMonth: 195, total: 210, pendingCount: 1, pendingAmount: 35, activeLines: 2, trials: 1, payingPortals: 1, conversion: 50, planMix: { pro: 1 } });
+    expect(m.byMonth.map((x) => x.month)).toEqual(["2026-05", "2026-06", "2026-07", "2026-08", "2026-09", "2026-10"]);
+    expect(m.expiringSoon.map((x) => [x.domain, x.status])).toEqual([["b.bitrix24.com", "trial"], ["a.bitrix24.com", "active"]]);
   });
 
   it("AI asistan bilgi tabanından cevap verir, temsilci yazınca susar, gerektiğinde devreder", async () => {
