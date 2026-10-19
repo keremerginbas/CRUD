@@ -10,7 +10,8 @@
     "build:css": "tailwindcss -c tailwind.config.cjs -i src/styles/main.css -o dist/assets/css/site.css --minify",
     "build": "npm run build:html && npm run build:css",
     "dev": "npm run build && npx --yes serve dist -l 5173",
-    "check": "node scripts/build.mjs --check-only"
+    "check": "node scripts/build.mjs --check-only",
+    "build:preview": "SITE_URL=https://keremerginbas.tr/semsi BASE_PATH=/semsi PREVIEW=1 OUT_DIR=dist-preview node scripts/build.mjs && tailwindcss -c tailwind.config.cjs -i src/styles/main.css -o dist-preview/assets/css/site.css --minify"
   },
   "devDependencies": {
     "@fontsource/barlow-condensed": "5.1.0",

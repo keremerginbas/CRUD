@@ -11,7 +11,8 @@ import * as P from '../src/templates/pages.mjs';
 import { words } from '../src/templates/components.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const DIST = path.join(ROOT, 'dist');
+const DIST = path.join(ROOT, process.env.OUT_DIR || 'dist');
+const BASE = site.basePath;
 const CHECK_ONLY = process.argv.includes('--check-only');
 const VERSION = Date.now().toString(36);
 
@@ -100,7 +101,15 @@ const write = (rel, content) => {
   fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f, content);
 };
-for (const { file, html } of outputs) write(file, html);
+// Alt klasör önizlemesi: kök göreli adreslere taban yolu ekle
+const withBase = (html) => (BASE ? html.replace(/(=")\/(?!\/)/g, `$1${BASE}/`).replace(/(\d+w, )\/(?!\/)/g, `$1${BASE}/`) : html);
+for (const { file, html } of outputs) write(file, withBase(html));
+// Önizleme klasörü ayrıysa üretilmiş medyayı (video, görsel, logo, ikon) dist'ten kopyala
+if (DIST !== path.join(ROOT, 'dist')) {
+  const SRC = path.join(ROOT, 'dist');
+  for (const d of ['assets/img', 'assets/video', 'assets/brand']) fs.cpSync(path.join(SRC, d), path.join(DIST, d), { recursive: true });
+  for (const f of ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png']) fs.copyFileSync(path.join(SRC, f), path.join(DIST, f));
+}
 
 // statik dosyalar (js, api, fontlar)
 const copyDir = (src, dst) => {
@@ -135,21 +144,33 @@ const sm = outputs.filter((o) => !o.pg.skipSitemap).map(({ pg }) => {
 });
 write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${sm.join('\n')}\n</urlset>\n`);
 
-write('robots.txt', `# ${site.name}\nUser-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${site.url}/sitemap.xml\n`);
+write('robots.txt', site.preview ? `# Önizleme – dizine eklenmez\nUser-agent: *\nDisallow: /\n` : `# ${site.name}\nUser-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: ${site.url}/sitemap.xml\n`);
 
 // RSS
 const rssItems = posts.map((p) => `  <item>\n    <title>${p.h1.replace(/&/g, '&amp;')}</title>\n    <link>${abs(p.path)}</link>\n    <guid>${abs(p.path)}</guid>\n    <pubDate>${new Date(p.date + 'T09:00:00+03:00').toUTCString()}</pubDate>\n    <category>${p.category}</category>\n    <description>${p.description.replace(/&/g, '&amp;')}</description>\n  </item>`).join('\n');
 write('feed.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n<channel>\n  <title>${site.name} Blog</title>\n  <link>${site.url}/blog/</link>\n  <atom:link href="${site.url}/feed.xml" rel="self" type="application/rss+xml"/>\n  <description>Hafriyat, inşaat ve nakliye rehberleri ile kurumsal haberler.</description>\n  <language>tr-TR</language>\n${rssItems}\n</channel>\n</rss>\n`);
 
 write('manifest.webmanifest', JSON.stringify({
-  name: site.legalName, short_name: site.name, lang: 'tr', start_url: '/', display: 'standalone',
+  name: site.legalName, short_name: site.name, lang: 'tr', start_url: `${BASE}/`, display: 'standalone',
   background_color: '#0f172a', theme_color: site.themeColor,
-  icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }],
+  icons: [{ src: `${BASE}/icon-192.png`, sizes: '192x192', type: 'image/png' }, { src: `${BASE}/icon-512.png`, sizes: '512x512', type: 'image/png' }],
 }, null, 2));
 
 // Sunucu başlıkları: X-Robots-Tag, güvenlik, önbellek (Apache/cPanel + Netlify/Cloudflare Pages)
 const host = new URL(site.url).host.replace(/^www\./, '');
-write('.htaccess', `# ${site.name} – Apache / cPanel yapılandırması
+if (site.preview) write('.htaccess', `# ${site.name} – ÖNİZLEME (alt klasör, Google'a kapalı)
+Options -Indexes
+DirectoryIndex index.html index.php
+ErrorDocument 404 ${BASE}/404.html
+AddDefaultCharset UTF-8
+AddType video/webm .webm
+AddType application/manifest+json .webmanifest
+AddType image/webp .webp
+<IfModule mod_headers.c>
+  Header always set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+`);
+else write('.htaccess', `# ${site.name} – Apache / cPanel yapılandırması
 Options -Indexes
 DirectoryIndex index.html index.php
 ErrorDocument 404 /404.html
@@ -197,6 +218,6 @@ AddType image/webp .webp
 </IfModule>
 `);
 write('api/.htaccess', `<IfModule mod_headers.c>\n  Header always set X-Robots-Tag "noindex, nofollow"\n</IfModule>\n<FilesMatch "^(config\\.php|config\\.sample\\.php)$">\n  Require all denied\n</FilesMatch>\n<IfModule mod_rewrite.c>\n  RewriteEngine On\n  RewriteRule ^data/ - [F,L]\n</IfModule>\n`);
-write('_headers', `/*\n  X-Robots-Tag: index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Content-Language: tr\n/404.html\n  X-Robots-Tag: noindex, follow\n/api/*\n  X-Robots-Tag: noindex, nofollow\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n`);
+if (!site.preview) write('_headers', `/*\n  X-Robots-Tag: index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1\n  X-Content-Type-Options: nosniff\n  Referrer-Policy: strict-origin-when-cross-origin\n  Content-Language: tr\n/404.html\n  X-Robots-Tag: noindex, follow\n/api/*\n  X-Robots-Tag: noindex, nofollow\n/assets/*\n  Cache-Control: public, max-age=31536000, immutable\n`);
 
 console.log(`✔ dist/ yazıldı (v${VERSION})`);

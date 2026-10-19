@@ -1,6 +1,9 @@
 // Sitenin tüm genel ayarları tek yerde. Alan adı değişirse yalnızca `url` güncellenir.
 export default {
-  url: 'https://cmsharfiyat.com.tr',
+  // Ortam değişkenleriyle alt klasör önizlemesi üretilebilir (npm run build:preview)
+  url: process.env.SITE_URL || 'https://cmsharfiyat.com.tr',
+  basePath: (process.env.BASE_PATH || '').replace(/\/$/, ''),
+  preview: process.env.PREVIEW === '1',
   name: 'CMS Hafriyat',
   legalName: 'CMS Hafriyat İnşaat Nakliyat Ltd. Şti.',
   slogan: 'Güvenle Başlar, Değerle Büyür.',

@@ -3,3 +3,4 @@ src/static/api/config.php
 dist/api/config.php
 dist/api/data/
 .DS_Store
+dist-preview/

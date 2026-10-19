@@ -12,6 +12,7 @@
   const quick = document.getElementById('chat-quick');
   const toggleBtn = document.getElementById('chat-toggle');
   const KEY = 'cms-chat-v1';
+  const BASE = document.documentElement.dataset.base || '';
   const WA = 'https://wa.me/905335003779';
   const QUICK = ['Hangi hizmetleri veriyorsunuz?', 'Teklif almak istiyorum', 'Hafriyat süreci nasıl işler?', 'İletişim bilgileri'];
   const GREETING = 'Merhaba! 👋 Ben CMS Hafriyat\'ın yapay zeka asistanıyım. Hafriyat, iş makineleri, inşaat, nakliye ve ihracat hizmetlerimiz hakkında sorularınızı yanıtlayabilirim. Size nasıl yardımcı olabilirim?';
@@ -24,7 +25,7 @@
   const format = (s) => escapeHtml(s)
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
     .replace(/(https?:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>')
-    .replace(/(^|\s)(\/[a-z0-9\-/]+\/)(?=[\s.,!?]|$)/g, '$1<a href="$2">$2</a>');
+    .replace(/(^|\s)(\/[a-z0-9\-/]+\/)(?=[\s.,!?]|$)/g, (m, s, p) => `${s}<a href="${BASE}${p}">${p}</a>`);
 
   const add = (role, text) => {
     const div = document.createElement('div');
@@ -103,7 +104,7 @@
     try {
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 25000);
-      const r = await fetch('/api/chat.php', {
+      const r = await fetch(BASE + '/api/chat.php', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: history.slice(-10), page: location.pathname }), signal: ctrl.signal,
       });

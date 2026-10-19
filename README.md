@@ -123,3 +123,12 @@ scripts/
   make_logo.py           logo ve favicon üretici
 dist/                    yayına hazır site
 ```
+
+## Alt klasörde önizleme (ör. keremerginbas.tr/semsi)
+
+```bash
+npm run build && npm run build:preview   # dist-preview/ üretir
+```
+
+Önizleme sürümü tüm adreslere `/semsi` ön ekini ekler, Google'a kapalıdır (`noindex` + `robots.txt Disallow`)
+ve alan adı yönlendirmesi yapmaz. Farklı klasör için `package.json` içindeki `SITE_URL` / `BASE_PATH` değerlerini değiştirin.

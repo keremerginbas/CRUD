@@ -164,9 +164,9 @@ export function document({ page, body, services, latest }) {
   const url = abs(page.path);
   const ogImage = abs(page.ogImage || '/assets/img/og/hafriyat.jpg');
   const jsonld = JSON.stringify({ '@context': 'https://schema.org', '@graph': page.schema || [] });
-  const robots = page.noindex ? 'noindex, follow' : ROBOTS;
+  const robots = site.preview ? 'noindex, nofollow' : page.noindex ? 'noindex, follow' : ROBOTS;
   return `<!doctype html>
-<html lang="${site.lang}" dir="ltr">
+<html lang="${site.lang}" dir="ltr" data-base="${site.basePath}">
 <head>
 <meta charset="utf-8">
 <script>document.documentElement.classList.add('js')</script>
