@@ -448,7 +448,7 @@ const TEXT = {
     meetChange: "Oda bağlantımı değiştir", meetSetup: "Google Meet odanız",
     meetHelp: "Kendi sabit odanızı bir kez kaydedin: Google Takvim'de kendinize tekrar eden bir etkinlik oluşturup \"Google Meet ile görüntülü görüşme ekle\" deyin (ya da meet.google.com → Yeni toplantı → Sonraki bir toplantı için toplantı oluştur). Bağlantıyı buraya yapıştırın. Kayıtlar sizin Google Drive'ınıza düşer.",
     save: "Kaydet", saved: "Oda bağlantınız kaydedildi.", call: "Ara", callPhone: "Telefonla ara (Bitrix)",
-    callWa: "WhatsApp ile ara", callNote: "Sohbet bilgisayarınızdaki WhatsApp uygulamasında açılır; oradaki 📞 ile arayın. Uygulamayı bir kez şirket numarasına bağlayın (WhatsApp → Ayarlar → Bağlı cihazlar → QR), arama o numaradan yapılır.",
+    callWa: "WhatsApp Web ile ara", callApp: "WhatsApp masaüstü uygulamasıyla ara", callNote: "Sohbet yeni sekmede WhatsApp Web'de açılır; sağ üstteki 📞 ile arayın. İlk seferde şirket telefonuyla QR'ı okutun (WhatsApp → Ayarlar → Bağlı cihazlar → Cihaz bağla); arama şirket numarasından yapılır. Tarayıcınızda arama düğmesi yoksa masaüstü uygulamasını kullanın.",
     connected: "Bağlı", disconnected: "Bağlantı yok", connecting: "Bağlanıyor",
     offAdmin: "Bu numaranın WhatsApp bağlantısı kopmuş. Panel → Bağlantılar'dan QR okutun.",
     offUser: "Bu numaranın WhatsApp bağlantısı kopmuş. Yöneticinizden numarayı yeniden bağlamasını isteyin.",
@@ -469,7 +469,7 @@ const TEXT = {
     meetChange: "Change my room link", meetSetup: "Your Google Meet room",
     meetHelp: "Save your permanent room once: create a recurring event for yourself in Google Calendar and add Google Meet video conferencing (or meet.google.com → New meeting → Create a meeting for later). Paste the link here. Recordings are saved to your Google Drive.",
     save: "Save", saved: "Your room link was saved.", call: "Call", callPhone: "Call by phone (Bitrix24)",
-    callWa: "Call via WhatsApp", callNote: "The chat opens in the WhatsApp app on your computer; press 📞 there to call. Link that app to the company number once (WhatsApp → Settings → Linked devices → QR) and the call is made from that number.",
+    callWa: "Call with WhatsApp Web", callApp: "Call with the WhatsApp desktop app", callNote: "The chat opens in WhatsApp Web in a new tab; press 📞 at the top right to call. The first time, scan the QR code with the company phone (WhatsApp → Settings → Linked devices → Link a device); the call is made from the company number. If your browser shows no call button, use the desktop app.",
     connected: "Connected", disconnected: "Disconnected", connecting: "Connecting",
     offAdmin: "This number's WhatsApp connection is lost. Scan the QR code again in Panel → Connections.",
     offUser: "This number's WhatsApp connection is lost. Ask your administrator to reconnect it.",
@@ -646,9 +646,10 @@ function open(t){
   $("#bRec").onclick=startRec;
   $("#bMeet").onclick=function(e){e.stopPropagation();meetMenu()};
   $("#bCall").onclick=function(e){e.stopPropagation();var m=$("#callMenu");m.hidden=!m.hidden;
-    m.innerHTML='<button type="button" id="cPhone">☎️ '+esc(X.callPhone)+'</button><button type="button" id="cWa">💬 '+esc(X.callWa)+'</button><p>'+esc(X.callNote)+'</p>';
+    m.innerHTML='<button type="button" id="cPhone">☎️ '+esc(X.callPhone)+'</button><button type="button" id="cWa">🌐 '+esc(X.callWa)+'</button><button type="button" id="cWaApp">💻 '+esc(X.callApp)+'</button><p>'+esc(X.callNote)+'</p>';
     $("#cPhone").onclick=function(){m.hidden=true;var num="+"+S.cur.phone;try{if(window.XRE_BX&&BX24.im&&BX24.im.phoneTo){BX24.im.phoneTo(num);return}}catch(x){}location.href="tel:"+num};
-    $("#cWa").onclick=function(){m.hidden=true;var p=S.cur.phone,left=false,onBlur=function(){left=true};
+    $("#cWa").onclick=function(){m.hidden=true;window.open("https://web.whatsapp.com/send?phone="+S.cur.phone,"xre-wa-web")};
+    $("#cWaApp").onclick=function(){m.hidden=true;var p=S.cur.phone,left=false,onBlur=function(){left=true};
       window.addEventListener("blur",onBlur);location.href="whatsapp://send?phone="+p;
       setTimeout(function(){window.removeEventListener("blur",onBlur);if(!left)window.open("https://wa.me/"+p,"_blank","noopener")},1500)}};
   document.addEventListener("click",function(e){var m=$("#callMenu");if(m)m.hidden=true;var mm=$("#meetMenu");if(mm&&!mm.contains(e.target))mm.hidden=true});
