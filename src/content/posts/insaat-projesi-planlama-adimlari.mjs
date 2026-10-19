@@ -50,7 +50,7 @@ export default {
 </ol>
 
 <h2>8. Kaynak Planlaması</h2>
-<p>Hangi aşamada hangi ekiplerin, makinelerin ve malzemelerin sahada olacağı önceden belirlenmelidir. Özellikle hafriyat ve temel aşamalarında doğru <a href="/hizmetler/is-makineleri/">iş makinelerinin</a> ve yeterli <a href="/hizmetler/nakliye/">nakliye</a> kapasitesinin planlanması, projenin ilk ve en kritik dönemini hızlandırır.</p>
+<p>Hangi aşamada hangi ekiplerin, makinelerin ve malzemelerin sahada olacağı önceden belirlenmelidir. Özellikle hafriyat ve temel aşamalarında doğru <a href="/hizmetler/is-makinesi-kiralama/">iş makinelerinin</a> ve yeterli <a href="/hizmetler/nakliye/">nakliye</a> kapasitesinin planlanması, projenin ilk ve en kritik dönemini hızlandırır.</p>
 <h3>Malzeme Tedariki</h3>
 <p>Beton, demir, kalıp ve diğer ana malzemelerin ne zaman ve hangi miktarda sahaya geleceği iş programıyla uyumlu şekilde planlanmalıdır. Erken gelen malzeme sahada depolama sorunu yaratırken geç gelen malzeme ekiplerin beklemesine neden olur. Tedarikçilerle önceden iletişim kurmak ve alternatif tedarik seçeneklerini belirlemek bu riski azaltır.</p>
 <h3>Saha Yerleşimi</h3>
@@ -106,5 +106,5 @@ export default {
       a: "Hafriyat, temel ve kaba inşaat aşamalarından önce tamamlanması gereken ilk büyük iştir. Bu aşamada yaşanacak bir gecikme, sonraki tüm faaliyetleri kaydırır. Doğru makine seçimi, yeterli nakliye kapasitesi ve izinlerin zamanında alınması, projenin geri kalanının planlanan takvimde ilerlemesine doğrudan katkı sağlar."
     }
   ],
-  relatedServices: ["insaat-taahhut", "hafriyat", "is-makineleri"]
+  relatedServices: ["insaat-taahhut", "hafriyat", "is-makinesi-kiralama"]
 };

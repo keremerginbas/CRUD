@@ -20,9 +20,10 @@ export default {
 <li><a href="/hizmetler/altyapi-isleri/">Altyapı İşleri</a>: Boru hatları için kanal kazısı ve geri dolgu</li>
 <li><a href="/hizmetler/yol-kazi-isleri/">Yol Kazı İşleri</a>: Yol açma, yol yatağı hazırlığı ve tesviye</li>
 <li><a href="/hizmetler/dolgu-isleri/">Dolgu İşleri</a>: Katmanlı serme ve sıkıştırma ile kontrollü dolgu</li>
-<li><a href="/hizmetler/is-makineleri/">İş Makineleri</a>: Projeye uygun makinelerle operasyon desteği</li>
+<li><a href="/hizmetler/is-makinesi-kiralama/">İş Makinesi Kiralama</a>: Projeye uygun makine türüyle kiralama seçenekleri</li>
+<li><a href="/hizmetler/kamyon-kiralama/">Kamyon Kiralama</a>: Dökme malzeme taşıma için damperli kamyon kiralama</li>
 <li><a href="/hizmetler/insaat-taahhut/">İnşaat Taahhüt</a>: İnşaat süreçlerinde planlı ve koordineli çalışma</li>
-<li><a href="/hizmetler/nakliye/">Nakliye</a>: Hafriyat toprağı ve malzeme taşımacılığı</li>
+<li><a href="/hizmetler/nakliye/">Hafriyat Nakliyesi</a>: Hafriyat toprağı ve molozun döküm sahasına taşınması</li>
 </ul>
 
 <h2>Blog ve Rehber İçerikler</h2>
@@ -42,5 +43,5 @@ export default {
 <p>Görüş ve önerilerinizi duymaktan memnuniyet duyarız. Sorularınız ve talepleriniz için <a href="/iletisim/">iletişim sayfamızı</a> ziyaret edebilirsiniz.</p>
 `,
   faqs: [],
-  relatedServices: ["hafriyat", "is-makineleri", "nakliye"]
+  relatedServices: ["hafriyat", "is-makinesi-kiralama", "nakliye"]
 };

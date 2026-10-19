@@ -69,7 +69,7 @@ export default {
 <p>Yol üzerinde yapılan altyapı kazılarında, dolgunun ardından yüzeyin kaplamaya hazır hale getirilmesi gerekir. Yol yatağı hazırlığı ve tesviye konularında <a href="/hizmetler/yol-kazi-isleri/">yol kazı işleri</a> hizmetimizden de destek alabilirsiniz.</p>
 
 <h2>Ekipman ve Malzeme Akışı</h2>
-<p>Kanal kazısında dar alanda çalışabilen, hassas kazı yapabilen ekipmanlar öne çıkar. Hat boyunca ilerleyen bir çalışmada makinelerin, boru malzemesinin ve dolgu malzemesinin doğru zamanda doğru noktada olması işin akışını belirler. Ekipman planlamasını <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarımız</a> ile, fazla toprağın ve dolgu malzemesinin taşınmasını <a href="/hizmetler/nakliye/">nakliye hizmetimiz</a> ile birlikte yürütüyoruz. Ekipman türlerinin farklı işlere uygunluğu için <a href="/blog/is-makinesi-secimi-rehberi/">iş makinesi seçimi rehberimizi</a> inceleyebilirsiniz.</p>
+<p>Kanal kazısında dar alanda çalışabilen, hassas kazı yapabilen ekipmanlar öne çıkar. Hat boyunca ilerleyen bir çalışmada makinelerin, boru malzemesinin ve dolgu malzemesinin doğru zamanda doğru noktada olması işin akışını belirler. Makine ihtiyacını <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> seçenekleriyle, kanaldan çıkan fazla toprağın döküm sahasına taşınmasını <a href="/hizmetler/nakliye/">hafriyat nakliyesi</a> hizmetimizle birlikte planlıyoruz. Geri dolgu malzemesi için damperli kamyon ihtiyacınızda <a href="/hizmetler/kamyon-kiralama/">kamyon kiralama</a> sayfamıza göz atabilirsiniz. Ekipman türlerinin farklı işlere uygunluğu için <a href="/blog/is-makinesi-secimi-rehberi/">iş makinesi seçimi rehberimizi</a> inceleyebilirsiniz.</p>
 
 <h2>Hangi Projelerde Altyapı Desteği Veriyoruz?</h2>
 <p>Altyapı ihtiyacı yalnızca yeni yerleşim alanlarıyla sınırlı değildir. Yeni yapılan bir binanın ana hatlara bağlanması, bir sitenin iç altyapısının oluşturulması, sanayi ve depolama alanlarında yağmur suyu hatlarının düzenlenmesi veya mevcut bir hattın yenilenmesi gibi farklı ölçeklerde işlerle karşılaşırız. Kentsel alanlarda dar sokaklar, yoğun trafik ve mevcut hatların yoğunluğu öne çıkarken, açık alanlarda uzun güzergâhlar ve malzeme lojistiği belirleyici olabilir. Her projede sahaya özel bir çalışma planı oluşturuyoruz.</p>
@@ -95,5 +95,5 @@ export default {
       a: "Geri dolgu uygun malzemeyle ve katmanlar halinde sıkıştırılarak yapıldığında oturma riski önemli ölçüde azalır. Çökmelerin büyük kısmı, dolgunun tek seferde serilip yeterince sıkıştırılmamasından kaynaklanır. Bu nedenle boru çevresini ve üstünü kontrollü katmanlarla dolduruyor, yüzeyi kaplama veya sonraki imalata hazır hale getiriyoruz."
     }
   ],
-  related: ["dolgu-isleri", "yol-kazi-isleri", "is-makineleri"]
+  related: ["dolgu-isleri", "yol-kazi-isleri", "is-makinesi-kiralama"]
 };

@@ -48,7 +48,7 @@ export default {
 
 <h2>Yarma-Dolgu Dengesi ve Kot Planı</h2>
 <p>Yol güzergâhları nadiren tamamen düz bir arazide ilerler. Bazı bölümlerde arazi proje kotunun üstünde kalır ve yarma gerekir; bazı bölümlerde ise çukurlar ve eğimli alanlar dolguyla yükseltilmelidir. Yarmadan çıkan malzemenin uygun olduğu durumlarda dolgu bölümlerinde kullanılması, sahaya dışarıdan getirilecek ve sahadan götürülecek malzeme miktarını azaltır. Bu dengeyi kurmak hem takvime hem de kaynak kullanımına doğrudan yansır.</p>
-<p>Dolgu bölümlerinde malzemenin tek seferde serilmesi yerine katmanlar halinde serilip sıkıştırılması, ileride yol yüzeyinde oturma ve çökme riskini azaltır. Kontrollü dolgu yaklaşımımızı <a href="/hizmetler/dolgu-isleri/">dolgu işleri</a> sayfamızda ayrıntılı olarak anlattık. Malzeme taşımacılığını ise <a href="/hizmetler/nakliye/">nakliye hizmetimiz</a> ile yarma ve dolgu temposuna göre planlıyoruz.</p>
+<p>Dolgu bölümlerinde malzemenin tek seferde serilmesi yerine katmanlar halinde serilip sıkıştırılması, ileride yol yüzeyinde oturma ve çökme riskini azaltır. Kontrollü dolgu yaklaşımımızı <a href="/hizmetler/dolgu-isleri/">dolgu işleri</a> sayfamızda ayrıntılı olarak anlattık. Dolguda kullanılmayan fazla kazı toprağının döküm sahasına taşınmasını <a href="/hizmetler/nakliye/">hafriyat nakliyesi</a> hizmetimizle, saha içindeki dökme malzeme taşıma ihtiyacını ise <a href="/hizmetler/kamyon-kiralama/">kamyon kiralama</a> seçenekleriyle yarma ve dolgu temposuna göre planlıyoruz.</p>
 
 <h3>Kot ve Eğim Neden Bu Kadar Önemli?</h3>
 <p>Bir yolun boyuna eğimi araç hareketini, enine eğimi ise yağmur suyunun yüzeyden uzaklaşmasını belirler. Yol yatağında yapılan tesviye hatası, kaplama yapıldıktan sonra su birikintileri ve erken bozulmalar olarak ortaya çıkabilir. Bu nedenle tesviyeyi projedeki kot ve eğim değerlerine göre yapıyor, çalışma boyunca kotları düzenli olarak kontrol ediyoruz.</p>
@@ -70,7 +70,7 @@ export default {
 </ul>
 
 <h2>Ekipman ve Planlama</h2>
-<p>Yol kazı işlerinde ekskavatör, greyder, yükleyici ve silindir gibi farklı ekipmanların birbirini izleyen bir düzende çalışması gerekir. Bu düzeni <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarımız</a> ile kuruyoruz. Ekipman türleri hakkında bilgi için <a href="/blog/is-makinesi-secimi-rehberi/">iş makinesi seçimi rehberimize</a>, genel proje planlaması için <a href="/blog/insaat-projesi-planlama-adimlari/">inşaat projesi planlama adımları</a> yazımıza göz atabilirsiniz.</p>
+<p>Yol kazı işlerinde ekskavatör, greyder, yükleyici ve silindir gibi farklı ekipmanların birbirini izleyen bir düzende çalışması gerekir. Bu düzen için gereken makineleri <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> seçeneklerimizle planlayabilirsiniz. Ekipman türleri hakkında bilgi için <a href="/blog/is-makinesi-secimi-rehberi/">iş makinesi seçimi rehberimize</a>, genel proje planlaması için <a href="/blog/insaat-projesi-planlama-adimlari/">inşaat projesi planlama adımları</a> yazımıza göz atabilirsiniz.</p>
 
 <h2>Hangi Projelerde Yol Kazı Desteği Veriyoruz?</h2>
 <p>Yol kazı işleri farklı ölçeklerde karşımıza çıkar. Yeni bir yerleşim alanının iç yolları, sanayi ve depolama tesislerinin saha içi yolları, tarım arazilerine ve arsalara erişim yolları, şantiyelere ulaşım için açılan geçici yollar ve mevcut yolların genişletilmesi bunlardan bazılarıdır. Her birinde kullanım yoğunluğu, araç tipi, arazi eğimi ve drenaj koşulları farklıdır. Bu nedenle hazır bir kalıp yerine güzergâhın koşullarına uygun bir çalışma planı oluşturuyoruz.</p>
@@ -96,5 +96,5 @@ export default {
       a: "Trafiğe açık alanlara yakın çalışmalarda çalışma alanını uyarı işaretleriyle belirginleştiriyor, yaya ve araç geçişlerini düzenliyor, makine manevralarında yönlendirme yapıyoruz. Kamu yollarında trafik düzenlemesi genellikle ilgili kurumların iznine ve kurallarına tabidir. Bu gereklilikleri planlama aşamasında sizinle birlikte değerlendiriyor ve çalışmayı buna göre programlıyoruz."
     }
   ],
-  related: ["dolgu-isleri", "altyapi-isleri", "is-makineleri"]
+  related: ["dolgu-isleri", "altyapi-isleri", "is-makinesi-kiralama"]
 };

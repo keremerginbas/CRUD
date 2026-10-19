@@ -69,7 +69,7 @@ export default {
 </ul>
 
 <h2>Malzeme Akışı ve Planlama</h2>
-<p>Dolgu işlerinde verim, malzemenin serme temposuna uygun şekilde sahaya gelmesine bağlıdır. Malzeme taşımacılığını <a href="/hizmetler/nakliye/">nakliye hizmetimiz</a> ile, serme ve sıkıştırma ekipmanını <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarımız</a> ile koordine ediyoruz. Malzeme taşımacılığına dair pratik bilgiler için <a href="/blog/hafriyat-toprak-nakliyesi-ipuclari/">hafriyat toprağı nakliyesi ipuçları</a> yazımızı okuyabilirsiniz.</p>
+<p>Dolgu işlerinde verim, malzemenin serme temposuna uygun şekilde sahaya gelmesine bağlıdır. Dolgu malzemesinin sahaya taşınması için <a href="/hizmetler/kamyon-kiralama/">damperli kamyon kiralama</a>, serme ve sıkıştırma için <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> seçeneklerini serme temposuyla birlikte planlıyoruz. Dökme malzeme taşımaya dair pratik bilgiler için <a href="/blog/hafriyat-toprak-nakliyesi-ipuclari/">hafriyat toprağı nakliyesi ipuçları</a> yazımızı okuyabilirsiniz.</p>
 
 <h2>Hangi Projelerde Dolgu Desteği Veriyoruz?</h2>
 <p>Dolgu ihtiyacı birçok farklı projede ortaya çıkar. Yapılaşma öncesinde kotu yükseltilmesi gereken arsalar, eğimli arazilerde oluşturulacak düz platformlar, otopark ve depolama alanları, yol gövdeleri, temel perdeleri ve istinat duvarlarının arkası ile boru hatlarının üstü bunlardan bazılarıdır. Her birinde dolgunun yüksekliği, kullanılacak malzeme ve üzerine gelecek yük farklıdır. Bu nedenle her işe sahaya ve kullanım amacına özel bir planla yaklaşıyoruz.</p>

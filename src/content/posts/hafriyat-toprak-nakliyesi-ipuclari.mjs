@@ -72,7 +72,7 @@ export default {
 <p>Kazıdan çıkan uygun nitelikteki toprak; dolgu, peyzaj veya kot düzenlemesi gibi işlerde aynı projede yeniden kullanılabilir. Bu yaklaşım hem taşınacak malzeme miktarını azaltır hem de sürdürülebilirlik açısından önemli bir katkı sağlar. Malzemenin dolguya uygun olup olmadığına proje mühendisi karar vermelidir.</p>
 
 <h2>Kazı ve Nakliyeyi Tek Elden Yönetmenin Avantajı</h2>
-<p>Kazı ve nakliye farklı ekipler tarafından yürütüldüğünde koordinasyon eksikliği sık yaşanan bir sorundur. İki işin aynı planlama altında yürütülmesi, makine ve kamyon akışının daha dengeli kurulmasını sağlar. CMS Hafriyat olarak <a href="/hizmetler/hafriyat/">hafriyat</a> ve <a href="/hizmetler/nakliye/">nakliye</a> hizmetlerini birlikte planlıyor, sahaya uygun <a href="/hizmetler/is-makineleri/">iş makineleri</a> ile süreci bütüncül şekilde yönetiyoruz. Hafriyatın genel aşamaları için <a href="/blog/hafriyat-nedir-surec-rehberi/">hafriyat süreci rehberimizi</a> de okuyabilirsiniz.</p>
+<p>Kazı ve nakliye farklı ekipler tarafından yürütüldüğünde koordinasyon eksikliği sık yaşanan bir sorundur. İki işin aynı planlama altında yürütülmesi, makine ve kamyon akışının daha dengeli kurulmasını sağlar. CMS Hafriyat olarak <a href="/hizmetler/hafriyat/">hafriyat</a> ve <a href="/hizmetler/nakliye/">nakliye</a> hizmetlerini birlikte planlıyoruz. Taşımayı kendi organizasyonunuzla yürütmek isterseniz <a href="/hizmetler/kamyon-kiralama/">damperli kamyon kiralama</a>, kazı ve yükleme için ise <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> seçeneklerimizi de değerlendirebilirsiniz. Hafriyatın genel aşamaları için <a href="/blog/hafriyat-nedir-surec-rehberi/">hafriyat süreci rehberimizi</a> de okuyabilirsiniz.</p>
 
 <h2>Sonuç</h2>
 <p>Hafriyat toprağı nakliyesi; doğru miktar hesabı, uygun araç seçimi, dengeli sefer planı, izinli döküm sahası ve güvenli taşıma kurallarıyla verimli hale gelir. İyi planlanmış bir nakliye, kazının hızını korur, çevreye verilen etkiyi azaltır ve proje takvimine doğrudan katkı sağlar.</p>
@@ -92,5 +92,5 @@ export default {
       a: "Nitelikleri uygun olduğu takdirde kazıdan çıkan toprak dolgu, kot düzenlemesi veya peyzaj gibi işlerde yeniden kullanılabilir. Ancak malzemenin dolguya uygunluğu proje mühendisi tarafından değerlendirilmelidir. Yeniden kullanım, taşınacak malzeme miktarını azaltarak hem nakliye yükünü hafifletir hem de sürdürülebilirliğe önemli bir katkı sağlar."
     }
   ],
-  relatedServices: ["nakliye", "hafriyat", "dolgu-isleri"]
+  relatedServices: ["nakliye", "kamyon-kiralama", "hafriyat"]
 };

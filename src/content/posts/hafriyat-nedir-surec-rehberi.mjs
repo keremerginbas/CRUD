@@ -41,13 +41,13 @@ export default {
 <p>Kazıya başlamadan önce saha çevresi uygun şekilde kapatılır, uyarı levhaları yerleştirilir ve yaya güvenliği sağlanır. Yer altındaki elektrik, doğalgaz, su ve telekomünikasyon hatlarının konumu ilgili kurumlardan teyit edilir. Bu adım, hem çalışan güvenliği hem de çevredeki yapıların korunması açısından vazgeçilmezdir.</p>
 
 <h3>5. Makine Seçimi ve Mobilizasyon</h3>
-<p>Kazının hacmine, derinliğine ve sahanın genişliğine göre uygun makineler seçilir. Dar şehir parsellerinde kompakt ekskavatörler öne çıkarken geniş sahalarda paletli ekskavatörler, loderler ve dozerler birlikte çalışabilir. Doğru ekipman seçimi hakkında daha fazla bilgi için <a href="/hizmetler/is-makineleri/">iş makineleri hizmetimizi</a> inceleyebilirsiniz.</p>
+<p>Kazının hacmine, derinliğine ve sahanın genişliğine göre uygun makineler seçilir. Dar şehir parsellerinde kompakt ekskavatörler öne çıkarken geniş sahalarda paletli ekskavatörler, loderler ve dozerler birlikte çalışabilir. Makine türleri ve kiralama seçenekleri hakkında daha fazla bilgi için <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> sayfamızı inceleyebilirsiniz.</p>
 
 <h3>6. Kazı ve Yükleme</h3>
 <p>Kazı, projede belirtilen kotlara ulaşılana kadar kademeli olarak yapılır. Derin kazılarda şev açısı ve iksa sistemi sürekli kontrol edilir. Çıkan malzeme kamyonlara yüklenirken saha içi trafik düzeni korunur; makine ve kamyon hareketleri birbirini engellemeyecek şekilde koordine edilir.</p>
 
 <h3>7. Nakliye ve Döküm</h3>
-<p>Hafriyat toprağı, belediyenin izin verdiği döküm sahalarına taşınır. Kamyonların üstünün örtülmesi, yollara toprak taşınmasının önlenmesi ve sefer planlaması bu aşamanın temel unsurlarıdır. Ayrıntılar için <a href="/hizmetler/nakliye/">nakliye hizmetimize</a> göz atabilirsiniz.</p>
+<p>Hafriyat toprağı, belediyenin izin verdiği döküm sahalarına taşınır. Kamyonların üstünün örtülmesi, yollara toprak taşınmasının önlenmesi ve sefer planlaması bu aşamanın temel unsurlarıdır. Ayrıntılar için <a href="/hizmetler/nakliye/">hafriyat ve moloz nakliyesi</a> sayfamıza göz atabilirsiniz.</p>
 
 <h3>8. Kot Kontrolü ve Saha Teslimi</h3>
 <p>Kazı tamamlandığında taban kotları ölçülür, gevşek malzeme temizlenir ve saha bir sonraki aşama olan temel imalatı için hazır hale getirilir. Böylece hafriyat ekibi, sahayı inşaat ekibine düzenli ve güvenli bir şekilde devreder.</p>

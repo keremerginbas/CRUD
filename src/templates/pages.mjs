@@ -21,8 +21,8 @@ export const GENERAL_FAQS = [
   { q: 'Ofisiniz nerede?', a: 'Ofisimiz Toros Mahallesi 78090 Sokak, Özcan Apartmanı Sitesi No: 10 A, Çukurova/Adana adresindedir. Ziyaret öncesinde 0533 500 37 79 numarasından veya WhatsApp üzerinden randevu almanızı öneririz; yol tarifi için iletişim sayfamızdaki haritayı kullanabilirsiniz.' },
   { q: 'Keşif için sahaya geliyor musunuz?', a: 'Evet. Doğru planlama ve sağlıklı fiyatlandırma için sahayı yerinde görmeyi önemsiyoruz. Keşif sırasında zemin yapısı, erişim yolları, çevredeki yapılar ve iş takvimi birlikte değerlendirilir; ardından size uygun bir çalışma planı sunulur.' },
   { q: 'Hafriyat ve inşaat izinleri konusunda destek veriyor musunuz?', a: 'İzin ve ruhsat süreçleri bulunduğunuz belediyeye ve projenin niteliğine göre değişir. Süreçte hangi belgelerin gerekebileceği, döküm sahası ve iş planı gibi konularda size yol gösteriyor, ilgili kurumlarla koordinasyonun planlanmasına destek oluyoruz.' },
-  { q: 'Hangi iş makineleriyle çalışıyorsunuz?', a: 'Projenin ihtiyacına göre ekskavatör, kazıcı yükleyici, loder, dozer ve silindir gibi iş makineleri ile damperli kamyonlar planlanır. Makine seçimi; zemin yapısı, saha erişimi, iş hacmi ve süre hedefleri dikkate alınarak yapılır.' },
-  { q: 'Nakliye hizmetiniz yalnızca hafriyat toprağı için mi?', a: 'Hayır. Hafriyat toprağının yanı sıra inşaat malzemeleri ve proje kapsamındaki yüklerin taşınması için de nakliye planlaması yapıyoruz. Güzergâh, yükleme düzeni ve teslim zamanı işin niteliğine göre birlikte belirlenir.' },
+  { q: 'İş makinesi ve kamyon kiralıyor musunuz?', a: 'Evet. Projenizin ihtiyacına göre iş makinesi kiralama ve damperli kamyon kiralama hizmeti veriyoruz. Makine türü, kiralama süresi ve kapsamı; zemin yapısı, saha erişimi ve iş hacmi birlikte değerlendirilerek planlanır. Detaylar için kiralama sayfalarımızı inceleyebilir veya bizi arayabilirsiniz.' },
+  { q: 'Nakliye hizmetiniz neleri kapsıyor?', a: 'Nakliye hizmetimiz, hafriyat alanından çıkan toprak ve molozun damperli kamyonlarla döküm sahasına taşınmasını kapsar. Ekipman, iş makinesi veya inşaat malzemesi taşımacılığı yapmıyoruz. Kendi projeniz için kamyon ya da iş makinesine ihtiyacınız varsa kiralama hizmetlerimizden yararlanabilirsiniz.' },
   { q: 'İş güvenliği konusunda nasıl bir yaklaşımınız var?', a: 'Sahada iş güvenliğini işin ayrılmaz bir parçası olarak görüyoruz. Çalışma alanının güvenli hale getirilmesi, makine operasyonlarının planlı yürütülmesi ve çevredeki yapı ile kişilerin korunması her projede öncelikli konularımız arasındadır.' },
   { q: 'Yapay zeka asistanınız ne işe yarıyor?', a: 'Sitemizdeki yapay zeka destekli asistan, hizmetlerimiz ve süreçlerimiz hakkındaki sorularınızı günün her saatinde yanıtlar. Kesin fiyat ve planlama için ise sizi WhatsApp veya telefon üzerinden ekibimize yönlendirir.' },
 ];
@@ -51,7 +51,7 @@ export function orgSchema() {
     email: site.email,
     telephone: site.phone,
     slogan: site.slogan,
-    description: 'Hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye alanlarında kalite ve güven odaklı hizmet veren firma.',
+    description: 'Hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makinesi ve kamyon kiralama, inşaat ve hafriyat nakliyesi alanlarında kalite ve güven odaklı hizmet veren firma.',
     areaServed: { '@type': 'Country', name: 'Türkiye' },
     knowsLanguage: 'tr',
     address: { '@type': 'PostalAddress', streetAddress: site.address.street, addressLocality: site.address.district, addressRegion: site.address.city, postalCode: site.address.postalCode, addressCountry: site.address.country },
@@ -92,7 +92,7 @@ export function home({ services, posts }) {
   const slides = [
     { scene: 'hafriyat', kicker: 'Hafriyat & Kazı', title: 'Sağlam Projeler<br><span class="text-brand-400">Sağlam Zeminde</span> Başlar', text: 'Temel kazısından saha düzenlemesine kadar hafriyat işlerinizi planlı, güvenli ve çevreye duyarlı biçimde yürütüyoruz.' },
     { scene: 'insaat', kicker: 'İnşaat & Taahhüt', title: 'Güvenle Başlar,<br><span class="text-brand-400">Değerle Büyür</span>', text: 'İnşaat ve taahhüt işlerinde kalite, iş disiplini ve sorumluluk bilinciyle projelerinize değer katıyoruz.' },
-    { scene: 'nakliye', kicker: 'Nakliye & Lojistik', title: 'Yükünüz<br><span class="text-brand-400">Zamanında</span> Yerinde', text: 'Hafriyat toprağı ve inşaat malzemelerinin taşınmasında planlı, düzenli ve güvenilir nakliye çözümleri sunuyoruz.' },
+    { scene: 'nakliye', kicker: 'Hafriyat Nakliyesi', title: 'Toprak ve Moloz<br><span class="text-brand-400">Zamanında</span> Sahadan', text: 'Hafriyat alanından çıkan toprak ve molozu damperli kamyonlarla planlı ve güvenli şekilde döküm sahasına taşıyoruz.' },
   ];
   const hero = `
 <section class="hero" aria-label="Öne çıkan hizmetler" data-hero>
@@ -130,7 +130,7 @@ export function home({ services, posts }) {
 </div>`;
 
   const stats = [
-    { n: 8, s: '', label: 'Hizmet Alanı' },
+    { n: services.length, s: '', label: 'Hizmet Alanı' },
     { n: 6, s: '', label: 'Temel Değer' },
     { n: 7, s: '/24', label: 'Dijital Asistan Desteği' },
     { n: 100, s: '%', label: 'Sorumluluk Bilinci' },
@@ -139,11 +139,11 @@ export function home({ services, posts }) {
   const svc = `<section id="hizmetler" class="section bg-slate-50">
   <div class="container-x">
     <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-      ${sectionHead({ kicker: 'Hizmetlerimiz', title: 'Kazıdan Teslime<br>Uçtan Uca Çözümler', text: 'Hafriyat ve temel kazısından altyapı, yol ve dolgu işlerine, iş makineleri operasyonlarından inşaat ve nakliyeye kadar geniş bir alanda planlı ve güvenilir hizmet sunuyoruz.' })}
+      ${sectionHead({ kicker: 'Hizmetlerimiz', title: 'Kazıdan Teslime<br>Uçtan Uca Çözümler', text: 'Hafriyat ve temel kazısından altyapı, yol ve dolgu işlerine, iş makinesi ve kamyon kiralamadan hafriyat nakliyesine kadar geniş bir alanda planlı ve güvenilir hizmet sunuyoruz.' })}
       <a href="/hizmetler/" class="btn-dark shrink-0" data-reveal>Tüm Hizmetler ${icon('arrow', 'w-5 h-5')}</a>
     </div>
     <div class="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">${services.map(serviceCard).join('')}
-      <article class="service-card !bg-ink-950 text-white p-8 flex flex-col justify-between" data-reveal style="--d:.16s">
+      <article class="service-card !bg-ink-950 text-white p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6 lg:col-span-3" data-reveal style="--d:.16s">
         <div><span class="grid place-items-center w-14 h-14 rounded-2xl bg-brand-500 text-ink-950">${icon('chat', 'w-7 h-7')}</span>
         <h3 class="mt-6 font-display text-3xl font-bold uppercase">Projenize Özel Çözüm</h3>
         <p class="mt-3 text-slate-300 leading-relaxed">İhtiyacınızı anlatın; keşif, planlama ve uygulama sürecini sizinle birlikte kurgulayalım.</p></div>
@@ -158,7 +158,7 @@ export function home({ services, posts }) {
     <div class="relative" data-reveal="left">
       <div class="relative rounded-3xl overflow-hidden shadow-2xl aspect-[4/5] max-h-[620px] mx-auto">${video('insaat', 'CMS Hafriyat inşaat sahası', { cls: 'absolute inset-0 w-full h-full object-cover', portrait: true })}</div>
       <div class="absolute -bottom-8 -right-4 md:-right-8 bg-brand-500 text-ink-950 rounded-2xl p-6 shadow-xl max-w-[15rem] float-y">
-        <p class="font-display text-4xl font-extrabold leading-none">8</p><p class="mt-1 font-semibold">farklı alanda güvenilir hizmet</p>
+        <p class="font-display text-4xl font-extrabold leading-none">${services.length}</p><p class="mt-1 font-semibold">farklı alanda güvenilir hizmet</p>
       </div>
       <div class="absolute -top-6 -left-6 w-32 h-32 bg-[radial-gradient(circle,theme(colors.brand.500)_2px,transparent_2px)] [background-size:14px_14px] opacity-60 -z-10"></div>
     </div>
@@ -187,7 +187,7 @@ export function home({ services, posts }) {
 
   const why = `<section class="section">
   <div class="container-x">
-    ${sectionHead({ kicker: 'Neden CMS Hafriyat?', title: 'İşinizi Güvenle<br>Teslim Edebileceğiniz Ekip', center: true, text: 'Hafriyat ve iş makineleri operasyonlarından nakliyeye kadar her aşamada planlı çalışma, kaliteli hizmet ve karşılıklı güven ilkeleriyle hareket ediyoruz.' })}
+    ${sectionHead({ kicker: 'Neden CMS Hafriyat?', title: 'İşinizi Güvenle<br>Teslim Edebileceğiniz Ekip', center: true, text: 'Hafriyat ve kazı işlerinden nakliyeye kadar her aşamada planlı çalışma, kaliteli hizmet ve karşılıklı güven ilkeleriyle hareket ediyoruz.' })}
     <div class="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
       ${WHY.map((w, i) => `<div class="feature-card" data-reveal style="--d:${i * 0.08}s">
         <span class="feature-icon">${icon(w.icon, 'w-7 h-7')}</span>
@@ -214,7 +214,7 @@ export function home({ services, posts }) {
   const showcase = `<section class="section bg-ink-950 text-white overflow-hidden">
   <div class="container-x">
     <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-      ${sectionHead({ kicker: 'Yaptığımız İşler', title: 'Sahadan Kareler', dark: true, text: 'Hafriyat, inşaat, nakliye ve iş makineleri operasyonlarımızdan görüntüler.' })}
+      ${sectionHead({ kicker: 'Yaptığımız İşler', title: 'Sahadan Kareler', dark: true, text: 'Hafriyat, altyapı, kiralama ve nakliye çalışmalarımızdan gerçek görüntüler.' })}
       <a href="/projeler/" class="btn-primary shrink-0" data-reveal>Tüm Çalışmalar ${icon('arrow', 'w-5 h-5')}</a>
     </div>
     <div class="mt-14 grid gap-6 md:grid-cols-6 md:grid-rows-2 md:h-[640px]">
@@ -265,7 +265,7 @@ export function home({ services, posts }) {
     path: '/',
     title: 'CMS Hafriyat | Adana Hafriyat, İnşaat ve Nakliye',
     description: 'Adana Çukurova merkezli CMS Hafriyat; hafriyat, temel kazı, altyapı, yol ve dolgu işlerinde güvenilir hizmet. Keşif ve teklif için hemen ulaşın.',
-    keywords: 'Adana hafriyat, hafriyat firması, Çukurova hafriyat, inşaat firması Adana, müteahhit, iş makineleri, nakliye, CMS Hafriyat',
+    keywords: 'Adana hafriyat, hafriyat firması, Çukurova hafriyat, iş makinesi kiralama, kamyon kiralama, hafriyat nakliyesi, CMS Hafriyat',
     h1: 'CMS Hafriyat Nakliyat İnşaat Taahhüt',
     ogImage: '/assets/img/og/hafriyat.jpg',
     preloadImage: '/assets/img/hafriyat.webp',
@@ -287,7 +287,7 @@ ${pageHero({ h1: 'Hakkımızda: Güven, Kalite ve Güçlü İş Ortaklığı', l
       <h2>CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti.</h2>
       <p><strong>CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti.</strong>, <a href="/hizmetler/hafriyat/">hafriyat</a>, <a href="/hizmetler/insaat-taahhut/">inşaat</a>, <a href="/hizmetler/temel-kazi-isleri/">temel kazı</a>, <a href="/hizmetler/altyapi-isleri/">altyapı</a>, <a href="/hizmetler/yol-kazi-isleri/">yol kazı</a>, <a href="/hizmetler/dolgu-isleri/">dolgu</a> ve <a href="/hizmetler/nakliye/">nakliye</a> alanlarında faaliyet gösteren, kaliteyi ve güvenilirliği temel değerleri olarak benimseyen bir firmadır.</p>
       <p>Faaliyet gösterdiğimiz tüm sektörlerde müşteri memnuniyetini, iş disiplinini ve sürdürülebilir başarıyı ön planda tutarak projelere değer katmayı hedefliyoruz. Sahip olduğumuz hizmet anlayışıyla, iş ortaklarımızın ihtiyaçlarına uygun, etkin ve güvenilir çözümler sunuyor; üstlendiğimiz her işi sorumluluk bilinciyle ele alıyoruz.</p>
-      <p>Hafriyat ve <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarından</a> altyapı, yol ve dolgu işlerinden inşaat ve nakliye hizmetlerine kadar uzanan geniş faaliyet alanımızda; planlı çalışma, kaliteli hizmet ve karşılıklı güven ilkeleri doğrultusunda hareket ediyoruz. Sektörel gelişmeleri yakından takip ederek kendimizi sürekli geliştirmeyi ve hizmet standartlarımızı her geçen gün daha ileriye taşımayı amaçlıyoruz.</p>
+      <p>Hafriyat ve <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi</a> ve <a href="/hizmetler/kamyon-kiralama/">kamyon kiralamadan</a> altyapı, yol ve dolgu işlerinden inşaat ve nakliye hizmetlerine kadar uzanan geniş faaliyet alanımızda; planlı çalışma, kaliteli hizmet ve karşılıklı güven ilkeleri doğrultusunda hareket ediyoruz. Sektörel gelişmeleri yakından takip ederek kendimizi sürekli geliştirmeyi ve hizmet standartlarımızı her geçen gün daha ileriye taşımayı amaçlıyoruz.</p>
       <blockquote>Bizim için başarı, yalnızca bir işi tamamlamak değil; iş ortaklarımızın güvenini kazanmak, kalıcı ilişkiler kurmak ve her projede sürdürülebilir değer oluşturmaktır.</blockquote>
     </div>
     <div class="relative rounded-3xl overflow-hidden shadow-2xl aspect-[4/5] lg:sticky lg:top-28" data-reveal="right">
@@ -320,7 +320,7 @@ ${pageHero({ h1: 'Hakkımızda: Güven, Kalite ve Güçlü İş Ortaklığı', l
 </section>
 <section class="section bg-slate-50">
   <div class="container-x">
-    ${sectionHead({ kicker: 'Faaliyet Alanlarımız', title: 'Geniş Hizmet Yelpazesi', text: 'Projelerinizin her aşamasında yanınızda olmak için sekiz ana alanda hizmet veriyoruz.' })}
+    ${sectionHead({ kicker: 'Faaliyet Alanlarımız', title: 'Geniş Hizmet Yelpazesi', text: 'Projelerinizin her aşamasında yanınızda olmak için ${services.length} ana alanda hizmet veriyoruz.' })}
     <div class="mt-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">${services.map(serviceCard).join('')}</div>
     <div class="mt-16 prose-cms max-w-3xl" data-reveal>
       <p>CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti. olarak, güvene dayalı iş anlayışımız, çözüm odaklı yaklaşımımız ve kalite odaklı hizmetlerimizle bugün ve gelecekte iş ortaklarımız için değer üretmeye devam ediyoruz. Çalışmalarımızdan örnekleri <a href="/projeler/">yaptığımız işler</a> sayfasında inceleyebilir, sektörel rehberlerimize <a href="/blog/">blog</a> bölümümüzden ulaşabilirsiniz.</p>
@@ -342,7 +342,7 @@ ${ctaBand({ title: 'Birlikte Değer Üretelim', scene: 'hafriyat' })}`;
 // ---------------------------------------------------------------- HİZMETLER
 export function servicesHub({ services }) {
   const body = `
-${pageHero({ h1: 'Hizmetlerimiz', lead: 'Hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye alanlarında planlı, güvenilir ve kalite odaklı çözümler.', scene: 'makine', kicker: 'Uçtan Uca Çözümler', crumbs: crumb({ name: 'Hizmetlerimiz', path: '/hizmetler/' }) })}
+${pageHero({ h1: 'Hizmetlerimiz', lead: 'Hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makinesi ve kamyon kiralama, inşaat ve hafriyat nakliyesi alanlarında planlı, güvenilir ve kalite odaklı çözümler.', scene: 'makine', kicker: 'Uçtan Uca Çözümler', crumbs: crumb({ name: 'Hizmetlerimiz', path: '/hizmetler/' }) })}
 <section class="section">
   <div class="container-x">
     ${sectionHead({ kicker: 'Faaliyet Alanlarımız', title: 'Projenizin Her Aşamasında Yanınızdayız', text: 'Her hizmetimizi keşif, planlama, uygulama ve teslim adımlarıyla aynı disiplinle yürütüyoruz. İhtiyacınıza uygun hizmeti seçerek detayları inceleyebilirsiniz.' })}
@@ -367,8 +367,8 @@ ${ctaBand()}`;
   return {
     path: '/hizmetler/',
     title: 'Hizmetlerimiz | Hafriyat, İnşaat ve Nakliye',
-    description: 'Hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye hizmetlerimizi inceleyin. Planlı ve güvenli çözümler.',
-    keywords: 'hafriyat hizmetleri, temel kazı, altyapı işleri, yol kazı, dolgu işleri, iş makineleri, inşaat taahhüt',
+    description: 'Hafriyat, temel kazı, altyapı, yol, dolgu, inşaat, iş makinesi ve kamyon kiralama ile hafriyat nakliyesi hizmetlerimizi inceleyin.',
+    keywords: 'hafriyat hizmetleri, temel kazı, altyapı işleri, yol kazı, dolgu işleri, iş makinesi kiralama, kamyon kiralama',
     h1: 'Hizmetlerimiz', ogImage: '/assets/img/og/makine.jpg',
     crumbs: crumb({ name: 'Hizmetlerimiz', path: '/hizmetler/' }),
     schemaType: 'CollectionPage',
@@ -434,7 +434,7 @@ ${ctaBand({ title: `${s.name} İçin Teklif Alın`, scene: s.scene })}`;
 }
 
 // ---------------------------------------------------------------- PROJELER
-const SCENE_SERVICE = { hafriyat: 'hafriyat', temel: 'temel-kazi-isleri', altyapi: 'altyapi-isleri', yol: 'yol-kazi-isleri', dolgu: 'dolgu-isleri', makine: 'is-makineleri', insaat: 'insaat-taahhut', nakliye: 'nakliye' };
+const SCENE_SERVICE = { hafriyat: 'hafriyat', temel: 'temel-kazi-isleri', altyapi: 'altyapi-isleri', yol: 'yol-kazi-isleri', dolgu: 'dolgu-isleri', makine: 'is-makinesi-kiralama', kamyon: 'kamyon-kiralama', insaat: 'insaat-taahhut', nakliye: 'nakliye' };
 
 export function projects({ services, projectList, gallery }) {
   const dims = media('_galeri');
@@ -475,7 +475,7 @@ ${ctaBand({ title: 'Sıradaki Proje Sizinki Olsun', scene: 'insaat' })}`;
     path: '/projeler/',
     title: 'Yaptığımız İşler ve Projeler | CMS Hafriyat',
     description: 'Hafriyat, temel kazı, altyapı, yol ve dolgu işlerinde sahadan gerçek fotoğraflarla yaptığımız işleri inceleyin. CMS Hafriyat sahada nasıl çalışır?',
-    keywords: 'hafriyat projeleri, yaptığımız işler, altyapı kazısı, temel kazısı, iş makineleri, Adana hafriyat, CMS Hafriyat',
+    keywords: 'hafriyat projeleri, yaptığımız işler, altyapı kazısı, temel kazısı, iş makinesi kiralama, Adana hafriyat, CMS Hafriyat',
     h1: 'Yaptığımız İşler', ogImage: '/assets/img/og/altyapi.jpg',
     crumbs: crumb({ name: 'Yaptığımız İşler', path: '/projeler/' }),
     schemaType: 'CollectionPage',
@@ -597,7 +597,7 @@ ${pageHero({ h1: 'İletişim ve Teklif Al', lead: 'Projeniz için keşif ve tekl
 <section class="section">
   <div class="container-x grid gap-14 lg:grid-cols-[1fr_1.3fr]">
     <div>
-      ${sectionHead({ kicker: 'İletişim Kanalları', title: 'Size Nasıl Yardımcı Olabiliriz?', text: 'Hafriyat, altyapı, yol, dolgu, iş makineleri, inşaat veya nakliye ile ilgili tüm sorularınız için bize dilediğiniz kanaldan ulaşabilirsiniz.' })}
+      ${sectionHead({ kicker: 'İletişim Kanalları', title: 'Size Nasıl Yardımcı Olabiliriz?', text: 'Hafriyat, altyapı, yol, dolgu, iş makinesi ve kamyon kiralama, inşaat veya hafriyat nakliyesi ile ilgili tüm sorularınız için bize dilediğiniz kanaldan ulaşabilirsiniz.' })}
       <div class="mt-10 grid gap-4">
         <a href="tel:${site.phone}" class="contact-card" data-reveal><span class="feature-icon">${icon('phone', 'w-6 h-6')}</span><span><span class="block text-sm text-ink-500">Telefon</span><span class="block text-xl font-bold text-ink-900">${site.phoneDisplay}</span></span></a>
         <a href="${waLink()}" target="_blank" rel="noopener" class="contact-card" data-reveal style="--d:.06s"><span class="feature-icon !bg-[#25D366] !text-white">${icon('whatsapp', 'w-6 h-6')}</span><span><span class="block text-sm text-ink-500">WhatsApp</span><span class="block text-xl font-bold text-ink-900">Hemen Yazın</span></span></a>

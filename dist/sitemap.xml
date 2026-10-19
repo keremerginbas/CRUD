@@ -57,13 +57,6 @@
     <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/dolgu.jpg</image:loc><image:title>Dolgu İşleri</image:title></image:image>
   </url>
   <url>
-    <loc>https://cmsharfiyat.com.tr/hizmetler/is-makineleri/</loc>
-    <lastmod>2026-10-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/makine.jpg</image:loc><image:title>İş Makineleri Operasyonları</image:title></image:image>
-  </url>
-  <url>
     <loc>https://cmsharfiyat.com.tr/hizmetler/insaat-taahhut/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
@@ -71,11 +64,25 @@
     <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/insaat.jpg</image:loc><image:title>İnşaat ve Taahhüt Hizmetleri</image:title></image:image>
   </url>
   <url>
+    <loc>https://cmsharfiyat.com.tr/hizmetler/is-makinesi-kiralama/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/makine.jpg</image:loc><image:title>İş Makinesi Kiralama</image:title></image:image>
+  </url>
+  <url>
+    <loc>https://cmsharfiyat.com.tr/hizmetler/kamyon-kiralama/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/kamyon.jpg</image:loc><image:title>Damperli Kamyon Kiralama</image:title></image:image>
+  </url>
+  <url>
     <loc>https://cmsharfiyat.com.tr/hizmetler/nakliye/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
-    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/nakliye.jpg</image:loc><image:title>Hafriyat ve İnşaat Nakliyesi</image:title></image:image>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/nakliye.jpg</image:loc><image:title>Hafriyat ve Moloz Nakliyesi</image:title></image:image>
   </url>
   <url>
     <loc>https://cmsharfiyat.com.tr/projeler/</loc>

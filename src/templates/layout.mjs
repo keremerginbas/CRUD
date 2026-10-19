@@ -116,7 +116,7 @@ function footer(services, latest) {
   <div class="container-x grid gap-12 md:grid-cols-2 lg:grid-cols-5">
     <div class="lg:col-span-2">
       <a href="/" aria-label="${esc(site.name)} - Ana Sayfa"><img src="/assets/brand/logo-light.svg" alt="CMS İnşaat Hafriyat logosu" width="167" height="90" class="h-20 w-auto" loading="lazy"></a>
-      <p class="mt-6 max-w-md leading-relaxed">${esc(site.legalName)}; hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye alanlarında kalite ve güven odaklı hizmet sunar.</p>
+      <p class="mt-6 max-w-md leading-relaxed">${esc(site.legalName)}; hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makinesi ve kamyon kiralama, inşaat ve hafriyat nakliyesi alanlarında kalite ve güven odaklı hizmet sunar.</p>
       <p class="mt-4 font-display text-xl uppercase tracking-wide text-brand-400">${esc(site.slogan)}</p>
       <div class="mt-6 flex flex-wrap gap-3">
         <a href="${waLink()}" class="btn-wa" rel="noopener" target="_blank">${icon('whatsapp', 'w-5 h-5')} WhatsApp</a>

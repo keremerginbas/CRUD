@@ -15,7 +15,7 @@
   const BASE = document.documentElement.dataset.base || '';
   const WA = 'https://wa.me/905335003779';
   const QUICK = ['Hangi hizmetleri veriyorsunuz?', 'Teklif almak istiyorum', 'Hafriyat süreci nasıl işler?', 'İletişim bilgileri'];
-  const GREETING = 'Merhaba! 👋 Ben CMS Hafriyat\'ın yapay zeka asistanıyım. hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye hizmetlerimiz hakkında sorularınızı yanıtlayabilirim. Size nasıl yardımcı olabilirim?';
+  const GREETING = 'Merhaba! 👋 Ben CMS Hafriyat\'ın yapay zeka asistanıyım. hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makinesi ve kamyon kiralama, inşaat ve hafriyat nakliyesi hizmetlerimiz hakkında sorularınızı yanıtlayabilirim. Size nasıl yardımcı olabilirim?';
 
   let history = [];
   try { history = JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch (e) { history = []; }
@@ -72,16 +72,16 @@
   const KB = [
     [/fiyat|ücret|teklif|maliyet|kaç para|ne kadar/, 'Fiyatlar sahanın konumu, iş hacmi, zemin yapısı ve süreye göre değişir. En doğru teklif için ücretsiz keşif planlıyoruz. 📞 0533 500 37 79 numarasını arayabilir, WhatsApp\'tan yazabilir ya da /iletisim/ sayfasındaki formu doldurabilirsiniz.'],
     [/hafriyat|kazı|temel|bodrum|toprak/, 'Hafriyat hizmetimiz temel ve bodrum kazısı, saha düzenleme, toprak yükleme ve döküm sahasına nakliyeyi kapsar. Süreç keşif → planlama ve izinler → kazı ve yükleme → nakliye ve teslim adımlarıyla ilerler. Detaylar: /hizmetler/hafriyat/'],
-    [/makine|ekskavatör|kepçe|loder|dozer|silindir|beko/, 'Projenin ihtiyacına göre ekskavatör, kazıcı yükleyici, loder, dozer ve silindir gibi iş makineleriyle operasyon planlıyoruz. Detaylar: /hizmetler/is-makineleri/ · Makine seçimi rehberi: /blog/is-makinesi-secimi-rehberi/'],
+    [/kirala|makine|ekskavatör|kepçe|loder|dozer|silindir|beko/, 'İş makinesi kiralama ve damperli kamyon kiralama hizmeti veriyoruz. Makine türü, süre ve kapsam ihtiyacınıza göre planlanır. Detaylar: /hizmetler/is-makinesi-kiralama/ · /hizmetler/kamyon-kiralama/'],
     [/inşaat|taahhüt|müteahhit|yapı|bina/, 'İnşaat ve taahhüt işlerinde planlama, iş disiplini ve kalite odaklı uygulama ile projelerinize değer katıyoruz. Detaylar: /hizmetler/insaat-taahhut/'],
-    [/nakliye|taşıma|kamyon|damper|lojistik/, 'Hafriyat toprağı ve inşaat malzemeleri için planlı, güvenli ve zamanında nakliye hizmeti sunuyoruz. Detaylar: /hizmetler/nakliye/'],
+    [/nakliye|taşıma|kamyon|damper|moloz/, 'Nakliye hizmetimiz hafriyat alanından çıkan toprak ve molozun damperli kamyonlarla döküm sahasına taşınmasını kapsar; ekipman veya malzeme taşımıyoruz. Kendi işiniz için kamyon gerekiyorsa kamyon kiralama da yapıyoruz. Detaylar: /hizmetler/nakliye/ · /hizmetler/kamyon-kiralama/'],
     [/temel/, 'Temel kazı işlerinde zemin etüdü ve projeye uygun kot, şev ve iksa güvenliğiyle kontrollü kazı yapıyoruz. Detaylar: /hizmetler/temel-kazi-isleri/'],
     [/altyapı|altyapi|kanal|boru|kanalizasyon|içme suyu|yağmur suyu/, 'Altyapı işlerinde kanal (hendek) kazısı, boru yatağı hazırlığı ve geri dolgu yapıyoruz. Detaylar: /hizmetler/altyapi-isleri/'],
     [/yol|stabilize|tesviye|greyder/, 'Yol kazı işlerinde yol yatağı kazısı, tesviye, stabilize serimi ve sıkıştırma yapıyoruz. Detaylar: /hizmetler/yol-kazi-isleri/'],
     [/dolgu|sıkıştırma|silindir|düzleme/, 'Dolgu işlerinde uygun malzemeyi katmanlar halinde serip silindirle sıkıştırıyoruz. Detaylar: /hizmetler/dolgu-isleri/'],
     [/izin|ruhsat|belediye/, 'Hafriyat izin ve ruhsat süreçleri belediyeye ve projeye göre değişir. Genel bilgi için rehberimizi inceleyebilirsiniz: /blog/hafriyat-ruhsati-ve-izin-sureci/ — süreçte size yol gösterebiliriz.'],
     [/iletişim|telefon|numara|mail|e-posta|adres|ulaş/, 'Bize şu kanallardan ulaşabilirsiniz:\n📞 0533 500 37 79\n💬 WhatsApp: ' + WA + '\n✉️ cmshafriyat01@gmail.com\n📍 Toros Mah. 78090 Sk. Özcan Apt. Sit. No: 10 A, Çukurova/Adana\nveya /iletisim/ sayfasındaki formu kullanabilirsiniz.'],
-    [/hizmet|ne yapıyorsunuz|neler|faaliyet/, 'CMS Hafriyat olarak 8 alanda hizmet veriyoruz:\n• Hafriyat\n• Temel kazı işleri\n• Altyapı işleri\n• Yol kazı işleri\n• Dolgu işleri\n• İş makineleri\n• İnşaat & taahhüt\n• Nakliye\nTümü: /hizmetler/'],
+    [/hizmet|ne yapıyorsunuz|neler|faaliyet/, 'CMS Hafriyat olarak şu alanlarda hizmet veriyoruz:\n• Hafriyat\n• Temel kazı işleri\n• Altyapı işleri\n• Yol kazı işleri\n• Dolgu işleri\n• İnşaat & taahhüt\n• İş makinesi kiralama\n• Kamyon kiralama\n• Hafriyat nakliyesi (toprak ve moloz)\nTümü: /hizmetler/'],
     [/hakkında|kimsiniz|firma|şirket/, 'CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti.; kaliteyi ve güvenilirliği temel değer olarak benimseyen, hafriyat, altyapı, yol, dolgu, inşaat ve nakliye alanlarında faaliyet gösteren bir firmadır. "Güvenle Başlar, Değerle Büyür." Daha fazlası: /hakkimizda/'],
     [/merhaba|selam|iyi günler|günaydın/, 'Merhaba! Size nasıl yardımcı olabilirim? Hizmetlerimiz, süreçlerimiz veya teklif hakkında soru sorabilirsiniz.'],
     [/teşekkür|sağ ol|eyvallah/, 'Rica ederim! Başka bir sorunuz olursa buradayım. Kesin teklif için WhatsApp üzerinden de yazabilirsiniz: ' + WA],

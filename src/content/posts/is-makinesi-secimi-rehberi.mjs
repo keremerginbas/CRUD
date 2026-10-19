@@ -65,7 +65,7 @@ export default {
 <p>Makinenin bakımlı olması kadar operatörün deneyimli olması da önemlidir. Bakımlı ekipman ve yetkin operatör; hem iş güvenliğini artırır hem de verimliliği yükseltir. Kendi makinesini kullanan bir ekip yerine, makineyi operatörüyle birlikte sağlayan bir hizmet tercih etmek koordinasyonu kolaylaştırır.</p>
 
 <h3>6. Makinelerin Birlikte Çalışması</h3>
-<p>Çoğu projede tek bir makine yeterli olmaz. Ekskavatörün kazdığı malzemeyi kamyonlar taşır, dozer dolgu sahasında malzemeyi serer, silindir sıkıştırır. Makine filosunun birbiriyle uyumlu planlanması, beklemeleri ve boşta geçen süreyi azaltır. Kamyon sayısı ve sefer planlaması için <a href="/hizmetler/nakliye/">nakliye hizmetimizi</a> inceleyebilirsiniz.</p>
+<p>Çoğu projede tek bir makine yeterli olmaz. Ekskavatörün kazdığı malzemeyi kamyonlar taşır, dozer dolgu sahasında malzemeyi serer, silindir sıkıştırır. Makine filosunun birbiriyle uyumlu planlanması, beklemeleri ve boşta geçen süreyi azaltır. Kazıdan çıkan toprağın döküm sahasına taşınması için <a href="/hizmetler/nakliye/">hafriyat nakliyesi</a>, kendi sahanızda kamyon ihtiyacı için <a href="/hizmetler/kamyon-kiralama/">damperli kamyon kiralama</a> sayfalarımızı inceleyebilirsiniz.</p>
 
 <h2>Ataşmanlar Makinenin Kabiliyetini Genişletir</h2>
 <p>Aynı makine, farklı ataşmanlarla bambaşka işler yapabilir. Doğru ataşman seçimi, sahaya ikinci bir makine getirme ihtiyacını azaltabilir:</p>
@@ -79,7 +79,7 @@ export default {
 <p>Ataşman seçimi yapılırken makinenin taşıma kapasitesi ve hidrolik sistemi ile uyumu mutlaka kontrol edilmelidir.</p>
 
 <h2>Kiralama mı, Hizmet Alımı mı?</h2>
-<p>Bazı işverenler makineyi yalnızca kiralamayı, bazıları ise kazı işini bir bütün olarak hizmet şeklinde almayı tercih eder. Operatörlü makine hizmeti, iş programının ve güvenlik sorumluluğunun tek elden yönetilmesini sağlar. Hafriyat işinizi bir bütün olarak planlamak isterseniz <a href="/hizmetler/hafriyat/">hafriyat hizmetimize</a>, makine operasyonları için ise <a href="/hizmetler/is-makineleri/">iş makineleri hizmetimize</a> göz atabilirsiniz.</p>
+<p>Bazı işverenler makineyi yalnızca kiralamayı, bazıları ise kazı işini bir bütün olarak hizmet şeklinde almayı tercih eder. Operatörlü makine hizmeti, iş programının ve güvenlik sorumluluğunun tek elden yönetilmesini sağlar. Hafriyat işinizi bir bütün olarak planlamak isterseniz <a href="/hizmetler/hafriyat/">hafriyat hizmetimize</a>, yalnızca makine ihtiyacınız için ise <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> sayfamıza göz atabilirsiniz.</p>
 <p>Hafriyatın genel aşamalarını öğrenmek isterseniz <a href="/blog/hafriyat-nedir-surec-rehberi/">hafriyat süreci rehberimizi</a> okumanızı öneririz.</p>
 
 <h2>Sonuç</h2>
@@ -100,5 +100,5 @@ export default {
       a: "Kayalık zeminlerde genellikle ekskavatöre takılan hidrolik kırıcı veya dozer arkasındaki ripper ile kaya gevşetilir, ardından ekskavatörle kazılıp yüklenir. Yöntem; kayanın sertliğine, komşu yapılara olan mesafeye ve proje gereksinimlerine göre belirlenir. Zemin etüdü verileri bu planlamada önemli bir rol oynar ve doğru ekipman seçimini kolaylaştırır."
     }
   ],
-  relatedServices: ["is-makineleri", "hafriyat", "yol-kazi-isleri"]
+  relatedServices: ["is-makinesi-kiralama", "kamyon-kiralama", "hafriyat"]
 };

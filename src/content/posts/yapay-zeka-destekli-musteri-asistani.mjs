@@ -10,7 +10,7 @@ export default {
   date: "2026-10-19",
   excerpt: "Web sitemizdeki yapay zekâ destekli müşteri asistanı, hizmetlerimizle ilgili sorularınızı günün her saatinde yanıtlıyor ve gerektiğinde sizi WhatsApp veya telefonla ekibimize yönlendiriyor.",
   body: `
-<p>Yeni web sitemizle birlikte hayata geçirdiğimiz yapay zekâ destekli müşteri asistanımız, sorularınıza günün her saatinde yanıt vermek için hizmetinizde. Hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye alanlarındaki hizmetlerimizle ilgili merak ettiklerinizi artık mesai saatlerini beklemeden sorabilirsiniz.</p>
+<p>Yeni web sitemizle birlikte hayata geçirdiğimiz yapay zekâ destekli müşteri asistanımız, sorularınıza günün her saatinde yanıt vermek için hizmetinizde. Hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makinesi ve kamyon kiralama, inşaat ve hafriyat nakliyesi alanlarındaki hizmetlerimizle ilgili merak ettiklerinizi artık mesai saatlerini beklemeden sorabilirsiniz.</p>
 
 <h2>Asistan Neler Yapabilir?</h2>
 <ul>
@@ -37,7 +37,7 @@ export default {
 <p>Asistanımıza örneğin şu tür sorular yöneltebilirsiniz:</p>
 <ul>
 <li>"<a href="/hizmetler/hafriyat/">Hafriyat</a> sürecinde hangi aşamalar var?"</li>
-<li>"Projem için hangi <a href="/hizmetler/is-makineleri/">iş makineleri</a> gerekebilir?"</li>
+<li>"Projem için hangi <a href="/hizmetler/is-makinesi-kiralama/">iş makinesini kiralamalıyım</a>?"</li>
 <li>"Hafriyat toprağının <a href="/hizmetler/nakliye/">nakliyesi</a> nasıl planlanıyor?"</li>
 <li>"Sizinle nasıl iletişime geçebilirim?"</li>
 </ul>
@@ -48,5 +48,5 @@ export default {
 <p>Yeni sitemizin diğer özelliklerini <a href="/haberler/yeni-web-sitemiz-yayinda/">yeni web sitemiz yayında</a> haberimizde bulabilirsiniz. Doğrudan bizimle görüşmek isterseniz <a href="/iletisim/">iletişim sayfamızı</a> ziyaret edebilirsiniz.</p>
 `,
   faqs: [],
-  relatedServices: ["hafriyat", "is-makineleri", "nakliye"]
+  relatedServices: ["hafriyat", "is-makinesi-kiralama", "nakliye"]
 };

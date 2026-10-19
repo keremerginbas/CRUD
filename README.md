@@ -26,7 +26,8 @@ python3 scripts/make_logo.py         # logo SVG/PNG + favicon seti
 ├── /hakkimizda/                   Hakkımızda (misyon, vizyon, değerler)
 ├── /hizmetler/                    Hizmetlerimiz (hub)
 │   ├── /hizmetler/hafriyat/
-│   ├── /hizmetler/is-makineleri/
+│   ├── /hizmetler/is-makinesi-kiralama/
+│   ├── /hizmetler/kamyon-kiralama/
 │   ├── /hizmetler/insaat-taahhut/
 │   ├── /hizmetler/temel-kazi-isleri/
 │   ├── /hizmetler/altyapi-isleri/

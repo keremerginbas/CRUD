@@ -1,15 +1,15 @@
 // Yaptığımız İşler galerisi – görseller src/photos/galeri/ (scripts/import_photos.py ile işlenir)
-// service: hizmet filtresi (hafriyat, temel, altyapi, yol, dolgu, makine, insaat, nakliye)
+// service: hizmet filtresi (hafriyat, temel, altyapi, yol, dolgu, makine, kamyon, insaat, nakliye)
 export default [
   {
     "file": "01-lowbed-ekskavator-nakliyesi",
-    "service": "nakliye",
-    "caption": "Lowbed ile ekskavatör nakliyesi"
+    "service": "makine",
+    "caption": "İş makinesinin sahaya sevki"
   },
   {
     "file": "02-is-makinesi-lowbed-yukleme",
-    "service": "nakliye",
-    "caption": "İş makinesinin lowbed dorseye yüklenmesi"
+    "service": "makine",
+    "caption": "Kiralık iş makinesinin sahaya hazırlanması"
   },
   {
     "file": "03-ekskavator-hafriyat-calismasi",
@@ -53,8 +53,8 @@ export default [
   },
   {
     "file": "11-cekici-lowbed-makine-transferi",
-    "service": "nakliye",
-    "caption": "Çekici ve lowbed ile makine transferi"
+    "service": "makine",
+    "caption": "İş makinesi sahaya intikal ediyor"
   },
   {
     "file": "12-enkaz-kaldirma-hafriyat",
@@ -158,8 +158,8 @@ export default [
   },
   {
     "file": "32-damperli-kamyon-ekskavator",
-    "service": "nakliye",
-    "caption": "Damperli kamyon ve ekskavatör"
+    "service": "kamyon",
+    "caption": "Damperli kamyon ve ekskavatör ile çalışma"
   },
   {
     "file": "33-kazi-topragi-kamyon-yukleme",
@@ -173,8 +173,8 @@ export default [
   },
   {
     "file": "35-lowbed-uzerinde-ekskavator",
-    "service": "nakliye",
-    "caption": "Lowbed üzerinde ekskavatör"
+    "service": "makine",
+    "caption": "Kiralama için sahaya gelen ekskavatör"
   },
   {
     "file": "36-kanal-ici-altyapi-calismasi",

@@ -1,6 +1,6 @@
 export default {
   slug: "insaat-taahhut",
-  order: 7,
+  order: 6,
   name: "İnşaat & Taahhüt",
   icon: "building",
   scene: "insaat",
@@ -59,7 +59,7 @@ export default {
 
 <h2>Saha Hazırlığından Yapıma Kesintisiz Süreç</h2>
 <p>İnşaat projelerinde en sık karşılaşılan sorunlardan biri, farklı aşamalar arasındaki koordinasyon eksikliğidir. Kazı ekibi, nakliye ve yapım ekipleri ayrı ayrı planlandığında bekleme süreleri ve iletişim kopuklukları ortaya çıkabilir. Hafriyat, iş makineleri ve nakliye alanlarında da hizmet verdiğimiz için bu aşamaları tek bir planlama altında yönetebiliyoruz.</p>
-<p>Projenizin başlangıcında <a href="/hizmetler/hafriyat/">hafriyat hizmetimiz</a> ile zemini hazırlıyor, gerekli ekipmanı <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarımız</a> ile sağlıyor ve yapım aşamasına sorunsuz bir geçiş planlıyoruz. Yapının oturacağı temel çukurunun projeye uygun kotlarda açılması için <a href="/hizmetler/temel-kazi-isleri/">temel kazı işleri</a> hizmetimizle kaba yapıya sağlam bir başlangıç hazırlıyoruz.</p>
+<p>Projenizin başlangıcında <a href="/hizmetler/hafriyat/">hafriyat hizmetimiz</a> ile zemini hazırlıyor, makine ihtiyacını <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> seçeneklerimizle planlıyor ve yapım aşamasına sorunsuz bir geçiş planlıyoruz. Yapının oturacağı temel çukurunun projeye uygun kotlarda açılması için <a href="/hizmetler/temel-kazi-isleri/">temel kazı işleri</a> hizmetimizle kaba yapıya sağlam bir başlangıç hazırlıyoruz.</p>
 <h3>Şeffaf İletişim ve Raporlama</h3>
 <p>Proje sahibinin sürecin nerede olduğunu bilmesi, sağlıklı karar alabilmesi için önemlidir. Bu nedenle iş programındaki ilerlemeyi, karşılaşılan durumları ve olası değişiklikleri düzenli olarak paylaşıyoruz. Açık iletişim, hem güveni artırır hem de sorunların erken aşamada çözülmesini kolaylaştırır.</p>
 
@@ -90,7 +90,7 @@ export default {
 <li><strong>Müşteri memnuniyeti:</strong> Beklentilerinizi dinliyor, süreci sizinle birlikte yönetiyoruz.</li>
 <li><strong>Sürekli gelişim:</strong> Her projeden öğrendiklerimizle yöntemlerimizi iyileştiriyoruz.</li>
 </ul>
-<p>Malzeme ve ekipman taşımacılığı ihtiyaçlarınız için <a href="/hizmetler/nakliye/">nakliye hizmetimizi</a> de inceleyebilirsiniz. Gerçekleştirdiğimiz çalışmaları görmek için <a href="/projeler/">projeler sayfamızı</a> ziyaret edebilir, projeniz hakkında görüşmek üzere <a href="/iletisim/">bizimle iletişime geçebilirsiniz</a>.</p>
+<p>Kazıdan çıkan toprağın ve molozun döküm sahasına taşınması için <a href="/hizmetler/nakliye/">hafriyat nakliyesi</a>, kendi sahanızdaki dökme malzeme taşıma ihtiyaçları için <a href="/hizmetler/kamyon-kiralama/">kamyon kiralama</a> sayfalarımızı da inceleyebilirsiniz. Gerçekleştirdiğimiz çalışmaları görmek için <a href="/projeler/">projeler sayfamızı</a> ziyaret edebilir, projeniz hakkında görüşmek üzere <a href="/iletisim/">bizimle iletişime geçebilirsiniz</a>.</p>
 `,
   faqs: [
     {

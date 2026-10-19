@@ -25,7 +25,7 @@ export default {
 <li><strong>Planlı başlangıç:</strong> Her işe başlamadan önce sahayı inceler, riskleri değerlendirir ve çalışma planını buna göre oluştururuz.</li>
 <li><strong>Kişisel koruyucu donanım:</strong> Sahada çalışan herkesin uygun koruyucu donanımı kullanmasını önemseriz.</li>
 <li><strong>Kazı güvenliği:</strong> Şev ve iksa ihtiyacını zemin koşullarına göre değerlendirir, kazı çevresinde gerekli önlemleri alırız.</li>
-<li><strong>Makine güvenliği:</strong> <a href="/hizmetler/is-makineleri/">İş makinelerimizin</a> düzenli bakımını ve kontrolünü önemser, makine çalışma alanlarını net şekilde belirleriz.</li>
+<li><strong>Makine güvenliği:</strong> <a href="/hizmetler/is-makinesi-kiralama/">İş makinelerimizin</a> düzenli bakımını ve kontrolünü önemser, makine çalışma alanlarını net şekilde belirleriz.</li>
 <li><strong>Trafik ve nakliye güvenliği:</strong> <a href="/hizmetler/nakliye/">Nakliye</a> süreçlerinde saha içi ve dışı araç hareketlerini planlı şekilde yönetiriz.</li>
 <li><strong>Çevre güvenliği:</strong> Saha çevresini uyarı levhaları ve uygun önlemlerle yayalar için güvenli hale getiririz.</li>
 </ul>
@@ -41,5 +41,5 @@ export default {
 <p>Projeniz hakkında konuşmak veya çalışma yaklaşımımız hakkında daha fazla bilgi almak için <a href="/iletisim/">bizimle iletişime geçebilirsiniz</a>.</p>
 `,
   faqs: [],
-  relatedServices: ["hafriyat", "is-makineleri", "nakliye"]
+  relatedServices: ["hafriyat", "is-makinesi-kiralama", "nakliye"]
 };
