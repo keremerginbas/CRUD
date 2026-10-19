@@ -117,7 +117,19 @@ const sweep = (dir) => {
   }
 };
 sweep(DIST);
-for (const { file, html } of outputs) write(file, withBase(html));
+// Göreli adresler: aynı çıktı alan adının kökünde de, herhangi bir alt klasörde de çalışır.
+// 404 sayfası her derinlikte sunulabildiği için kök göreli (taban yolu ekli) kalır.
+const relRoot = (file) => {
+  const d = path.dirname(file).split(/[\\/]/).filter((x) => x && x !== '.').length;
+  return d ? Array(d).fill('..').join('/') : '.';
+};
+const relativize = (html, file) => {
+  if (file === '404.html') return withBase(html);
+  const r = relRoot(file);
+  return html.replace(/data-base="[^"]*"/, `data-base="${r}"`)
+    .replace(/(=")\/(?!\/)/g, `$1${r}/`).replace(/(\d+w, )\/(?!\/)/g, `$1${r}/`);
+};
+for (const { file, html } of outputs) write(file, relativize(html, file));
 // Önizleme klasörü ayrıysa üretilmiş medyayı (video, görsel, logo, ikon) dist'ten kopyala
 if (DIST !== path.join(ROOT, 'dist')) {
   const SRC = path.join(ROOT, 'dist');
@@ -165,9 +177,9 @@ const rssItems = posts.map((p) => `  <item>\n    <title>${p.h1.replace(/&/g, '&a
 write('feed.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">\n<channel>\n  <title>${site.name} Blog</title>\n  <link>${site.url}/blog/</link>\n  <atom:link href="${site.url}/feed.xml" rel="self" type="application/rss+xml"/>\n  <description>Hafriyat, inşaat ve nakliye rehberleri ile kurumsal haberler.</description>\n  <language>tr-TR</language>\n${rssItems}\n</channel>\n</rss>\n`);
 
 write('manifest.webmanifest', JSON.stringify({
-  name: site.legalName, short_name: site.name, lang: 'tr', start_url: `${BASE}/`, display: 'standalone',
+  name: site.legalName, short_name: site.name, lang: 'tr', start_url: './', display: 'standalone',
   background_color: '#0f172a', theme_color: site.themeColor,
-  icons: [{ src: `${BASE}/icon-192.png`, sizes: '192x192', type: 'image/png' }, { src: `${BASE}/icon-512.png`, sizes: '512x512', type: 'image/png' }],
+  icons: [{ src: 'icon-192.png', sizes: '192x192', type: 'image/png' }, { src: 'icon-512.png', sizes: '512x512', type: 'image/png' }],
 }, null, 2));
 
 // Sunucu başlıkları: X-Robots-Tag, güvenlik, önbellek (Apache/cPanel + Netlify/Cloudflare Pages)
