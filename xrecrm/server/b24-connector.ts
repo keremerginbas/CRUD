@@ -881,6 +881,7 @@ export function page(res: Response, status: number, title: string, body: string,
 .brand i{width:28px;height:28px;border-radius:8px;background:var(--accent);display:inline-block}
 .wrap h1{font-size:20px;margin:0 0 8px}.wrap p{margin:6px 0;color:var(--ink-2)}.wrap ol,.wrap ul{padding-left:20px;color:var(--ink-2)}
 .wrap .qr{margin:16px 0}.ok{color:var(--ok);font-weight:600}.err{color:var(--danger)}
+.wrap a{color:var(--accent);font-weight:600}
 .wrap button{padding:9px 16px;border-radius:var(--r-s);border:1px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer}
 @media (max-width:600px){.wrap{margin:0;border-radius:0;border-width:0 0 1px;padding:22px 16px}}</style>${script}</head>
 <body><div class="wrap"><div class="brand"><i aria-hidden="true"></i>XRE WhatsApp</div><h1>${escapeHtml(title)}</h1>${body}</div></body></html>`);
