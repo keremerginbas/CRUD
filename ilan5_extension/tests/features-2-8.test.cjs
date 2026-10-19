@@ -44,8 +44,8 @@ test('daily budget allows up to the limit, then waits until next local 00:05 and
 });
 
 test('safety defaults: separate window on, 400 a day; invalid limits fall back', () => {
-  assert.deepEqual(core.normalizeSafety(undefined), {separateWindow: true, dailyLimit: 400});
-  assert.deepEqual(core.normalizeSafety({separateWindow: false, dailyLimit: 0}), {separateWindow: false, dailyLimit: 0});
+  assert.deepEqual(core.normalizeSafety(undefined), {separateWindow: true, skipKnown: true, reuseKnownPhone: true, dailyLimit: 400});
+  assert.deepEqual(core.normalizeSafety({separateWindow: false, dailyLimit: 0, skipKnown: false}), {separateWindow: false, skipKnown: false, reuseKnownPhone: true, dailyLimit: 0});
   assert.equal(core.normalizeSafety({dailyLimit: -3}).dailyLimit, 400);
   assert.equal(core.normalizeSafety({dailyLimit: 'abc'}).dailyLimit, 400);
 });
@@ -208,7 +208,7 @@ test('safety config round-trips through the background message handler', async (
   const alerts = Alerts.createAlerts({storage}, () => null);
   let result = await alerts.handle({type: 'ILAN_SAFETY_CONFIG', safety: {dailyLimit: 150, separateWindow: false}});
   assert.equal(result.ok, true);
-  assert.deepEqual(result.safety, {separateWindow: false, dailyLimit: 150});
+  assert.deepEqual(result.safety, {separateWindow: false, skipKnown: true, reuseKnownPhone: true, dailyLimit: 150});
   result = await alerts.handle({type: 'ILAN_SAFETY_STATUS'});
   assert.equal(result.safety.dailyLimit, 150);
   assert.equal(result.todayCount, 0);
@@ -225,4 +225,140 @@ test('Excel/CSV rows include list names, m² price, follow-up status and note', 
   assert.equal(col('Takip Durumu'), 'Görüşülecek');
   assert.equal(col('Not'), 'Cuma 14:00');
   assert.equal(core.normalizeRecord(Object.fromEntries(header.map((h, i) => [h, row[i]]))).rawDetails['Listeler'], undefined, 'new columns are not re-imported as listing details');
+});
+
+// Crawl harness whose archive lookup is backed by a plain Map.
+function skipHarness(archived, listResponse, detailRecord) {
+  let now = new Date(2026, 9, 19, 10, 0).getTime();
+  const storage = storageApi({[core.SAFETY_KEY]: {dailyLimit: 0, separateWindow: false}}), tabs = new Map(), reads = [], seen = [], saved = [];
+  const api = {storage, runtime: {sendMessage: async () => {}}, alarms: {create: async () => {}, clear: async () => {}},
+    tabs: {get: async id => { if (!tabs.has(id)) throw Error('missing'); return clone(tabs.get(id)); },
+      create: async args => { tabs.set(1, {id: 1, status: 'complete', ...args}); return clone(tabs.get(1)); },
+      update: async (id, args) => { Object.assign(tabs.get(id), args, {status: 'loading'}); return clone(tabs.get(id)); }, query: async () => [],
+      sendMessage: async (id, request) => { reads.push(request); return request.mode === 'list' ? listResponse : {ok: true, kind: 'detail', record: detailRecord(request.expectedUrl)}; }},
+    scripting: {executeScript: async () => {}}};
+  const db = {getMany: async ids => ids.map(id => clone(archived.get(id))), markSeen: async (ids, options) => { seen.push({ids, options}); return {seen: ids.length}; },
+    upsertMany: async values => { saved.push(...clone(values)); return {saved: values.length}; }};
+  const engine = createEngine(api, core, db, {now: () => now});
+  return {engine, reads, seen, saved, job: () => clone(storage.state[JOB_KEY]),
+    async loaded() { tabs.get(1).status = 'complete'; await engine.onUpdated(1, {status: 'complete'}, clone(tabs.get(1))); },
+    async step() { now += 5000; await engine.onAlarm({name: STEP_ALARM}); },
+    get now() { return now; }};
+}
+const sUrl = n => `https://www.sahibinden.com/ilan/emlak-arsa-satilik-ornek-${n}/detay`;
+const DAY = 24 * 60 * 60 * 1000, T0 = new Date(2026, 9, 19, 10, 0).getTime();
+const known = (n, extra = {}) => [`sahibinden:${n}`, {id: `sahibinden:${n}`, price: 1000000, currency: 'TRY', phones: ['90532000' + String(n).slice(-4)], sellerName: 'Satıcı', updatedAt: new Date(T0 - DAY).toISOString(), market: {searchIds: ['s1']}, ...extra}];
+
+test('known, unchanged listings on a search page are skipped; changed, stale or new ones are opened', async () => {
+  const archived = new Map([known(900001), known(900002), known(900003, {updatedAt: new Date(T0 - 9 * DAY).toISOString()}), known(900004, {market: {searchIds: ['other']}})]);
+  const rows = [[900001, 1000000], [900002, 900000], [900003, 1000000], [900004, 1000000], [900005, 1]].map(([n, price]) => ({url: sUrl(n), price, currency: 'TRY'}));
+  const h = skipHarness(archived, {ok: true, kind: 'list', links: rows.map(r => r.url), rows, nextUrl: null, pagination: {complete: true, expectedTotal: 5}},
+    url => ({url, title: 'Arsa', price: 900000, rawDetails: {}}));
+  await h.engine.handle({type: 'ILAN_START', searchUrl: 'https://www.sahibinden.com/satilik-arsa/ankara', category: 'all', delayMs: 4000, searchId: 's1', listId: 'list-x'});
+  await h.loaded();
+  const job = h.job();
+  assert.deepEqual(job.unchangedIds, ['sahibinden:900001'], 'only the fresh, same-price, same-search listing is skipped');
+  assert.deepEqual(job.listingQueue.map(ref => ref.listingId), ['900002', '900003', '900004', '900005']);
+  assert.equal(job.counts.discovered, 5, 'skipped listings still count toward the page total');
+  assert.equal(job.counts.unchanged, 1);
+  assert.equal(h.seen.length, 1);
+  assert.deepEqual([...h.seen[0].ids], ['sahibinden:900001']);
+  assert.equal(h.seen[0].options.searchId, 's1');
+  assert.equal(h.seen[0].options.listId, 'list-x');
+  assert.deepEqual(job.listingQueue[0].knownPhones, ['905320000002']);
+  assert.equal(job.listingQueue[3].knownPhones, undefined);
+  // The first detail (900002) already has a stored phone: the button is not pressed, the number is kept.
+  await h.step(); await h.loaded();
+  const detailRead = h.reads.find(r => r.mode === 'detail');
+  assert.equal(detailRead.revealPhone, false);
+  assert.deepEqual(h.saved[0].phones, ['905320000002']);
+  // A listing without a stored phone (900005) still gets the button.
+  for (let i = 0; i < 3; i++) { await h.step(); await h.loaded(); }
+  assert.equal(h.reads.filter(r => r.mode === 'detail').at(-1).revealPhone, true);
+  await h.step();
+  assert.equal(h.job().status, 'completed');
+});
+
+test('links mode never skips but still reuses the stored phone', async () => {
+  const archived = new Map([known(920001)]);
+  const rows = [{url: sUrl(920001), price: 1000000, currency: 'TRY'}];
+  const h = skipHarness(archived, {ok: true, kind: 'list', links: [sUrl(920001)], rows, nextUrl: null, pagination: {complete: true}}, url => ({url, title: 'A', price: 1000000}));
+  await h.engine.handle({type: 'ILAN_START_LINKS', urls: [sUrl(920001)], category: 'all', delayMs: 4000});
+  assert.equal(h.job().listingQueue.length, 1);
+  assert.deepEqual(h.job().listingQueue[0].knownPhones, ['905320000001'], 'links mode still reuses the stored phone');
+});
+
+test('a page whose listings are all known and unchanged does not stop pagination as a repeated page', async () => {
+  const archived = new Map([known(910001), known(910002)]);
+  const rows = [910001, 910002].map(n => ({url: sUrl(n), price: 1000000, currency: 'TRY'}));
+  const h = skipHarness(archived, {ok: true, kind: 'list', links: rows.map(r => r.url), rows, nextUrl: '?pagingOffset=50&pagingSize=50', pagination: {complete: false}}, url => ({url}));
+  await h.engine.handle({type: 'ILAN_START', searchUrl: 'https://www.sahibinden.com/satilik-arsa/ankara', category: 'all', delayMs: 4000, searchId: 's1'});
+  await h.loaded();
+  const job = h.job();
+  assert.ok(job.pendingNextListUrl, 'next page is still queued');
+  assert.equal(job.listIncomplete, false);
+  assert.equal(job.counts.unchanged, 2);
+});
+
+test('message queue: one message per seller, even within one batch, across phone order and after the queue is cleared', async () => {
+  const db = database();
+  const listing = (n, phones, seller = 'Satıcı ' + n) => record(n, {phones, sellerName: seller});
+  await db.upsertMany([
+    listing(950001, ['0532 111 11 11']),
+    listing(950002, ['0533 222 22 22', '0532 111 11 11'], 'Aynı kişi, farklı sıra'),
+    listing(950003, ['0544 333 33 33']),
+    listing(950004, [], 'İsimli Satıcı'), listing(950005, [], 'isimli satıcı'),
+    listing(950006, ['0555 444 44 44'])]);
+  let result = await db.createMessageQueue({category: 'arsa'});
+  assert.deepEqual([...result.items.map(i => i.listingId)].sort(), ['950001', '950003', '950004', '950006']);
+  assert.equal(result.skippedContacted, 2);
+  // Mark one as sent, then clear the queue: the seller is still remembered.
+  const sent = result.items.find(i => i.listingId === '950001');
+  await db.updateMessageItem(sent.id, {status: 'sent'});
+  assert.ok((await db.get('sahibinden:950001')).messagedAt);
+  await db.clearMessageQueue();
+  await db.upsertMany([listing(950007, ['+90 532 111 11 11'])]);
+  await db.upsertMany([listing(950001, ['0532 111 11 11'])], {origin: 'crawl'});
+  assert.ok((await db.get('sahibinden:950001')).messagedAt, 'a new crawl keeps the sent mark');
+  result = await db.createMessageQueue({category: 'arsa'});
+  const ids = [...result.items.map(i => i.listingId)].sort();
+  assert.ok(!ids.includes('950001') && !ids.includes('950002') && !ids.includes('950007'), 'messaged seller is never queued again: ' + ids);
+  assert.ok(ids.includes('950003'), 'unsent sellers can be queued again after the queue was cleared');
+  // The option still allows deliberately queuing other listings of a contacted seller (never the messaged listing itself).
+  await db.clearMessageQueue();
+  result = await db.createMessageQueue({category: 'arsa', skipSameSeller: false});
+  assert.ok(!result.items.some(i => i.listingId === '950001'));
+  assert.ok(result.items.some(i => i.listingId === '950007'));
+});
+
+test('daily summary counts the last 24 hours and is sent once a day, with catch-up after Chrome was closed', async () => {
+  const db = database();
+  const now = new Date(2026, 9, 19, 9, 0).getTime();
+  await db.upsertMany([record(960001, {price: 1000000}), record(960002), record(960003), record(960004), record(960005), record(960006, {price: 500000, crm: {status: 'meeting'}})],
+    {origin: 'crawl', searchId: 's1', baseline: true, observedAt: new Date(now - 30 * 60 * 60 * 1000).toISOString()});
+  await db.upsertMany([record(960001, {price: 800000}), record(960007)], {origin: 'crawl', searchId: 's1', runId: 'r', observedAt: new Date(now - 60 * 60 * 1000).toISOString()});
+  const tg = telegramHarness({'ilan5.telegram.config.v1': {token: TOKEN, chatId: '-1001234567890'}});
+  const alarms = new Map();
+  const api = {storage: tg.storage, alarms: {create: async (n, o) => alarms.set(n, o), clear: async n => alarms.delete(n), get: async n => alarms.get(n)}};
+  const alerts = Alerts.createAlerts(api, () => tg.client, {getDb: () => db, now: () => now});
+  const summary = await alerts.buildSummary();
+  assert.equal(summary.newListings, 1);
+  assert.equal(summary.priceDrops, 1);
+  assert.equal(summary.meetings, 1);
+  assert.equal(summary.opportunities, 2, "the 800k drop is exactly 20% below the district median, plus the 500k listing");
+  assert.equal(summary.total, 7);
+  assert.match(Alerts.summaryText(summary), /GÜNLÜK ÖZET[\s\S]*Yeni ilan: 1[\s\S]*Fiyatı düşen: 1[\s\S]*En büyük düşüşler/);
+  // First start only arms the alarm.
+  await alerts.scheduleSummary();
+  assert.ok(alarms.has(Alerts.SUMMARY_ALARM));
+  assert.equal(tg.storage.state['ilan5.telegram.outbox.v1'], undefined);
+  // Next day after 08:30 with no summary sent yet (Chrome was closed): catch up once.
+  const later = Alerts.createAlerts(api, () => tg.client, {getDb: () => db, now: () => now + 24 * 60 * 60 * 1000});
+  await later.scheduleSummary();
+  await later.scheduleSummary();
+  await later.onAlarm({name: Alerts.SUMMARY_ALARM});
+  const outbox = tg.storage.state['ilan5.telegram.outbox.v1'];
+  assert.equal(outbox.filter(e => e.eventId.startsWith('summary:')).length, 1);
+  assert.equal(Alerts.nextSummaryAt('08:30', new Date(2026, 9, 19, 9, 0).getTime()), new Date(2026, 9, 20, 8, 30).getTime());
+  assert.equal(Alerts.normalize({summaryTime: '25:99'}).summaryTime, '08:30');
 });

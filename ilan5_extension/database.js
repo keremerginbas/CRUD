@@ -78,6 +78,7 @@
           }else counts.added++;
           // Lists are additive labels: a record keeps every list it was ever collected into.
           if(old&&!result.crm?.status&&!result.crm?.note&&(old.crm?.status||old.crm?.note))result.crm=old.crm;
+          if(old?.messagedAt&&!result.messagedAt)result.messagedAt=old.messagedAt;
           if(old||listId)result.lists=[...new Set([...(old?.lists||[]),...(result.lists||[]),...(listId?[listId]:[])])];
           if(crawl){
             const priorMarket=core().normalizeMarket(old?.market),pending=[];
@@ -111,6 +112,20 @@
     });
   }
   function setCategory(id,category){if(!Object.hasOwn(core().CATEGORIES,category)||category==='belirsiz')return Promise.reject(Error('Geçerli bir kategori seçin.'));return mutate(id,record=>({...core().normalizeRecord({...record,manualCategory:category,manualCategorizedAt:now()}),history:record.history||[]}));}
+  async function getMany(ids){const db=await open(),store=db.transaction('records','readonly').objectStore('records');return Promise.all([...new Set(ids)].map(id=>readResult(store.get(id))));}
+  // A listing seen unchanged on a search page: refresh search membership and list labels without
+  // re-reading the detail page. Creates no market events, exactly like an unchanged detail visit.
+  async function markSeen(ids,options={}){
+    const searchId=core().clean(options.searchId).slice(0,250),listId=core().clean(options.listId).slice(0,100),at=date(options.observedAt)||now();
+    const db=await open();return new Promise((resolve,reject)=>{
+      const tx=db.transaction('records','readwrite'),store=tx.objectStore('records');let seen=0;
+      for(const id of new Set(ids)){const request=store.get(id);request.onsuccess=()=>{const record=request.result;if(!record)return;
+        record.market=mergeMarket(record.market,{searchIds:searchId?[searchId]:[],lastSeenAt:at});
+        if(listId)record.lists=[...new Set([...(record.lists||[]),listId])];
+        store.put(record);seen++;};}
+      tx.oncomplete=()=>{if(seen)changed();resolve({seen});};tx.onerror=()=>reject(tx.error);
+    });
+  }
   function setCrm(id,patch){return mutate(id,record=>({...record,crm:core().normalizeCrm({...record.crm,...patch,updatedAt:now()})}));}
   // Moves (toId) or removes (toId empty) a list label on every record. Records themselves are never deleted.
   async function relabelList(fromId,toId=''){
@@ -125,6 +140,7 @@
     });
   }
   function setDeleted(id,deleted){return mutate(id,record=>({...record,deletedAt:deleted?now():null}));}
+  const sellerIdentities=record=>{const phones=(record?.phones||[]).map(p=>String(p).replace(/\D/g,'')).filter(p=>p.length>=10).map(p=>'tel:'+p.slice(-10));if(phones.length)return phones;const name=core().clean(record?.sellerName||'').toLocaleLowerCase('tr-TR');return name?['name:'+name+'|'+(record?.source||'')]:[];};
   const sellerKey=record=>core().clean(record?.sellerName||'').toLocaleLowerCase('tr-TR')+'|'+core().clean((record?.phones||[])[0]||'')+'|'+core().clean(record?.source||'');
   const defaultTemplate=()=>({id:'default-arsa',name:'Arsa değerlendirme mesajı',body:'Merhaba {ad_soyad}, {ilan_basligi} ilanınızı gördüm. XRE olarak arsa ve proje geliştirme alanında çalışıyoruz. Uygun olursa ilanınızla ilgili kısa bir görüşme yapmak isteriz.',updatedAt:now(),createdAt:now()});
   function renderTemplate(template,record){
@@ -158,15 +174,29 @@
   async function createMessageQueue(options={}){
     const category=options.category||'arsa',template=(await getMessageTemplates()).find(t=>t.id===options.templateId)||(await getMessageTemplates())[0],limit=Number(options.limit||0);
     const records=(await getAll()).filter(record=>!record.deletedAt&&record.source==='sahibinden'&&(category==='all'||record.category===category)&&record.url&&/sahibinden\.com/i.test(record.url));
-    const db=await open(),existing=await readResult(db.transaction('messageQueue','readonly').objectStore('messageQueue').getAll()),usedRecords=new Set(existing.filter(q=>q.status!=='cancelled').map(q=>q.recordId)),usedSellers=new Set(existing.filter(q=>q.status==='sent'||q.status==='prepared').map(q=>q.sellerKey));
-    const selected=[];for(const record of records){if(usedRecords.has(record.id))continue;const key=sellerKey(record);if(options.skipSameSeller!==false&&key.trim()!=='||'&&usedSellers.has(key))continue;selected.push(record);if(limit&&selected.length>=limit)break;}
+    const db=await open(),existing=await readResult(db.transaction('messageQueue','readonly').objectStore('messageQueue').getAll());
+    const usedRecords=new Set(existing.filter(q=>q.status!=='cancelled').map(q=>q.recordId));
+    // A seller is contacted once: any shared phone (or the same name when no phone is known) blocks
+    // further listings. History comes from the listing itself, so clearing the queue never forgets it.
+    const byId=new Map((await getAll()).map(record=>[record.id,record])),blocked=new Set();
+    for(const record of byId.values())if(record.messagedAt)sellerIdentities(record).forEach(key=>blocked.add(key));
+    for(const item of existing)if(['sent','prepared','queued','opening'].includes(item.status))sellerIdentities(byId.get(item.recordId)||item).forEach(key=>blocked.add(key));
+    const selected=[];let skippedContacted=0;
+    for(const record of records){
+      if(usedRecords.has(record.id)||record.messagedAt)continue;
+      const keys=sellerIdentities(record);
+      if(options.skipSameSeller!==false&&keys.some(key=>blocked.has(key))){skippedContacted++;continue;}
+      keys.forEach(key=>blocked.add(key));selected.push(record);if(limit&&selected.length>=limit)break;
+    }
     const items=selected.map(record=>({id:'msg-'+Date.now()+'-'+Math.random().toString(36).slice(2,8),recordId:record.id,sellerKey:sellerKey(record),status:'queued',attempts:0,templateId:template.id,message:renderTemplate(template,record),url:record.url,title:record.title,listingId:record.listingId,category:record.category,sellerName:record.sellerName,createdAt:now(),updatedAt:now()}));
     if(items.length){await new Promise((resolve,reject)=>{const tx=db.transaction('messageQueue','readwrite'),store=tx.objectStore('messageQueue');items.forEach(item=>store.put(item));tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);});changed();}
-    return {created:items.length,items};
+    return {created:items.length,items,skippedContacted};
   }
   async function updateMessageItem(id,patch){
-    const db=await open();return new Promise((resolve,reject)=>{const tx=db.transaction('messageQueue','readwrite'),store=tx.objectStore('messageQueue'),req=store.get(id);let next;
-      req.onsuccess=()=>{if(!req.result){tx.abort();return;}next={...req.result,...patch,updatedAt:now()};store.put(next);};
+    const db=await open();return new Promise((resolve,reject)=>{const tx=db.transaction(['messageQueue','records'],'readwrite'),store=tx.objectStore('messageQueue'),req=store.get(id);let next;
+      req.onsuccess=()=>{if(!req.result){tx.abort();return;}next={...req.result,...patch,updatedAt:now()};store.put(next);
+        // Sending is remembered on the listing, independent of the queue's lifetime.
+        if(patch.status==='sent'&&next.recordId){const records=tx.objectStore('records'),r=records.get(next.recordId);r.onsuccess=()=>{if(r.result){records.put({...r.result,messagedAt:r.result.messagedAt||now()});}};}};
       tx.oncomplete=()=>{changed();resolve(next);};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Mesaj kaydı bulunamadı.'));});
   }
   async function deleteMessageItem(id){
@@ -216,6 +246,6 @@
       tx.oncomplete=()=>{changed();resolve({saved:normalized.length,added,existing:normalized.length-added});};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Hareket yedeği kaydedilemedi.'));
     });
   }
-  root.IlanDB={getAll,get,upsertMany,setCategory,setDeleted,setCrm,relabelList,patchMonitoring,getEvents,importEvents,getMessageTemplates,saveMessageTemplate,getMessageQueue,createMessageQueue,updateMessageItem,deleteMessageItem,clearMessageQueue,getNextMessageItem};
+  root.IlanDB={getAll,get,getMany,markSeen,upsertMany,setCategory,setDeleted,setCrm,relabelList,patchMonitoring,getEvents,importEvents,getMessageTemplates,saveMessageTemplate,getMessageQueue,createMessageQueue,updateMessageItem,deleteMessageItem,clearMessageQueue,getNextMessageItem};
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanDB;
 })(globalThis);

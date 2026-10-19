@@ -75,7 +75,7 @@
     $('messageQueueForm').addEventListener('submit', event => action(async () => {
       event.preventDefault();
       const result = await runtime('ILAN_MESSAGE_QUEUE', {category: $('messageCategory').value, limit: Number($('messageLimit').value || 0), skipSameSeller: $('messageSkipSeller').checked, templateId: state.templates[0]?.id});
-      toast(`${Number(result.created || 0).toLocaleString('tr-TR')} mesaj kuyruğa eklendi.`);
+      toast(`${Number(result.created || 0).toLocaleString('tr-TR')} mesaj kuyruğa eklendi.${result.skippedContacted ? ` Daha önce yazılan veya kuyrukta olan satıcıya ait ${Number(result.skippedContacted).toLocaleString('tr-TR')} ilan atlandı.` : ''}`);
     }));
     $('prepareNextMessageBtn').addEventListener('click', () => action(async () => {
       const result = await runtime('ILAN_MESSAGE_PREPARE_NEXT');

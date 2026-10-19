@@ -111,7 +111,7 @@
     for(const container of [wrapper.fields,raw.raw_details,raw.rawDetails,raw.fields])for(const [k,v] of Object.entries(plain(container)))if(!['__proto__','constructor','prototype'].includes(k)&&v!==null&&v!==undefined)details[clean(k)]=typeof v==='object'?JSON.stringify(v):clean(v);
     const propertyNames=['Arsa Tipi','İmar Durumu','Tapu Durumu','Ada/Parsel No','Ada/Parsel','İlgili Belediye','Kaks (Emsal)','Gabari','Takas','Kat Karşılığı','Krediye Uygunluk','Marka','Model','Seri','Yıl','Yakıt Tipi','Vites','KM','Kilometre','Oda Sayısı','Bina Yaşı','Bulunduğu Kat','Konut Tipi','İşyeri Tipi'];
     const spreadsheet=Object.keys(raw).some(k=>['İlan Başlığı','İlan No','Başlık','URL'].includes(k));
-    const mappedColumns=new Set(['Kategori','Kayıt Kategorisi','Arşiv Durumu','Veri Durumu','Tarama Durumu','Kaynak','İlan No','İlan Başlığı','Başlık','Fiyat','Fiyat (TL)','Fiyat (ham)','Para Birimi','Metrekare','Metrekare (m²)','İl','İlçe','Mahalle','Konum','Ad Soyad','Ad Soyad / Satıcı','Telefon','Telefon (90)','İlan Açıklaması','Açıklama','URL','İlan URL','İlan Linki','Diğer Özellikler','Eksik Alanlar','Kontrol Notları','Kategori Dayanağı','Tarama Zamanı','Son Kayıt',"Fotoğraf URL'leri",'Kategori Yolu','Yayın Durumu','Son Bağlantı Kontrolü','Son Yayında Görülme','Yayından Kalkma Doğrulaması','Telegram Bildirimi','Listeler','m² Fiyatı','Takip Durumu','Not','Satıcı İlan Sayısı'].map(norm));
+    const mappedColumns=new Set(['Kategori','Kayıt Kategorisi','Arşiv Durumu','Veri Durumu','Tarama Durumu','Kaynak','İlan No','İlan Başlığı','Başlık','Fiyat','Fiyat (TL)','Fiyat (ham)','Para Birimi','Metrekare','Metrekare (m²)','İl','İlçe','Mahalle','Konum','Ad Soyad','Ad Soyad / Satıcı','Telefon','Telefon (90)','İlan Açıklaması','Açıklama','URL','İlan URL','İlan Linki','Diğer Özellikler','Eksik Alanlar','Kontrol Notları','Kategori Dayanağı','Tarama Zamanı','Son Kayıt',"Fotoğraf URL'leri",'Kategori Yolu','Yayın Durumu','Son Bağlantı Kontrolü','Son Yayında Görülme','Yayından Kalkma Doğrulaması','Telegram Bildirimi','Mesaj Gönderildi','Listeler','m² Fiyatı','Takip Durumu','Not','Satıcı İlan Sayısı'].map(norm));
     for(const [k,v] of Object.entries(raw)) {
       if(['__proto__','constructor','prototype'].includes(k)||v===null||v===undefined||typeof v==='object'||!clean(v))continue;
       if(/^Özellik:\s*/i.test(k))details[k.replace(/^Özellik:\s*/i,'')]=clean(v);
@@ -157,6 +157,7 @@
       history:(Array.isArray(raw.history)?raw.history:[]).slice(-10).filter(h=>h&&typeof h==='object').map(h=>({at:clean(h.at),price:parseNumber(h.price),currency:clean(h.currency),category:categoryValue(h.category),phones:phonesFrom(h.phones)})),
       sourceSearchUrl:safeUrl(options.sourceSearchUrl||raw.sourceSearchUrl||raw.search_url),collectionCategory:options.targetCategory||raw.collectionCategory||null,
       lists:unique((Array.isArray(raw.lists)?raw.lists:[]).map(id=>clean(id).slice(0,100))),
+      messagedAt:raw.messagedAt&&Number.isFinite(Date.parse(raw.messagedAt))?new Date(raw.messagedAt).toISOString():null,
       crm:normalizeCrm(raw.crm?.status||raw.crm?.note?raw.crm:{status:get(raw,'Takip Durumu'),note:get(raw,'Not')})};
   }
   function filterRecords(records, filters={}) {
@@ -181,8 +182,8 @@
   function formatMoney(price,currency='TRY'){if(price===null||price===undefined||price==='')return 'Belirtilmemiş';try{return new Intl.NumberFormat('tr-TR',{style:'currency',currency,maximumFractionDigits:0}).format(price);}catch{return new Intl.NumberFormat('tr-TR').format(price)+' '+currency;}}
   // Account-protection settings: a separate minimized work window and a daily page budget.
   // These limit our own traffic; they do not hide the extension or bypass site checks.
-  const SAFETY_KEY='ilan5.safety.v1',DAILY_KEY='ilan5.daily.v1',SAFETY_DEFAULTS={separateWindow:true,dailyLimit:400};
-  function normalizeSafety(value){const raw=plain(value),limit=Number(raw.dailyLimit);return {separateWindow:raw.separateWindow!==false,dailyLimit:raw.dailyLimit!==undefined&&Number.isSafeInteger(limit)&&limit>=0&&limit<=100000?limit:SAFETY_DEFAULTS.dailyLimit};}
+  const SAFETY_KEY='ilan5.safety.v1',DAILY_KEY='ilan5.daily.v1',SAFETY_DEFAULTS={separateWindow:true,dailyLimit:400,skipKnown:true,reuseKnownPhone:true};
+  function normalizeSafety(value){const raw=plain(value),limit=Number(raw.dailyLimit);return {separateWindow:raw.separateWindow!==false,skipKnown:raw.skipKnown!==false,reuseKnownPhone:raw.reuseKnownPhone!==false,dailyLimit:raw.dailyLimit!==undefined&&Number.isSafeInteger(limit)&&limit>=0&&limit<=100000?limit:SAFETY_DEFAULTS.dailyLimit};}
   async function safetySettings(api){try{return normalizeSafety((await api.storage.local.get(SAFETY_KEY))?.[SAFETY_KEY]);}catch(_){return {...SAFETY_DEFAULTS};}}
   async function openWorkTab(api){
     const settings=await safetySettings(api);

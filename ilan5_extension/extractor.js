@@ -712,6 +712,25 @@
     target.hash = '';
     return target.href;
   }
+  const currencyOf = raw => /€|EUR/i.test(raw) ? 'EUR' : /\$|USD/i.test(raw) ? 'USD' : /£|GBP/i.test(raw) ? 'GBP' : /TL|₺/i.test(raw) ? 'TRY' : '';
+  // Price shown on each search-result row. A row is used only when it holds exactly one
+  // listing, and only a value with a currency mark counts, so m² or area numbers are never taken.
+  function listRows(root) {
+    const rows = new Map();
+    for (const anchor of all('a[href]', root)) {
+      const url = canonicalListing(anchor.href);
+      if (!url || rows.has(url)) continue;
+      const row = anchor.closest('tr,li,article,[class*="listing-item" i],[class*="searchResultsItem" i],[class*="list-item" i],[class*="card" i]');
+      if (!row || row === root || unique([...row.querySelectorAll('a[href]')].map(el => canonicalListing(el.href))).length !== 1) continue;
+      const candidates = [...row.querySelectorAll('[class*="price" i],[class*="Price"]')]
+        .filter(el => !/unit|per-square|m2|square/i.test(el.className)).map(text).filter(v => v && v.length < 60 && !/\/\s*m[²2]/i.test(v));
+      candidates.push(...(text(row).match(/\d[\d., ]*\s*(?:TL|₺|EUR|USD|€|\$|GBP|£)/g) || []));
+      const raw = candidates.find(v => currencyOf(v));
+      const price = raw ? parseNumber(raw) : null;
+      if (price !== null && price > 0) rows.set(url, {url, price, currency: currencyOf(raw)});
+    }
+    return [...rows.values()];
+  }
   function discoverList({expectedUrl} = {}) {
     const info = inspect(expectedUrl);
     if (!info.ok) return info;
@@ -768,7 +787,7 @@
     if (unsafeTarget && !nextUrl) reason = 'Sonraki sayfa bağlantısı arama filtrelerini değiştiriyor; tarama durduruldu.';
     else if (next && !nextUrl && !complete) reason = 'Sonraki sayfa kontrolü var fakat sayfa boyutu veya filtreleri koruyan adres doğrulanamadı; tarama tamamlanmış sayılmadı.';
     else if (!nextUrl && disabledNext && contradictsTotal) reason = 'Sonraki sayfa kapalı görünüyor fakat ilan toplamı daha fazla sayfa gerektiriyor; tarama tamamlanmış sayılmadı.';
-    return {ok: true, kind: 'list', source: sourceFor(), url: location.href, links,
+    return {ok: true, kind: 'list', source: sourceFor(), url: location.href, links, rows: listRows(root),
       nextUrl: nextUrl || null, pagination: {currentPage, lastPage, expectedTotal, pageSize, pageSizeEvidence: size.evidence, strategy, inPageCount: links.length, hasActualNext, complete, reason}};
   }
   globalThis.IlanExtractor = Object.freeze({inspect, checkStatus, extractListing, discoverList, parseNumber, normalizePhone, categoryEvidence});

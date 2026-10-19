@@ -273,6 +273,23 @@
       job.stopReason = reason;
       event(reason + ' Bu sayfanın kalan ilan detayları tamamlanacak.');
     }
+    async function knownRecords(ids) {
+      const found = new Map();
+      if (!db.getMany || !ids.length) return found;
+      try { for (const record of await db.getMany(ids)) if (record) found.set(record.id, record); } catch (_) { /* Treat as unknown. */ }
+      return found;
+    }
+    // Skip the detail page only when the result row proves nothing important changed:
+    // same price and currency, already seen in this search, phone known, checked within a week.
+    function unchangedOnList(old, row) {
+      if (!old || !row || old.archiveStatus === 'review' || old.price === null || old.price !== row.price) return false;
+      if (row.currency && old.currency && row.currency !== old.currency) return false;
+      if (job.searchId && !(old.market?.searchIds || []).includes(job.searchId)) return false;
+      if (job.revealPhone && !(old.phones || []).length) return false;
+      if (!old.sellerName) return false;
+      const updated = Date.parse(old.updatedAt || '');
+      return Number.isFinite(updated) && clock() - updated < 7 * 24 * 60 * 60 * 1000;
+    }
     async function acceptList(response) {
       const current = job.current;
       const visitedKey = pageKey(current.url);
@@ -280,24 +297,40 @@
         job.visitedPages.push(visitedKey);
         job.pages = job.visitedPages.length;
       }
-      const known = new Set(job.listingQueue.map(item => item.id));
+      const known = new Set([...job.listingQueue.map(item => item.id), ...(job.unchangedIds || [])]);
       const pageRefs = new Map();
       for (const value of response.links || []) {
         try { const ref = listingRef(typeof value === 'string' ? value : value.url, job.source); pageRefs.set(ref.id, ref); } catch (_) { /* non-listing links */ }
       }
+      const rowPrices = new Map();
+      for (const row of response.rows || []) {
+        try { if (Number.isFinite(row.price)) rowPrices.set(listingRef(row.url, job.source).id, row); } catch (_) { /* foreign row */ }
+      }
+      const settings = core.safetySettings ? await core.safetySettings(api) : {};
+      const archived = await knownRecords([...pageRefs.keys()]);
+      const unchangedNow = [];
       job.pageStartIndex = job.listingQueue.length;
       job.pageFound = pageRefs.size;
       job.pageDuplicates = 0;
       let added = 0;
       for (const ref of pageRefs.values()) {
         if (known.has(ref.id)) { job.pageDuplicates += 1; continue; }
+        const old = archived.get(ref.id);
+        if (settings.skipKnown !== false && unchangedOnList(old, rowPrices.get(ref.id))) { known.add(ref.id); unchangedNow.push(ref.id); continue; }
         if (job.maxListings && job.listingQueue.length >= job.maxListings) { job.limited = true; continue; }
         known.add(ref.id);
+        if (settings.reuseKnownPhone !== false && old?.phones?.length) ref.knownPhones = old.phones.slice(0, 5);
         job.listingQueue.push(ref);
         added += 1;
       }
+      if (unchangedNow.length) {
+        try { await db.markSeen(unchangedNow, {searchId: job.searchId, listId: job.listId, observedAt: iso()}); } catch (_) { /* Membership refresh is best effort. */ }
+        job.unchangedIds = [...(job.unchangedIds || []), ...unchangedNow];
+        job.pageDuplicates += unchangedNow.length;
+        bumpCounter('unchanged', unchangedNow.length);
+      }
       job.pageEndIndex = job.listingQueue.length;
-      job.counts.discovered = job.listingQueue.length;
+      job.counts.discovered = job.listingQueue.length + (job.unchangedIds || []).length;
       const pagination = response.pagination || {};
       job.paginationStrategy = pagination.strategy || (response.nextUrl ? 'next-link' : 'terminal-check');
       if (Number.isSafeInteger(pagination.expectedTotal) && pagination.expectedTotal >= 0) job.expectedTotal = pagination.expectedTotal;
@@ -308,9 +341,9 @@
         totalProcessed: job.counts.processed, totalExpected: job.expectedTotal, stage: 'details'};
       job.phase = 'details'; job.pendingNextListUrl = null; job.legacyBacklog = false;
       const signature = [...pageRefs.keys()].sort().join('|');
-      const repeatedPage = !!signature && (job.pageSignatures.includes(signature) || (added === 0 && pageRefs.size > 0));
+      const repeatedPage = !!signature && (job.pageSignatures.includes(signature) || (added + unchangedNow.length === 0 && pageRefs.size > 0));
       if (signature) job.pageSignatures.push(signature);
-      event(`Liste sayfası ${currentPage}: ${job.pageFound} ilan, ${added} yeni bağlantı. Önce bu sayfanın detayları işlenecek.`);
+      event(`Liste sayfası ${currentPage}: ${job.pageFound} ilan, ${added} detayı açılacak${unchangedNow.length ? `, ${unchangedNow.length} değişmemiş ilan atlandı` : ''}. Önce bu sayfanın detayları işlenecek.`);
       if (job.maxListings && job.listingQueue.length >= job.maxListings && response.nextUrl) job.limited = true;
       if (job.maxPages && job.pages >= job.maxPages && response.nextUrl) job.limited = true;
       if (repeatedPage) finishCollection('Liste içeriği önceki sayfayı tekrarlıyor; sayfalama durduruldu.', false);
@@ -347,8 +380,11 @@
     }
     async function acceptDetail(response) {
       const ref = listingRef(job.current.url, job.source);
-      const raw = response.record;
+      const queued = job.listingQueue[job.detailIndex];
+      let raw = response.record;
       if (!raw || typeof raw !== 'object') throw new Error('İlan alanları okunamadı.');
+      // The phone button was not pressed because the archive already holds the number.
+      if (queued?.knownPhones?.length && !(raw.phones || []).length) raw = {...raw, phones: queued.knownPhones};
       const record = await normalizedRecord({...raw, url: raw.url || ref.url}, job.category, job.searchUrl);
       const actual = listingRef(record.url, job.source);
       if (actual.id !== ref.id) throw new Error('Açılan ilan ile beklenen ilan numarası uyuşmuyor.');
@@ -394,7 +430,7 @@
       await persist();
       let response;
       try {
-        response = await readTab(tab.id, {type: 'ILAN_EXTRACT', mode: current.kind, expectedUrl: current.url, revealPhone: job.revealPhone});
+        response = await readTab(tab.id, {type: 'ILAN_EXTRACT', mode: current.kind, expectedUrl: current.url, revealPhone: job.revealPhone && !(current.kind === 'detail' && job.listingQueue[job.detailIndex]?.knownPhones?.length)});
       } catch (error) {
         // Leave a durable task for a bounded later retry, never an unbounded loop.
         if (epoch !== controlEpoch) { current.stage = 'ready'; await persist(); return; }
@@ -619,6 +655,10 @@
       const delayMs = Number(message.delayMs || 4000);
       if (!Number.isFinite(delayMs) || delayMs < 3000 || delayMs > 3600000) throw new Error('Bekleme süresi 3–3600 saniye arasında olmalı.');
       const refs = [...unique.values()], oldTab = job?.workTabId || null;
+      if (message.revealPhone !== false && (core.safetySettings ? (await core.safetySettings(api)).reuseKnownPhone !== false : false)) {
+        const archived = await knownRecords(refs.map(ref => ref.id));
+        for (const ref of refs) if (archived.get(ref.id)?.phones?.length) ref.knownPhones = archived.get(ref.id).phones.slice(0, 5);
+      }
       job = {
         version: 2, traversalVersion: 3, id: 'job-' + clock(), mode: 'links', searchUrl: '', source, searchId: '', listId: String(message.listId || '').slice(0, 100), baseline: true,
         category, maxListings: 0, maxPages: 0, delayMs, revealPhone: message.revealPhone !== false, status: 'running', phase: 'details',
@@ -827,7 +867,7 @@
       const result=await engine.handle(message);if(result.ok&&message.type!=='ILAN_STATUS')await syncSearchJob();return result;
     }
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (!/^ILAN_(START|START_LINKS|PAUSE|RESUME|STOP|STATUS|CAPTURE_TAB|ALERTS_(STATUS|CONFIG)|SAFETY_(STATUS|CONFIG)|MONITOR_(STATUS|CONFIG|RUN|PAUSE|RESUME)|TELEGRAM_(STATUS|CONFIG|VERIFY|TEST|RETRY)|SEARCH_(STATUS|SAVE|RUN|TOGGLE|REMOVE)|MESSAGE_(STATUS|TEMPLATE|QUEUE|PREPARE_NEXT|MARK_SENT|SKIP|DELETE|CLEAR))$/.test(message && message.type || '')) return false;
+      if (!/^ILAN_(START|START_LINKS|PAUSE|RESUME|STOP|STATUS|CAPTURE_TAB|ALERTS_(STATUS|CONFIG|SUMMARY_NOW)|SAFETY_(STATUS|CONFIG)|MONITOR_(STATUS|CONFIG|RUN|PAUSE|RESUME)|TELEGRAM_(STATUS|CONFIG|VERIFY|TEST|RETRY)|SEARCH_(STATUS|SAVE|RUN|TOGGLE|REMOVE)|MESSAGE_(STATUS|TEMPLATE|QUEUE|PREPARE_NEXT|MARK_SENT|SKIP|DELETE|CLEAR))$/.test(message && message.type || '')) return false;
       // Controls originate from our popup/archive. Content scripts on a visited
       // website are readers only, and cannot start or modify archive jobs.
       const extensionRoot = chrome.runtime.getURL('');
@@ -840,11 +880,11 @@
       return true;
     });
     const failed = () => console.warn('İlan5 arka plan işlemi tamamlanamadı; takip ekranını kontrol edin.');
-    chrome.alarms.onAlarm.addListener(alarm => { dispatch(async()=>{await engine.onAlarm(alarm);await syncSearchJob();await searches.onAlarm(alarm);await monitor.onAlarm(alarm);await telegram.onAlarm(alarm);}).catch(failed); });
+    chrome.alarms.onAlarm.addListener(alarm => { dispatch(async()=>{await engine.onAlarm(alarm);await syncSearchJob();await searches.onAlarm(alarm);await monitor.onAlarm(alarm);await telegram.onAlarm(alarm);await alerts.onAlarm(alarm);}).catch(failed); });
     chrome.storage.onChanged?.addListener?.((changes, area) => { if(area==='local'&&changes['ilan5.archive.updated']) dispatch(()=>monitor.handle({type:'ILAN_MONITOR_NEW_RECORDS'})).catch(failed); });
     chrome.tabs.onUpdated.addListener((id, change, tab) => { dispatch(async()=>{await engine.onUpdated(id,change,tab);await syncSearchJob();await monitor.onUpdated(id,change,tab);}).catch(failed); });
     chrome.tabs.onRemoved.addListener(id => { dispatch(async()=>{await engine.onRemoved(id);await syncSearchJob();await monitor.onRemoved(id);}).catch(failed); });
-    const recover = () => dispatch(async()=>{await telegram.recover();await engine.recover();await searches.recover();await monitor.recover();}).catch(failed);
+    const recover = () => dispatch(async()=>{await alerts.scheduleSummary().catch(()=>{});await telegram.recover();await engine.recover();await searches.recover();await monitor.recover();}).catch(failed);
     chrome.runtime.onStartup.addListener(recover);
     chrome.runtime.onInstalled.addListener(recover);
     // A service worker may restart without onStartup (idle termination/update).

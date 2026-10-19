@@ -273,5 +273,16 @@ async function check(name,fn){ await fn(); passed++; console.log('PASS',name); }
   await check('Description/recommendation fabricated info cannot make blank page active',async()=>{
     for(const box of ['id="classifiedDescription"','class="recommend"']){const {w,x}=dom(`<main><section ${box}>${active}</section></main>`,watched);assert.equal(x.checkStatus({expectedUrl:watched}).status,'unknown');w.close();}
   });
+  await check('search rows expose the shown price only for single-listing rows with a currency mark',async()=>{
+    const row=(id,price,extra='')=>`<tr class="searchResultsItem"><td><a href="/ilan/emlak-arsa-satilik-ornek-${id}/detay">Arsa ${id}</a></td><td class="searchResultsAttributeValue">1.000</td><td class="searchResultsPriceValue">${price}</td>${extra}</tr>`;
+    const {w,x}=dom(`<main><h1>Ankara Arsa</h1><table id="searchResultsTable"><tbody>${row(810001,'2.450.000 TL')}${row(810002,'')}${row(810003,'95.000 €')}<tr><td><a href="/ilan/emlak-arsa-satilik-ornek-810004/detay">A</a><a href="/ilan/emlak-arsa-satilik-ornek-810005/detay">B</a></td><td class="price">1.000.000 TL</td></tr></tbody></table></main>`,'https://www.sahibinden.com/satilik-arsa/ankara');
+    const r=x.discoverList();assert.equal(r.links.length,5);
+    const byId=Object.fromEntries(Array.from(r.rows).map(row=>[row.url.match(/(\d+)\/detay/)[1],row]));
+    assert.equal(byId['810001'].price,2450000);assert.equal(byId['810001'].currency,'TRY');
+    assert.equal(byId['810002'],undefined,'no price shown → no row price, area 1.000 is never taken');
+    assert.equal(byId['810003'].currency,'EUR');
+    assert.equal(byId['810004'],undefined,'a row with two listings is ambiguous');
+    w.close();
+  });
   console.log(`${passed} extraction scenarios passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

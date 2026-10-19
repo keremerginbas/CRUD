@@ -1,4 +1,4 @@
-# İlan5 2.8.1 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
+# İlan5 2.9.0 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,36 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.8.1** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.9.0** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 2.9.0 verimlilik güncellemesi
+
+### Değişmeyen ilanlara tekrar girilmez
+Arama sonuç sayfasındaki fiyat arşivle karşılaştırılır. Detay sayfası şu durumlarda **açılmaz**:
+- İlan arşivde var ve bu aramada daha önce görülmüş,
+- Liste sayfasındaki fiyat ve para birimi arşivdekiyle aynı,
+- Satıcı adı biliniyor; “Telefonu Göster” seçiliyse telefonu da arşivde var,
+- Son 7 gün içinde detay sayfası okunmuş.
+
+Bu ilanlar ilerleme panelinde **değişmeyen (atlandı)** olarak sayılır; “bu aramada görüldü” bilgisi ve liste etiketi yine güncellenir, bu yüzden yanlışlıkla “yeni ilan” bildirimi oluşmaz. Fiyatı değişen, yeni gelen veya 7 günden eski ilanlar her zaman açılır. Liste sayfasında fiyat okunamazsa ilan da açılır. Sonuç: düzenli takipteki aramaların ikinci turdan itibaren çok daha az sayfa açması ve günlük limitin daha geç dolması. **Tek tek ilan bağlantıları** modu hiçbir ilanı atlamaz.
+
+### Kayıtlı telefon yeniden kullanılır
+Telefonu arşivde olan ilanda “Telefonu Göster” düğmesine basılmaz; kayıtlı numara korunur. Numarayı yeniden doğrulatmak isterseniz **Kayıtlı telefonu yeniden kullan** seçeneğini kapatın.
+
+Her iki seçenek veri çekme formundaki **Hesabınızı koruyan tarama** kutusundadır ve varsayılan olarak açıktır.
+
+### Sabah özeti
+**Takip ve Telegram → Ek bildirimler → Her sabah günlük özet** (varsayılan 08:30). Tek mesajda: son 24 saatte yeni ilan, fiyatı düşen ve yayından kalkan sayısı, fırsat sayısı, “Görüşülecek” ve “İlgileniyor” durumundaki ilanlar, en büyük üç fiyat düşüşü. Chrome o saatte kapalıysa özet açıldığında bir kez gönderilir. **Özeti şimdi gönder** ile hemen deneyebilirsiniz. Kurulumdan sonraki ilk özet, ayarlanan saatte gelir.
+
+### Aynı satıcıya ikinci mesaj gitmez
+Mesaj gönderildi işaretlenen ilan kalıcı olarak “mesaj gönderildi” olarak kaydedilir (ilan ayrıntısında ve Excel'de görünür). Mesaj kuyruğunu temizleseniz bile bu bilgi silinmez. **Aynı satıcıya tekrar kuyruk oluşturma** seçiliyken, telefonlarından biri aynı olan (telefon yoksa adı aynı olan) satıcının diğer ilanları kuyruğa eklenmez; aynı seferde iki ilanı olan satıcıya da tek mesaj hazırlanır. Kaç ilanın bu yüzden atlandığı bildirimde yazar.
+
+### Daha hızlı panel
+Panel arşivi yalnız arşiv gerçekten değiştiğinde yeniden okur; tarama ilerlerken her adımda bütün arşivi baştan yüklemez. Arka planda açık duran panel sekmesi de işlemciyi yormaz.
 
 ## 2.8.1 düzeltmesi
 
