@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-const {IDBFactory} = require('/workspace/scratch/7830fb02ac8e/test_runtime/node_modules/fake-indexeddb');
+const {IDBFactory} = require('fake-indexeddb');
 const root = path.resolve(__dirname, '..');
 const TEST_TOKEN = '123456789:TEST_TOKEN_NOT_REAL_abcdefghijklmnopqrstuvwxyz';
 const TEST_CHAT = '-1001234567890';
@@ -145,7 +145,10 @@ vm.runInContext(`
   const tracked = context.IlanCore.normalizeRecord({url: 'https://www.sahibinden.com/ilan/emlak-arsa-satilik-test-777003/detay', title: 'Synthetic monitored listing', price: 6000000});
   await context.IlanDB.upsertMany([tracked]);
   assert.equal((await context.testRuntime('ILAN_MONITOR_RUN')).monitor.status, 'running');
-  await assert.rejects(context.testRuntime('ILAN_START_LINKS', {urls: context.uiSent.urls, category: 'all'}), /Bağlantı takibi/);
+  // 2.6.2+: a crawl may start while link monitoring runs; the monitor yields to the crawler instead of blocking it.
+  const overlapping = await context.testRuntime('ILAN_START_LINKS', {urls: context.uiSent.urls, category: 'all'});
+  assert.equal(overlapping.job.status, 'running');
+  await context.testRuntime('ILAN_STOP');
   await context.testRuntime('ILAN_MONITOR_PAUSE');
   await context.IlanDB.setDeleted(tracked.id, true);
 

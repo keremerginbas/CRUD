@@ -115,7 +115,7 @@
       phase(value); state.paused = true; event(message); await clearAlarms(); await persist();
     }
     async function tab() { if (!Number.isInteger(state.workTabId)) return null; try { return await api.tabs.get(state.workTabId); } catch (_) { return null; } }
-    async function ensureTab() { let current = await tab(); if (!current) { current = await api.tabs.create({url: 'about:blank', active: false}); state.workTabId = current.id; await persist(); } return current; }
+    async function ensureTab() { let current = await tab(); if (!current) { current = core.openWorkTab ? await core.openWorkTab(api) : await api.tabs.create({url: 'about:blank', active: false}); state.workTabId = current.id; await persist(); } return current; }
     async function readTab(tabId, request) {
       try { return await api.tabs.sendMessage(tabId, request); }
       catch (error) {

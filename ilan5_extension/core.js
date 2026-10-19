@@ -67,6 +67,30 @@
     if(['pending','queued','queue_error','sending','sent','uncertain','failed','cancelled'].includes(raw.notificationStatus))out.notificationStatus=raw.notificationStatus;
     return out;
   }
+  const CRM_STATUSES={new:'Yeni',called:'Arandı',interested:'İlgileniyor',meeting:'Görüşülecek',not_interested:'İlgilenmiyor',closed:'Sonuçlandı'};
+  function normalizeCrm(value){
+    const raw=plain(value),label=clean(raw.status),status=Object.hasOwn(CRM_STATUSES,label)?label:(Object.keys(CRM_STATUSES).find(k=>norm(CRM_STATUSES[k])===norm(label))||'');
+    const out={status,note:String(raw.note??'').slice(0,4000)};
+    if(raw.updatedAt&&Number.isFinite(Date.parse(raw.updatedAt)))out.updatedAt=new Date(raw.updatedAt).toISOString();
+    return out;
+  }
+  // Price per m² only when both are positive numbers.
+  function pricePerArea(record){const price=Number(record?.price),area=Number(record?.area);return record?.price!==null&&record?.area!==null&&price>0&&area>0?price/area:null;}
+  const median=values=>{const sorted=[...values].sort((a,b)=>a-b),mid=sorted.length>>1;return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;};
+  // Compares each listing's m² price with the median of the same category, district and currency.
+  function marketStats(records,options={}){
+    const minSample=options.minSample||5,threshold=options.threshold??0.8,groups=new Map(),out=new Map();
+    const key=r=>[r.category,norm(r.location?.city),norm(r.location?.district),r.currency].join('|');
+    for(const r of records){if(r.deletedAt)continue;const ppa=pricePerArea(r);if(ppa===null)continue;const k=key(r);if(!groups.has(k))groups.set(k,[]);groups.get(k).push(ppa);}
+    const medians=new Map([...groups].map(([k,values])=>[k,{median:median(values),sample:values.length}]));
+    for(const r of records){const ppa=pricePerArea(r);if(ppa===null)continue;const group=medians.get(key(r));
+      const ratio=group&&group.sample>=minSample?ppa/group.median:null;
+      out.set(r.id,{ppa,median:group?.median??null,sample:group?.sample||0,ratio,opportunity:ratio!==null&&ratio<=threshold});}
+    return out;
+  }
+  // How many active listings share each seller phone number.
+  function sellerCounts(records){const counts=new Map();for(const r of records){if(r.deletedAt)continue;for(const phone of new Set(r.phones||[]))counts.set(phone,(counts.get(phone)||0)+1);}return counts;}
+  function sellerListingCount(record,counts){return Math.max(0,...(record?.phones||[]).map(phone=>counts.get(phone)||0));}
   function normalizeMarket(value) {
     const raw=plain(value),out={searchIds:unique((Array.isArray(raw.searchIds)?raw.searchIds:[]).map(id=>clean(id).slice(0,250)))};
     for(const key of ['lastSeenAt','firstObservedAt','latestEventAt'])if(raw[key]&&Number.isFinite(Date.parse(raw[key])))out[key]=new Date(raw[key]).toISOString();
@@ -87,7 +111,7 @@
     for(const container of [wrapper.fields,raw.raw_details,raw.rawDetails,raw.fields])for(const [k,v] of Object.entries(plain(container)))if(!['__proto__','constructor','prototype'].includes(k)&&v!==null&&v!==undefined)details[clean(k)]=typeof v==='object'?JSON.stringify(v):clean(v);
     const propertyNames=['Arsa Tipi','İmar Durumu','Tapu Durumu','Ada/Parsel No','Ada/Parsel','İlgili Belediye','Kaks (Emsal)','Gabari','Takas','Kat Karşılığı','Krediye Uygunluk','Marka','Model','Seri','Yıl','Yakıt Tipi','Vites','KM','Kilometre','Oda Sayısı','Bina Yaşı','Bulunduğu Kat','Konut Tipi','İşyeri Tipi'];
     const spreadsheet=Object.keys(raw).some(k=>['İlan Başlığı','İlan No','Başlık','URL'].includes(k));
-    const mappedColumns=new Set(['Kategori','Kayıt Kategorisi','Arşiv Durumu','Veri Durumu','Tarama Durumu','Kaynak','İlan No','İlan Başlığı','Başlık','Fiyat','Fiyat (TL)','Fiyat (ham)','Para Birimi','Metrekare','Metrekare (m²)','İl','İlçe','Mahalle','Konum','Ad Soyad','Ad Soyad / Satıcı','Telefon','Telefon (90)','İlan Açıklaması','Açıklama','URL','İlan URL','İlan Linki','Diğer Özellikler','Eksik Alanlar','Kontrol Notları','Kategori Dayanağı','Tarama Zamanı','Son Kayıt',"Fotoğraf URL'leri",'Kategori Yolu','Yayın Durumu','Son Bağlantı Kontrolü','Son Yayında Görülme','Yayından Kalkma Doğrulaması','Telegram Bildirimi'].map(norm));
+    const mappedColumns=new Set(['Kategori','Kayıt Kategorisi','Arşiv Durumu','Veri Durumu','Tarama Durumu','Kaynak','İlan No','İlan Başlığı','Başlık','Fiyat','Fiyat (TL)','Fiyat (ham)','Para Birimi','Metrekare','Metrekare (m²)','İl','İlçe','Mahalle','Konum','Ad Soyad','Ad Soyad / Satıcı','Telefon','Telefon (90)','İlan Açıklaması','Açıklama','URL','İlan URL','İlan Linki','Diğer Özellikler','Eksik Alanlar','Kontrol Notları','Kategori Dayanağı','Tarama Zamanı','Son Kayıt',"Fotoğraf URL'leri",'Kategori Yolu','Yayın Durumu','Son Bağlantı Kontrolü','Son Yayında Görülme','Yayından Kalkma Doğrulaması','Telegram Bildirimi','Listeler','m² Fiyatı','Takip Durumu','Not','Satıcı İlan Sayısı'].map(norm));
     for(const [k,v] of Object.entries(raw)) {
       if(['__proto__','constructor','prototype'].includes(k)||v===null||v===undefined||typeof v==='object'||!clean(v))continue;
       if(/^Özellik:\s*/i.test(k))details[k.replace(/^Özellik:\s*/i,'')]=clean(v);
@@ -132,7 +156,8 @@
       categoryPath:(Array.isArray(raw.categoryPath)?raw.categoryPath:String(get(raw,'Kategori Yolu')||'').split(' > ')).map(clean).filter(Boolean),monitoring:normalizeMonitoring(raw.monitoring),market:normalizeMarket(raw.market),
       history:(Array.isArray(raw.history)?raw.history:[]).slice(-10).filter(h=>h&&typeof h==='object').map(h=>({at:clean(h.at),price:parseNumber(h.price),currency:clean(h.currency),category:categoryValue(h.category),phones:phonesFrom(h.phones)})),
       sourceSearchUrl:safeUrl(options.sourceSearchUrl||raw.sourceSearchUrl||raw.search_url),collectionCategory:options.targetCategory||raw.collectionCategory||null,
-      lists:unique((Array.isArray(raw.lists)?raw.lists:[]).map(id=>clean(id).slice(0,100)))};
+      lists:unique((Array.isArray(raw.lists)?raw.lists:[]).map(id=>clean(id).slice(0,100))),
+      crm:normalizeCrm(raw.crm?.status||raw.crm?.note?raw.crm:{status:get(raw,'Takip Durumu'),note:get(raw,'Not')})};
   }
   function filterRecords(records, filters={}) {
     const cat=filters.category||'all',q=norm(filters.query),min=parseNumber(filters.minPrice),max=parseNumber(filters.maxPrice);
@@ -141,6 +166,8 @@
       if(cat==='review'&&r.archiveStatus!=='review')return false;
       if(Object.hasOwn(CATEGORIES,cat)&&(r.category!==cat||r.archiveStatus==='review'))return false;
       if(filters.list&&filters.list!=='all'&&!(Array.isArray(r.lists)&&r.lists.includes(filters.list)))return false;
+      if(filters.excludeList&&filters.excludeList!=='none'&&Array.isArray(r.lists)&&r.lists.includes(filters.excludeList))return false;
+      if(filters.crm&&filters.crm!=='all'&&(r.crm?.status||'')!==(filters.crm==='none'?'':filters.crm))return false;
       if(filters.source&&filters.source!=='all'&&r.source!==filters.source)return false;
       if(filters.currency&&filters.currency!=='all'&&r.currency!==filters.currency)return false;
       if(filters.city&&filters.city!=='all'&&norm(r.location?.city)!==norm(filters.city))return false;
@@ -152,6 +179,29 @@
     });
   }
   function formatMoney(price,currency='TRY'){if(price===null||price===undefined||price==='')return 'Belirtilmemiş';try{return new Intl.NumberFormat('tr-TR',{style:'currency',currency,maximumFractionDigits:0}).format(price);}catch{return new Intl.NumberFormat('tr-TR').format(price)+' '+currency;}}
-  root.IlanCore=Object.freeze({CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
+  // Account-protection settings: a separate minimized work window and a daily page budget.
+  // These limit our own traffic; they do not hide the extension or bypass site checks.
+  const SAFETY_KEY='ilan5.safety.v1',DAILY_KEY='ilan5.daily.v1',SAFETY_DEFAULTS={separateWindow:true,dailyLimit:400};
+  function normalizeSafety(value){const raw=plain(value),limit=Number(raw.dailyLimit);return {separateWindow:raw.separateWindow!==false,dailyLimit:raw.dailyLimit!==undefined&&Number.isSafeInteger(limit)&&limit>=0&&limit<=100000?limit:SAFETY_DEFAULTS.dailyLimit};}
+  async function safetySettings(api){try{return normalizeSafety((await api.storage.local.get(SAFETY_KEY))?.[SAFETY_KEY]);}catch(_){return {...SAFETY_DEFAULTS};}}
+  async function openWorkTab(api){
+    const settings=await safetySettings(api);
+    if(settings.separateWindow&&api.windows?.create){
+      try{const win=await api.windows.create({url:'about:blank',state:'minimized',focused:false});const tab=win?.tabs?.[0]||(await api.tabs.query({windowId:win.id}))[0];if(tab)return tab;}
+      catch(_){/* Fall back to a background tab in the current window. */}
+    }
+    return api.tabs.create({url:'about:blank',active:false});
+  }
+  const dayKey=time=>{const d=new Date(time);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
+  // Reserves one listing-page visit from today's budget. A full budget returns the next local 00:05.
+  async function takeDailySlot(api,now=Date.now()){
+    const settings=await safetySettings(api);if(!settings.dailyLimit)return {allowed:true,limit:0,count:0};
+    let stored=null;try{stored=(await api.storage.local.get(DAILY_KEY))?.[DAILY_KEY];}catch(_){stored=null;}
+    const today=dayKey(now),count=stored?.day===today?Number(stored.count)||0:0;
+    if(count>=settings.dailyLimit){const next=new Date(now);next.setHours(24,5,0,0);return {allowed:false,limit:settings.dailyLimit,count,resumeAt:next.getTime()};}
+    try{await api.storage.local.set({[DAILY_KEY]:{day:today,count:count+1}});}catch(_){/* Budget is best effort. */}
+    return {allowed:true,limit:settings.dailyLimit,count:count+1};
+  }
+  root.IlanCore=Object.freeze({CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanCore;
 })(globalThis);

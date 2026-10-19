@@ -217,7 +217,7 @@
     async function ensureWorkTab() {
       let tab = await getWorkTab();
       if (!tab) {
-        tab = await api.tabs.create({url: 'about:blank', active: false});
+        tab = core.openWorkTab ? await core.openWorkTab(api) : await api.tabs.create({url: 'about:blank', active: false});
         job.workTabId = tab.id;
         await persist();
       }
@@ -331,6 +331,20 @@
       const result = core.normalizeRecord(raw, {targetCategory, sourceSearchUrl});
       return await Promise.resolve(result);
     }
+    // Several listings in a row without a core field usually means the site layout changed.
+    function checkHealth(record) {
+      const health = job.health || (job.health = {streaks: {}, alerted: {}});
+      const missing = {title: !record.title, price: record.price === null, phone: job.revealPhone && !(record.phones || []).length};
+      for (const [field, absent] of Object.entries(missing)) {
+        health.streaks[field] = absent ? (health.streaks[field] || 0) + 1 : 0;
+        if (health.streaks[field] < (field === 'phone' ? 8 : 5) || health.alerted[field]) continue;
+        health.alerted[field] = true;
+        const label = {title: 'başlık', price: 'fiyat', phone: 'telefon'}[field];
+        const message = `Art arda ${health.streaks[field]} ilanda ${label} okunamadı. Site sayfa yapısını değiştirmiş veya oturum kapanmış olabilir; son ilanları kaynakla karşılaştırın.`;
+        event('UYARI: ' + message);
+        if (options.onHealthAlert) Promise.resolve().then(() => options.onHealthAlert(field, message, clone(job))).catch(() => {});
+      }
+    }
     async function acceptDetail(response) {
       const ref = listingRef(job.current.url, job.source);
       const raw = response.record;
@@ -338,6 +352,7 @@
       const record = await normalizedRecord({...raw, url: raw.url || ref.url}, job.category, job.searchUrl);
       const actual = listingRef(record.url, job.source);
       if (actual.id !== ref.id) throw new Error('Açılan ilan ile beklenen ilan numarası uyuşmuyor.');
+      checkHealth(record);
       const gate = categoryGate(record, job.category);
       if (gate === 'skip') {
         bumpCounter('skipped');
@@ -345,6 +360,9 @@
       } else {
         const result = await db.upsertMany([record], {origin: 'crawl', searchId: job.searchId, listId: job.listId || '',
           runId: job.id, baseline: job.baseline, observedAt: iso()});
+        if (options.onMarketEvents && result?.events?.length) {
+          try { await options.onMarketEvents(clone(result.events), clone(job)); } catch (_) { /* Notifications never block the crawl. */ }
+        }
         for (const name of ['newListings', 'priceIncreases', 'priceDecreases']) {
           const count = result?.effects?.[name] ?? result?.[name];
           if (Number.isSafeInteger(count) && count > 0) bumpCounter(name, count);
@@ -508,6 +526,15 @@
       if (job.phase === 'collect') next = {kind: 'list', url: job.nextListUrl};
       else if (job.detailIndex < job.pageEndIndex) next = {kind: 'detail', url: job.listingQueue[job.detailIndex].url};
       else { await complete(); return; }
+      if (next.kind === 'detail' && core.takeDailySlot) {
+        const slot = await core.takeDailySlot(api, clock());
+        if (!slot.allowed) {
+          job.nextDueAt = slot.resumeAt; job.waitingUntil = new Date(slot.resumeAt).toISOString();
+          event(`Günlük güvenli limit doldu (${slot.limit} ilan). Tarama ${new Date(slot.resumeAt).toLocaleString('tr-TR')} itibarıyla kendiliğinden devam edecek. Limiti panelden değiştirebilirsiniz.`);
+          await persist(); await schedule(); return;
+        }
+      }
+      job.waitingUntil = null;
       const tab = await ensureWorkTab();
       job.current = {...next, stage: 'navigating', startedAt: clock(), readAttempts: 0};
       job.currentUrl = next.url;
@@ -715,9 +742,17 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = exported;
   root.IlanBackground = exported;
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
-    if (typeof importScripts === 'function') importScripts('core.js', 'database.js', 'config.private.js', 'telegram.js', 'monitoring.js', 'searches.js');
+    if (typeof importScripts === 'function') {
+      importScripts('core.js', 'database.js');
+      // Optional first-install defaults. The token is copied to extension storage on first start.
+      try { importScripts('config.private.js'); } catch (_) { /* Token is entered from the panel. */ }
+      importScripts('telegram.js', 'monitoring.js', 'searches.js', 'alerts.js');
+    }
+    const alerts = root.IlanAlerts.createAlerts(chrome, () => telegram);
     const engine = createEngine(chrome, root.IlanCore, root.IlanDB, {
-      onWake: task => dispatch(async () => { await task(); await syncSearchJob(); })
+      onWake: task => dispatch(async () => { await task(); await syncSearchJob(); }),
+      onMarketEvents: events => alerts.marketEvents(events),
+      onHealthAlert: (field, message, job) => alerts.health(field, message, job)
     });
     const telegram = root.IlanTelegram.createClient(chrome, root.IlanDB, root.IlanPrivateConfig?.telegram || {});
     const monitor = root.IlanMonitor.createEngine(chrome, root.IlanCore, root.IlanDB, telegram, {isCrawlerBusy: async () => {
@@ -785,13 +820,14 @@
     const dispatch = task => {const next = eventQueue.then(() => trustedStorage).then(task);eventQueue = next.catch(() => {});return next;};
     async function route(message) {
       if (message.type.startsWith('ILAN_TELEGRAM_')) return telegram.handle(message);
+      if (message.type.startsWith('ILAN_ALERTS_') || message.type.startsWith('ILAN_SAFETY_')) return alerts.handle(message);
       if (message.type.startsWith('ILAN_MONITOR_')) return monitor.handle(message);
       if (message.type.startsWith('ILAN_SEARCH_')) return searches.handle(message);
       if (message.type.startsWith('ILAN_MESSAGE_')) return handleMessaging(message);
       const result=await engine.handle(message);if(result.ok&&message.type!=='ILAN_STATUS')await syncSearchJob();return result;
     }
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (!/^ILAN_(START|START_LINKS|PAUSE|RESUME|STOP|STATUS|CAPTURE_TAB|MONITOR_(STATUS|CONFIG|RUN|PAUSE|RESUME)|TELEGRAM_(STATUS|CONFIG|VERIFY|TEST|RETRY)|SEARCH_(STATUS|SAVE|RUN|TOGGLE|REMOVE)|MESSAGE_(STATUS|TEMPLATE|QUEUE|PREPARE_NEXT|MARK_SENT|SKIP|DELETE|CLEAR))$/.test(message && message.type || '')) return false;
+      if (!/^ILAN_(START|START_LINKS|PAUSE|RESUME|STOP|STATUS|CAPTURE_TAB|ALERTS_(STATUS|CONFIG)|SAFETY_(STATUS|CONFIG)|MONITOR_(STATUS|CONFIG|RUN|PAUSE|RESUME)|TELEGRAM_(STATUS|CONFIG|VERIFY|TEST|RETRY)|SEARCH_(STATUS|SAVE|RUN|TOGGLE|REMOVE)|MESSAGE_(STATUS|TEMPLATE|QUEUE|PREPARE_NEXT|MARK_SENT|SKIP|DELETE|CLEAR))$/.test(message && message.type || '')) return false;
       // Controls originate from our popup/archive. Content scripts on a visited
       // website are readers only, and cannot start or modify archive jobs.
       const extensionRoot = chrome.runtime.getURL('');

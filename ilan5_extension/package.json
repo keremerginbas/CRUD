@@ -1,0 +1,12 @@
+{
+  "name": "ilan5-extension",
+  "private": true,
+  "description": "İlan5 Chrome eklentisi — testler için geliştirme bağımlılıkları (eklentiye dahil değildir).",
+  "scripts": {
+    "test": "node tests/run-all.cjs"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.0.0",
+    "jsdom": "^25.0.0"
+  }
+}

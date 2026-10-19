@@ -1,4 +1,4 @@
-# İlan5 2.7.0 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
+# İlan5 2.8.0 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,47 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.7.0** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.8.0** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 2.8.0 yenilikleri
+
+### Hesabınızı koruyan tarama
+Veri çekme formundaki **Hesabınızı koruyan tarama** kutusu:
+- **Taramayı ayrı, küçültülmüş pencerede yap** (varsayılan açık): Çalışma sekmesi görev çubuğunda küçültülmüş ayrı bir pencerede açılır; normal tarayıcınızda sekme görmezsiniz. Pencereyi kapatmayın. Bazı sayfalar küçültülmüş pencerede geç yüklenirse bu seçeneği kapatın.
+- **Günlük güvenli limit** (varsayılan 400 ilan/gün, 0 = sınırsız): Limit dolunca tarama gece 00:05'te kendiliğinden devam eder. Bu sürede bağlantı takibi de sırada bekler.
+
+Eklenti Sahibinden'in doğrulama ekranını aşmaya, kendini gizlemeye veya insan taklidi yapmaya çalışmaz. Doğrulama ekranı çıkarsa durur; çalışma penceresinde işlemi tamamlayıp **Devam et** deyin. Bekleme süresini düşürmeyin (4 saniye ve üstü önerilir).
+
+### Listeler
+Tablonun üstündeki liste seçicide bir liste seçince **Listeyi yönet** açılır: adı değiştir, başka listeyle birleştir veya listeyi kaldır (ilanlar arşivde kalır). **Filtreler → Şu listede olmayanlar** ile iki listeyi karşılaştırabilirsiniz; örneğin yeni listeyi seçip eski listeyi “olmayanlar”a koyarsanız sadece yeni gelen ilanlar kalır. Excel/CSV'de **Listeler** sütunu vardır.
+
+### m² fiyatı ve fırsatlar
+Fiyat sütununda m² fiyatı görünür. Aynı kategori, ilçe ve para birimindeki en az 5 ilanın medyanından %20 veya daha ucuz olanlara **Fırsat** etiketi gelir. **Filtreler → Öne çıkanlar → Fırsat** ile sadece bunları listeleyebilirsiniz. Karşılaştırma sizin arşivinizdeki ilanlarla yapılır; ekspertiz değeri değildir.
+
+### Çok ilanlı satıcı
+Aynı telefon numarası arşivde 3 veya daha fazla ilanda geçiyorsa telefonun altında **N ilanı var** etiketi görünür; büyük ihtimalle emlakçıdır. **Öne çıkanlar → Tek ilanlı satıcı** ile doğrudan mal sahiplerine odaklanabilirsiniz.
+
+### Takip durumu ve not
+İlan ayrıntısındaki **Takip ve not** bölümünden durum (Arandı, İlgileniyor, Görüşülecek, İlgilenmiyor, Sonuçlandı) ve not girin. Tabloda durum etiketi görünür; **Filtreler → Takip durumu** ile süzülür; Excel'de **Takip Durumu** ve **Not** sütunları vardır. Yeni taramalar notları silmez.
+
+### Konum ve parsel
+İlan ayrıntısında **Haritada göster** (mahalle düzeyinde Google Haritalar araması) ve **TKGM parsel sorgu** bağlantıları vardır. İlanda ada/parsel yazıyorsa numara yanında gösterilir.
+
+### Yeni Telegram bildirimleri
+**Takip ve Telegram → Ek bildirimler**:
+- **Fiyatı düşen ilanlar:** Varsayılan en az %5 düşüş.
+- **Takipteki aramalarda yeni ilan:** Yalnız düzenli takip edilen aramalarda, başlangıç listesinden sonra ilk kez görülen ilanlar için.
+- **Sayfa yapısı uyarısı:** Art arda 5 ilanda fiyat veya başlık, 8 ilanda telefon okunamazsa bir kez uyarır. Site sayfa yapısını değiştirmiş veya oturum kapanmış olabilir.
+
+### Haftalık otomatik yedek
+Sol alttaki **Haftalık otomatik yedek** açıkken, panel açıldığında son yedekten 7 gün geçtiyse JSON yedeği İndirilenler klasörüne iner. Chrome eklentileri panel kapalıyken bilgisayara sessizce dosya yazamaz; paneli haftada bir açmanız yeterlidir.
+
+### Telegram tokeni
+2.8.0 ilk açılışta `config.private.js` içindeki tokeni eklentinin güvenli deposuna kopyalar. **Takip ve Telegram → Bağlantıyı doğrula** başarılı olduktan sonra `config.private.js` dosyasını klasörden silebilirsiniz. Bu ZIP o dosyayı içermez; mevcut klasörünüzün üzerine çıkarırsanız eski dosya yerinde kalır. Yeni kurulumda tokeni paneldeki **Bot tokeni** alanına girin.
 
 ## 2.7.0 listeler: yeni liste mi, mevcut listeye mi?
 

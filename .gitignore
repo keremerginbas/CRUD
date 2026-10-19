@@ -3,3 +3,4 @@ ilan5_extension/config.private.js
 __MACOSX/
 test_runtime/
 *.zip
+ilan5_extension/node_modules/

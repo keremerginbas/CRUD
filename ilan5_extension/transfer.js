@@ -48,7 +48,8 @@
     ['Diğer Özellikler',r=>r.features.join('\n')],['Eksik Alanlar',r=>r.quality?.missing?.join(' | ')],['Kontrol Notları',r=>r.quality?.warnings?.join(' | ')],
     ['Kategori Dayanağı',r=>r.classification?.evidence?.map(e=>`${e.source}: ${e.text}`).join('\n')],
     ['Tarama Zamanı',r=>r.capturedAt],['Son Kayıt',r=>r.updatedAt],['Fotoğraf URL\'leri',r=>r.images.join('\n')],
-    ['Kategori Yolu',r=>(r.categoryPath||[]).join(' > ')],['Yayın Durumu',r=>({active:'Yayında',suspected:'Yayından kalkma şüphesi',removed:'Yayından kaldırıldı',unknown:'Doğrulanmadı',blocked:'Erişim kontrolü',error:'Kontrol hatası'})[r.monitoring?.status]||'Kontrol edilmedi'],
+    ['Kategori Yolu',r=>(r.categoryPath||[]).join(' > ')],
+    ['Listeler',r=>(r.listNames||r.lists||[]).join(' | ')],['m² Fiyatı',r=>{const v=C().pricePerArea(r);return v===null?'':Math.round(v);}],['Takip Durumu',r=>C().CRM_STATUSES[r.crm?.status]||''],['Not',r=>r.crm?.note||''],['Yayın Durumu',r=>({active:'Yayında',suspected:'Yayından kalkma şüphesi',removed:'Yayından kaldırıldı',unknown:'Doğrulanmadı',blocked:'Erişim kontrolü',error:'Kontrol hatası'})[r.monitoring?.status]||'Kontrol edilmedi'],
     ['Son Bağlantı Kontrolü',r=>r.monitoring?.lastCheckedAt],['Son Yayında Görülme',r=>r.monitoring?.lastActiveAt],['Yayından Kalkma Doğrulaması',r=>r.monitoring?.removedAt],['Telegram Bildirimi',r=>r.monitoring?.notificationStatus]
   ];
   function exportRows(records){const extra=[...new Set(records.flatMap(r=>Object.keys(r.rawDetails||{})))].sort((a,b)=>a.localeCompare(b,'tr'));

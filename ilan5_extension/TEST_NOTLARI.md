@@ -1,4 +1,7 @@
-# İlan5 2.6.2 — Doğrulama notları
+# İlan5 2.8.0 — Doğrulama notları
+
+19 Ekim 2026 (2.8.0): `npm install && npm test` ile 17 test dosyasının tamamı geçti. Yeni `tests/features-2-8.test.cjs` şunları denetler: günlük limit ve ertesi gün devam, küçültülmüş pencere ve sekmeye geri dönüş, art arda eksik alan uyarısı, m² fiyatı/fırsat ve çok ilanlı satıcı hesabı, takip notunun yeni taramada korunması, liste birleştirme/kaldırma, fiyat düşüşü/yeni ilan Telegram kuyruğu (sahte ağ), tokenin depoya taşınması, Excel/CSV yeni sütunları. Panel, Chromium'da örnek verilerle uçtan uca tıklanarak denendi: fırsat/çok ilanlı satıcı filtreleri, not kaydetme, liste yeniden adlandırma ve birleştirme, ayarların kaydı, otomatik yedek indirmesi, CSV sütunları ve 1360/768/390 px genişliklerde yatay taşma olmaması. Testlerdeki sabit klasör yolu kaldırıldı; `command-contract` testi 2.6.2'deki “izleme taramayı engellemez” davranışına göre güncellendi. Canlı Sahibinden üzerinde gerçek Chrome profiliyle tarama yapılmadı.
+
 
 26 Eylül 2026: Yeni arşivlenen ve önceki sürümde kayıtlı olup henüz kontrol edilmemiş Sahibinden/Hepsiemlak ilanları otomatik izleme kuyruğuna alınır; çalışan ilan taramasıyla çakışmaz, tarama sekmesi tamamlanınca bekleyen izleme anında sürer. Mesaj kampanyası daraltılmış başlar, tekli silme ve toplu temizleme arşiv/şablon verisini etkilemez; hazırlanmakta olan kayıt korunur. Testler: 17 izleme motoru senaryosu, 9 veritabanı + Telegram entegrasyonu, 21 sayfalama, 11 arka plan senaryosu ve komut sözleşmesi.
 

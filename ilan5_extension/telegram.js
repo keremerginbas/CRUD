@@ -9,7 +9,9 @@
     let config,outbox,chain=Promise.resolve(),loaded=false;
     const serial=fn=>{const p=chain.then(fn,fn);chain=p.catch(()=>{});return p;};
     const iso=()=>new Date(clock()).toISOString();
-    async function load(){if(loaded)return;const c=(await api.storage.local.get(CONFIG_KEY))[CONFIG_KEY];config=c||{token:defaults.token||'',chatId:defaults.chatId||'-5103130278',expectedBotUsername:defaults.expectedBotUsername||'',verified:false,lastError:''};outbox=(await api.storage.local.get(OUTBOX_KEY))[OUTBOX_KEY]||[];loaded=true;}
+    async function load(){if(loaded)return;const c=(await api.storage.local.get(CONFIG_KEY))[CONFIG_KEY];config=c||{token:defaults.token||'',chatId:defaults.chatId||'-5103130278',expectedBotUsername:defaults.expectedBotUsername||'',verified:false,lastError:''};outbox=(await api.storage.local.get(OUTBOX_KEY))[OUTBOX_KEY]||[];loaded=true;
+      // Copy first-install defaults into storage once, so config.private.js can be deleted afterwards.
+      if(!c&&config.token)await saveConfig();}
     const saveConfig=async()=>{try{await api.storage.local.set({[CONFIG_KEY]:config});}catch(error){loaded=false;throw error;}};
     const saveOutbox=async()=>{try{await api.storage.local.set({[OUTBOX_KEY]:outbox});}catch(error){loaded=false;throw error;}};
     function safeError(error){return clean(error?.message||error).split(config?.token||'__NO_TOKEN__').join('[gizli]').replace(/bot\d+:[A-Za-z0-9_-]+/g,'bot[gizli]').slice(0,350);}
@@ -56,6 +58,15 @@
       const entry={eventId,recordId:record.id,listingId:record.listingId,title:clean(record.title).slice(0,240),chatId:chatId(config.chatId),text:messageFor(record),status:'queued',createdAt:iso(),notBefore:clock(),attempts:0,error:''};
       outbox.push(entry);await saveOutbox();await patchEntry(entry);await schedule();return {eventId,status:'queued',duplicate:false};
     });}
+    // Generic notifications (price drop, new listing, health warning). No token = silently skipped.
+    async function enqueueAlert(input){return serial(async()=>{await load();
+      if(!config.token)return {status:'skipped'};
+      const eventId=clean(input.eventId).slice(0,300);if(!eventId)throw Error('Bildirim kimliği eksik.');
+      const old=outbox.find(e=>e.eventId===eventId);if(old)return {eventId,status:old.status,duplicate:true};
+      outbox.push({eventId,recordId:null,kind:'alert',listingId:clean(input.listingId).slice(0,250),title:clean(input.title).slice(0,240),chatId:chatId(config.chatId),text:String(input.text||'').slice(0,3800),status:'queued',createdAt:iso(),notBefore:clock(),attempts:0,error:''});
+      if(outbox.length>3000){const done=new Set(['sent','cancelled']);let drop=outbox.length-3000;outbox=outbox.filter(e=>!(drop>0&&done.has(e.status)&&drop--));}
+      await saveOutbox();await schedule();return {eventId,status:'queued',duplicate:false};
+    });}
     async function sendEntry(entry){
       // Persist the sending reservation before any send; a restart never blindly resends it.
       entry.status='sending';entry.attempts++;entry.attemptStartedAt=iso();entry.error='';await saveOutbox();
@@ -93,7 +104,7 @@
       }
       return {ok:true,telegram:statusNow()};
     }catch(error){return {ok:false,error:safeError(error),telegram:statusNow()};}});}
-    return {handle,status,enqueueRemoval,recover,onAlarm:alarm=>alarm.name===ALARM?serial(flush):Promise.resolve()};
+    return {handle,status,enqueueRemoval,enqueueAlert,recover,onAlarm:alarm=>alarm.name===ALARM?serial(flush):Promise.resolve()};
   }
   root.IlanTelegram={createClient,CONFIG_KEY,OUTBOX_KEY,ALARM};
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanTelegram;

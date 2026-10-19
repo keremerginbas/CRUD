@@ -6,7 +6,7 @@
   const DB = globalThis.IlanDB;
   const Transfer = globalThis.IlanTransfer;
   const labels = Core?.CATEGORIES || {arsa:'Arsa',arac:'Araç',konut:'Konut',isyeri:'İşyeri',diger:'Diğer',belirsiz:'Belirsiz'};
-  const state = {records:[],filtered:[],category:'arsa',page:1,pageSize:25,job:null,busy:false,detailId:null,loading:false,monitor:null,telegram:null,monitorBusy:false,telegramBusy:false,monitorDirty:false,telegramDirty:false,monitorLoaded:false,telegramLoaded:false,events:[],marketPage:1,marketType:'all',searches:[],searchBusy:false,collectMode:'search',lists:[]};
+  const state = {records:[],filtered:[],category:'arsa',page:1,pageSize:25,job:null,busy:false,detailId:null,loading:false,monitor:null,telegram:null,monitorBusy:false,telegramBusy:false,monitorDirty:false,telegramDirty:false,monitorLoaded:false,telegramLoaded:false,events:[],marketPage:1,marketType:'all',searches:[],searchBusy:false,collectMode:'search',lists:[],stats:new Map(),sellers:new Map(),safetyLoaded:false};
   let toastTimer, searchTimer,marketRefreshTimer,marketRequest=0;
   const el = (tag, className, text) => {const node=document.createElement(tag);if(className)node.className=className;if(text!==undefined&&text!==null)node.textContent=String(text);return node;};
   const display = value => value === null || value === undefined || value === '' ? '—' : typeof value === 'object' ? JSON.stringify(value) : String(value);
@@ -23,8 +23,8 @@
   function toast(message,error=false){clearTimeout(toastTimer);$('toast').textContent=message;$('toast').classList.toggle('error',error);$('toast').hidden=false;toastTimer=setTimeout(()=>{$('toast').hidden=true;},error?9000:5500);}
   function quality(r){if(isDeleted(r))return {label:'Çöp kutusunda',css:'deleted'};if(isReview(r))return {label:'İnceleme gerekli',css:'review'};if(r.quality?.status==='missing')return {label:'Eksik alan var',css:'missing'};if(r.quality?.status==='complete')return {label:'Temel alanlar tam',css:''};return {label:'Kontrol edilmedi',css:'missing'};}
   function qualityBadge(r){const q=quality(r);return el('span',`status-badge ${q.css}`,q.label);}
-  function currentFilters(){return {category:state.category,list:$('filterList').value,query:$('filterQuery').value.trim(),source:$('filterSource').value,currency:$('filterCurrency').value,city:$('filterCity').value,minPrice:$('filterMinPrice').value===''?null:Number($('filterMinPrice').value),maxPrice:$('filterMaxPrice').value===''?null:Number($('filterMaxPrice').value),quality:$('filterQuality').value,availability:$('filterAvailability').value};}
-  function resetFilters(){ $('filterQuery').value='';$('filterSource').value='all';$('filterCurrency').value='all';$('filterCity').value='all';$('filterMinPrice').value='';$('filterMaxPrice').value='';$('filterQuality').value='all';$('filterAvailability').value='all';state.page=1;render();}
+  function currentFilters(){return {category:state.category,list:$('filterList').value,excludeList:$('filterExcludeList').value,crm:$('filterCrm').value,insight:$('filterInsight').value,query:$('filterQuery').value.trim(),source:$('filterSource').value,currency:$('filterCurrency').value,city:$('filterCity').value,minPrice:$('filterMinPrice').value===''?null:Number($('filterMinPrice').value),maxPrice:$('filterMaxPrice').value===''?null:Number($('filterMaxPrice').value),quality:$('filterQuality').value,availability:$('filterAvailability').value};}
+  function resetFilters(){ $('filterQuery').value='';$('filterSource').value='all';$('filterCurrency').value='all';$('filterCity').value='all';$('filterMinPrice').value='';$('filterMaxPrice').value='';$('filterQuality').value='all';$('filterAvailability').value='all';$('filterExcludeList').value='none';$('filterCrm').value='all';$('filterInsight').value='all';state.page=1;render();}
   function setCategory(category){state.category=category;state.page=1;document.querySelectorAll('[data-category]').forEach(button=>{const active=button.dataset.category===category;button.classList.toggle('active',active);if(active)button.setAttribute('aria-current','page');else button.removeAttribute('aria-current');});render();}
   function categoryRecords(category=state.category){return Core.filterRecords(state.records,{category,list:$('filterList').value});}
   // Lists are named labels on records. Names live in extension storage; records only carry list ids.
@@ -34,7 +34,71 @@
   async function mergeLists(incoming){let changed=false;for(const list of Array.isArray(incoming)?incoming:[])if(list&&typeof list.id==='string'&&list.id&&!state.lists.some(l=>l.id===list.id)){state.lists.push({id:list.id.slice(0,100),name:String(list.name||list.id).slice(0,80),createdAt:list.createdAt||new Date().toISOString()});changed=true;}if(changed)await saveLists();}
   function allLists(){const known=new Map(state.lists.map(l=>[l.id,{...l,count:0}]));for(const r of state.records){if(isDeleted(r))continue;for(const id of r.lists||[]){if(!known.has(id))known.set(id,{id,name:id,createdAt:'',count:0});known.get(id).count++;}}return [...known.values()].sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));}
   function listName(id){return allLists().find(l=>l.id===id)?.name||id;}
-  function populateLists(){const current=$('filterList').value,lists=allLists();$('filterList').replaceChildren(new Option('Tüm listeler','all'));for(const l of lists)$('filterList').append(new Option(`${l.name} (${l.count.toLocaleString('tr-TR')})`,l.id));$('filterList').value=lists.some(l=>l.id===current)?current:'all';}
+  function populateLists(){const current=$('filterList').value,lists=allLists();$('filterList').replaceChildren(new Option('Tüm listeler','all'));for(const l of lists)$('filterList').append(new Option(`${l.name} (${l.count.toLocaleString('tr-TR')})`,l.id));$('filterList').value=lists.some(l=>l.id===current)?current:'all';populateListTools();}
+  const sellerCount=r=>Core.sellerListingCount(r,state.sellers);
+  function applyInsight(rows,insight){
+    if(insight==='opportunity')return rows.filter(r=>state.stats.get(r.id)?.opportunity);
+    if(insight==='multi')return rows.filter(r=>sellerCount(r)>=3);
+    if(insight==='single')return rows.filter(r=>sellerCount(r)===1);
+    return rows;
+  }
+  function populateListTools(){
+    const lists=allLists(),current=$('filterExcludeList').value;
+    $('filterExcludeList').replaceChildren(new Option('Karşılaştırma yok','none'),...lists.map(l=>new Option(l.name,l.id)));
+    $('filterExcludeList').value=lists.some(l=>l.id===current)?current:'none';
+    $('listManageBtn').disabled=$('filterList').value==='all';
+  }
+  function openListManager(){
+    const id=$('filterList').value,list=allLists().find(l=>l.id===id);if(!list)return;
+    $('listManageTitle').textContent=list.name;$('listManageInfo').textContent=`${list.count.toLocaleString('tr-TR')} ilan bu listede. Kaldırma veya birleştirme ilanları silmez; yalnız liste etiketini değiştirir.`;
+    $('listRenameInput').value=list.name;
+    const others=allLists().filter(l=>l.id!==id);$('listMergeSelect').replaceChildren(...others.map(l=>new Option(l.name,l.id)));$('listMergeSelect').disabled=$('listMergeBtn').disabled=!others.length;
+    $('listManageDialog').showModal();
+  }
+  async function renameList(){
+    const id=$('filterList').value,name=$('listRenameInput').value.trim().slice(0,80);if(!name){toast('Liste adı boş olamaz.',true);return;}
+    const known=state.lists.find(l=>l.id===id);if(known)known.name=name;else state.lists.push({id,name,createdAt:new Date().toISOString()});
+    await saveLists();populateLists();render();$('listManageTitle').textContent=name;toast('Liste adı güncellendi.');
+  }
+  async function relabel(toId){
+    const id=$('filterList').value;if(id==='all')return;
+    const target=toId?listName(toId):'';
+    if(!confirm(toId?`“${listName(id)}” listesindeki ilanlar “${target}” listesine taşınsın mı?`:`“${listName(id)}” listesi kaldırılsın mı? İlanlar arşivde kalır.`))return;
+    try{const result=await DB.relabelList(id,toId);state.lists=state.lists.filter(l=>l.id!==id);await saveLists();$('listManageDialog').close();
+      await refresh();$('filterList').value=toId||'all';populateLists();state.page=1;render();
+      toast(toId?`${result.changed} ilan “${target}” listesine taşındı.`:`Liste kaldırıldı; ${result.changed} ilan arşivde kalmaya devam ediyor.`);}
+    catch(error){toast(error.message,true);}
+  }
+  // Account-protection and Telegram alert settings live in the background worker.
+  async function syncSafety(){if(!globalThis.chrome?.runtime?.sendMessage)return;try{const result=await runtime('ILAN_SAFETY_STATUS');renderSafety(result);}catch(_){/* Older worker. */}}
+  function renderSafety(result){
+    if(!result)return;const s=result.safety||{},a=result.alerts||{};
+    if(!state.safetyLoaded||document.activeElement?.closest?.('#safetySettings,#alertSettings')===null){
+      $('safetyWindow').checked=s.separateWindow!==false;$('safetyDailyLimit').value=s.dailyLimit??400;
+      $('alertPriceDrop').checked=a.priceDrop!==false;$('alertMinDrop').value=a.minDropPercent??5;$('alertNewListing').checked=a.newListing!==false;$('alertHealth').checked=a.health!==false;
+    }
+    state.safetyLoaded=true;
+    $('safetyToday').textContent=s.dailyLimit?`Bugün ${Number(result.todayCount||0).toLocaleString('tr-TR')} / ${Number(s.dailyLimit).toLocaleString('tr-TR')} ilan açıldı · 0 = sınırsız`:`Bugün ${Number(result.todayCount||0).toLocaleString('tr-TR')} ilan açıldı · limit kapalı`;
+  }
+  async function saveSafety(){
+    const limit=Number($('safetyDailyLimit').value);if(!Number.isInteger(limit)||limit<0){toast('Günlük limit 0 veya pozitif tam sayı olmalı.',true);return;}
+    try{renderSafety(await runtime('ILAN_SAFETY_CONFIG',{safety:{separateWindow:$('safetyWindow').checked,dailyLimit:limit}}));toast('Güvenli tarama ayarı kaydedildi.');}catch(error){toast(error.message,true);}
+  }
+  async function saveAlerts(){
+    const percent=Number($('alertMinDrop').value);if(!Number.isFinite(percent)||percent<0||percent>90){toast('Fiyat düşüş eşiği 0–90 arasında olmalı.',true);return;}
+    try{renderSafety(await runtime('ILAN_ALERTS_CONFIG',{alerts:{priceDrop:$('alertPriceDrop').checked,minDropPercent:percent,newListing:$('alertNewListing').checked,health:$('alertHealth').checked}}));toast('Bildirim ayarları kaydedildi.');}catch(error){toast(error.message,true);}
+  }
+  // Weekly backup runs while the panel is open; Chrome extensions cannot write files silently in the background.
+  const BACKUP_KEY='ilan5.backup.v1';
+  async function backupConfig(){try{const value=globalThis.chrome?.storage?.local?(await chrome.storage.local.get(BACKUP_KEY))[BACKUP_KEY]:null;return {auto:value?.auto!==false,lastAt:value?.lastAt||null};}catch(_){return {auto:true,lastAt:null};}}
+  async function renderBackup(){const config=await backupConfig();$('autoBackup').checked=config.auto;$('lastBackupText').textContent=config.lastAt?`Son yedek: ${formatDate(config.lastAt)}`:'Henüz yedek alınmadı.';}
+  async function runBackup(auto=false){
+    const events=DB.getEvents?await DB.getEvents({limit:0}):[];
+    await Transfer.exportBackup(state.records,{events,lists:allLists().map(({id,name,createdAt})=>({id,name,createdAt}))});
+    if(globalThis.chrome?.storage?.local)await chrome.storage.local.set({[BACKUP_KEY]:{...(await backupConfig()),lastAt:new Date().toISOString()}});
+    await renderBackup();toast(auto?'Haftalık otomatik yedek indirildi (İndirilenler klasörü).':'Tam arşiv yedeğinin indirilmesi başlatıldı.');
+  }
+  async function checkAutoBackup(){const config=await backupConfig();if(config.auto&&state.records.length&&(!config.lastAt||Date.now()-Date.parse(config.lastAt)>7*24*60*60*1000)){try{await runBackup(true);}catch(error){toast('Otomatik yedek alınamadı: '+error.message,true);}}}
   function defaultListName(){const d=new Intl.DateTimeFormat('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date());const name=$('trackSearchName')?.value.trim();return name?`${name} · ${d}`:`Liste ${d}`;}
   // Asks where the new crawl should go. Resolves to {listId} ('' = no list) or null when cancelled.
   function chooseList(){
@@ -67,7 +131,7 @@
   function render(){
     const f=currentFilters();
     const currencyRequired=(f.minPrice!==null||f.maxPrice!==null)&&f.currency==='all';
-    state.filtered=(currencyRequired?[]:Core.filterRecords(state.records,f)).slice().sort((a,b)=>String(b.capturedAt||'').localeCompare(String(a.capturedAt||'')));
+    state.filtered=(currencyRequired?[]:applyInsight(Core.filterRecords(state.records,f),f.insight)).slice().sort((a,b)=>String(b.capturedAt||'').localeCompare(String(a.capturedAt||'')));
     const base=categoryRecords(), label=labels[state.category]||({all:'Tüm ilanlar',review:'İnceleme gerekli',trash:'Çöp kutusu'})[state.category]||'İlan';
     const title=labels[state.category]?`${label} arşivi`:label;
     $('pageTitle').textContent='Veri çekme ve ilan takibi';$('archiveViewTitle').textContent=labels[state.category]?`${label} ilanları`:label;
@@ -81,8 +145,8 @@
     $('statReview').textContent=categoryRecords('review').length.toLocaleString('tr-TR');
     $('resultCount').textContent=state.filtered.length.toLocaleString('tr-TR');
     $('specificHeader').textContent=state.category==='arac'?'Model / KM':state.category==='all'||state.category==='review'||state.category==='trash'?'Kategori':'Alan';
-    const filterActive=Boolean(f.query||f.source!=='all'||f.currency!=='all'||f.city!=='all'||f.minPrice!==null||f.maxPrice!==null||f.quality!=='all'||f.availability!=='all');
-    $('filterDot').hidden=!(f.currency!=='all'||f.minPrice!==null||f.maxPrice!==null||f.quality!=='all'||f.availability!=='all');
+    const filterActive=Boolean(f.excludeList!=='none'||f.crm!=='all'||f.insight!=='all'||f.query||f.source!=='all'||f.currency!=='all'||f.city!=='all'||f.minPrice!==null||f.maxPrice!==null||f.quality!=='all'||f.availability!=='all');
+    $('filterDot').hidden=!(f.excludeList!=='none'||f.crm!=='all'||f.insight!=='all'||f.currency!=='all'||f.minPrice!==null||f.maxPrice!==null||f.quality!=='all'||f.availability!=='all');
     $('filterSummary').hidden=!filterActive;$('filterSummary').textContent=`${base.length.toLocaleString('tr-TR')} kayıttan ${state.filtered.length.toLocaleString('tr-TR')} ilan filtrelerle eşleşiyor.`;
     if(f.minPrice!==null&&f.maxPrice!==null&&f.minPrice>f.maxPrice){$('filterSummary').hidden=false;$('filterSummary').textContent='En düşük fiyat, en yüksek fiyattan büyük. Fiyat aralığını kontrol edin.';}
     if(currencyRequired){$('filterSummary').hidden=false;$('filterSummary').textContent='Fiyat aralığı için bir para birimi seçin. Farklı para birimlerindeki fiyatlar birlikte karşılaştırılmaz.';}
@@ -91,11 +155,11 @@
     const tbody=$('recordsBody');tbody.replaceChildren();
     for(const r of pageRows){
       const tr=el('tr'),first=el('td'),open=el('button','record-title',r.title||'Başlık okunamadı');open.type='button';open.addEventListener('click',()=>showDetail(r.id));first.append(open);
-      const meta=el('div','record-meta');meta.append(el('span','source-tag',sourceName(r.source)),el('span','',String(r.listingId||r.ilanNo||r.id||'').replace(/^(hepsiemlak|sahibinden):/,'')));first.append(meta);const av=availabilityBadge(r);first.append(av);tr.append(first);
-      tr.append(el('td','price-cell',money(r)));
+      const meta=el('div','record-meta');meta.append(el('span','source-tag',sourceName(r.source)),el('span','',String(r.listingId||r.ilanNo||r.id||'').replace(/^(hepsiemlak|sahibinden):/,'')));first.append(meta);if(r.crm?.status)meta.append(el('span','insight-badge crm',Core.CRM_STATUSES[r.crm.status]));const av=availabilityBadge(r);first.append(av);tr.append(first);
+      const priceCell=el('td','price-cell',money(r)),stat=state.stats.get(r.id);if(stat){priceCell.append(el('span','ppa',`${Core.formatMoney(Math.round(stat.ppa),r.currency||'TRY')} / m²`));if(stat.opportunity){const badge=el('span','insight-badge opportunity',`Fırsat −%${Math.round((1-stat.ratio)*100)}`);badge.title=`Bölge medyanı ${Core.formatMoney(Math.round(stat.median),r.currency||'TRY')} / m² (${stat.sample} ilan)`;priceCell.append(badge);}}tr.append(priceCell);
       const loc=el('td');loc.append(el('span','location-main',[r.location?.city,r.location?.district].filter(Boolean).join(' / ')||'—'),el('span','location-sub',r.location?.neighborhood||''));tr.append(loc);
       let specific='—';if(['all','review','trash'].includes(state.category))specific=labels[r.category]||'Belirsiz';else if(state.category==='arac'){const detail=r.rawDetails||{};specific=[detail.Yıl||detail.Yil||detail.Model,detail.KM||detail.Km||detail.Kilometre].filter(Boolean).join(' · ')||'—';}else if(r.area!==null&&r.area!==undefined&&r.area!=='')specific=`${Number(r.area).toLocaleString('tr-TR')} m²`;
-      tr.append(el('td','',specific));const phones=phoneList(r);const p=el('td','phone-cell',phones.length?formatPhone(phones[0]):'—');if(phones.length>1)p.append(el('span','location-sub',`+${phones.length-1} telefon`));tr.append(p);
+      tr.append(el('td','',specific));const phones=phoneList(r);const p=el('td','phone-cell',phones.length?formatPhone(phones[0]):'—');if(phones.length>1)p.append(el('span','location-sub',`+${phones.length-1} telefon`));const sellerTotal=sellerCount(r);if(sellerTotal>=3){const badge=el('span','insight-badge multi',`${sellerTotal} ilanı var`);badge.title='Bu telefon numarası arşivde birden fazla ilanda geçiyor; emlakçı olabilir.';p.append(badge);}tr.append(p);
       const status=el('td');status.append(qualityBadge(r));tr.append(status);
       const action=el('td'),btn=el('button','row-open','›');btn.type='button';btn.setAttribute('aria-label',`${r.title||'İlan'} ayrıntılarını aç`);btn.addEventListener('click',()=>showDetail(r.id));action.append(btn);tr.append(action);tbody.append(tr);
     }
@@ -108,7 +172,25 @@
     $('pageIndicator').textContent=`${state.page} / ${totalPages}`;$('prevPageBtn').disabled=state.page<=1;$('nextPageBtn').disabled=state.page>=totalPages;
     $('xlsxBtn').disabled=!state.filtered.length;$('csvBtn').disabled=!state.filtered.length;updateCounts();renderAvailabilityCounts();
   }
-  async function refresh(){if(state.loading)return;state.loading=true;try{state.records=await DB.getAll();populateCities();populateLists();render();}catch(error){toast(`Arşiv okunamadı: ${error.message}`,true);}finally{state.loading=false;}}
+  async function refresh(){if(state.loading)return;state.loading=true;try{state.records=await DB.getAll();state.stats=Core.marketStats(state.records);state.sellers=Core.sellerCounts(state.records);populateCities();populateLists();render();}catch(error){toast(`Arşiv okunamadı: ${error.message}`,true);}finally{state.loading=false;}}
+  function crmSection(r){
+    const section=makeSection('Takip ve not'),box=el('div','crm-controls'),select=el('select'),note=el('textarea'),save=el('button','button secondary compact','Kaydet');
+    select.setAttribute('aria-label','Takip durumu');select.append(new Option('Durum seçilmedi',''));for(const [key,name] of Object.entries(Core.CRM_STATUSES))select.append(new Option(name,key));select.value=r.crm?.status||'';
+    note.value=r.crm?.note||'';note.placeholder='Görüşme notu, fiyat pazarlığı, geri arama tarihi…';note.maxLength=4000;note.setAttribute('aria-label','İlan notu');save.type='button';
+    save.addEventListener('click',async()=>{save.disabled=true;try{await DB.setCrm(r.id,{status:select.value,note:note.value});await refresh();toast('Takip durumu ve not kaydedildi.');}catch(error){toast(error.message,true);}finally{save.disabled=false;}});
+    box.append(select,note,save);if(r.crm?.updatedAt)box.append(el('span','detail-meta',`Son güncelleme: ${formatDate(r.crm.updatedAt)}`));section.append(box);return section;
+  }
+  function placeSection(r){
+    const section=makeSection('Konum ve parsel'),links=el('div','map-links'),place=[r.location?.neighborhood,r.location?.district,r.location?.city].filter(Boolean).join(', ');
+    const detail=r.rawDetails||{},pick=(...keys)=>{for(const key of keys)for(const [k,v] of Object.entries(detail))if(k.toLocaleLowerCase('tr-TR').replace(/\s/g,'')===key.toLocaleLowerCase('tr-TR').replace(/\s/g,'')&&v)return String(v);return '';};
+    const adaParsel=pick('Ada/Parsel No','Ada / Parsel','Ada/Parsel')||[pick('Ada No'),pick('Parsel No')].filter(Boolean).join(' / ');
+    const link=(text,href)=>{const a=el('a','button compact secondary',text);a.href=href;a.target='_blank';a.rel='noopener noreferrer';links.append(a);};
+    if(place)link('Haritada göster ↗','https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(place));
+    link('TKGM parsel sorgu ↗','https://parselsorgu.tkgm.gov.tr/');
+    section.append(links);
+    section.append(el('p','support-text',adaParsel?`Ada / parsel: ${adaParsel}. Parsel sorguda il, ilçe, mahalle ve bu numaraları girerek sınırları görebilirsiniz.`:'İlanda ada/parsel bilgisi yok. Harita konumu mahalle düzeyindedir; kesin yer değildir.'));
+    return section;
+  }
   function makeSection(title){const section=el('section','detail-section');section.append(el('h3','',title));return section;}
   function detailField(container,label,value){const field=el('div','detail-field');field.append(el('dt','',label),el('dd','',display(value)));container.append(field);}
   async function showDetail(id){
@@ -119,7 +201,8 @@
     if(isReview(r)||warnings.length){const notice=el('div','detail-notice');notice.append(el('p','',isReview(r)?'Kategoriyi doğrulayın. Bu kayıt kontrol edilene kadar kategori arşivlerine eklenmez.':'Bazı alanlar okunamadı veya ilanda belirtilmemiş.'));if(warnings.length){const list=el('ul');for(const warning of warnings)list.append(el('li','',display(warning)));notice.append(list);}content.append(notice);}
     content.append(availabilitySection(r));
     const contacts=makeSection('İletişim');const grid=el('dl','detail-grid');detailField(grid,'İlan sahibi / satıcı',r.sellerName);detailField(grid,'İlan numarası',r.listingId||r.ilanNo||r.id);contacts.append(grid);const phones=el('div','detail-phones');for(const phone of phoneList(r)){const link=el('a','',formatPhone(phone));const normalized=phone.replace(/[^\d+]/g,'');if(normalized)link.href=`tel:${normalized}`;phones.append(link);}if(!phones.childElementCount)phones.append(el('p','empty-detail','Telefon alınamadı veya ilanda görünür değil.'));contacts.append(phones);content.append(contacts);
-    const raw=makeSection('İlan bilgileri'),rawGrid=el('dl','detail-grid');if(r.area!==null&&r.area!==undefined)detailField(rawGrid,'Alan',`${Number(r.area).toLocaleString('tr-TR')} m²`);for(const [key,value] of Object.entries(r.rawDetails||{}))detailField(rawGrid,key,value);if(!rawGrid.childElementCount)raw.append(el('p','empty-detail','Ek ilan alanı kaydedilmemiş.'));else raw.append(rawGrid);content.append(raw);
+    content.append(crmSection(r),placeSection(r));
+    const raw=makeSection('İlan bilgileri'),rawGrid=el('dl','detail-grid');const stat=state.stats.get(r.id);if(stat){detailField(rawGrid,'m² fiyatı',`${Core.formatMoney(Math.round(stat.ppa),r.currency||'TRY')} / m²`);if(stat.ratio!==null)detailField(rawGrid,'Bölge karşılaştırması',`Bölge medyanı ${Core.formatMoney(Math.round(stat.median),r.currency||'TRY')} / m² · ${stat.sample} ilan · ${stat.ratio<1?'%'+Math.round((1-stat.ratio)*100)+' altında':'%'+Math.round((stat.ratio-1)*100)+' üstünde'}`);}const sellerTotal=sellerCount(r);if(sellerTotal>1)detailField(rawGrid,'Satıcının arşivdeki ilanları',`${sellerTotal} ilan (aynı telefon)`);if(r.lists?.length)detailField(rawGrid,'Listeler',r.lists.map(listName).join(', '));if(r.area!==null&&r.area!==undefined)detailField(rawGrid,'Alan',`${Number(r.area).toLocaleString('tr-TR')} m²`);for(const [key,value] of Object.entries(r.rawDetails||{}))detailField(rawGrid,key,value);if(!rawGrid.childElementCount)raw.append(el('p','empty-detail','Ek ilan alanı kaydedilmemiş.'));else raw.append(rawGrid);content.append(raw);
     if(r.features?.length){const features=makeSection('Özellikler'),list=el('div','detail-feature-list');for(const f of r.features)list.append(el('span','',display(f)));features.append(list);content.append(features);}
     const description=makeSection('İlan açıklaması');description.append(el('div','detail-description',r.description||'Açıklama kaydedilmemiş.'));content.append(description);
     const classification=makeSection('Kategori kontrolü');if(r.categoryPath?.length)classification.append(el('p','support-text',r.categoryPath.join(' › ')));const tip=el('p','support-text',r.classification?.status==='manual'?'Bu kayıt için kategori elle doğrulandı.':'İlanın kategori bilgilerini kontrol ederek gerekirse arşivini değiştirebilirsiniz.');classification.append(tip);
@@ -152,7 +235,7 @@
     const logs=$('jobLogs');logs.replaceChildren();for(const entry of (job.logs||[]).slice(-20).reverse()){logs.append(el('li','',typeof entry==='string'?entry:`${entry.at?formatDate(entry.at)+' · ':''}${entry.message||''}`));}if(!logs.childElementCount)logs.append(el('li','','Henüz hareket yok.'));
   }
   async function jobAction(type,config={}){if(state.busy)return;state.busy=true;renderJob(state.job);try{const result=await runtime(type,config);if(result.job)renderJob(result.job);const captureMessage=type==='ILAN_CAPTURE_TAB'?(result.skipped?'Hedef kategoriyle uyuşmadığı için ilan arşive eklenmedi.':result.review?'İlan, kategori kontrolü için İnceleme gerekli alanına kaydedildi.':'İlan arşive kaydedildi.'):null;toast(captureMessage||({ILAN_START_LINKS:'Eklenen ilan bağlantılarının taraması başlatıldı.',ILAN_START:'Tarama başlatıldı.',ILAN_PAUSE:'Duraklatma istendi.',ILAN_RESUME:'Tarama devam ediyor.',ILAN_STOP:'Durdurma istendi. Kaydedilen ilanlar korunur.',ILAN_CAPTURE_TAB:'Açık ilan işlendi. Arşiv güncelleniyor.'})[type]||'İşlem tamamlandı.');await refresh();}catch(error){toast(error.message,true);}finally{state.busy=false;renderJob(state.job);}}
-  async function exportFiltered(kind){try{if(!state.filtered.length){toast('Dışa aktarılacak kayıt bulunmuyor.');return;}await Transfer[kind](state.filtered);toast(`${state.filtered.length} filtrelenmiş ilan için indirme başlatıldı.`);}catch(error){toast(`Dosya oluşturulamadı: ${error.message}`,true);}}
+  async function exportFiltered(kind){try{if(!state.filtered.length){toast('Dışa aktarılacak kayıt bulunmuyor.');return;}await Transfer[kind](state.filtered.map(r=>({...r,listNames:(r.lists||[]).map(listName)})));toast(`${state.filtered.length} filtrelenmiş ilan için indirme başlatıldı.`);}catch(error){toast(`Dosya oluşturulamadı: ${error.message}`,true);}}
   async function importFile(file){if(!file)return;$('importBtn').disabled=true;try{const records=await Transfer.importFile(file);if(!records?.length){toast('Dosyada içe aktarılabilir ilan bulunamadı.',true);return;}const before=state.records.length;const result=await DB.upsertMany(records);if(records.marketEvents?.length&&DB.importEvents)await DB.importEvents(records.marketEvents);if(records.listMeta)await mergeLists(records.listMeta);await refresh();await refreshMarket();const summary=records.importSummary||{};const review=records.filter(isReview).length;toast(`${records.length} kayıt işlendi; ${result?.added??Math.max(0,state.records.length-before)} yeni ilan eklendi.${result?.updated?` ${result.updated} mevcut ilan güncellendi.`:''}${review?` ${review} kayıt kategori incelemesi gerektiriyor.`:''}${summary.invalid?` ${summary.invalid} geçersiz satır atlandı.`:''}${summary.duplicates?` ${summary.duplicates} yinelenen satır birleştirildi.`:''}`);}catch(error){toast(`Dosya içe aktarılamadı: ${error.message}`,true);}finally{$('importBtn').disabled=false;$('importFile').value='';}}
 
   const availabilityLabels={active:'Yayında',suspected:'Tekrar kontrol bekliyor',removed:'Yayından kaldırılmış',unknown:'Henüz doğrulanmadı',blocked:'Erişim kontrolü bekliyor',error:'Kontrol tamamlanamadı'};
@@ -269,9 +352,15 @@
     document.querySelectorAll('[data-category]').forEach(button=>{button.setAttribute('aria-label',({all:'Tüm ilanlar',review:'İnceleme gerekli',trash:'Çöp kutusu'})[button.dataset.category]||labels[button.dataset.category]);button.addEventListener('click',()=>setCategory(button.dataset.category));});
     $('showCollectBtn').addEventListener('click',showCollect);$('emptyCollectBtn').addEventListener('click',showCollect);
     for(const id of ['importBtn','emptyImportBtn'])$(id).addEventListener('click',()=>$('importFile').click());$('importFile').addEventListener('change',event=>importFile(event.target.files[0]));
-    $('backupBtn').addEventListener('click',async()=>{try{const events=DB.getEvents?await DB.getEvents({limit:0}):[];await Transfer.exportBackup(state.records,{events,lists:allLists().map(({id,name,createdAt})=>({id,name,createdAt}))});toast('Tam arşiv yedeğinin indirilmesi başlatıldı.');}catch(error){toast(error.message,true);}});
+    $('backupBtn').addEventListener('click',async()=>{try{await runBackup(false);}catch(error){toast(error.message,true);}});
+    $('autoBackup').addEventListener('change',async()=>{if(globalThis.chrome?.storage?.local)await chrome.storage.local.set({[BACKUP_KEY]:{...(await backupConfig()),auto:$('autoBackup').checked}});await renderBackup();toast($('autoBackup').checked?'Haftalık otomatik yedek açık. Panel açıldığında, son yedekten 7 gün geçtiyse yedek iner.':'Otomatik yedek kapatıldı.');});
+    for(const id of ['safetyWindow','safetyDailyLimit'])$(id).addEventListener('change',saveSafety);
+    for(const id of ['alertPriceDrop','alertMinDrop','alertNewListing','alertHealth'])$(id).addEventListener('change',saveAlerts);
+    for(const [key,name] of Object.entries(Core.CRM_STATUSES))$('filterCrm').append(new Option(name,key));
+    $('listManageBtn').addEventListener('click',openListManager);$('listRenameBtn').addEventListener('click',renameList);
+    $('listMergeBtn').addEventListener('click',()=>relabel($('listMergeSelect').value));$('listDeleteBtn').addEventListener('click',()=>relabel(''));
     $('xlsxBtn').addEventListener('click',()=>exportFiltered('exportXlsx'));$('csvBtn').addEventListener('click',()=>exportFiltered('exportCsv'));
-    $('filterQuery').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{state.page=1;render();},150);});for(const id of ['filterList','filterSource','filterCity','filterMinPrice','filterMaxPrice','filterQuality','filterCurrency','filterAvailability'])$(id).addEventListener('input',()=>{state.page=1;render();});
+    $('filterQuery').addEventListener('input',()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{state.page=1;render();},150);});for(const id of ['filterList','filterSource','filterCity','filterMinPrice','filterMaxPrice','filterQuality','filterCurrency','filterAvailability','filterExcludeList','filterCrm','filterInsight'])$(id).addEventListener('input',()=>{state.page=1;$('listManageBtn').disabled=$('filterList').value==='all';render();});
     $('moreFiltersBtn').addEventListener('click',()=>{const open=$('extraFilters').hidden;$('extraFilters').hidden=!open;$('moreFiltersBtn').setAttribute('aria-expanded',String(open));});$('clearFiltersBtn').addEventListener('click',resetFilters);
     $('pageSize').addEventListener('change',()=>{state.pageSize=Number($('pageSize').value);state.page=1;render();});$('prevPageBtn').addEventListener('click',()=>{state.page--;render();});$('nextPageBtn').addEventListener('click',()=>{state.page++;render();});
     $('closeDetailBtn').addEventListener('click',()=>$('detailDialog').close());$('detailDialog').addEventListener('click',event=>{if(event.target===$('detailDialog')){const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.target.close();}});
@@ -279,7 +368,7 @@
     $('captureBtn').addEventListener('click',()=>jobAction('ILAN_CAPTURE_TAB',{category:$('collectCategory').value,revealPhone:$('revealPhone').checked}));$('pauseBtn').addEventListener('click',()=>jobAction('ILAN_PAUSE'));$('resumeBtn').addEventListener('click',()=>jobAction('ILAN_RESUME'));$('stopBtn').addEventListener('click',()=>jobAction('ILAN_STOP'));
   }
   async function syncJob(){try{if(globalThis.chrome?.storage?.local){const result=await chrome.storage.local.get('ilan5.job.v2');renderJob(result['ilan5.job.v2']||null);}}catch(error){console.warn('Tarama durumu okunamadı',error.message);}}
-  async function init(){if(!Core||!DB||!Transfer){toast('Eklenti dosyalarından biri eksik. Paketi yeniden çıkarıp eklentiyi yenileyin.',true);return;}bind();await loadLists();await refresh();await syncJob();await syncMonitoring();await syncSearches();await refreshMarket();
+  async function init(){if(!Core||!DB||!Transfer){toast('Eklenti dosyalarından biri eksik. Paketi yeniden çıkarıp eklentiyi yenileyin.',true);return;}bind();await loadLists();await refresh();await syncJob();await syncMonitoring();await syncSearches();await refreshMarket();await syncSafety();await renderBackup();await checkAutoBackup();setInterval(checkAutoBackup,60*60*1000);setInterval(()=>{if(!document.hidden)syncSafety();},20000);
     if(globalThis.chrome?.storage?.onChanged)chrome.storage.onChanged.addListener((changes,area)=>{if(area!=='local')return;if(changes['ilan5.job.v2'])renderJob(changes['ilan5.job.v2'].newValue||null);if(changes['ilan5.monitor.v1'])renderMonitor(changes['ilan5.monitor.v1'].newValue||null);if(Object.keys(changes).some(key=>key.startsWith('ilan5.telegram')))syncMonitoring();if(Object.keys(changes).some(key=>key.includes('search')))syncSearches();if(changes['ilan5.archive.updated']||Object.keys(changes).some(key=>key.includes('event')))scheduleMarketRefresh();refresh();});
     if(globalThis.chrome?.runtime?.onMessage)chrome.runtime.onMessage.addListener(message=>{if(message.type==='ILAN_MONITOR_UPDATED'||message.type==='ILAN_TELEGRAM_UPDATED'){syncMonitoring();refresh();}if(['ILAN_ARCHIVE_CHANGED','ILAN_UPDATED','ILAN_JOB_UPDATED'].includes(message.type)){refresh();syncJob();scheduleMarketRefresh();}if(message.type==='ILAN_SEARCH_UPDATED'){syncSearches();scheduleMarketRefresh();}});
     setInterval(syncJob,2000);setInterval(()=>{if(!document.hidden){syncMonitoring();syncSearches();refreshMarket();}},15000);setInterval(()=>{if(!document.hidden)refresh();},6000);

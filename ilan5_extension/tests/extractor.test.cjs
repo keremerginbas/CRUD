@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-const {JSDOM} = require('../../test_runtime/node_modules/jsdom');
+const {JSDOM} = require('jsdom');
 const script = fs.readFileSync(path.join(__dirname, '../extractor.js'), 'utf8');
 let passed = 0;
 function dom(html, url) {

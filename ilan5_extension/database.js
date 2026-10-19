@@ -28,6 +28,7 @@
   function readResult(request){return new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});}
   async function getAll(){const db=await open();return readResult(db.transaction('records','readonly').objectStore('records').getAll());}
   async function get(id){const db=await open();return readResult(db.transaction('records','readonly').objectStore('records').get(id));}
+  function notifyChanged(){changed();}
   function changed(){if(root.chrome?.storage?.local)root.chrome.storage.local.set({'ilan5.archive.updated':Date.now()}).catch(()=>{});}
   function mergeMarket(old,incoming){
     const a=core().normalizeMarket(old),b=core().normalizeMarket(incoming);
@@ -61,7 +62,7 @@
     const db=await open();
     return new Promise((resolve,reject)=>{
       const tx=db.transaction(['records','events'],'readwrite'),store=tx.objectStore('records'),events=tx.objectStore('events');
-      const counts={saved:normalized.length,added:0,updated:0};if(crawl)Object.assign(counts,{newListings:0,priceIncreases:0,priceDecreases:0});
+      const counts={saved:normalized.length,added:0,updated:0};if(crawl){Object.assign(counts,{newListings:0,priceIncreases:0,priceDecreases:0});Object.defineProperty(counts,'events',{value:[],enumerable:false});}
       for(const record of normalized){
         const request=store.get(record.id);
         request.onsuccess=()=>{
@@ -76,6 +77,7 @@
             result.history=[...(old.history||[]),{at:old.updatedAt,price:old.price,currency:old.currency,category:old.category,phones:old.phones}].slice(-10);
           }else counts.added++;
           // Lists are additive labels: a record keeps every list it was ever collected into.
+          if(old&&!result.crm?.status&&!result.crm?.note&&(old.crm?.status||old.crm?.note))result.crm=old.crm;
           if(old||listId)result.lists=[...new Set([...(old?.lists||[]),...(result.lists||[]),...(listId?[listId]:[])])];
           if(crawl){
             const priorMarket=core().normalizeMarket(old?.market),pending=[];
@@ -89,7 +91,7 @@
                 pending.push(makeEvent(result,type,eventId([runId,result.id,type,searchId]),at,old.price,searchId?[searchId]:result.market.searchIds));
               }
             }
-            for(const event of pending)writeEvent(events,event,added=>{const key=added.type==='new'?'newListings':added.type==='price_up'?'priceIncreases':'priceDecreases';counts[key]++;result.market.latestEventAt=later(result.market.latestEventAt,added.at);store.put(result);});
+            for(const event of pending)writeEvent(events,event,added=>{counts.events.push(added);const key=added.type==='new'?'newListings':added.type==='price_up'?'priceIncreases':'priceDecreases';counts[key]++;result.market.latestEventAt=later(result.market.latestEventAt,added.at);store.put(result);});
           }
           result.updatedAt=now();store.put(result);
         };
@@ -109,6 +111,19 @@
     });
   }
   function setCategory(id,category){if(!Object.hasOwn(core().CATEGORIES,category)||category==='belirsiz')return Promise.reject(Error('Geçerli bir kategori seçin.'));return mutate(id,record=>({...core().normalizeRecord({...record,manualCategory:category,manualCategorizedAt:now()}),history:record.history||[]}));}
+  function setCrm(id,patch){return mutate(id,record=>({...record,crm:core().normalizeCrm({...record.crm,...patch,updatedAt:now()})}));}
+  // Moves (toId) or removes (toId empty) a list label on every record. Records themselves are never deleted.
+  async function relabelList(fromId,toId=''){
+    fromId=core().clean(fromId);toId=core().clean(toId);if(!fromId)throw Error('Liste seçin.');
+    const db=await open();return new Promise((resolve,reject)=>{
+      const tx=db.transaction('records','readwrite'),store=tx.objectStore('records');let changed=0;
+      const request=store.openCursor();
+      request.onsuccess=()=>{const cursor=request.result;if(!cursor)return;const record=cursor.value;
+        if(Array.isArray(record.lists)&&record.lists.includes(fromId)){record.lists=[...new Set(record.lists.map(id=>id===fromId?toId:id).filter(Boolean))];record.updatedAt=now();cursor.update(record);changed++;}
+        cursor.continue();};
+      tx.oncomplete=()=>{if(changed)notifyChanged();resolve({changed});};tx.onerror=()=>reject(tx.error);
+    });
+  }
   function setDeleted(id,deleted){return mutate(id,record=>({...record,deletedAt:deleted?now():null}));}
   const sellerKey=record=>core().clean(record?.sellerName||'').toLocaleLowerCase('tr-TR')+'|'+core().clean((record?.phones||[])[0]||'')+'|'+core().clean(record?.source||'');
   const defaultTemplate=()=>({id:'default-arsa',name:'Arsa değerlendirme mesajı',body:'Merhaba {ad_soyad}, {ilan_basligi} ilanınızı gördüm. XRE olarak arsa ve proje geliştirme alanında çalışıyoruz. Uygun olursa ilanınızla ilgili kısa bir görüşme yapmak isteriz.',updatedAt:now(),createdAt:now()});
@@ -201,6 +216,6 @@
       tx.oncomplete=()=>{changed();resolve({saved:normalized.length,added,existing:normalized.length-added});};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Hareket yedeği kaydedilemedi.'));
     });
   }
-  root.IlanDB={getAll,get,upsertMany,setCategory,setDeleted,patchMonitoring,getEvents,importEvents,getMessageTemplates,saveMessageTemplate,getMessageQueue,createMessageQueue,updateMessageItem,deleteMessageItem,clearMessageQueue,getNextMessageItem};
+  root.IlanDB={getAll,get,upsertMany,setCategory,setDeleted,setCrm,relabelList,patchMonitoring,getEvents,importEvents,getMessageTemplates,saveMessageTemplate,getMessageQueue,createMessageQueue,updateMessageItem,deleteMessageItem,clearMessageQueue,getNextMessageItem};
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanDB;
 })(globalThis);
