@@ -259,7 +259,7 @@ export const PANEL_EN: Record<string, string> = {
   "Ayarlar → Bağlı cihazlar → Cihaz bağla.": "Settings → Linked devices → Link a device.",
   "Aşağıdaki kodu okutun.": "Scan the code below.",
   "QR hazırlanıyor…": "Preparing QR…",
-  "Kod yaklaşık 20 saniyede bir yenilenir. Bu numara başka bir uygulamaya (ör. WhatCRM) bağlıysa önce oradan çıkış yapın; aksi halde mesajlar iki kez düşer.":
+  "Kod yaklaşık 20 saniyede bir yenilenir. Bu numara başka bir WhatsApp entegrasyonuna bağlıysa önce oradan çıkış yapın; aksi halde mesajlar iki kez düşer.":
     "The code refreshes about every 20 seconds. If this number is linked to another integration, log out there first, otherwise messages arrive twice.",
   "Bağlandı ·": "Connected ·",
   "bağlandı.": "connected.",

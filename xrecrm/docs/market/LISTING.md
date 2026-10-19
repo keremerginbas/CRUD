@@ -10,7 +10,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 | Uygulama adı | WhatsApp by XRE *(ad konusunda aşağıdaki "Ad ve marka" notuna bakın)* |
 | Kategoriler | Integrations → Messengers / Open Channels connectors; CRM; Automation → Chat bots *(bu sonuncusu yalnız Bitrix sohbet botu eklenirse seçilebilir; şimdilik seçmeyin)* |
 | İkon | `docs/market/icon-512.png` (512×512, PNG, saydam değil, üçüncü taraf logosu yok) |
-| Ekran görüntüleri | `docs/market/screenshots/en-*.png` (1280×720, İngilizce arayüz, gerçek olmayan demo verisi). Bitrix kuralı uygulamanın **Bitrix24 kaydırmalı paneli içinde** görünmesini ister. Yayından önce aynı ekranları kendi test portalınızda, uygulama Bitrix içinde açıkken yeniden çekin. |
+| Ekran görüntüleri | `docs/market/screenshots/en-*.png` (İngilizce kart) ve `tr-*.png` (Türkçe kart): 1920×1080, 6 kurulum adımı + 6 kullanım ekranı, gerçek olmayan demo verisi. Bitrix kuralı uygulamanın **Bitrix24 kaydırmalı paneli içinde** görünmesini ister. Yayından önce aynı ekranları kendi test portalınızda, uygulama Bitrix içinde açıkken yeniden çekin. |
 | Lisans sözleşmesi | `https://crm.xresoftware.com.tr/b24/legal/terms` |
 | Gizlilik politikası | `https://crm.xresoftware.com.tr/b24/legal/privacy` |
 | Geliştiriciyle iletişim | `https://crm.xresoftware.com.tr/b24/support` |

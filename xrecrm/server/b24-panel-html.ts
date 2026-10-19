@@ -457,7 +457,7 @@ function roleForm(role){
 }
 async function qr(line){
   const c=S.connections.find(x=>x.line===String(line))||{name:"WhatsApp",line};
-  openSheet(esc(c.name)+" · QR okut",'<ol class="steps"><li>Telefonda WhatsApp\\'ı açın.</li><li>Ayarlar → Bağlı cihazlar → Cihaz bağla.</li><li>Aşağıdaki kodu okutun.</li></ol><div class="qr" id="qrbox"><p>QR hazırlanıyor…</p></div><p class="note">Kod yaklaşık 20 saniyede bir yenilenir. Bu numara başka bir uygulamaya (ör. WhatCRM) bağlıysa önce oradan çıkış yapın; aksi halde mesajlar iki kez düşer.</p>');
+  openSheet(esc(c.name)+" · QR okut",'<ol class="steps"><li>Telefonda WhatsApp\\'ı açın.</li><li>Ayarlar → Bağlı cihazlar → Cihaz bağla.</li><li>Aşağıdaki kodu okutun.</li></ol><div class="qr" id="qrbox"><p>QR hazırlanıyor…</p></div><p class="note">Kod yaklaşık 20 saniyede bir yenilenir. Bu numara başka bir WhatsApp entegrasyonuna bağlıysa önce oradan çıkış yapın; aksi halde mesajlar iki kez düşer.</p>');
   const tick=async()=>{try{const s=await api("connection/status",{line});
       if(s.status==="connected"){$("#qrbox").innerHTML='<p class="done">Bağlandı · '+esc(phone(s.phone))+'</p>';clearInterval(poll);poll=null;toast(c.name+" bağlandı.");setTimeout(()=>{closeSheet();load();},1400);return;}
       const q=await api("connection/qr",{line});$("#qrbox").innerHTML=q.qr?'<img alt="WhatsApp QR kodu" src="'+esc(q.qr)+'">':'<p>'+esc(q.message||"QR henüz hazır değil.")+'</p>';
