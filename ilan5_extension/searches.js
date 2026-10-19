@@ -59,7 +59,7 @@
       // The durable intent is written first; a worker restart can recover a
       // completed engine start from the job's searchId without double starting.
       item.lastStatus='starting';item.lastMessage='Arama taraması başlatılıyor.';item.lastRunAt=iso();item.nextRunAt=null;await persist();
-      let result;try{result=await callbacks.startSearch({type:'ILAN_START',searchUrl:item.searchUrl,category:item.category,maxPages,maxListings,delayMs:item.delayMs,revealPhone:item.revealPhone,searchId:item.id,baseline:!item.hasBaseline});}catch(error){result={ok:false,error:String(error.message||error)};}
+      let result;try{result=await callbacks.startSearch({type:'ILAN_START',searchUrl:item.searchUrl,category:item.category,maxPages,maxListings,delayMs:item.delayMs,revealPhone:item.revealPhone,searchId:item.id,listId:item.listId||'',baseline:!item.hasBaseline});}catch(error){result={ok:false,error:String(error.message||error)};}
       if(!result?.ok){item.lastStatus='error';item.lastMessage=result?.error||'Arama başlatılamadı.';item.nextRunAt=item.enabled?new Date(now()+Math.min(item.intervalMinutes,15)*MINUTE).toISOString():null;await persist();await schedule();if(manual)throw Error(item.lastMessage);return false;}
       item.activeJobId=result.job.id;item.lastStatus=result.job.status;item.lastMessage=result.job.message||'';item.lastCounts=copy(result.job.counts||{});item.pageProgress=result.job.pageProgress||null;await persist();await settle(result.job);await schedule();return true;
     }
@@ -84,7 +84,7 @@
           if(old&&(old.searchUrl!==url||old.category!==category))throw Error('Arama kimliği çakıştı; farklı bir arama bağlantısı kullanın.');
           selected=old||{id,searchUrl:url,category,createdAt:iso(),hasBaseline:false,lastStatus:'idle',lastMessage:'İlk tam tarama başlangıç listesini oluşturacak.',lastCounts:{},activeJobId:null};
           selected.name=core.clean(message.name||selected.name||new URL(url).pathname.replace(/\//g,' ').trim()||'Kayıtlı arama').slice(0,100);
-          selected.intervalMinutes=interval;selected.delayMs=delay;selected.revealPhone=message.revealPhone!==false;selected.enabled=message.enabled!==false;
+          selected.intervalMinutes=interval;selected.delayMs=delay;selected.revealPhone=message.revealPhone!==false;selected.enabled=message.enabled!==false;if(typeof message.listId==='string')selected.listId=core.clean(message.listId).slice(0,100);
           selected.nextRunAt=selected.activeJobId?null:selected.enabled?(selected.nextRunAt||iso()):null;
           if(!old)state.items.push(selected);await persist();await schedule();break;}
         case 'ILAN_SEARCH_RUN':selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');await start(selected,true,message);break;

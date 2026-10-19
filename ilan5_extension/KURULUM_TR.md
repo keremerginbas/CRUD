@@ -1,4 +1,4 @@
-# İlan5 2.6.2 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
+# İlan5 2.7.0 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,21 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.6.2** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.7.0** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 2.7.0 listeler: yeni liste mi, mevcut listeye mi?
+
+**Verileri çekmeye başla** düğmesine bastığınızda eklenti önce sorar:
+
+- **Yeni liste oluştur:** Bu çekim temiz bir listede başlar. Liste adı varsayılan olarak arama adı + tarih olur; değiştirebilirsiniz.
+- **Mevcut listenin üstüne ekle:** Seçtiğiniz listeye eklenir. Aynı ilan tekrar gelirse güncellenir, iki kez eklenmez.
+- **Listeye koymadan genel arşive ekle:** Önceki sürümdeki davranış.
+
+Arşiv tablosunun üstündeki **Tüm listeler** seçicisiyle bir listeyi açtığınızda sayılar, tablo ve **Excel / CSV** dışa aktarımı yalnız o listeyi kapsar. Listeler arşivi silmez: bir ilan birden fazla listede olabilir, takip/Telegram ve fiyat geçmişi tek kayıtta korunur. Düzenli takibe alınan bir arama, sonraki otomatik turlarda da seçtiğiniz listeye ekler. Liste adları **JSON yedeği**ne dahildir.
 
 ## 2.6.2 otomatik izleme ve mesaj kuyruğu
 

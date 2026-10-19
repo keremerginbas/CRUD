@@ -343,7 +343,7 @@
         bumpCounter('skipped');
         event(`İlan ${ref.listingId}: seçilen kategoriye uymadığı için arşive alınmadı.`);
       } else {
-        const result = await db.upsertMany([record], {origin: 'crawl', searchId: job.searchId,
+        const result = await db.upsertMany([record], {origin: 'crawl', searchId: job.searchId, listId: job.listId || '',
           runId: job.id, baseline: job.baseline, observedAt: iso()});
         for (const name of ['newListings', 'priceIncreases', 'priceDecreases']) {
           const count = result?.effects?.[name] ?? result?.[name];
@@ -554,7 +554,7 @@
       const oldTab = job && job.workTabId;
       job = {
         version: 2, traversalVersion: 3, id: 'job-' + clock(), searchUrl: parsed.url.href, source: parsed.source,
-        searchId: String(message.searchId || ''), baseline: message.baseline !== false,
+        searchId: String(message.searchId || ''), listId: String(message.listId || '').slice(0, 100), baseline: message.baseline !== false,
         category, maxListings: positive(message.maxListings, 'İlan sınırı'), maxPages: positive(message.maxPages, 'Sayfa sınırı'),
         delayMs, revealPhone: message.revealPhone !== false, status: 'running', phase: 'collect',
         startedAt: iso(), completedAt: null, updatedAt: iso(), workTabId: oldTab || null,
@@ -593,7 +593,7 @@
       if (!Number.isFinite(delayMs) || delayMs < 3000 || delayMs > 3600000) throw new Error('Bekleme süresi 3–3600 saniye arasında olmalı.');
       const refs = [...unique.values()], oldTab = job?.workTabId || null;
       job = {
-        version: 2, traversalVersion: 3, id: 'job-' + clock(), mode: 'links', searchUrl: '', source, searchId: '', baseline: true,
+        version: 2, traversalVersion: 3, id: 'job-' + clock(), mode: 'links', searchUrl: '', source, searchId: '', listId: String(message.listId || '').slice(0, 100), baseline: true,
         category, maxListings: 0, maxPages: 0, delayMs, revealPhone: message.revealPhone !== false, status: 'running', phase: 'details',
         startedAt: iso(), completedAt: null, updatedAt: iso(), workTabId: oldTab,
         nextListUrl: null, visitedPages: [], listingQueue: refs, detailIndex: 0,

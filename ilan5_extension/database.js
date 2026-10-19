@@ -57,7 +57,7 @@
   async function upsertMany(records,options={}){
     if(!Array.isArray(records)||records.length>50000)throw Error('Bir işlemde en fazla 50.000 kayıt aktarılabilir.');
     const normalized=[...new Map(records.map(record=>{const r=core().normalizeRecord(record);if(!r.title&&!r.url&&!r.listingId)throw Error('İlan başlığı veya kaynağı olmayan kayıt aktarılamaz.');return [r.id,r];})).values()];
-    const crawl=options.origin==='crawl',searchId=core().clean(options.searchId).slice(0,250),at=date(options.observedAt)||now(),runId=core().clean(options.runId)||at;
+    const crawl=options.origin==='crawl',searchId=core().clean(options.searchId).slice(0,250),listId=core().clean(options.listId).slice(0,100),at=date(options.observedAt)||now(),runId=core().clean(options.runId)||at;
     const db=await open();
     return new Promise((resolve,reject)=>{
       const tx=db.transaction(['records','events'],'readwrite'),store=tx.objectStore('records'),events=tx.objectStore('events');
@@ -75,6 +75,8 @@
             result.market=mergeMarket(old.market,record.market);
             result.history=[...(old.history||[]),{at:old.updatedAt,price:old.price,currency:old.currency,category:old.category,phones:old.phones}].slice(-10);
           }else counts.added++;
+          // Lists are additive labels: a record keeps every list it was ever collected into.
+          if(old||listId)result.lists=[...new Set([...(old?.lists||[]),...(result.lists||[]),...(listId?[listId]:[])])];
           if(crawl){
             const priorMarket=core().normalizeMarket(old?.market),pending=[];
             const newlyObserved=searchId?!priorMarket.searchIds.includes(searchId):!old;

@@ -131,7 +131,8 @@
       manualCategory:raw.manualCategory||null,manualCategorizedAt:raw.manualCategorizedAt||null,
       categoryPath:(Array.isArray(raw.categoryPath)?raw.categoryPath:String(get(raw,'Kategori Yolu')||'').split(' > ')).map(clean).filter(Boolean),monitoring:normalizeMonitoring(raw.monitoring),market:normalizeMarket(raw.market),
       history:(Array.isArray(raw.history)?raw.history:[]).slice(-10).filter(h=>h&&typeof h==='object').map(h=>({at:clean(h.at),price:parseNumber(h.price),currency:clean(h.currency),category:categoryValue(h.category),phones:phonesFrom(h.phones)})),
-      sourceSearchUrl:safeUrl(options.sourceSearchUrl||raw.sourceSearchUrl||raw.search_url),collectionCategory:options.targetCategory||raw.collectionCategory||null};
+      sourceSearchUrl:safeUrl(options.sourceSearchUrl||raw.sourceSearchUrl||raw.search_url),collectionCategory:options.targetCategory||raw.collectionCategory||null,
+      lists:unique((Array.isArray(raw.lists)?raw.lists:[]).map(id=>clean(id).slice(0,100)))};
   }
   function filterRecords(records, filters={}) {
     const cat=filters.category||'all',q=norm(filters.query),min=parseNumber(filters.minPrice),max=parseNumber(filters.maxPrice);
@@ -139,6 +140,7 @@
       if(cat==='trash'){if(!r.deletedAt)return false;}else if(r.deletedAt)return false;
       if(cat==='review'&&r.archiveStatus!=='review')return false;
       if(Object.hasOwn(CATEGORIES,cat)&&(r.category!==cat||r.archiveStatus==='review'))return false;
+      if(filters.list&&filters.list!=='all'&&!(Array.isArray(r.lists)&&r.lists.includes(filters.list)))return false;
       if(filters.source&&filters.source!=='all'&&r.source!==filters.source)return false;
       if(filters.currency&&filters.currency!=='all'&&r.currency!==filters.currency)return false;
       if(filters.city&&filters.city!=='all'&&norm(r.location?.city)!==norm(filters.city))return false;

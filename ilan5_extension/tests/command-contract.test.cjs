@@ -79,6 +79,8 @@ vm.runInContext(`
   const state = {collectMode: 'links', busy: false};
   const $ = id => globalThis.uiInputs[id];
   const toast = message => {throw Error(message);};
+  const chooseList = async () => ({listId: 'list-test'});
+  const showList = () => {};
   async function jobAction(type, config) {
     globalThis.uiSent = {type, ...config};
     globalThis.uiResult = await runtime(type, config);
@@ -108,6 +110,7 @@ vm.runInContext(`
 
   await context.testStartCollection();
   assert.equal(context.uiSent.type, 'ILAN_START_LINKS');
+  assert.equal(context.uiSent.listId, 'list-test'); assert.equal(context.uiResult.job.listId, 'list-test');
   assert.equal(context.uiSent.urls.length, 3); assert.equal(context.uiSent.category, 'all');
   assert.equal(context.uiSent.delayMs, 4000); assert.equal(context.uiSent.revealPhone, true);
   assert.equal(context.uiResult.job.mode, 'links'); assert.equal(context.uiResult.job.counts.discovered, 2);
