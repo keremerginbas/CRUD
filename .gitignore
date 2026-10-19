@@ -2,3 +2,4 @@ ilan5_extension/config.private.js
 .DS_Store
 __MACOSX/
 test_runtime/
+*.zip
