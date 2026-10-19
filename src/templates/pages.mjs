@@ -18,6 +18,7 @@ export const VALUES = [
 export const GENERAL_FAQS = [
   { q: 'CMS Hafriyat hangi alanlarda hizmet veriyor?', a: 'CMS Hafriyat İnşaat Nakliyat Ltd. Şti. olarak hafriyat ve kazı işleri, iş makineleri operasyonları, inşaat ve taahhüt işleri, nakliye ve ihracat alanlarında hizmet veriyoruz. Her projeyi planlı çalışma, kaliteli hizmet ve karşılıklı güven ilkeleriyle yürütüyoruz.' },
   { q: 'Teklif almak için ne yapmam gerekiyor?', a: 'İletişim sayfamızdaki formu doldurabilir, 0533 500 37 79 numarasından bizi arayabilir veya WhatsApp üzerinden yazabilirsiniz. Projenizin konumu, kapsamı ve zamanlaması hakkında kısa bilgi paylaşmanız, size en doğru çözümü ve teklifi hazırlamamızı kolaylaştırır.' },
+  { q: 'Ofisiniz nerede?', a: 'Ofisimiz Toros Mahallesi 78090 Sokak, Özcan Apartmanı Sitesi No: 10 A, Çukurova/Adana adresindedir. Ziyaret öncesinde 0533 500 37 79 numarasından veya WhatsApp üzerinden randevu almanızı öneririz; yol tarifi için iletişim sayfamızdaki haritayı kullanabilirsiniz.' },
   { q: 'Keşif için sahaya geliyor musunuz?', a: 'Evet. Doğru planlama ve sağlıklı fiyatlandırma için sahayı yerinde görmeyi önemsiyoruz. Keşif sırasında zemin yapısı, erişim yolları, çevredeki yapılar ve iş takvimi birlikte değerlendirilir; ardından size uygun bir çalışma planı sunulur.' },
   { q: 'Hafriyat ve inşaat izinleri konusunda destek veriyor musunuz?', a: 'İzin ve ruhsat süreçleri bulunduğunuz belediyeye ve projenin niteliğine göre değişir. Süreçte hangi belgelerin gerekebileceği, döküm sahası ve iş planı gibi konularda size yol gösteriyor, ilgili kurumlarla koordinasyonun planlanmasına destek oluyoruz.' },
   { q: 'Hangi iş makineleriyle çalışıyorsunuz?', a: 'Projenin ihtiyacına göre ekskavatör, kazıcı yükleyici, loder, dozer ve silindir gibi iş makineleri ile damperli kamyonlar planlanır. Makine seçimi; zemin yapısı, saha erişimi, iş hacmi ve süre hedefleri dikkate alınarak yapılır.' },
@@ -40,7 +41,7 @@ export const ORG_ID = `${site.url}/#organizasyon`;
 export function orgSchema() {
   const sameAs = Object.values(site.social).filter(Boolean);
   return {
-    '@type': ['Organization', 'GeneralContractor'],
+    '@type': ['Organization', 'GeneralContractor', 'LocalBusiness'],
     '@id': ORG_ID,
     name: site.legalName,
     alternateName: ['CMS Hafriyat', 'CMS İnşaat Hafriyat'],
@@ -53,6 +54,9 @@ export function orgSchema() {
     description: 'Hafriyat, iş makineleri, inşaat, nakliye ve ihracat alanlarında kalite ve güven odaklı hizmet veren firma.',
     areaServed: { '@type': 'Country', name: 'Türkiye' },
     knowsLanguage: 'tr',
+    address: { '@type': 'PostalAddress', streetAddress: site.address.street, addressLocality: site.address.district, addressRegion: site.address.city, postalCode: site.address.postalCode, addressCountry: site.address.country },
+    geo: { '@type': 'GeoCoordinates', latitude: site.geo.lat, longitude: site.geo.lng },
+    hasMap: site.mapLink,
     contactPoint: [{ '@type': 'ContactPoint', telephone: site.phone, email: site.email, contactType: 'customer service', availableLanguage: ['Turkish'], areaServed: 'TR' }],
     ...(sameAs.length ? { sameAs } : {}),
   };
@@ -260,9 +264,9 @@ export function home({ services, posts }) {
 
   return {
     path: '/',
-    title: 'CMS Hafriyat | Hafriyat, İnşaat ve Nakliye Firması',
-    description: 'CMS Hafriyat İnşaat Nakliyat; hafriyat, iş makineleri, inşaat, nakliye ve ihracatta güvenilir hizmet. Ücretsiz keşif ve teklif için bize ulaşın.',
-    keywords: 'hafriyat, hafriyat firması, inşaat firması, müteahhit, iş makineleri, nakliye, kazı işleri, CMS Hafriyat',
+    title: 'CMS Hafriyat | Adana Hafriyat, İnşaat ve Nakliye',
+    description: 'Adana Çukurova merkezli CMS Hafriyat; hafriyat, iş makineleri, inşaat, nakliye ve ihracatta güvenilir hizmet. Keşif ve teklif için ulaşın.',
+    keywords: 'Adana hafriyat, hafriyat firması, Çukurova hafriyat, inşaat firması Adana, müteahhit, iş makineleri, nakliye, CMS Hafriyat',
     h1: 'CMS Hafriyat İnşaat Nakliyat',
     ogImage: '/assets/img/og/hafriyat.jpg',
     preloadImage: '/assets/img/hafriyat.webp',
@@ -599,6 +603,7 @@ ${pageHero({ h1: 'İletişim ve Teklif Al', lead: 'Projeniz için keşif ve tekl
         <a href="${waLink()}" target="_blank" rel="noopener" class="contact-card" data-reveal style="--d:.06s"><span class="feature-icon !bg-[#25D366] !text-white">${icon('whatsapp', 'w-6 h-6')}</span><span><span class="block text-sm text-ink-500">WhatsApp</span><span class="block text-xl font-bold text-ink-900">Hemen Yazın</span></span></a>
         <a href="mailto:${site.email}" class="contact-card" data-reveal style="--d:.12s"><span class="feature-icon">${icon('mail', 'w-6 h-6')}</span><span class="min-w-0"><span class="block text-sm text-ink-500">E-posta</span><span class="block text-lg font-bold text-ink-900 break-all">${site.email}</span></span></a>
         <button data-open-chat class="contact-card text-left" data-reveal style="--d:.18s"><span class="feature-icon">${icon('bot', 'w-6 h-6')}</span><span><span class="block text-sm text-ink-500">Yapay Zeka Asistanı</span><span class="block text-xl font-bold text-ink-900">7/24 Soru Sorun</span></span></button>
+        <a href="${site.mapLink}" target="_blank" rel="noopener" class="contact-card" data-reveal style="--d:.24s"><span class="feature-icon">${icon('pin', 'w-6 h-6')}</span><span><span class="block text-sm text-ink-500">Adres</span><address class="not-italic block font-bold text-ink-900 leading-snug">${esc(site.address.display)}</address></span></a>
       </div>
     </div>
     <div class="rounded-3xl bg-slate-50 p-6 md:p-10 shadow-sm ring-1 ring-slate-200" data-reveal="right">
@@ -617,15 +622,24 @@ ${pageHero({ h1: 'İletişim ve Teklif Al', lead: 'Projeniz için keşif ve tekl
     </div>
   </div>
 </section>
-<section class="section bg-slate-50"><div class="container-x grid gap-14 lg:grid-cols-[1fr_1.4fr]">
+<section class="section bg-slate-50" aria-labelledby="harita-baslik">
+  <div class="container-x">
+    ${sectionHead({ kicker: 'Konum', title: '<span id="harita-baslik">Ofisimiz Adana Çukurova\'da</span>', text: `${esc(site.address.display)}` })}
+    <div class="mt-10 overflow-hidden rounded-3xl shadow-xl ring-1 ring-slate-200 aspect-[4/3] md:aspect-[21/9]" data-reveal>
+      <iframe src="${site.mapEmbed}" title="CMS Hafriyat ofis konumu - Google Haritalar" class="w-full h-full border-0" loading="lazy" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </div>
+    <div class="mt-6 flex flex-wrap gap-3"><a href="${site.mapLink}" target="_blank" rel="noopener" class="btn-dark">${icon('pin', 'w-5 h-5')} Yol Tarifi Al</a></div>
+  </div>
+</section>
+<section class="section"><div class="container-x grid gap-14 lg:grid-cols-[1fr_1.4fr]">
   ${sectionHead({ kicker: 'SSS', title: 'İletişim Öncesi Merak Edilenler' })}
   ${faqList(GENERAL_FAQS.slice(1, 4), { idPrefix: 'iletisim-sss' })}
 </div></section>`;
   return {
     path: '/iletisim/',
     title: 'İletişim ve Teklif Al | CMS Hafriyat',
-    description: 'CMS Hafriyat iletişim: 0533 500 37 79, WhatsApp ve e-posta ile ulaşın. Hafriyat, inşaat ve nakliye işleriniz için ücretsiz keşif ve teklif alın.',
-    keywords: 'CMS Hafriyat iletişim, hafriyat teklif, inşaat teklif al, nakliye fiyat, hafriyat telefon, WhatsApp',
+    description: 'CMS Hafriyat iletişim: Toros Mah. Çukurova/Adana, 0533 500 37 79, WhatsApp ve e-posta. Hafriyat ve inşaat işleriniz için teklif alın.',
+    keywords: 'CMS Hafriyat iletişim, Adana hafriyat, Çukurova hafriyat, hafriyat teklif, inşaat teklif al, hafriyat telefon',
     h1: 'İletişim', ogImage: '/assets/img/og/nakliye.jpg',
     crumbs: crumb({ name: 'İletişim', path: '/iletisim/' }), schemaType: 'ContactPage', body,
   };

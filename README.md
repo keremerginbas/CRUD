@@ -100,7 +100,7 @@ canonical, sitemap, OG ve schema adreslerinin hepsi güncellenir.
 
 ## Backlink ve SEO büyüme planı
 
-1. **Google İşletme Profili** açın (adres/hizmet bölgesi, telefon, site linki, sahadan fotoğraflar). Adres eklenince `site.config.mjs`'e de yazılıp `LocalBusiness` şemasına eklenmeli.
+1. **Google İşletme Profili** açın/doğrulayın (Toros Mah. Çukurova/Adana adresi, telefon, site linki, sahadan fotoğraflar). Sitedeki adres ve `LocalBusiness` şeması ile birebir aynı yazılmalı.
 2. **Yerel rehberler / NAP tutarlılığı:** Yandex Haritalar, Apple Business Connect, Bing Places, sektörel firma rehberleri — her yerde aynı unvan, telefon ve site adresi.
 3. **Sektörel backlink:** iş birliği yapılan müteahhit, mimarlık ve hafriyat döküm sahası firmalarının "iş ortaklarımız" sayfalarında yer alma; ticaret/sanayi odası üyelik sayfası.
 4. **İçerik takvimi:** ayda 2–4 rehber (ör. "Hafriyat maliyetini etkileyen faktörler", "Yıkım ve hafriyat farkı", "İstinat duvarı nedir"). Her yazı en az 1 hizmet sayfasına bağlam içi link versin.

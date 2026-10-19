@@ -113,6 +113,7 @@ function footer(services, latest) {
         <li><a href="mailto:${site.email}" class="footer-link inline-flex items-center gap-2 break-all">${icon('mail', 'w-4 h-4 text-brand-400 shrink-0')} ${site.email}</a></li>
         <li><a href="tel:${site.phone}" class="footer-link inline-flex items-center gap-2">${icon('phone', 'w-4 h-4 text-brand-400')} ${site.phoneDisplay}</a></li>
         <li><a href="${waLink()}" class="footer-link inline-flex items-center gap-2" rel="noopener" target="_blank">${icon('whatsapp', 'w-4 h-4 text-brand-400')} WhatsApp Destek</a></li>
+        <li><a href="${site.mapLink}" class="footer-link inline-flex items-start gap-2" rel="noopener" target="_blank">${icon('pin', 'w-4 h-4 text-brand-400 shrink-0 mt-1')} <address class="not-italic">${esc(site.address.display)}</address></a></li>
       </ul>
       <h3 class="footer-title mt-8">Son Yazılar</h3>
       <ul class="space-y-2 text-sm">${posts}</ul>

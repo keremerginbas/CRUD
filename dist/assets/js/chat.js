@@ -76,7 +76,7 @@
     [/nakliye|taşıma|kamyon|damper|lojistik/, 'Hafriyat toprağı ve inşaat malzemeleri için planlı, güvenli ve zamanında nakliye hizmeti sunuyoruz. Detaylar: /hizmetler/nakliye/'],
     [/ihracat|export|yurt dışı/, 'İhracat faaliyetlerimizde süreç planlaması, lojistik koordinasyonu ve kalite kontrolüne önem veriyoruz. Detaylar için: /hizmetler/ihracat/'],
     [/izin|ruhsat|belediye/, 'Hafriyat izin ve ruhsat süreçleri belediyeye ve projeye göre değişir. Genel bilgi için rehberimizi inceleyebilirsiniz: /blog/hafriyat-ruhsati-ve-izin-sureci/ — süreçte size yol gösterebiliriz.'],
-    [/iletişim|telefon|numara|mail|e-posta|adres|ulaş/, 'Bize şu kanallardan ulaşabilirsiniz:\n📞 0533 500 37 79\n💬 WhatsApp: ' + WA + '\n✉️ cmshafriyat01@gmail.com\nveya /iletisim/ sayfasındaki formu kullanabilirsiniz.'],
+    [/iletişim|telefon|numara|mail|e-posta|adres|ulaş/, 'Bize şu kanallardan ulaşabilirsiniz:\n📞 0533 500 37 79\n💬 WhatsApp: ' + WA + '\n✉️ cmshafriyat01@gmail.com\n📍 Toros Mah. 78090 Sk. Özcan Apt. Sit. No: 10 A, Çukurova/Adana\nveya /iletisim/ sayfasındaki formu kullanabilirsiniz.'],
     [/hizmet|ne yapıyorsunuz|neler|faaliyet/, 'CMS Hafriyat İnşaat Nakliyat olarak 5 alanda hizmet veriyoruz:\n• Hafriyat ve kazı\n• İş makineleri operasyonları\n• İnşaat ve taahhüt\n• Nakliye\n• İhracat\nTümü: /hizmetler/'],
     [/hakkında|kimsiniz|firma|şirket/, 'CMS Hafriyat İnşaat Nakliyat Ltd. Şti.; kaliteyi ve güvenilirliği temel değer olarak benimseyen, hafriyat, inşaat, nakliye ve ihracat alanlarında faaliyet gösteren bir firmadır. "Güvenle Başlar, Değerle Büyür." Daha fazlası: /hakkimizda/'],
     [/merhaba|selam|iyi günler|günaydın/, 'Merhaba! Size nasıl yardımcı olabilirim? Hizmetlerimiz, süreçlerimiz veya teklif hakkında soru sorabilirsiniz.'],
