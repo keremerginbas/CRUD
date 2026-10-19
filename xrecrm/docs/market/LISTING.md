@@ -45,7 +45,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 >
 > **Pricing**
 > - Installing the app is free. Every connected number gets a **7-day free trial**.
-> - After the trial, each number requires a license: **[PRICE] USD per number per month**, with 10% off for 3 months, 20% off for 6 months and 35% off for 12 months. Prices are shown on the Billing tab before payment.
+> - After the trial, each number requires a license: **15 USD per number per month**, with 10% off for 3 months, 20% off for 6 months and 35% off for 12 months. Prices are shown on the Billing tab before payment.
 > - Payment is made by bank transfer from the Billing tab or with a license code. AI features are included in the price.
 
 ### Installation process description

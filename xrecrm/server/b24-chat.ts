@@ -448,7 +448,7 @@ const TEXT = {
     meetChange: "Oda bağlantımı değiştir", meetSetup: "Google Meet odanız",
     meetHelp: "Kendi sabit odanızı bir kez kaydedin: Google Takvim'de kendinize tekrar eden bir etkinlik oluşturup \"Google Meet ile görüntülü görüşme ekle\" deyin (ya da meet.google.com → Yeni toplantı → Sonraki bir toplantı için toplantı oluştur). Bağlantıyı buraya yapıştırın. Kayıtlar sizin Google Drive'ınıza düşer.",
     save: "Kaydet", saved: "Oda bağlantınız kaydedildi.", call: "Ara", callPhone: "Telefonla ara (Bitrix)",
-    callWa: "WhatsApp'ta aç", callNote: "WhatsApp aramaları bu bağlantı türünde sunucudan yapılamaz; WhatsApp uygulamanızda açılır.",
+    callWa: "WhatsApp ile ara", callNote: "Sohbet bilgisayarınızdaki WhatsApp uygulamasında açılır; oradaki 📞 ile arayın. Uygulamayı bir kez şirket numarasına bağlayın (WhatsApp → Ayarlar → Bağlı cihazlar → QR), arama o numaradan yapılır.",
     connected: "Bağlı", disconnected: "Bağlantı yok", connecting: "Bağlanıyor",
     offAdmin: "Bu numaranın WhatsApp bağlantısı kopmuş. Panel → Bağlantılar'dan QR okutun.",
     offUser: "Bu numaranın WhatsApp bağlantısı kopmuş. Yöneticinizden numarayı yeniden bağlamasını isteyin.",
@@ -469,7 +469,7 @@ const TEXT = {
     meetChange: "Change my room link", meetSetup: "Your Google Meet room",
     meetHelp: "Save your permanent room once: create a recurring event for yourself in Google Calendar and add Google Meet video conferencing (or meet.google.com → New meeting → Create a meeting for later). Paste the link here. Recordings are saved to your Google Drive.",
     save: "Save", saved: "Your room link was saved.", call: "Call", callPhone: "Call by phone (Bitrix24)",
-    callWa: "Open in WhatsApp", callNote: "WhatsApp calls cannot be placed from the server with this connection type; the chat opens in your WhatsApp app.",
+    callWa: "Call via WhatsApp", callNote: "The chat opens in the WhatsApp app on your computer; press 📞 there to call. Link that app to the company number once (WhatsApp → Settings → Linked devices → QR) and the call is made from that number.",
     connected: "Connected", disconnected: "Disconnected", connecting: "Connecting",
     offAdmin: "This number's WhatsApp connection is lost. Scan the QR code again in Panel → Connections.",
     offUser: "This number's WhatsApp connection is lost. Ask your administrator to reconnect it.",
@@ -648,7 +648,9 @@ function open(t){
   $("#bCall").onclick=function(e){e.stopPropagation();var m=$("#callMenu");m.hidden=!m.hidden;
     m.innerHTML='<button type="button" id="cPhone">☎️ '+esc(X.callPhone)+'</button><button type="button" id="cWa">💬 '+esc(X.callWa)+'</button><p>'+esc(X.callNote)+'</p>';
     $("#cPhone").onclick=function(){m.hidden=true;var num="+"+S.cur.phone;try{if(window.XRE_BX&&BX24.im&&BX24.im.phoneTo){BX24.im.phoneTo(num);return}}catch(x){}location.href="tel:"+num};
-    $("#cWa").onclick=function(){m.hidden=true;window.open("https://wa.me/"+S.cur.phone,"_blank","noopener")}};
+    $("#cWa").onclick=function(){m.hidden=true;var p=S.cur.phone,left=false,onBlur=function(){left=true};
+      window.addEventListener("blur",onBlur);location.href="whatsapp://send?phone="+p;
+      setTimeout(function(){window.removeEventListener("blur",onBlur);if(!left)window.open("https://wa.me/"+p,"_blank","noopener")},1500)}};
   document.addEventListener("click",function(e){var m=$("#callMenu");if(m)m.hidden=true;var mm=$("#meetMenu");if(mm&&!mm.contains(e.target))mm.hidden=true});
   lineState();ta.focus();loadMessages(true);
 }
