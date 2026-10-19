@@ -976,5 +976,15 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await meet(admin, { userId: "3", url: "https://meet.google.com/mer-vemm-eet" });
     expect(await (await meet(merve)).json()).toEqual({ url: "https://meet.google.com/mer-vemm-eet" });
   });
+
+  it("Bitrix adres kontrolü: parametresiz istekte 200 döner", async () => {
+    const { base } = await setup();
+    for (const path of ["/b24/app", "/b24/install"]) {
+      expect((await fetch(`${base}${path}`, { method: "HEAD" })).status).toBe(200);
+      const get = await fetch(`${base}${path}`);
+      expect(get.status).toBe(200);
+      expect(await get.text()).toContain("Bitrix24");
+    }
+  });
 });
 

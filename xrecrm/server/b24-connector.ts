@@ -994,6 +994,22 @@ async function installPortal(store: Store, p: BitrixParams, base: string): Promi
   return portal;
 }
 
+/** Bitrix dışından (ya da Bitrix'in adres kontrolüyle) açılan sayfa: 200 ve kısa bilgi. */
+function landing(res: Response, lang: Lang) {
+  page(
+    res,
+    200,
+    "XRE WhatsApp",
+    pick(
+      lang,
+      `<p>XRE WhatsApp, WhatsApp numaralarını Bitrix24 Açık Kanallarına bağlar. Uygulamayı Bitrix24 içinden açın.</p><p><a href="/b24/support?lang=tr">Destek</a> · <a href="/b24/legal/terms?lang=tr">Lisans sözleşmesi</a> · <a href="/b24/legal/privacy?lang=tr">Gizlilik</a></p>`,
+      `<p>XRE WhatsApp connects WhatsApp numbers to Bitrix24 Open Channels. Please open the app from inside Bitrix24.</p><p><a href="/b24/support">Support</a> · <a href="/b24/legal/terms">License agreement</a> · <a href="/b24/legal/privacy">Privacy policy</a></p>`,
+    ),
+    "",
+    lang,
+  );
+}
+
 const chatViewUrl = (memberId: string, userId: string, admin: boolean, lang: Lang) =>
   userId ? `/b24/chat/view?t=${encodeURIComponent(chatTicket(memberId, userId, admin))}&lang=${lang}` : "";
 
@@ -1030,6 +1046,8 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
   // Kurulum: belirteçleri sakla, bağlayıcıyı ve olayları kaydet.
   const install = async (req: Request, res: Response) => {
     const p = readBitrixParams(req);
+    // Bitrix adresi kaydederken parametresiz istek atar ve 200 bekler.
+    if (!p.memberId && !p.authId) return landing(res, p.lang);
     if (!memberIdOk(p.memberId) || !p.domain || !p.authId)
       return page(res, 400, pick(p.lang, "Kurulum bilgisi eksik", "Installation data missing"), pick(p.lang, "<p>Uygulamayı Bitrix24 içinden kurun.</p>", "<p>Please install the app from inside Bitrix24.</p>"), "", p.lang);
     try {
@@ -1059,6 +1077,7 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
   // Uygulama ana sayfası (sol menü): yöneticiye yönetim paneli, personele kendi numaraları.
   const home = async (req: Request, res: Response) => {
     const p = readBitrixParams(req);
+    if (!p.memberId && !p.authId) return landing(res, p.lang);
     let portal = memberIdOk(p.memberId) ? await portalById(store, p.memberId) : null;
     if ((!portal || !portal.active) && memberIdOk(p.memberId) && p.domain && p.authId) {
       try {
