@@ -4,6 +4,8 @@
 //
 // Geliştirici ve iletişim bilgileri Entegrasyonlar ekranından gelir
 // (B24_VENDOR_NAME, B24_VENDOR_ADDRESS, B24_SUPPORT_EMAIL, B24_SUPPORT_PHONE, B24_SUPPORT_HOURS).
+import fs from "node:fs";
+import path from "node:path";
 import type { Express, Request, Response } from "express";
 import { PANEL_STYLE } from "./b24-panel-html.js";
 import { REPORT_TTL_DAYS, MEDIA_KEEP_DAYS } from "./b24-live.js";
@@ -148,6 +150,15 @@ function supportBody(lang: Lang) {
 const langOfReq = (req: Request): Lang => (String(req.query.lang || "").toLowerCase() === "tr" ? "tr" : "en");
 
 export function registerLegalRoutes(app: Express) {
+  // Tanıtım videosu (docs/market/video/seslendir.py üretir ve veri klasörüne koyar).
+  app.get("/b24/video/:name", (req, res) => {
+    const name = String(req.params.name || "");
+    if (!/^(tr|en)\.mp4$/.test(name)) return res.status(404).send("Not found");
+    const file = path.resolve(process.env.XRE_DATA_DIR || "data", "b24-video", name);
+    if (!fs.existsSync(file)) return res.status(404).send("Video henüz yüklenmedi / Video not published yet.");
+    res.setHeader("cache-control", "public, max-age=3600");
+    res.type("video/mp4").sendFile(file);
+  });
   app.get("/b24/legal/terms", (req, res) => {
     const lang = langOfReq(req);
     shell(res, lang, lang === "en" ? "End User License Agreement" : "Son Kullanıcı Lisans Sözleşmesi", lang === "en" ? termsEn() : termsTr(), "/b24/legal/terms");
@@ -158,6 +169,9 @@ export function registerLegalRoutes(app: Express) {
   });
   app.get("/b24/support", (req, res) => {
     const lang = langOfReq(req);
-    shell(res, lang, lang === "en" ? "Support" : "Destek", supportBody(lang), "/b24/support");
+    const video = fs.existsSync(path.resolve(process.env.XRE_DATA_DIR || "data", "b24-video", `${lang}.mp4`))
+      ? `<h2>${lang === "en" ? "Video guide" : "Video rehber"}</h2><video controls preload="metadata" style="width:100%;border-radius:10px" src="/b24/video/${lang}.mp4"></video>`
+      : "";
+    shell(res, lang, lang === "en" ? "Support" : "Destek", video + supportBody(lang), "/b24/support");
   });
 }

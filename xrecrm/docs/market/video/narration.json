@@ -1,0 +1,46 @@
+{
+  "tr": {
+    "voice": "nova",
+    "instructions": "Sıcak, net ve güven veren bir Türkçe ürün tanıtımı seslendirmesi. Orta tempoda, doğal vurgularla, Türkçe telaffuzla konuş. Marka adı 'WhatsApp by XRE' şeklinde, XRE harf harf okunur: iks-ar-i.",
+    "slides": [
+      { "image": "video/slides/tr-00-title.jpg", "min": 4, "text": "WhatsApp by XRE ile WhatsApp numaralarınızı Bitrix24 Açık Kanallarına bağlayın. Bu videoda kurulumu ve kullanımı adım adım gösteriyoruz." },
+      { "image": "video/slides/tr-01-install.jpg", "min": 8, "text": "Kurulum çok kolay. Bitrix24'e yönetici olarak girin, Market'i açın, WhatsApp by XRE'yi aratın ve Yükle'ye basın. Uygulama birkaç saniyede sol menüde belirir." },
+      { "image": "screenshots/tr-1-add.png", "min": 6, "text": "Bağlantılar sekmesinde Numara ekle'ye basın ve numaranıza bir ad verin. Her numara için Bitrix24'te otomatik bir Açık Kanal açılır." },
+      { "image": "screenshots/tr-2-qr.png", "min": 6, "text": "Telefonunuzda WhatsApp'ı açın; Ayarlar, Bağlı cihazlar, Cihaz bağla deyin ve ekrandaki QR kodu okutun. Numaranız saniyeler içinde bağlanır." },
+      { "image": "screenshots/tr-3-connections.png", "min": 6, "text": "Tüm numaralarınızın durumunu tek ekrandan izleyin. Bağlantı koparsa uygulama sizi uyarır, tek tıkla yeniden bağlarsınız." },
+      { "image": "screenshots/tr-4-roles.png", "min": 6, "text": "Roller sekmesinde hangi ekibin hangi numaraların sohbetlerini alacağını belirleyin." },
+      { "image": "screenshots/tr-5-staff.png", "min": 6, "text": "Personel sekmesinde her çalışana bir rol verin. Çalışanlar yalnızca kendi numaralarının sohbetlerini görür." },
+      { "image": "screenshots/tr-6-settings.png", "min": 6, "text": "Ayarlar'dan otomatik çeviriyi, sesli mesajların yazıya dökülmesini ve yapay zekâ ile müşteri değerlendirmesini açın." },
+      { "image": "video/slides/tr-08-billing.jpg", "min": 8, "text": "İlk numarayı bağladığınızda yedi günlük ücretsiz deneme başlar ve tüm özellikler açık olur. Deneme bitmeden Ödeme sekmesinden Basic, Pro ya da Pro Plus paketini seçin ve havale ile ödeyin." },
+      { "image": "screenshots/tr-7-chat.png", "min": 6, "text": "Tüm WhatsApp sohbetleriniz tek ekranda. Yabancı dildeki mesajlar çevirisiyle gelir, cevabınız müşterinin diline çevrilerek gider. Görsel, video ve ses kaydı da gönderebilirsiniz." },
+      { "image": "screenshots/tr-8-card.png", "min": 6, "text": "Lead, kişi ve anlaşma kartlarındaki WhatsApp by XRE sekmesinden müşterinizle doğrudan yazışın." },
+      { "image": "screenshots/tr-9-agent.png", "min": 6, "text": "Yapay zekâ asistanı, kendi bilgi tabanınızla müşterilerinize yedi gün yirmi dört saat yanıt verir ve gerektiğinde sohbeti temsilcinize devreder." },
+      { "image": "screenshots/tr-10-live.png", "min": 6, "text": "Canlı izleme ekranında kimin çevrimiçi olduğunu, bekleyen sohbetleri ve bugün gelen müşteri adaylarını anlık görün." },
+      { "image": "screenshots/tr-11-perf.png", "min": 6, "text": "Performans sekmesinde mesaj hacmini ve temsilcilerinizin ilk cevap sürelerini takip edin." },
+      { "image": "screenshots/tr-12-reports.png", "min": 6, "text": "Günlük, haftalık ve aylık yapay zekâ raporları WhatsApp ya da Bitrix24 bildirimiyle yöneticilere gelir." },
+      { "image": "video/slides/tr-99-outro.jpg", "min": 5, "text": "Sorularınız için bize e-posta ya da WhatsApp üzerinden ulaşabilirsiniz. WhatsApp by XRE'yi tercih ettiğiniz için teşekkürler." }
+    ]
+  },
+  "en": {
+    "voice": "nova",
+    "instructions": "Warm, clear and confident product walkthrough voice-over in English. Medium pace, natural emphasis. Say the brand as 'WhatsApp by X-R-E', spelling out XRE.",
+    "slides": [
+      { "image": "video/slides/en-00-title.jpg", "min": 4, "text": "With WhatsApp by XRE, you connect your WhatsApp numbers to Bitrix24 Open Channels. In this video, we walk you through setup and everyday use." },
+      { "image": "video/slides/en-01-install.jpg", "min": 8, "text": "Setup is easy. Sign in to Bitrix24 as an administrator, open the Market, search for WhatsApp by XRE and click Install. The app appears in the left menu within seconds." },
+      { "image": "screenshots/en-1-add.png", "min": 6, "text": "On the Connections tab, click Add number and give it a name. An Open Channel is created in Bitrix24 for every number automatically." },
+      { "image": "screenshots/en-2-qr.png", "min": 6, "text": "On your phone, open WhatsApp, go to Settings, Linked devices, Link a device, and scan the QR code. Your number connects in seconds." },
+      { "image": "screenshots/en-3-connections.png", "min": 6, "text": "Monitor every number on one screen. If a link drops, the app warns you, and you reconnect in one click." },
+      { "image": "screenshots/en-4-roles.png", "min": 6, "text": "On the Roles tab, decide which team receives the chats of which numbers." },
+      { "image": "screenshots/en-5-staff.png", "min": 6, "text": "On the Staff tab, give each employee a role. Employees only see the chats of their own numbers." },
+      { "image": "screenshots/en-6-settings.png", "min": 6, "text": "In Settings, switch on automatic translation, voice message transcription and AI lead qualification." },
+      { "image": "video/slides/en-08-billing.jpg", "min": 8, "text": "When you connect your first number, a seven-day free trial starts with every feature unlocked. Before it ends, choose Basic, Pro or Pro Plus on the Billing tab and pay by bank transfer." },
+      { "image": "screenshots/en-7-chat.png", "min": 6, "text": "All your WhatsApp chats in one inbox. Foreign-language messages arrive with a translation, and your reply goes out in the customer's language. You can send images, video and voice notes too." },
+      { "image": "screenshots/en-8-card.png", "min": 6, "text": "Chat with customers right from the WhatsApp by XRE tab on lead, contact and deal cards." },
+      { "image": "screenshots/en-9-agent.png", "min": 6, "text": "The AI assistant answers your customers around the clock from your own knowledge base, and hands the chat to an agent when needed." },
+      { "image": "screenshots/en-10-live.png", "min": 6, "text": "The live monitor shows who is online, which chats are waiting, and how many leads arrived today." },
+      { "image": "screenshots/en-11-perf.png", "min": 6, "text": "Track message volume and your agents' first response times on the Performance tab." },
+      { "image": "screenshots/en-12-reports.png", "min": 6, "text": "Daily, weekly and monthly AI reports reach your managers via WhatsApp or a Bitrix24 notification." },
+      { "image": "video/slides/en-99-outro.jpg", "min": 5, "text": "Questions? Reach us by e-mail or WhatsApp. Thank you for choosing WhatsApp by XRE." }
+    ]
+  }
+}
