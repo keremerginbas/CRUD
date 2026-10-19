@@ -60,7 +60,12 @@ def api_key(container):
                 return v
         except Exception:
             pass
-    return getpass.getpass("OpenAI API anahtarı (ekranda görünmez): ").strip()
+    for _ in range(3):
+        k = getpass.getpass("OpenAI API anahtarı (sk- ile başlar, ekranda görünmez): ").strip()
+        if k.startswith("sk-") and " " not in k:
+            return k
+        print("  Bu bir OpenAI anahtarına benzemiyor (sk- ile başlamalı). Yalnız anahtarı yapıştırın.")
+    sys.exit("Geçerli anahtar girilmedi.")
 
 
 class FF:
