@@ -93,7 +93,7 @@ export function faqList(faqs, { idPrefix = 'sss' } = {}) {
     .join('')}</div>`;
 }
 
-export function ctaBand({ title = 'Projeniz İçin Hemen Teklif Alın', text = 'Hafriyat, iş makineleri, inşaat, nakliye ve ihracat ihtiyaçlarınız için ekibimizle görüşün; size uygun, planlı ve güvenilir çözümü birlikte belirleyelim.', scene = 'nakliye' } = {}) {
+export function ctaBand({ title = 'Projeniz İçin Hemen Teklif Alın', text = 'Hafriyat, temel kazı, altyapı, yol, dolgu ve nakliye ihtiyaçlarınız için ekibimizle görüşün; size uygun, planlı ve güvenilir çözümü birlikte belirleyelim.', scene = 'nakliye' } = {}) {
   return `<section class="relative overflow-hidden bg-ink-950 py-24" aria-label="Teklif çağrısı">
   <div class="absolute inset-0 opacity-40" data-parallax>${picture(scene, 'CMS Hafriyat saha çalışması', { cls: 'w-full h-[130%] object-cover' })}</div>
   <div class="absolute inset-0 bg-gradient-to-r from-ink-950 via-ink-950/90 to-ink-950/40"></div>

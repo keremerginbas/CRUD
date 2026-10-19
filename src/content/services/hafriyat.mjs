@@ -51,7 +51,7 @@ export default {
 
 <h2>Planlama: Başarılı Bir Kazının Temeli</h2>
 <p>İyi planlanmamış bir kazı, hem zaman hem de maliyet açısından projeye ciddi yükler getirebilir. Bu nedenle her işe sahayı yerinde inceleyerek başlıyoruz. Zemin yapısı, yeraltı suyu ihtimali, komşu yapıların konumu, altyapı hatları ve sahaya erişim yolları ilk değerlendirmede ele aldığımız başlıklardır.</p>
-<p>Zemin özellikleri, kazı yönteminin ve kullanılacak ekipmanın belirlenmesinde belirleyici rol oynar. Bu konunun neden bu kadar önemli olduğunu <a href="/blog/insaatta-zemin-etudu-onemi/">inşaatta zemin etüdünün önemi</a> başlıklı yazımızda anlattık. Zemin etüdü verileri ve proje çizimleri doğrultusunda kazı derinliğini, şev açılarını ve çalışma sırasını netleştiriyoruz.</p>
+<p>Zemin özellikleri, kazı yönteminin ve kullanılacak ekipmanın belirlenmesinde belirleyici rol oynar. Bu konunun neden bu kadar önemli olduğunu <a href="/blog/insaatta-zemin-etudu-onemi/">inşaatta zemin etüdünün önemi</a> başlıklı yazımızda anlattık. Zemin etüdü verileri ve proje çizimleri doğrultusunda kazı derinliğini, şev açılarını ve çalışma sırasını netleştiriyoruz. Bina temeline ve bodrum katlarına özel kazı yaklaşımımızı <a href="/hizmetler/temel-kazi-isleri/">temel kazı işleri</a> sayfamızda ayrıntılı olarak anlattık.</p>
 <h3>İzin ve Ruhsat Süreçleri</h3>
 <p>Hafriyat çalışmaları, yerel yönetimlerin belirlediği kurallar çerçevesinde yürütülmelidir. Hafriyat toprağının nereye ve nasıl döküleceği, taşıma belgeleri ve çalışma saatleri gibi konular bu kapsamdadır. Süreç hakkında genel bilgi almak için <a href="/blog/hafriyat-ruhsati-ve-izin-sureci/">hafriyat ruhsatı ve izin süreci</a> yazımızı inceleyebilirsiniz.</p>
 
@@ -70,7 +70,7 @@ export default {
 </ul>
 
 <h2>Çevresel Sorumluluk ve Sürdürülebilirlik</h2>
-<p>Hafriyat yalnızca toprak kazımak değildir; çevreye ve yakın çevrede yaşayanlara karşı da sorumluluk taşır. Toz kontrolü, araç tekerleklerinin yola çıkmadan temizlenmesi, gürültünün makul seviyelerde tutulması ve hafriyat toprağının yalnızca izinli alanlara dökülmesi bu sorumluluğun temel parçalarıdır. Uygun durumlarda kazıdan çıkan malzemenin dolgu işlerinde yeniden değerlendirilmesini de planlamaya dahil ediyoruz.</p>
+<p>Hafriyat yalnızca toprak kazımak değildir; çevreye ve yakın çevrede yaşayanlara karşı da sorumluluk taşır. Toz kontrolü, araç tekerleklerinin yola çıkmadan temizlenmesi, gürültünün makul seviyelerde tutulması ve hafriyat toprağının yalnızca izinli alanlara dökülmesi bu sorumluluğun temel parçalarıdır. Uygun durumlarda kazıdan çıkan malzemenin dolgu işlerinde yeniden değerlendirilmesini de planlamaya dahil ediyoruz. Kontrollü serme ve sıkıştırma gerektiren çalışmalar için <a href="/hizmetler/dolgu-isleri/">dolgu işleri</a> hizmetimizi inceleyebilirsiniz.</p>
 <p>Toprak taşımacılığında dikkat edilmesi gereken pratik noktaları <a href="/blog/hafriyat-toprak-nakliyesi-ipuclari/">hafriyat toprağı nakliyesi ipuçları</a> yazımızda bulabilirsiniz.</p>
 
 <h2>Neden CMS Hafriyat?</h2>
@@ -106,5 +106,5 @@ export default {
       a: "Sahanın konumu, yaklaşık alan ve kazı derinliği, varsa proje çizimleri ve zemin etüdü bilgileri ile planladığınız başlangıç tarihi teklif sürecini hızlandırır. Bilgilerinizi telefon, WhatsApp veya e-posta üzerinden iletebilirsiniz. Gerekli durumlarda sahayı yerinde inceleyerek size uygun çalışma planını sunuyoruz. Ne kadar ayrıntılı bilgi paylaşırsanız, değerlendirme o kadar hızlı ve isabetli olur."
     }
   ],
-  related: ["is-makineleri", "nakliye", "insaat-taahhut"]
+  related: ["temel-kazi-isleri", "dolgu-isleri", "nakliye"]
 };

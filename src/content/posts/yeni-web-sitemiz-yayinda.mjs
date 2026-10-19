@@ -10,16 +10,19 @@ export default {
   date: "2026-10-19",
   excerpt: "CMS Hafriyat'ın yenilenen web sitesi yayında. Hizmetlerimizi, rehber yazılarımızı, yapay zekâ destekli asistanımızı ve WhatsApp destek hattımızı tek bir adreste bir araya getirdik.",
   body: `
-<p>CMS Hafriyat İnşaat Nakliyat Ltd. Şti. olarak yeni web sitemizi yayına aldığımızı duyurmaktan memnuniyet duyuyoruz. "Güvenle Başlar, Değerle Büyür." sloganımızla yola çıkarak hazırladığımız sitemiz; hizmetlerimizi daha anlaşılır şekilde tanıtmak, sık sorulan sorulara hızlı yanıt vermek ve bize ulaşmanızı kolaylaştırmak amacıyla tasarlandı.</p>
+<p>CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti. olarak yeni web sitemizi yayına aldığımızı duyurmaktan memnuniyet duyuyoruz. "Güvenle Başlar, Değerle Büyür." sloganımızla yola çıkarak hazırladığımız sitemiz; hizmetlerimizi daha anlaşılır şekilde tanıtmak, sık sorulan sorulara hızlı yanıt vermek ve bize ulaşmanızı kolaylaştırmak amacıyla tasarlandı.</p>
 
 <h2>Hizmetlerimiz Artık Daha Ayrıntılı</h2>
 <p>Yeni sitemizde her faaliyet alanımız için ayrı bir sayfa bulunuyor. Bu sayfalarda hizmetin kapsamını, sürecin nasıl işlediğini ve sık sorulan soruları bulabilirsiniz:</p>
 <ul>
 <li><a href="/hizmetler/hafriyat/">Hafriyat</a>: Temel kazısından saha düzenlemesine kadar kazı çalışmaları</li>
+<li><a href="/hizmetler/temel-kazi-isleri/">Temel Kazı İşleri</a>: Bina temeli ve bodrum kazılarında kontrollü çalışma</li>
+<li><a href="/hizmetler/altyapi-isleri/">Altyapı İşleri</a>: Boru hatları için kanal kazısı ve geri dolgu</li>
+<li><a href="/hizmetler/yol-kazi-isleri/">Yol Kazı İşleri</a>: Yol açma, yol yatağı hazırlığı ve tesviye</li>
+<li><a href="/hizmetler/dolgu-isleri/">Dolgu İşleri</a>: Katmanlı serme ve sıkıştırma ile kontrollü dolgu</li>
 <li><a href="/hizmetler/is-makineleri/">İş Makineleri</a>: Projeye uygun makinelerle operasyon desteği</li>
 <li><a href="/hizmetler/insaat-taahhut/">İnşaat Taahhüt</a>: İnşaat süreçlerinde planlı ve koordineli çalışma</li>
 <li><a href="/hizmetler/nakliye/">Nakliye</a>: Hafriyat toprağı ve malzeme taşımacılığı</li>
-<li><a href="/hizmetler/ihracat/">İhracat</a>: İhracat alanındaki faaliyetlerimiz</li>
 </ul>
 
 <h2>Blog ve Rehber İçerikler</h2>

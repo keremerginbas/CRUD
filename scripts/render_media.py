@@ -675,7 +675,6 @@ SCENES = {
     "hafriyat": (scene_hafriyat, "dusk"),
     "insaat": (scene_insaat, "dusk"),
     "nakliye": (scene_nakliye, "day"),
-    "ihracat": (scene_ihracat, "dawn"),
     "makine": (scene_makine, "day"),
 }
 

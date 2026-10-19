@@ -5,7 +5,7 @@ export default {
   basePath: (process.env.BASE_PATH || '').replace(/\/$/, ''),
   preview: process.env.PREVIEW === '1',
   name: 'CMS Hafriyat',
-  legalName: 'CMS Hafriyat İnşaat Nakliyat Ltd. Şti.',
+  legalName: 'CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti.',
   slogan: 'Güvenle Başlar, Değerle Büyür.',
   lang: 'tr',
   locale: 'tr_TR',
@@ -25,7 +25,7 @@ export default {
   mapLink: 'https://www.google.com/maps/search/?api=1&query=Toros%2C%2078090.%20Sk.%2010%20A%2C%2001170%20%C3%87ukurova%2FAdana',
   whatsapp: '905335003779',
   whatsappText: 'Merhaba, CMS Hafriyat web sitesinden ulaşıyorum. Bilgi almak istiyorum.',
-  publisher: 'CMS Hafriyat İnşaat Nakliyat Ltd. Şti.',
+  publisher: 'CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti.',
   author: 'CMS Hafriyat',
   themeColor: '#0f172a',
   // Sosyal medya hesapları açıldığında eklenir (schema.org sameAs + footer)

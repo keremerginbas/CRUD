@@ -26,6 +26,8 @@ const P = {
   layers: '<path d="M12 2l10 5-10 5L2 7z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
   target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
   pin: '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+  pipe: '<path d="M2 9h6v6H2z"/><path d="M8 10h8v4H8z"/><path d="M16 9h6v6h-6z"/><path d="M12 14v5"/><path d="M9 19h6"/>',
+  road: '<path d="M4 21L9 3"/><path d="M20 21L15 3"/><path d="M12 4v3M12 10v3M12 16v4"/>',
   eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>',
 };
 

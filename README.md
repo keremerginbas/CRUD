@@ -1,4 +1,4 @@
-# CMS Hafriyat İnşaat Nakliyat – Kurumsal Web Sitesi
+# CMS Hafriyat Nakliyat İnşaat Taahhüt – Kurumsal Web Sitesi
 
 Statik, hızlı ve SEO odaklı kurumsal site. **HTML + Tailwind CSS + saf JavaScript**. Videolar, görseller ve logo
 kodla üretilir (telifsiz). `dist/` klasörü doğrudan hostinge yüklenmeye hazırdır.
@@ -28,8 +28,11 @@ python3 scripts/make_logo.py         # logo SVG/PNG + favicon seti
 │   ├── /hizmetler/hafriyat/
 │   ├── /hizmetler/is-makineleri/
 │   ├── /hizmetler/insaat-taahhut/
-│   ├── /hizmetler/nakliye/
-│   └── /hizmetler/ihracat/
+│   ├── /hizmetler/temel-kazi-isleri/
+│   ├── /hizmetler/altyapi-isleri/
+│   ├── /hizmetler/yol-kazi-isleri/
+│   ├── /hizmetler/dolgu-isleri/
+│   └── /hizmetler/nakliye/
 ├── /projeler/                     Yaptığımız İşler (videolar + proje galerisi)
 ├── /blog/                         Blog & Rehberler (6 rehber)
 │   └── /haberler/                 Haberler & Duyurular (3 haber)

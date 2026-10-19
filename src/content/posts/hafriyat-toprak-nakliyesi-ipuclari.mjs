@@ -92,5 +92,5 @@ export default {
       a: "Nitelikleri uygun olduğu takdirde kazıdan çıkan toprak dolgu, kot düzenlemesi veya peyzaj gibi işlerde yeniden kullanılabilir. Ancak malzemenin dolguya uygunluğu proje mühendisi tarafından değerlendirilmelidir. Yeniden kullanım, taşınacak malzeme miktarını azaltarak hem nakliye yükünü hafifletir hem de sürdürülebilirliğe önemli bir katkı sağlar."
     }
   ],
-  relatedServices: ["nakliye", "hafriyat"]
+  relatedServices: ["nakliye", "hafriyat", "dolgu-isleri"]
 };

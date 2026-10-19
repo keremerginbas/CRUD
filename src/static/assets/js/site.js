@@ -87,14 +87,14 @@
         d.classList.toggle('is-active', i === idx); d.setAttribute('aria-selected', i === idx);
       });
       const v = $('video', slides[idx]);
-      loadVideo(v); v.currentTime = 0; play(v);
-      setTimeout(() => { const pv = $('video', prev); if (prev !== slides[idx]) pv.pause(); }, 1400);
+      if (v) { loadVideo(v); v.currentTime = 0; play(v); }
+      setTimeout(() => { const pv = $('video', prev); if (pv && prev !== slides[idx]) pv.pause(); }, 1400);
       clearTimeout(timer);
       if (!reduce) timer = setTimeout(() => go(idx + 1), 7000);
     };
     dots.forEach((d) => d.addEventListener('click', () => go(+d.dataset.go)));
     // ikinci slaytı arka planda önceden yükle
-    setTimeout(() => loadVideo($('video', slides[1])), 2500);
+    setTimeout(() => { const v1 = $('video', slides[1]); if (v1) loadVideo(v1); }, 2500);
     if (!reduce) timer = setTimeout(() => go(1), 7000);
     let sx = null;
     hero.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });

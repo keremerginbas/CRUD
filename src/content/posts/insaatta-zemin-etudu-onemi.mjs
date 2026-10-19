@@ -99,5 +99,5 @@ export default {
       a: "Zemin etüdü, kazının hangi yöntemle yapılacağını, şev açılarını, iksa ihtiyacını, kaya ve yeraltı suyu riskini önceden ortaya koyar. Bu bilgiler doğru makine seçimini, iş programının gerçekçi hazırlanmasını ve çalışma güvenliğinin sağlanmasını mümkün kılar. Böylece sahada yaşanabilecek sürprizler en aza indirilir."
     }
   ],
-  relatedServices: ["insaat-taahhut", "hafriyat"]
+  relatedServices: ["temel-kazi-isleri", "insaat-taahhut", "hafriyat"]
 };

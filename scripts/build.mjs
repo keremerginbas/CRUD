@@ -103,6 +103,19 @@ const write = (rel, content) => {
 };
 // Alt klasör önizlemesi: kök göreli adreslere taban yolu ekle
 const withBase = (html) => (BASE ? html.replace(/(=")\/(?!\/)/g, `$1${BASE}/`).replace(/(\d+w, )\/(?!\/)/g, `$1${BASE}/`) : html);
+// Artık üretilmeyen eski sayfaları temizle (ör. kaldırılan hizmetler)
+const expected = new Set(outputs.map((o) => path.join(DIST, o.file)));
+const sweep = (dir) => {
+  if (!fs.existsSync(dir)) return;
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const f = path.join(dir, e.name);
+    if (e.isDirectory() && !['assets', 'api'].includes(e.name)) {
+      sweep(f);
+      if (!fs.readdirSync(f).length) fs.rmdirSync(f);
+    } else if (e.name === 'index.html' && !expected.has(f)) fs.unlinkSync(f);
+  }
+};
+sweep(DIST);
 for (const { file, html } of outputs) write(file, withBase(html));
 // Önizleme klasörü ayrıysa üretilmiş medyayı (video, görsel, logo, ikon) dist'ten kopyala
 if (DIST !== path.join(ROOT, 'dist')) {

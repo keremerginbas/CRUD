@@ -221,3 +221,7 @@
   [data-reveal], .split-word > span { opacity: 1 !important; transform: none !important; }
 }
 [hidden] { display: none !important; }
+/* Gerçek fotoğraflarda video hissi veren yavaş yakınlaşma/kayma */
+.photo-motion { animation: photo-motion 18s ease-in-out infinite alternate; }
+@keyframes photo-motion { from { transform: scale(1.04) translate3d(-1%, 0, 0); } to { transform: scale(1.14) translate3d(1.5%, -1%, 0); } }
+@media (prefers-reduced-motion: reduce) { .photo-motion { animation: none; } }

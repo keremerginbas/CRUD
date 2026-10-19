@@ -1,6 +1,6 @@
 export default {
   slug: "insaat-taahhut",
-  order: 3,
+  order: 7,
   name: "İnşaat & Taahhüt",
   icon: "building",
   scene: "insaat",
@@ -59,7 +59,7 @@ export default {
 
 <h2>Saha Hazırlığından Yapıma Kesintisiz Süreç</h2>
 <p>İnşaat projelerinde en sık karşılaşılan sorunlardan biri, farklı aşamalar arasındaki koordinasyon eksikliğidir. Kazı ekibi, nakliye ve yapım ekipleri ayrı ayrı planlandığında bekleme süreleri ve iletişim kopuklukları ortaya çıkabilir. Hafriyat, iş makineleri ve nakliye alanlarında da hizmet verdiğimiz için bu aşamaları tek bir planlama altında yönetebiliyoruz.</p>
-<p>Projenizin başlangıcında <a href="/hizmetler/hafriyat/">hafriyat hizmetimiz</a> ile zemini hazırlıyor, gerekli ekipmanı <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarımız</a> ile sağlıyor ve yapım aşamasına sorunsuz bir geçiş planlıyoruz.</p>
+<p>Projenizin başlangıcında <a href="/hizmetler/hafriyat/">hafriyat hizmetimiz</a> ile zemini hazırlıyor, gerekli ekipmanı <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarımız</a> ile sağlıyor ve yapım aşamasına sorunsuz bir geçiş planlıyoruz. Yapının oturacağı temel çukurunun projeye uygun kotlarda açılması için <a href="/hizmetler/temel-kazi-isleri/">temel kazı işleri</a> hizmetimizle kaba yapıya sağlam bir başlangıç hazırlıyoruz.</p>
 <h3>Şeffaf İletişim ve Raporlama</h3>
 <p>Proje sahibinin sürecin nerede olduğunu bilmesi, sağlıklı karar alabilmesi için önemlidir. Bu nedenle iş programındaki ilerlemeyi, karşılaşılan durumları ve olası değişiklikleri düzenli olarak paylaşıyoruz. Açık iletişim, hem güveni artırır hem de sorunların erken aşamada çözülmesini kolaylaştırır.</p>
 
@@ -114,5 +114,5 @@ export default {
       a: "Proje çizimlerinizi, saha bilgilerini ve beklentilerinizi bizimle paylaştığınızda işin kapsamını değerlendiriyoruz. Gerekli durumlarda sahayı yerinde inceliyor, ardından kapsamı, iş programını ve koşulları içeren teklifimizi hazırlıyoruz. Teklif üzerinde sorularınızı yanıtlayarak süreci birlikte netleştiriyoruz. Kapsamın netleşmesi, sürecin her iki taraf için de öngörülebilir olmasını sağlar."
     }
   ],
-  related: ["hafriyat", "is-makineleri", "nakliye"]
+  related: ["temel-kazi-isleri", "altyapi-isleri", "hafriyat"]
 };

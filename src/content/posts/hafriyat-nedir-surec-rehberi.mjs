@@ -94,5 +94,5 @@ export default {
       a: "Projenin ve zemin etüdü raporunun hazır olması, ilgili belediyeden gerekli izinlerin alınması, yer altı altyapı hatlarının tespit edilmesi ve saha güvenlik önlemlerinin planlanması gerekir. Ayrıca kamyon giriş-çıkış güzergâhı ve döküm sahası önceden belirlenmelidir. Bu hazırlıklar işin güvenli ve kesintisiz ilerlemesini sağlar."
     }
   ],
-  relatedServices: ["hafriyat", "is-makineleri", "nakliye"]
+  relatedServices: ["hafriyat", "temel-kazi-isleri", "nakliye"]
 };

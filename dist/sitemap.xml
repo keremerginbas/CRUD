@@ -5,7 +5,7 @@
     <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
-    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/hafriyat.jpg</image:loc><image:title>CMS Hafriyat İnşaat Nakliyat</image:title></image:image>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/hafriyat.jpg</image:loc><image:title>CMS Hafriyat Nakliyat İnşaat Taahhüt</image:title></image:image>
   </url>
   <url>
     <loc>https://cmsharfiyat.com.tr/hakkimizda/</loc>
@@ -29,6 +29,34 @@
     <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/hafriyat.jpg</image:loc><image:title>Hafriyat ve Kazı Hizmetleri</image:title></image:image>
   </url>
   <url>
+    <loc>https://cmsharfiyat.com.tr/hizmetler/temel-kazi-isleri/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/temel.jpg</image:loc><image:title>Temel Kazı İşleri</image:title></image:image>
+  </url>
+  <url>
+    <loc>https://cmsharfiyat.com.tr/hizmetler/altyapi-isleri/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/altyapi.jpg</image:loc><image:title>Altyapı İşleri</image:title></image:image>
+  </url>
+  <url>
+    <loc>https://cmsharfiyat.com.tr/hizmetler/yol-kazi-isleri/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/yol.jpg</image:loc><image:title>Yol Kazı İşleri</image:title></image:image>
+  </url>
+  <url>
+    <loc>https://cmsharfiyat.com.tr/hizmetler/dolgu-isleri/</loc>
+    <lastmod>2026-10-19</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/dolgu.jpg</image:loc><image:title>Dolgu İşleri</image:title></image:image>
+  </url>
+  <url>
     <loc>https://cmsharfiyat.com.tr/hizmetler/is-makineleri/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
@@ -50,13 +78,6 @@
     <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/nakliye.jpg</image:loc><image:title>Hafriyat ve İnşaat Nakliyesi</image:title></image:image>
   </url>
   <url>
-    <loc>https://cmsharfiyat.com.tr/hizmetler/ihracat/</loc>
-    <lastmod>2026-10-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.8</priority>
-    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/ihracat.jpg</image:loc><image:title>İhracat ve Dış Ticaret</image:title></image:image>
-  </url>
-  <url>
     <loc>https://cmsharfiyat.com.tr/projeler/</loc>
     <lastmod>2026-10-19</lastmod>
     <changefreq>monthly</changefreq>
@@ -75,7 +96,7 @@
     <lastmod>2026-10-19</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
-    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/ihracat.jpg</image:loc><image:title>Haberler &amp; Duyurular</image:title></image:image>
+    <image:image><image:loc>https://cmsharfiyat.com.tr/assets/img/og/insaat.jpg</image:loc><image:title>Haberler &amp; Duyurular</image:title></image:image>
   </url>
   <url>
     <loc>https://cmsharfiyat.com.tr/haberler/yapay-zeka-destekli-musteri-asistani/</loc>

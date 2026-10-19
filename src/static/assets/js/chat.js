@@ -15,7 +15,7 @@
   const BASE = document.documentElement.dataset.base || '';
   const WA = 'https://wa.me/905335003779';
   const QUICK = ['Hangi hizmetleri veriyorsunuz?', 'Teklif almak istiyorum', 'Hafriyat süreci nasıl işler?', 'İletişim bilgileri'];
-  const GREETING = 'Merhaba! 👋 Ben CMS Hafriyat\'ın yapay zeka asistanıyım. Hafriyat, iş makineleri, inşaat, nakliye ve ihracat hizmetlerimiz hakkında sorularınızı yanıtlayabilirim. Size nasıl yardımcı olabilirim?';
+  const GREETING = 'Merhaba! 👋 Ben CMS Hafriyat\'ın yapay zeka asistanıyım. hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye hizmetlerimiz hakkında sorularınızı yanıtlayabilirim. Size nasıl yardımcı olabilirim?';
 
   let history = [];
   try { history = JSON.parse(sessionStorage.getItem(KEY) || '[]'); } catch (e) { history = []; }
@@ -75,11 +75,14 @@
     [/makine|ekskavatör|kepçe|loder|dozer|silindir|beko/, 'Projenin ihtiyacına göre ekskavatör, kazıcı yükleyici, loder, dozer ve silindir gibi iş makineleriyle operasyon planlıyoruz. Detaylar: /hizmetler/is-makineleri/ · Makine seçimi rehberi: /blog/is-makinesi-secimi-rehberi/'],
     [/inşaat|taahhüt|müteahhit|yapı|bina/, 'İnşaat ve taahhüt işlerinde planlama, iş disiplini ve kalite odaklı uygulama ile projelerinize değer katıyoruz. Detaylar: /hizmetler/insaat-taahhut/'],
     [/nakliye|taşıma|kamyon|damper|lojistik/, 'Hafriyat toprağı ve inşaat malzemeleri için planlı, güvenli ve zamanında nakliye hizmeti sunuyoruz. Detaylar: /hizmetler/nakliye/'],
-    [/ihracat|export|yurt dışı/, 'İhracat faaliyetlerimizde süreç planlaması, lojistik koordinasyonu ve kalite kontrolüne önem veriyoruz. Detaylar için: /hizmetler/ihracat/'],
+    [/temel/, 'Temel kazı işlerinde zemin etüdü ve projeye uygun kot, şev ve iksa güvenliğiyle kontrollü kazı yapıyoruz. Detaylar: /hizmetler/temel-kazi-isleri/'],
+    [/altyapı|altyapi|kanal|boru|kanalizasyon|içme suyu|yağmur suyu/, 'Altyapı işlerinde kanal (hendek) kazısı, boru yatağı hazırlığı ve geri dolgu yapıyoruz. Detaylar: /hizmetler/altyapi-isleri/'],
+    [/yol|stabilize|tesviye|greyder/, 'Yol kazı işlerinde yol yatağı kazısı, tesviye, stabilize serimi ve sıkıştırma yapıyoruz. Detaylar: /hizmetler/yol-kazi-isleri/'],
+    [/dolgu|sıkıştırma|silindir|düzleme/, 'Dolgu işlerinde uygun malzemeyi katmanlar halinde serip silindirle sıkıştırıyoruz. Detaylar: /hizmetler/dolgu-isleri/'],
     [/izin|ruhsat|belediye/, 'Hafriyat izin ve ruhsat süreçleri belediyeye ve projeye göre değişir. Genel bilgi için rehberimizi inceleyebilirsiniz: /blog/hafriyat-ruhsati-ve-izin-sureci/ — süreçte size yol gösterebiliriz.'],
     [/iletişim|telefon|numara|mail|e-posta|adres|ulaş/, 'Bize şu kanallardan ulaşabilirsiniz:\n📞 0533 500 37 79\n💬 WhatsApp: ' + WA + '\n✉️ cmshafriyat01@gmail.com\n📍 Toros Mah. 78090 Sk. Özcan Apt. Sit. No: 10 A, Çukurova/Adana\nveya /iletisim/ sayfasındaki formu kullanabilirsiniz.'],
-    [/hizmet|ne yapıyorsunuz|neler|faaliyet/, 'CMS Hafriyat İnşaat Nakliyat olarak 5 alanda hizmet veriyoruz:\n• Hafriyat ve kazı\n• İş makineleri operasyonları\n• İnşaat ve taahhüt\n• Nakliye\n• İhracat\nTümü: /hizmetler/'],
-    [/hakkında|kimsiniz|firma|şirket/, 'CMS Hafriyat İnşaat Nakliyat Ltd. Şti.; kaliteyi ve güvenilirliği temel değer olarak benimseyen, hafriyat, inşaat, nakliye ve ihracat alanlarında faaliyet gösteren bir firmadır. "Güvenle Başlar, Değerle Büyür." Daha fazlası: /hakkimizda/'],
+    [/hizmet|ne yapıyorsunuz|neler|faaliyet/, 'CMS Hafriyat olarak 8 alanda hizmet veriyoruz:\n• Hafriyat\n• Temel kazı işleri\n• Altyapı işleri\n• Yol kazı işleri\n• Dolgu işleri\n• İş makineleri\n• İnşaat & taahhüt\n• Nakliye\nTümü: /hizmetler/'],
+    [/hakkında|kimsiniz|firma|şirket/, 'CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti.; kaliteyi ve güvenilirliği temel değer olarak benimseyen, hafriyat, altyapı, yol, dolgu, inşaat ve nakliye alanlarında faaliyet gösteren bir firmadır. "Güvenle Başlar, Değerle Büyür." Daha fazlası: /hakkimizda/'],
     [/merhaba|selam|iyi günler|günaydın/, 'Merhaba! Size nasıl yardımcı olabilirim? Hizmetlerimiz, süreçlerimiz veya teklif hakkında soru sorabilirsiniz.'],
     [/teşekkür|sağ ol|eyvallah/, 'Rica ederim! Başka bir sorunuz olursa buradayım. Kesin teklif için WhatsApp üzerinden de yazabilirsiniz: ' + WA],
   ];

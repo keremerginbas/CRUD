@@ -10,7 +10,7 @@ export default {
   date: "2026-10-15",
   excerpt: "Güvenlik ve kalite, CMS Hafriyat için her işin başlangıç noktasıdır. Değerlerimizden yola çıkarak sahadaki çalışma anlayışımızı ve önceliklerimizi paylaşıyoruz.",
   body: `
-<p>"Güvenle Başlar, Değerle Büyür." sloganımız, CMS Hafriyat İnşaat Nakliyat Ltd. Şti. olarak çalışma anlayışımızın özetidir. Hafriyat, iş makineleri operasyonları, inşaat ve nakliye gibi ağır işlerin yürütüldüğü sahalarda güvenlik ve kalite, sonradan eklenen unsurlar değil; her işin başlangıç noktasıdır. Bu yazıda, değerlerimizden yola çıkarak iş güvenliği ve kalite yaklaşımımızı paylaşıyoruz.</p>
+<p>"Güvenle Başlar, Değerle Büyür." sloganımız, CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti. olarak çalışma anlayışımızın özetidir. Hafriyat, iş makineleri operasyonları, inşaat ve nakliye gibi ağır işlerin yürütüldüğü sahalarda güvenlik ve kalite, sonradan eklenen unsurlar değil; her işin başlangıç noktasıdır. Bu yazıda, değerlerimizden yola çıkarak iş güvenliği ve kalite yaklaşımımızı paylaşıyoruz.</p>
 
 <h2>Değerlerimiz Sahada Nasıl Karşılık Buluyor?</h2>
 <h3>Güvenilirlik</h3>

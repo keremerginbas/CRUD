@@ -100,5 +100,5 @@ export default {
       a: "Kayalık zeminlerde genellikle ekskavatöre takılan hidrolik kırıcı veya dozer arkasındaki ripper ile kaya gevşetilir, ardından ekskavatörle kazılıp yüklenir. Yöntem; kayanın sertliğine, komşu yapılara olan mesafeye ve proje gereksinimlerine göre belirlenir. Zemin etüdü verileri bu planlamada önemli bir rol oynar ve doğru ekipman seçimini kolaylaştırır."
     }
   ],
-  relatedServices: ["is-makineleri", "hafriyat"]
+  relatedServices: ["is-makineleri", "hafriyat", "yol-kazi-isleri"]
 };

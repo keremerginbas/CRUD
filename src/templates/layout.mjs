@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import site from '../site.config.mjs';
 import { icon } from './icons.mjs';
 
@@ -16,13 +17,28 @@ export function picture(scene, alt, { cls = '', eager = false, blog = false } = 
     width="1280" height="720" alt="${esc(alt)}" class="${cls}" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'} decoding="async">`;
 }
 
+// Gerçek medya: scripts/import_photos.py, src/photos/ içindeki fotoğraf/videoları işler ve
+// dist/assets/img/media.json'a yazar. Gerçek video > gerçek fotoğraf > çizim video.
+const MEDIA = (() => {
+  try { return JSON.parse(fs.readFileSync(new URL('../../dist/assets/img/media.json', import.meta.url), 'utf8')); } catch { return {}; }
+})();
+// Kendi çizim videosu olmayan sahneler için en yakın çizim video
+const VIDEO_ALIAS = { temel: 'hafriyat', altyapi: 'hafriyat', yol: 'nakliye', dolgu: 'makine' };
+export const media = (scene) => MEDIA[scene] || {};
+
 export function video(scene, label, { cls = '', lazy = true } = {}) {
+  const m = media(scene);
+  if (m.photo && !m.video) {
+    return `<img src="/assets/img/${scene}.webp" srcset="/assets/img/${scene}-sm.webp 640w, /assets/img/${scene}.webp 1280w" sizes="100vw"
+    width="1280" height="720" alt="${esc(label.replace(/ videosu$/, ''))}" class="${cls} photo-motion" ${lazy ? 'loading="lazy"' : 'fetchpriority="high"'} decoding="async">`;
+  }
+  const v = m.video || fs.existsSync(new URL(`../../dist/assets/video/${scene}.mp4`, import.meta.url)) ? scene : (VIDEO_ALIAS[scene] || scene);
   // Lazy: kaynaklar görünür olunca site.js tarafından yüklenir (data-src)
   const a = lazy ? 'data-src' : 'src';
-  return `<video class="${cls}" ${lazy ? 'data-lazy-video' : 'autoplay'} muted loop playsinline preload="none"
+  return `<video class="${cls}" ${lazy ? 'data-lazy-video' : 'autoplay'} muted loop playsinline preload="${lazy ? 'none' : 'auto'}"
     poster="/assets/img/${scene}.webp" aria-label="${esc(label)}">
-    <source ${a}="/assets/video/${scene}.webm" type="video/webm">
-    <source ${a}="/assets/video/${scene}.mp4" type="video/mp4">
+    <source ${a}="/assets/video/${v}.webm" type="video/webm">
+    <source ${a}="/assets/video/${v}.mp4" type="video/mp4">
   </video>`;
 }
 
@@ -92,7 +108,7 @@ function footer(services, latest) {
   <div class="container-x grid gap-12 md:grid-cols-2 lg:grid-cols-5">
     <div class="lg:col-span-2">
       <a href="/" aria-label="${esc(site.name)} - Ana Sayfa"><img src="/assets/brand/logo-light.svg" alt="CMS İnşaat Hafriyat logosu" width="167" height="90" class="h-20 w-auto" loading="lazy"></a>
-      <p class="mt-6 max-w-md leading-relaxed">${esc(site.legalName)}; hafriyat, iş makineleri, inşaat, nakliye ve ihracat alanlarında kalite ve güven odaklı hizmet sunar.</p>
+      <p class="mt-6 max-w-md leading-relaxed">${esc(site.legalName)}; hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye alanlarında kalite ve güven odaklı hizmet sunar.</p>
       <p class="mt-4 font-display text-xl uppercase tracking-wide text-brand-400">${esc(site.slogan)}</p>
       <div class="mt-6 flex flex-wrap gap-3">
         <a href="${waLink()}" class="btn-wa" rel="noopener" target="_blank">${icon('whatsapp', 'w-5 h-5')} WhatsApp</a>

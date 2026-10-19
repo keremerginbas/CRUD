@@ -1,6 +1,6 @@
 export default {
   slug: "nakliye",
-  order: 4,
+  order: 8,
   name: "Nakliye",
   icon: "truck",
   scene: "nakliye",
@@ -57,7 +57,7 @@ export default {
 <p>Hafriyat toprağı taşımacılığına özel pratik önerileri <a href="/blog/hafriyat-toprak-nakliyesi-ipuclari/">hafriyat toprağı nakliyesi ipuçları</a> yazımızda bulabilirsiniz. Döküm ve taşıma süreçlerindeki izinlerle ilgili genel bilgi için ise <a href="/blog/hafriyat-ruhsati-ve-izin-sureci/">hafriyat ruhsatı ve izin süreci</a> yazımıza göz atabilirsiniz.</p>
 
 <h2>Sahayla Uyumlu Nakliye Koordinasyonu</h2>
-<p>Nakliyenin en önemli özelliği, sahadaki çalışma temposuyla eş zamanlı ilerlemesidir. Kazı yapan bir ekskavatörün yükleme yapacak araç bulamaması da, kamyonların sahada uzun süre sırada beklemesi de verim kaybıdır. Bu nedenle nakliyeyi çoğu zaman <a href="/hizmetler/hafriyat/">hafriyat hizmetimiz</a> ve <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarımız</a> ile birlikte planlıyor, tek bir koordinasyon altında yönetiyoruz.</p>
+<p>Nakliyenin en önemli özelliği, sahadaki çalışma temposuyla eş zamanlı ilerlemesidir. Kazı yapan bir ekskavatörün yükleme yapacak araç bulamaması da, kamyonların sahada uzun süre sırada beklemesi de verim kaybıdır. Bu nedenle nakliyeyi çoğu zaman <a href="/hizmetler/hafriyat/">hafriyat hizmetimiz</a> ve <a href="/hizmetler/is-makineleri/">iş makineleri operasyonlarımız</a> ile birlikte planlıyor, tek bir koordinasyon altında yönetiyoruz. Dolgu malzemesinin sahaya serme sırasına uygun şekilde getirilmesi gereken projelerde taşıma planını <a href="/hizmetler/dolgu-isleri/">dolgu işleri</a> ekibimizle birlikte oluşturuyoruz.</p>
 <h3>Kentsel Alanlarda Nakliye</h3>
 <p>Yoğun yerleşim alanlarında nakliye ek dikkat gerektirir. Dar sokaklar, yaya trafiği, park halindeki araçlar ve çalışma saatleri ile ilgili düzenlemeler sefer planını doğrudan etkiler. Bu tür sahalarda araç giriş çıkışlarını yönlendirmek, yolu temiz tutmak ve çevre sakinlerini olabildiğince az etkilemek önceliklerimiz arasındadır.</p>
 
@@ -111,5 +111,5 @@ export default {
       a: "Taşınacak malzemenin türü ve yaklaşık miktarı, yükleme ve teslim noktaları, planlanan tarih ve sahaya erişim koşulları teklif hazırlamak için yeterli bir başlangıçtır. Bu bilgileri telefon, WhatsApp veya e-posta yoluyla iletebilirsiniz. Değerlendirmenin ardından size uygun sefer planını ve teklifimizi paylaşıyoruz. Gerekli durumlarda yükleme ve teslim noktalarını yerinde inceleyerek planı netleştiriyoruz."
     }
   ],
-  related: ["hafriyat", "is-makineleri", "insaat-taahhut"]
+  related: ["hafriyat", "dolgu-isleri", "is-makineleri"]
 };

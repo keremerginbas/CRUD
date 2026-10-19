@@ -1,6 +1,6 @@
 export default {
   slug: "is-makineleri",
-  order: 2,
+  order: 6,
   name: "İş Makineleri",
   icon: "excavator",
   scene: "makine",
@@ -58,7 +58,7 @@ export default {
 <p>Bu konuyu daha ayrıntılı ele aldığımız <a href="/blog/is-makinesi-secimi-rehberi/">iş makinesi seçimi rehberimizde</a> farklı ekipman türlerinin hangi işlere uygun olduğunu bulabilirsiniz. Zemin özelliklerinin ekipman tercihine etkisini ise <a href="/blog/insaatta-zemin-etudu-onemi/">zemin etüdünün önemi</a> yazımızda anlattık.</p>
 
 <h2>Sahada Koordinasyon ve Verimlilik</h2>
-<p>İş makinelerinin verimli çalışması, sahadaki diğer işlerle uyum içinde olmasına bağlıdır. Bir ekskavatörün kesintisiz çalışabilmesi için yükleme yapılacak kamyonların zamanında sahaya gelmesi, döküm alanına gidiş dönüşün planlanması ve saha içi trafiğin düzenlenmesi gerekir. Bu nedenle iş makineleri operasyonlarını çoğu zaman <a href="/hizmetler/hafriyat/">hafriyat hizmetimiz</a> ve <a href="/hizmetler/nakliye/">nakliye hizmetimiz</a> ile birlikte planlıyor, tek bir koordinasyon altında yürütüyoruz.</p>
+<p>İş makinelerinin verimli çalışması, sahadaki diğer işlerle uyum içinde olmasına bağlıdır. Bir ekskavatörün kesintisiz çalışabilmesi için yükleme yapılacak kamyonların zamanında sahaya gelmesi, döküm alanına gidiş dönüşün planlanması ve saha içi trafiğin düzenlenmesi gerekir. Bu nedenle iş makineleri operasyonlarını çoğu zaman <a href="/hizmetler/hafriyat/">hafriyat hizmetimiz</a> ve <a href="/hizmetler/nakliye/">nakliye hizmetimiz</a> ile birlikte planlıyor, tek bir koordinasyon altında yürütüyoruz. Yol yatağı hazırlığı ve boru hattı kazıları gibi işlerde makine planını <a href="/hizmetler/yol-kazi-isleri/">yol kazı işleri</a> ve <a href="/hizmetler/altyapi-isleri/">altyapı işleri</a> kapsamındaki ihtiyaçlara göre şekillendiriyoruz.</p>
 <h3>Bekleme Sürelerini Azaltmak</h3>
 <p>Makinelerin boşta beklemesi hem zaman hem de kaynak kaybı demektir. İş sırasını önceden belirlemek, malzeme akışını takip etmek ve günlük çalışma planını sahadaki gelişmelere göre güncellemek, ekipmanın etkin kullanılmasını sağlar. Proje planlamasının genel adımları için <a href="/blog/insaat-projesi-planlama-adimlari/">inşaat projesi planlama adımları</a> yazımıza göz atabilirsiniz.</p>
 
@@ -113,5 +113,5 @@ export default {
       a: "Sahanın konumu, yapılacak işin türü, tahmini süre ve varsa proje bilgilerini telefon, WhatsApp veya e-posta yoluyla bize iletebilirsiniz. Bilgileri değerlendirdikten sonra gerekirse saha keşfi yapıyor, ihtiyacınıza uygun ekipman ve çalışma planıyla birlikte teklifimizi hazırlayarak sizinle paylaşıyoruz. Teklifimiz, kapsamı ve koşulları açık şekilde ortaya koyacak biçimde hazırlanır."
     }
   ],
-  related: ["hafriyat", "nakliye", "insaat-taahhut"]
+  related: ["hafriyat", "yol-kazi-isleri", "altyapi-isleri"]
 };

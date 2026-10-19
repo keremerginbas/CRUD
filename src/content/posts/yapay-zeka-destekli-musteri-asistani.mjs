@@ -10,7 +10,7 @@ export default {
   date: "2026-10-19",
   excerpt: "Web sitemizdeki yapay zekâ destekli müşteri asistanı, hizmetlerimizle ilgili sorularınızı günün her saatinde yanıtlıyor ve gerektiğinde sizi WhatsApp veya telefonla ekibimize yönlendiriyor.",
   body: `
-<p>Yeni web sitemizle birlikte hayata geçirdiğimiz yapay zekâ destekli müşteri asistanımız, sorularınıza günün her saatinde yanıt vermek için hizmetinizde. Hafriyat, iş makineleri, inşaat, nakliye ve ihracat alanlarındaki hizmetlerimizle ilgili merak ettiklerinizi artık mesai saatlerini beklemeden sorabilirsiniz.</p>
+<p>Yeni web sitemizle birlikte hayata geçirdiğimiz yapay zekâ destekli müşteri asistanımız, sorularınıza günün her saatinde yanıt vermek için hizmetinizde. Hafriyat, temel kazı, altyapı, yol kazı, dolgu, iş makineleri, inşaat ve nakliye alanlarındaki hizmetlerimizle ilgili merak ettiklerinizi artık mesai saatlerini beklemeden sorabilirsiniz.</p>
 
 <h2>Asistan Neler Yapabilir?</h2>
 <ul>
