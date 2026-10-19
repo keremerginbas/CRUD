@@ -678,7 +678,7 @@
       const record = await normalizedRecord({...response.record, url: response.record.url || ref.url}, category, '');
       if (listingRef(record.url, ref.source).id !== ref.id) throw new Error('İlan numarası doğrulanamadı.');
       const gate = categoryGate(record, category);
-      if (gate !== 'skip') await db.upsertMany([record], {origin: 'crawl', baseline: true, runId: 'capture-' + clock(), observedAt: iso()});
+      if (gate !== 'skip') await db.upsertMany([record], {origin: 'crawl', baseline: true, runId: 'capture-' + clock(), observedAt: iso(), listId: String(message.listId || '').slice(0, 100)});
       return {ok: true, record, saved: gate === 'save', review: gate === 'review', skipped: gate === 'skip', job: clone(job)};
     }
     async function handle(message) {

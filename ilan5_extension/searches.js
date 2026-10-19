@@ -87,7 +87,7 @@
           selected.intervalMinutes=interval;selected.delayMs=delay;selected.revealPhone=message.revealPhone!==false;selected.enabled=message.enabled!==false;if(typeof message.listId==='string')selected.listId=core.clean(message.listId).slice(0,100);
           selected.nextRunAt=selected.activeJobId?null:selected.enabled?(selected.nextRunAt||iso()):null;
           if(!old)state.items.push(selected);await persist();await schedule();break;}
-        case 'ILAN_SEARCH_RUN':selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');await start(selected,true,message);break;
+        case 'ILAN_SEARCH_RUN':selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');if(typeof message.listId==='string'){selected.listId=core.clean(message.listId).slice(0,100);await persist();}await start(selected,true,message);break;
         case 'ILAN_SEARCH_TOGGLE':selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');selected.enabled=message.enabled===true;selected.nextRunAt=selected.enabled&&!selected.activeJobId?iso():null;await persist();await schedule();break;
         case 'ILAN_SEARCH_REMOVE':{
           selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');const job=await callbacks.getJob?.();if(job?.searchId===selected.id&&['running','paused','blocked'].includes(job.status))throw Error('Bu aramayı kaldırmadan önce çalışan taramayı durdurun.');state.items=state.items.filter(s=>s.id!==selected.id);await persist();await schedule();break;}
