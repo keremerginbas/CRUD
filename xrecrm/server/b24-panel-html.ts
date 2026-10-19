@@ -126,6 +126,17 @@ label.field input{display:block;width:100%;margin-top:6px;padding:9px 11px;borde
 select.filter{padding:6px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--surface)}
 @media (max-width:980px){.charts{grid-template-columns:1fr}}
 .lic{font-size:12.5px;font-weight:600}.lic.active,.lic.free{color:var(--ok)}.lic.trial{color:var(--warn)}.lic.expired{color:var(--danger)}.lic.new{color:var(--ink-3)}
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:6px}
+.plan{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:16px 18px;cursor:pointer;text-align:left;font:inherit;color:inherit;display:flex;flex-direction:column;gap:6px}
+.plan[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.plan h4{margin:0;font-size:16px}.plan b{font-size:24px;letter-spacing:-.02em}.plan b small{font-size:13px;font-weight:500;color:var(--ink-2)}
+.plan ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:5px;font-size:13px}
+.plan li:before{content:"✓";color:var(--ok);font-weight:700;margin-right:7px}.plan li.no{color:var(--ink-3)}.plan li.no:before{content:"–";color:var(--ink-3)}
+.plan .now{align-self:flex-start;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:1px 8px;border-radius:999px}
+.tabs button.locked:after{content:"🔒";font-size:10px;margin-left:4px;opacity:.7}
+.planbadge{display:inline-block;margin-left:8px;font-size:11.5px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:2px 9px;border-radius:999px;vertical-align:middle}
+.upsell{padding:8px 0}.upsell .empty{padding:40px 24px}.upsell .plans{max-width:980px;margin:18px auto 0;text-align:left}
+.setting.locked p:last-child:after{content:""}
 .prices{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:6px}
 .price{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:14px 16px;cursor:pointer;text-align:left}
 .price[aria-pressed=true]{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
@@ -146,6 +157,7 @@ select.filter{padding:6px 9px;border:1px solid var(--line);border-radius:var(--r
 .fact b{display:block;font-size:24px;line-height:1.1;letter-spacing:-.02em}.fact span{color:var(--ink-2);font-size:13px}
 .fact.alert b{color:var(--danger)}
 h3.section{font-size:15px;margin:22px 0 8px}
+.list.camp-list .row{grid-template-columns:minmax(200px,1.6fr) 130px 160px 70px 70px 170px}
 .list.perf .row{grid-template-columns:minmax(180px,1.4fr) minmax(120px,1fr) 130px 130px}
 .list.waiting .row{grid-template-columns:minmax(180px,1.4fr) minmax(140px,1fr) 160px}
 .list.hot .row{grid-template-columns:minmax(180px,1.2fr) 110px minmax(240px,2.4fr)}
@@ -209,7 +221,7 @@ export function panelHtml(ticket: string, domain: string, lang: Lang = "tr", cha
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${PANEL_STYLE}</style></head><body>
 <div class="top">
-  <div><h1>WhatsApp hatları</h1><p>${escapeHtml(domain)}</p></div>
+  <div><h1>WhatsApp hatları<span class="planbadge" id="planbadge" hidden></span></h1><p>${escapeHtml(domain)}</p></div>
   <div class="tabs" role="tablist">
     <button role="tab" data-tab="connections" aria-selected="true">Bağlantılar</button>
     <button role="tab" data-tab="chats" aria-selected="false">Sohbetler</button>
@@ -217,6 +229,7 @@ export function panelHtml(ticket: string, domain: string, lang: Lang = "tr", cha
     <button role="tab" data-tab="staff" aria-selected="false">Personel</button>
     <button role="tab" data-tab="roles" aria-selected="false">Roller</button>
     <button role="tab" data-tab="perf" aria-selected="false">Performans</button>
+    <button role="tab" data-tab="campaigns" aria-selected="false">Kampanyalar</button>
     <button role="tab" data-tab="agent" aria-selected="false">AI Asistan</button>
     <button role="tab" data-tab="reports" aria-selected="false">Raporlar</button>
     <button role="tab" data-tab="billing" aria-selected="false">Ödeme</button>
@@ -237,13 +250,35 @@ const phone=p=>p?"+"+String(p).replace(/^(\\d{2})(\\d{3})(\\d{3})(\\d{2})(\\d{2}
 async function api(path,body={}){const r=await fetch("/b24/panel/"+path,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...body,t:T,lang:LANG})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(r.status===401?"Oturum süresi doldu. Sayfayı yenileyin.":(j.message||"İşlem tamamlanamadı."));return j;}
 let toastTimer;function toast(msg,err){const t=$("#toast");t.textContent=msg;t.className="toast show"+(err?" err":"");clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className="toast",err?7000:3200);}
 function warn(w){if(w&&w.length)toast(w.join("\\n"),true);}
-async function load(){try{S=await api("state");render();}catch(e){$("#main").innerHTML='<div class="empty"><strong>Panel yüklenemedi</strong>'+esc(e.message)+'</div>';}}
+async function load(){try{S=await api("state");markTabs();render();}catch(e){$("#main").innerHTML='<div class="empty"><strong>Panel yüklenemedi</strong>'+esc(e.message)+'</div>';}}
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;document.querySelectorAll(".tabs button").forEach(x=>x.setAttribute("aria-selected",String(x===b)));filter="";render();});
 function rolesFor(line){return S.roles.filter(r=>r.lines==="all"||r.lines.includes(line));}
 function roleOfUser(u){return S.roles.find(r=>r.id===u.roleId)||S.roles.find(r=>r.isDefault);}
 function chips(list,emptyText){return list.length?'<div class="chips">'+list.map(x=>'<span class="chip">'+esc(x)+'</span>').join("")+'</div>':'<div class="chips"><span class="chip none">'+esc(emptyText)+'</span></div>';}
+const PLAN_NAMES={basic:"Basic",pro:"Pro",proplus:"Pro+"};
+const TAB_FEATURE={live:"live",perf:"perf",campaigns:"campaigns",agent:"agent",reports:"reports"};
+const FEATURE_PLAN={live:"pro",perf:"pro",campaigns:"pro",translate:"proplus",transcribe:"proplus",qualify:"proplus",agent:"proplus",reports:"proplus"};
+const PLAN_RANK={basic:0,pro:1,proplus:2};
+const PLAN_FEATURES=[["Numara bağlama ve Bitrix’ten yazışma","basic"],["Görsel, video, ses kaydı ve belge","basic"],["Sohbet ekranı ve CRM kart sekmesi","basic"],["Roller ve personel atama","basic"],["Canlı izleme ve performans analizi","pro"],["Meta hesabıyla toplu kampanya","pro"],["Otomatik çeviri ve sesli mesajı yazıya dökme","proplus"],["7/24 AI asistan","proplus"],["AI ile sohbet analizi ve lead puanı","proplus"],["Yöneticiye günlük AI rapor","proplus"]];
+function allowed(f){return !S.plan||!S.plan.features||S.plan.features[f]!==false;}
+function planCards(sel,prices,cur,onPick){
+  return '<div class="plans" role="group" aria-label="Paket">'+["basic","pro","proplus"].map(id=>'<button type="button" class="plan" data-plan="'+id+'" aria-pressed="'+(id===sel)+'">'+(S.plan&&S.plan.source==="paid"&&S.plan.plan===id?'<span class="now">'+esc("Mevcut paket")+'</span>':'')+'<h4>'+PLAN_NAMES[id]+'</h4>'+(prices?'<b>'+money(prices[id],cur)+' <small>'+esc("numara başına / ay")+'</small></b>':'')
+    +'<ul>'+PLAN_FEATURES.map(([t,min])=>'<li'+(PLAN_RANK[id]>=PLAN_RANK[min]?'':' class="no"')+'>'+esc(t)+'</li>').join("")+'</ul></button>').join("")+'</div>';
+}
+function markTabs(){
+  document.querySelectorAll(".tabs button").forEach(b=>{const f=TAB_FEATURE[b.dataset.tab];b.classList.toggle("locked",!!f&&!allowed(f));});
+  const pb=$("#planbadge");if(!pb||!S.plan)return;
+  pb.hidden=false;pb.textContent=PLAN_NAMES[S.plan.plan]+(S.plan.source==="trial"?" · "+"Deneme":S.plan.source==="free"?" · "+"Ücretsiz":"");
+}
+function upsell(f){
+  const need=FEATURE_PLAN[f];
+  $("#main").innerHTML='<div class="upsell"><div class="empty"><strong>'+esc(("Bu özellik {p} paketinde.").replace("{p}",PLAN_NAMES[need]))+'</strong>'+esc(("Şu anki paketiniz: {p}. Paketinizi Ödeme sekmesinden yükseltebilirsiniz.").replace("{p}",PLAN_NAMES[(S.plan||{}).plan||"basic"]))+'<br><button class="btn primary" id="goBill">Paketi yükselt</button></div>'+planCards(need,null)+'</div>';
+  $("#goBill").onclick=()=>{buyPlan=need;document.querySelector('[data-tab=billing]').click();};
+  $("#main").querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>{buyPlan=b.dataset.plan;document.querySelector('[data-tab=billing]').click();});
+}
 function render(){
   const m=$("#main");
+  {const f=TAB_FEATURE[tab];if(f&&!allowed(f)){upsell(f);return;}}
   if(tab==="connections"){
     const ok=S.connections.filter(c=>c.status==="connected").length,total=S.connections.length;
     const q=filter.toLowerCase();
@@ -278,20 +313,21 @@ function render(){
   if(tab==="live"){live();return;}
   if(tab==="chats"){m.innerHTML=CHAT_URL?'<iframe class="chatframe" title="Sohbetler" allow="microphone; clipboard-write" src="'+esc(CHAT_URL)+'"></iframe>':'<div class="list"><div class="empty">Sohbet ekranı için sayfayı Bitrix24 içinden yeniden açın.</div></div>';return;}
   if(tab==="agent"){agent();return;}
+  if(tab==="campaigns"){campaigns();return;}
   if(tab==="reports"){reports();return;}
   if(tab==="billing"){billing();return;}
   if(tab==="settings"){
     const st=S.settings||{translate:true,transcribe:true,qualify:true,slaMinutes:15};
-    const sw=(id,on)=>'<label class="switch"><input type="checkbox" id="'+id+'"'+(on?" checked":"")+'><span></span></label>';
+    const sw=(id,on,f)=>{const lock=f&&!allowed(f);return (lock?'<span class="planbadge" title="'+esc("Pro+ paketinde")+'">Pro+</span>':'')+'<label class="switch"><input type="checkbox" id="'+id+'"'+(on&&!lock?" checked":"")+(lock?" disabled":"")+'><span></span></label>';};
     m.innerHTML=(S.aiConfigured?'':'<div class="callout">Yapay zekâ özellikleri için sunucuda OpenAI anahtarı tanımlı olmalı. Anahtar girilene kadar çeviri, ses ve nitelendirme çalışmaz.</div>')
       +'<div class="list">'
-      +'<div class="setting"><div><strong>Otomatik çeviri</strong><p>Türkçe olmayan mesajlar Türkçe çevirisi ve orijinaliyle gösterilir. Cevabınız müşterinin dilinde gider. Çevirmeden göndermek için mesajı ! ile başlatın.</p></div>'+sw("s-tr",st.translate)+'</div>'
-      +'<div class="setting"><div><strong>Sesli mesajı yazıya dök</strong><p>Gelen sesli mesajlar dinlemeden okunabilir; ses dosyası da sohbette kalır.</p></div>'+sw("s-tx",st.transcribe)+'</div>'
-      +'<div class="setting"><div><strong>Müşteri nitelendirme</strong><p>Birkaç mesajda bir sohbetten bütçe, bölge, oda sayısı ve amaç çıkarılır; puan ve özet Bitrix lead kartının zaman akışına yazılır.</p></div>'+sw("s-q",st.qualify)+'</div>'
+      +'<div class="setting"><div><strong>Otomatik çeviri</strong><p>Türkçe olmayan mesajlar Türkçe çevirisi ve orijinaliyle gösterilir. Cevabınız müşterinin dilinde gider. Çevirmeden göndermek için mesajı ! ile başlatın.</p></div>'+sw("s-tr",st.translate,"translate")+'</div>'
+      +'<div class="setting"><div><strong>Sesli mesajı yazıya dök</strong><p>Gelen sesli mesajlar dinlemeden okunabilir; ses dosyası da sohbette kalır.</p></div>'+sw("s-tx",st.transcribe,"transcribe")+'</div>'
+      +'<div class="setting"><div><strong>Müşteri nitelendirme</strong><p>Birkaç mesajda bir sohbetten bütçe, bölge, oda sayısı ve amaç çıkarılır; puan ve özet Bitrix lead kartının zaman akışına yazılır.</p></div>'+sw("s-q",st.qualify,"qualify")+'</div>'
       +'<div class="setting"><div><strong>Bitrix otomatik mesajları</strong><p>Açık Kanal karşılama, sohbet değerlendirme ve kapanış mesajları müşteriye WhatsApp’tan gitsin. Kapalıyken müşteri yalnız sizin ve AI asistanın yazdıklarını görür.</p></div>'+sw("s-bot",st.botMessages)+'</div>'
       +'<div class="setting"><div><strong>Cevap süresi hedefi</strong><p>Bu süreden uzun bekleyen sohbetler Performans sekmesinde geciken olarak işaretlenir.</p></div><div><input class="num" type="number" min="1" max="1440" id="s-sla" value="'+st.slaMinutes+'"> dk</div></div>'
       +'</div><div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="s-save">Ayarları kaydet</button></div>';
-    $("#s-save").onclick=async()=>{try{const r=await api("settings/save",{botMessages:$("#s-bot").checked,translate:$("#s-tr").checked,transcribe:$("#s-tx").checked,qualify:$("#s-q").checked,slaMinutes:Number($("#s-sla").value)});S.settings=r.settings;if((r.warnings||[]).length)warn(r.warnings);else toast("Ayarlar kaydedildi.");}catch(e){toast(e.message,true);}};
+    $("#s-save").onclick=async()=>{try{const keep=(id,k)=>$(id).disabled?st[k]!==false:$(id).checked;const r=await api("settings/save",{botMessages:$("#s-bot").checked,translate:keep("#s-tr","translate"),transcribe:keep("#s-tx","transcribe"),qualify:keep("#s-q","qualify"),slaMinutes:Number($("#s-sla").value)});S.settings=r.settings;if((r.warnings||[]).length)warn(r.warnings);else toast("Ayarlar kaydedildi.");}catch(e){toast(e.message,true);}};
     return;
   }
   if(tab==="roles"){
@@ -372,24 +408,29 @@ async function perf(){
   m.querySelectorAll("[data-days]").forEach(b=>b.onclick=()=>{perfDays=Number(b.dataset.days);perf();});
   $("#pline").onchange=e=>{perfLine=e.target.value;perf();};
 }
-let buySel=new Set(),buyMonths=12,B=null,billType=null;
-const money=(v,c)=>new Intl.NumberFormat("tr-TR",{style:"currency",currency:c||"TRY",maximumFractionDigits:0}).format(v);
+let buySel=new Set(),buyMonths=12,B=null,billType=null,buyPlan=null;
+const money=(v,c)=>new Intl.NumberFormat(LANG==="tr"?"tr-TR":"en-US",{style:"currency",currency:c||"USD",maximumFractionDigits:2,minimumFractionDigits:Number(v)%1?2:0}).format(v);
 async function billing(){
   const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
   try{B=await api("billing/state");}catch(e){m.innerHTML='<div class="empty"><strong>Ödeme bilgileri alınamadı</strong>'+esc(e.message)+'</div>';return;}
   if(tab!=="billing")return;
   const cur=B.pricing.currency,cnt=k=>B.licenses.filter(l=>l.status===k).length;
-  const period=B.periods.find(p=>p.months===buyMonths)||B.periods[0];
+  if(B.plan){S.plan=B.plan;markTabs();}
+  if(!buyPlan)buyPlan=B.plan&&B.plan.source==="paid"?B.plan.plan:"proplus";
+  const PL=(B.plans||[]).find(p=>p.id===buyPlan)||{periods:B.periods};
+  const periods=PL.periods;
+  const period=periods.find(p=>p.months===buyMonths)||periods[0];
   const st={active:"Aktif",free:"Ücretsiz",trial:"Deneme",expired:"Süresi doldu",new:"Bağlanmadı"};
   const bi={...(B.billing||{type:"kurumsal"})};if(billType)bi.type=billType;
   m.innerHTML='<div class="facts"><div class="fact"><b>'+cnt("active")+'</b><span>aktif lisans</span></div><div class="fact"><b>'+cnt("trial")+'</b><span>denemede</span></div><div class="fact'+(cnt("expired")?" alert":"")+'"><b>'+cnt("expired")+'</b><span>süresi dolmuş</span></div><div class="fact"><b>'+B.pricing.trialDays+' gün</b><span>ücretsiz deneme, numara bağlanınca başlar</span></div></div>'
-    +'<h3 class="section">Numara başına fiyat</h3><div class="prices" role="group" aria-label="Dönem">'+B.periods.map(p=>'<button class="price" data-months="'+p.months+'" aria-pressed="'+(p.months===buyMonths)+'"><span class="sub">'+(p.months===1?"Aylık":p.months+" aylık")+'</span><b>'+money(p.monthlyEquivalent,cur)+'<small class="sub" style="display:inline;font-size:13px"> / ay</small></b><span class="sub">'+(p.months>1?"dönem başına "+money(p.perLine,cur):"aylık ödeme")+'</span>'+(p.discount?'<span class="off">'+(LANG==="tr"?"%"+p.discount:p.discount+"%")+' indirim</span>':'')+'</button>').join("")+'</div>'
+    +'<h3 class="section">Paket</h3>'+planCards(buyPlan,B.pricing.plans,cur)+'<p class="note">'+esc("Paket portal bazındadır: bütün numaralarınızı aynı pakette tutun. Farklı paketlerde numara varsa en düşük paket geçerli olur. Deneme süresinde tüm özellikler açıktır.")+'</p>'
+    +'<h3 class="section">Numara başına fiyat</h3><div class="prices" role="group" aria-label="Dönem">'+periods.map(p=>'<button class="price" data-months="'+p.months+'" aria-pressed="'+(p.months===buyMonths)+'"><span class="sub">'+(p.months===1?"Aylık":p.months+" aylık")+'</span><b>'+money(p.monthlyEquivalent,cur)+'<small class="sub" style="display:inline;font-size:13px"> / ay</small></b><span class="sub">'+(p.months>1?"dönem başına "+money(p.perLine,cur):"aylık ödeme")+'</span>'+(p.discount?'<span class="off">'+(LANG==="tr"?"%"+p.discount:p.discount+"%")+' indirim</span>':'')+'</button>').join("")+'</div>'
     +'<h3 class="section">Lisanslarım</h3>'+(B.licenses.length?'<div class="list lic-list"><div class="row head"><span></span><span>Bağlantı</span><span>Numara</span><span>Durum</span><span>Bitiş</span></div>'
-      +B.licenses.map(l=>'<label class="row" style="cursor:pointer"><input type="checkbox" data-sel="'+esc(l.line)+'"'+(buySel.has(l.line)?" checked":"")+(l.status==="free"?" disabled":"")+' aria-label="'+esc(l.name)+' seç"><div class="name">'+esc(l.name)+'</div><div class="phone">'+(l.phone?esc(phone(l.phone)):'<span class="sub">—</span>')+'</div><div><span class="lic '+esc(l.status)+'">'+st[l.status]+(l.status==="trial"?" · "+l.daysLeft+" gün":"")+'</span></div><div class="sub">'+(l.until?esc(day(l.until)):"—")+'</div></label>').join("")+'</div>'
-      +'<div class="paybar"><div><span class="sub">'+buySel.size+' numara · '+(buyMonths===1?"1 ay":buyMonths+" ay")+'</span><br><b>'+money(period.perLine*buySel.size,cur)+'</b></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="redeem"'+(buySel.size?"":" disabled")+'>Lisans kodu kullan</button><button class="btn primary" id="pay"'+(buySel.size?"":" disabled")+'>Havale ile öde</button></div></div>'
+      +B.licenses.map(l=>'<label class="row" style="cursor:pointer"><input type="checkbox" data-sel="'+esc(l.line)+'"'+(buySel.has(l.line)?" checked":"")+(l.status==="free"?" disabled":"")+' aria-label="'+esc(l.name)+' seç"><div class="name">'+esc(l.name)+'</div><div class="phone">'+(l.phone?esc(phone(l.phone)):'<span class="sub">—</span>')+'</div><div><span class="lic '+esc(l.status)+'">'+st[l.status]+(l.status==="trial"?" · "+l.daysLeft+" gün":"")+(l.status==="active"&&l.plan?" · "+PLAN_NAMES[l.plan]:"")+'</span></div><div class="sub">'+(l.until?esc(day(l.until)):"—")+'</div></label>').join("")+'</div>'
+      +'<div class="paybar"><div><span class="sub">'+PLAN_NAMES[buyPlan]+' · '+buySel.size+' numara · '+(buyMonths===1?"1 ay":buyMonths+" ay")+'</span><br><b>'+money(period.perLine*buySel.size,cur)+'</b></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="redeem"'+(buySel.size?"":" disabled")+'>Lisans kodu kullan</button><button class="btn primary" id="pay"'+(buySel.size?"":" disabled")+'>Havale ile öde</button></div></div>'
       :'<div class="list"><div class="empty">Henüz numara yok. Bağlantılar sekmesinden numara ekleyin.</div></div>')
     +'<h3 class="section">Ödeme hareketleri</h3>'+((B.payments.length||B.codes.length)?'<div class="list pay-list"><div class="row head"><span>Tarih</span><span>İşlem</span><span>Referans</span><span>Tutar</span><span>Durum</span></div>'
-      +B.payments.map(p=>'<div class="row"><div class="sub">'+esc(day(p.createdAt))+'</div><div>Havale · '+p.lines.length+' numara · '+p.months+' ay</div><div><code>'+esc(p.reference)+'</code></div><div>'+money(p.amount,p.currency)+'</div><div><span class="lic '+(p.status==="approved"?"active":p.status==="pending"?"trial":"expired")+'">'+({pending:"Onay bekliyor",approved:"Onaylandı",rejected:"Reddedildi"})[p.status]+'</span></div></div>').join("")
+      +B.payments.map(p=>'<div class="row"><div class="sub">'+esc(day(p.createdAt))+'</div><div>Havale · '+(p.plan?PLAN_NAMES[p.plan]+' · ':'')+p.lines.length+' numara · '+p.months+' ay</div><div><code>'+esc(p.reference)+'</code></div><div>'+money(p.amount,p.currency)+'</div><div><span class="lic '+(p.status==="approved"?"active":p.status==="pending"?"trial":"expired")+'">'+({pending:"Onay bekliyor",approved:"Onaylandı",rejected:"Reddedildi"})[p.status]+'</span></div></div>').join("")
       +B.codes.map(c=>'<div class="row"><div class="sub">'+esc(day(c.usedAt))+'</div><div>Lisans kodu · '+c.lines.length+' numara · '+c.months+' ay</div><div><code>'+esc(c.code)+'</code></div><div>—</div><div><span class="lic active">Uygulandı</span></div></div>').join("")+'</div>'
       :'<div class="list"><div class="empty">Henüz ödeme yok.</div></div>')
     +'<h3 class="section">Fatura bilgileri</h3><div class="list" style="padding:16px 20px"><div class="range" role="group" aria-label="Fatura türü" style="margin-bottom:14px"><button data-btype="kurumsal" aria-pressed="'+(bi.type!=="bireysel")+'">Kurumsal</button><button data-btype="bireysel" aria-pressed="'+(bi.type==="bireysel")+'">Bireysel</button></div>'
@@ -397,10 +438,11 @@ async function billing(){
       +'<label class="field full">Adres<textarea id="b-addr" rows="2">'+esc(bi.address||"")+'</textarea></label>'+(bi.type==="bireysel"?'':'<label class="field">İl<input id="b-city" value="'+esc(bi.city||"")+'"></label>')+'<label class="field">Telefon<input id="b-phone" value="'+esc(bi.phone||"")+'"></label><label class="field full">Fatura e-postası<input id="b-mail" type="email" value="'+esc(bi.email||"")+'"></label></div>'
       +'<div style="display:flex;justify-content:flex-end"><button class="btn primary" id="b-save">Fatura bilgilerini kaydet</button></div></div>';
   m.querySelectorAll("[data-months]").forEach(b=>b.onclick=()=>{buyMonths=Number(b.dataset.months);billing();});
+  m.querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>{buyPlan=b.dataset.plan;billing();});
   m.querySelectorAll("[data-sel]").forEach(c=>c.onchange=()=>{c.checked?buySel.add(c.dataset.sel):buySel.delete(c.dataset.sel);billing();});
   m.querySelectorAll("[data-btype]").forEach(b=>b.onclick=()=>{billType=b.dataset.btype;billing();});
   const lines=()=>[...buySel];
-  if($("#pay"))$("#pay").onclick=async()=>{try{const r=await api("billing/request",{lines:lines(),months:buyMonths});const bank=r.bank||{};
+  if($("#pay"))$("#pay").onclick=async()=>{try{const r=await api("billing/request",{lines:lines(),months:buyMonths,plan:buyPlan});const bank=r.bank||{};
     openSheet("Havale ile ödeme",'<p>Aşağıdaki hesaba <b>'+money(r.request.amount,r.request.currency)+'</b> gönderin. Açıklamaya referans kodunu yazmayı unutmayın.</p><div class="bank">Referans: <code>'+esc(r.request.reference)+'</code><br>Alıcı: <b>'+esc(bank.holder||"XRE")+'</b><br>'+(bank.bankName?'Banka: '+esc(bank.bankName)+'<br>':'')+'IBAN: <code>'+esc(bank.iban||"Henüz tanımlanmadı, destekle iletişime geçin")+'</code></div><p class="note">'+esc(bank.note||"")+'</p><p class="note">Ödemeniz onaylanınca '+r.request.lines.length+' numaranın lisansı '+r.request.months+' ay uzar. Onay durumu "Ödeme hareketleri" bölümünde görünür.</p>','<button class="btn primary" id="okpay">Tamam</button>');
     $("#okpay").onclick=()=>{closeSheet();billing();};}catch(e){toast(e.message,true);}};
   if($("#redeem"))$("#redeem").onclick=()=>{openSheet("Lisans kodu kullan",'<label class="field">Lisans kodu<input id="code" placeholder="ABCD-1234-EF56" autocomplete="off"></label><p class="note">Kod seçili '+buySel.size+' numaraya uygulanır.</p>','<button class="btn primary" id="apply">Uygula</button>');
@@ -525,6 +567,64 @@ async function agent(){
 }
 let R=null;
 const PL={daily:"Günlük",weekly:"Haftalık",monthly:"Aylık"};
+let C=null,cTpl=[],cNames={},cTimer=null;
+const CST={running:"Gönderiliyor",done:"Tamamlandı",stopped:"Durduruldu"};
+async function campaigns(quiet){
+  const m=$("#main");if(!quiet)m.innerHTML='<p class="sub">Yükleniyor…</p>';
+  try{C=await api("campaigns/state");}catch(e){m.innerHTML='<div class="empty"><strong>Kampanyalar açılamadı</strong>'+esc(e.message)+'</div>';return;}
+  if(tab!=="campaigns")return;
+  const running=C.campaigns.some(c=>c.status==="running");
+  if(running&&!cTimer)cTimer=setInterval(()=>{if(tab==="campaigns"&&!document.hidden)campaigns(true);else if(tab!=="campaigns"){clearInterval(cTimer);cTimer=null;}},5000);
+  if(!running&&cTimer){clearInterval(cTimer);cTimer=null;}
+  const list='<h3 class="section">Kampanyalar</h3>'+(C.campaigns.length?'<div class="list camp-list"><div class="row head"><span>Kampanya</span><span>Tarih</span><span>Durum</span><span>Kabul</span><span>Hata</span><span></span></div>'
+    +C.campaigns.map(c=>'<div class="row"><div><div class="name">'+esc(c.name)+'</div><div class="sub">'+esc(c.template.name)+' · '+c.total+' '+esc("alıcı")+'</div></div><div class="sub">'+esc(day(c.createdAt))+'</div><div><span class="lic '+(c.status==="done"?"active":c.status==="running"?"trial":"expired")+'">'+CST[c.status]+(c.status==="running"?" · "+c.pending+" "+esc("kaldı"):"")+'</span></div><div>'+c.accepted+'</div><div'+(c.failed?' class="late"':'')+'>'+c.failed+'</div><div class="acts"><button class="btn ghost" data-cdet="'+esc(c.id)+'">Ayrıntı</button>'+(c.status==="running"?'<button class="btn" data-cstop="'+esc(c.id)+'">Durdur</button>':'')+'</div></div>').join("")+'</div>'
+    :'<div class="list"><div class="empty">Henüz kampanya yok.</div></div>');
+  if(quiet&&C.meta.connected&&$("#c-form")){const box=$("#c-list");if(box){box.innerHTML=list;bindList();}return;}
+  if(!C.meta.connected){
+    m.innerHTML='<div class="callout">'+esc("Toplu mesaj yalnız Meta’nın resmi WhatsApp Cloud API’siyle ve onaylı şablonlarla gönderilir. QR ile bağlı numaralardan toplu mesaj gönderilmez; WhatsApp bu numaraları kapatabilir.")+'</div>'
+      +'<div class="list" style="padding:18px 20px"><h3 class="section" style="margin-top:0">Meta hesabını bağlayın</h3><ol class="steps"><li>'+esc("Meta Business Suite → WhatsApp Manager’da numaranızın “Telefon numarası kimliği” ve “WhatsApp Business hesap kimliği” değerlerini kopyalayın.")+'</li><li>'+esc("İş Ayarları → Sistem kullanıcıları’nda whatsapp_business_messaging ve whatsapp_business_management izinli kalıcı bir erişim anahtarı oluşturun.")+'</li><li>'+esc("Değerleri aşağıya girip bağlayın. Anahtar şifreli saklanır.")+'</li></ol>'
+      +'<div class="formgrid"><label class="field">Telefon numarası kimliği<input id="m-pn" inputmode="numeric" autocomplete="off"></label><label class="field">WhatsApp Business hesap kimliği<input id="m-waba" inputmode="numeric" autocomplete="off"></label><label class="field full">Erişim anahtarı<input id="m-tok" type="password" autocomplete="off"></label></div>'
+      +'<div style="display:flex;justify-content:flex-end"><button class="btn primary" id="m-save">Bağla</button></div></div><div id="c-list">'+list+'</div>';
+    $("#m-save").onclick=async()=>{$("#m-save").disabled=true;try{await api("meta/save",{phoneNumberId:$("#m-pn").value,wabaId:$("#m-waba").value,token:$("#m-tok").value});toast("Meta hesabı bağlandı.");campaigns();}catch(e){toast(e.message,true);$("#m-save").disabled=false;}};
+    bindList();return;
+  }
+  m.innerHTML='<div class="list" style="padding:14px 20px;margin-bottom:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap"><span class="status ok">'+esc("Meta bağlı")+'</span><div style="flex:1;min-width:200px"><b>'+esc(C.meta.verifiedName||"WhatsApp Cloud API")+'</b><div class="sub">'+esc(C.meta.displayPhone||C.meta.phoneNumberId)+'</div></div><button class="btn ghost" id="m-off">Bağlantıyı kaldır</button></div>'
+    +'<div class="list" id="c-form" style="padding:18px 20px"><h3 class="section" style="margin-top:0">Yeni kampanya</h3><div class="formgrid">'
+    +'<label class="field">Kampanya adı<input id="c-name" placeholder="'+esc("Ör. Ekim bilgilendirme")+'"></label>'
+    +'<label class="field">Şablon<select id="c-tpl"><option value="">'+esc("Şablonlar yükleniyor…")+'</option></select></label>'
+    +'<div class="full" id="c-tplinfo"></div>'
+    +'<label class="field full">Alıcılar<textarea id="c-to" rows="6" placeholder="'+esc("Her satıra ülke koduyla bir numara: 905XXXXXXXXX")+'"></textarea></label>'
+    +'<div class="full" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select class="filter" id="c-ent"><option value="lead">'+esc("Lead’ler")+'</option><option value="contact">'+esc("Kişiler")+'</option></select><select class="filter" id="c-st"><option value="">'+esc("Tüm durumlar")+'</option></select><button class="btn" id="c-crm">Bitrix’ten ekle</button><span class="hint" id="c-count"></span></div>'
+    +'</div><div class="setting" style="padding:12px 0 0;border:0"><div><strong>Tek test</strong><p>'+esc("Önce kendi numaranızda deneyin.")+'</p></div><div style="display:flex;gap:8px"><input class="num" style="width:170px" id="c-test" placeholder="905XXXXXXXXX"><button class="btn" id="c-dotest">Test gönder</button></div></div>'
+    +'<label class="check" style="margin:14px 0"><input type="checkbox" id="c-ok"> <span>'+esc("Alıcıların WhatsApp pazarlama iletisi almaya açık izin verdiğini onaylıyorum.")+'</span></label>'
+    +'<p class="note">'+esc("Meta’nın kabul etmesi teslimat garantisi değildir. Mesaj ücretleri Meta hesabınıza yansır.")+'</p>'
+    +'<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap"><button class="btn" id="c-prev">Önizle</button><button class="btn primary" id="c-send">Toplu gönder</button></div><div id="c-out"></div></div>'
+    +'<div id="c-list">'+list+'</div>';
+  bindList();
+  $("#m-off").onclick=async()=>{if(!confirm("Meta bağlantısı kaldırılsın mı?"))return;try{await api("meta/disconnect");campaigns();}catch(e){toast(e.message,true);}};
+  const count=()=>{const n=$("#c-to").value.split(/\\n/).filter(x=>x.trim()).length;$("#c-count").textContent=n?n+" "+"satır":"";};
+  $("#c-to").oninput=count;
+  const tplInfo=()=>{const t=cTpl.find(x=>x.name+"|"+x.language===$("#c-tpl").value);const box=$("#c-tplinfo");if(!t){box.innerHTML="";return;}
+    box.innerHTML='<div class="bank" style="white-space:pre-wrap">'+esc(t.body||"")+'</div>'+(t.header==="IMAGE"?'<label class="field">Başlık görseli (https)<input id="c-img" placeholder="https://"></label>':'')
+      +(t.vars?'<p class="note">'+esc("Değişkenler: {ad} yazarsanız alıcının adı gelir.")+'</p><div class="formgrid">'+Array.from({length:t.vars},(_,i)=>'<label class="field">{{'+(i+1)+'}}<input data-var="'+i+'"></label>').join("")+'</div>':'');};
+  $("#c-tpl").onchange=tplInfo;
+  api("meta/templates").then(r=>{cTpl=r.templates||[];const sel=$("#c-tpl");if(!sel)return;sel.innerHTML='<option value="">'+(cTpl.length?esc("Şablon seçin"):esc("Onaylı şablon bulunamadı"))+'</option>'+cTpl.map(t=>'<option value="'+esc(t.name+"|"+t.language)+'">'+esc(t.name)+' · '+esc(t.language)+'</option>').join("");}).catch(e=>toast(e.message,true));
+  api("campaigns/crm",{options:true}).then(r=>{const sel=$("#c-st");if(sel)sel.innerHTML='<option value="">'+esc("Tüm durumlar")+'</option>'+(r.leadStatuses||[]).map(s=>'<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>').join("");}).catch(()=>{});
+  $("#c-ent").onchange=()=>{$("#c-st").hidden=$("#c-ent").value!=="lead";};
+  $("#c-crm").onclick=async()=>{$("#c-crm").disabled=true;try{const r=await api("campaigns/crm",{entity:$("#c-ent").value,status:$("#c-st").value});(r.recipients||[]).forEach(x=>{if(x.name)cNames[x.phone]=x.name;});const cur=$("#c-to").value.split(/\\n/).map(x=>x.trim()).filter(Boolean);const add=(r.recipients||[]).map(x=>x.phone).filter(p=>!cur.includes(p));$("#c-to").value=cur.concat(add).join("\\n");count();toast((add.length+" "+"numara eklendi."));}catch(e){toast(e.message,true);}$("#c-crm").disabled=false;};
+  const payload=mode=>{const v=$("#c-tpl").value.split("|");const rec=(mode==="test"?[$("#c-test").value]:$("#c-to").value.split(/\\n/)).map(x=>x.trim()).filter(Boolean).map(p=>({phone:p,name:cNames[p]||cNames[p.replace(/\\D/g,"")]||""}));
+    return {mode,name:$("#c-name").value,template:{name:v[0]||"",language:v[1]||""},headerImage:($("#c-img")||{}).value||"",bodyParams:[...document.querySelectorAll("[data-var]")].map(i=>i.value),recipients:rec,consent:$("#c-ok").checked};};
+  $("#c-prev").onclick=async()=>{try{const r=await api("campaigns/send",payload("preview"));$("#c-out").innerHTML='<div class="bank" style="margin-top:14px"><b>'+r.count+'</b> '+esc("geçerli alıcı")+(r.duplicates?' · '+r.duplicates+' '+esc("tekrar çıkarıldı"):'')+(r.invalid.length?' · '+r.invalid.length+' '+esc("geçersiz")+': '+esc(r.invalid.slice(0,5).join(", ")):'')+'<br>'+esc("Tahmini süre")+': ~'+r.minutes+' '+esc("dk")+'</div>';}catch(e){toast(e.message,true);}};
+  $("#c-dotest").onclick=async()=>{try{await api("campaigns/send",payload("test"));toast("Test mesajı Meta’ya iletildi.");}catch(e){toast(e.message,true);}};
+  $("#c-send").onclick=async()=>{if(!$("#c-ok").checked){toast("Toplu gönderim için izin onayını işaretleyin.",true);return;}
+    const n=$("#c-to").value.split(/\\n/).filter(x=>x.trim()).length;if(!confirm(("{n} alıcıya gönderilsin mi?").replace("{n}",n)))return;
+    $("#c-send").disabled=true;try{await api("campaigns/send",payload("send"));toast("Kampanya başladı.");campaigns();}catch(e){toast(e.message,true);$("#c-send").disabled=false;}};
+}
+function bindList(){
+  document.querySelectorAll("[data-cstop]").forEach(b=>b.onclick=async()=>{if(!confirm("Kampanya durdurulsun mu?"))return;try{await api("campaigns/stop",{id:b.dataset.cstop});campaigns(true);}catch(e){toast(e.message,true);}});
+  document.querySelectorAll("[data-cdet]").forEach(b=>b.onclick=async()=>{try{const r=await api("campaigns/get",{id:b.dataset.cdet});const RS={pending:"Bekliyor",accepted:"Meta kabul etti",failed:"Hata"};
+    openSheet(esc(r.campaign.name),'<p class="sub">'+esc(r.campaign.template.name)+' · '+r.campaign.accepted+' / '+r.campaign.total+'</p><div class="list">'+r.recipients.map(x=>'<div class="row" style="grid-template-columns:1fr 1fr"><div><div class="phone">'+esc(phone(x.phone))+'</div>'+(x.name?'<div class="sub">'+esc(x.name)+'</div>':'')+'</div><div><span class="lic '+(x.status==="accepted"?"active":x.status==="pending"?"trial":"expired")+'">'+RS[x.status]+'</span>'+(x.error?'<div class="sub">'+esc(x.error)+'</div>':'')+'</div></div>').join("")+'</div>');}catch(e){toast(e.message,true);}});
+}
 async function reports(){
   const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
   try{R=await api("reports/state");}catch(e){m.innerHTML='<div class="empty"><strong>Raporlar alınamadı</strong>'+esc(e.message)+'</div>';return;}

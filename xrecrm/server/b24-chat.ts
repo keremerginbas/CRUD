@@ -21,7 +21,7 @@ import {
   loadChat,
   page,
   portalById,
-  portalSettings,
+  activeSettings,
   portalUsers,
   readBitrixParams,
   readTicket,
@@ -283,7 +283,7 @@ export function registerChatRoutes(app: Express, store: Store) {
       const raw = text.startsWith("!");
       if (raw) text = text.slice(1).trim();
       const original = text;
-      if (!raw && portalSettings(ctx.portal).translate && chat.lang && chat.lang !== lang) {
+      if (!raw && (await activeSettings(store, ctx.portal)).translate && chat.lang && chat.lang !== lang) {
         try {
           text = await translateTo(text, chat.lang, lang);
         } catch (error) {

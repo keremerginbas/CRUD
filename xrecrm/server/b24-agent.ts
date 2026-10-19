@@ -11,6 +11,7 @@ import type { Store } from "./db.js";
 import { aiConfigured, chatJson } from "./b24-ai.js";
 import { langOf, pick } from "./b24-i18n.js";
 import { appendThread } from "./b24-chat.js";
+import { planAllows, requireFeature } from "./b24-billing.js";
 import {
   bumpStat,
   evolution,
@@ -156,6 +157,7 @@ export function onCustomerMessage(store: Store, portal: B24Portal, line: string,
 async function runAgent(store: Store, memberId: string, line: string, phone: string) {
   const portal = await portalById(store, memberId);
   if (!portal?.active) return;
+  if (!(await planAllows(store, portal, "agent"))) return;
   const cfg = agentConfig(portal);
   const chat = await loadChat(store, memberId, line, phone);
   if (!agentShouldAnswer(cfg, line, chat)) return;
@@ -225,6 +227,7 @@ export function registerAgentPanelRoutes(app: Express, store: Store, panel: Pane
     big,
     panel(async (portal, b) => {
       const next = (await portalById(store, portal.id)) || portal;
+      if (b.enabled) await requireFeature(store, next, "agent");
       const lines = b.lines === "all" ? "all" : (Array.isArray(b.lines) ? b.lines : []).map(String).filter((l: string) => next.lines[l]);
       const agent: AgentConfig = {
         enabled: Boolean(b.enabled),
@@ -253,6 +256,7 @@ export function registerAgentPanelRoutes(app: Express, store: Store, panel: Pane
     big,
     panel(async (portal, b) => {
       if (!aiConfigured()) throw Object.assign(new Error("Sunucuda OpenAI anahtarı tanımlı değil."), { statusCode: 503 });
+      await requireFeature(store, portal, "agent");
       const cfg: AgentConfig = { ...agentConfig(portal), ...(b.config && typeof b.config === "object" ? { name: clean(b.config.name, 40) || agentConfig(portal).name, company: clean(b.config.company, 80), tone: b.config.tone, instructions: clean(b.config.instructions, 4000), knowledge: clean(b.config.knowledge, 40000) } : {}) };
       const history = (Array.isArray(b.messages) ? b.messages : [])
         .slice(-20)

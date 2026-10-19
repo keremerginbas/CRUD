@@ -16,18 +16,40 @@ const CODE_KIND = "b24-code";
 const DAY = 86_400_000;
 const env = (k: string) => process.env[k]?.trim() || "";
 
+export type PlanId = "basic" | "pro" | "proplus";
+export const PLAN_IDS: PlanId[] = ["basic", "pro", "proplus"];
+export const PLAN_NAMES: Record<PlanId, string> = { basic: "Basic", pro: "Pro", proplus: "Pro+" };
+const PLAN_RANK: Record<PlanId, number> = { basic: 0, pro: 1, proplus: 2 };
+export const isPlan = (v: unknown): v is PlanId => PLAN_IDS.includes(v as PlanId);
+
+/** Paket gerektiren özellikler ve açıldıkları en düşük paket. */
+export type Feature = "live" | "perf" | "campaigns" | "translate" | "transcribe" | "qualify" | "agent" | "reports";
+export const FEATURE_PLAN: Record<Feature, PlanId> = {
+  live: "pro",
+  perf: "pro",
+  campaigns: "pro",
+  translate: "proplus",
+  transcribe: "proplus",
+  qualify: "proplus",
+  agent: "proplus",
+  reports: "proplus",
+};
+
 export interface Pricing {
   currency: string;
-  /** Numara başına aylık fiyat */
+  /** Numara başına aylık fiyat (eski kayıtlar; paket fiyatı yoksa Pro+ fiyatı sayılır) */
   monthly: number;
+  /** Paket → numara başına aylık fiyat */
+  plans: Record<PlanId, number>;
   /** Dönem (ay) → indirim yüzdesi */
   discounts: Record<string, number>;
   trialDays: number;
   bank: { holder: string; bankName: string; iban: string; note: string };
 }
 export const DEFAULT_PRICING: Pricing = {
-  currency: "TRY",
-  monthly: 750,
+  currency: "USD",
+  monthly: 35,
+  plans: { basic: 15, pro: 25, proplus: 35 },
   discounts: { "1": 0, "3": 10, "6": 20, "12": 35 },
   trialDays: 7,
   bank: { holder: "", bankName: "", iban: "", note: "Açıklamaya ödeme referans kodunu yazın." },
@@ -40,6 +62,7 @@ export interface PaymentRequest {
   domain: string;
   lines: string[];
   months: number;
+  plan?: PlanId;
   amount: number;
   currency: string;
   reference: string;
@@ -51,6 +74,7 @@ export interface PaymentRequest {
 export interface LicenseCode {
   id: string;
   months: number;
+  plan?: PlanId;
   maxLines: number;
   note: string;
   createdAt: string;
@@ -72,12 +96,18 @@ export interface BillingInfo {
 
 export async function getPricing(store: Store): Promise<Pricing> {
   const saved = (await store.get<Partial<Pricing>>(PRICING_KIND, "default", SYSTEM_OWNER))?.payload;
-  return { ...DEFAULT_PRICING, ...(saved || {}), bank: { ...DEFAULT_PRICING.bank, ...(saved?.bank || {}) }, discounts: { ...DEFAULT_PRICING.discounts, ...(saved?.discounts || {}) } };
+  return {
+    ...DEFAULT_PRICING,
+    ...(saved || {}),
+    plans: { ...DEFAULT_PRICING.plans, ...(saved?.plans || {}) },
+    bank: { ...DEFAULT_PRICING.bank, ...(saved?.bank || {}) },
+    discounts: { ...DEFAULT_PRICING.discounts, ...(saved?.discounts || {}) },
+  };
 }
 
-export function priceFor(pricing: Pricing, months: number, lines = 1) {
+export function priceFor(pricing: Pricing, months: number, lines = 1, plan: PlanId = "proplus") {
   const discount = Number(pricing.discounts[String(months)] || 0);
-  const perLine = Math.round(pricing.monthly * months * (1 - discount / 100));
+  const perLine = Math.round(pricing.plans[plan] * months * (1 - discount / 100) * 100) / 100;
   return { discount, perLine, total: perLine * lines, monthlyEquivalent: Math.round(perLine / months) };
 }
 
@@ -105,6 +135,47 @@ export function licenseState(portal: B24Portal, line: B24Line | undefined, trial
   return { status: "new", until: null, daysLeft: null };
 }
 
+export interface PlanState {
+  plan: PlanId;
+  /** free: ücretsiz alan adı, paid: ödenmiş lisans, trial: deneme (Pro+), none: lisans yok */
+  source: "free" | "paid" | "trial" | "none";
+  features: Record<Feature, boolean>;
+}
+
+/**
+ * Portalın paketi. Paket portal bazındadır: geçerli ücretli lisansı olan
+ * numaraların en düşük paketi sayılır (tek numaraya Pro+ alıp hepsini açmak
+ * olmasın). Ücretli lisans yoksa deneme süresince her şey açıktır.
+ */
+export function portalPlan(portal: B24Portal, trialDays: number, now = Date.now()): PlanState {
+  const make = (plan: PlanId, source: PlanState["source"]): PlanState => ({
+    plan,
+    source,
+    features: Object.fromEntries(Object.entries(FEATURE_PLAN).map(([f, min]) => [f, PLAN_RANK[plan] >= PLAN_RANK[min]])) as Record<Feature, boolean>,
+  });
+  if (freeDomains().includes(portal.domain)) return make("proplus", "free");
+  const states = Object.values(portal.lines || {}).map((l) => ({ l, s: licenseState(portal, l, trialDays, now) }));
+  const paid = states.filter((x) => x.s.status === "active").map((x) => (isPlan(x.l.license?.plan) ? x.l.license!.plan! : "proplus"));
+  if (paid.length) return make(paid.reduce((a, b) => (PLAN_RANK[b] < PLAN_RANK[a] ? b : a)), "paid");
+  if (states.some((x) => x.s.status === "trial" || x.s.status === "new")) return make("proplus", "trial");
+  return make("basic", "none");
+}
+
+export async function planOf(store: Store, portal: B24Portal): Promise<PlanState> {
+  return portalPlan(portal, (await getPricing(store)).trialDays);
+}
+
+export async function planAllows(store: Store, portal: B24Portal, feature: Feature): Promise<boolean> {
+  return (await planOf(store, portal)).features[feature];
+}
+
+/** Paket özelliği kapalıysa 402 ile durdurur. */
+export async function requireFeature(store: Store, portal: B24Portal, feature: Feature) {
+  if (await planAllows(store, portal, feature)) return;
+  const need = PLAN_NAMES[FEATURE_PLAN[feature]];
+  throw Object.assign(new Error(`Bu özellik ${need} paketinde. Ödeme sekmesinden paketinizi yükseltebilirsiniz.`), { statusCode: 402, plan: FEATURE_PLAN[feature] });
+}
+
 /** Numara mesaj aktarabilir mi? (henüz bağlanmamış numara için deneme bağlanınca başlar) */
 export async function lineUsable(store: Store, portal: B24Portal, line: string): Promise<boolean> {
   const pricing = await getPricing(store);
@@ -119,7 +190,7 @@ export function withTrialStarted(line: B24Line | undefined): B24Line["license"] 
 }
 
 /** Seçilen numaralara ay ekler: mevcut lisans, deneme bitişi veya bugünden hangisi ileriyse oradan. */
-export function extendLines(portal: B24Portal, lines: string[], months: number, trialDays: number): B24Portal {
+export function extendLines(portal: B24Portal, lines: string[], months: number, trialDays: number, plan: PlanId = "proplus"): B24Portal {
   const now = Date.now();
   const next = { ...portal, lines: { ...portal.lines } };
   for (const id of lines) {
@@ -129,7 +200,7 @@ export function extendLines(portal: B24Portal, lines: string[], months: number, 
     const trialEnd = line.license?.trialStart ? Date.parse(line.license.trialStart) + trialDays * DAY : 0;
     const base = new Date(Math.max(now, paid, trialEnd));
     base.setMonth(base.getMonth() + months);
-    next.lines[id] = { ...line, license: { ...(line.license || {}), trialStart: line.license?.trialStart || new Date(now).toISOString(), paidUntil: base.toISOString() } };
+    next.lines[id] = { ...line, license: { ...(line.license || {}), trialStart: line.license?.trialStart || new Date(now).toISOString(), paidUntil: base.toISOString(), plan } };
   }
   return next;
 }
@@ -146,6 +217,7 @@ function licenses(portal: B24Portal, pricing: Pricing) {
     line,
     name: l.name || `WhatsApp ${line}`,
     phone: l.phone || "",
+    plan: l.license?.paidUntil ? (isPlan(l.license.plan) ? l.license.plan : "proplus") : null,
     ...licenseState(portal, l, pricing.trialDays),
   }));
 }
@@ -170,7 +242,9 @@ export function registerBillingPanelRoutes(app: Express, store: Store, panel: Pa
         .filter((c) => c.usedBy === portal.id)
         .map((c) => ({ code: c.id, months: c.months, usedAt: c.usedAt, lines: c.usedLines || [] }));
       return {
-        pricing: { currency: pricing.currency, monthly: pricing.monthly, discounts: pricing.discounts, trialDays: pricing.trialDays, bank: pricing.bank },
+        pricing: { currency: pricing.currency, plans: pricing.plans, discounts: pricing.discounts, trialDays: pricing.trialDays, bank: pricing.bank },
+        plan: portalPlan(portal, pricing.trialDays),
+        plans: PLAN_IDS.map((id) => ({ id, name: PLAN_NAMES[id], monthly: pricing.plans[id], periods: PERIODS.map((m) => ({ months: m, ...priceFor(pricing, m, 1, id) })) })),
         periods: PERIODS.map((m) => ({ months: m, ...priceFor(pricing, m) })),
         licenses: licenses(portal, pricing),
         payments,
@@ -187,6 +261,7 @@ export function registerBillingPanelRoutes(app: Express, store: Store, panel: Pa
       const pricing = await getPricing(store);
       const months = Number(body.months);
       if (!PERIODS.includes(months as (typeof PERIODS)[number])) fail(400, "Geçerli bir dönem seçin.");
+      const plan: PlanId = isPlan(body.plan) ? body.plan : "proplus";
       const lines = (Array.isArray(body.lines) ? body.lines : []).map(String).filter((l: string) => portal.lines[l]);
       if (!lines.length) fail(400, "En az bir numara seçin.");
       const open = (await store.list<PaymentRequest>(PAYMENT_KIND, SYSTEM_OWNER)).filter((r) => r.payload.memberId === portal.id && r.payload.status === "pending");
@@ -197,7 +272,8 @@ export function registerBillingPanelRoutes(app: Express, store: Store, panel: Pa
         domain: portal.domain,
         lines,
         months,
-        amount: priceFor(pricing, months, lines.length).total,
+        plan,
+        amount: priceFor(pricing, months, lines.length, plan).total,
         currency: pricing.currency,
         reference: reference(),
         note: String(body.note || "").slice(0, 500),
@@ -221,7 +297,7 @@ export function registerBillingPanelRoutes(app: Express, store: Store, panel: Pa
       if (!lines.length) fail(400, "Kodun uygulanacağı numarayı seçin.");
       if (lines.length > code!.maxLines) fail(400, `Bu kod en fazla ${code!.maxLines} numara için geçerli.`);
       const pricing = await getPricing(store);
-      await savePortal(store, extendLines(await fresh(portal), lines, code!.months, pricing.trialDays));
+      await savePortal(store, extendLines(await fresh(portal), lines, code!.months, pricing.trialDays, isPlan(code!.plan) ? code!.plan : "proplus"));
       await store.put(CODE_KIND, code!.id, { ...code!, usedBy: portal.id, usedDomain: portal.domain, usedLines: lines, usedAt: new Date().toISOString() }, SYSTEM_OWNER);
       return { ok: true, licenses: licenses(await fresh(portal), pricing) };
     }),
@@ -276,6 +352,7 @@ export function registerBillingAdminRoutes(app: Express, store: Store) {
         domain: p.domain,
         active: p.active,
         installedAt: p.installedAt,
+        plan: portalPlan(p, pricing.trialDays).plan,
         billing: (p as B24Portal & { billing?: BillingInfo }).billing || null,
         lines: licenses(p, pricing).map((l) => ({ ...l, connected: p.lines[l.line]?.status === "connected" })),
       })),
@@ -295,9 +372,15 @@ export function registerBillingAdminRoutes(app: Express, store: Store) {
         const n = Number(v);
         return Number.isFinite(n) ? Math.min(max, Math.max(min, Math.round(n))) : fallback;
       };
+      const money = (v: unknown, fallback: number) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? Math.min(1_000_000, Math.max(0, Math.round(n * 100) / 100)) : fallback;
+      };
+      const plans = Object.fromEntries(PLAN_IDS.map((id) => [id, money(b.plans?.[id], current.plans[id])])) as Record<PlanId, number>;
       const pricing: Pricing = {
         currency: ["TRY", "USD", "EUR"].includes(String(b.currency)) ? String(b.currency) : current.currency,
-        monthly: num(b.monthly, 0, 1_000_000, current.monthly),
+        monthly: plans.proplus,
+        plans,
         trialDays: num(b.trialDays, 0, 90, current.trialDays),
         discounts: Object.fromEntries(PERIODS.map((m) => [String(m), num(b.discounts?.[String(m)], 0, 90, current.discounts[String(m)] || 0)])),
         bank: {
@@ -324,7 +407,7 @@ export function registerBillingAdminRoutes(app: Express, store: Store) {
         const portal = await portalById(store, payment!.memberId);
         if (!portal) fail(404, "Portal bulunamadı.");
         const pricing = await getPricing(store);
-        await savePortal(store, extendLines(portal!, payment!.lines, payment!.months, pricing.trialDays));
+        await savePortal(store, extendLines(portal!, payment!.lines, payment!.months, pricing.trialDays, isPlan(payment!.plan) ? payment!.plan : "proplus"));
       }
       const updated = { ...payment!, status: decision === "approve" ? "approved" : "rejected", decidedAt: new Date().toISOString() } as PaymentRequest;
       await store.put(PAYMENT_KIND, updated.id, updated, SYSTEM_OWNER);
@@ -342,7 +425,7 @@ export function registerBillingAdminRoutes(app: Express, store: Store) {
       if (!Number.isInteger(months) || months < 1 || months > 36) fail(400, "Ay 1-36 arasında olmalı.");
       const lines = b.lines === "all" ? Object.keys(portal!.lines) : (Array.isArray(b.lines) ? b.lines : []).map(String);
       const pricing = await getPricing(store);
-      await savePortal(store, extendLines(portal!, lines, months, pricing.trialDays));
+      await savePortal(store, extendLines(portal!, lines, months, pricing.trialDays, isPlan(b.plan) ? b.plan : "proplus"));
       return { ok: true };
     }),
   );
@@ -358,7 +441,7 @@ export function registerBillingAdminRoutes(app: Express, store: Store) {
       if (!Number.isInteger(maxLines) || maxLines < 1 || maxLines > 100) fail(400, "Numara sayısı 1-100 arasında olmalı.");
       const created: LicenseCode[] = [];
       for (let i = 0; i < count; i += 1) {
-        const code: LicenseCode = { id: newCode(), months, maxLines, note: String(b.note || "").slice(0, 200), createdAt: new Date().toISOString() };
+        const code: LicenseCode = { id: newCode(), months, plan: isPlan(b.plan) ? b.plan : "proplus", maxLines, note: String(b.note || "").slice(0, 200), createdAt: new Date().toISOString() };
         await store.put(CODE_KIND, code.id, code, SYSTEM_OWNER);
         created.push(code);
       }

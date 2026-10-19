@@ -11,12 +11,13 @@ import express, { type Express, type Request, type Response } from "express";
 import { PANEL_STYLE, panelHtml } from "./b24-panel-html.js";
 import { onCustomerMessage, registerAgentPanelRoutes, type AgentConfig } from "./b24-agent.js";
 import { registerLivePanelRoutes, type ReportSettings } from "./b24-live.js";
+import { CAMPAIGN_KIND, registerCampaignRoutes } from "./b24-campaigns.js";
 import { langOf, localizeMessage, normLang, pick, type Lang } from "./b24-i18n.js";
 import { appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
 import { logRestCall } from "./b24-restlog.js";
 import { registerLegalRoutes } from "./b24-legal.js";
 import { adminHtml } from "./b24-admin-html.js";
-import { getPricing, licenseState, lineUsable, registerBillingPanelRoutes, withTrialStarted } from "./b24-billing.js";
+import { getPricing, licenseState, lineUsable, planOf, portalPlan, registerBillingPanelRoutes, requireFeature, withTrialStarted } from "./b24-billing.js";
 import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
 export { panelHtml };
 import type { Store } from "./db.js";
@@ -85,6 +86,13 @@ export function portalSettings(portal: B24Portal): Required<B24Settings> {
     slaMinutes: Math.max(1, Math.min(1440, Number(portal.settings?.slaMinutes) || 15)),
     botMessages: portal.settings?.botMessages === true,
   };
+}
+
+/** Ayarlar, paketin açmadığı AI özellikleri kapalı olarak. */
+export async function activeSettings(store: Store, portal: B24Portal): Promise<Required<B24Settings>> {
+  const s = portalSettings(portal);
+  const { features } = await planOf(store, portal);
+  return { ...s, translate: s.translate && features.translate, transcribe: s.transcribe && features.transcribe, qualify: s.qualify && features.qualify };
 }
 
 /**
@@ -223,6 +231,8 @@ export interface B24License {
   /** Deneme, numara ilk bağlandığında başlar. */
   trialStart?: string;
   paidUntil?: string;
+  /** Ödenen paket; eski lisanslarda yoktur ve Pro+ sayılır. */
+  plan?: "basic" | "pro" | "proplus";
 }
 export interface B24Line {
   instance: string;
@@ -555,7 +565,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   if (isWaSystemMessage(message)) return;
   const owner = `b24:${portal.id}`;
   const media = await captureEvolutionMedia(store, owner, instance, data);
-  const settings = portalSettings(portal);
+  const settings = await activeSettings(store, portal);
   const uiLang = langOf(portal);
   const voiceLabel = pick(uiLang, "🎤 Sesli mesaj: ", "🎤 Voice message: ");
   let text = waMessageText(message) || "";
@@ -734,7 +744,7 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
     // "!" ile başlayan mesaj çevrilmeden gönderilir.
     const raw = agentText.startsWith("!");
     let text = raw ? agentText.slice(1).trim() : agentText;
-    if (!raw && text && portalSettings(portal).translate && chat.lang && chat.lang !== langOf(portal)) {
+    if (!raw && text && (await activeSettings(store, portal)).translate && chat.lang && chat.lang !== langOf(portal)) {
       try {
         text = await translateTo(text, chat.lang, langOf(portal));
       } catch (error) {
@@ -1030,7 +1040,7 @@ export async function uninstallPortal(store: Store, portal: B24Portal) {
     Object.entries(portal.lines).map(([id, l]) => [id, { ...l, status: "disconnected", phone: undefined, profileName: undefined, updatedAt: new Date().toISOString() }]),
   );
   await savePortal(store, { ...portal, active: false, accessToken: "", refreshToken: "", applicationToken: undefined, lines });
-  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report", THREAD_KIND]) {
+  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report", THREAD_KIND, CAMPAIGN_KIND]) {
     for (const row of await store.list<{ memberId?: string }>(kind, SYSTEM_OWNER))
       if (row.payload?.memberId === portal.id) await store.delete(kind, row.id, SYSTEM_OWNER);
   }
@@ -1414,6 +1424,7 @@ function registerPanelRoutes(
   registerBillingPanelRoutes(app, store, panel, json);
   registerAgentPanelRoutes(app, store, panel, json);
   registerLivePanelRoutes(app, store, panel, json);
+  registerCampaignRoutes(app, store, panel, json);
 
   app.post(
     "/b24/panel/state",
@@ -1437,6 +1448,7 @@ function registerPanelRoutes(
         roles: current.roles || [],
         users: users.map((u) => ({ ...u, roleId: current.assignments?.[u.id] || "" })),
         settings: portalSettings(current),
+        plan: portalPlan(current, pricing.trialDays),
         aiConfigured: aiConfigured(),
       };
     }),
@@ -1466,6 +1478,7 @@ function registerPanelRoutes(
     "/b24/panel/stats",
     json,
     panel(async (portal, body) => {
+      await requireFeature(store, portal, "perf");
       const days = [1, 7, 30, 90].includes(Number(body.days)) ? Number(body.days) : 7;
       const onlyLine = String(body.line || "").replace(/\D/g, "");
       const from = istanbulDay(Date.now() - (days - 1) * 86_400_000);

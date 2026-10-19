@@ -8,7 +8,7 @@ import { randomBytes } from "node:crypto";
 import type { Express, RequestHandler, Request, Response } from "express";
 import type { Store } from "./db.js";
 import { aiConfigured, chatJson } from "./b24-ai.js";
-import { lineUsable } from "./b24-billing.js";
+import { lineUsable, planAllows, requireFeature } from "./b24-billing.js";
 import { deleteMedia } from "./whatsapp-media.js";
 import { langOf, pick, type Lang } from "./b24-i18n.js";
 import {
@@ -343,6 +343,7 @@ export async function runReportSchedule(store: Store, now = Date.now()) {
   for (const portal of portals) {
     const cfg = reportSettings(portal);
     if (!cfg.phones.length && !cfg.userIds.length) continue;
+    if (!(await planAllows(store, portal, "reports"))) continue;
     for (const { period, key } of dueReports(cfg, now)) {
       const fresh = (await portalById(store, portal.id)) || portal;
       // Önce işaretle: gönderim yarıda kalsa bile aynı rapor tekrar tekrar gitmesin.
@@ -393,7 +394,14 @@ const normalizePhone = (v: unknown) => {
 };
 
 export function registerLivePanelRoutes(app: Express, store: Store, panel: PanelFactory, json: RequestHandler) {
-  app.post("/b24/panel/live", json, panel(async (portal) => liveSnapshot(store, portal)));
+  app.post(
+    "/b24/panel/live",
+    json,
+    panel(async (portal) => {
+      await requireFeature(store, portal, "live");
+      return liveSnapshot(store, portal);
+    }),
+  );
 
   app.post(
     "/b24/panel/reports/state",
@@ -414,6 +422,7 @@ export function registerLivePanelRoutes(app: Express, store: Store, panel: Panel
     json,
     panel(async (portal, b) => {
       const fresh = (await portalById(store, portal.id)) || portal;
+      if (b.daily || b.weekly || b.monthly) await requireFeature(store, fresh, "reports");
       const current = reportSettings(fresh);
       const reports: ReportSettings = {
         daily: Boolean(b.daily),
@@ -435,6 +444,7 @@ export function registerLivePanelRoutes(app: Express, store: Store, panel: Panel
     "/b24/panel/reports/create",
     json,
     panel(async (portal, b) => {
+      await requireFeature(store, portal, "reports");
       const period: ReportPeriod = ["daily", "weekly", "monthly"].includes(b.period) ? b.period : "daily";
       const fresh = (await portalById(store, portal.id)) || portal;
       const withOrigin = typeof b.origin === "string" && /^https:\/\/[\w.-]+(:\d+)?$/.test(b.origin) && !reportSettings(fresh).origin ? { ...fresh, reports: { ...reportSettings(fresh), origin: b.origin } } : fresh;

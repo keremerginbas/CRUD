@@ -11,6 +11,7 @@ import { inWorkingHours, setAgentMergeDelay, DEFAULT_AGENT } from "../server/b24
 import { dueReports, DEFAULT_REPORTS } from "../server/b24-live";
 import { panelHtml } from "../server/b24-panel-html";
 import { localizeMessage } from "../server/b24-i18n";
+import { normalizeRecipient, setCampaignGap, setMetaFetch } from "../server/b24-campaigns";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -469,7 +470,11 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     };
     let billing = await panel("billing/state");
     expect(billing.body.licenses[0]).toMatchObject({ line: "3", status: "trial", daysLeft: 7 });
-    expect(billing.body.periods.find((p: any) => p.months === 12)).toMatchObject({ discount: 35, perLine: Math.round(750 * 12 * 0.65) });
+    expect(billing.body.periods.find((p: any) => p.months === 12)).toMatchObject({ discount: 35, perLine: 273 });
+    // Deneme süresinde portal Pro+ sayılır
+    expect(billing.body.plan).toMatchObject({ plan: "proplus", source: "trial" });
+    expect(billing.body.plans.map((p: any) => [p.id, p.monthly])).toEqual([["basic", 15], ["pro", 25], ["proplus", 35]]);
+    expect((await panel("live")).status).toBe(200);
 
     // Deneme biter
     const portal = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
@@ -490,8 +495,8 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(billing.body.licenses[0].status).toBe("expired");
 
     // Havale bildirimi
-    const request = await panel("billing/request", { lines: ["3"], months: 3 });
-    expect(request.body.request).toMatchObject({ status: "pending", amount: Math.round(750 * 3 * 0.9), currency: "TRY", months: 3 });
+    const request = await panel("billing/request", { lines: ["3"], months: 3, plan: "basic" });
+    expect(request.body.request).toMatchObject({ status: "pending", amount: 40.5, currency: "USD", months: 3, plan: "basic" });
     expect(request.body.request.reference).toMatch(/^XRE-[0-9A-F]{6}$/);
 
     // XRE yönetimi onaylar (yalnız CRM sahibi)
@@ -505,8 +510,17 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(adminState.portals[0].lines[0]).toMatchObject({ line: "3", status: "expired" });
     expect((await admin(`payments/${request.body.request.id}/approve`, {})).status).toBe(200);
     billing = await panel("billing/state");
-    expect(billing.body.licenses[0]).toMatchObject({ status: "active" });
+    expect(billing.body.licenses[0]).toMatchObject({ status: "active", plan: "basic" });
     expect(billing.body.licenses[0].daysLeft).toBeGreaterThan(85);
+    // Basic: canlı izleme, performans, AI asistan ve raporlar kapalı
+    expect(billing.body.plan).toMatchObject({ plan: "basic", source: "paid", features: { live: false, agent: false, translate: false } });
+    const locked = await panel("live");
+    expect(locked.status).toBe(402);
+    expect(locked.body.message).toContain("Pro paketinde");
+    expect((await panel("stats", { days: 7 })).status).toBe(402);
+    expect((await panel("agent/save", { enabled: true })).status).toBe(402);
+    expect((await panel("reports/save", { daily: true, userIds: ["1"] })).status).toBe(402);
+    expect((await panel("agent/save", { enabled: false })).status).toBe(200);
     await inbound("L2");
     await new Promise((r) => setTimeout(r, 80));
     expect(forwarded()).toBe(before + 1);
@@ -517,11 +531,84 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const redeemed = await panel("billing/redeem", { code: code.toLowerCase(), lines: ["3"] });
     expect(redeemed.status).toBe(200);
     expect(redeemed.body.licenses[0].daysLeft).toBeGreaterThan(450);
+    // Kod Pro+ paketinde: özellikler açılır
+    expect(redeemed.body.licenses[0].plan).toBe("proplus");
+    expect((await panel("live")).status).toBe(200);
     expect((await panel("billing/redeem", { code, lines: ["3"] })).status).toBe(409);
 
     // Fiyat güncelleme
-    const pricing = await (await admin("pricing", { monthly: 900, trialDays: 14, discounts: { "12": 40 }, bank: { iban: "tr00 0000", holder: "XRE" } })).json();
-    expect(pricing.pricing).toMatchObject({ monthly: 900, trialDays: 14, discounts: { "12": 40 }, bank: { iban: "TR00 0000", holder: "XRE" } });
+    const pricing = await (await admin("pricing", { plans: { basic: 12.5, pro: 20, proplus: 30 }, trialDays: 14, discounts: { "12": 40 }, bank: { iban: "tr00 0000", holder: "XRE" } })).json();
+    expect(pricing.pricing).toMatchObject({ plans: { basic: 12.5, pro: 20, proplus: 30 }, monthly: 30, trialDays: 14, discounts: { "12": 40 }, bank: { iban: "TR00 0000", holder: "XRE" } });
+  });
+
+  it("Pro kampanya: Meta hesabı bağlanır, önizleme, tek test ve izinli toplu gönderim; Basic pakette kapalı", async () => {
+    expect(normalizeRecipient("0532 111 22 33")).toBe("905321112233");
+    expect(normalizeRecipient("5321112233")).toBe("905321112233");
+    expect(normalizeRecipient("0049 151 1234 5678")).toBe("4915112345678");
+    expect(normalizeRecipient("123")).toBeNull();
+    const sent: any[] = [];
+    setCampaignGap(5);
+    setMetaFetch((async (url: string, init: any) => {
+      const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+      if (init?.headers?.authorization !== "Bearer meta-token") return json({ error: { message: "Invalid OAuth access token." } }, 401);
+      if (url.includes("/111?fields=")) return json({ display_phone_number: "+90 555 000 00 00", verified_name: "Demo Emlak" });
+      if (url.includes("/222/message_templates")) return json({ data: [
+        { name: "kampanya_ekim", language: "tr", status: "APPROVED", category: "MARKETING", components: [{ type: "HEADER", format: "IMAGE" }, { type: "BODY", text: "Merhaba {{1}}, yeni projemiz yayında." }] },
+        { name: "taslak", language: "tr", status: "PENDING", components: [] },
+      ] });
+      if (url.endsWith("/111/messages")) {
+        const body = JSON.parse(init.body);
+        sent.push(body);
+        if (body.to === "905000000000") return json({ error: { message: "Recipient phone number not in allowed list" } }, 400);
+        return json({ messages: [{ id: `wamid.${sent.length}`, message_status: "accepted" }] });
+      }
+      return json({ error: { message: "unexpected " + url } }, 404);
+    }) as any);
+    const { store, base } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const t = home.match(/const T="([^"]+)"/)?.[1];
+    const panel = async (path: string, body: Record<string, unknown> = {}) => {
+      const r = await fetch(`${base}/b24/panel/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
+      return { status: r.status, body: await r.json() };
+    };
+    // Deneme (Pro+) → kampanyalar açık
+    expect((await panel("campaigns/state")).body.meta).toEqual({ connected: false });
+    expect((await panel("meta/save", { phoneNumberId: "111", wabaId: "222", token: "yanlis" })).status).toBe(400);
+    const saved = await panel("meta/save", { phoneNumberId: "111", wabaId: "222", token: "meta-token" });
+    expect(saved.body.meta).toMatchObject({ connected: true, displayPhone: "+90 555 000 00 00", verifiedName: "Demo Emlak" });
+    const stored = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+    expect(stored.meta.token).not.toContain("meta-token");
+    expect(JSON.stringify(saved.body)).not.toContain("meta-token");
+    const templates = await panel("meta/templates");
+    expect(templates.body.templates).toEqual([expect.objectContaining({ name: "kampanya_ekim", language: "tr", header: "IMAGE", vars: 1 })]);
+
+    const base0 = { template: { name: "kampanya_ekim", language: "tr" }, headerImage: "https://example.test/a.jpg", bodyParams: ["{ad}"] };
+    const preview = await panel("campaigns/send", { ...base0, mode: "preview", recipients: "05321112233\n905321112233\nabc\n4915112345678" });
+    expect(preview.body).toMatchObject({ count: 2, duplicates: 1, invalid: ["abc"] });
+    expect(sent).toHaveLength(0);
+    const test = await panel("campaigns/send", { ...base0, mode: "test", recipients: [{ phone: "905321112233", name: "Ayşe" }] });
+    expect(test.body.result).toMatchObject({ status: "accepted" });
+    expect(sent[0]).toMatchObject({ to: "905321112233", template: { name: "kampanya_ekim", language: { code: "tr" }, components: [{ type: "header" }, { type: "body", parameters: [{ type: "text", text: "Ayşe" }] }] } });
+    expect((await panel("campaigns/send", { ...base0, mode: "send", recipients: "905321112233" })).status).toBe(400);
+    const started = await panel("campaigns/send", { ...base0, mode: "send", consent: true, name: "Ekim", recipients: "905321112233\n905000000000\n4915112345678" });
+    expect(started.body.campaign).toMatchObject({ name: "Ekim", total: 3, pending: 3, status: "running" });
+    await new Promise((r) => setTimeout(r, 150));
+    const state = await panel("campaigns/state");
+    expect(state.body.campaigns[0]).toMatchObject({ status: "done", accepted: 2, failed: 1, pending: 0 });
+    const detail = await panel("campaigns/get", { id: started.body.campaign.id });
+    expect(detail.body.recipients.find((r: any) => r.phone === "905000000000")).toMatchObject({ status: "failed", error: expect.stringContaining("allowed list") });
+
+    // Basic pakete düşünce kampanyalar kapanır
+    const portal = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+    portal.lines["3"].license = { trialStart: new Date(Date.now() - 30 * 86_400_000).toISOString(), paidUntil: new Date(Date.now() + 30 * 86_400_000).toISOString(), plan: "basic" };
+    await store.put("b24-portal", MEMBER, portal, "b24-connector");
+    expect((await panel("campaigns/state")).status).toBe(402);
+    portal.lines["3"].license.plan = "pro";
+    await store.put("b24-portal", MEMBER, portal, "b24-connector");
+    expect((await panel("campaigns/state")).status).toBe(200);
+    expect((await panel("agent/test", { messages: [{ from: "müşteri", text: "Merhaba" }] })).status).not.toBe(200);
   });
 
   it("AI asistan bilgi tabanından cevap verir, temsilci yazınca susar, gerektiğinde devreder", async () => {
