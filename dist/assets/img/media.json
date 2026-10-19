@@ -1,1 +1,262 @@
-{}
+{
+  "hafriyat": {
+    "photo": true
+  },
+  "temel": {
+    "photo": true
+  },
+  "altyapi": {
+    "photo": true
+  },
+  "yol": {
+    "photo": true
+  },
+  "dolgu": {
+    "photo": true
+  },
+  "makine": {
+    "photo": true
+  },
+  "insaat": {
+    "photo": true
+  },
+  "nakliye": {
+    "photo": true
+  },
+  "_galeri": {
+    "01-lowbed-ekskavator-nakliyesi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "02-is-makinesi-lowbed-yukleme": [
+      1280,
+      960,
+      560,
+      420
+    ],
+    "03-ekskavator-hafriyat-calismasi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "04-beton-kirma-kanal-acma": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "05-santiye-kazi-toprak-duzenleme": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "06-yeni-yapi-saha-duzenlemesi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "07-hidrolik-kirici-ekskavator": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "08-yikim-sonrasi-hafriyat": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "09-kanal-kazisi-beton-rogar": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "10-temel-kazisi-demir-donati": [
+      1280,
+      1280,
+      560,
+      560
+    ],
+    "11-cekici-lowbed-makine-transferi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "12-enkaz-kaldirma-hafriyat": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "13-altyapi-buz-boru-sevkiyati": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "14-genis-alan-kazi-tesviye": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "15-paletli-ekskavator-saha": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "16-hidromek-ekskavator-saha": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "17-acik-alan-hafriyat-yukleme": [
+      720,
+      1280,
+      427,
+      760
+    ],
+    "18-damperli-kamyona-hafriyat-yukleme": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "19-yikim-alani-enkaz-kaldirma": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "20-sokak-kanal-kazisi": [
+      720,
+      1280,
+      427,
+      760
+    ],
+    "21-ekskavatorler-toprak-isleri": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "22-kirici-sert-zemin": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "23-kaldirim-yukleme-operasyonu": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "24-iki-ekskavator-kazi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "25-temel-demir-donati-kazi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "26-altyapi-hatti-kazi-boru": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "27-ekskavator-kamyon-yukleme": [
+      720,
+      1280,
+      427,
+      760
+    ],
+    "28-kaldirim-altyapi-kazisi": [
+      720,
+      1280,
+      427,
+      760
+    ],
+    "29-dolgu-malzemesi-serme": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "30-beton-buz-altyapi-baglantisi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "31-stabilize-serimi-yol-yatagi": [
+      676,
+      1201,
+      428,
+      760
+    ],
+    "32-damperli-kamyon-ekskavator": [
+      720,
+      1280,
+      427,
+      760
+    ],
+    "33-kazi-topragi-kamyon-yukleme": [
+      720,
+      1280,
+      427,
+      760
+    ],
+    "34-buz-borular-saha": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "35-lowbed-uzerinde-ekskavator": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "36-kanal-ici-altyapi-calismasi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "37-yol-guzergahi-genis-kazi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "38-dar-sokak-altyapi": [
+      960,
+      1280,
+      560,
+      747
+    ],
+    "39-kanal-kazisi-hafriyat-yukleme": [
+      960,
+      1280,
+      560,
+      747
+    ]
+  }
+}

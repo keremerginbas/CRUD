@@ -27,7 +27,8 @@ const posts = (await loadDir('src/content/posts'))
   .map((p) => ({ ...p, path: `/${p.type === 'haber' ? 'haberler' : 'blog'}/${p.slug}/` }))
   .sort((a, b) => b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
 const projectList = (await import(pathToFileURL(path.join(ROOT, 'src/content/projects.mjs')).href)).default;
-const ctx = { services, posts, projectList };
+const gallery = (await import(pathToFileURL(path.join(ROOT, 'src/content/gallery.mjs')).href)).default;
+const ctx = { services, posts, projectList, gallery };
 
 const pages = [
   P.home(ctx), P.about(ctx), P.servicesHub(ctx), ...services.map((s) => P.serviceDetail(s, ctx)),
@@ -120,7 +121,7 @@ for (const { file, html } of outputs) write(file, withBase(html));
 // Önizleme klasörü ayrıysa üretilmiş medyayı (video, görsel, logo, ikon) dist'ten kopyala
 if (DIST !== path.join(ROOT, 'dist')) {
   const SRC = path.join(ROOT, 'dist');
-  for (const d of ['assets/img', 'assets/video', 'assets/brand']) fs.cpSync(path.join(SRC, d), path.join(DIST, d), { recursive: true });
+  for (const d of ['assets/img', 'assets/video', 'assets/brand']) if (fs.existsSync(path.join(SRC, d))) fs.cpSync(path.join(SRC, d), path.join(DIST, d), { recursive: true });
   for (const f of ['favicon.ico', 'favicon.svg', 'apple-touch-icon.png', 'icon-192.png', 'icon-512.png']) fs.copyFileSync(path.join(SRC, f), path.join(DIST, f));
 }
 

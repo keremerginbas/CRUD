@@ -1,6 +1,6 @@
 import site from '../site.config.mjs';
 import { icon } from './icons.mjs';
-import { esc, picture, video, waLink, abs } from './layout.mjs';
+import { esc, picture, video, waLink, abs, media } from './layout.mjs';
 import {
   pageHero, sectionHead, serviceCard, postCard, faqList, ctaBand, shareBar, withToc, trDate, words,
 } from './components.mjs';
@@ -427,64 +427,62 @@ ${ctaBand({ title: `${s.name} İçin Teklif Alın`, scene: s.scene })}`;
     extraSchema: [
       { '@type': 'Service', name: s.h1, serviceType: s.name, description: s.description, provider: { '@id': ORG_ID }, areaServed: { '@type': 'Country', name: 'Türkiye' }, url: abs(path), image: abs(`/assets/img/${s.scene}.webp`) },
       faqSchema(s.faqs),
-      videoSchema(s.scene, `${s.name} - CMS Hafriyat`, s.summary),
+      ...(media(s.scene).video ? [videoSchema(s.scene, `${s.name} - CMS Hafriyat`, s.summary)] : []),
     ],
     body,
   };
 }
 
 // ---------------------------------------------------------------- PROJELER
-export function projects({ services, projectList }) {
-  const scenes = [
-    ['hafriyat', 'Hafriyat ve Temel Kazısı', 'Ekskavatör ile kontrollü kazı ve damperli kamyona yükleme operasyonu.', 'hafriyat'],
-    ['insaat', 'İnşaat ve Kaba Yapı', 'Kule vinç destekli betonarme karkas ve beton döküm çalışmaları.', 'insaat-taahhut'],
-    ['nakliye', 'Hafriyat ve Malzeme Nakliyesi', 'Yüklü damperli kamyonlarla planlı ve güvenli taşıma.', 'nakliye'],
-    ['makine', 'İş Makineleri Operasyonları', 'Loder ve dozer ile malzeme yükleme ve saha düzenleme.', 'is-makineleri'],
-    ['temel', 'Temel Kazı İşleri', 'Yapı temelleri için kontrollü, şevli ve güvenli kazı.', 'temel-kazi-isleri'],
-    ['altyapi', 'Altyapı İşleri', 'Kanal kazısı, boru yatağı ve geri dolgu çalışmaları.', 'altyapi-isleri'],
-    ['yol', 'Yol Kazı İşleri', 'Yol yatağı kazısı, tesviye ve sıkıştırma.', 'yol-kazi-isleri'],
-    ['dolgu', 'Dolgu İşleri', 'Katmanlı serme ve silindirle sıkıştırılan kontrollü dolgu.', 'dolgu-isleri'],
-  ];
-  const cats = [{ k: 'all', n: 'Tümü' }, ...services.map((s) => ({ k: s.slug, n: s.name }))];
+const SCENE_SERVICE = { hafriyat: 'hafriyat', temel: 'temel-kazi-isleri', altyapi: 'altyapi-isleri', yol: 'yol-kazi-isleri', dolgu: 'dolgu-isleri', makine: 'is-makineleri', insaat: 'insaat-taahhut', nakliye: 'nakliye' };
+
+export function projects({ services, projectList, gallery }) {
+  const dims = media('_galeri');
+  const items = gallery.filter((g) => dims[g.file]);
+  const used = new Set(items.map((g) => SCENE_SERVICE[g.service]));
+  const cats = [{ k: 'all', n: 'Tümü' }, ...services.filter((s) => used.has(s.slug)).map((s) => ({ k: s.slug, n: s.name }))];
+  const grid = items.map((g, i) => {
+    const [w, h, sw, sh] = dims[g.file];
+    const svc = SCENE_SERVICE[g.service];
+    return `<figure class="gallery-item group" data-category="${svc}" data-reveal style="--d:${(i % 4) * 0.05}s">
+      <a href="/assets/img/galeri/${g.file}.webp" data-lightbox data-caption="${esc(g.caption)}" data-w="${w}" data-h="${h}" class="block relative overflow-hidden rounded-2xl">
+        <img src="/assets/img/galeri/${g.file}-sm.webp" width="${sw}" height="${sh}" alt="${esc(g.caption)} - CMS Hafriyat" loading="lazy" decoding="async" class="w-full h-auto transition-transform duration-700 group-hover:scale-105">
+        <span class="absolute inset-0 bg-gradient-to-t from-ink-950/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></span>
+        <span class="absolute top-3 right-3 grid place-items-center w-10 h-10 rounded-full bg-white/90 text-ink-900 opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300" aria-hidden="true">${icon('eye', 'w-5 h-5')}</span>
+      </a>
+      <figcaption class="mt-2 mb-5 text-sm font-semibold text-ink-700">${esc(g.caption)}</figcaption>
+    </figure>`;
+  }).join('');
   const real = projectList.length
-    ? `<div class="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-3">${projectList.map((p, i) => `<article class="post-card" data-reveal style="--d:${(i % 3) * 0.08}s" data-category="${p.service}">
+    ? `<section class="section bg-slate-50"><div class="container-x">${sectionHead({ kicker: 'Proje Detayları', title: 'Tamamlanan Projeler' })}<div class="mt-14 grid gap-8 md:grid-cols-2 lg:grid-cols-3">${projectList.map((p, i) => `<article class="post-card" data-reveal style="--d:${(i % 3) * 0.08}s">
         <div class="aspect-[4/3] overflow-hidden"><img src="${p.image}" alt="${esc(p.title)}" loading="lazy" class="w-full h-full object-cover" width="1200" height="900"></div>
-        <div class="p-6"><p class="kicker">${esc(p.location || '')} ${p.year ? '· ' + p.year : ''}</p><h3 class="mt-2 text-xl font-bold">${esc(p.title)}</h3><p class="mt-2 text-ink-600">${esc(p.text || '')}</p></div></article>`).join('')}</div>`
-    : `<div class="mt-12 rounded-3xl border-2 border-dashed border-slate-300 p-10 text-center" data-reveal><p class="text-lg text-ink-600 max-w-2xl mx-auto">Tamamlanan projelerimize ait fotoğraf ve detaylar çok yakında bu bölümde yayınlanacak. Devam eden çalışmalarımız hakkında bilgi almak için <a class="link" href="/iletisim/">bizimle iletişime geçin</a>.</p></div>`;
+        <div class="p-6"><p class="kicker">${esc(p.location || '')} ${p.year ? '· ' + p.year : ''}</p><h3 class="mt-2 text-xl font-bold">${esc(p.title)}</h3><p class="mt-2 text-ink-600">${esc(p.text || '')}</p></div></article>`).join('')}</div></div></section>`
+    : '';
   const body = `
-${pageHero({ h1: 'Yaptığımız İşler', lead: 'Hafriyat, temel kazı, altyapı, yol, dolgu, inşaat ve nakliye alanlarındaki çalışmalarımızdan görüntüler ve proje örnekleri.', scene: 'hafriyat', kicker: 'Projeler & Saha', crumbs: crumb({ name: 'Yaptığımız İşler', path: '/projeler/' }) })}
+${pageHero({ h1: 'Yaptığımız İşler', lead: 'Hafriyat, temel kazı, altyapı, yol, dolgu ve nakliye çalışmalarımızdan sahadan gerçek kareler.', scene: 'altyapi', kicker: 'Sahadan Fotoğraflar', crumbs: crumb({ name: 'Yaptığımız İşler', path: '/projeler/' }) })}
 <section class="section">
   <div class="container-x">
-    ${sectionHead({ kicker: 'Faaliyet Videoları', title: 'Sahada Neler Yapıyoruz?', text: 'Her faaliyet alanımızda iş akışını kısa videolarla görün. İlgili hizmet sayfasından detaylı bilgiye ulaşabilirsiniz.' })}
+    ${sectionHead({ kicker: 'Foto Galeri', title: 'Sahada Neler Yapıyoruz?', text: `Ekiplerimizin ve iş makinelerimizin sahadaki çalışmalarından ${items.length} fotoğraf. Kategori seçerek filtreleyebilir, fotoğrafa tıklayarak büyütebilirsiniz.` })}
     <div class="mt-10 flex flex-wrap gap-2" role="toolbar" aria-label="Kategori filtresi" data-filter-group="projects">
       ${cats.map((c, i) => `<button class="filter-btn${i === 0 ? ' is-active' : ''}" data-filter="${c.k}" aria-pressed="${i === 0}">${esc(c.n)}</button>`).join('')}
     </div>
-    <div class="mt-10 grid gap-8 md:grid-cols-2" data-filter-target="projects">
-      ${scenes.map(([sc, t, d, svc], i) => `<figure class="project-card group" data-reveal style="--d:${(i % 2) * 0.08}s" data-category="${svc}">
-        <div class="relative aspect-video overflow-hidden rounded-2xl">${video(sc, t, { cls: 'absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105' })}
-          <span class="absolute top-4 left-4 px-3 py-1 rounded-full bg-ink-950/70 text-white text-xs font-semibold backdrop-blur">${icon('play', 'w-3 h-3 inline -mt-0.5')} Video</span></div>
-        <figcaption class="pt-5"><h3 class="text-2xl font-display font-bold uppercase text-ink-900">${t}</h3><p class="mt-2 text-ink-600">${d}</p>
-          <a href="/hizmetler/${svc}/" class="mt-3 inline-flex items-center gap-2 font-semibold text-brand-700">Hizmeti İncele ${icon('arrow', 'w-4 h-4')}</a></figcaption>
-      </figure>`).join('')}
-    </div>
+    <div class="mt-10 columns-2 md:columns-3 lg:columns-4 gap-5" data-filter-target="projects">${grid}</div>
   </div>
 </section>
-<section class="section bg-slate-50">
-  <div class="container-x">
-    ${sectionHead({ kicker: 'Proje Galerisi', title: 'Tamamlanan Projeler' })}
-    ${real}
-  </div>
-</section>
+${real}
 ${ctaBand({ title: 'Sıradaki Proje Sizinki Olsun', scene: 'insaat' })}`;
   return {
     path: '/projeler/',
     title: 'Yaptığımız İşler ve Projeler | CMS Hafriyat',
-    description: 'Hafriyat, temel kazı, altyapı, yol ve dolgu işlerinde yaptığımız işleri inceleyin. CMS Hafriyat sahada nasıl çalışıyor görün.',
-    keywords: 'hafriyat projeleri, inşaat projeleri, yaptığımız işler, iş makineleri, nakliye, CMS Hafriyat referans',
-    h1: 'Yaptığımız İşler', ogImage: '/assets/img/og/hafriyat.jpg',
+    description: 'Hafriyat, temel kazı, altyapı, yol ve dolgu işlerinde sahadan gerçek fotoğraflarla yaptığımız işleri inceleyin. CMS Hafriyat sahada nasıl çalışır?',
+    keywords: 'hafriyat projeleri, yaptığımız işler, altyapı kazısı, temel kazısı, iş makineleri, Adana hafriyat, CMS Hafriyat',
+    h1: 'Yaptığımız İşler', ogImage: '/assets/img/og/altyapi.jpg',
     crumbs: crumb({ name: 'Yaptığımız İşler', path: '/projeler/' }),
     schemaType: 'CollectionPage',
-    extraSchema: scenes.map(([sc, t, d]) => videoSchema(sc, `${t} - CMS Hafriyat`, d)),
+    extraSchema: [{
+      '@type': 'ImageGallery', name: 'CMS Hafriyat saha fotoğrafları', inLanguage: 'tr-TR', publisher: { '@id': ORG_ID },
+      image: items.map((g) => ({ '@type': 'ImageObject', contentUrl: abs(`/assets/img/galeri/${g.file}.webp`), caption: g.caption, creator: { '@id': ORG_ID }, copyrightHolder: { '@id': ORG_ID } })),
+    }],
     body,
   };
 }

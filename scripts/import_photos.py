@@ -50,13 +50,13 @@ def crop(im, ratio, shift=0.5):
     return im.crop((0, y, w, y + nh))
 
 
-def save_set(im, out_base, og_path=None):
+def save_set(im, out_base, og_path=None, shift=0.5):
     im = ImageOps.exif_transpose(im).convert("RGB")
-    wide = crop(im, 16 / 9).resize((1280, 720), Image.LANCZOS)
+    wide = crop(im, 16 / 9, shift).resize((1280, 720), Image.LANCZOS)
     wide.save(out_base + ".webp", quality=82, method=6)
     wide.resize((640, 360), Image.LANCZOS).save(out_base + "-sm.webp", quality=80, method=6)
     if og_path:
-        crop(im, 1200 / 630).resize((1200, 630), Image.LANCZOS).save(og_path, quality=84, optimize=True, progressive=True)
+        crop(im, 1200 / 630, shift).resize((1200, 630), Image.LANCZOS).save(og_path, quality=84, optimize=True, progressive=True)
     return wide
 
 
@@ -75,12 +75,14 @@ def main():
     os.makedirs(os.path.join(IMG, "og"), exist_ok=True)
     os.makedirs(os.path.join(IMG, "blog"), exist_ok=True)
     media = {}
+    crops_f = os.path.join(SRC, "crop.json")  # dikey fotoğraflar için kadraj (0 üst … 1 alt)
+    crops = json.load(open(crops_f)) if os.path.isfile(crops_f) else {}
     for key in KEYS:
         m = {}
         photo = find(os.path.join(SRC, key), PHOTO_EXT)
         vid = find(os.path.join(SRC, key), VIDEO_EXT)
         if photo:
-            save_set(Image.open(photo), os.path.join(IMG, key), os.path.join(IMG, "og", f"{key}.jpg"))
+            save_set(Image.open(photo), os.path.join(IMG, key), os.path.join(IMG, "og", f"{key}.jpg"), crops.get(key, 0.5))
             m["photo"] = True
             print(f"fotoğraf: {key} <- {os.path.basename(photo)}")
         if vid:
@@ -123,12 +125,33 @@ def main():
             cw, ch = int(w0 * z), int(h0 * z)
             x = int((w0 - cw) * ((h % 7) / 6))
             y = int((h0 - ch) * ((h % 5) / 4))
-            save_set(im.crop((x, y, x + cw, y + ch)), base)
+            save_set(im.crop((x, y, x + cw, y + ch)), base, shift=crops.get(scene, 0.5))
             print(f"kapak: {slug} <- {scene} kırpımı")
+
+    # galeri: oranı korunarak küçültülür
+    gdir = os.path.join(SRC, "galeri")
+    if os.path.isdir(gdir):
+        out = os.path.join(IMG, "galeri")
+        os.makedirs(out, exist_ok=True)
+        gal = {}
+        for fname in sorted(os.listdir(gdir)):
+            stem, ext = os.path.splitext(fname)
+            if ext.lower() not in PHOTO_EXT:
+                continue
+            im = ImageOps.exif_transpose(Image.open(os.path.join(gdir, fname))).convert("RGB")
+            big = im.copy()
+            big.thumbnail((1400, 1400), Image.LANCZOS)
+            big.save(os.path.join(out, stem + ".webp"), quality=82, method=6)
+            sm = im.copy()
+            sm.thumbnail((560, 760), Image.LANCZOS)
+            sm.save(os.path.join(out, stem + "-sm.webp"), quality=78, method=6)
+            gal[stem] = [big.width, big.height, sm.width, sm.height]
+        media["_galeri"] = gal
+        print(f"galeri: {len(gal)} fotoğraf")
 
     with open(os.path.join(IMG, "media.json"), "w", encoding="utf-8") as f:
         json.dump(media, f, ensure_ascii=False, indent=2)
-    print(f"media.json: {len(media)} gerçek medya")
+    print(f"media.json: {len([k for k in media if not k.startswith('_')])} gerçek sahne medyası")
 
 
 if __name__ == "__main__":

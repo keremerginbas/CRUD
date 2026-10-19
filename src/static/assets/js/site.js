@@ -188,3 +188,51 @@
     });
   }
 })();
+
+/* Galeri büyütme penceresi (lightbox) */
+(() => {
+  const links = [...document.querySelectorAll('[data-lightbox]')];
+  if (!links.length) return;
+  let idx = 0;
+  let box;
+  const visible = () => links.filter((a) => !a.closest('.is-filtered'));
+  const show = (i) => {
+    const list = visible();
+    idx = (i + list.length) % list.length;
+    const a = list[idx];
+    box.querySelector('img').src = a.href;
+    box.querySelector('img').alt = a.dataset.caption;
+    box.querySelector('p').textContent = `${a.dataset.caption} (${idx + 1}/${list.length})`;
+  };
+  const close = () => { box.remove(); box = null; document.body.style.overflow = ''; };
+  const open = (a) => {
+    box = document.createElement('div');
+    box.className = 'lightbox';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', 'Fotoğraf görüntüleyici');
+    box.innerHTML = `<figure class="text-center"><img src="" alt=""><p class="mt-4 text-slate-200 font-semibold"></p></figure>
+      <button class="lightbox-btn top-4 right-4" data-x aria-label="Kapat">✕</button>
+      <button class="lightbox-btn left-3 top-1/2 -translate-y-1/2" data-prev aria-label="Önceki">‹</button>
+      <button class="lightbox-btn right-3 top-1/2 -translate-y-1/2" data-next aria-label="Sonraki">›</button>`;
+    document.body.appendChild(box);
+    document.body.style.overflow = 'hidden';
+    box.addEventListener('click', (e) => {
+      if (e.target.closest('[data-prev]')) show(idx - 1);
+      else if (e.target.closest('[data-next]')) show(idx + 1);
+      else if (e.target.closest('[data-x]') || e.target === box) close();
+    });
+    let sx = null;
+    box.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; }, { passive: true });
+    box.addEventListener('touchend', (e) => { if (sx !== null && Math.abs(e.changedTouches[0].clientX - sx) > 50) show(idx + (e.changedTouches[0].clientX < sx ? 1 : -1)); sx = null; });
+    show(visible().indexOf(a));
+    box.querySelector('[data-x]').focus();
+  };
+  links.forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); open(a); }));
+  addEventListener('keydown', (e) => {
+    if (!box) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowRight') show(idx + 1);
+    if (e.key === 'ArrowLeft') show(idx - 1);
+  });
+})();

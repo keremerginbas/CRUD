@@ -138,7 +138,11 @@
   .filter-btn { @apply rounded-full px-5 py-2.5 font-semibold text-ink-700 ring-1 ring-slate-300 transition-all hover:ring-brand-500 hover:text-ink-900; }
   .filter-btn.is-active { @apply bg-ink-900 text-white ring-ink-900; }
   .project-card { transition: opacity .4s, transform .4s; }
-  .project-card.is-filtered { @apply hidden; }
+  .project-card.is-filtered, .gallery-item.is-filtered { @apply hidden; }
+  .gallery-item { break-inside: avoid; }
+  .lightbox { @apply fixed inset-0 z-[90] flex items-center justify-center bg-ink-950/95 p-4 backdrop-blur; animation: rise .3s ease both; }
+  .lightbox img { @apply max-h-[82vh] max-w-full rounded-xl shadow-2xl object-contain; }
+  .lightbox-btn { @apply absolute grid w-12 h-12 place-items-center rounded-full bg-white/10 text-white text-2xl transition hover:bg-brand-500 hover:text-ink-950; }
 
   .share-btn { @apply grid place-items-center w-10 h-10 rounded-full bg-slate-100 font-bold text-ink-700 transition-colors hover:bg-brand-500 hover:text-ink-950; }
 
