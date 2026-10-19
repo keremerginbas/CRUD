@@ -53,13 +53,10 @@ def api_key(container):
     for k in ("OPENAI_API_KEY", "XRE_OPENAI_API_KEY"):
         if os.environ.get(k, "").strip():
             return os.environ[k].strip()
-    if container:
-        try:
-            v = sh(["docker", "exec", container, "printenv", "XRE_OPENAI_API_KEY"])
-            if v:
-                return v
-        except Exception:
-            pass
+    if container and not os.environ.get("ASK_KEY"):
+        # Anahtar uygulamada şifreli saklanır; sesi uygulamanın kendisi üretir.
+        print(f"  OpenAI anahtarı uygulamadan kullanılacak ({container}).")
+        return f"@app:{container}"
     for _ in range(3):
         k = getpass.getpass("OpenAI API anahtarı (sk- ile başlar, ekranda görünmez): ").strip()
         if k.startswith("sk-") and " " not in k:
@@ -87,6 +84,28 @@ class FF:
 
     def duration(self, name):
         return float(self._run("ffprobe", ["-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", name]))
+
+
+INTERNAL_JS = r"""
+let d='';process.stdin.on('data',c=>d+=c).on('end',async()=>{
+  const r=await fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/internal/tts',{method:'POST',headers:{'content-type':'application/json'},body:d});
+  const b=Buffer.from(await r.arrayBuffer());
+  if(!r.ok){process.stderr.write(b.toString());process.exit(2);}
+  process.stdout.write(b);
+});
+"""
+
+
+def tts_internal(container, text, voice, instructions, out_path):
+    """Sesi çalışan uygulama üretir (uygulamanın kayıtlı OpenAI anahtarıyla)."""
+    r = subprocess.run(["docker", "exec", "-i", container, "node", "-e", INTERNAL_JS],
+                       input=json.dumps({"text": text, "voice": voice, "instructions": instructions}).encode(),
+                       capture_output=True)
+    if r.returncode != 0:
+        raise SystemExit("Uygulama sesi üretemedi: " + r.stderr.decode(errors="replace")[:400]
+                         + "\nCRM → Entegrasyonlar → OpenAI API anahtarını kontrol edin.")
+    with open(out_path, "wb") as f:
+        f.write(r.stdout)
 
 
 def tts(key, text, voice, instructions, out_path):
@@ -124,7 +143,10 @@ def build(lang, cfg, key, ff, work, out):
             ff.ffmpeg(["-f", "lavfi", "-i", f"sine=frequency=440:duration={max(1.5, len(s['text']) / 15):.2f}", a])
         else:
             print(f"  [{lang}] {i + 1}/{len(slides)} seslendiriliyor…", flush=True)
-            tts(key, s["text"], cfg.get("voice", "nova"), cfg.get("instructions", ""), os.path.join(work, a))
+            if key.startswith("@app:"):
+                tts_internal(key[5:], s["text"], cfg.get("voice", "nova"), cfg.get("instructions", ""), os.path.join(work, a))
+            else:
+                tts(key, s["text"], cfg.get("voice", "nova"), cfg.get("instructions", ""), os.path.join(work, a))
         ad = ff.duration(a)
         audio.append((a, ad))
         durs.append(max(float(s.get("min", 5)), ad + 1.3))

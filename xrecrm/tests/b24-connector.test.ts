@@ -660,6 +660,19 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(m.expiringSoon.map((x) => [x.domain, x.status])).toEqual([["b.bitrix24.com", "trial"], ["a.bitrix24.com", "active"]]);
   });
 
+  it("seslendirme ucu yalnız yerelden çağrılır ve uygulamanın OpenAI anahtarıyla mp3 döner", async () => {
+    process.env.XRE_OPENAI_API_KEY = "sk-test";
+    const calls: any[] = [];
+    setAiFetch((async (url: string, init: any) => { calls.push({ url, body: JSON.parse(init.body), auth: init.headers.authorization }); return new Response(new Uint8Array([0x49, 0x44, 0x33]), { status: 200 }); }) as any);
+    const { base } = await setup();
+    const r = await fetch(`${base}/internal/tts`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "Merhaba", voice: "nova", instructions: "Sıcak" }) });
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toContain("audio/mpeg");
+    expect(new Uint8Array(await r.arrayBuffer())).toEqual(new Uint8Array([0x49, 0x44, 0x33]));
+    expect(calls[0]).toMatchObject({ url: "https://api.openai.com/v1/audio/speech", auth: "Bearer sk-test", body: { model: "gpt-4o-mini-tts", voice: "nova", input: "Merhaba", instructions: "Sıcak" } });
+    setAiFetch(null);
+  });
+
   it("AI asistan bilgi tabanından cevap verir, temsilci yazınca susar, gerektiğinde devreder", async () => {
     process.env.XRE_OPENAI_API_KEY = "sk-test";
     setAgentMergeDelay(20);

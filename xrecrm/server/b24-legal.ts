@@ -6,7 +6,8 @@
 // (B24_VENDOR_NAME, B24_VENDOR_ADDRESS, B24_SUPPORT_EMAIL, B24_SUPPORT_PHONE, B24_SUPPORT_HOURS).
 import fs from "node:fs";
 import path from "node:path";
-import type { Express, Request, Response } from "express";
+import express, { type Express, type Request, type Response } from "express";
+import { speech } from "./b24-ai.js";
 import { PANEL_STYLE } from "./b24-panel-html.js";
 import { REPORT_TTL_DAYS, MEDIA_KEEP_DAYS } from "./b24-live.js";
 import { type Lang } from "./b24-i18n.js";
@@ -150,6 +151,19 @@ function supportBody(lang: Lang) {
 const langOfReq = (req: Request): Lang => (String(req.query.lang || "").toLowerCase() === "tr" ? "tr" : "en");
 
 export function registerLegalRoutes(app: Express) {
+  // Seslendirme betiği için: yalnız konteynerin kendi içinden (127.0.0.1) çağrılır,
+  // uygulamanın kayıtlı OpenAI anahtarını kullanır. Caddy üzerinden gelen istek reddedilir.
+  app.post("/internal/tts", express.json({ limit: "64kb" }), async (req, res) => {
+    const from = String(req.socket.remoteAddress || "");
+    if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(from)) return res.status(404).send("Not found");
+    try {
+      const audio = await speech(String(req.body?.text || ""), String(req.body?.voice || "nova"), String(req.body?.instructions || ""));
+      res.type("audio/mpeg").send(audio);
+    } catch (error) {
+      const e = error as Error & { statusCode?: number };
+      res.status(e.statusCode || 500).json({ message: e.message });
+    }
+  });
   // Tanıtım videosu (docs/market/video/seslendir.py üretir ve veri klasörüne koyar).
   app.get("/b24/video/:name", (req, res) => {
     const name = String(req.params.name || "");

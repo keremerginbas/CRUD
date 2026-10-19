@@ -19,6 +19,21 @@ export function setAiFetch(next: Fetch | null) {
 const apiKey = () => process.env.XRE_OPENAI_API_KEY?.trim() || "";
 export const aiConfigured = () => Boolean(apiKey());
 
+/** Metni sese çevirir (mp3). Tanıtım videosu seslendirmesi için. */
+export async function speech(text: string, voice = "nova", instructions = ""): Promise<Buffer> {
+  if (!apiKey()) throw Object.assign(new Error("Sunucuda OpenAI anahtarı tanımlı değil."), { statusCode: 503 });
+  const call = async (model: string, withInstructions: boolean) =>
+    fetcher("https://api.openai.com/v1/audio/speech", {
+      method: "POST",
+      headers: { authorization: `Bearer ${apiKey()}`, "content-type": "application/json" },
+      body: JSON.stringify({ model, voice, input: text.slice(0, 4000), response_format: "mp3", ...(withInstructions && instructions ? { instructions } : {}) }),
+    });
+  let res = await call("gpt-4o-mini-tts", true);
+  if (res.status === 400 || res.status === 404) res = await call("tts-1-hd", false);
+  if (!res.ok) throw Object.assign(new Error(`OpenAI ses HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`), { statusCode: 502 });
+  return Buffer.from(await res.arrayBuffer());
+}
+
 export const LANGUAGE_NAMES: Record<string, string> = {
   tr: "Türkçe", en: "İngilizce", ar: "Arapça", ru: "Rusça", fa: "Farsça", de: "Almanca", fr: "Fransızca",
   uk: "Ukraynaca", az: "Azerice", kk: "Kazakça", zh: "Çince", es: "İspanyolca", it: "İtalyanca", nl: "Felemenkçe",
