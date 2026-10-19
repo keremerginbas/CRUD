@@ -187,7 +187,7 @@ export function qualificationComment(q: Qualification, lang: "tr" | "en" = "tr")
   const badge = q.temperature === "sıcak" ? "🔥" : q.temperature === "ılık" ? "🌤" : "❄️";
   const temp = tr ? `${q.temperature} müşteri` : `${q.temperature === "sıcak" ? "hot" : q.temperature === "ılık" ? "warm" : "cold"} lead`;
   return [
-    `${badge} ${tr ? "XRE WhatsApp yapay zekâ değerlendirmesi" : "XRE WhatsApp AI assessment"}: ${temp} (${q.score}/100)`,
+    `${badge} ${tr ? "WhatsApp by XRE yapay zekâ değerlendirmesi" : "WhatsApp by XRE AI assessment"}: ${temp} (${q.score}/100)`,
     q.summary,
     rows.map(([k, v]) => `• ${k}: ${v}`).join("\n"),
     q.next_step ? `${tr ? "Öneri" : "Next step"}: ${q.next_step}` : "",

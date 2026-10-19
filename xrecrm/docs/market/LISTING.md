@@ -1,4 +1,4 @@
-# XRE WhatsApp: Bitrix24 Market ilan metinleri
+# WhatsApp by XRE: Bitrix24 Market ilan metinleri
 
 Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygulama kartına girilecek metinleri içerir. Kart **İngilizce** olmak zorunda; Türkçe açıklama isteğe bağlıdır. `[ ]` içindeki yerleri yayından önce doldurun.
 
@@ -7,7 +7,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 | Alan | Değer |
 |---|---|
 | Yayın bölgesi | Global |
-| Uygulama adı | XRE WhatsApp *(ad konusunda aşağıdaki "Ad ve marka" notuna bakın)* |
+| Uygulama adı | WhatsApp by XRE *(ad konusunda aşağıdaki "Ad ve marka" notuna bakın)* |
 | Kategoriler | Integrations → Messengers / Open Channels connectors; CRM; Automation → Chat bots *(bu sonuncusu yalnız Bitrix sohbet botu eklenirse seçilebilir; şimdilik seçmeyin)* |
 | İkon | `docs/market/icon-512.png` (512×512, PNG, saydam değil, üçüncü taraf logosu yok) |
 | Ekran görüntüleri | `docs/market/screenshots/en-*.png` (1280×720, İngilizce arayüz, gerçek olmayan demo verisi). Bitrix kuralı uygulamanın **Bitrix24 kaydırmalı paneli içinde** görünmesini ister. Yayından önce aynı ekranları kendi test portalınızda, uygulama Bitrix içinde açıkken yeniden çekin. |
@@ -22,7 +22,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 
 ### Full description
 
-> **XRE WhatsApp** brings your WhatsApp numbers into Bitrix24. Each number becomes an Open Channel, so your team answers WhatsApp chats right in Bitrix24, with CRM, history and queues in one place.
+> **WhatsApp by XRE** brings your WhatsApp numbers into Bitrix24. Each number becomes an Open Channel, so your team answers WhatsApp chats right in Bitrix24, with CRM, history and queues in one place.
 >
 > **What you get**
 > - Connect any number of WhatsApp numbers with a QR code, no developer account required.
@@ -39,7 +39,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 > **Requirements and limitations**
 > - Installation and setup require Bitrix24 administrator rights. Open Channels must be available on your plan.
 > - A WhatsApp account on a phone is required for each number. The number connects as a linked device (like WhatsApp Web), and the phone needs to be online occasionally to keep the link active.
-> - XRE WhatsApp is not affiliated with WhatsApp or Meta. Follow WhatsApp's rules; bulk unsolicited messaging can lead to account restrictions by WhatsApp.
+> - WhatsApp by XRE is not affiliated with WhatsApp or Meta. Follow WhatsApp's rules; bulk unsolicited messaging can lead to account restrictions by WhatsApp.
 > - Business hours for the AI assistant and report delivery times use the UTC+3 time zone.
 > - The interface is available in English and Turkish.
 >
@@ -50,7 +50,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 
 ### Installation process description
 
-> 1. Click **Install** and open **XRE WhatsApp** from the left menu (administrator account). The app registers its Open Channel connector automatically.
+> 1. Click **Install** and open **WhatsApp by XRE** from the left menu (administrator account). The app registers its Open Channel connector automatically.
 > 2. On the **Connections** tab click **Add number**, enter a name (for example "Sales") and click **Add and scan QR**. An Open Channel is created for the number.
 > 3. On the phone open WhatsApp → **Settings → Linked devices → Link a device** and scan the QR code. The card turns green when the number is connected.
 > 4. On the **Roles** tab create roles and choose which numbers each role can see. On the **Staff** tab assign a role to each employee. Employees are added to the Open Channel queues of their numbers automatically.
@@ -80,7 +80,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 | Sol menüye sayfa ekle | Evet |
 | BitrixMobile'a göm | Hayır (panel mobilde çalışır ama ilk sürümde gerekmez) |
 | Yönetici olmadan kurulabilir | Hayır |
-| İzinler (system sections) | `imconnector`, `imopenlines`, `crm`, `user_basic`, `im` *(yalnız rapor bildirimi için)*, `placement` *(CRM kartlarındaki "XRE WhatsApp Chat" sekmesi için)*. Bitrix, tam `user` iznini yalnız zorunluysa ister. Test portalında `user_basic` ile personel listesi ve çevrimiçi durumu geliyorsa öyle bırakın, gelmiyorsa `user` seçin. Gereksiz izin moderasyondan döner. |
+| İzinler (system sections) | `imconnector`, `imopenlines`, `crm`, `user_basic`, `im` *(yalnız rapor bildirimi için)*, `placement` *(CRM kartlarındaki "WhatsApp by XRE Chat" sekmesi için)*. Bitrix, tam `user` iznini yalnız zorunluysa ister. Test portalında `user_basic` ile personel listesi ve çevrimiçi durumu geliyorsa öyle bırakın, gelmiyorsa `user` seçin. Gereksiz izin moderasyondan döner. |
 | What's new | İlk sürümde boş bırakılır. |
 
 ## Ad ve marka

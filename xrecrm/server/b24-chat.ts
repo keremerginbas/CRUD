@@ -113,19 +113,21 @@ const lineName = (portal: B24Portal, line: string) => portal.lines[line]?.name |
 // ---------- CRM kart sekmesi ----------
 
 export const CARD_PLACEMENTS = ["CRM_LEAD_DETAIL_TAB", "CRM_CONTACT_DETAIL_TAB", "CRM_DEAL_DETAIL_TAB", "CRM_COMPANY_DETAIL_TAB"];
-export const CARD_TABS_VERSION = 1;
+export const CARD_TABS_VERSION = 2;
 
 /** Kart sekmelerini Bitrix'e kaydeder; kaydedilemeyenler için uyarı döndürür. */
 export async function bindCardTabs(store: Store, portal: B24Portal, base: string): Promise<string[]> {
   const warnings: string[] = [];
   let ok = 0;
   for (const placement of CARD_PLACEMENTS) {
+    // Başlık değişince eski sekme kalmasın: aynı adrese yeniden bağlanmak başlığı güncellemez.
+    await b24Call(store, portal, "placement.unbind", { PLACEMENT: placement, HANDLER: `${base}/b24/card` }).catch(() => null);
     try {
       await b24Call(store, portal, "placement.bind", {
         PLACEMENT: placement,
         HANDLER: `${base}/b24/card`,
-        TITLE: "XRE WhatsApp Chat",
-        LANG_ALL: { tr: { TITLE: "XRE WhatsApp Sohbet" }, en: { TITLE: "XRE WhatsApp Chat" } },
+        TITLE: "WhatsApp by XRE",
+        LANG_ALL: { tr: { TITLE: "WhatsApp by XRE" }, en: { TITLE: "WhatsApp by XRE" } },
       });
       ok++;
     } catch (error) {
@@ -481,7 +483,7 @@ const TEXT = {
 export function chatHtml(ticket: string, lang: Lang, ctx: { mode: "inbox" | "card"; phones?: string[]; title?: string }) {
   const cfg = { t: ticket, lang, mode: ctx.mode, phones: ctx.phones || [], title: ctx.title || "", txt: TEXT[lang] };
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>XRE WhatsApp</title>
+<title>WhatsApp by XRE</title>
 <style>${PANEL_STYLE}
 html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 .app{display:grid;grid-template-columns:320px 1fr;height:100vh;background:var(--paper)}

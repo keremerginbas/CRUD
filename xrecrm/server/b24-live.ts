@@ -287,7 +287,7 @@ export async function deliverReport(store: Store, portal: B24Portal, report: Rep
   const url = reportUrl(portal, report.token);
   const lang = langOf(portal);
   const range = report.from === report.to ? report.from : `${report.from} – ${report.to}`;
-  const title = pick(lang, `${PERIOD_LABEL[report.period]} XRE WhatsApp raporu (${range})`, `${PERIOD_LABEL_EN[report.period]} XRE WhatsApp report (${range})`);
+  const title = pick(lang, `${PERIOD_LABEL[report.period]} WhatsApp by XRE raporu (${range})`, `${PERIOD_LABEL_EN[report.period]} WhatsApp by XRE report (${range})`);
   const t = report.metrics.total;
   const fallback = pick(lang, `${t.inbound} gelen, ${t.outbound} giden mesaj; ${t.newChats} yeni sohbet.`, `${t.inbound} incoming, ${t.outbound} outgoing messages; ${t.newChats} new chats.`);
   const text = `📊 ${title}\n${report.ai?.headline || fallback}\n\n${url}`;
@@ -350,9 +350,9 @@ export async function runReportSchedule(store: Store, now = Date.now()) {
       try {
         const report = await createReport(store, fresh, period, false, now);
         const result = await deliverReport(store, fresh, report);
-        if (result.errors.length) console.warn(`XRE WhatsApp raporu (${portal.domain}):`, result.errors.join("; "));
+        if (result.errors.length) console.warn(`WhatsApp by XRE raporu (${portal.domain}):`, result.errors.join("; "));
       } catch (error) {
-        console.warn(`XRE WhatsApp raporu oluşturulamadı (${portal.domain}):`, (error as Error).message);
+        console.warn(`WhatsApp by XRE raporu oluşturulamadı (${portal.domain}):`, (error as Error).message);
       }
     }
   }
@@ -477,7 +477,7 @@ export function reportHtml(r: Report): string {
   const sources = Object.entries(m.crm?.bySource || {}).sort((a, b) => b[1] - a[1]);
   const maxSource = Math.max(1, ...sources.map((s) => s[1]));
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
-<title>${esc(periodLabel(r.period, lang))} ${T("rapor", "report")} · XRE WhatsApp</title>
+<title>${esc(periodLabel(r.period, lang))} ${T("rapor", "report")} · WhatsApp by XRE</title>
 <style>
 :root{--paper:#f4f7fa;--surface:#fff;--ink:#10243a;--ink-2:#4a5d72;--ink-3:#7d8ea1;--line:#dfe6ee;--accent:#0f7f86;--ok:#1d9b50;--warn:#b86e00;--danger:#bb3a33;--bar:#00a0ab}
 @media (prefers-color-scheme:dark){:root{--paper:#0d1722;--surface:#14212f;--ink:#e6edf4;--ink-2:#a9b8c8;--ink-3:#7f91a5;--line:#243446;--accent:#3cb4ba;--ok:#4cc27c;--warn:#e0a03a;--danger:#ec6f66;--bar:#12939c}}
@@ -495,7 +495,7 @@ table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}td,t
 .bar{height:8px;border-radius:4px;background:var(--bar);margin-top:4px}.hot{padding:9px 0;border-bottom:1px solid var(--line)}.hot:last-child{border:0}.hot b{margin-right:6px}.hot p{margin:2px 0 0;color:var(--ink-2);font-size:14px}
 footer{margin-top:28px;color:var(--ink-3);font-size:12px;text-align:center}
 </style></head><body><main>
-<header><small>XRE WhatsApp · <span class="dom">${esc(r.domain)}</span></small><h1>${esc(periodLabel(r.period, lang))} ${T("yönetici raporu", "manager report")}</h1><p>${esc(range)}</p></header>
+<header><small>WhatsApp by XRE · <span class="dom">${esc(r.domain)}</span></small><h1>${esc(periodLabel(r.period, lang))} ${T("yönetici raporu", "manager report")}</h1><p>${esc(range)}</p></header>
 ${r.ai ? `<div class="headline"><b>${esc(r.ai.headline)}</b><p>${esc(r.ai.summary)}</p></div>` : ""}
 <div class="kpis">
 ${kpi(T("Gelen mesaj", "Incoming messages"), nf.format(m.total.inbound))}${kpi(T("Giden mesaj", "Outgoing messages"), nf.format(m.total.outbound))}${kpi(T("Yeni sohbet", "New chats"), nf.format(m.total.newChats))}

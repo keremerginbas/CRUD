@@ -30,7 +30,7 @@ function shell(res: Response, lang: Lang, title: string, body: string, path: str
     .type("html")
     .setHeader("cache-control", "public, max-age=3600")
     .send(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${esc(title)} · XRE WhatsApp</title>
+<title>${esc(title)} · WhatsApp by XRE</title>
 <style>${PANEL_STYLE}
 .doc{max-width:820px;margin:0 auto;padding:32px 20px 64px}
 .doc header{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:8px}
@@ -39,7 +39,7 @@ function shell(res: Response, lang: Lang, title: string, body: string, path: str
 .doc .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);padding:16px 20px;margin:14px 0}
 .doc a{color:var(--accent)}
 @media (max-width:600px){.doc{padding:20px 16px 48px}.doc nav a{margin:0 12px 0 0}}</style></head>
-<body><main class="doc"><header><div><small>XRE WhatsApp</small><h1>${esc(title)}</h1><small>${lang === "en" ? "Last updated" : "Son güncelleme"}: ${LEGAL_UPDATED}</small></div>
+<body><main class="doc"><header><div><small>WhatsApp by XRE</small><h1>${esc(title)}</h1><small>${lang === "en" ? "Last updated" : "Son güncelleme"}: ${LEGAL_UPDATED}</small></div>
 <nav><a href="/b24/legal/terms${lang === "tr" ? "?lang=tr" : ""}">${lang === "en" ? "License agreement" : "Lisans sözleşmesi"}</a><a href="/b24/legal/privacy${lang === "tr" ? "?lang=tr" : ""}">${lang === "en" ? "Privacy policy" : "Gizlilik politikası"}</a><a href="/b24/support${lang === "tr" ? "?lang=tr" : ""}">${lang === "en" ? "Support" : "Destek"}</a><a href="${path}?lang=${other}" hreflang="${other}">${other === "tr" ? "Türkçe" : "English"}</a></nav></header>
 ${body}</main></body></html>`);
 }
@@ -58,8 +58,8 @@ const contactLines = (lang: Lang) => {
 
 function termsEn() {
   const v = vendorInfo();
-  return `<p>This End User License Agreement (“Agreement”) is between <b>${esc(v.name)}</b> (“Licensor”, “we”) and the organization that installs the <b>XRE WhatsApp</b> application (“Application”) on its Bitrix24 account (“Customer”, “you”). By installing or using the Application you accept this Agreement.</p>
-<h2>1. The Application</h2><p>XRE WhatsApp connects WhatsApp numbers to Bitrix24 Open Channels so that WhatsApp chats can be answered in Bitrix24. It also offers optional features such as message translation, voice message transcription, lead qualification, an AI assistant, live monitoring and manager reports.</p>
+  return `<p>This End User License Agreement (“Agreement”) is between <b>${esc(v.name)}</b> (“Licensor”, “we”) and the organization that installs the <b>WhatsApp by XRE</b> application (“Application”) on its Bitrix24 account (“Customer”, “you”). By installing or using the Application you accept this Agreement.</p>
+<h2>1. The Application</h2><p>WhatsApp by XRE connects WhatsApp numbers to Bitrix24 Open Channels so that WhatsApp chats can be answered in Bitrix24. It also offers optional features such as message translation, voice message transcription, lead qualification, an AI assistant, live monitoring and manager reports.</p>
 <h2>2. License</h2><p>We grant you a non-exclusive, non-transferable, revocable license to use the Application for your internal business purposes for as long as it is installed and, for paid numbers, for the paid license period. You may not resell, reverse engineer, or use the Application to send unsolicited messages (spam).</p>
 <h2>3. Fees and trial</h2><p>Installing the Application is free. Each connected WhatsApp number receives a free trial when it is first connected. After the trial, a paid license per number is required to keep sending and receiving messages on that number. Current prices, periods and discounts are shown inside the Application on the <b>Billing</b> tab before any payment. Payments are made by bank transfer or with a license code; the license is extended after we confirm the payment. Fees already paid are not refundable unless required by law.</p>
 <h2>4. WhatsApp</h2><p>The Application connects to WhatsApp as a linked device of your WhatsApp account, in the same way as WhatsApp Web. The Application is not affiliated with, endorsed or sponsored by WhatsApp or Meta. You are responsible for using WhatsApp in line with WhatsApp’s terms and applicable law, including having a lawful basis to message your contacts. WhatsApp may restrict accounts that violate its policies; we are not responsible for such restrictions.</p>
@@ -75,8 +75,8 @@ function termsEn() {
 
 function termsTr() {
   const v = vendorInfo();
-  return `<p>Bu Son Kullanıcı Lisans Sözleşmesi (“Sözleşme”), <b>${esc(v.name)}</b> (“Lisans veren”, “biz”) ile <b>XRE WhatsApp</b> uygulamasını (“Uygulama”) Bitrix24 hesabına kuran kuruluş (“Müşteri”, “siz”) arasındadır. Uygulamayı kurarak veya kullanarak bu Sözleşmeyi kabul etmiş olursunuz.</p>
-<h2>1. Uygulama</h2><p>XRE WhatsApp, WhatsApp numaralarını Bitrix24 Açık Kanallarına bağlar; böylece WhatsApp sohbetleri Bitrix24 içinden cevaplanır. Ayrıca isteğe bağlı olarak mesaj çevirisi, sesli mesajı yazıya dökme, müşteri nitelendirme, AI asistan, canlı monitör ve yönetici raporu sunar.</p>
+  return `<p>Bu Son Kullanıcı Lisans Sözleşmesi (“Sözleşme”), <b>${esc(v.name)}</b> (“Lisans veren”, “biz”) ile <b>WhatsApp by XRE</b> uygulamasını (“Uygulama”) Bitrix24 hesabına kuran kuruluş (“Müşteri”, “siz”) arasındadır. Uygulamayı kurarak veya kullanarak bu Sözleşmeyi kabul etmiş olursunuz.</p>
+<h2>1. Uygulama</h2><p>WhatsApp by XRE, WhatsApp numaralarını Bitrix24 Açık Kanallarına bağlar; böylece WhatsApp sohbetleri Bitrix24 içinden cevaplanır. Ayrıca isteğe bağlı olarak mesaj çevirisi, sesli mesajı yazıya dökme, müşteri nitelendirme, AI asistan, canlı monitör ve yönetici raporu sunar.</p>
 <h2>2. Lisans</h2><p>Uygulamayı kurulu kaldığı sürece ve ücretli numaralar için ödenen lisans süresi boyunca kendi iç işleriniz için kullanmanız amacıyla münhasır olmayan, devredilemez, geri alınabilir bir lisans veririz. Uygulamayı yeniden satamaz, tersine mühendislik yapamaz, istenmeyen toplu mesaj (spam) göndermek için kullanamazsınız.</p>
 <h2>3. Ücretler ve deneme</h2><p>Uygulamanın kurulumu ücretsizdir. Her WhatsApp numarası ilk bağlandığında ücretsiz deneme alır. Deneme bitince o numarada mesajlaşmaya devam etmek için numara başına ücretli lisans gerekir. Güncel fiyat, dönem ve indirimler ödemeden önce Uygulamanın <b>Ödeme</b> sekmesinde gösterilir. Ödeme havale veya lisans koduyla yapılır; lisans, ödeme tarafımızca onaylanınca uzatılır. Kanunen zorunlu haller dışında ödenen ücretler iade edilmez.</p>
 <h2>4. WhatsApp</h2><p>Uygulama, WhatsApp Web gibi, WhatsApp hesabınızın bağlı cihazı olarak çalışır. Uygulamanın WhatsApp veya Meta ile bir bağlantısı, onayı ya da sponsorluğu yoktur. WhatsApp’ı WhatsApp kurallarına ve yürürlükteki mevzuata (kişilere mesaj atmak için hukuki dayanak dahil) uygun kullanmak sizin sorumluluğunuzdadır. WhatsApp kurallarını ihlal eden hesapları kısıtlayabilir; bu kısıtlamalardan sorumlu değiliz.</p>
@@ -92,7 +92,7 @@ function termsTr() {
 
 function privacyEn() {
   const v = vendorInfo();
-  return `<p>This policy explains how <b>${esc(v.name)}</b> processes data when you use the <b>XRE WhatsApp</b> application for Bitrix24. For the personal data of your contacts and employees, you (the Bitrix24 account owner) are the data controller and we act as your data processor.</p>
+  return `<p>This policy explains how <b>${esc(v.name)}</b> processes data when you use the <b>WhatsApp by XRE</b> application for Bitrix24. For the personal data of your contacts and employees, you (the Bitrix24 account owner) are the data controller and we act as your data processor.</p>
 <h2>1. Data we process</h2><ul>
 <li><b>Bitrix24 account data:</b> account domain and member ID, OAuth access and refresh tokens issued by Bitrix24, user IDs and names of employees (to assign roles and show statistics).</li>
 <li><b>WhatsApp messages:</b> messages, voice notes and files exchanged on connected numbers pass through our servers to be delivered between WhatsApp and Bitrix24. We keep the last 40 messages of each chat to provide translation, qualification, the AI assistant, statistics and reports.</li>
@@ -112,7 +112,7 @@ function privacyEn() {
 
 function privacyTr() {
   const v = vendorInfo();
-  return `<p>Bu politika, Bitrix24 için <b>XRE WhatsApp</b> uygulamasını kullandığınızda <b>${esc(v.name)}</b> tarafından hangi verilerin nasıl işlendiğini açıklar. Kişilerinizin ve çalışanlarınızın kişisel verileri için veri sorumlusu sizsiniz (Bitrix24 hesap sahibi); biz veri işleyen olarak hareket ederiz.</p>
+  return `<p>Bu politika, Bitrix24 için <b>WhatsApp by XRE</b> uygulamasını kullandığınızda <b>${esc(v.name)}</b> tarafından hangi verilerin nasıl işlendiğini açıklar. Kişilerinizin ve çalışanlarınızın kişisel verileri için veri sorumlusu sizsiniz (Bitrix24 hesap sahibi); biz veri işleyen olarak hareket ederiz.</p>
 <h2>1. İşlediğimiz veriler</h2><ul>
 <li><b>Bitrix24 hesap verileri:</b> hesap alan adı ve kimliği, Bitrix24’ün verdiği OAuth erişim ve yenileme belirteçleri, çalışanların kullanıcı kimlikleri ve adları (rol atama ve istatistik için).</li>
 <li><b>WhatsApp mesajları:</b> bağlı numaralardaki mesajlar, sesli mesajlar ve dosyalar WhatsApp ile Bitrix24 arasında iletilmek üzere sunucularımızdan geçer. Çeviri, nitelendirme, AI asistan, istatistik ve rapor için her sohbetin son 40 mesajı saklanır.</li>
@@ -135,7 +135,7 @@ function supportBody(lang: Lang) {
   const en = lang === "en";
   return `<div class="card">${contactLines(lang)}<br>${en ? "Support hours" : "Destek saatleri"}: ${esc(v.hours)}<br>${en ? "We reply to every request within 1 business day." : "Her talebe 1 iş günü içinde dönüş yaparız."}</div>
 <h2>${en ? "Getting started" : "Başlangıç"}</h2><ol>
-<li>${en ? "Open <b>XRE WhatsApp</b> from the left menu of Bitrix24 (administrator account)." : "Bitrix24 sol menüsünden <b>XRE WhatsApp</b>’ı açın (yönetici hesabı)."}</li>
+<li>${en ? "Open <b>WhatsApp by XRE</b> from the left menu of Bitrix24 (administrator account)." : "Bitrix24 sol menüsünden <b>WhatsApp by XRE</b>’ı açın (yönetici hesabı)."}</li>
 <li>${en ? "On the <b>Connections</b> tab click <b>Add number</b>, give it a name and scan the QR code with WhatsApp (Settings → Linked devices → Link a device)." : "<b>Bağlantılar</b> sekmesinde <b>Numara ekle</b>’ye tıklayın, ad verin ve QR kodu WhatsApp’tan okutun (Ayarlar → Bağlı cihazlar → Cihaz bağla)."}</li>
 <li>${en ? "On the <b>Roles</b> tab create roles with the numbers each team may see, then assign roles to employees on the <b>Staff</b> tab. Employees receive only the chats of their numbers in Open Channels." : "<b>Roller</b> sekmesinde her ekibin görebileceği numaralarla roller oluşturun, <b>Personel</b> sekmesinde çalışanlara rol atayın. Çalışanlar Açık Kanallarda yalnız kendi numaralarının sohbetlerini alır."}</li>
 <li>${en ? "Optional: turn on translation, voice transcription and qualification on the <b>Settings</b> tab, and configure the <b>AI Assistant</b> and <b>Reports</b>." : "İsteğe bağlı: <b>Ayarlar</b> sekmesinden çeviri, sesli mesaj ve nitelendirmeyi açın; <b>AI Asistan</b> ve <b>Raporlar</b>’ı yapılandırın."}</li></ol>

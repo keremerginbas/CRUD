@@ -3,7 +3,7 @@ import { PANEL_STYLE } from "./b24-panel-html.js";
 
 export function adminHtml() {
   return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>XRE WhatsApp yönetimi</title>
+<title>WhatsApp by XRE yönetimi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${PANEL_STYLE}
@@ -23,7 +23,7 @@ export function adminHtml() {
 .inline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .inline input,.inline select{padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper)}
 </style></head><body>
-<div class="top"><div><h1>XRE WhatsApp yönetimi</h1><p>Lisanslar, ödemeler ve fiyatlar</p></div>
+<div class="top"><div><h1>WhatsApp by XRE yönetimi</h1><p>Lisanslar, ödemeler ve fiyatlar</p></div>
 <div class="tabs" role="tablist"><button role="tab" data-tab="payments" aria-selected="true">Ödemeler</button><button role="tab" data-tab="portals" aria-selected="false">Portallar</button><button role="tab" data-tab="codes" aria-selected="false">Lisans kodları</button><button role="tab" data-tab="pricing" aria-selected="false">Fiyatlar</button></div></div>
 <main id="main"><p class="sub">Yükleniyor…</p></main>
 <div class="toast" id="toast" role="status"></div>

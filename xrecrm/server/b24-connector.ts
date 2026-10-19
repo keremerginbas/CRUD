@@ -410,7 +410,7 @@ const ICON_SVG =
 async function registerConnector(store: Store, portal: B24Portal, base: string) {
   await b24Call(store, portal, "imconnector.register", {
     ID: CONNECTOR_ID,
-    NAME: "XRE WhatsApp",
+    NAME: "WhatsApp by XRE",
     ICON: { DATA_IMAGE: ICON_SVG, COLOR: "#25D366", SIZE: "90%", POSITION: "center" },
     ICON_DISABLED: { DATA_IMAGE: ICON_SVG, COLOR: "#9aa5b1", SIZE: "90%", POSITION: "center" },
     PLACEMENT_HANDLER: `${base}/b24/settings`,
@@ -433,7 +433,7 @@ async function activateLine(store: Store, portal: B24Portal, line: string, activ
       LINE: line,
       DATA: {
         id: `${CONNECTOR_ID}_${line}`,
-        name: info?.phone ? `WhatsApp +${info.phone}` : "XRE WhatsApp",
+        name: info?.phone ? `WhatsApp +${info.phone}` : "WhatsApp by XRE",
         url: info?.phone ? `https://wa.me/${info.phone}` : "https://wa.me",
         url_im: info?.phone ? `https://wa.me/${info.phone}` : "https://wa.me",
       },
@@ -718,7 +718,7 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
   const info = portal.lines[line];
   if (!info?.instance) return;
   if (!(await lineUsable(store, portal, line))) {
-    console.warn(`XRE WhatsApp: ${portal.domain} kanal ${line} lisansı dolduğu için mesaj gönderilmedi.`);
+    console.warn(`WhatsApp by XRE: ${portal.domain} kanal ${line} lisansı dolduğu için mesaj gönderilmedi.`);
     return;
   }
   const delivered: any[] = [];
@@ -828,7 +828,7 @@ export async function checkLineHealth(store: Store, portal: B24Portal, line: str
     if (known.status !== status) {
       const fresh = (await portalById(store, portal.id)) || portal;
       if (fresh.lines[line]) await savePortal(store, { ...fresh, lines: { ...fresh.lines, [line]: { ...fresh.lines[line], status, updatedAt: new Date().toISOString() } } });
-      console.warn(`XRE WhatsApp: ${portal.domain} kanal ${line} bağlantısı koptu (${state}).`);
+      console.warn(`WhatsApp by XRE: ${portal.domain} kanal ${line} bağlantısı koptu (${state}).`);
     }
   }
   lineChecks.set(`${portal.id}:${line}`, Date.now());
@@ -874,7 +874,7 @@ export function page(res: Response, status: number, title: string, body: string,
     .status(status)
     .type("html")
     .setHeader("cache-control", "no-store")
-    .send(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XRE WhatsApp</title>
+    .send(`<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>WhatsApp by XRE</title>
 <style>${PANEL_STYLE}
 .wrap{max-width:560px;margin:28px auto;padding:28px 30px;background:var(--surface);border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 30px rgba(15,40,70,.08)}
 .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px;color:var(--ink-3);font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
@@ -884,7 +884,7 @@ export function page(res: Response, status: number, title: string, body: string,
 .wrap a{color:var(--accent);font-weight:600}
 .wrap button{padding:9px 16px;border-radius:var(--r-s);border:1px solid var(--line);background:var(--surface);font-weight:600;cursor:pointer}
 @media (max-width:600px){.wrap{margin:0;border-radius:0;border-width:0 0 1px;padding:22px 16px}}</style>${script}</head>
-<body><div class="wrap"><div class="brand"><i aria-hidden="true"></i>XRE WhatsApp</div><h1>${escapeHtml(title)}</h1>${body}</div></body></html>`);
+<body><div class="wrap"><div class="brand"><i aria-hidden="true"></i>WhatsApp by XRE</div><h1>${escapeHtml(title)}</h1>${body}</div></body></html>`);
 }
 
 export function readBitrixParams(req: Request) {
@@ -990,7 +990,7 @@ async function installPortal(store: Store, p: BitrixParams, base: string): Promi
   await savePortal(store, portal);
   await registerConnector(store, portal, base);
   const tabWarnings = await bindCardTabs(store, portal, base);
-  if (tabWarnings.length) console.warn(`XRE WhatsApp kart sekmesi (${portal.domain}):`, tabWarnings.join("; "));
+  if (tabWarnings.length) console.warn(`WhatsApp by XRE kart sekmesi (${portal.domain}):`, tabWarnings.join("; "));
   else await savePortal(store, { ...portal, cardTabs: CARD_TABS_VERSION });
   return portal;
 }
@@ -1000,11 +1000,11 @@ function landing(res: Response, lang: Lang) {
   page(
     res,
     200,
-    "XRE WhatsApp",
+    "WhatsApp by XRE",
     pick(
       lang,
-      `<p>XRE WhatsApp, WhatsApp numaralarını Bitrix24 Açık Kanallarına bağlar. Uygulamayı Bitrix24 içinden açın.</p><p><a href="/b24/support?lang=tr">Destek</a> · <a href="/b24/legal/terms?lang=tr">Lisans sözleşmesi</a> · <a href="/b24/legal/privacy?lang=tr">Gizlilik</a></p>`,
-      `<p>XRE WhatsApp connects WhatsApp numbers to Bitrix24 Open Channels. Please open the app from inside Bitrix24.</p><p><a href="/b24/support">Support</a> · <a href="/b24/legal/terms">License agreement</a> · <a href="/b24/legal/privacy">Privacy policy</a></p>`,
+      `<p>WhatsApp by XRE, WhatsApp numaralarını Bitrix24 Açık Kanallarına bağlar. Uygulamayı Bitrix24 içinden açın.</p><p><a href="/b24/support?lang=tr">Destek</a> · <a href="/b24/legal/terms?lang=tr">Lisans sözleşmesi</a> · <a href="/b24/legal/privacy?lang=tr">Gizlilik</a></p>`,
+      `<p>WhatsApp by XRE connects WhatsApp numbers to Bitrix24 Open Channels. Please open the app from inside Bitrix24.</p><p><a href="/b24/support">Support</a> · <a href="/b24/legal/terms">License agreement</a> · <a href="/b24/legal/privacy">Privacy policy</a></p>`,
     ),
     "",
     lang,
@@ -1057,7 +1057,7 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
       page(
         res,
         200,
-        pick(p.lang, "XRE WhatsApp kuruldu", "XRE WhatsApp is installed"),
+        pick(p.lang, "WhatsApp by XRE kuruldu", "WhatsApp by XRE is installed"),
         pick(
           p.lang,
           `<p class="ok">Kurulum tamamlandı. Yönetim paneli açılıyor…</p>`,
@@ -1111,13 +1111,13 @@ export function registerB24ConnectorRoutes(app: Express, store: Store) {
         const current = (await portalById(store, portal.id)) || portal;
         const warnings = await applyLineAutoMessages(store, current);
         if (!warnings.length) await savePortal(store, { ...current, quietLines: QUIET_LINES_VERSION });
-        else console.warn(`XRE WhatsApp otomatik mesajlar (${portal.domain}):`, warnings.join("; "));
+        else console.warn(`WhatsApp by XRE otomatik mesajlar (${portal.domain}):`, warnings.join("; "));
       }
       // Eski kurulumlarda CRM kart sekmesi yoksa bir kez eklenir.
       if (portal.cardTabs !== CARD_TABS_VERSION) {
         const warnings = await bindCardTabs(store, portal, origin(req));
         if (!warnings.length) await savePortal(store, { ...((await portalById(store, portal.id)) || portal), cardTabs: CARD_TABS_VERSION });
-        else console.warn(`XRE WhatsApp kart sekmesi (${portal.domain}):`, warnings.join("; "));
+        else console.warn(`WhatsApp by XRE kart sekmesi (${portal.domain}):`, warnings.join("; "));
       }
       res.status(200).type("html").setHeader("cache-control", "no-store").send(panelHtml(settingsTicket(portal.id, "all"), portal.domain, p.lang, chatViewUrl(portal.id, userId, true, p.lang)));
       return;

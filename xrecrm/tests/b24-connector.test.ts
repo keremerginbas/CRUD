@@ -119,7 +119,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toContain("installFinish");
     const register = bx.find((c) => c.method === "imconnector.register");
-    expect(register?.body).toMatchObject({ ID: CONNECTOR_ID, NAME: "XRE WhatsApp", PLACEMENT_HANDLER: "https://crm.xre.test/b24/settings" });
+    expect(register?.body).toMatchObject({ ID: CONNECTOR_ID, NAME: "WhatsApp by XRE", PLACEMENT_HANDLER: "https://crm.xre.test/b24/settings" });
     expect(bx.filter((c) => c.method === "event.bind").map((c) => c.body.event)).toEqual([
       "OnImConnectorMessageAdd",
       "OnImConnectorLineDelete",
@@ -815,7 +815,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const terms = await (await fetch(`${base}/b24/legal/terms`)).text();
     expect(terms).toContain("End User License Agreement");
     expect(terms).toContain("XRE Yazılım &lt;A.Ş.&gt;");
-    expect(terms).toContain("XRE WhatsApp");
+    expect(terms).toContain("WhatsApp by XRE");
     const privacy = await (await fetch(`${base}/b24/legal/privacy?lang=tr`)).text();
     expect(privacy).toContain("Gizlilik Politikası");
     expect(privacy).toContain("support@example.com");

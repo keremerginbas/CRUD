@@ -107,7 +107,7 @@ export const SETTING_GROUPS: SettingGroup[] = [
   },
   {
     id: "b24-marketplace",
-    title: "Bitrix24 pazar yeri uygulaması (XRE WhatsApp)",
+    title: "Bitrix24 pazar yeri uygulaması (WhatsApp by XRE)",
     description: "Başka Bitrix24 portallarına satılan Açık Kanal bağlayıcısı. Kurulum: {origin}/b24/install, uygulama: {origin}/b24/app, lisans ve ödeme yönetimi: {origin}/b24/admin",
     fields: [
       { key: "B24_CLIENT_ID", label: "Yerel uygulama kimliği (client_id)", placeholder: "local.xxxxxxxx.xxxxxxxx", help: "Kendi portalınızdaki yerel uygulamanın anahtarları." },

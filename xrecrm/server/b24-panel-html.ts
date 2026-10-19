@@ -204,7 +204,7 @@ a.btn{text-decoration:none;color:inherit}a.btn.primary{color:var(--accent-ink)}
 
 export function panelHtml(ticket: string, domain: string, lang: Lang = "tr", chatUrl = "") {
   return localizeHtml(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>XRE WhatsApp</title>
+<title>WhatsApp by XRE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${PANEL_STYLE}</style></head><body>
