@@ -1,70 +1,125 @@
-# Getting Started with Create React App
+# CMS Hafriyat İnşaat Nakliyat – Kurumsal Web Sitesi
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Statik, hızlı ve SEO odaklı kurumsal site. **HTML + Tailwind CSS + saf JavaScript**. Videolar, görseller ve logo
+kodla üretilir (telifsiz). `dist/` klasörü doğrudan hostinge yüklenmeye hazırdır.
 
-## Available Scripts
+## Hızlı başlangıç
 
-In the project directory, you can run:
+```bash
+npm install
+npm run build        # dist/ üretir + SEO doğrulaması yapar
+npm run check        # sadece SEO kontrolü (dosya yazmaz)
+php -S 127.0.0.1:8080 -t dist   # yerelde önizleme (chatbot/form API dahil)
+```
 
-### `npm start`
+Medya yeniden üretimi (Python 3 + Pillow + ffmpeg; logo için `pip install fonttools cairosvg`):
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+python3 scripts/render_media.py      # 5 video + posterler + OG görselleri + blog kapakları
+python3 scripts/make_logo.py         # logo SVG/PNG + favicon seti
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Site haritası ve link hiyerarşisi
 
-### `npm test`
+```
+/                                  Ana Sayfa (öncelik 1.0)
+├── /hakkimizda/                   Hakkımızda (misyon, vizyon, değerler)
+├── /hizmetler/                    Hizmetlerimiz (hub)
+│   ├── /hizmetler/hafriyat/
+│   ├── /hizmetler/is-makineleri/
+│   ├── /hizmetler/insaat-taahhut/
+│   ├── /hizmetler/nakliye/
+│   └── /hizmetler/ihracat/
+├── /projeler/                     Yaptığımız İşler (videolar + proje galerisi)
+├── /blog/                         Blog & Rehberler (6 rehber)
+│   └── /haberler/                 Haberler & Duyurular (3 haber)
+├── /iletisim/                     İletişim + teklif formu
+├── /sss/                          Sıkça Sorulan Sorular
+└── /kvkk/                         KVKK Aydınlatma Metni
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Header ve footer menüsü: **Ana Sayfa · Hakkımızda · Hizmetlerimiz · Yaptığımız İşler · Blog · İletişim**
+- Hub → alt sayfa → hub (breadcrumb) + kardeş sayfalar arası bağlantılar (ilgili hizmetler, ilgili yazılar).
+- Blog yazıları bağlam içi linklerle hizmet sayfalarını besler (topic cluster / pillar yapısı).
+- Build sırasında **kırık iç link** kontrolü yapılır.
 
-### `npm run build`
+## SEO kontrol listesi (her sayfada, build tarafından doğrulanır)
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+| Öğe | Durum |
+|---|---|
+| `<title>` | ≤ 55 karakter, benzersiz (aşılırsa build durur) |
+| Meta description | 120–150 karakter, benzersiz |
+| URL | Türkçe karakter içermeyen, sonda `/` olan temiz adresler |
+| Canonical | Her sayfada mutlak URL |
+| Robots meta | `index, follow, max-snippet:-1, max-image-preview:large, max-video-preview:-1` (+ googlebot, bingbot) |
+| X-Robots-Tag | `.htaccess` (Apache/cPanel) ve `_headers` (Netlify/Cloudflare) ile HTTP başlığı olarak |
+| Keywords | Her sayfada `<meta name="keywords">` |
+| Publisher | `<meta name="publisher">` + schema.org `publisher` |
+| Lang | `<html lang="tr">`, `content-language`, `hreflang="tr-TR"` + `x-default` |
+| Kelime sayısı | Toplam ~19.000 kelime özgün içerik |
+| Yapısal veri | Organization/GeneralContractor, WebSite, WebPage, BreadcrumbList, Service, FAQPage, BlogPosting/NewsArticle, VideoObject, ItemList |
+| Open Graph / Twitter | Her sayfa için başlık, açıklama, 1200×630 görsel |
+| Sitemap | `sitemap.xml` (görsel uzantılı), `robots.txt`, `feed.xml` (RSS) |
+| H1 | Her sayfada tam olarak 1 adet (build kontrol eder) |
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+> 404 sayfası bilerek `noindex, follow` olarak işaretlidir (hata sayfasının dizine girmemesi için).
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Yapay zeka chatbot (OpenAI)
 
-### `npm run eject`
+Anahtar **asla** tarayıcıya gönderilmez; istek sunucudaki `api/chat.php` üzerinden geçer.
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. Hostingde `api/config.sample.php` dosyasını `api/config.php` olarak kopyalayın.
+2. `'openai_api_key' => 'sk-...'` satırına anahtarı yazın (veya sunucuda `OPENAI_API_KEY` ortam değişkeni tanımlayın).
+3. Anahtar yokken asistan yerel bilgi tabanıyla yanıt verir ve WhatsApp'a yönlendirir.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+IP başına hız sınırı, aynı site kontrolü ve uydurma bilgi vermeme talimatı içerir. PHP 8.1+ ve cURL gerekir.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## İletişim formu
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+`api/contact.php` formu `cmshafriyat01@gmail.com` adresine e-posta olarak gönderir (PHP `mail()`).
+Sunucu e-posta gönderemezse form kullanıcıyı otomatik olarak WhatsApp'a yönlendirir.
 
-## Learn More
+## Yayına alma (cPanel)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. `npm run build`
+2. `dist/` içindeki **tüm dosyaları** (gizli `.htaccess` dahil) `public_html/` klasörüne yükleyin.
+3. SSL'i açın; `.htaccess` http→https ve www→www'suz yönlendirmesini yapar.
+4. Google Search Console ve Bing Webmaster Tools'a siteyi ekleyip `sitemap.xml` gönderin.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Alan adı
 
-### Code Splitting
+`src/site.config.mjs` içindeki `url` değeri şu an **`https://cmsharfiyat.com.tr`** (mesajda verilen adres).
+Alan adınız farklıysa (ör. `cmshafriyat.com.tr`) yalnızca bu satırı değiştirip `npm run build` çalıştırın;
+canonical, sitemap, OG ve schema adreslerinin hepsi güncellenir.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## İçerik ekleme
 
-### Analyzing the Bundle Size
+- **Blog/haber:** `src/content/posts/<slug>.mjs` (format: `src/content/CONTENT_SPEC.md`). Kapak için `python3 scripts/render_media.py --stills-only --covers`.
+- **Gerçek projeler:** `src/content/projects.mjs` listesine ekleyin, fotoğrafları `src/static/assets/img/projeler/` içine koyun.
+- **Sosyal medya:** `src/site.config.mjs` → `social` (schema `sameAs` ve footer'a eklenir).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Backlink ve SEO büyüme planı
 
-### Making a Progressive Web App
+1. **Google İşletme Profili** açın (adres/hizmet bölgesi, telefon, site linki, sahadan fotoğraflar). Adres eklenince `site.config.mjs`'e de yazılıp `LocalBusiness` şemasına eklenmeli.
+2. **Yerel rehberler / NAP tutarlılığı:** Yandex Haritalar, Apple Business Connect, Bing Places, sektörel firma rehberleri — her yerde aynı unvan, telefon ve site adresi.
+3. **Sektörel backlink:** iş birliği yapılan müteahhit, mimarlık ve hafriyat döküm sahası firmalarının "iş ortaklarımız" sayfalarında yer alma; ticaret/sanayi odası üyelik sayfası.
+4. **İçerik takvimi:** ayda 2–4 rehber (ör. "Hafriyat maliyetini etkileyen faktörler", "Yıkım ve hafriyat farkı", "İstinat duvarı nedir"). Her yazı en az 1 hizmet sayfasına bağlam içi link versin.
+5. **Video SEO:** sahadan gerçek videolar çekildiğinde YouTube'a yükleyip sayfalara gömün; `VideoObject` şeması hazır.
+6. **Sosyal sinyaller:** Instagram/LinkedIn'de proje paylaşımları + siteye link.
+7. Search Console'da aylık: tıklama/gösterim, dizine eklenmeyen sayfalar, Core Web Vitals.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## Klasör yapısı
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```
+src/
+  site.config.mjs        genel ayarlar (alan adı, iletişim, menü)
+  content/               hizmet ve blog içerikleri (.mjs)
+  templates/             layout, bileşenler, sayfa şablonları, ikonlar
+  styles/main.css        Tailwind + bileşen stilleri + animasyonlar
+  static/                dist'e aynen kopyalanan dosyalar (JS, PHP API)
+scripts/
+  build.mjs              site üretici + SEO doğrulayıcı
+  render_media.py        prosedürel video/görsel üretici
+  make_logo.py           logo ve favicon üretici
+dist/                    yayına hazır site
+```

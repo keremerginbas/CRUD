@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+  <title>CMS Hafriyat Blog</title>
+  <link>https://cmsharfiyat.com.tr/blog/</link>
+  <atom:link href="https://cmsharfiyat.com.tr/feed.xml" rel="self" type="application/rss+xml"/>
+  <description>Hafriyat, inşaat ve nakliye rehberleri ile kurumsal haberler.</description>
+  <language>tr-TR</language>
+  <item>
+    <title>Yapay Zekâ Destekli Müşteri Asistanımız Hizmetinizde</title>
+    <link>https://cmsharfiyat.com.tr/haberler/yapay-zeka-destekli-musteri-asistani/</link>
+    <guid>https://cmsharfiyat.com.tr/haberler/yapay-zeka-destekli-musteri-asistani/</guid>
+    <pubDate>Mon, 19 Oct 2026 06:00:00 GMT</pubDate>
+    <category>Duyuru</category>
+    <description>Web sitemizdeki yapay zekâ destekli asistan sorularınızı 7/24 yanıtlıyor, gerektiğinde sizi WhatsApp veya telefonla ekibimize aktarıyor.</description>
+  </item>
+  <item>
+    <title>Yeni Web Sitemiz Yayında</title>
+    <link>https://cmsharfiyat.com.tr/haberler/yeni-web-sitemiz-yayinda/</link>
+    <guid>https://cmsharfiyat.com.tr/haberler/yeni-web-sitemiz-yayinda/</guid>
+    <pubDate>Mon, 19 Oct 2026 06:00:00 GMT</pubDate>
+    <category>Duyuru</category>
+    <description>CMS Hafriyat'ın yeni web sitesi yayında. Hizmet sayfaları, rehber içerikler, yapay zekâ asistanı ve WhatsApp desteğiyle size daha yakınız.</description>
+  </item>
+  <item>
+    <title>İş Güvenliği ve Kalite Yaklaşımımız</title>
+    <link>https://cmsharfiyat.com.tr/haberler/is-guvenligi-ve-kalite-yaklasimimiz/</link>
+    <guid>https://cmsharfiyat.com.tr/haberler/is-guvenligi-ve-kalite-yaklasimimiz/</guid>
+    <pubDate>Thu, 15 Oct 2026 06:00:00 GMT</pubDate>
+    <category>Kurumsal</category>
+    <description>CMS Hafriyat'ın iş güvenliği ve kalite yaklaşımı: güvenilirlik, sorumluluk ve sürekli gelişim değerleriyle her sahada güvenli çalışma.</description>
+  </item>
+  <item>
+    <title>İnşaat Projesi Planlama Adımları</title>
+    <link>https://cmsharfiyat.com.tr/blog/insaat-projesi-planlama-adimlari/</link>
+    <guid>https://cmsharfiyat.com.tr/blog/insaat-projesi-planlama-adimlari/</guid>
+    <pubDate>Wed, 07 Oct 2026 06:00:00 GMT</pubDate>
+    <category>İnşaat</category>
+    <description>İnşaat projesi nasıl planlanır? Fizibiliteden zemin etüdüne, hafriyattan kaba inşaata kadar başarılı bir proje için temel planlama adımları.</description>
+  </item>
+  <item>
+    <title>Hafriyat Toprağı Nakliyesi ve Döküm Sahası: Pratik İpuçları</title>
+    <link>https://cmsharfiyat.com.tr/blog/hafriyat-toprak-nakliyesi-ipuclari/</link>
+    <guid>https://cmsharfiyat.com.tr/blog/hafriyat-toprak-nakliyesi-ipuclari/</guid>
+    <pubDate>Wed, 30 Sep 2026 06:00:00 GMT</pubDate>
+    <category>Nakliye</category>
+    <description>Hafriyat toprağı nakliyesi nasıl planlanır? Kamyon seçimi, sefer planı, döküm sahası ve güvenli taşıma için pratik ipuçlarını derledik.</description>
+  </item>
+  <item>
+    <title>İnşaatta Zemin Etüdünün Önemi</title>
+    <link>https://cmsharfiyat.com.tr/blog/insaatta-zemin-etudu-onemi/</link>
+    <guid>https://cmsharfiyat.com.tr/blog/insaatta-zemin-etudu-onemi/</guid>
+    <pubDate>Wed, 23 Sep 2026 06:00:00 GMT</pubDate>
+    <category>İnşaat</category>
+    <description>Zemin etüdü nedir, neden yapılır? Güvenli temel tasarımı, doğru hafriyat planı ve deprem güvenliği için zemin etüdünün önemini anlattık.</description>
+  </item>
+  <item>
+    <title>Doğru İş Makinesi Seçimi: Ekskavatör, Loder, Dozer ve Daha Fazlası</title>
+    <link>https://cmsharfiyat.com.tr/blog/is-makinesi-secimi-rehberi/</link>
+    <guid>https://cmsharfiyat.com.tr/blog/is-makinesi-secimi-rehberi/</guid>
+    <pubDate>Wed, 16 Sep 2026 06:00:00 GMT</pubDate>
+    <category>İş Makineleri</category>
+    <description>Ekskavatör, kepçe, loder ve dozer arasındaki farklar neler? Projenize uygun iş makinesini seçerken dikkat etmeniz gerekenleri anlattık.</description>
+  </item>
+  <item>
+    <title>Hafriyat Ruhsatı ve İzin Süreci: Genel Rehber</title>
+    <link>https://cmsharfiyat.com.tr/blog/hafriyat-ruhsati-ve-izin-sureci/</link>
+    <guid>https://cmsharfiyat.com.tr/blog/hafriyat-ruhsati-ve-izin-sureci/</guid>
+    <pubDate>Wed, 09 Sep 2026 06:00:00 GMT</pubDate>
+    <category>Rehber</category>
+    <description>Hafriyat izni ve ruhsat süreci nasıl işler? Gerekli belgeler, döküm sahası ve belediye başvurusu hakkında genel bilgiler bu rehberde.</description>
+  </item>
+  <item>
+    <title>Hafriyat Nedir? Hafriyat Süreci Adım Adım</title>
+    <link>https://cmsharfiyat.com.tr/blog/hafriyat-nedir-surec-rehberi/</link>
+    <guid>https://cmsharfiyat.com.tr/blog/hafriyat-nedir-surec-rehberi/</guid>
+    <pubDate>Wed, 02 Sep 2026 06:00:00 GMT</pubDate>
+    <category>Hafriyat</category>
+    <description>Hafriyat nedir, nasıl yapılır? Keşiften kazıya, nakliyeden saha teslimine kadar hafriyat sürecinin tüm adımlarını anlatan kapsamlı rehber.</description>
+  </item>
+</channel>
+</rss>

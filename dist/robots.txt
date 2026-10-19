@@ -1,0 +1,6 @@
+# CMS Hafriyat
+User-agent: *
+Allow: /
+Disallow: /api/
+
+Sitemap: https://cmsharfiyat.com.tr/sitemap.xml
