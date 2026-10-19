@@ -108,7 +108,7 @@ export async function getPricing(store: Store): Promise<Pricing> {
 export function priceFor(pricing: Pricing, months: number, lines = 1, plan: PlanId = "proplus") {
   const discount = Number(pricing.discounts[String(months)] || 0);
   const perLine = Math.round(pricing.plans[plan] * months * (1 - discount / 100) * 100) / 100;
-  return { discount, perLine, total: perLine * lines, monthlyEquivalent: Math.round(perLine / months) };
+  return { discount, perLine, total: Math.round(perLine * lines * 100) / 100, monthlyEquivalent: Math.round((perLine / months) * 100) / 100 };
 }
 
 const freeDomains = () =>

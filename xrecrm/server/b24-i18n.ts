@@ -472,6 +472,7 @@ export const PANEL_EN: Record<string, string> = {
   "Toplu gönderim için izin onayını işaretleyin.": "Tick the consent confirmation to send in bulk.",
   "{n} alıcıya gönderilsin mi?": "Send to {n} recipients?",
   "Kampanya başladı.": "Campaign started.",
+  "Ödeme dönemi · {p} paketi, numara başına": "Billing period · {p} plan, per number",
   "Kampanya durdurulsun mu?": "Stop the campaign?",
   "Meta kabul etti": "Accepted by Meta",
 };
