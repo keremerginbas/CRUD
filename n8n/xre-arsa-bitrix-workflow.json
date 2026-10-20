@@ -1,0 +1,481 @@
+{
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "f4056b95-d059-4ae1-835d-14a69576fdde",
+      "name": "Arsaları İşle (Başlat)",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        11120,
+        -3136
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sayfa1"
+        },
+        "options": {}
+      },
+      "id": "b0434672-8e73-4771-bb75-149b507dae20",
+      "name": "Arsa Satırlarını Oku",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        11328,
+        -3136
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c-dealid-bos",
+              "leftValue": "={{ ($json['Deal ID'] || '').toString().trim() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "94e9a00b-68e8-4d82-a096-82baf1293df8",
+      "name": "Deal ID Boş Olanlar",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2,
+      "position": [
+        11520,
+        -3136
+      ]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "c6528c57-dfb9-4bfd-972e-58e90d76d380",
+      "name": "Döngü - Tek Tek",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        11728,
+        -3136
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $json;\n\n// XRE ARSA - SAĞLAM OKUMA SÜRÜMÜ\n// Kural: Başlık birebir bulunursa SADECE o kolon kullanılır (hücre boşsa boş kalır, başka kolona kaymaz).\n// Başlık hiç yoksa: önce başlık içinde arama, en son kolon sırasına göre yedek okuma.\n\nfunction normKey(s) {\n  return String(s ?? '')\n    .replace(/ /g, ' ')\n    .replace(/²/g, '2')\n    .replace(/[İIı]/g, 'I')\n    .toUpperCase()\n    .normalize('NFD')\n    .replace(/[̀-ͯ]/g, '')\n    .replace(/[^A-Z0-9]+/g, '')\n    .trim();\n}\n\nfunction cleanValue(v) {\n  return String(v ?? '')\n    .replace(/ /g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction isBadValue(v) {\n  const raw = cleanValue(v);\n  const x = normKey(raw);\n  return !raw || !x || [\n    'ALANBOS', 'BOS', 'BOSALAN', 'BELIRTILMEMIS', 'BELIRLENMEMIS',\n    'YOK', 'NULL', 'NAN', 'NA', 'TANIMSIZ', 'VERIYOK', '-', '_'\n  ].includes(x);\n}\n\nconst SYSTEM_KEYS = ['row_number', '__rowNum__', 'Row Number'];\n\nconst entries = Object.keys(r)\n  .filter(k => !SYSTEM_KEYS.includes(k))\n  .map(key => ({ key, nkey: normKey(key), value: cleanValue(r[key]) }))\n  .filter(e => e.nkey);\n\n// Kolon sırasına göre yedek okuma. Sheet kolon dizilimi:\n// A AD SOYAD, B TELEFON, C ŞEHİR, D İLÇE, E MAHALLE, F ADA NO, G PARSEL NO,\n// H M2, I M2 FİYATI, J KAKS EMSAL, K TAPU DURUMU, L TARİH, M İLAN NO, N FİYAT, O BİZİM FİYATIMIZ, P AÇIKLAMA\nconst orderedValues = Object.keys(r)\n  .filter(k => !SYSTEM_KEYS.includes(k))\n  .map(k => cleanValue(r[k]));\n\nfunction byIndex(indexZeroBased) {\n  const v = orderedValues[indexZeroBased];\n  return isBadValue(v) ? '' : cleanValue(v);\n}\n\nfunction firstValid(list) {\n  for (const item of list) {\n    if (item && !isBadValue(item.value)) return item.value;\n  }\n  return '';\n}\n\n// exact: birebir başlık adları\n// test: başlık birebir yoksa kullanılacak başlık-içi arama (varsayılan: 3+ harfli takma adları içeren başlık)\n// index: başlık hiç bulunamazsa kolon sırası\nfunction pick(exact, { test, index } = {}) {\n  const ns = exact.map(normKey);\n  let cands = entries.filter(e => ns.includes(e.nkey));\n  if (!cands.length) {\n    const t = test || (k => ns.some(a => a.length >= 3 && k.includes(a)));\n    cands = entries.filter(e => t(e.nkey));\n  }\n  if (cands.length) return firstValid(cands);\n  return index != null ? byIndex(index) : '';\n}\n\n// Türkçe/İngilizce sayı biçimlerini çöz: 1.250.000 / 1.250.000,50 / ₺1.250.000,00 / 1,250,000.50 / 1321,5\nfunction parseNumber(v) {\n  const s = cleanValue(v);\n  if (isBadValue(s)) return '';\n  const m = s.match(/[0-9][0-9.,\\s]*/);\n  if (!m) return '';\n  let x = m[0].replace(/\\s/g, '').replace(/[.,]+$/, '');\n  const lastDot = x.lastIndexOf('.');\n  const lastComma = x.lastIndexOf(',');\n  if (lastDot > -1 && lastComma > -1) {\n    const dec = lastDot > lastComma ? '.' : ',';\n    const thou = dec === '.' ? ',' : '.';\n    x = x.split(thou).join('').replace(dec, '.');\n  } else {\n    const sep = lastDot > -1 ? '.' : (lastComma > -1 ? ',' : '');\n    if (sep) {\n      const parts = x.split(sep);\n      const isThousands = parts.length > 2 || parts[parts.length - 1].length === 3;\n      x = isThousands ? parts.join('') : parts.join('.');\n    }\n  }\n  const n = Number(x);\n  return Number.isFinite(n) ? String(n) : '';\n}\n\nfunction extractKaksNumber(v) {\n  const s = cleanValue(v);\n  if (isBadValue(s)) return '';\n  // 0,35 / 0.35 / %35 / emsal 1.50 gibi değerleri yakala.\n  const m = s.match(/[0-9]+(?:[.,][0-9]+)?/);\n  if (!m) return '';\n  return m[0].replace(',', '.');\n}\n\nconst isPriceKey = k => k.includes('FIYAT') || k.includes('BEDEL') || k.includes('TL');\n\nconst adSoyad    = pick(['AD SOYAD', 'ADI SOYADI', 'SATICI AD SOYAD', 'İSİM', 'ISIM', 'AD'], { index: 0 });\nconst telefonRaw = pick(['TELEFON', 'CEP TELEFONU', 'CEP', 'TEL', 'TE'], { index: 1 });\nconst il         = pick(['ŞEHİR', 'SEHIR', 'İL', 'IL'], { index: 2 });\nconst ilce       = pick(['İLÇE', 'ILCE'], { index: 3 });\nconst mahalle    = pick(['MAHALLE', 'MAHALLESİ', 'MAHALLESI', 'MAH'], { index: 4 });\nconst adaNo      = pick(['ADA NO', 'ADA', 'ADA NUMARASI'], { index: 5 });\nconst parselNo   = pick(['PARSEL NO', 'PARSEL', 'PARSEL NUMARASI'], { index: 6 });\n\nconst m2Raw = pick(['M2', 'M²', 'METREKARE', 'ARSA M2', 'ARSA M²', 'ARSA ALANI', 'ALAN'], {\n  test: k => (k.includes('METREKARE') || k.includes('ARSAALAN') || k.includes('ALANM2') || k.includes('M2ALAN')) && !isPriceKey(k),\n  index: 7\n});\nconst m2FiyatRaw = pick([\n  'M2 FİYATI', 'M² FİYATI', 'M2 FİYAT', 'M² FİYAT', 'M2 BİRİM FİYATI', 'M² BİRİM FİYATI',\n  'METREKARE FİYATI', 'BİRİM FİYAT', 'BIRIM FIYAT'\n], {\n  test: k => (k.includes('M2') || k.includes('METREKARE') || k.includes('BIRIM')) && isPriceKey(k),\n  index: 8\n});\nconst kaksRaw = pick(['KAKS EMSAL', 'KAKS (EMSAL)', 'KAKS/EMSAL', 'KAKS', 'EMSAL', 'İMAR EMSALİ', 'IMAR EMSALI'], {\n  test: k => k.includes('KAKS') || k.includes('EMSAL'),\n  index: 9\n});\nconst tapu       = pick(['TAPU DURUMU', 'TAPU', 'TAPU TİPİ', 'TAPU TIPI'], { index: 10 });\nconst ilanTarihi = pick(['TARİH', 'TARIH', 'İLAN TARİHİ', 'ILAN TARIHI'], { index: 11 });\nconst ilanNo = pick(['İLAN NO', 'ILAN NO', 'İLAN NUMARASI', 'ILAN NUMARASI', 'İLAN ID', 'ILAN ID'], {\n  test: k => k.includes('ILAN') && (k.includes('NO') || k.includes('NUMARA') || k.includes('ID')),\n  index: 12\n});\nconst fiyatRaw = pick(['FİYAT', 'FİYATI', 'SATIŞ FİYATI', 'SATIS FIYATI', 'İLAN FİYATI', 'ILAN FIYATI'], {\n  // M2 FİYATI ve BİZİM FİYATIMIZ kolonlarına kaymasın\n  test: k => k.includes('FIYAT') && !k.includes('M2') && !k.includes('BIRIM') && !k.includes('METREKARE') && !k.includes('BIZIM') && !k.includes('XRE'),\n  index: 13\n});\nconst bizimFiyatRaw = pick(['BİZİM FİYATIMIZ', 'BIZIM FIYATIMIZ', 'XRE FİYAT', 'XRE FIYAT'], {\n  test: k => k.includes('BIZIM') || k.includes('XRE'),\n  index: 14\n});\nconst aciklama = pick(['AÇIKLAMA', 'ACIKLAMA', 'DETAY', 'NOT', 'NOTLAR'], { index: 15 });\n\nconst m2         = parseNumber(m2Raw);\nconst m2Fiyat    = parseNumber(m2FiyatRaw);\nconst kaks       = extractKaksNumber(kaksRaw);\nconst fiyat      = parseNumber(fiyatRaw);\nconst bizimFiyat = parseNumber(bizimFiyatRaw);\n\n// Hücrede birden fazla numara varsa (\"0532... / 0533...\") ilkini al.\nlet telefon = cleanValue(telefonRaw).split(/[\\/,;|]/)[0].replace(/\\D/g, '');\nif (telefon.startsWith('00')) telefon = telefon.slice(2);\nif (telefon.startsWith('0')) telefon = '90' + telefon.slice(1);\nif (telefon.length === 10 && telefon.startsWith('5')) telefon = '90' + telefon;\nconst telefonPlus = telefon.length >= 10 ? ('+' + telefon) : '';\n\nconst parts = cleanValue(adSoyad).split(' ').filter(Boolean);\nconst adi = parts.shift() || 'Bilinmeyen';\nconst soyadi = parts.join(' ') || 'Satıcı';\n\nconst adaParsel = [adaNo, parselNo].filter(Boolean).join(' / ');\nlet title = [il, ilce, mahalle, adaParsel].filter(Boolean).join(' - ');\nif (!title) title = 'Yeni Arsa İlanı';\nif (ilanNo) title += ` (İlan No: ${ilanNo})`;\nif (adSoyad) title += ` (${adSoyad})`;\n\nconst fields = {\n  TITLE: title,\n  CATEGORY_ID: 24,\n  STAGE_ID: 'C24:UC_JF95AG', // SAHİBİNDEN YÜKLENENLER\n  ASSIGNED_BY_ID: 23180,\n  OPPORTUNITY: fiyat || 0,\n  CURRENCY_ID: 'TRY',\n  COMMENTS: aciklama\n};\n\nif (il)          fields['UF_CRM_1782733952602'] = il;\nif (ilce)        fields['UF_CRM_1782717914352'] = ilce;\nif (mahalle)     fields['UF_CRM_1782732284645'] = mahalle;\nif (adaNo)       fields['UF_CRM_1782801103030'] = adaNo;\nif (parselNo)    fields['UF_CRM_1782801112430'] = parselNo;\nif (m2)          fields['UF_CRM_1782732332912'] = m2;\nif (m2Fiyat)     fields['UF_CRM_1782732356777'] = m2Fiyat;\nif (kaks)        fields['UF_CRM_1782732390045'] = kaks;\nif (tapu)        fields['UF_CRM_1782732403173'] = tapu;\nif (ilanTarihi)  fields['UF_CRM_1782733958945'] = ilanTarihi;\nif (bizimFiyat)  fields['UF_CRM_1782732441788'] = bizimFiyat;\n\nfields['SOURCE_DESCRIPTION'] = 'Sahibinden - Bot';\n\nreturn [{\n  json: {\n    row_number: r.row_number,\n    adi,\n    soyadi,\n    adSoyad,\n    telefonPlus,\n    debug_found: {\n      m2Raw, m2Clean: m2,\n      m2FiyatRaw, m2FiyatClean: m2Fiyat,\n      kaksRaw, kaksClean: kaks,\n      ilanNo,\n      fiyatRaw, fiyatClean: fiyat,\n      bizimFiyatRaw, bizimFiyatClean: bizimFiyat\n    },\n    debug_sheet_headers: Object.keys(r),\n    debug_ordered_values: orderedValues,\n    body: { fields, params: { REGISTER_SONET_EVENT: 'Y' } }\n  }\n}];\n"
+      },
+      "id": "dccadbbb-d0ee-4e66-b9c9-8c24e76ccaf0",
+      "name": "Arsa Verisi Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        11936,
+        -3136
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-tel-var",
+              "leftValue": "={{ $json.telefonPlus }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5b1d2c7e-3f4a-4e8b-9c6d-1a2b3c4d5e6f",
+      "name": "Telefon Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        12032,
+        -3136
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/BITRIX_WEBHOOK_ANAHTARI/crm.duplicate.findbycomm.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ entity_type: 'CONTACT', type: 'PHONE', values: [$json.telefonPlus] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "01d4d0f9-f831-493d-ad1b-0f8fdd9bfb71",
+      "name": "Kişi Ara",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        12128,
+        -3232
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c-kisi-var",
+              "leftValue": "={{ ($json.result && $json.result.CONTACT && $json.result.CONTACT.length) ? true : false }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "cb3cfb83-c880-4bdd-b38d-e900ae7af352",
+      "name": "Kişi Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        12320,
+        -3232
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/BITRIX_WEBHOOK_ANAHTARI/crm.contact.add.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ fields: Object.assign({ ASSIGNED_BY_ID: 23180, NAME: $('Arsa Verisi Hazırla').item.json.adi, LAST_NAME: $('Arsa Verisi Hazırla').item.json.soyadi, OPENED: 'Y', TYPE_ID: 'CLIENT' }, $('Arsa Verisi Hazırla').item.json.telefonPlus ? { PHONE: [{ VALUE: $('Arsa Verisi Hazırla').item.json.telefonPlus, VALUE_TYPE: 'MOBILE' }] } : {}) }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "d7a6798a-b242-44d8-8c93-a49acc9a175b",
+      "name": "Kişi Oluştur",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        12528,
+        -3040
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const dv = $('Arsa Verisi Hazırla').item.json;\nconst fields = Object.assign({}, dv.body.fields);\n\n// Bu node'a 3 yoldan gelinir; kişi ID'si doğrudan gelen veriden okunur\n// (döngüde önceki satırın verisi karışmasın diye başka node'a bakılmaz):\n//  - Kişi Var mı? (true)  -> { result: { CONTACT: [id] } }\n//  - Kişi Oluştur         -> { result: id }\nconst res = $json.result;\nlet contactId = '';\nif (res && Array.isArray(res.CONTACT) && res.CONTACT.length) {\n  contactId = res.CONTACT[0];\n} else if (typeof res === 'number' || /^\\d+$/.test(String(res ?? ''))) {\n  contactId = res;\n}\n\nif (contactId) fields['CONTACT_ID'] = Number(contactId);\n\nreturn [{ json: {\n  row_number: dv.row_number,\n  body: { fields, params: { REGISTER_SONET_EVENT: 'Y' } }\n} }];\n"
+      },
+      "id": "df0b966b-0312-412a-9a90-0826de61b0f4",
+      "name": "Deal Body Birleştir",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        12720,
+        -3136
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/78/BITRIX_WEBHOOK_ANAHTARI/crm.deal.add.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "9338a46d-d712-4091-8283-15a2952a8075",
+      "name": "Bitrix - Arsa Kartı Aç",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        12928,
+        -3136
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://sheets.googleapis.com/v4/spreadsheets/SPREADSHEET_ID/values/Sayfa1!S{{ $('Arsa Verisi Hazırla').item.json.row_number }}:U{{ $('Arsa Verisi Hazırla').item.json.row_number }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ values: [[ ($json.result ? 'Eklendi ✅' : ('HATA ❌ ' + String($json.error_description || ($json.error && $json.error.message) || $json.error || '')).trim()), ($json.result || ''), $now.setZone('Europe/Istanbul').toFormat('dd.MM.yyyy HH:mm') ]] }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        },
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleSheetsOAuth2Api",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "valueInputOption",
+              "value": "USER_ENTERED"
+            }
+          ]
+        }
+      },
+      "id": "e58eead3-e875-4f74-9ab7-44717e63a9ad",
+      "name": "Sheet'e Sonucu Yaz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        13120,
+        -3136
+      ],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "zDMRJOOf6E0idQvs",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "3653fb0d-f1f6-41fa-ab9f-60b4afd80951",
+      "name": "Kısa Bekle (Rate)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        13328,
+        -3136
+      ],
+      "webhookId": "d870e4b0-fd65-4617-b91f-edd01f95d1e0"
+    }
+  ],
+  "connections": {
+    "Arsaları İşle (Başlat)": {
+      "main": [
+        [
+          {
+            "node": "Arsa Satırlarını Oku",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arsa Satırlarını Oku": {
+      "main": [
+        [
+          {
+            "node": "Deal ID Boş Olanlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal ID Boş Olanlar": {
+      "main": [
+        [
+          {
+            "node": "Döngü - Tek Tek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Döngü - Tek Tek": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Arsa Verisi Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arsa Verisi Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Telefon Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telefon Var mı?": {
+      "main": [
+        [
+          {
+            "node": "Kişi Ara",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kişi Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Ara": {
+      "main": [
+        [
+          {
+            "node": "Kişi Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Var mı?": {
+      "main": [
+        [
+          {
+            "node": "Deal Body Birleştir",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kişi Oluştur",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kişi Oluştur": {
+      "main": [
+        [
+          {
+            "node": "Deal Body Birleştir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal Body Birleştir": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Arsa Kartı Aç",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Arsa Kartı Aç": {
+      "main": [
+        [
+          {
+            "node": "Sheet'e Sonucu Yaz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sheet'e Sonucu Yaz": {
+      "main": [
+        [
+          {
+            "node": "Kısa Bekle (Rate)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kısa Bekle (Rate)": {
+      "main": [
+        [
+          {
+            "node": "Döngü - Tek Tek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  }
+}
