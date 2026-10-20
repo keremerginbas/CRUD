@@ -1,4 +1,4 @@
-# İlan5 2.9.0 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
+# İlan5 2.9.1 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,17 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.9.0** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.9.1** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 2.9.1 Windows'a taşıma
+
+Windows kurulumu için adım adım plan **KURULUM_WINDOWS.md** dosyasındadır.
+
+**JSON yedeği** artık ilanların yanında kayıtlı aramaları, güvenli tarama ve Telegram bildirim ayarlarını, bağlantı takibi ayarlarını ve mesaj şablonlarını da içerir. Telegram tokeni dosyaya yazılmaz. Yedeği başka bilgisayarda içe aktarırken bu ayarların da aktarılması istenir. Kayıtlı aramalar takibi kapalı gelir; kontrol ettikten sonra **Takibi aç** ile başlatırsınız.
 
 ## 2.9.0 verimlilik güncellemesi
 

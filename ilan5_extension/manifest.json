@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "İlan5 — Kategorili İlan Arşivi",
-  "version": "2.9.0",
+  "version": "2.9.1",
   "description": "Bağlantıdan ilan toplayın; sayfaları otomatik tarayın, mesaj kampanyaları hazırlayın, yeni ilan ve kaldırılmaları izleyin.",
   "minimum_chrome_version": "120",
   "permissions": ["storage", "unlimitedStorage", "tabs", "scripting", "alarms", "activeTab"],

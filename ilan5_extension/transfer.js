@@ -29,7 +29,7 @@
   async function importFile(file){
     if(!file||file.size>50*1024*1024)throw Error('İçe aktarılacak dosya en fazla 50 MB olabilir.');
     const ext=file.name.toLowerCase().split('.').at(-1);
-    if(ext==='json'){let data;try{data=JSON.parse(await file.text());}catch{throw Error('JSON dosyası okunamadı; geçerli bir yedek seçin.');}const records=normalizeImported(jsonRows(data));if(data.events!==undefined){if(!Array.isArray(data.events))throw Error('Yedekteki hareket geçmişi bir liste olmalı.');const events=data.events.map(e=>C().normalizeMarketEvent(e));if(events.some(e=>!e))throw Error('Yedekte geçersiz ilan hareketi var.');records.marketEvents=events;}if(Array.isArray(data.lists))records.listMeta=data.lists;return records;}
+    if(ext==='json'){let data;try{data=JSON.parse(await file.text());}catch{throw Error('JSON dosyası okunamadı; geçerli bir yedek seçin.');}const records=normalizeImported(jsonRows(data));if(data.events!==undefined){if(!Array.isArray(data.events))throw Error('Yedekteki hareket geçmişi bir liste olmalı.');const events=data.events.map(e=>C().normalizeMarketEvent(e));if(events.some(e=>!e))throw Error('Yedekte geçersiz ilan hareketi var.');records.marketEvents=events;}if(Array.isArray(data.lists))records.listMeta=data.lists;if(data.settings&&typeof data.settings==='object')records.settingsMeta=data.settings;return records;}
     if(!['xlsx','csv'].includes(ext))throw Error('JSON, XLSX veya CSV dosyası seçin.');
     if(!root.XLSX)throw Error('Excel bileşeni yüklenemedi. Eklenti dosyalarının tamamını aynı klasörde tutun.');
     const bytes=new Uint8Array(await file.arrayBuffer());
@@ -67,7 +67,7 @@
   function exportXlsx(records){const wb=workbookFor(records);const bytes=root.XLSX.write(wb,{bookType:'xlsx',type:'array',compression:true});return download(bytes,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',filename('.xlsx'));}
   function csvText(records){requireData(records);const safe=value=>{let s=String(value??'');if(typeof value==='string'&&/^[\s]*[=+@-]/.test(s))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';};return '\uFEFF'+exportRows(records).map(row=>row.map(safe).join(';')).join('\r\n');}
   function exportCsv(records){return download(csvText(records),'text/csv;charset=utf-8',filename('.csv'));}
-  function exportBackup(records,options={}){const events=(options.events||[]).map(e=>C().normalizeMarketEvent(e)).filter(Boolean);return download(JSON.stringify({type:'ilan5-backup',schemaVersion:2,exportedAt:new Date().toISOString(),records:records.map(r=>C().normalizeRecord(r)),events,lists:Array.isArray(options.lists)?options.lists:[]},null,2),'application/json;charset=utf-8',filename('_yedek.json'));}
+  function exportBackup(records,options={}){const events=(options.events||[]).map(e=>C().normalizeMarketEvent(e)).filter(Boolean);return download(JSON.stringify({type:'ilan5-backup',schemaVersion:2,exportedAt:new Date().toISOString(),records:records.map(r=>C().normalizeRecord(r)),events,lists:Array.isArray(options.lists)?options.lists:[],...(options.settings?{settings:options.settings}:{})},null,2),'application/json;charset=utf-8',filename('_yedek.json'));}
   root.IlanTransfer={importFile,exportXlsx,exportCsv,exportBackup,jsonRows,normalizeImported,exportRows,workbookFor,csvText};
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanTransfer;
 })(globalThis);

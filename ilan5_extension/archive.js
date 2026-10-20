@@ -92,9 +92,33 @@
   const BACKUP_KEY='ilan5.backup.v1';
   async function backupConfig(){try{const value=globalThis.chrome?.storage?.local?(await chrome.storage.local.get(BACKUP_KEY))[BACKUP_KEY]:null;return {auto:value?.auto!==false,lastAt:value?.lastAt||null};}catch(_){return {auto:true,lastAt:null};}}
   async function renderBackup(){const config=await backupConfig();$('autoBackup').checked=config.auto;$('lastBackupText').textContent=config.lastAt?`Son yedek: ${formatDate(config.lastAt)}`:'Henüz yedek alınmadı.';}
+  // Settings that make a move to another computer complete. The Telegram token is never written to a file.
+  async function collectSettings(){
+    if(!globalThis.chrome?.storage?.local)return null;
+    const keys=['ilan5.searches.v1','ilan5.monitor.v1',Core.SAFETY_KEY,'ilan5.alerts.v1'];
+    const stored=await chrome.storage.local.get(keys),monitor=stored['ilan5.monitor.v1']||{};
+    const searches=(stored['ilan5.searches.v1']?.items||[]).map(s=>({searchUrl:s.searchUrl,name:s.name,category:s.category,intervalMinutes:s.intervalMinutes,delayMs:s.delayMs,revealPhone:s.revealPhone,enabled:s.enabled,listId:s.listId||''}));
+    return {searches,safety:stored[Core.SAFETY_KEY]||null,alerts:stored['ilan5.alerts.v1']||null,
+      monitor:{enabled:monitor.enabled!==false,intervalMinutes:monitor.intervalMinutes||360,confirmationMinutes:monitor.confirmationMinutes||15},templates:DB.getMessageTemplates?await DB.getMessageTemplates():[]};
+  }
+  async function restoreSettings(settings){
+    const done=[];
+    if(settings.safety){await runtime('ILAN_SAFETY_CONFIG',{safety:settings.safety});done.push('güvenli tarama');}
+    if(settings.alerts){await runtime('ILAN_ALERTS_CONFIG',{alerts:settings.alerts});done.push('bildirimler');}
+    if(settings.monitor){await runtime('ILAN_MONITOR_CONFIG',settings.monitor);done.push('bağlantı takibi');}
+    for(const template of settings.templates||[])if(template?.body)await DB.saveMessageTemplate(template);
+    if(settings.templates?.length)done.push('mesaj şablonları');
+    let searches=0;
+    // Searches come back switched off so nothing starts crawling before the new computer is set up.
+    for(const s of settings.searches||[]){try{await runtime('ILAN_SEARCH_SAVE',{...s,enabled:false});searches++;}catch(error){console.warn('Arama aktarılamadı',error.message);}}
+    if(searches)done.push(`${searches} kayıtlı arama (takibi kapalı)`);
+    await syncSafety();await syncSearches();await syncMonitoring();
+    return done;
+  }
   async function runBackup(auto=false){
     const events=DB.getEvents?await DB.getEvents({limit:0}):[];
-    await Transfer.exportBackup(state.records,{events,lists:allLists().map(({id,name,createdAt})=>({id,name,createdAt}))});
+    let settings=null;try{settings=await collectSettings();}catch(_){settings=null;}
+    await Transfer.exportBackup(state.records,{events,lists:allLists().map(({id,name,createdAt})=>({id,name,createdAt})),settings});
     if(globalThis.chrome?.storage?.local)await chrome.storage.local.set({[BACKUP_KEY]:{...(await backupConfig()),lastAt:new Date().toISOString()}});
     await renderBackup();toast(auto?'Haftalık otomatik yedek indirildi (İndirilenler klasörü).':'Tam arşiv yedeğinin indirilmesi başlatıldı.');
   }
@@ -242,7 +266,8 @@
   }
   async function jobAction(type,config={}){if(state.busy)return;state.busy=true;renderJob(state.job);try{const result=await runtime(type,config);if(result.job)renderJob(result.job);const captureMessage=type==='ILAN_CAPTURE_TAB'?(result.skipped?'Hedef kategoriyle uyuşmadığı için ilan arşive eklenmedi.':result.review?'İlan, kategori kontrolü için İnceleme gerekli alanına kaydedildi.':'İlan arşive kaydedildi.'):null;toast(captureMessage||({ILAN_START_LINKS:'Eklenen ilan bağlantılarının taraması başlatıldı.',ILAN_START:'Tarama başlatıldı.',ILAN_PAUSE:'Duraklatma istendi.',ILAN_RESUME:'Tarama devam ediyor.',ILAN_STOP:'Durdurma istendi. Kaydedilen ilanlar korunur.',ILAN_CAPTURE_TAB:'Açık ilan işlendi. Arşiv güncelleniyor.'})[type]||'İşlem tamamlandı.');await refresh();}catch(error){toast(error.message,true);}finally{state.busy=false;renderJob(state.job);}}
   async function exportFiltered(kind){try{if(!state.filtered.length){toast('Dışa aktarılacak kayıt bulunmuyor.');return;}await Transfer[kind](state.filtered.map(r=>({...r,listNames:(r.lists||[]).map(listName)})));toast(`${state.filtered.length} filtrelenmiş ilan için indirme başlatıldı.`);}catch(error){toast(`Dosya oluşturulamadı: ${error.message}`,true);}}
-  async function importFile(file){if(!file)return;$('importBtn').disabled=true;try{const records=await Transfer.importFile(file);if(!records?.length){toast('Dosyada içe aktarılabilir ilan bulunamadı.',true);return;}const before=state.records.length;const result=await DB.upsertMany(records);if(records.marketEvents?.length&&DB.importEvents)await DB.importEvents(records.marketEvents);if(records.listMeta)await mergeLists(records.listMeta);await refresh();await refreshMarket();const summary=records.importSummary||{};const review=records.filter(isReview).length;toast(`${records.length} kayıt işlendi; ${result?.added??Math.max(0,state.records.length-before)} yeni ilan eklendi.${result?.updated?` ${result.updated} mevcut ilan güncellendi.`:''}${review?` ${review} kayıt kategori incelemesi gerektiriyor.`:''}${summary.invalid?` ${summary.invalid} geçersiz satır atlandı.`:''}${summary.duplicates?` ${summary.duplicates} yinelenen satır birleştirildi.`:''}`);}catch(error){toast(`Dosya içe aktarılamadı: ${error.message}`,true);}finally{$('importBtn').disabled=false;$('importFile').value='';}}
+  async function importFile(file){if(!file)return;$('importBtn').disabled=true;try{const records=await Transfer.importFile(file);if(!records?.length){toast('Dosyada içe aktarılabilir ilan bulunamadı.',true);return;}const before=state.records.length;const result=await DB.upsertMany(records);if(records.marketEvents?.length&&DB.importEvents)await DB.importEvents(records.marketEvents);if(records.listMeta)await mergeLists(records.listMeta);
+    if(records.settingsMeta&&confirm('Bu yedekte kayıtlı aramalar ve ayarlar da var. Bu bilgisayara aktarılsın mı?\n\nKayıtlı aramalar takibi kapalı olarak gelir; İzlenen aramalar bölümünden “Takibi aç” ile başlatırsınız. Telegram tokeni yedekte yoktur, bir kez panelden girmeniz gerekir.')){try{const done=await restoreSettings(records.settingsMeta);if(done.length)setTimeout(()=>toast('Ayarlar aktarıldı: '+done.join(', ')+'.'),5600);}catch(error){toast('Ayarlar aktarılamadı: '+error.message,true);}}await refresh();await refreshMarket();const summary=records.importSummary||{};const review=records.filter(isReview).length;toast(`${records.length} kayıt işlendi; ${result?.added??Math.max(0,state.records.length-before)} yeni ilan eklendi.${result?.updated?` ${result.updated} mevcut ilan güncellendi.`:''}${review?` ${review} kayıt kategori incelemesi gerektiriyor.`:''}${summary.invalid?` ${summary.invalid} geçersiz satır atlandı.`:''}${summary.duplicates?` ${summary.duplicates} yinelenen satır birleştirildi.`:''}`);}catch(error){toast(`Dosya içe aktarılamadı: ${error.message}`,true);}finally{$('importBtn').disabled=false;$('importFile').value='';}}
 
   const availabilityLabels={active:'Yayında',suspected:'Tekrar kontrol bekliyor',removed:'Yayından kaldırılmış',unknown:'Henüz doğrulanmadı',blocked:'Erişim kontrolü bekliyor',error:'Kontrol tamamlanamadı'};
   const notificationLabels={queued:'Bildirim sırada',sending:'Gönderiliyor',sent:'Telegram bildirimi gönderildi',failed:'Bildirim gönderilemedi',uncertain:'Teslimat durumu belirsiz',pending:'Bildirim bekliyor',queue_error:'Bildirim kuyruğu yeniden denenecek',cancelled:'İlan durumu değişti; bildirim iptal edildi',none:'Bildirim oluşturulmadı',not_required:'Bildirim gerekmiyor'};
