@@ -27,7 +27,7 @@ export default {
     },
     {
       title: "Kiralama Kapsamının Planlanması",
-      text: "Kiralama süresini, çalışma saatlerini ve günlük çalışma düzenini projenizin temposuna göre planlıyor; operatörlü veya farklı kiralama seçeneklerini ihtiyacınıza göre değerlendiriyoruz."
+      text: "Kiralama süresini, çalışma saatlerini ve günlük çalışma düzenini projenizin temposuna göre planlıyor; kamyonlarımızı kendi şoförümüzle birlikte sahanıza yönlendiriyoruz."
     },
     {
       title: "Sahada Koordinasyon",
@@ -58,7 +58,7 @@ export default {
 <li>Güzergâhta trafik yoğunluğu veya çalışma saati kısıtı var mı?</li>
 <li>Çalışma kaç gün sürecek ve günlük düzen nasıl olacak?</li>
 </ol>
-<p>Kiralama süresi ve kapsamı bu yanıtlara göre ihtiyaca göre planlanır. Operatörlü veya ihtiyacınıza göre farklı kiralama seçenekleri için bizimle görüşebilirsiniz. Taşıma planlamasına dair pratik öneriler için <a href="/blog/hafriyat-toprak-nakliyesi-ipuclari/">hafriyat toprağı nakliyesi ipuçları</a> yazımıza göz atabilirsiniz.</p>
+<p>Kiralama süresi ve kapsamı bu yanıtlara göre ihtiyaca göre planlanır. Kamyonlarımızı kendi şoförümüzle birlikte kiralıyoruz; böylece aracı tanıyan deneyimli bir sürücüyle güvenli ve düzenli bir çalışma sağlanır. Taşıma planlamasına dair pratik öneriler için <a href="/blog/hafriyat-toprak-nakliyesi-ipuclari/">hafriyat toprağı nakliyesi ipuçları</a> yazımıza göz atabilirsiniz.</p>
 
 <h2>Saha Erişimi ve Yükleme Düzeni</h2>
 <p>Damperli kamyonların sahada güvenle çalışabilmesi için giriş çıkış yolunun, manevra alanının ve yükleme noktasının önceden belirlenmesi gerekir. Yumuşak veya çamurlu zeminlerde yüklü kamyonların hareketi zorlaşabilir; bu durumlarda geçiş yolunun güçlendirilmesi gerekebilir. Dar kentsel sahalarda ise kamyonların sokağa çıkış noktası, yaya güvenliği ve trafik akışı ayrıca planlanmalıdır.</p>
@@ -97,7 +97,7 @@ export default {
     },
     {
       q: "Kiralama süresi ve kapsamı nasıl belirleniyor?",
-      a: "Kiralama süresi ve kapsamı; taşınacak malzeme miktarına, yükleme temposuna, mesafeye ve projenizin takvimine göre ihtiyaca göre planlanır. Operatörlü veya ihtiyacınıza göre farklı kiralama seçenekleri için bizimle görüşebilirsiniz. Kesin koşullar görüşme aşamasında, sahanızın durumuna ve çalışma takviminize göre birlikte netleştirilir ve size açıkça iletilir."
+      a: "Kiralama süresi ve kapsamı; taşınacak malzeme miktarına, yükleme temposuna, mesafeye ve projenizin takvimine göre ihtiyaca göre planlanır. Kamyonlarımızı kendi şoförümüzle birlikte kiralıyoruz. Kesin koşullar görüşme aşamasında, sahanızın durumuna ve çalışma takviminize göre birlikte netleştirilir ve size açıkça iletilir."
     },
     {
       q: "Sahamın kamyon girişine uygun olduğunu nasıl anlarım?",

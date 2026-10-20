@@ -13,7 +13,7 @@ Build betiği (`scripts/build.mjs`) bu dosyaları okuyup statik HTML üretir ve 
 ## Firma bilgileri (yalnızca bunlar kesin bilgidir)
 
 - Unvan: CMS Hafriyat Nakliyat İnşaat Taahhüt Ticaret Ltd. Şti.
-- Faaliyet: hafriyat, temel kazı işleri, altyapı işleri, yol kazı işleri, dolgu işleri, iş makinesi kiralama, kamyon (damperli) kiralama, inşaat & taahhüt, hafriyat nakliyesi (yalnızca hafriyat toprağı ve molozun döküm sahasına taşınması; ekipman/makine/inşaat malzemesi taşımacılığı YOK) (İHRACAT YOK – firma artık ihracat hizmeti sunmuyor, hiçbir yerde anılmaz)
+- Faaliyet: hafriyat, temel kazı işleri, altyapı işleri, yol kazı işleri, dolgu işleri, iş makinesi kiralama (yalnızca farklı tonajlarda PALETLİ EKSKAVATÖR, yalnızca KENDİ OPERATÖRÜMÜZLE), kamyon (damperli) kiralama (kendi şoförümüzle), inşaat & taahhüt, hafriyat nakliyesi (yalnızca hafriyat toprağı ve molozun döküm sahasına taşınması; ekipman/makine/inşaat malzemesi taşımacılığı YOK) (İHRACAT YOK – firma artık ihracat hizmeti sunmuyor, hiçbir yerde anılmaz)
 - Konum: Toros Mah. 78090 Sk. Özcan Apt. Sit. No: 10 A, 01170 Çukurova/Adana (merkez Adana; hizmet bölgesi sınırı belirtilmez)
 - E-posta: cmshafriyat01@gmail.com · Telefon/WhatsApp: 0533 500 37 79
 - Slogan: "Güvenle Başlar, Değerle Büyür."

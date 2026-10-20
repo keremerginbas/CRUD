@@ -70,7 +70,7 @@ export default {
 </ul>
 
 <h2>Ekipman ve Planlama</h2>
-<p>Yol kazı işlerinde ekskavatör, greyder, yükleyici ve silindir gibi farklı ekipmanların birbirini izleyen bir düzende çalışması gerekir. Bu düzen için gereken makineleri <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> seçeneklerimizle planlayabilirsiniz. Ekipman türleri hakkında bilgi için <a href="/blog/is-makinesi-secimi-rehberi/">iş makinesi seçimi rehberimize</a>, genel proje planlaması için <a href="/blog/insaat-projesi-planlama-adimlari/">inşaat projesi planlama adımları</a> yazımıza göz atabilirsiniz.</p>
+<p>Yol kazı işlerinde ekskavatör, greyder, yükleyici ve silindir gibi farklı ekipmanların birbirini izleyen bir düzende çalışması gerekir. Kazı ve yükleme aşaması için paletli ekskavatörlerimizi kendi operatörümüzle <a href="/hizmetler/is-makinesi-kiralama/">iş makinesi kiralama</a> kapsamında planlayabilirsiniz. Ekipman türleri hakkında bilgi için <a href="/blog/is-makinesi-secimi-rehberi/">iş makinesi seçimi rehberimize</a>, genel proje planlaması için <a href="/blog/insaat-projesi-planlama-adimlari/">inşaat projesi planlama adımları</a> yazımıza göz atabilirsiniz.</p>
 
 <h2>Hangi Projelerde Yol Kazı Desteği Veriyoruz?</h2>
 <p>Yol kazı işleri farklı ölçeklerde karşımıza çıkar. Yeni bir yerleşim alanının iç yolları, sanayi ve depolama tesislerinin saha içi yolları, tarım arazilerine ve arsalara erişim yolları, şantiyelere ulaşım için açılan geçici yollar ve mevcut yolların genişletilmesi bunlardan bazılarıdır. Her birinde kullanım yoğunluğu, araç tipi, arazi eğimi ve drenaj koşulları farklıdır. Bu nedenle hazır bir kalıp yerine güzergâhın koşullarına uygun bir çalışma planı oluşturuyoruz.</p>
