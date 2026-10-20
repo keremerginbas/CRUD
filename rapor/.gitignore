@@ -1,4 +1,5 @@
 private/bitrix-config.php
 private/openai-config.php
+private/meta-config.php
 report-config.json
 auth-config.js

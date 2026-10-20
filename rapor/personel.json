@@ -1,0 +1,37 @@
+{
+  "23180": { "isim": "Abdullah Açıkgöz",   "dep": "XRE ARSA" },
+
+  "17984": { "isim": "Ali Karaoğlu",       "dep": "XRE PROJE SATIŞ" },
+  "22186": { "isim": "Ali Kemal Çınar",    "dep": "XRE PROJE SATIŞ" },
+  "26120": { "isim": "Sefa Tuna Şencan",   "dep": "XRE PROJE SATIŞ" },
+  "26352": { "isim": "Emre Caner",         "dep": "XRE PROJE SATIŞ" },
+  "1174":  { "isim": "Arda Kağan Ertaş",   "dep": "XRE PROJE SATIŞ" },
+  "116":   { "isim": "Merve Gelleci",      "dep": "XRE PROJE SATIŞ" },
+  "25258": { "isim": "Murat Çakıroğlu",    "dep": "XRE PROJE SATIŞ" },
+  "5778":  { "isim": "Tuğba Kütük",        "dep": "XRE PROJE SATIŞ" },
+  "11690": { "isim": "Zeliha Bilginsoy",   "dep": "XRE PROJE SATIŞ" },
+
+  "25314": { "isim": "Hatice Aldemir",     "dep": "XRE BARTER" },
+  "25120": { "isim": "Ozan Kabagöz",       "dep": "XRE BARTER" },
+  "27876": { "isim": "Yiğitcan Dilek",     "dep": "XRE BARTER" },
+  "27878": { "isim": "Aleyna Özdemir",     "dep": "XRE BARTER" },
+
+  "27446": { "isim": "Beril Sarıyıldız",   "dep": "XRE PARTNERS" },
+
+  "27332": { "isim": "Rüstem Sarıoğlan",   "dep": "XRE FRANCHİSE" },
+
+  "29484": { "isim": "Enes Can Yıldırım",  "dep": "XRE AUTO" },
+
+  "78":    { "isim": "Kaan İnce",          "dep": "XRE MEMNUNİYET ARAMA" },
+  "12482": { "isim": "Kerem Berk Erginbaş","dep": "XRE MEMNUNİYET ARAMA" },
+
+  "22182": { "isim": "Zarife Ayoğlu",      "dep": "XRE RECRUITING" },
+
+  "24600": { "isim": "Anıl Emre Özkök",    "dep": "" },
+  "23562": { "isim": "Burcu Kansu",        "dep": "" },
+  "25392": { "isim": "Dilara Gençağa",     "dep": "" },
+  "23564": { "isim": "Duygu Ayyayla",      "dep": "" },
+  "24080": { "isim": "Ebru Özkanoğlu",     "dep": "" },
+  "25316": { "isim": "Özge Kaya",          "dep": "" },
+  "26306": { "isim": "Meltem Aygün",       "dep": "" }
+}

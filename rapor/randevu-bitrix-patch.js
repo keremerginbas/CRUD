@@ -16,7 +16,7 @@
     var f = function (d) {
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     };
-    var repPage = document.getElementById('p-temsilci');
+    var repPage = document.getElementById('p-temsilciler');
     var repActive = repPage && repPage.classList.contains('active');
     var selId = repActive ? 'repPeriyot' : 'genelPeriyot';
     var startId = repActive ? 'repStart' : 'genelStart';

@@ -4,6 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: private, max-age=60, stale-while-revalidate=300');
 header('X-Content-Type-Options: nosniff');
 if(($_SERVER['REQUEST_METHOD']??'GET')==='OPTIONS'){http_response_code(204);exit;}
+require_once __DIR__.'/bitrix-common.php';
 
 function out(array $data,int $status=200):never{http_response_code($status);echo json_encode($data,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);exit;}
 function configPath():?string{
@@ -36,13 +37,7 @@ function isoStart(string $ymd):string{return $ymd.'T00:00:00+03:00';}
 function isoEnd(string $ymd):string{return $ymd.'T23:59:59+03:00';}
 function cacheFile(array $parts):string{$d=sys_get_temp_dir().'/xre-bitrix-calls-v5';if(!is_dir($d))@mkdir($d,0770,true);return $d.'/'.hash('sha256',json_encode($parts)).'.json';}
 
-$personel=[
-  '23180'=>'Abdullah Açıkgöz','17984'=>'Ali Karaoğlu','22186'=>'Ali Kemal Çınar','24600'=>'Anıl Emre Özkök',
-  '1174'=>'Arda Kağan Ertaş','23562'=>'Burcu Kansu','25392'=>'Dilara Gençağa','23564'=>'Duygu Ayyayla',
-  '24080'=>'Ebru Özkanoğlu','25314'=>'Hatice Aldemir','116'=>'Merve Gelleci','25258'=>'Murat Çakıroğlu',
-  '25120'=>'Ozan Kabagöz','25316'=>'Özge Kaya','5778'=>'Tuğba Kütük','22182'=>'Zarife Ayoğlu',
-  '11690'=>'Zeliha Bilginsoy','26306'=>'Meltem Aygün'
-];
+$personel=xrePersonel();
 $c=cfg();$base=$c['webhook_base'];
 try{
   $today=(new DateTimeImmutable())->format('Y-m-d');

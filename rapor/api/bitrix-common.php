@@ -73,27 +73,33 @@ function xreBitrixCall(string $base, string $method, array $params = []): array 
     return $data;
 }
 
+/**
+ * Personel listesinin tek kaynağı: rapor/personel.json
+ * Biçim: { "BITRIX_USER_ID": { "isim": "Ad Soyad", "dep": "DEPARTMAN" } }
+ * Panel (index.html) de aynı dosyayı okur; yeni personel yalnızca oraya eklenir.
+ */
+function xrePersonelDetay(): array {
+    static $cache = null;
+    if ($cache !== null) return $cache;
+    $cache = [];
+    $path = dirname(__DIR__) . '/personel.json';
+    $raw = is_file($path) ? @file_get_contents($path) : false;
+    $data = $raw !== false ? json_decode((string)$raw, true) : null;
+    if (!is_array($data)) {
+        error_log('XRE: personel.json okunamadı: ' . $path);
+        return $cache;
+    }
+    foreach ($data as $id => $row) {
+        $id = trim((string)$id);
+        $isim = trim((string)(is_array($row) ? ($row['isim'] ?? '') : $row));
+        if ($id === '' || $isim === '') continue;
+        $cache[$id] = ['isim' => $isim, 'dep' => trim((string)(is_array($row) ? ($row['dep'] ?? '') : ''))];
+    }
+    return $cache;
+}
+
 function xrePersonel(): array {
-    return [
-        '23180'=>'Abdullah Açıkgöz',
-        '17984'=>'Ali Karaoğlu',
-        '22186'=>'Ali Kemal Çınar',
-        '24600'=>'Anıl Emre Özkök',
-        '1174'=>'Arda Kağan Ertaş',
-        '23562'=>'Burcu Kansu',
-        '25392'=>'Dilara Gençağa',
-        '23564'=>'Duygu Ayyayla',
-        '24080'=>'Ebru Özkanoğlu',
-        '25314'=>'Hatice Aldemir',
-        '116'=>'Merve Gelleci',
-        '25258'=>'Murat Çakıroğlu',
-        '25120'=>'Ozan Kabagöz',
-        '25316'=>'Özge Kaya',
-        '5778'=>'Tuğba Kütük',
-        '22182'=>'Zarife Ayoğlu',
-        '11690'=>'Zeliha Bilginsoy',
-        '26306'=>'Meltem Aygün',
-    ];
+    return array_map(fn($p) => $p['isim'], xrePersonelDetay());
 }
 
 function xreParseDate(?string $value): ?DateTimeImmutable {
