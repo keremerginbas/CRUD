@@ -558,7 +558,11 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
   <section class="pane" id="pane"><div class="blank" id="blank"></div></section>
 </div>
 <div class="toast" id="toast" role="status"></div>
-<script src="https://api.bitrix24.com/api/v1/" async onload="try{BX24.init(function(){window.XRE_BX=true})}catch(e){}"></script>
+<script>
+// Bitrix, CRM kart sekmesini kısa sabit bir çerçevede açar; ekrana göre büyütülür.
+window.xreFit=function(){try{var h=Math.max(760,((window.screen&&screen.availHeight)||900)-170);BX24.resizeWindow(document.documentElement.scrollWidth||document.body.offsetWidth,h)}catch(e){}};
+</script>
+<script src="https://api.bitrix24.com/api/v1/" async onload="try{BX24.init(function(){window.XRE_BX=true;window.xreFit()})}catch(e){}"></script>
 <script>window.XRE_CHAT=${JSON.stringify(cfg).replace(/</g, "\\u003c")};</script>
 <script>${CHAT_JS}</script>
 </body></html>`;
