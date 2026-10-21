@@ -27,9 +27,10 @@ LAST_UPDATED = "2026-10-21"
 # Rome Pharma için tools/build_rome.py bu değerleri değiştirir.
 BRAND = {
     "word": "Orphion",                 # ana sayfa başlığı ve açılış animasyonu
-    "theme_color": "#da9502",
+    "theme_color": "#EE7A33",
+    "skin": "orphion",                 # custom.css'te [data-skin="orphion"] ile kapsanan görünüm
     "logo_header": ("assets/images/orphion-logo.webp", 289, 125),   # açık zemin
-    "logo_dark_bg": ("assets/images/orphion-logo.webp", 400, 174),  # koyu zemin (footer, mobil menü)
+    "logo_dark_bg": ("assets/images/orphion-logo-white.webp", 351, 140),  # koyu zemin (footer, mobil menü)
     "logo_png": "assets/images/orphion-logo.png",                    # Google / schema
 }
 
@@ -303,7 +304,7 @@ def head(page, lang, title, description, extra=""):
     other = "en" if lang == "tr" else "tr"
     og_image = SITE_URL + OG_IMAGES.get(page, "assets/images/og-image.jpg")
     return f"""<!DOCTYPE html>
-<html lang="{lang}">
+<html lang="{lang}"{f' data-skin="{BRAND["skin"]}"' if BRAND.get("skin") else ""}>
 
 <head>
     <meta charset="UTF-8">
@@ -1098,7 +1099,7 @@ EVENTS = [
         "place": {"tr": "Milano, İtalya", "en": "Milan, Italy"},
         "year": "2026",
         "topic": {"tr": "İlaç Endüstrisi", "en": "Pharmaceutical Industry"},
-        "photos": [("cphi-milan-2026.webp", "center bottom")],
+        "photos": [("cphi-milan-2026.webp", "center 62%")],
         "summary": {"tr": "Küresel ilaç endüstrisinin inovasyon, ortaklık ve iş birliği için en önemli buluşma noktalarından biri.",
                     "en": "One of the global pharmaceutical industry's most important meeting points for innovation, partnership and collaboration."},
         "body": {
@@ -1397,7 +1398,9 @@ def home_body(lang):
                         </div>
                     </div>
                     <div class="intro-down-wrapper">
-                        <div class="intro-down" data-bg-src="assets/images/bg/introBg3_1.webp" role="img" aria-label="{'İlaç tedariki ve laboratuvar' if tr else 'Pharmaceutical supply and laboratory'}"></div>
+                        <div class="intro-down hero-visual" data-bg-src="assets/images/bg/hero-medicines.webp" role="img" aria-label="{'Yenilikçi ilaçlar' if tr else 'Innovative medicines'}">
+                            <ul class="hero-chips list-unstyled" aria-hidden="true">{''.join(f'<li><span>{n + 1:02d}</span>{t[lang]}</li>' for n, (t, _) in enumerate(ACCESS_FLOW))}</ul>
+                        </div>
                     </div>
                 </div>
             </div>

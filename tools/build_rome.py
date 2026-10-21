@@ -49,10 +49,10 @@ def sync_shared_files():
 
     # Rome'un kendi renkleri (eski Rome sitesindeki main.css değerleri)
     patch("assets/css/main.css", [
-        ("--theme: #da9502;", "--theme: #2DCE98;"),
-        ("--theme2: #e09c35;", "--theme2: #00A6ED;"),
-        ("--title: #222c3e;", "--title: #1B3A57;"),
-        ("--bg-3: #F7DCC9;", "--bg-3: #D9E2EC;"),
+        ("--theme: #EE7A33;", "--theme: #2DCE98;"),
+        ("--theme2: #FF914B;", "--theme2: #00A6ED;"),
+        ("--title: #1E2A44;", "--title: #1B3A57;"),
+        ("--bg-3: #EEF2F8;", "--bg-3: #D9E2EC;"),
     ])
     patch("assets/css/custom.css", [("Orphion Pharma - site özel stilleri", "Rome Pharma - site özel stilleri")])
     patch("assets/js/main.js", [

@@ -66,10 +66,10 @@ Description: Labwide - Laboratory & Research Html Template <
   --body: #fff;
   --black: #222;
   --white: #fff;
-  --theme: #da9502;
-  --theme2: #e09c35;
+  --theme: #EE7A33;
+  --theme2: #FF914B;
   --theme3: #ECF4FE;
-  --title: #222c3e;
+  --title: #1E2A44;
   --orange: #e78c45;
   --text: #858585;
   --text2: #cbcbcb;
@@ -80,7 +80,7 @@ Description: Labwide - Laboratory & Research Html Template <
   --border-5: #424242;
   --bg-1: #161921;
   --bg-2: #1B3A57;
-  --bg-3: #F7DCC9;
+  --bg-3: #EEF2F8;
   --bg-4: #F6F7F8;
   --box-shadow: 0px 4px 25px 0px rgba(0, 0, 0, 0.06);
 }
