@@ -229,7 +229,23 @@ def about_body(lang):
 
 
 b.home_about_text = home_about_text
-b.BODIES = dict(b.BODIES, about=about_body)
+b.BODIES = dict(b.BODIES, home=b.legacy_home_body, about=about_body)
+
+# Rome: Ankara merkez ofis, ardından Dubai ve ABD
+_offices = {o["key"]: o for o in b.OFFICES}
+b.OFFICES = [
+    dict(_offices["tr"], title={"tr": "Merkez Ofis", "en": "Main Office"}),
+    dict(_offices["dubai"], title={"tr": "Dubai Ofisi", "en": "Dubai Office"}),
+    _offices["us"],
+]
+b.MAIN_OFFICE = b.OFFICES[0]
+b.ORG_ADDRESS = {
+    "@type": "PostalAddress",
+    "streetAddress": "Kızılırmak Mahallesi Dumlupınar Bulvarı, NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23",
+    "addressLocality": "Çankaya",
+    "addressRegion": "Ankara",
+    "addressCountry": "TR",
+}
 
 b.DESCRIPTIONS = dict(b.DESCRIPTIONS)
 b.DESCRIPTIONS.update({

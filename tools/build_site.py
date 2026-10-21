@@ -21,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent / "orphion-pharma"
 
 SITE_URL = "https://orphionpharma.com/"
-LAST_UPDATED = "2026-10-18"
+LAST_UPDATED = "2026-10-21"
 
 # Marka ayarları: logolar, açılış animasyonu, tema rengi.
 # Rome Pharma için tools/build_rome.py bu değerleri değiştirir.
@@ -37,7 +37,7 @@ COMPANY = {
     "name": "Orphion Pharma",
     "group": "Orphion Group",
     "email": "info@orphionpharma.com",
-    # Sitede görünen ana telefon: Merkez Ofis
+    # Sitede görünen ana telefon: Türkiye irtibat ofisi (Dubai merkezin ayrı telefonu yok)
     "phone_display": "+90 (312) 215 50 10",
     "phone_tel": "+903122155010",
     # Cep numarası sitede yazılmaz; yalnızca WhatsApp butonunda kullanılır.
@@ -47,8 +47,15 @@ COMPANY = {
 # Ofisler: iletişim sayfası, footer, mobil menü ve KVKK metni buradan beslenir.
 OFFICES = [
     {
-        "key": "main",
-        "title": {"tr": "Merkez Ofis", "en": "Main Office"},
+        "key": "dubai",
+        "title": {"tr": "Merkez – Dubai", "en": "Headquarters – Dubai"},
+        "lines": ["Meydan Grandstand, 6th Floor", "Meydan Road, Nad Al Sheba", "Dubai, U.A.E."],
+        "phones": [],
+        "maps_query": "Meydan Grandstand, Meydan Road, Nad Al Sheba, Dubai",
+    },
+    {
+        "key": "tr",
+        "title": {"tr": "Türkiye İrtibat Ofisi", "en": "Türkiye Liaison Office"},
         "lines": [
             "Kızılırmak Mahallesi Dumlupınar Bulvarı",
             "NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23",
@@ -58,13 +65,6 @@ OFFICES = [
         "maps_query": "NEXT LEVEL İş Merkezi, Kızılırmak Mahallesi Dumlupınar Bulvarı, Çankaya, Ankara",
     },
     {
-        "key": "dubai",
-        "title": {"tr": "Dubai Ofisi", "en": "Dubai Office"},
-        "lines": ["Meydan Grandstand, 6th Floor", "Meydan Road, Nad Al Sheba", "Dubai, U.A.E."],
-        "phones": [],
-        "maps_query": "Meydan Grandstand, Meydan Road, Nad Al Sheba, Dubai",
-    },
-    {
         "key": "us",
         "title": {"tr": "ABD İrtibat Ofisi", "en": "US Outreach Office"},
         "lines": ["3324 Sunbeam Place", "Batavia, OH 45103", "United States"],
@@ -72,7 +72,7 @@ OFFICES = [
         "maps_query": "3324 Sunbeam Place, Batavia, OH 45103",
     },
 ]
-MAIN_OFFICE = OFFICES[0]
+MAIN_OFFICE = OFFICES[0]  # Merkez (Dubai)
 CHAIRMAN_PHOTO_H = 994
 
 
@@ -761,6 +761,15 @@ def footer(lang):
 """
 
 
+# Schema.org merkez adresi (build_rome.py Ankara ile değiştirir)
+ORG_ADDRESS = {
+    "@type": "PostalAddress",
+    "streetAddress": "Meydan Grandstand, 6th Floor, Meydan Road, Nad Al Sheba",
+    "addressLocality": "Dubai",
+    "addressCountry": "AE",
+}
+
+
 def organization_schema(lang):
     c = COMPANY
     data = {
@@ -774,13 +783,7 @@ def organization_schema(lang):
         "telephone": c["phone_tel"],
         "description": DESCRIPTIONS["home"][lang],
         "parentOrganization": {"@type": "Organization", "name": c["group"]},
-        "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Kızılırmak Mahallesi Dumlupınar Bulvarı, NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23",
-            "addressLocality": "Çankaya",
-            "addressRegion": "Ankara",
-            "addressCountry": "TR",
-        },
+        "address": ORG_ADDRESS,
         "contactPoint": {
             "@type": "ContactPoint",
             "contactType": "customer service",
@@ -819,12 +822,11 @@ def page(page_key, lang, title, body):
 
 DESCRIPTIONS = {
     "home": {
-        "tr": ("Orphion Pharma; uluslararası ilaç firmalarının Türkiye pazarına erişimi için ilaç tedariki, "
-               "devlet ihaleleri, Yurt Dışı İlaç Programı ve pazara giriş danışmanlığı sunan bir tedarik ve "
-               "danışmanlık şirketidir."),
-        "en": ("Orphion Pharma is a pharmaceutical supply and consulting company helping international "
-               "pharmaceutical companies access the Turkish market through direct supply, government tenders, "
-               "named patient programs and market entry consulting."),
+        "tr": ("Dubai merkezli Orphion Pharma; isimli hasta erişimi, kamu tedariki, pazar erişimi, regülasyon desteği "
+               "ve yerel temsil ile yenilikçi ve nadir hastalık ilaçlarını Türkiye'deki hastalarla buluşturur."),
+        "en": ("Dubai-headquartered Orphion Pharma connects innovative and rare disease medicines with patients in "
+               "Türkiye through named patient access, institutional supply, market access, regulatory support and "
+               "local representation."),
     },
     "about": {
         "tr": ("Orphion Pharma, ciddi ve nadir hastalıklarda yenilikçi tedavilere hasta erişimini hızlandıran "
@@ -833,10 +835,10 @@ DESCRIPTIONS = {
                "to innovative therapies for serious and rare diseases. Bridging Innovation and Life."),
     },
     "contact": {
-        "tr": ("Orphion Pharma ile iletişime geçin: ilaç tedariki ve Türkiye pazarına giriş danışmanlığı "
-               "talepleriniz için formu doldurun, e-posta gönderin veya arayın."),
-        "en": ("Contact Orphion Pharma about pharmaceutical supply and Turkish market entry consulting: "
-               "use the form, email us or give us a call."),
+        "tr": ("Orphion Pharma ile iletişime geçin: Dubai merkez, Türkiye irtibat ofisi ve ABD ofisi. "
+               "Hasta erişimi, tedarik ve Türkiye pazarına giriş talepleriniz için formu doldurun."),
+        "en": ("Contact Orphion Pharma: Dubai headquarters, Türkiye liaison office and US outreach office. "
+               "Reach us about patient access, supply and Turkish market entry."),
     },
     "privacy": {
         "tr": "Orphion Pharma KVKK aydınlatma metni ve çerez politikası.",
@@ -888,7 +890,8 @@ def home_about_text(lang):
     return ABOUT[lang]["intro"][0] + " " + ABOUT[lang]["intro"][1]
 
 
-def home_body(lang):
+def legacy_home_body(lang):
+    """Eski ana sayfa düzeni (iki iş kolu). Rome Pharma bunu kullanır."""
     tr = lang == "tr"
     intro = HOME_INTRO[lang]
     about_p = home_about_text(lang)
@@ -955,6 +958,195 @@ def home_body(lang):
                             <div class="about-thumb">
                                 <div class="main-thumb img-custom-anim-left wow fadeInUp" data-wow-delay=".3s">
                                     <img src="assets/images/about/aboutThumb3_1.webp" width="775" height="634" loading="lazy" alt="{COMPANY['name'] + ' ilaç tedarik ve danışmanlık hizmetleri' if tr else COMPANY['name'] + ' pharmaceutical supply and consulting services'}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact -->
+    <section class="contact-section section-padding fix" id="contact-form">
+        <div class="contact-container-wrapper style2">
+            <div class="container">
+                <div class="contact-wrapper style2" data-bg-src="assets/images/bg/contactBg2_1.webp">
+                    <div class="row">
+                        <div class="col-xl-8">
+                            <div class="contact-form style2">
+                                <div class="section-title mxw-720 wow fadeInUp" data-wow-delay=".3s">
+                                    <h2 class="title">{T[lang]['contact_us']} / <span class="color-text">{COMPANY['name']}</span></h2>
+                                </div>{contact_form(lang)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="icon-box" aria-hidden="true">
+                    <img src="assets/images/icon/contactIcon1_1.svg" alt="">
+                </div>
+            </div>
+        </div>
+    </section>
+"""
+
+
+# Ana sayfa (Orphion): konumlandırma, kabiliyetler ve erişim akışı
+HERO = {
+    "tr": {
+        "lead": ("Yenilikçi ilaçları; güvenilir hasta erişimi, regülasyon ve tedarik yollarıyla "
+                 "Türkiye'deki hastalarla buluşturuyoruz."),
+        "cta_partner": "Bizimle Çalışın",
+        "cta_caps": "Hizmetlerimizi Keşfedin",
+    },
+    "en": {
+        "lead": ("Connecting innovative medicines with patients through trusted access, "
+                 "regulatory and supply pathways."),
+        "cta_partner": "Partner With Us",
+        "cta_caps": "Explore Our Capabilities",
+    },
+}
+
+CAPABILITIES = [
+    ("fa-user-doctor",
+     {"tr": "İsimli Hasta Erişimi", "en": "Named Patient Access"},
+     {"tr": "Türkiye'de ruhsatı bulunmayan yenilikçi ilaçların, isimli hasta (Yurt Dışı İlaç) programı üzerinden hastaya ulaştırılması.",
+      "en": "Bringing innovative medicines not yet licensed in Türkiye to individual patients through the named patient pathway."}),
+    ("fa-building-columns",
+     {"tr": "Kamu ve Kurum Tedariki", "en": "Government & Institutional Supply"},
+     {"tr": "Kamu kurumları, hastaneler ve ihaleler için mevzuata ve lojistik gerekliliklere uygun tedarik.",
+      "en": "Compliant supply to public institutions, hospitals and tenders, backed by reliable logistics."}),
+    ("fa-chart-line",
+     {"tr": "Pazar Erişimi ve Geri Ödeme", "en": "Market Access & Reimbursement"},
+     {"tr": "Fiyatlandırma, geri ödeme ve sürdürülebilir hasta erişimi için Türkiye'ye özel strateji.",
+      "en": "Türkiye-specific strategy for pricing, reimbursement and sustainable patient access."}),
+    ("fa-clipboard-check",
+     {"tr": "Ruhsat ve Regülasyon Desteği", "en": "Regulatory Pathway Support"},
+     {"tr": "Türk sağlık otoriteleri nezdinde, dokümantasyondan onaya kadar regülasyon sürecinde rehberlik.",
+      "en": "Guidance through the Turkish regulatory pathway, from documentation to approval."}),
+    ("fa-handshake",
+     {"tr": "Münhasır Distribütörlük ve Yerel Temsil", "en": "Exclusive Distribution & Local Representation"},
+     {"tr": "Üreticinin Türkiye'deki güvenilir yerel ortağı ve temsilcisi olarak hareket etmek.",
+      "en": "Acting as the manufacturer's committed local partner and representative in Türkiye."}),
+    ("fa-dna",
+     {"tr": "Özel ve Nadir Hastalık İlaçları", "en": "Specialty & Rare Disease Medicines"},
+     {"tr": "Erişimin en kritik olduğu özel ve nadir hastalık (orphan) tedavilerine odaklanma.",
+      "en": "A focus on specialty and orphan therapies, where access matters most."}),
+    ("fa-truck-medical",
+     {"tr": "Üreticiden Hastaya Doğrudan Erişim", "en": "Direct Manufacturer-to-Patient Access"},
+     {"tr": "Üreticiyi mevzuata uygun kanallarla doğrudan hastayla buluşturan erişim çözümleri.",
+      "en": "Access solutions connecting manufacturers directly with patients through compliant channels."}),
+]
+
+ACCESS_FLOW = [
+    ({"tr": "Hasta Erişimi", "en": "Patient Access"},
+     {"tr": "İhtiyacı olan hastayı yenilikçi tedaviyle buluşturmak.", "en": "Connecting patients in need with innovative therapies."}),
+    ({"tr": "Pazar Erişimi", "en": "Market Access"},
+     {"tr": "Regülasyon, fiyatlandırma ve geri ödeme yolunu açmak.", "en": "Opening the regulatory, pricing and reimbursement pathway."}),
+    ({"tr": "Tedarik", "en": "Supply"},
+     {"tr": "Kurumlara ve hastalara güvenilir, kesintisiz tedarik.", "en": "Reliable, uninterrupted supply to institutions and patients."}),
+    ({"tr": "Yerel Ortaklık", "en": "Local Partnership"},
+     {"tr": "Uzun vadeli yerel temsil ve münhasır distribütörlük.", "en": "Long-term local representation and exclusive distribution."}),
+]
+
+
+def capabilities_section(lang):
+    tr = lang == "tr"
+    cards = "".join(
+        f"""
+                <div class="col-xl-3 col-lg-4 col-md-6">
+                    <div class="capability-card wow fadeInUp" data-wow-delay=".{2 + i % 4}s">
+                        <span class="capability-icon"><i class="fa-solid {icon}" aria-hidden="true"></i></span>
+                        <h3>{title[lang]}</h3>
+                        <p>{desc[lang]}</p>
+                    </div>
+                </div>"""
+        for i, (icon, title, desc) in enumerate(CAPABILITIES)
+    )
+    steps = "".join(
+        f"""
+                <li class="access-step wow fadeInUp" data-wow-delay=".{3 + i}s">
+                    <span class="step-no">{i + 1:02d}</span>
+                    <h3>{title[lang]}</h3>
+                    <p>{desc[lang]}</p>
+                </li>"""
+        for i, (title, desc) in enumerate(ACCESS_FLOW)
+    )
+    return f"""
+    <!-- Capabilities -->
+    <section class="capabilities-section section-padding fix" id="capabilities">
+        <div class="container">
+            <div class="section-title text-center mxw-720 mx-auto">
+                <p class="subtitle h6 wow fadeInUp" data-wow-delay=".3s">{'Hizmetlerimiz' if tr else 'Our Capabilities'}</p>
+                <h2 class="title wow fadeInUp" data-wow-delay=".4s">{'Türkiye’ye giriş ve <span class="color-text">hasta erişim platformu</span>' if tr else 'A Türkiye entry and <span class="color-text">patient access platform</span>'}</h2>
+                <p class="desc wow fadeInUp" data-wow-delay=".5s">{'Yabancı bir ilaç firmasının ürününü Türkiye’de hastaya ulaştırması için gereken ticari, regülatuvar ve kurumsal köprüyü kuruyoruz.' if tr else 'We build the commercial, regulatory and institutional bridge an international manufacturer needs to bring its product to patients in Türkiye.'}</p>
+            </div>
+            <div class="row g-4 justify-content-center">{cards}
+            </div>
+            <ol class="access-flow list-unstyled" aria-label="{'Erişim akışı' if tr else 'Access pathway'}">{steps}
+            </ol>
+        </div>
+    </section>
+"""
+
+
+def home_body(lang):
+    tr = lang == "tr"
+    h = HERO[lang]
+    about_p = home_about_text(lang)
+    return f"""
+    <!-- Intro -->
+    <section class="intro-section fix mbn-1-9em">
+        <div class="intro-container-wrapper style3">
+            <div class="container">
+                <div class="intro-wrapper style3">
+                    <div class="intro-up">
+                        <div class="row">
+                            <div class="col-xl-6">
+                                <h1 class="intro-title wow fadeInUp" data-wow-delay=".3s" lang="en">{BRAND['word']}
+                                    <span>PHARMA</span>
+                                </h1>
+                            </div>
+                            <div class="col-xl-6">
+                                <div class="intro-content mxw-720">
+                                    <p class="hero-tagline wow fadeInUp" data-wow-delay=".4s" lang="en">{TAGLINE}</p>
+                                    <p class="desc wow fadeInUp" data-wow-delay=".6s">{h['lead']}</p>
+                                    <div class="hero-ctas wow fadeInUp" data-wow-delay=".7s">
+                                        <a class="theme-btn" href="{PAGES['contact'][lang]}#contact-form">{h['cta_partner']}</a>
+                                        <a class="theme-btn style-outline" href="#capabilities">{h['cta_caps']}</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="intro-down-wrapper">
+                        <div class="intro-down" data-bg-src="assets/images/bg/introBg3_1.webp" role="img" aria-label="{'İlaç tedariki ve laboratuvar' if tr else 'Pharmaceutical supply and laboratory'}"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+{marquee(lang)}{capabilities_section(lang)}
+    <!-- About -->
+    <section class="about-section section-padding pt-0 fix">
+        <div class="about-container-wrapper style3">
+            <div class="container">
+                <div class="about-wrapper style3">
+                    <div class="row gy-5 gx-30 d-flex align-items-center">
+                        <div class="col-xl-6">
+                            <div class="about-content">
+                                <div class="section-title mxw-705">
+                                    <h2 class="subtitle h6 wow fadeInUp" data-wow-delay=".3s">{T[lang]['about']}</h2>
+                                    <p class="title h2 wow fadeInUp" data-wow-delay=".6s">{BRAND['word']} <span class="color-text">Pharma</span></p>
+                                    <p class="desc mxw-690 wow fadeInUp" data-wow-delay=".3s">{about_p}</p>
+                                    <a class="theme-btn wow fadeInUp" data-wow-delay=".3s" href="{PAGES['about'][lang]}">{T[lang]['about']}</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-6 d-flex justify-content-center">
+                            <div class="about-thumb">
+                                <div class="main-thumb img-custom-anim-left wow fadeInUp" data-wow-delay=".3s">
+                                    <img src="assets/images/about/aboutThumb3_1.webp" width="775" height="634" loading="lazy" alt="{COMPANY['name'] + ' hasta erişimi ve ilaç tedariki' if tr else COMPANY['name'] + ' patient access and pharmaceutical supply'}">
                                 </div>
                             </div>
                         </div>
@@ -1213,6 +1405,12 @@ def contact_body(lang):
 """
 
 
+def office_lines(lang):
+    """KVKK metnindeki adres satırları: merkez ve (varsa) Türkiye ofisi."""
+    shown = [MAIN_OFFICE] + [o for o in OFFICES if o["key"] == "tr" and o is not MAIN_OFFICE]
+    return "".join(f"{o['title'][lang]}: {', '.join(o['lines'])}<br>\n                " for o in shown).rstrip()
+
+
 def privacy_body(lang):
     c = COMPANY
     if lang == "tr":
@@ -1225,7 +1423,7 @@ def privacy_body(lang):
 
                 <h2>1. Veri Sorumlusu</h2>
                 <p>{c['name']} ({c['group']} bünyesinde)<br>
-                Merkez Ofis: {', '.join(MAIN_OFFICE['lines'])}<br>
+                {office_lines('tr')}
                 E-posta: <a href="mailto:{c['email']}">{c['email']}</a><br>
                 Telefon: <a href="tel:{c['phone_tel']}">{c['phone_display']}</a></p>
 
@@ -1314,7 +1512,7 @@ def privacy_body(lang):
 
                 <h2>1. Data Controller</h2>
                 <p>{c['name']} (part of {c['group']})<br>
-                Main Office: {', '.join(MAIN_OFFICE['lines'])}<br>
+                {office_lines('en')}
                 Email: <a href="mailto:{c['email']}">{c['email']}</a><br>
                 Phone: <a href="tel:{c['phone_tel']}">{c['phone_display']}</a></p>
 
@@ -1651,8 +1849,8 @@ def partners_body(lang):
 
 TITLES = {
     "home": {
-        "tr": "Orphion Pharma | Türkiye İlaç Tedariki ve Pazar Danışmanlığı",
-        "en": "Orphion Pharma | Pharmaceutical Supply & Turkish Market Consulting",
+        "tr": "Orphion Pharma | Türkiye'de Yenilikçi İlaçlara Hasta ve Pazar Erişimi",
+        "en": "Orphion Pharma | Patient & Market Access for Innovative Medicines in Türkiye",
     },
     "about": {"tr": "Hakkımızda | Orphion Pharma", "en": "About Us | Orphion Pharma"},
     "contact": {"tr": "İletişim | Orphion Pharma", "en": "Contact | Orphion Pharma"},
