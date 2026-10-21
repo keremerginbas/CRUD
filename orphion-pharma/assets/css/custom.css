@@ -702,3 +702,38 @@ main h2, main h3 { text-transform: none; }
 @media (max-width: 1199px) {
   .hero-tagline { margin-top: 28px; }
 }
+
+/* ---------- Uluslararası etkinlikler ---------- */
+.events-section .section-title { margin-bottom: 48px; }
+.events-section .section-title .desc { margin-top: 16px; }
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 24px;
+}
+.event-card {
+  grid-column: span 2;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--title);
+  transition: transform .3s ease, box-shadow .3s ease;
+}
+.event-card:nth-child(4) { grid-column: 2 / span 2; }
+.event-card:hover { transform: translateY(-6px); box-shadow: 0 18px 40px rgba(34, 44, 62, .18); }
+.event-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+.event-info { padding: 20px 22px 22px; }
+.event-place { font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--theme2); }
+.event-info h3 { color: var(--white); font-size: 20px; margin: 6px 0 4px; text-transform: none; }
+.event-info p { color: var(--text2); font-size: 14px; margin: 0; line-height: 1.5; }
+@media (max-width: 991px) {
+  .events-grid { grid-template-columns: repeat(2, 1fr); }
+  .event-card, .event-card:nth-child(4) { grid-column: span 1; }
+}
+@media (max-width: 575px) {
+  .events-grid { grid-template-columns: 1fr; }
+}

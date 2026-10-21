@@ -1050,6 +1050,51 @@ ACCESS_FLOW = [
 ]
 
 
+# Katıldığımız uluslararası etkinlikler (fotoğraflar Orphion Pharma LinkedIn gönderilerinden)
+EVENTS = [
+    ("nacfc-2026-atlanta", "NACFC 2026", {"tr": "Atlanta, ABD", "en": "Atlanta, USA"},
+     {"tr": "Kuzey Amerika Kistik Fibrozis Konferansı", "en": "North American Cystic Fibrosis Conference"}, "center"),
+    ("cphi-milan-2026", "CPHI Milan 2026", {"tr": "Milano, İtalya", "en": "Milan, Italy"},
+     {"tr": "Küresel ilaç endüstrisinin buluşma noktası", "en": "The global pharma industry's meeting point"}, "center bottom"),
+    ("wodc-2026-boston", "World Orphan Drug Congress USA 2026", {"tr": "Boston, ABD", "en": "Boston, USA"},
+     {"tr": "Nadir hastalıklar ve yetim ilaçlar kongresi", "en": "Rare diseases and orphan medicines congress"}, "center"),
+    ("cphi-frankfurt-2025", "CPHI Frankfurt 2025", {"tr": "Frankfurt, Almanya", "en": "Frankfurt, Germany"},
+     {"tr": "Yeni ortaklıklar ve yenilikçi tedaviler", "en": "New partnerships and innovative therapies"}, "center 40%"),
+    ("nacfc-2025-seattle", "NACFC 2025", {"tr": "Seattle, ABD", "en": "Seattle, USA"},
+     {"tr": "Kistik fibrozis ve nadir hastalık iş birlikleri", "en": "Cystic fibrosis and rare disease collaborations"}, "center 75%"),
+]
+
+
+def events_section(lang):
+    tr = lang == "tr"
+    cards = "".join(
+        f"""
+                <div class="event-card wow fadeInUp" data-wow-delay=".{3 + i % 3}s">
+                    <img src="assets/images/events/{slug}.webp" alt="{COMPANY['name']} – {name}" loading="lazy" style="object-position: {pos}">
+                    <div class="event-info">
+                        <span class="event-place"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> {place[lang]}</span>
+                        <h3 lang="en">{name}</h3>
+                        <p>{desc[lang]}</p>
+                    </div>
+                </div>"""
+        for i, (slug, name, place, desc, pos) in enumerate(EVENTS)
+    )
+    return f"""
+    <!-- Events -->
+    <section class="events-section section-padding fix">
+        <div class="container">
+            <div class="section-title text-center mxw-720 mx-auto">
+                <p class="subtitle h6 wow fadeInUp" data-wow-delay=".3s">{'Küresel Varlığımız' if tr else 'Global Presence'}</p>
+                <h2 class="title wow fadeInUp" data-wow-delay=".4s">{'Uluslararası <span class="color-text">etkinliklerimiz</span>' if tr else 'Where we <span class="color-text">meet the industry</span>'}</h2>
+                <p class="desc wow fadeInUp" data-wow-delay=".5s">{'Bilimi, üreticileri ve hastaları buluşturan dünyanın önde gelen ilaç ve nadir hastalık etkinliklerinde yer alıyoruz.' if tr else 'We take part in the world’s leading pharmaceutical and rare disease events, where science, manufacturers and patient needs meet.'}</p>
+            </div>
+            <div class="events-grid">{cards}
+            </div>
+        </div>
+    </section>
+"""
+
+
 def capabilities_section(lang):
     tr = lang == "tr"
     cards = "".join(
@@ -1126,7 +1171,7 @@ def home_body(lang):
             </div>
         </div>
     </section>
-{marquee(lang)}{capabilities_section(lang)}
+{marquee(lang)}{capabilities_section(lang)}{events_section(lang)}
     <!-- About -->
     <section class="about-section section-padding pt-0 fix">
         <div class="about-container-wrapper style3">
