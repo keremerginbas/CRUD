@@ -194,8 +194,9 @@
             var t = i18n[pageLang];
             var successText = $form.data("success") || t.success;
 
-            // Bot koruması: formun ne zaman açıldığını kaydet.
-            $form.find("input[name=ts]").val(Math.floor(Date.now() / 1000));
+            // Bot koruması: formun açılmasından gönderilmesine kadar geçen süre.
+            // Ziyaretçinin saati sunucudan farklı olabildiği için mutlak saat değil, süre gönderilir.
+            var openedAt = Date.now();
 
             function showStatus(type, text) {
                 $status.removeClass("success error").addClass("show " + type).text(text);
@@ -220,6 +221,7 @@
                     return;
                 }
 
+                $form.find("input[name=ts]").val(Math.floor((Date.now() - openedAt) / 1000));
                 var original = $button.html();
                 $button.prop("disabled", true).text(t.sending);
 
@@ -234,7 +236,7 @@
                         showStatus("success", successText);
                         $form[0].reset();
                         $form.find(".cv-name").text("");
-                        $form.find("input[name=ts]").val(Math.floor(Date.now() / 1000));
+                        openedAt = Date.now();
                     } else {
                         showStatus("error", (data && data.message) || t.error);
                     }

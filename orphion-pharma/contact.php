@@ -194,8 +194,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 if (!empty($_POST['website'])) {
     respond(true, $messages['ok'], $lang, $wantsJson);
 }
-$ts = (int) ($_POST['ts'] ?? 0);
-if ($ts > 0 && (time() - $ts) < MIN_SECONDS) {
+// ts: formun açık kaldığı süre (saniye). JS yoksa boş gelir, kontrol atlanır.
+$elapsed = (string) ($_POST['ts'] ?? '');
+if (ctype_digit($elapsed) && (int) $elapsed < MIN_SECONDS) {
     respond(true, $messages['ok'], $lang, $wantsJson);
 }
 
