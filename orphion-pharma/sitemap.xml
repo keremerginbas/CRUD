@@ -97,6 +97,22 @@
     <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/partners-en.html"/>
   </url>
   <url>
+    <loc>https://orphionpharma.com/etkinlikler.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlikler.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/events-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/events-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/events-en.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlikler.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/events-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/events-en.html"/>
+  </url>
+  <url>
     <loc>https://orphionpharma.com/contact.html</loc>
     <lastmod>2026-10-21</lastmod>
     <priority>0.8</priority>
@@ -127,5 +143,85 @@
     <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/kvkk.html"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/privacy-en.html"/>
     <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/privacy-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/etkinlik-nacfc-2026-atlanta.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-nacfc-2026-atlanta.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-nacfc-2026-atlanta-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-nacfc-2026-atlanta-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/event-nacfc-2026-atlanta-en.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-nacfc-2026-atlanta.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-nacfc-2026-atlanta-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-nacfc-2026-atlanta-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/etkinlik-cphi-milan-2026.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-cphi-milan-2026.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-cphi-milan-2026-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-cphi-milan-2026-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/event-cphi-milan-2026-en.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-cphi-milan-2026.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-cphi-milan-2026-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-cphi-milan-2026-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/etkinlik-wodc-2026-boston.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-wodc-2026-boston.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-wodc-2026-boston-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-wodc-2026-boston-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/event-wodc-2026-boston-en.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-wodc-2026-boston.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-wodc-2026-boston-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-wodc-2026-boston-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/etkinlik-cphi-frankfurt-2025.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-cphi-frankfurt-2025.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-cphi-frankfurt-2025-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-cphi-frankfurt-2025-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/event-cphi-frankfurt-2025-en.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-cphi-frankfurt-2025.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-cphi-frankfurt-2025-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-cphi-frankfurt-2025-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/etkinlik-nacfc-2025-seattle.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-nacfc-2025-seattle.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-nacfc-2025-seattle-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-nacfc-2025-seattle-en.html"/>
+  </url>
+  <url>
+    <loc>https://orphionpharma.com/event-nacfc-2025-seattle-en.html</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="tr" href="https://orphionpharma.com/etkinlik-nacfc-2025-seattle.html"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://orphionpharma.com/event-nacfc-2025-seattle-en.html"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://orphionpharma.com/event-nacfc-2025-seattle-en.html"/>
   </url>
 </urlset>

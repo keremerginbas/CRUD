@@ -174,6 +174,7 @@ PAGES = {
     "mission": {"tr": "misyon-vizyon.html", "en": "mission-vision-en.html"},
     "hr": {"tr": "insan-kaynaklari.html", "en": "human-resources-en.html"},
     "partners": {"tr": "partnerler.html", "en": "partners-en.html"},
+    "events": {"tr": "etkinlikler.html", "en": "events-en.html"},
     "contact": {"tr": "contact.html", "en": "contact-en.html"},
     "privacy": {"tr": "kvkk.html", "en": "privacy-en.html"},
 }
@@ -184,7 +185,7 @@ if CHAIRMAN is None:
 MENU = [
     ("home", "home", []),
     ("corporate", "about", [("about", "about", ""), ("chairman", "chairman", ""),
-                            ("mission", "mission", ""), ("hr", "hr", "")]),
+                            ("mission", "mission", ""), ("events", "events", ""), ("hr", "hr", "")]),
     ("partners", "partners", [("partners", "partners", ""), ("portfolio", "partners", "#portfolio")]),
     ("contact", "contact", []),
 ]
@@ -198,6 +199,7 @@ T = {
         "chairman": "YK Başkanının Mesajı",
         "mission": "Misyon ve Vizyon",
         "hr": "İnsan Kaynakları",
+        "events": "Etkinliklerimiz",
         "partners": "Partnerlerimiz",
         "portfolio": "Ürün Portföyümüz",
         "contact": "İletişim",
@@ -237,6 +239,7 @@ T = {
         "chairman": "Message from the Chairman",
         "mission": "Mission & Vision",
         "hr": "Human Resources",
+        "events": "Our Events",
         "partners": "Our Partners",
         "portfolio": "Our Product Portfolio",
         "contact": "Contact",
@@ -293,9 +296,12 @@ def url_of(page, lang):
 # Ortak bileşenler
 # ---------------------------------------------------------------------------
 
+OG_IMAGES = {}  # sayfa anahtarı -> paylaşım görseli (varsayılan: og-image.jpg)
+
+
 def head(page, lang, title, description, extra=""):
     other = "en" if lang == "tr" else "tr"
-    og_image = SITE_URL + "assets/images/og-image.jpg"
+    og_image = SITE_URL + OG_IMAGES.get(page, "assets/images/og-image.jpg")
     return f"""<!DOCTYPE html>
 <html lang="{lang}">
 
@@ -560,8 +566,11 @@ def lang_suggest(page, lang):
 """
 
 
-def breadcrumb(lang, title):
+def breadcrumb(lang, title, parent=None):
     t = T[lang]
+    middle = (f"""
+                    <li class="text-uppercase"><a href="{PAGES[parent][lang]}">{t[parent]} / </a></li>"""
+              if parent else "")
     return f"""
     <!-- Breadcrumb -->
     <section class="breadcrumb-section">
@@ -569,7 +578,7 @@ def breadcrumb(lang, title):
             <div class="breadcrumb-text text-center">
                 <h1 class="breadcrumb-title text-uppercase">{title}</h1>
                 <ul class="list-unstyled">
-                    <li class="text-uppercase"><a href="{PAGES['home'][lang]}">{t['home']} / </a></li>
+                    <li class="text-uppercase"><a href="{PAGES['home'][lang]}">{t['home']} / </a></li>{middle}
                     <li class="text-uppercase">{title}</li>
                 </ul>
             </div>
@@ -1050,35 +1059,174 @@ ACCESS_FLOW = [
 ]
 
 
-# Katıldığımız uluslararası etkinlikler (fotoğraflar Orphion Pharma LinkedIn gönderilerinden)
+# Katıldığımız uluslararası etkinlikler. Metinler Orphion Pharma LinkedIn gönderilerinden,
+# fotoğraflar assets/images/events/ klasöründen. Yeni etkinlik en üste eklenir.
 EVENTS = [
-    ("nacfc-2026-atlanta", "NACFC 2026", {"tr": "Atlanta, ABD", "en": "Atlanta, USA"},
-     {"tr": "Kuzey Amerika Kistik Fibrozis Konferansı", "en": "North American Cystic Fibrosis Conference"}, "center"),
-    ("cphi-milan-2026", "CPHI Milan 2026", {"tr": "Milano, İtalya", "en": "Milan, Italy"},
-     {"tr": "Küresel ilaç endüstrisinin buluşma noktası", "en": "The global pharma industry's meeting point"}, "center bottom"),
-    ("wodc-2026-boston", "World Orphan Drug Congress USA 2026", {"tr": "Boston, ABD", "en": "Boston, USA"},
-     {"tr": "Nadir hastalıklar ve yetim ilaçlar kongresi", "en": "Rare diseases and orphan medicines congress"}, "center"),
-    ("cphi-frankfurt-2025", "CPHI Frankfurt 2025", {"tr": "Frankfurt, Almanya", "en": "Frankfurt, Germany"},
-     {"tr": "Yeni ortaklıklar ve yenilikçi tedaviler", "en": "New partnerships and innovative therapies"}, "center 40%"),
-    ("nacfc-2025-seattle", "NACFC 2025", {"tr": "Seattle, ABD", "en": "Seattle, USA"},
-     {"tr": "Kistik fibrozis ve nadir hastalık iş birlikleri", "en": "Cystic fibrosis and rare disease collaborations"}, "center 75%"),
+    {
+        "slug": "nacfc-2026-atlanta",
+        "name": "NACFC 2026",
+        "full": {"tr": "Kuzey Amerika Kistik Fibrozis Konferansı 2026", "en": "North American Cystic Fibrosis Conference 2026"},
+        "place": {"tr": "Atlanta, ABD", "en": "Atlanta, USA"},
+        "year": "2026",
+        "topic": {"tr": "Kistik Fibrozis", "en": "Cystic Fibrosis"},
+        "photos": [("nacfc-2026-atlanta.webp", "center")],
+        "summary": {"tr": "Kistik fibrozis alanında bilimi, bakımı ve inovasyonu ilerleten en önemli küresel buluşmalardan biri.",
+                    "en": "One of the most important global gatherings advancing science, care and innovation in cystic fibrosis."},
+        "body": {
+            "tr": [
+                "Kistik fibrozis alanında bilimi, bakımı ve inovasyonu ilerletmeye adanmış en önemli küresel buluşmalardan biri olan Kuzey Amerika Kistik Fibrozis Konferansı'na (NACFC 2026) Atlanta'da katılmaktan gurur duyduk.",
+                "Orphion Pharma için NACFC, en son bilimsel gelişmeleri takip etmenin ötesindeydi. Kistik fibrozis tedavisinin geleceğini şekillendiren araştırmacıları, klinisyenleri ve yenilikçileri dinlemek, onlardan öğrenmek ve onlarla iletişim kurmak için bir fırsattı.",
+                "Konferans boyunca yeni tedaviler, yenilikçi tedavi yaklaşımları ve en önemlisi hastalar için hâlâ karşılanmamış ihtiyaçlar üzerine değerli görüşmeler yaptık.",
+                "Misyonumuz net: dünyadaki anlamlı yenilikleri belirlemek ve bunları Türkiye'deki ve ötesindeki hastalar için erişilebilir kılacak köprüleri kurmak.",
+                "Atlanta'dan yeni bakış açıları, umut verici görüşmeler ve bilimsel ilerlemeyi gerçek hasta erişimine dönüştürebilecek ortaklıklar geliştirme konusunda daha da güçlü bir kararlılıkla döndük.",
+            ],
+            "en": [
+                "We were proud to attend the North American Cystic Fibrosis Conference (NACFC 2026) in Atlanta, one of the most important global gatherings dedicated to advancing science, care and innovation in cystic fibrosis.",
+                "For Orphion Pharma, attending NACFC was more than following the latest scientific developments. It was an opportunity to listen, learn and engage with the researchers, clinicians and innovators who are shaping the future of CF care.",
+                "Throughout the conference, we had valuable discussions around emerging therapies, innovative treatment approaches and, most importantly, the unmet needs that still remain for patients.",
+                "Our mission remains clear: to identify meaningful innovation globally and build the bridges necessary to make it accessible to patients in Türkiye and beyond.",
+                "We return from Atlanta with new perspectives, promising conversations and an even stronger commitment to developing partnerships that can translate scientific progress into real patient access.",
+            ],
+        },
+        "motto": {"tr": "Bilimden erişime. İnovasyondan hastaya.", "en": "From science to access. From innovation to patient."},
+        "tags": ["NACFC2026", "CysticFibrosis", "RareDiseases", "PatientAccess", "UnmetMedicalNeeds", "MarketAccess"],
+    },
+    {
+        "slug": "cphi-milan-2026",
+        "name": "CPHI Milan 2026",
+        "full": {"tr": "CPHI Milan 2026", "en": "CPHI Milan 2026"},
+        "place": {"tr": "Milano, İtalya", "en": "Milan, Italy"},
+        "year": "2026",
+        "topic": {"tr": "İlaç Endüstrisi", "en": "Pharmaceutical Industry"},
+        "photos": [("cphi-milan-2026.webp", "center bottom")],
+        "summary": {"tr": "Küresel ilaç endüstrisinin inovasyon, ortaklık ve iş birliği için en önemli buluşma noktalarından biri.",
+                    "en": "One of the global pharmaceutical industry's most important meeting points for innovation, partnership and collaboration."},
+        "body": {
+            "tr": [
+                "Küresel ilaç endüstrisinin inovasyon, ortaklık ve iş birliği için en önemli buluşma noktalarından biri olan CPHI Milan 2026'ya katılmaktan memnuniyet duyduk.",
+                "Orphion Pharma'da “Bridging Innovation and Life” mottomuz, yaptığımız her şeyin arkasındaki amacı yansıtıyor: yenilikçi tedaviler ile onlara ihtiyaç duyan hastalar arasında köprü kurmak.",
+                "CPHI Milan boyunca mevcut partnerlerimizle iş birliğimizi güçlendirirken yeni ilaç şirketleriyle tanışma ve Türkiye ile hizmet verdiğimiz pazarlar için umut verici fırsatları keşfetme imkânı bulduk.",
+                "Odağımız net: yüksek değerli ve yenilikçi tedavileri belirlemek, karşılanmamış tıbbi ihtiyaçlara yanıt vermek ve hastalar ile sağlık sistemleri için anlamlı değer yaratacak sürdürülebilir ortaklıklar geliştirmek.",
+                "Her yeni görüşme, her ortaklık ve değerlendirdiğimiz her ürün bizi bu misyona bir adım daha yaklaştırıyor. Mevcut partnerlerimize sürekli güvenleri için, Milano'da tanıştığımız tüm yeni ekiplere de ilham verici ve verimli görüşmeler için içtenlikle teşekkür ederiz.",
+            ],
+            "en": [
+                "We were pleased to participate in CPHI Milan 2026, one of the global pharmaceutical industry's most important meeting points for innovation, partnership and collaboration.",
+                "At Orphion Pharma, our motto “Bridging Innovation and Life” reflects the purpose behind everything we do: building the bridge between innovative therapies and the patients who need them.",
+                "Throughout CPHI Milan, we had the opportunity to strengthen our collaboration with our existing partners while engaging with new pharmaceutical companies and exploring promising opportunities for Türkiye and the markets we serve.",
+                "Our focus remains clear: to identify high-value and innovative therapies, address unmet medical needs, and develop sustainable partnerships that can create meaningful value for patients and healthcare systems.",
+                "Every new conversation, every partnership and every product we evaluate brings us one step closer to that mission. We sincerely thank our existing partners for their continued trust and all the new teams we met in Milan for the inspiring and productive discussions.",
+            ],
+        },
+        "motto": {"tr": "İnovasyondan erişime. Ortaklıktan hastaya.", "en": "From innovation to access. From partnership to patient."},
+        "tags": ["CPHI2026", "CPHIMilan", "Pharmaceuticals", "PatientAccess", "MarketAccess", "Partnerships"],
+    },
+    {
+        "slug": "wodc-2026-boston",
+        "name": "World Orphan Drug Congress USA 2026",
+        "full": {"tr": "Dünya Yetim İlaç Kongresi ABD 2026", "en": "World Orphan Drug Congress USA 2026"},
+        "place": {"tr": "Boston, ABD", "en": "Boston, USA"},
+        "year": "2026",
+        "topic": {"tr": "Nadir Hastalıklar", "en": "Rare Diseases"},
+        "photos": [("wodc-2026-boston.webp", "center"), ("wodc-2026-boston-2.webp", "center")],
+        "summary": {"tr": "Nadir hastalıklara ve yetim ilaçlara adanmış dünyanın önde gelen etkinliklerinden biri.",
+                    "en": "One of the world's leading events dedicated to rare diseases and orphan medicines."},
+        "body": {
+            "tr": [
+                "Orphion Pharma olarak, nadir hastalıklara ve yetim (orphan) ilaçlara adanmış dünyanın önde gelen etkinliklerinden biri olan World Orphan Drug Congress USA 2026'da Boston'da yer aldık.",
+                "Küresel ağımızı genişletmeye devam ederken yenilikçi tedavileri belirlemeye ve hayat değiştiren tedavilere ihtiyacı olan hastaların erişimini hızlandırmaya kararlıyız.",
+                "Her görüşme, her ortaklık ve her fırsat bizi misyonumuza bir adım daha yaklaştırıyor: coğrafi sınırlardan bağımsız olarak hastaların ihtiyaç duydukları tedavilere erişebilmesini sağlamak.",
+                "Dünyayı keşfetmeye, anlamlı iş birlikleri kurmaya ve tıbbi inovasyonu ona en çok ihtiyaç duyan hastalara yaklaştırmaya devam edeceğiz.",
+            ],
+            "en": [
+                "We are proud that Orphion Pharma took part in the World Orphan Drug Congress USA 2026 in Boston, one of the world's leading events dedicated to rare diseases and orphan medicines.",
+                "As we continue expanding our global network, we remain committed to identifying innovative therapies and accelerating access to life-changing treatments for patients in need.",
+                "Every conversation, every partnership and every opportunity brings us one step closer to our mission: ensuring that patients have access to the therapies they need, regardless of geographical boundaries.",
+                "We will continue exploring the world, building meaningful collaborations and bringing medical innovation closer to the patients who need it most.",
+            ],
+        },
+        "motto": {"tr": "Çünkü her tedavinin arkasında umut bekleyen bir hasta var.",
+                  "en": "Because behind every treatment, there is a patient waiting for hope."},
+        "tags": ["WODC2026", "WorldOrphanDrugCongress", "RareDiseases", "OrphanDrugs", "NamedPatientPrograms", "PatientAccess"],
+    },
+    {
+        "slug": "cphi-frankfurt-2025",
+        "name": "CPHI Frankfurt 2025",
+        "full": {"tr": "CPHI Frankfurt 2025", "en": "CPHI Frankfurt 2025"},
+        "place": {"tr": "Frankfurt, Almanya", "en": "Frankfurt, Germany"},
+        "year": "2025",
+        "topic": {"tr": "İlaç Endüstrisi", "en": "Pharmaceutical Industry"},
+        "photos": [("cphi-frankfurt-2025.webp", "center 40%")],
+        "summary": {"tr": "Yeni ortaklıklar kurduğumuz ve portföyümüzü yenilikçi tedavilerle genişlettiğimiz bir buluşma.",
+                    "en": "Building new partnerships and expanding our portfolio with innovative therapies."},
+        "body": {
+            "tr": [
+                "Bu yılki CPHI Frankfurt'ta Orphion Pharma'yı temsil etmekten gurur duyduk: yeni ortaklıklar kurduk ve portföyümüzü gerçekten fark yaratan yenilikçi tedavilerle genişlettik.",
+                "“Bridging innovation and life” anlayışımızla hem ülkemize hem de küresel partnerlerimize değer katmaya devam ediyoruz.",
+                "Orphion Pharma'da güçlü bir etik temeli kurumsal deneyimle birleştirerek her ortaklığı başarıyla yürütüyoruz: hastaların adil fiyatlarla tedaviye erişimini sağlarken üreticileri de sürdürülebilir iş yapılarıyla destekliyoruz.",
+            ],
+            "en": [
+                "We were proud to represent Orphion Pharma at this year's CPHI Frankfurt, building new partnerships and expanding our portfolio with innovative therapies that truly make a difference.",
+                "With our commitment to “bridging innovation and life”, we continue to bring value both to our country and to our global partners.",
+                "At Orphion Pharma, we combine a strong ethical foundation and corporate experience to lead every partnership successfully, ensuring patients' access to fair pricing while supporting manufacturers with sustainable business structures.",
+            ],
+        },
+        "motto": {"tr": "Birlikte inovasyonu erişilebilir kılıyoruz.", "en": "Together, we make innovation accessible."},
+        "tags": ["CPHIFrankfurt", "PharmaInnovation", "Partnerships", "Healthcare", "RareDiseases", "GlobalPharma"],
+    },
+    {
+        "slug": "nacfc-2025-seattle",
+        "name": "NACFC 2025",
+        "full": {"tr": "Kuzey Amerika Kistik Fibrozis Konferansı 2025", "en": "North American Cystic Fibrosis Conference 2025"},
+        "place": {"tr": "Seattle, ABD", "en": "Seattle, USA"},
+        "year": "2025",
+        "topic": {"tr": "Kistik Fibrozis", "en": "Cystic Fibrosis"},
+        "photos": [("nacfc-2025-seattle.webp", "center 75%")],
+        "summary": {"tr": "Kistik fibrozis ve nadir hastalık alanlarında yeni projelerimize yön verecek stratejik iş birliklerinin başlangıcı.",
+                    "en": "The start of strategic collaborations shaping our upcoming projects in cystic fibrosis and rare diseases."},
+        "body": {
+            "tr": [
+                "Orphion Pharma olarak Seattle'da düzenlenen NACFC 2025'e katılmaktan gurur duyduk. Kistik fibrozis için çığır açan tedaviler ve destekleyici teknolojiler geliştiren önde gelen araştırmacılar, klinisyenler ve şirketlerle bir araya gelme fırsatı bulduk.",
+                "Konferans boyunca ilham verici görüşmeler yaptık ve kistik fibrozis ile nadir hastalık alanlarında Orphion'un yakında hayata geçecek projelerine yön verecek stratejik iş birliklerini başlattık.",
+                "Orphion'da misyonumuz net: inovasyonu hayatla buluşturmak. Bilimden güç alıyor, iş birliğiyle ilerliyor ve en çok ihtiyaç duyan hastalar için gerçek dünyada etki yaratmaya odaklanıyoruz.",
+                "Bu, Orphion'un nadir hastalık çözümlerinde küresel mükemmelliğe uzanan yolculuğunda yeni bir dönemin yalnızca başlangıcı.",
+            ],
+            "en": [
+                "Orphion Pharma proudly joined NACFC 2025 in Seattle. We had the pleasure of connecting with leading researchers, clinicians and companies developing breakthrough therapies and supportive technologies for cystic fibrosis.",
+                "Throughout the conference, we engaged in inspiring discussions and initiated strategic collaborations that will soon shape Orphion's upcoming projects in the CF and rare disease fields.",
+                "At Orphion, our mission remains clear: bridging innovation to life. We are driven by science, powered by collaboration and committed to delivering real-world impact for patients who need it most.",
+                "This is just the beginning of a new chapter in Orphion's journey toward global excellence in rare disease solutions.",
+            ],
+        },
+        "motto": {"tr": "Bilimden güç alıyor, iş birliğiyle ilerliyoruz.", "en": "Driven by science, powered by collaboration."},
+        "tags": ["NACFC2025", "CysticFibrosis", "RareDiseases", "OrphanDrugs", "PharmaInnovation", "GlobalHealth"],
+    },
 ]
+
+for _e in EVENTS:
+    _key = "event-" + _e["slug"]
+    PAGES[_key] = {"tr": f"etkinlik-{_e['slug']}.html", "en": f"event-{_e['slug']}-en.html"}
+    T["tr"][_key] = T["en"][_key] = _e["name"]
+    OG_IMAGES[_key] = "assets/images/events/" + _e["photos"][0][0]
+
+
+def event_card(e, lang, delay):
+    photo, pos = e["photos"][0]
+    more = "Detayları incele" if lang == "tr" else "Read more"
+    return f"""
+                <a class="event-card wow fadeInUp" data-wow-delay=".{delay}s" href="{PAGES['event-' + e['slug']][lang]}">
+                    <img src="assets/images/events/{photo}" alt="{COMPANY['name']} – {e['name']}" loading="lazy" style="object-position: {pos}">
+                    <div class="event-info">
+                        <span class="event-place"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> {e['place'][lang]} · {e['year']}</span>
+                        <h3 lang="en">{e['name']}</h3>
+                        <p>{e['summary'][lang]}</p>
+                        <span class="event-more">{more} <i class="fa-solid fa-arrow-right-long" aria-hidden="true"></i></span>
+                    </div>
+                </a>"""
 
 
 def events_section(lang):
     tr = lang == "tr"
-    cards = "".join(
-        f"""
-                <div class="event-card wow fadeInUp" data-wow-delay=".{3 + i % 3}s">
-                    <img src="assets/images/events/{slug}.webp" alt="{COMPANY['name']} – {name}" loading="lazy" style="object-position: {pos}">
-                    <div class="event-info">
-                        <span class="event-place"><i class="fa-solid fa-location-dot" aria-hidden="true"></i> {place[lang]}</span>
-                        <h3 lang="en">{name}</h3>
-                        <p>{desc[lang]}</p>
-                    </div>
-                </div>"""
-        for i, (slug, name, place, desc, pos) in enumerate(EVENTS)
-    )
+    cards = "".join(event_card(e, lang, 3 + i % 3) for i, e in enumerate(EVENTS))
     return f"""
     <!-- Events -->
     <section class="events-section section-padding fix">
@@ -1092,6 +1240,90 @@ def events_section(lang):
             </div>
         </div>
     </section>
+"""
+
+
+def events_body(lang):
+    tr = lang == "tr"
+    cards = "".join(event_card(e, lang, 3 + i % 3) for i, e in enumerate(EVENTS))
+    return f"""{breadcrumb(lang, T[lang]['events'])}
+    <section class="events-section section-tight">
+        <div class="container">
+            <div class="section-title text-center mxw-720 mx-auto">
+                <h2 class="title wow fadeInUp" data-wow-delay=".3s">{'Bilimin ve inovasyonun <span class="color-text">buluştuğu yerdeyiz</span>' if tr else 'Where science and <span class="color-text">innovation meet</span>'}</h2>
+                <p class="desc wow fadeInUp" data-wow-delay=".4s">{'Kistik fibrozisten nadir hastalıklara, ilaç endüstrisinin en büyük fuarlarından uzmanlık kongrelerine kadar; yenilikçi tedavileri belirlemek ve onları Türkiye’deki hastalara ulaştıracak ortaklıkları kurmak için dünyanın dört bir yanındayız.' if tr else 'From cystic fibrosis to rare diseases, from the industry’s largest trade shows to specialist congresses, we travel the world to identify innovative therapies and build the partnerships that bring them to patients in Türkiye.'}</p>
+            </div>
+            <div class="events-grid">{cards}
+            </div>
+        </div>
+    </section>
+"""
+
+
+def event_body(e, lang):
+    tr = lang == "tr"
+    i = EVENTS.index(e)
+    gallery = "".join(
+        f"""
+                        <figure class="event-photo{' main' if n == 0 else ''}">
+                            <img src="assets/images/events/{photo}" alt="{COMPANY['name']} – {e['name']}" style="object-position: {pos}"{'' if n == 0 else ' loading="lazy"'}>
+                        </figure>"""
+        for n, (photo, pos) in enumerate(e["photos"])
+    )
+    paras = "".join(f"\n                        <p>{p}</p>" for p in e["body"][lang])
+    tags = "".join(f'<li lang="en">#{t}</li>' for t in e["tags"])
+
+    def nav(other, label, cls):
+        if other is None:
+            return "<span></span>"
+        return (f'<a class="event-nav-link {cls}" href="{PAGES["event-" + other["slug"]][lang]}">'
+                f'<small>{label}</small><strong lang="en">{other["name"]}</strong></a>')
+
+    prev_e = EVENTS[i - 1] if i > 0 else None
+    next_e = EVENTS[i + 1] if i + 1 < len(EVENTS) else None
+    facts = [
+        ("fa-calendar", "Yıl" if tr else "Year", e["year"]),
+        ("fa-location-dot", "Konum" if tr else "Location", e["place"][lang]),
+        ("fa-dna", "Odak" if tr else "Focus", e["topic"][lang]),
+    ]
+    facts_html = "".join(
+        f"""
+                            <li><i class="fa-solid {icon}" aria-hidden="true"></i><span><small>{k}</small>{v}</span></li>"""
+        for icon, k, v in facts
+    )
+    return f"""{breadcrumb(lang, e['name'], parent='events')}
+    <article class="event-detail section-tight">
+        <div class="container">
+            <div class="row g-5">
+                <div class="col-lg-7">
+                    <div class="event-gallery wow fadeInUp" data-wow-delay=".3s">{gallery}
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="event-text wow fadeInUp" data-wow-delay=".4s">
+                        <p class="event-kicker">{e['full'][lang]}</p>
+                        <ul class="event-facts list-unstyled">{facts_html}
+                        </ul>{paras}
+                        <blockquote class="event-motto">
+                            <p>{e['motto'][lang]}</p>
+                            <cite lang="en">Orphion Pharma — “{TAGLINE}”</cite>
+                        </blockquote>
+                        <ul class="event-tags list-unstyled">{tags}</ul>
+                    </div>
+                </div>
+            </div>
+            <nav class="event-nav" aria-label="{'Diğer etkinlikler' if tr else 'Other events'}">
+                {nav(prev_e, 'Önceki etkinlik' if tr else 'Previous event', 'prev')}
+                <a class="theme-btn" href="{PAGES['events'][lang]}">{'Tüm etkinlikler' if tr else 'All events'}</a>
+                {nav(next_e, 'Sonraki etkinlik' if tr else 'Next event', 'next')}
+            </nav>
+            <div class="event-cta wow fadeInUp" data-wow-delay=".3s">
+                <h2 class="h3">{'Bir sonraki etkinlikte görüşelim' if tr else 'Let’s meet at the next event'}</h2>
+                <p>{'Ürününüzü Türkiye’deki hastalara ulaştırmak için bir görüşme planlayın.' if tr else 'Schedule a meeting to discuss bringing your product to patients in Türkiye.'}</p>
+                <a class="theme-btn" href="{PAGES['contact'][lang]}#contact-form">{HERO[lang]['cta_partner']}</a>
+            </div>
+        </div>
+    </article>
 """
 
 
@@ -1911,8 +2143,20 @@ TITLES.update({
                  "en": "Our Partners & Product Portfolio | Orphion Pharma"},
 })
 
+for _e in EVENTS:
+    _key = "event-" + _e["slug"]
+    TITLES[_key] = {l: f"{_e['name']} | {T[l]['events']} | Orphion Pharma" for l in ("tr", "en")}
+    DESCRIPTIONS[_key] = {l: f"{_e['name']}, {_e['place'][l]}: {_e['summary'][l]}" for l in ("tr", "en")}
+TITLES["events"] = {"tr": "Etkinliklerimiz | Orphion Pharma", "en": "Our Events | Orphion Pharma"}
+DESCRIPTIONS["events"] = {
+    "tr": "Orphion Pharma'nın katıldığı uluslararası ilaç ve nadir hastalık etkinlikleri: NACFC, CPHI, World Orphan Drug Congress.",
+    "en": "International pharmaceutical and rare disease events Orphion Pharma takes part in: NACFC, CPHI, World Orphan Drug Congress.",
+}
+
 BODIES = {"home": home_body, "about": about_body, "contact": contact_body, "privacy": privacy_body,
-          "chairman": chairman_body, "mission": mission_body, "hr": hr_body, "partners": partners_body}
+          "chairman": chairman_body, "mission": mission_body, "hr": hr_body, "partners": partners_body,
+          "events": events_body}
+BODIES.update({"event-" + _e["slug"]: (lambda lang, _e=_e: event_body(_e, lang)) for _e in EVENTS})
 
 
 def sitemap():
