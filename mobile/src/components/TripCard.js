@@ -1,5 +1,9 @@
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, providerColors } from '../theme';
+import { Armchair, Clock, ExternalLink } from 'lucide-react-native';
+import { Linking, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { cn } from '../lib/cn';
+import { providerColors, usePalette } from '../theme';
+import { Badge, PressableScale } from './ui';
 
 function duration(min) {
   if (!min) return null;
@@ -13,58 +17,69 @@ export function formatPrice(price, currency = 'TRY') {
   return `${Math.round(price).toLocaleString('tr-TR')} ${currency === 'TRY' ? '₺' : currency}`;
 }
 
-export default function TripCard({ trip, cheapest }) {
-  const color = providerColors[trip.provider] ?? colors.primary;
-  const status = trip.soldOut
-    ? { text: 'DOLU', bg: colors.dangerSoft, fg: colors.danger }
-    : trip.seatsAvailable !== null
-      ? { text: `${trip.seatsAvailable} boş koltuk`, bg: trip.seatsAvailable <= 3 ? colors.warningSoft : colors.successSoft, fg: trip.seatsAvailable <= 3 ? colors.warning : colors.success }
-      : { text: 'Müsait', bg: colors.successSoft, fg: colors.success };
-
-  return (
-    <Pressable
-      style={[styles.card, trip.soldOut && styles.soldOut]}
-      onPress={() => trip.url && Linking.openURL(trip.url)}
-      accessibilityHint={trip.url ? 'Bileti sitede açar' : undefined}
-    >
-      <View style={[styles.stripe, { backgroundColor: color }]} />
-      <View style={styles.body}>
-        <View style={styles.top}>
-          <Text style={styles.time}>
-            {trip.departure.slice(11, 16)}
-            {trip.arrival ? <Text style={styles.arrow}>{`  →  ${trip.arrival.slice(11, 16)}`}</Text> : null}
-          </Text>
-          <Text style={[styles.price, trip.soldOut && { color: colors.muted }]}>{formatPrice(trip.price, trip.currency)}</Text>
-        </View>
-        <Text style={styles.company} numberOfLines={1}>
-          {trip.company}
-          {duration(trip.durationMin) ? <Text style={styles.muted}>{`  ·  ${duration(trip.durationMin)}`}</Text> : null}
-        </Text>
-        <View style={styles.bottom}>
-          <Text style={[styles.provider, { color }]}>{trip.providerName}</Text>
-          <View style={styles.badges}>
-            {cheapest ? <Text style={[styles.badge, { backgroundColor: colors.primarySoft, color: colors.primary }]}>EN UCUZ</Text> : null}
-            <Text style={[styles.badge, { backgroundColor: status.bg, color: status.fg }]}>{status.text}</Text>
-          </View>
-        </View>
-      </View>
-    </Pressable>
-  );
+function status(trip) {
+  if (trip.soldOut) return { tone: 'bad', text: 'DOLU' };
+  if (trip.seatsAvailable === null) return { tone: 'ok', text: 'Müsait' };
+  return { tone: trip.seatsAvailable <= 3 ? 'warn' : 'ok', text: `${trip.seatsAvailable} boş koltuk` };
 }
 
-const styles = StyleSheet.create({
-  card: { flexDirection: 'row', backgroundColor: colors.card, borderRadius: 12, marginBottom: 10, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
-  soldOut: { opacity: 0.75 },
-  stripe: { width: 5 },
-  body: { flex: 1, padding: 12 },
-  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  time: { fontSize: 18, fontWeight: '700', color: colors.text },
-  arrow: { fontSize: 15, fontWeight: '500', color: colors.muted },
-  price: { fontSize: 18, fontWeight: '700', color: colors.text },
-  company: { marginTop: 4, fontSize: 14, color: colors.text },
-  muted: { color: colors.muted },
-  bottom: { marginTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  provider: { fontSize: 12, fontWeight: '700' },
-  badges: { flexDirection: 'row', gap: 6 },
-  badge: { fontSize: 11, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, overflow: 'hidden' },
-});
+export default function TripCard({ trip, cheapest, index = 0 }) {
+  const palette = usePalette();
+  const color = providerColors[trip.provider] ?? palette.brand;
+  const s = status(trip);
+
+  return (
+    <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).duration(250)}>
+      <PressableScale
+        onPress={() => trip.url && Linking.openURL(trip.url)}
+        accessibilityHint={trip.url ? 'Bileti sitede açar' : undefined}
+        className={cn(
+          'mb-2.5 flex-row overflow-hidden rounded-xl2 border bg-surface dark:bg-night-card',
+          cheapest ? 'border-brand' : 'border-surface-line dark:border-night-line',
+          trip.soldOut && 'opacity-70',
+        )}
+      >
+        <View className="w-1.5" style={{ backgroundColor: color }} />
+        <View className="flex-1 p-3">
+          <View className="flex-row items-center justify-between">
+            <Text className="text-lg font-bold text-ink dark:text-white">
+              {trip.departure.slice(11, 16)}
+              {trip.arrival ? <Text className="text-[15px] font-medium text-ink-muted dark:text-night-muted">{`  →  ${trip.arrival.slice(11, 16)}`}</Text> : null}
+            </Text>
+            <Text className={cn('text-lg font-bold', trip.soldOut ? 'text-ink-muted line-through' : cheapest ? 'text-brand' : 'text-ink dark:text-white')}>
+              {formatPrice(trip.price, trip.currency)}
+            </Text>
+          </View>
+
+          <View className="mt-1 flex-row items-center gap-1.5">
+            <Text className="shrink text-sm text-ink dark:text-white" numberOfLines={1}>
+              {trip.company}
+            </Text>
+            {duration(trip.durationMin) ? (
+              <>
+                <Clock size={13} color={palette.muted} />
+                <Text className="text-[13px] text-ink-muted dark:text-night-muted">{duration(trip.durationMin)}</Text>
+              </>
+            ) : null}
+          </View>
+
+          <View className="mt-2 flex-row items-center justify-between">
+            <View className="flex-row items-center gap-1">
+              <Text className="text-xs font-bold" style={{ color }}>
+                {trip.providerName}
+              </Text>
+              {trip.url ? <ExternalLink size={11} color={color} /> : null}
+            </View>
+            <View className="flex-row items-center gap-1.5">
+              {cheapest ? <Badge tone="brand">EN UCUZ</Badge> : null}
+              <View className="flex-row items-center gap-1">
+                {!trip.soldOut && trip.seatsAvailable !== null ? <Armchair size={12} color={s.tone === 'warn' ? palette.warn : palette.ok} /> : null}
+                <Badge tone={s.tone}>{s.text}</Badge>
+              </View>
+            </View>
+          </View>
+        </View>
+      </PressableScale>
+    </Animated.View>
+  );
+}

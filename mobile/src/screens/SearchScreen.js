@@ -1,12 +1,15 @@
+import { ArrowLeftRight, BellRing, Bus, ChevronLeft, ChevronRight, CircleAlert, Plane, Search, SlidersHorizontal, Sparkles } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Pressable, Text, View } from 'react-native';
+import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import FilterPanel, { countActive } from '../components/FilterPanel';
+import PriceChart from '../components/PriceChart';
 import TripCard, { formatPrice } from '../components/TripCard';
-import { Button, Chip, Field, Row } from '../components/ui';
+import { Button, Card, Chip, Field, Row } from '../components/ui';
 import { addDays, label, today } from '../dates';
 import { applyFilters, DEFAULT_FILTERS } from '../filters';
 import { load, save } from '../storage';
-import { colors } from '../theme';
+import { usePalette } from '../theme';
 
 const INTERVALS = [2, 5, 10, 30];
 const NOTIFY = [
@@ -18,6 +21,7 @@ const NOTIFY = [
 ];
 
 export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated }) {
+  const palette = usePalette();
   const [query, setQuery] = useState({ mode: 'bus', from: '', to: '', date: addDays(today(), 1) });
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [askText, setAskText] = useState('');
@@ -37,6 +41,8 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
   }, [filters]);
 
   const trips = useMemo(() => applyFilters(result?.trips ?? [], filters), [result, filters]);
+  // Grafik saat filtresinden bağımsız tüm günü göstersin
+  const chartTrips = useMemo(() => applyFilters(result?.trips ?? [], { ...filters, departAfter: null, departBefore: null }), [result, filters]);
   const stats = useMemo(() => {
     const all = (result?.trips ?? []).filter((t) => !filters.providers?.length || filters.providers.includes(t.provider));
     const open = trips.filter((t) => !t.soldOut && t.price !== null);
@@ -47,6 +53,7 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
     };
   }, [result, trips, filters.providers]);
   const modeProviders = providers.filter((p) => p.modes.includes(query.mode));
+  const activeFilters = countActive(filters);
 
   async function runSearch(q = query) {
     if (!q.from.trim() || !q.to.trim()) return setError('Nereden ve nereye alanlarını doldurun.');
@@ -102,106 +109,158 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
     }
   }
 
+  function selectRange(after, before) {
+    const same = filters.departAfter === after && filters.departBefore === before;
+    setFilters({ ...filters, departAfter: same ? null : after, departBefore: same ? null : before });
+  }
+
   const header = (
     <View>
-      <View style={styles.assistant}>
-        <Text style={styles.assistantTitle}>🤖 Asistan {aiEnabled ? '(yapay zekâ)' : ''}</Text>
+      <Card className="border-brand-soft bg-brand-soft dark:border-night-line dark:bg-night-card">
+        <View className="mb-2 flex-row items-center gap-1.5">
+          <Sparkles size={16} color={palette.brand} />
+          <Text className="font-bold text-brand dark:text-white">Asistan{aiEnabled ? ' · yapay zekâ' : ''}</Text>
+        </View>
         <Field
           placeholder="ör. Yarın akşam 18-23 arası İstanbul'dan Ankara'ya 1000 TL altı otobüs, dolu olan boşalırsa haber ver"
           value={askText}
           onChangeText={setAskText}
           multiline
-          onSubmitEditing={ask}
+          inputClassName="min-h-[64px]"
         />
-        <Button label="Benim için ara" onPress={ask} disabled={loading} style={{ marginTop: 8 }} />
+        <Button label="Benim için ara" icon={Sparkles} onPress={ask} disabled={loading} className="mt-2" />
+      </Card>
+
+      <View className="mt-4 flex-row rounded-xl bg-surface-line p-1 dark:bg-night-card">
+        {[
+          ['bus', 'Otobüs', Bus],
+          ['flight', 'Uçak', Plane],
+        ].map(([mode, text, Icon]) => {
+          const active = query.mode === mode;
+          return (
+            <Pressable
+              key={mode}
+              onPress={() => setQuery({ ...query, mode })}
+              className={`flex-1 flex-row items-center justify-center gap-1.5 rounded-lg py-2 ${active ? 'bg-surface dark:bg-night-line' : ''}`}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: active }}
+            >
+              <Icon size={16} color={active ? palette.brand : palette.muted} />
+              <Text className={active ? 'font-semibold text-brand dark:text-white' : 'text-ink-muted dark:text-night-muted'}>{text}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      <Row style={{ marginTop: 14 }}>
-        <Chip label="🚌 Otobüs" active={query.mode === 'bus'} onPress={() => setQuery({ ...query, mode: 'bus' })} />
-        <Chip label="✈️ Uçak" active={query.mode === 'flight'} onPress={() => setQuery({ ...query, mode: 'flight' })} />
-      </Row>
-      <Row>
+      <Row className="mt-3">
         <Field label="Nereden" placeholder={query.mode === 'bus' ? 'İstanbul' : 'IST'} value={query.from} onChangeText={(from) => setQuery({ ...query, from })} />
-        <Pressable onPress={() => setQuery({ ...query, from: query.to, to: query.from })} style={styles.swap} accessibilityLabel="Yer değiştir">
-          <Text style={styles.swapText}>⇄</Text>
-        </Pressable>
+        <Button icon={ArrowLeftRight} variant="soft" size="sm" onPress={() => setQuery({ ...query, from: query.to, to: query.from })} className="mb-1" />
         <Field label="Nereye" placeholder={query.mode === 'bus' ? 'Ankara' : 'ESB'} value={query.to} onChangeText={(to) => setQuery({ ...query, to })} />
       </Row>
-      <View style={styles.dateRow}>
-        <Pressable onPress={() => query.date > today() && setQuery({ ...query, date: addDays(query.date, -1) })} style={styles.dateBtn}>
-          <Text style={styles.dateBtnText}>‹</Text>
-        </Pressable>
-        <Text style={styles.date}>{label(query.date)}</Text>
-        <Pressable onPress={() => setQuery({ ...query, date: addDays(query.date, 1) })} style={styles.dateBtn}>
-          <Text style={styles.dateBtnText}>›</Text>
-        </Pressable>
-        <Chip label="Bugün" active={query.date === today()} onPress={() => setQuery({ ...query, date: today() })} />
-        <Chip label="Yarın" active={query.date === addDays(today(), 1)} onPress={() => setQuery({ ...query, date: addDays(today(), 1) })} />
-      </View>
-      <Button label={loading ? 'Tüm sitelerde aranıyor…' : 'Tüm sitelerde ara'} onPress={() => runSearch()} disabled={loading} />
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-      {loading ? <ActivityIndicator style={{ marginTop: 16 }} color={colors.primary} /> : null}
+      <View className="my-3 flex-row flex-wrap items-center">
+        <Button icon={ChevronLeft} variant="outline" size="sm" onPress={() => query.date > today() && setQuery({ ...query, date: addDays(query.date, -1) })} />
+        <Text className="mx-2 min-w-[96px] text-center text-base font-semibold text-ink dark:text-white">{label(query.date)}</Text>
+        <Button icon={ChevronRight} variant="outline" size="sm" onPress={() => setQuery({ ...query, date: addDays(query.date, 1) })} className="mr-2" />
+        <View className="flex-row pt-1.5">
+          <Chip label="Bugün" active={query.date === today()} onPress={() => setQuery({ ...query, date: today() })} />
+          <Chip label="Yarın" active={query.date === addDays(today(), 1)} onPress={() => setQuery({ ...query, date: addDays(today(), 1) })} />
+        </View>
+      </View>
+      <Button label={loading ? 'Tüm sitelerde aranıyor…' : 'Tüm sitelerde ara'} icon={Search} size="lg" onPress={() => runSearch()} disabled={loading} />
+
+      {error ? (
+        <Animated.View entering={FadeIn} className="mt-3 flex-row items-center gap-2 rounded-xl bg-bad-soft p-3 dark:bg-bad/20">
+          <CircleAlert size={16} color={palette.bad} />
+          <Text className="flex-1 text-bad">{error}</Text>
+        </Animated.View>
+      ) : null}
+      {loading ? <ActivityIndicator style={{ marginTop: 20 }} color={palette.brand} /> : null}
 
       {result && !loading ? (
         <>
           {result.errors?.map((e) => (
-            <Text key={e.provider} style={styles.warning}>
+            <Text key={e.provider} className="mt-2 rounded-lg bg-warn-soft p-2 text-xs text-warn dark:bg-warn/25 dark:text-amber-300">
               {e.provider}: {e.message}
             </Text>
           ))}
+
           {advice ? (
-            <View style={styles.advice}>
-              <Text style={styles.adviceTitle}>Asistanın önerisi</Text>
-              <Text style={styles.adviceText}>{advice.text}</Text>
-            </View>
+            <Animated.View entering={FadeInUp.duration(300)}>
+              <Card className="mt-3">
+                <View className="mb-1.5 flex-row items-center gap-1.5">
+                  <Sparkles size={15} color={palette.brand} />
+                  <Text className="font-bold text-ink dark:text-white">Asistanın önerisi</Text>
+                </View>
+                <Text className="leading-5 text-ink dark:text-white">{advice.text}</Text>
+              </Card>
+            </Animated.View>
           ) : null}
-          <View style={styles.summary}>
-            <Text style={styles.summaryText}>
+
+          <PriceChart trips={chartTrips} onSelectRange={selectRange} selected={filters.departAfter} />
+
+          <View className="mt-3.5 flex-row items-center justify-between">
+            <Text className="flex-1 text-[13px] text-ink-muted dark:text-night-muted">
               {trips.length}/{stats.total} bilet · {stats.soldOut} dolu
               {stats.cheapest ? ` · en ucuz ${formatPrice(stats.cheapest.price)}` : ''}
             </Text>
-            <Chip label={`Filtreler${countActive(filters) ? ` (${countActive(filters)})` : ''}`} active={showFilters} onPress={() => setShowFilters(!showFilters)} />
+            <Button
+              icon={SlidersHorizontal}
+              label={`Filtreler${activeFilters ? ` (${activeFilters})` : ''}`}
+              variant={activeFilters ? 'primary' : 'outline'}
+              size="sm"
+              onPress={() => setShowFilters(true)}
+            />
           </View>
-          {showFilters ? (
-            <FilterPanel filters={filters} onChange={setFilters} providers={modeProviders} onReset={() => setFilters(DEFAULT_FILTERS)} />
-          ) : null}
 
           {alarm ? (
-            <View style={styles.alarmBox}>
-              <Text style={styles.adviceTitle}>Alarm: bu arama + filtreler takip edilsin</Text>
-              <Text style={styles.small}>Kontrol sıklığı</Text>
-              <Row style={{ flexWrap: 'wrap' }}>
-                {INTERVALS.map((m) => (
-                  <Chip key={m} label={`${m} dk`} active={alarm.intervalMin === m} onPress={() => setAlarm({ ...alarm, intervalMin: m })} />
-                ))}
-              </Row>
-              <Text style={styles.small}>Ne zaman haber vereyim?</Text>
-              <Row style={{ flexWrap: 'wrap' }}>
-                {NOTIFY.map(([v, l]) => (
-                  <Chip
-                    key={v}
-                    label={l}
-                    active={alarm.notifyOn.includes(v)}
-                    onPress={() => setAlarm({ ...alarm, notifyOn: alarm.notifyOn.includes(v) ? alarm.notifyOn.filter((x) => x !== v) : [...alarm.notifyOn, v] })}
-                  />
-                ))}
-              </Row>
-              <Row style={{ marginTop: 6 }}>
-                <Button label="Alarmı kaydet" onPress={createAlarm} disabled={!alarm.notifyOn.length} style={{ flex: 1 }} />
-                <Button label="Vazgeç" variant="ghost" onPress={() => setAlarm(null)} />
-              </Row>
-            </View>
+            <Animated.View entering={FadeInUp.duration(250)}>
+              <Card className="my-2.5">
+                <Text className="mb-1 font-bold text-ink dark:text-white">Alarm: bu arama ve filtreler takip edilsin</Text>
+                <Text className="my-1.5 text-xs text-ink-muted dark:text-night-muted">Kontrol sıklığı</Text>
+                <View className="flex-row flex-wrap">
+                  {INTERVALS.map((m) => (
+                    <Chip key={m} label={`${m} dk`} active={alarm.intervalMin === m} onPress={() => setAlarm({ ...alarm, intervalMin: m })} />
+                  ))}
+                </View>
+                <Text className="my-1.5 text-xs text-ink-muted dark:text-night-muted">Ne zaman haber vereyim?</Text>
+                <View className="flex-row flex-wrap">
+                  {NOTIFY.map(([v, l]) => (
+                    <Chip
+                      key={v}
+                      label={l}
+                      active={alarm.notifyOn.includes(v)}
+                      onPress={() => setAlarm({ ...alarm, notifyOn: alarm.notifyOn.includes(v) ? alarm.notifyOn.filter((x) => x !== v) : [...alarm.notifyOn, v] })}
+                    />
+                  ))}
+                </View>
+                <Row className="mt-1.5">
+                  <Button label="Alarmı kaydet" icon={BellRing} onPress={createAlarm} disabled={!alarm.notifyOn.length} className="flex-1" />
+                  <Button label="Vazgeç" variant="outline" onPress={() => setAlarm(null)} />
+                </Row>
+              </Card>
+            </Animated.View>
           ) : (
             <Button
-              label="🔔 Dolu biletler boşalınca haber ver"
-              variant="ghost"
+              label="Dolu biletler boşalınca haber ver"
+              icon={BellRing}
+              variant="soft"
               onPress={() => setAlarm({ intervalMin: 5, notifyOn: ['freed', 'seats_up', 'price_drop'] })}
-              style={{ marginBottom: 10 }}
+              className="my-2.5"
             />
           )}
         </>
       ) : null}
+
+      <FilterPanel
+        visible={showFilters}
+        onClose={() => setShowFilters(false)}
+        filters={filters}
+        onChange={setFilters}
+        providers={modeProviders}
+        onReset={() => setFilters(DEFAULT_FILTERS)}
+        resultCount={trips.length}
+      />
     </View>
   );
 
@@ -209,33 +268,11 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
     <FlatList
       data={loading ? [] : trips}
       keyExtractor={(t) => t.id}
-      renderItem={({ item }) => <TripCard trip={item} cheapest={item === stats.cheapest} />}
+      renderItem={({ item, index }) => <TripCard trip={item} index={index} cheapest={item === stats.cheapest} />}
       ListHeaderComponent={header}
-      ListEmptyComponent={result && !loading ? <Text style={styles.empty}>Bu filtrelere uyan bilet yok.</Text> : null}
-      contentContainerStyle={styles.container}
+      ListEmptyComponent={result && !loading ? <Text className="mt-5 text-center text-ink-muted dark:text-night-muted">Bu filtrelere uyan bilet yok.</Text> : null}
+      contentContainerClassName="p-4 pb-10"
       keyboardShouldPersistTaps="handled"
     />
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 40 },
-  assistant: { backgroundColor: colors.primarySoft, borderRadius: 14, padding: 12 },
-  assistantTitle: { fontWeight: '700', color: colors.primary, marginBottom: 8 },
-  swap: { paddingHorizontal: 6, paddingVertical: 10 },
-  swapText: { fontSize: 20, color: colors.primary },
-  dateRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12, flexWrap: 'wrap' },
-  dateBtn: { paddingHorizontal: 10, paddingVertical: 4 },
-  dateBtnText: { fontSize: 24, color: colors.primary },
-  date: { fontSize: 16, fontWeight: '600', color: colors.text, minWidth: 110, textAlign: 'center', marginRight: 8 },
-  error: { color: colors.danger, marginTop: 10 },
-  warning: { color: colors.warning, backgroundColor: colors.warningSoft, padding: 8, borderRadius: 8, marginTop: 8, fontSize: 12 },
-  advice: { backgroundColor: colors.card, borderRadius: 12, padding: 12, marginTop: 12, borderWidth: 1, borderColor: colors.primarySoft },
-  adviceTitle: { fontWeight: '700', color: colors.text, marginBottom: 6 },
-  adviceText: { color: colors.text, lineHeight: 20 },
-  summary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14 },
-  summaryText: { color: colors.muted, flex: 1, fontSize: 13 },
-  alarmBox: { backgroundColor: colors.card, borderRadius: 12, padding: 12, marginVertical: 10, borderWidth: 1, borderColor: colors.border },
-  small: { fontSize: 12, color: colors.muted, marginVertical: 6 },
-  empty: { textAlign: 'center', color: colors.muted, marginTop: 20 },
-});

@@ -110,4 +110,19 @@ mobile/                 Expo (React Native) uygulaması
   src/screens/          Ara, Alarmlar, Ayarlar ekranları
 ```
 
+## Tasarım altyapısı (mobil)
+
+| Kütüphane | Ne için |
+|---|---|
+| NativeWind 4 (Tailwind CSS 3) | Tüm stiller `className` ile; açık/koyu tema otomatik (`dark:`) |
+| class-variance-authority | Buton ve rozet varyasyonları (`src/components/ui.js`) |
+| tailwind-merge + clsx | Çakışan sınıfları birleştiren `cn()` (`src/lib/cn.js`) |
+| lucide-react-native | İkonlar |
+| react-native-reanimated | Kart giriş animasyonları, basınca küçülen butonlar |
+| react-native-gifted-charts | "Saate göre en ucuz fiyat" grafiği (çubuğa dokununca o saat aralığı filtrelenir) |
+
+Renkler `mobile/tailwind.config.js` içinde tanımlı (`brand`, `ink`, `surface`, `night`, `ok`, `bad`, `warn`, `site`).
+Rengi değiştirmek için oradaki değeri ve `mobile/src/theme.js`'deki aynı değeri güncellemeniz yeterli.
+Tüm paketler Expo Go ile çalışır.
+
 Testler: `npm test`

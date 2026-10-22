@@ -1,6 +1,8 @@
+import './global.css';
 import { StatusBar } from 'expo-status-bar';
+import { Bell, Radar, Search, Settings } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Pressable, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { createApi } from './src/api';
 import { ensurePermission, showEventNotification } from './src/notifications';
@@ -8,7 +10,8 @@ import SearchScreen from './src/screens/SearchScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import WatchesScreen from './src/screens/WatchesScreen';
 import { load, save } from './src/storage';
-import { colors } from './src/theme';
+import { cn } from './src/lib/cn';
+import { usePalette } from './src/theme';
 
 const POLL_MS = 60_000;
 
@@ -21,6 +24,7 @@ export default function App() {
   const [unread, setUnread] = useState(0);
   const lastEventAt = useRef(null);
   const api = useMemo(() => createApi(serverUrl), [serverUrl]);
+  const palette = usePalette();
 
   useEffect(() => {
     Promise.all([load('serverUrl', ''), load('lastEventAt', null)]).then(([url, last]) => {
@@ -70,59 +74,65 @@ export default function App() {
   if (serverUrl === null) return null;
 
   const tabs = [
-    ['search', '🔎', 'Ara'],
-    ['watches', '🔔', unread ? `Alarmlar (${unread})` : 'Alarmlar'],
-    ['settings', '⚙️', 'Ayarlar'],
+    ['search', Search, 'Ara', 0],
+    ['watches', Bell, 'Alarmlar', unread],
+    ['settings', Settings, 'Ayarlar', 0],
   ];
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        <StatusBar style="dark" />
-        <View style={styles.header}>
-          <Text style={styles.brand}>Bilet Radar</Text>
-          {health?.demo ? <Text style={styles.demo}>DEMO</Text> : null}
+      <SafeAreaView className="flex-1 bg-surface-bg dark:bg-night" edges={['top', 'bottom']}>
+        <StatusBar style="auto" />
+        <View className="flex-row items-center gap-2 px-4 py-2.5">
+          <Radar size={24} color={palette.brand} />
+          <Text className="text-[22px] font-extrabold text-ink dark:text-white">Bilet Radar</Text>
+          {health?.demo ? <Text className="rounded-md bg-warn-soft px-1.5 py-0.5 text-[11px] font-bold text-warn dark:bg-warn/25 dark:text-amber-300">DEMO</Text> : null}
         </View>
-        <View style={styles.content}>
+        <View className="flex-1">
           {tab === 'search' ? (
             <SearchScreen api={api} providers={providers} aiEnabled={health?.ai} onWatchCreated={() => setTab('watches')} />
           ) : tab === 'watches' ? (
             <WatchesScreen api={api} events={events} refreshEvents={refreshEvents} />
           ) : (
-            <SettingsScreen serverUrl={serverUrl} onSave={(url) => { setServerUrl(url); save('serverUrl', url); }} health={health} providers={providers} />
+            <SettingsScreen
+              serverUrl={serverUrl}
+              onSave={(url) => {
+                setServerUrl(url);
+                save('serverUrl', url);
+              }}
+              health={health}
+              providers={providers}
+            />
           )}
         </View>
-        <View style={styles.tabs}>
-          {tabs.map(([id, icon, text]) => (
-            <Pressable
-              key={id}
-              style={styles.tab}
-              onPress={() => {
-                setTab(id);
-                if (id === 'watches') setUnread(0);
-              }}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: tab === id }}
-            >
-              <Text style={styles.tabIcon}>{icon}</Text>
-              <Text style={[styles.tabText, tab === id && styles.tabActive]}>{text}</Text>
-            </Pressable>
-          ))}
+        <View className="flex-row border-t border-surface-line bg-surface dark:border-night-line dark:bg-night-card">
+          {tabs.map(([id, Icon, text, badge]) => {
+            const active = tab === id;
+            return (
+              <Pressable
+                key={id}
+                className="flex-1 items-center py-2"
+                onPress={() => {
+                  setTab(id);
+                  if (id === 'watches') setUnread(0);
+                }}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+              >
+                <View>
+                  <Icon size={22} color={active ? palette.brand : palette.muted} />
+                  {badge ? (
+                    <View className="absolute -right-2.5 -top-1 min-w-[16px] items-center rounded-full bg-bad px-1">
+                      <Text className="text-[10px] font-bold text-white">{badge}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text className={cn('mt-0.5 text-xs', active ? 'font-bold text-brand' : 'text-ink-muted dark:text-night-muted')}>{text}</Text>
+              </Pressable>
+            );
+          })}
         </View>
       </SafeAreaView>
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 8 },
-  brand: { fontSize: 22, fontWeight: '800', color: colors.text },
-  demo: { fontSize: 11, fontWeight: '700', color: colors.warning, backgroundColor: colors.warningSoft, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  content: { flex: 1 },
-  tabs: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 8 },
-  tabIcon: { fontSize: 18 },
-  tabText: { fontSize: 12, color: colors.muted, marginTop: 2 },
-  tabActive: { color: colors.primary, fontWeight: '700' },
-});

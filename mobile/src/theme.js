@@ -1,23 +1,27 @@
-export const colors = {
-  bg: '#F4F6FA',
-  card: '#FFFFFF',
+import { useColorScheme } from 'nativewind';
+
+// className kullanılamayan yerler (ikon rengi, grafik, placeholder) için ham renkler.
+// tailwind.config.js'deki renklerle aynı tutun.
+const light = {
   text: '#16202E',
   muted: '#667085',
-  border: '#E3E7EE',
-  primary: '#1463FF',
-  primarySoft: '#E6EEFF',
-  success: '#0F9D58',
-  successSoft: '#E3F5EA',
-  danger: '#D93025',
-  dangerSoft: '#FDE8E7',
-  warning: '#B26A00',
-  warningSoft: '#FFF3E0',
+  line: '#E3E7EE',
+  card: '#FFFFFF',
+  brand: '#1463FF',
+  ok: '#0F9D58',
+  bad: '#D93025',
+  warn: '#B26A00',
 };
+const dark = { ...light, text: '#E8EDF5', muted: '#94A0B4', line: '#273247', card: '#182131', brand: '#5B8CFF' };
 
-// Her sitenin sonuçları kartlarda kendi rengiyle işaretlenir
 export const providerColors = {
   obilet: '#E4002B',
   enuygun: '#16A34A',
   ucuzabilet: '#F97316',
   skyscanner: '#0770E3',
 };
+
+export function usePalette() {
+  const { colorScheme } = useColorScheme();
+  return colorScheme === 'dark' ? dark : light;
+}
