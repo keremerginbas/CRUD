@@ -44,8 +44,8 @@ test('daily budget allows up to the limit, then waits until next local 00:05 and
 });
 
 test('safety defaults: separate window on, 400 a day; invalid limits fall back', () => {
-  assert.deepEqual(core.normalizeSafety(undefined), {separateWindow: true, skipKnown: true, reuseKnownPhone: true, dailyLimit: 400});
-  assert.deepEqual(core.normalizeSafety({separateWindow: false, dailyLimit: 0, skipKnown: false}), {separateWindow: false, skipKnown: false, reuseKnownPhone: true, dailyLimit: 0});
+  assert.deepEqual(core.normalizeSafety(undefined), {separateWindow: true, skipKnown: true, reuseKnownPhone: true, dailyLimit: 400, phoneDailyLimit: 150});
+  assert.deepEqual(core.normalizeSafety({separateWindow: false, dailyLimit: 0, skipKnown: false}), {separateWindow: false, skipKnown: false, reuseKnownPhone: true, dailyLimit: 0, phoneDailyLimit: 150});
   assert.equal(core.normalizeSafety({dailyLimit: -3}).dailyLimit, 400);
   assert.equal(core.normalizeSafety({dailyLimit: 'abc'}).dailyLimit, 400);
 });
@@ -208,7 +208,7 @@ test('safety config round-trips through the background message handler', async (
   const alerts = Alerts.createAlerts({storage}, () => null);
   let result = await alerts.handle({type: 'ILAN_SAFETY_CONFIG', safety: {dailyLimit: 150, separateWindow: false}});
   assert.equal(result.ok, true);
-  assert.deepEqual(result.safety, {separateWindow: false, skipKnown: true, reuseKnownPhone: true, dailyLimit: 150});
+  assert.deepEqual(result.safety, {separateWindow: false, skipKnown: true, reuseKnownPhone: true, dailyLimit: 150, phoneDailyLimit: 150});
   result = await alerts.handle({type: 'ILAN_SAFETY_STATUS'});
   assert.equal(result.safety.dailyLimit, 150);
   assert.equal(result.todayCount, 0);
@@ -361,4 +361,54 @@ test('daily summary counts the last 24 hours and is sent once a day, with catch-
   assert.equal(outbox.filter(e => e.eventId.startsWith('summary:')).length, 1);
   assert.equal(Alerts.nextSummaryAt('08:30', new Date(2026, 9, 19, 9, 0).getTime()), new Date(2026, 9, 20, 8, 30).getTime());
   assert.equal(Alerts.normalize({summaryTime: '25:99'}).summaryTime, '08:30');
+});
+
+test('multi-site: listing addresses, look-alike hosts and categories for arabam.com and Emlakjet', () => {
+  const {siteUrl} = require('../background.js');
+  const arabam = listingRef('https://arabam.com/ilan/sahibinden-satilik-fiat-egea/sahibinden-fiat-egea-2022-model/44985286?utm_source=x');
+  assert.deepEqual({...arabam}, {id: 'arabam:44985286', listingId: '44985286', url: 'https://www.arabam.com/ilan/sahibinden-satilik-fiat-egea/sahibinden-fiat-egea-2022-model/44985286', source: 'arabam'});
+  assert.equal(listingRef('https://www.emlakjet.com/ilan/2-kat-konut-imarli-kose-parsel-19990109').id, 'emlakjet:19990109');
+  assert.equal(listingRef('https://www.hepsiemlak.com/ankara-golbasi-bezirhane-satilik/tarla/0-47475589').id, 'hepsiemlak:0-47475589');
+  assert.equal(siteUrl('http://emlakjet.com/satilik-arsa/ankara').source, 'emlakjet');
+  for (const bad of ['https://www.arabam.com.evil.invalid/ilan/a/b/44985286', 'https://notarabam.com/ilan/a/b/44985286', 'https://emlakjet.co/ilan/x-19990109'])
+    assert.throws(() => listingRef(bad), /destekler/);
+  assert.throws(() => listingRef('https://www.arabam.com/ikinci-el/otomobil-sahibinden'), /detay/);
+  assert.equal(core.normalizeRecord({url: 'https://www.arabam.com/ilan/a/b/44985286', title: 'Fiat Egea', price: 810000}).category, 'arac');
+  const land = core.normalizeRecord({url: 'https://www.emlakjet.com/ilan/arsa-19990109', title: 'Arsa', price: 1}, {sourceSearchUrl: 'https://www.emlakjet.com/satilik-arsa/ankara'});
+  assert.equal(land.category, 'arsa');
+  assert.equal(land.source, 'emlakjet');
+  assert.equal(core.normalizeRecord({url: 'https://www.emlakjet.com/ilan/arsa-19990110', title: 'Arsa', price: 1}).classification.status, 'unknown', 'without a category hint Emlakjet goes to review');
+  const {searchUrl} = require('../searches.js');
+  assert.equal(searchUrl('https://arabam.com/ikinci-el/otomobil-sahibinden?page=2'), 'https://www.arabam.com/ikinci-el/otomobil-sahibinden');
+  assert.throws(() => searchUrl('https://www.arabam.com/ilan/a/b/44985286'), /Tek ilan/);
+});
+
+test('phone-button budget is per site; when spent, listings are still read without pressing the button', async () => {
+  const storage = storageApi({[core.SAFETY_KEY]: {phoneDailyLimit: 2}}), api = {storage}, now = new Date(2026, 9, 22, 10).getTime();
+  assert.equal((await core.takePhoneSlot(api, now, 'arabam')).allowed, true);
+  assert.equal((await core.takePhoneSlot(api, now, 'arabam')).allowed, true);
+  assert.equal((await core.takePhoneSlot(api, now, 'arabam')).allowed, false);
+  assert.equal((await core.takePhoneSlot(api, now, 'emlakjet')).allowed, true, 'another site has its own budget');
+  assert.equal((await core.takeDailySlot(api, now, 'arabam')).allowed, true);
+  const daily = storage.state[core.DAILY_KEY];
+  assert.deepEqual(daily.sites.arabam, {pages: 1, phones: 2});
+  assert.equal((await core.takePhoneSlot(api, new Date(2026, 9, 23, 9).getTime(), 'arabam')).allowed, true, 'resets the next day');
+
+  const urls = [1, 2, 3].map(n => `https://www.arabam.com/ilan/sahibinden-satilik-x/x/${4600000 + n}`);
+  const engineStorage = storageApi({[core.SAFETY_KEY]: {phoneDailyLimit: 1, dailyLimit: 0, separateWindow: false}});
+  const reads = [], tabs = new Map();
+  let t = now;
+  const engine = createEngine({storage: engineStorage, runtime: {sendMessage: async () => {}}, alarms: {create: async () => {}, clear: async () => {}},
+    tabs: {get: async id => clone(tabs.get(id)), create: async args => { tabs.set(1, {id: 1, status: 'complete', ...args}); return clone(tabs.get(1)); },
+      update: async (id, args) => { Object.assign(tabs.get(id), args, {status: 'loading'}); return clone(tabs.get(id)); }, query: async () => [],
+      sendMessage: async (id, request) => { reads.push(request); return {ok: true, kind: 'detail', record: {url: request.expectedUrl, title: 'Araç', price: 1000}}; }},
+    scripting: {executeScript: async () => {}}}, core, {upsertMany: async () => ({})}, {now: () => t});
+  await engine.handle({type: 'ILAN_START_LINKS', urls, category: 'all', delayMs: 4000, revealPhone: true});
+  const loaded = async () => { tabs.get(1).status = 'complete'; await engine.onUpdated(1, {status: 'complete'}, clone(tabs.get(1))); };
+  await loaded();
+  for (let i = 0; i < 2; i++) { t += 5000; await engine.onAlarm({name: STEP_ALARM}); await loaded(); }
+  assert.deepEqual(reads.map(r => r.revealPhone), [true, false, false]);
+  const job = clone(engineStorage.state[JOB_KEY]);
+  assert.equal(job.counts.processed, 3, 'all listings still processed');
+  assert.ok(job.logs.some(l => /Telefonu Göster” limiti doldu \(1\)/.test(l.message)));
 });

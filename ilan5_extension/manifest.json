@@ -1,15 +1,65 @@
 {
   "manifest_version": 3,
-  "name": "İlan5 — Kategorili İlan Arşivi",
-  "version": "2.9.1",
-  "description": "Bağlantıdan ilan toplayın; sayfaları otomatik tarayın, mesaj kampanyaları hazırlayın, yeni ilan ve kaldırılmaları izleyin.",
+  "name": "İlan5 — Çok Siteli İlan Arşivi",
+  "version": "3.0.0",
+  "description": "Sahibinden, Hepsiemlak, Emlakjet ve arabam.com ilanlarını tek panelde toplayın, takip edin ve satıcılara ulaşın.",
   "minimum_chrome_version": "120",
-  "permissions": ["storage", "unlimitedStorage", "tabs", "scripting", "alarms", "activeTab"],
-  "host_permissions": ["https://www.hepsiemlak.com/*", "https://hepsiemlak.com/*", "https://www.sahibinden.com/*", "https://sahibinden.com/*", "https://api.telegram.org/*"],
-  "background": {"service_worker": "background.js"},
-  "action": {"default_title": "İlan5 Veri Çekme ve Takip", "default_popup": "popup.html"},
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "tabs",
+    "scripting",
+    "alarms",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://www.sahibinden.com/*",
+    "https://sahibinden.com/*",
+    "https://www.hepsiemlak.com/*",
+    "https://hepsiemlak.com/*",
+    "https://www.emlakjet.com/*",
+    "https://emlakjet.com/*",
+    "https://www.arabam.com/*",
+    "https://arabam.com/*",
+    "https://api.telegram.org/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "İlan5 Veri Çekme ve Takip",
+    "default_popup": "popup.html"
+  },
   "options_page": "archive.html",
-  "icons": {"16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png"},
-  "content_scripts": [{"matches": ["https://www.hepsiemlak.com/*", "https://hepsiemlak.com/*", "https://www.sahibinden.com/*", "https://sahibinden.com/*"], "js": ["extractor.js", "messaging.js", "content.js"], "run_at": "document_idle", "all_frames": false}],
-  "content_security_policy": {"extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; connect-src https://api.telegram.org"}
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.sahibinden.com/*",
+        "https://sahibinden.com/*",
+        "https://www.hepsiemlak.com/*",
+        "https://hepsiemlak.com/*",
+        "https://www.emlakjet.com/*",
+        "https://emlakjet.com/*",
+        "https://www.arabam.com/*",
+        "https://arabam.com/*"
+      ],
+      "js": [
+        "sites.js",
+        "extractor.js",
+        "messaging.js",
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; connect-src https://api.telegram.org"
+  }
 }

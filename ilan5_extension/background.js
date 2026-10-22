@@ -8,33 +8,32 @@
   const WATCH_ALARM = 'ilan5.watch.v2';
   const CATEGORIES = new Set(['arsa', 'arac', 'konut', 'isyeri', 'diger', 'belirsiz']);
   // Page size is a search invariant. Only the page position may change.
-  const PAGE_PARAMS = new Set(['page', 'p', 'pagingOffset']);
+  const PAGE_PARAMS = new Set(['page', 'p', 'sayfa', 'pagingOffset']);
+  const Sites = () => root.IlanSites || require('./sites.js');
   const TRACKING = /^(?:utm_.+|gclid|fbclid)$/i;
 
   function siteUrl(value) {
     let u;
     try { u = new URL(String(value)); } catch (_) { throw new Error('Geçerli bir ilan veya arama adresi girin.'); }
     if (!['https:', 'http:'].includes(u.protocol) || u.username || u.password || u.port) {
-      throw new Error('Yalnız standart HTTP(S) Hepsiemlak ve Sahibinden adresleri desteklenir.');
+      throw new Error('Yalnız standart HTTP(S) ilan sitesi adresleri desteklenir.');
     }
-    const host = u.hostname.toLowerCase().replace(/^www\./, '');
-    if (!['hepsiemlak.com', 'sahibinden.com'].includes(host)) {
-      throw new Error('Bu sürüm Hepsiemlak ve Sahibinden sayfalarını destekler.');
+    const site = Sites().forHost(u.hostname);
+    if (!site || !/^(?:(?:www|m)\.)?[a-z0-9.-]+$/.test(u.hostname.toLowerCase()) || u.hostname.toLowerCase().replace(/^(?:www|m)\./, '') !== site.domain) {
+      throw new Error('Bu sürüm ' + Sites().namesText() + ' sayfalarını destekler.');
     }
     // Host permissions are HTTPS-only. Upgrade a pasted legacy HTTP link
     // before navigation, so extraction never needs additional host access.
     u.protocol = 'https:';
-    u.hostname = 'www.' + host;
+    u.hostname = 'www.' + site.domain;
     u.hash = '';
-    return {url: u, source: host === 'hepsiemlak.com' ? 'hepsiemlak' : 'sahibinden'};
+    return {url: u, source: site.id};
   }
 
   function listingRef(value, expectedSource) {
     const {url, source} = siteUrl(value);
     if (expectedSource && expectedSource !== source) throw new Error('Farklı kaynaktaki ilan atlandı.');
-    let match;
-    if (source === 'hepsiemlak') match = url.pathname.match(/\/(\d+-\d+)\/?$/);
-    else match = url.pathname.match(/^\/ilan\/.+-(\d+)\/detay\/?$/);
+    const match = url.pathname.match(Sites().get(source).detail);
     if (!match) throw new Error('Adres bir ilan detay sayfası değil.');
     url.search = '';
     url.pathname = url.pathname.replace(/\/$/, '');
@@ -67,7 +66,7 @@
           return Number(actualParams.get('pagingOffset') || 0) === Number(expectedParams.get('pagingOffset') || 0);
         }
       }
-      const position = params => Number(params.get('page') || params.get('p') || 1);
+      const position = params => Number(params.get('page') || params.get('p') || params.get('sayfa') || 1);
       return position(actualParams) === position(expectedParams);
     } catch (_) { return false; }
   }
@@ -228,7 +227,7 @@
       catch (firstError) {
         if (!/receiving end|connection|could not establish/i.test(String(firstError))) throw firstError;
         // Existing tabs opened before installation may lack the static content script.
-        await api.scripting.executeScript({target: {tabId}, files: ['extractor.js', 'messaging.js', 'content.js']});
+        await api.scripting.executeScript({target: {tabId}, files: ['sites.js', 'extractor.js', 'messaging.js', 'content.js']});
         return await api.tabs.sendMessage(tabId, request);
       }
     }
@@ -367,7 +366,7 @@
     // Several listings in a row without a core field usually means the site layout changed.
     function checkHealth(record) {
       const health = job.health || (job.health = {streaks: {}, alerted: {}});
-      const missing = {title: !record.title, price: record.price === null, phone: job.revealPhone && !(record.phones || []).length};
+      const missing = {title: !record.title, price: record.price === null, phone: job.revealPhone && !job.phoneLimitNoted && !(record.phones || []).length};
       for (const [field, absent] of Object.entries(missing)) {
         health.streaks[field] = absent ? (health.streaks[field] || 0) + 1 : 0;
         if (health.streaks[field] < (field === 'phone' ? 8 : 5) || health.alerted[field]) continue;
@@ -429,8 +428,17 @@
       current.readAt = clock();
       await persist();
       let response;
+      let revealPhone = job.revealPhone && !(current.kind === 'detail' && job.listingQueue[job.detailIndex]?.knownPhones?.length);
+      if (revealPhone && current.kind === 'detail' && core.takePhoneSlot && !current.phoneSlot) {
+        const slot = await core.takePhoneSlot(api, clock(), job.source);
+        if (slot.allowed) { current.phoneSlot = true; job.phoneLimitNoted = false; }
+        else {
+          revealPhone = false;
+          if (!job.phoneLimitNoted) { job.phoneLimitNoted = true; event(`Bugünkü “Telefonu Göster” limiti doldu (${slot.limit}). İlanlar yarına kadar telefonsuz kaydedilecek.`); }
+        }
+      }
       try {
-        response = await readTab(tab.id, {type: 'ILAN_EXTRACT', mode: current.kind, expectedUrl: current.url, revealPhone: job.revealPhone && !(current.kind === 'detail' && job.listingQueue[job.detailIndex]?.knownPhones?.length)});
+        response = await readTab(tab.id, {type: 'ILAN_EXTRACT', mode: current.kind, expectedUrl: current.url, revealPhone});
       } catch (error) {
         // Leave a durable task for a bounded later retry, never an unbounded loop.
         if (epoch !== controlEpoch) { current.stage = 'ready'; await persist(); return; }
@@ -563,7 +571,7 @@
       else if (job.detailIndex < job.pageEndIndex) next = {kind: 'detail', url: job.listingQueue[job.detailIndex].url};
       else { await complete(); return; }
       if (next.kind === 'detail' && core.takeDailySlot) {
-        const slot = await core.takeDailySlot(api, clock());
+        const slot = await core.takeDailySlot(api, clock(), job.source);
         if (!slot.allowed) {
           job.nextDueAt = slot.resumeAt; job.waitingUntil = new Date(slot.resumeAt).toISOString();
           event(`Günlük güvenli limit doldu (${slot.limit} ilan). Tarama ${new Date(slot.resumeAt).toLocaleString('tr-TR')} itibarıyla kendiliğinden devam edecek. Limiti panelden değiştirebilirsiniz.`);
@@ -783,7 +791,7 @@
   root.IlanBackground = exported;
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
     if (typeof importScripts === 'function') {
-      importScripts('core.js', 'database.js');
+      importScripts('sites.js', 'core.js', 'database.js');
       // Optional first-install defaults. The token is copied to extension storage on first start.
       try { importScripts('config.private.js'); } catch (_) { /* Token is entered from the panel. */ }
       importScripts('telegram.js', 'monitoring.js', 'searches.js', 'alerts.js');

@@ -42,6 +42,7 @@ function fixture(visiblePhone='0 (555) 111 22 33') {
     const content=pseudo==='::before'&&['visible-phone','hidden-phone'].includes(el.id)?'attr(data-content)':'none';
     return new Proxy(style,{get(target,key){if(key==='content')return content;if(key==='getPropertyValue')return name=>name==='content'?content:target.getPropertyValue(name);const value=target[key];return typeof value==='function'?value.bind(target):value;}});
   };
+  w.eval(fs.readFileSync(path.join(__dirname,'..','sites.js'),'utf8'));
   w.eval(fs.readFileSync(path.join(__dirname,'..','extractor.js'),'utf8'));
   return {w,extract:()=>w.IlanExtractor.extractListing({expectedUrl:URL,revealPhone:false})};
 }

@@ -87,7 +87,7 @@
         if(message.type==='ILAN_SAFETY_CONFIG'){const next=core.normalizeSafety({...(await core.safetySettings(api)),...message.safety});await api.storage.local.set({[core.SAFETY_KEY]:next});}
         const daily=(await api.storage.local.get(core.DAILY_KEY))[core.DAILY_KEY];
         const today=core.dayKey(Date.now());
-        return {ok:true,alerts:await settings(),safety:await core.safetySettings(api),todayCount:daily?.day===today?Number(daily.count)||0:0};
+        return {ok:true,alerts:await settings(),safety:await core.safetySettings(api),todayCount:daily?.day===today?Number(daily.count)||0:0,todaySites:daily?.day===today&&daily.sites||{}};
       }catch(error){return {ok:false,error:String(error.message||error)};}
     }
     return {marketEvents,health,handle,settings,scheduleSummary,buildSummary,sendSummary,onAlarm};

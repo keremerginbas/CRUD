@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const assert = require('node:assert/strict');
 const {JSDOM} = require('jsdom');
-const script = fs.readFileSync(path.join(__dirname, '../extractor.js'), 'utf8');
+const script = fs.readFileSync(path.join(__dirname, '../sites.js'), 'utf8') + '\n' + fs.readFileSync(path.join(__dirname, '../extractor.js'), 'utf8');
 let passed = 0;
 function dom(html, url) {
   const d = new JSDOM(html, {url, runScripts:'outside-only'}), w = d.window;
@@ -283,6 +283,38 @@ async function check(name,fn){ await fn(); passed++; console.log('PASS',name); }
     assert.equal(byId['810003'].currency,'EUR');
     assert.equal(byId['810004'],undefined,'a row with two listings is ambiguous');
     w.close();
+  });
+  await check('arabam.com: masked "Telefonu göster - (0530) …" button is pressed once; car fields, price and seller are read',async()=>{
+    const url='https://www.arabam.com/ilan/sahibinden-satilik-fiat-egea-1-3-multijet-easy/sahibinden-fiat-egea-1-3-multijet-easy-manuel-2022-model/44985286';
+    const {w,x}=dom(`<header><form class="search"><input><button type="submit">Ara</button></form></header><main><nav class="breadcrumb"><a>Otomobil</a><a>Fiat</a><a>Egea</a></nav><h1>Sahibinden Fiat Egea 1.3 MultiJet Easy Manuel 2022 Model</h1><div class="location">İnönü Mh. Küçükçekmece, İstanbul</div><div class="product-price">810.000 TL</div><ul class="product-properties"><li><span>İlan No</span><span>44985286</span></li><li><span>İlan Tarihi</span><span>21 Ekim 2026</span></li><li><span>Marka</span><span>Fiat</span></li><li><span>Seri</span><span>Egea</span></li><li><span>Model</span><span>1.3 Multijet Easy</span></li><li><span>Yıl</span><span>2022</span></li><li><span>Kilometre</span><span>125.500 KM</span></li><li><span>Vites tipi</span><span>Düz</span></li><li><span>Yakıt tipi</span><span>Dizel</span></li></ul><div class="description">Bakımlı araç.</div></main><aside class="product-owner"><div><h3 class="user-name">EKREM B.</h3><span>Bireysel Üye</span></div><button id="tel"><span>Telefonu göster - (0530) 111 ** **</span></button><button>Mesaj Gönder</button></aside>`,url);
+    let clicks=0;w.document.querySelector('#tel').onclick=()=>{clicks++;w.document.querySelector('#tel').innerHTML='<a href="tel:(0530) 111 22 33">(0530) 111 22 33</a>';};
+    const result=await x.extractListing({revealPhone:true});assert.equal(result.ok,true,result.error);const r=result.record;
+    assert.equal(r.source,'arabam');assert.equal(r.listingId,'44985286');assert.equal(clicks,1);
+    assert.deepEqual(Array.from(r.phones),['905301112233']);assert.equal(r.sellerName,'EKREM B.');assert.equal(r.price,810000);
+    assert.equal(r.rawDetails['Yıl'],'2022');assert.equal(r.rawDetails['Kilometre'],'125.500 KM');assert.ok(r.categoryEvidence.some(e=>e.category==='arac'));
+    w.close();
+  });
+  await check('arabam.com list: struck-through old price is ignored, the current price is used',async()=>{
+    const row=(id,price)=>`<tr class="listing-list-item"><td><a href="/ilan/sahibinden-satilik-x/sahibinden-x/${id}"><img></a></td><td><a href="/ilan/sahibinden-satilik-x/sahibinden-x/${id}">Model</a></td><td>2017</td><td>241.000 KM</td><td class="listing-price">${price}</td></tr>`;
+    const {w,x}=dom(`<main><table id="searchResultsTable"><tbody>${row(45000001,'810.000 TL')}${row(45000002,'<span class="old-price" style="text-decoration:line-through">950.000 TL</span><span>925.000 TL</span>')}</tbody></table></main>`,'https://www.arabam.com/ikinci-el/otomobil-sahibinden');
+    const r=x.discoverList();assert.equal(r.links.length,2);const byId=Object.fromEntries(Array.from(r.rows).map(row=>[row.url.split('/').at(-1),row.price]));
+    assert.equal(byId['45000001'],810000);assert.equal(byId['45000002'],925000);w.close();
+  });
+  await check('Emlakjet: only the seller card "Ara" is pressed (not the search "Ara"); 0850 number, ₺ price and Konut İmarlı land are read',async()=>{
+    const url='https://www.emlakjet.com/ilan/2-kat-konut-imarli-kose-parsel-dogalgaz-elektrik-su-altyapisi-19990109';
+    const {w,x}=dom(`<main><nav class="breadcrumb"><a>Ankara Satılık Konut İmarlı</a><a>Ankara Mamak Satılık Konut İmarlı</a></nav><h1>2 Kat Konut İmarlı Köşe Parsel Doğalgaz-elektrik-su Altyapısı</h1><div class="location">Karşıyaka Mahallesi, Mamak, Ankara</div><div class="price-area"><span class="listing-price">1.975.000 ₺</span> <span class="unit">5.896 ₺/m²</span></div><ul class="summary"><li><span>335 m²</span><span>Metrekare</span></li><li><span>Müstakil Tapulu</span><span>Tapu Durumu</span></li><li><span>İlan Numarası</span><span>19990109</span></li></ul><div class="description">Köşe parsel.</div></main><div class="filter-box"><button id="search">Ara</button></div><aside class="contact-card"><h3>EGE GAYRİMENKUL</h3><h4 class="agent-name">Ali Şimşek</h4><a href="/ofis/ege">Tüm İlanları</a><button id="call"><span>Ara</span></button></aside>`,url);
+    let calls=0,searches=0;w.document.querySelector('#search').onclick=()=>searches++;
+    w.document.querySelector('#call').onclick=()=>{calls++;w.document.querySelector('#call').innerHTML='<span>0 (850) 000 11 22</span>';};
+    const result=await x.extractListing({revealPhone:true});assert.equal(result.ok,true,result.error);const r=result.record;
+    assert.equal(r.source,'emlakjet');assert.equal(r.listingId,'19990109');assert.equal(calls,1);assert.equal(searches,0);
+    assert.deepEqual(Array.from(r.phones),['908500001122']);assert.equal(r.price,1975000);assert.equal(r.currency,'TRY');assert.equal(r.area,335);
+    assert.equal(r.rawDetails['Tapu Durumu'],'Müstakil Tapulu');assert.ok(r.categoryEvidence.some(e=>e.category==='arsa'));assert.ok(!r.categoryEvidence.some(e=>e.category==='konut'));
+    w.close();
+  });
+  await check('Emlakjet list: ₺ price per card; "5.896/m²" unit price is never taken',async()=>{
+    const card=(id,price)=>`<article class="listing-card"><a href="/ilan/arsa-${id}"><img></a><h3><a href="/ilan/arsa-${id}">Arsa</a></h3><p>Ankara, Mamak</p><p>335 m² · 5.896/m² · 16.10.2026</p><p class="price">${price}</p><button>Ara</button></article>`;
+    const {w,x}=dom(`<main><h1>Ankara Satılık Arsa</h1>${card(19990109,'1.975.000 ₺')}${card(19990110,'')}</main>`,'https://www.emlakjet.com/satilik-arsa/ankara');
+    const r=x.discoverList();assert.equal(r.links.length,2);const rows=Array.from(r.rows);assert.equal(rows.length,1);assert.equal(rows[0].price,1975000);w.close();
   });
   console.log(`${passed} extraction scenarios passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -1,4 +1,4 @@
-# İlan5 2.9.1 — Veri Çekme, İlan Hareketleri ve Telegram Takibi
+# İlan5 3.0.0 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,30 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **2.9.1** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.0.0** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 3.0.0 dört site tek panelde
+
+Desteklenen siteler: **Sahibinden, Hepsiemlak, Emlakjet, arabam.com**. Arama sonuçları bağlantısını yapıştırdığınızda site kendiliğinden tanınır. Aynı tarama içinde tek site kullanılır; farklı siteleri ayrı taramalar veya kayıtlı aramalar olarak ekleyin. Kayıtlı aramalar sırayla çalışır.
+
+**Site kartları:** Sayfanın en üstünde her site için ilan sayısı, bugün açılan ilan ve basılan “Telefonu Göster” sayısı, son tarama zamanı görünür. Karta tıklayınca tablo yalnız o sitenin ilanlarını gösterir; tekrar tıklayınca filtre kalkar.
+
+**Telefonu Göster, site site:**
+- **Sahibinden / Hepsiemlak:** “Telefonu Göster” düğmesine basılır.
+- **arabam.com:** Düğmede “Telefonu göster - (0530) 850 ** **” gibi maskeli numara yazar; düğmeye basılır, açılan tam numara alınır.
+- **Emlakjet:** Satıcı kartındaki yeşil **Ara** düğmesine basılır. Sayfadaki arama/filtre “Ara” düğmelerine basılmaz. Emlakjet çoğu ilanda **0850 ile başlayan yönlendirme numarası** gösterir; bu numara satıcıya bağlanır ama satıcının cep numarası değildir.
+- Telefonu arşivde olan ilanda düğmeye basılmaz.
+- **Günlük “Telefonu Göster” limiti** (varsayılan site başına 150): Dolunca tarama durmaz; ilanlar o gün telefonsuz kaydedilir, ertesi gün yeniden başlar.
+
+**Kategori:** arabam.com ilanları her zaman **Araç** arşivine girer; arabam bağlantısı yapıştırınca toplanacak kategori kendiliğinden “Araç” olur. Emlakjet ilan adresinde kategori bulunmaz; arama bağlantısındaki kategori (ör. `/satilik-arsa/`) ve sayfadaki bilgiler kullanılır. Karar verilemeyen ilan **İnceleme gerekli** bölümüne gider. “Konut İmarlı”, “Villa İmarlı” gibi ifadeler arsa sayılır.
+
+**Şimdilik yalnız Sahibinden ve Hepsiemlak'ta olanlar:** yayından kalkma takibi (Emlakjet/arabam için kaldırılan ilan sayfası henüz tanınmıyor; yanlış “kaldırıldı” bildirimi gitmemesi için kapalı) ve mesaj kampanyası (yalnız Sahibinden).
+
+**İlk denemede:** Her yeni site için önce **En fazla ilan: 2** ile deneyin; fiyat, telefon, satıcı ve özellikleri kaynakla karşılaştırın. Okunamayan alan olursa eklenti art arda eksiklerde Telegram'a uyarı gönderir. Böyle bir durumda o ilan sayfasını Ctrl+S → “Web Sayfası, Tamamı” ile kaydedip gönderin; okuyucu o sayfaya göre ayarlanır.
 
 ## 2.9.1 Windows'a taşıma
 

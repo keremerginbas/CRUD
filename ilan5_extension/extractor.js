@@ -31,16 +31,11 @@
     }
     return '';
   };
-  function sourceFor(url = location.href) {
-    const host = new URL(url).hostname.toLowerCase();
-    if (host === 'hepsiemlak.com' || host.endsWith('.hepsiemlak.com')) return 'hepsiemlak';
-    if (host === 'sahibinden.com' || host.endsWith('.sahibinden.com')) return 'sahibinden';
-    return '';
-  }
+  const Sites = globalThis.IlanSites;
+  const site = (url = location.href) => { try { return Sites.forUrl(new URL(url, location.href).href); } catch { return null; } };
+  function sourceFor(url = location.href) { return site(url)?.id || ''; }
   function listingId(url) {
-    let path;
-    try { path = new URL(url, location.href).pathname; } catch { return ''; }
-    return path.match(/\/(\d+-\d+)\/?$/)?.[1] || path.match(/-(\d+)\/detay\/?$/)?.[1] || '';
+    try { return Sites.listingId(new URL(url, location.href).href); } catch { return ''; }
   }
   function canonicalListing(url) {
     try {
@@ -62,12 +57,13 @@
   function normalizePhone(value) {
     let digits = String(value).replace(/\D/g, '');
     if (digits.startsWith('0090')) digits = digits.slice(2);
-    if (/^0[2-5]\d{9}$/.test(digits)) digits = '90' + digits.slice(1);
-    if (/^[2-5]\d{9}$/.test(digits)) digits = '90' + digits;
-    return /^90[2-5]\d{9}$/.test(digits) ? digits : '';
+    // 0850 numbers are kept: some sites (Emlakjet) show a forwarding number instead of the mobile.
+    if (/^0[2-58]\d{9}$/.test(digits)) digits = '90' + digits.slice(1);
+    if (/^[2-58]\d{9}$/.test(digits)) digits = '90' + digits;
+    return /^90[2-58]\d{9}$/.test(digits) ? digits : '';
   }
   function phoneNumbers(value) {
-    return unique((clean(value).match(/(?<!\d)(?:(?:\+|00)?90[\s().-]*)?0?[2-5]\d{2}[\s().-]*\d{3}[\s().-]*\d{2}[\s().-]*\d{2}(?!\d)/g) || []).map(normalizePhone));
+    return unique((clean(value).match(/(?<!\d)(?:(?:\+|00)?90[\s().-]*)?(?:0[\s(]*)?[2-58]\d{2}[\s().-]*\d{3}[\s().-]*\d{2}[\s().-]*\d{2}(?!\d)/g) || []).map(normalizePhone));
   }
   function screenProblem() {
     const title = fold(document.title);
@@ -86,7 +82,7 @@
     return null;
   }
   function inspect(expectedUrl) {
-    if (!sourceFor()) return {ok: false, kind: 'unsupported', error: 'Bu sayfa için Hepsiemlak veya Sahibinden desteği bulunmuyor.'};
+    if (!sourceFor()) return {ok: false, kind: 'unsupported', error: 'Bu sayfa desteklenen ilan sitelerinden değil: ' + Sites.namesText() + '.'};
     const problem = screenProblem();
     if (problem) return problem;
     if (expectedUrl) {
@@ -97,7 +93,7 @@
         return {ok: false, kind: 'mismatch', error: 'Beklenen ilan yerine farklı bir sayfa açıldı; bu sayfa arşivlenmedi.'};
       }
       if (!wantedId) {
-        const relevant = ['page', 'p', 'pagingOffset'];
+        const relevant = ['page', 'p', 'sayfa', 'pagingOffset'];
         // Sahibinden may represent the same result page as either a numbered
         // page or a pagingOffset. Compare logical positions when page size is
         // known, while keeping all search filters and path fixed.
@@ -105,7 +101,7 @@
         const hasOffset = wanted.searchParams.has('pagingOffset') || actual.searchParams.has('pagingOffset');
         const pageNumber = params => params.has('pagingOffset') && Number.isSafeInteger(size) && size > 0
           ? Math.floor(Number(params.get('pagingOffset') || 0) / size) + 1
-          : Number(params.get('page') || params.get('p') || 1);
+          : Number(params.get('page') || params.get('p') || params.get('sayfa') || 1);
         const samePage = hasOffset && Number.isSafeInteger(size) && size > 0
           ? pageNumber(wanted.searchParams) === pageNumber(actual.searchParams)
           : relevant.every(key => (wanted.searchParams.get(key) || '') === (actual.searchParams.get(key) || ''));
@@ -208,11 +204,13 @@
       if (label && values.length && children.length <= 5) put(text(label), values.map(text).join(' '));
     }
     // Hepsiemlak can render labelled rows in generic li/div containers.
-    const known = /^(ilan no|ilan numarasi|son guncelleme|ilan tarihi|ilan durumu|arsa tipi|imar durumu|metrekare|metrekare birim fiyati|tapu durumu|ada\s*\/\s*parsel no|ada no|parsel no|pafta no|kaks\s*\(emsal\)|emsal|gabari|kat karsiligi|krediye uygunluk|ilgili belediye|takas|kimden|emlak tipi|marka|model|seri|yil|yakit tipi|vites|km|renk|kasa tipi|motor gucu|motor hacmi|arac durumu|oda sayisi)$/;
+    const known = /^(ilan no|ilan numarasi|son guncelleme|ilan tarihi|ilan durumu|arsa tipi|imar durumu|metrekare|metrekare birim fiyati|tapu durumu|ada\s*\/\s*parsel no|ada no|parsel no|pafta no|kaks\s*\(emsal\)|emsal|gabari|kat karsiligi|krediye uygunluk|ilgili belediye|takas|kimden|emlak tipi|marka|model|seri|yil|yakit tipi|vites|vites tipi|km|kilometre|renk|kasa tipi|motor gucu|motor hacmi|cekis|arac durumu|agir hasar kayitli|plaka uyruk|oda sayisi|ilan guncelleme tarihi|kategori|ilan tipi)$/;
     for (const row of all('li,[class*="spec"],[class*="detail-info"]', root)) {
       if (row.closest('table,dl') || row.closest(SELLERS) || (excludeDescription && row.closest(DESCRIPTION))) continue;
       const children = [...row.children].filter(visible);
       if (children.length === 2 && known.test(fold(text(children[0])))) put(text(children[0]), text(children[1]));
+      // Emlakjet summary tiles show the value above its label ("335 m²" / "Metrekare").
+      else if (children.length === 2 && known.test(fold(text(children[1]))) && !known.test(fold(text(children[0])))) put(text(children[1]), text(children[0]));
     }
     return fields;
   }
@@ -233,7 +231,7 @@
   function categoriesForLabel(value) {
     const s = fold(value).replace(/[_/\-]+/g, ' ');
     if (OTHER_LABELS.includes(s.replace(/[,&]/g, ' ').replace(/\s+/g, ' '))) return ['diger'];
-    if (/\b(arsa|tarla|bag|bahce|zeytinlik|orman|imarli konut|imarli ticari|imarli sanayi|imarli villa|konutticaret|turistik arsa|depo antrepo izinli)\b/.test(s)) return ['arsa'];
+    if (/\b(arsa|tarla|bag|bahce|zeytinlik|orman|imarli konut|imarli ticari|imarli sanayi|imarli villa|konut imarli|villa imarli|ticari imarli|sanayi imarli|turizm imarli|konutticaret|turistik arsa|depo antrepo izinli)\b/.test(s)) return ['arsa'];
     if (/\b(vasita|otomobil|arac|arazi suv|motosiklet|minibus|kamyon|kamyonet|otobus|traktor|ticari arac)\b/.test(s)) return ['arac'];
     if (/\b(isyeri|is yeri|dukkan|ofis|buro|magaza|fabrika|atolye|depo|akaryakit istasyonu|plaza)\b/.test(s)) return ['isyeri'];
     if (/\b(konut|daire|villa|mustakil ev|rezidans|residence|yazlik|ciftlik evi)\b/.test(s)) return ['konut'];
@@ -276,20 +274,22 @@
     if (!hasOtherRoot && getField(fields, ['Marka']) && getField(fields, ['Yakıt Tipi','Vites','KM','Kilometre','Kasa Tipi','Araç Durumu','Motor Hacmi'])) add('arac', 'field', 'Marka ve araca özgü teknik alanlar mevcut');
     return evidence.filter((item, i, list) => list.findIndex(x => x.category === item.category && x.source === item.source && x.text === item.text) === i);
   }
+  // "5.896 ₺/m²" next to the price is a unit price, never the listing price.
+  const withoutUnitPrice = value => clean(value).replace(/\d[\d.,]*\s*(?:TL|₺)?\s*\/\s*m[²2]/gi, ' ').trim();
   function readPrice(fields) {
     let candidates = [getField(fields, ['Fiyat', 'Satış Fiyatı'])].filter(Boolean);
     for (const selector of ['.classifiedInfo > h3','.classifiedInfo h3','.classified-price','[itemprop="price"]','[class*="price"]','[class*="Price"]']) {
       for (const el of all(selector)) {
         if (el.closest('table,dl') || el.closest(SELLERS) || /unit|per-square|m2|square-meter/i.test(el.className)) continue;
-        const value = text(el);
-        if (value.length < 100 && !/\/\s*m[²2]|birim|m[²2]\s*fiyat/i.test(value)) candidates.push(value);
+        const value = withoutUnitPrice(text(el));
+        if (value.length < 100 && /\d/.test(value) && !/birim|m[²2]\s*fiyat/i.test(value)) candidates.push(value);
       }
     }
     const h1 = all('h1')[0];
     let parent = h1?.parentElement;
     for (let i = 0; i < 3 && parent && !parent.matches('body,main'); i++, parent = parent.parentElement) {
       if (parent.querySelector('table,dl,.classifiedInfoList') || text(parent).length > 800) break;
-      const matches = text(parent).match(/\d[\d., ]*\s*(?:TL|₺|EUR|USD|€|\$|GBP|£)/g) || [];
+      const matches = withoutUnitPrice(text(parent)).match(/\d[\d., ]*\s*(?:TL|₺|EUR|USD|€|\$|GBP|£)/g) || [];
       candidates.push(...matches);
     }
     candidates = unique(candidates);
@@ -475,7 +475,7 @@
     let fallback = button.parentElement;
     for (let node = button.parentElement, i = 0; node && i < 7; node = node.parentElement, i++) {
       if (/^(BODY|MAIN|HTML)$/.test(node.tagName) || text(node).length > 3500 || node.querySelector('table,.classifiedInfoList')) break;
-      if (/sahibinden ilan|emlak ofisi|danisman|ilan sahibi/.test(fold(text(node))) && node.querySelector('h2,h3,h4,h5')) return node;
+      if (/sahibinden ilan|emlak ofisi|danisman|ilan sahibi|bireysel uye|kurumsal uye|tum ilanlari|galeri/.test(fold(text(node))) && node.querySelector('h2,h3,h4,h5,[class*="name" i]')) return node;
       if (node.matches('aside,[class*="contact"],[class*="user"]')) fallback = node;
     }
     return fallback;
@@ -530,10 +530,13 @@
       }
     }
     if (!revealPhone) return {...result, phoneStatus: 'Telefon açma kapalı; görünür numara bulunamadı'};
+    const rule = site();
     const candidates = all('button,a,[role="button"],span,div').filter(el => {
-      if (!/^telefon(?:u| numarasini)?\s+goster$/.test(fold(text(el)))) return false;
+      if (!rule.phoneButton.test(fold(text(el)))) return false;
       if (el.querySelector('button,a,[role="button"]')) return false;
       if (/^(tel:|sms:|https?:\/\/(?:wa\.me|api\.whatsapp))/i.test(el.getAttribute('href') || '')) return false;
+      // A bare "Ara" is also the search button: only the seller card's control qualifies.
+      if (rule.phoneButtonStrict && (el.closest('form,[role="search"],[class*="search" i],[class*="filter" i],[id*="search" i]') || el.matches('[type="submit"]'))) return false;
       return !el.closest('nav,header,footer');
     }).sort((a, b) => {
       const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
@@ -617,7 +620,7 @@
   }
   function pageNumber(url, inferredSize) {
     const u = new URL(url, location.href);
-    const p = u.searchParams.get('page') || u.searchParams.get('p');
+    const p = u.searchParams.get('page') || u.searchParams.get('p') || u.searchParams.get('sayfa');
     if (p && /^\d+$/.test(p)) return Number(p);
     const offset = u.searchParams.get('pagingOffset');
     const size = Number(u.searchParams.get('pagingSize')) || inferredSize || 20;
@@ -632,7 +635,7 @@
       if (target.pathname !== current.pathname) return '';
       // Relative paging links sometimes omit the existing search filters.
       for (const key of new Set(current.searchParams.keys())) {
-        if (['page','p','pagingOffset'].includes(key)) continue;
+        if (['page','p','sayfa','pagingOffset'].includes(key)) continue;
         const values = current.searchParams.getAll(key);
         if (!target.searchParams.has(key)) values.forEach(value => target.searchParams.append(key, value));
         else if (JSON.stringify([...target.searchParams.getAll(key)].sort()) !== JSON.stringify([...values].sort())) return '';
@@ -706,7 +709,7 @@
       target.searchParams.set('pagingOffset', String(offset + pageSize));
       target.searchParams.set('pagingSize', String(pageSize));
       target.searchParams.delete('page'); target.searchParams.delete('p');
-    } else if (sourceFor() === 'hepsiemlak' && parameter) {
+    } else if (site()?.paging === 'page' && parameter) {
       target.searchParams.set(parameter, String(currentPage + 1));
     } else return '';
     target.hash = '';
@@ -715,6 +718,14 @@
   const currencyOf = raw => /€|EUR/i.test(raw) ? 'EUR' : /\$|USD/i.test(raw) ? 'USD' : /£|GBP/i.test(raw) ? 'GBP' : /TL|₺/i.test(raw) ? 'TRY' : '';
   // Price shown on each search-result row. A row is used only when it holds exactly one
   // listing, and only a value with a currency mark counts, so m² or area numbers are never taken.
+  // arabam.com shows a discount as a struck-through old price above the new one.
+  const STRUCK = 'del,s,strike,[class*="old-price" i],[class*="oldprice" i],[class*="price-old" i],[class*="previous-price" i],[class*="discount-old" i],[style*="line-through"]';
+  function currentPriceText(el) {
+    if (!visible(el)) return '';
+    const copy = el.cloneNode(true);
+    copy.querySelectorAll(STRUCK).forEach(node => node.replaceWith(' '));
+    return withoutUnitPrice(clean(copy.textContent));
+  }
   function listRows(root) {
     const rows = new Map();
     for (const anchor of all('a[href]', root)) {
@@ -723,8 +734,8 @@
       const row = anchor.closest('tr,li,article,[class*="listing-item" i],[class*="searchResultsItem" i],[class*="list-item" i],[class*="card" i]');
       if (!row || row === root || unique([...row.querySelectorAll('a[href]')].map(el => canonicalListing(el.href))).length !== 1) continue;
       const candidates = [...row.querySelectorAll('[class*="price" i],[class*="Price"]')]
-        .filter(el => !/unit|per-square|m2|square/i.test(el.className)).map(text).filter(v => v && v.length < 60 && !/\/\s*m[²2]/i.test(v));
-      candidates.push(...(text(row).match(/\d[\d., ]*\s*(?:TL|₺|EUR|USD|€|\$|GBP|£)/g) || []));
+        .filter(el => !/unit|per-square|m2|square/i.test(el.className) && !el.closest(STRUCK)).map(currentPriceText).filter(v => v && v.length < 60);
+      candidates.push(...(withoutUnitPrice(currentPriceText(row)).match(/\d[\d., ]*\s*(?:TL|₺|EUR|USD|€|\$|GBP|£)/g) || []));
       const raw = candidates.find(v => currencyOf(v));
       const price = raw ? parseNumber(raw) : null;
       if (price !== null && price > 0) rows.set(url, {url, price, currency: currencyOf(raw)});
@@ -769,7 +780,7 @@
     const nextRaw = next && (next.getAttribute('href') || next.getAttribute('data-href') || next.getAttribute('data-url'));
     const unsafeTarget = nextRaw && nextRaw !== '#' && !/^javascript:/i.test(nextRaw) && !nextListUrl(next);
     const current = new URL(location.href);
-    const pageParameter = ['page','p'].find(key => current.searchParams.has(key) || numbered.some(item => new URL(item.url).searchParams.has(key)));
+    const pageParameter = ['page','p','sayfa'].find(key => current.searchParams.has(key) || numbered.some(item => new URL(item.url).searchParams.has(key)));
     if (!nextUrl && links.length && !unsafeTarget && (hasActualNext || contradictsTotal)) {
       nextUrl = generatedListUrl(pageSize, currentPage, pageParameter);
       if (nextUrl) strategy = sourceFor() === 'sahibinden' ? 'generated-offset' : 'generated-page';

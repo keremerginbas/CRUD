@@ -4,9 +4,10 @@
   const KEY='ilan5.searches.v1',ALARM='ilan5.search.schedule.v1',MINUTE=60000;
   function searchUrl(value){
     let url;try{url=new URL(String(value));}catch{throw Error('Geçerli bir arama sonuçları bağlantısı girin.');}
-    if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.port||!/^(?:www\.)?(?:sahibinden|hepsiemlak)\.com$/.test(url.hostname))throw Error('Hepsiemlak veya Sahibinden arama bağlantısı gerekli.');
-    if(/^\/ilan\//.test(url.pathname)||/\/\d+-\d+\/?$/.test(url.pathname))throw Error('Tek ilan yerine filtrelenmiş arama sonuçları bağlantısını girin.');
-    url.protocol='https:';url.hostname='www.'+url.hostname.replace(/^www\./,'');url.hash='';
+    const Sites=root.IlanSites||require('./sites.js'),site=Sites.forHost(url.hostname);
+    if(!['http:','https:'].includes(url.protocol)||url.username||url.password||url.port||!site)throw Error(Sites.namesText()+' arama bağlantısı gerekli.');
+    if(Sites.listingId(url.href)||/^\/ilan\//.test(url.pathname))throw Error('Tek ilan yerine filtrelenmiş arama sonuçları bağlantısını girin.');
+    url.protocol='https:';url.hostname='www.'+site.domain;url.hash='';
     for(const key of [...url.searchParams.keys()])if(['page','p','pagingOffset'].includes(key)||/^utm_|^(?:gclid|fbclid)$/.test(key))url.searchParams.delete(key);
     url.searchParams.sort();return url.href;
   }

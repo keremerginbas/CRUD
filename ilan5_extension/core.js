@@ -8,8 +8,9 @@
   const unique = values => [...new Set(values.filter(Boolean))];
   const safeUrl = value => { try { const u=new URL(clean(value)); return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password ? u.href : ''; } catch {return '';} };
   const canonicalUrl = value => {const url=safeUrl(value);if(!url)return '';const u=new URL(url);u.hash='';u.search='';u.hostname=u.hostname.replace(/^m\./,'www.');return u.href.replace(/\/$/,'');};
-  function sourceFor(url) {try {const h=new URL(url).hostname;return /^(www\.|m\.)?hepsiemlak\.com$/.test(h)?'hepsiemlak':/^(www\.|m\.)?sahibinden\.com$/.test(h)?'sahibinden':'import';}catch{return 'import';}}
-  function listingIdFromUrl(url) {try {const p=new URL(url).pathname;if(sourceFor(url)==='hepsiemlak')return p.match(/\/(\d+-\d+)\/?$/)?.[1]||'';if(sourceFor(url)==='sahibinden')return p.match(/-(\d+)(?:\/detay)?\/?$/)?.[1]||'';}catch{}return '';}
+  const Sites = () => root.IlanSites || (typeof require === 'function' ? require('./sites.js') : null);
+  function sourceFor(url) {return Sites().sourceFor(url)||'import';}
+  function listingIdFromUrl(url) {return Sites().listingId(url,{loose:true});}
   function hash(value) {let x=2166136261;for(const c of String(value)){x^=c.charCodeAt(0);x=Math.imul(x,16777619);}return (x>>>0).toString(16);}
   function parseNumber(value) {if(typeof value==='number')return Number.isFinite(value)&&value>=0?value:null;if(!value)return null;const text=String(value).replace(/\u00a0/g,'');if(/-\s*\d/.test(text))return null;let t=text.match(/\d+(?:[.,]\d+)*/)?.[0];if(!t)return null;if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');const n=Number(t);return Number.isFinite(n)?n:null;}
   function normalizePhone(value) {let n=String(value??'').replace(/\D/g,'');if(n.startsWith('0090'))n=n.slice(2);if(n.length===11&&n[0]==='0')n='90'+n.slice(1);else if(n.length===10)n='90'+n;return /^90[23458]\d{9}$/.test(n)?n:'';}
@@ -17,7 +18,7 @@
   function get(obj, ...aliases) {const entries=Object.entries(plain(obj));for(const a of aliases){const key=norm(a);const hit=entries.find(([k,v])=>norm(k)===key&&v!==''&&v!==null&&v!==undefined);if(hit)return hit[1];}return '';}
   function labelKey(k) {const words=norm(k).split(' '),half=words.length/2;return Number.isInteger(half)&&words.slice(0,half).join(' ')===words.slice(half).join(' ')?words.slice(0,half).join(' '):norm(k);}
   function detailGet(details,...aliases) {const keys=aliases.map(norm);return Object.entries(details||{}).find(([k,v])=>keys.includes(labelKey(k))&&clean(v))?.[1]||'';}
-  function categoryValue(value) {const n=norm(value);if(Object.hasOwn(CATEGORIES,n))return n;if(/^(arac|vasita|otomobil|motosiklet|kamyon|minivan|suv|ticari arac)( |$)/.test(n))return 'arac';if(/^(arsa|tarla|bahce|imarli|konut ticaret|turistik arsa|depo antrepo izinli|muhtelif arsa)( |$)/.test(n))return 'arsa';if(/^(konut|daire|villa|mustakil ev|rezidans|residence)( |$)/.test(n))return 'konut';if(/^(isyeri|is yeri|dukkan|ofis|buro|magaza|fabrika|atolye)( |$)/.test(n))return 'isyeri';if(n==='diger')return 'diger';return 'belirsiz';}
+  function categoryValue(value) {const n=norm(value);if(Object.hasOwn(CATEGORIES,n))return n;if(/^(arac|vasita|otomobil|motosiklet|kamyon|minivan|suv|ticari arac)( |$)/.test(n))return 'arac';if(/^(konut|villa|ticari|sanayi|turizm|turistik) imarli( |$)/.test(n))return 'arsa';if(/^(arsa|tarla|bahce|imarli|konut ticaret|turistik arsa|depo antrepo izinli|muhtelif arsa)( |$)/.test(n))return 'arsa';if(/^(konut|daire|villa|mustakil ev|rezidans|residence)( |$)/.test(n))return 'konut';if(/^(isyeri|is yeri|dukkan|ofis|buro|magaza|fabrika|atolye)( |$)/.test(n))return 'isyeri';if(n==='diger')return 'diger';return 'belirsiz';}
   function urlEvidence(url) {
     const u=safeUrl(url);if(!u)return [];
     const path=new URL(u).pathname,source=sourceFor(u);let category='belirsiz';
@@ -32,11 +33,18 @@
       if(['arsa','tarla','bahce','bag','zeytinlik','muhtelif-arsa','imarli-konut','imarli-ticari','konutticaret','imarli-sanayi','turistik-arsa','depo-antrepo-izinli','toplu-konut-icin-tahsis','imarli-villa','sit-alani','ozel-kullanim'].includes(type))category='arsa';
       else if(['daire','villa','mustakil-ev','residence','rezidans','yazlik','ciftlik-evi','yali'].includes(type))category='konut';
       else if(['dukkan-magaza','ofis','buro','fabrika','depo','atolye','plaza','isyeri','dukkan'].includes(type))category='isyeri';
-    }
+    } else if(source==='arabam'&&listingIdFromUrl(u)) category='arac';
     return category==='belirsiz'?[]:[{category,source:'url',text:path}];
   }
-  function classify(raw, details, url) {
-    const evidence=urlEvidence(url);
+  // Emlakjet detail addresses carry no category; its search address does (/satilik-arsa/ankara).
+  function searchEvidence(searchUrl,source) {
+    const u=safeUrl(searchUrl);if(!u||source!=='emlakjet'||sourceFor(u)!=='emlakjet')return [];
+    const kind=new URL(u).pathname.match(/^\/(?:satilik|kiralik|devren)-([a-z-]+)/)?.[1]||'';
+    const category=categoryValue(kind.replace(/-/g,' '));
+    return category==='belirsiz'?[]:[{category,source:'url',text:'Arama bağlantısı: '+new URL(u).pathname}];
+  }
+  function classify(raw, details, url, searchUrl) {
+    const evidence=[...urlEvidence(url),...searchEvidence(searchUrl,sourceFor(url))];
     for(const item of [...(Array.isArray(raw.categoryEvidence)?raw.categoryEvidence:[]),...(Array.isArray(raw.classification?.evidence)?raw.classification.evidence:[])]) {
       if(!item||!['url','breadcrumb','field','explicit','import'].includes(item.source))continue;
       const category=categoryValue(item.category);if(category!=='belirsiz')evidence.push({category,source:item.source,text:clean(item.text).slice(0,500)});
@@ -103,7 +111,7 @@
     const oldPrice=parseNumber(input.oldPrice),newPrice=parseNumber(input.newPrice),priceEvent=['price_up','price_down'].includes(input.type);
     if(priceEvent&&(oldPrice===null||newPrice===null||oldPrice===newPrice||(input.type==='price_up'&&newPrice<oldPrice)||(input.type==='price_down'&&newPrice>oldPrice)))return null;
     const delta=priceEvent?newPrice-oldPrice:null;
-    return {id,type:input.type,recordId,listingId:clean(input.listingId).slice(0,250),title:clean(input.title).slice(0,2000),url:canonicalUrl(input.url),category:categoryValue(input.category),source:['sahibinden','hepsiemlak','import'].includes(input.source)?input.source:'import',searchIds:normalizeMarket({searchIds:input.searchIds}).searchIds,at:new Date(time).toISOString(),oldPrice,newPrice,currency:clean(input.currency).toUpperCase().slice(0,20),delta,percent:priceEvent&&oldPrice>0?100*delta/oldPrice:null};
+    return {id,type:input.type,recordId,listingId:clean(input.listingId).slice(0,250),title:clean(input.title).slice(0,2000),url:canonicalUrl(input.url),category:categoryValue(input.category),source:[...Sites().ids,'import'].includes(input.source)?input.source:'import',searchIds:normalizeMarket({searchIds:input.searchIds}).searchIds,at:new Date(time).toISOString(),oldPrice,newPrice,currency:clean(input.currency).toUpperCase().slice(0,20),delta,percent:priceEvent&&oldPrice>0?100*delta/oldPrice:null};
   }
   function normalizeRecord(input, options={}) {
     const wrapper=plain(input),raw=plain(wrapper.record&&typeof wrapper.record==='object'?wrapper.record:wrapper);
@@ -118,7 +126,7 @@
       else if(propertyNames.some(n=>norm(n)===norm(k))||(spreadsheet&&!mappedColumns.has(norm(k))))details[k]=clean(v);
     }
     const url=canonicalUrl(get(raw,'url','URL','İlan URL','İlan Linki'));
-    let source=sourceFor(url);if(source==='import'&&['hepsiemlak','sahibinden'].includes(raw.source)&&!url)source=raw.source;
+    let source=sourceFor(url);if(source==='import'&&Sites().ids.includes(raw.source)&&!url)source=raw.source;
     const suppliedId=clean(get(raw,'listingId','listing_id','İlan No')||detailGet(details,'İlan No','İlan Numarası'));
     const pathId=listingIdFromUrl(url),listingId=suppliedId||pathId;
     const title=clean(get(raw,'title','İlan Başlığı','Başlık'));
@@ -134,7 +142,7 @@
     const area=parseNumber(get(raw,'area','Metrekare (m²)','Metrekare','area_gross')||detailGet(details,'Metrekare','m²','m² (Brüt)','Brüt m²'));
     const importedWarnings=String(get(raw,'Kontrol Notları')||'').split(/\s*[;|]\s*/).filter(Boolean);
     const warnings=unique([...(Array.isArray(raw.warnings)?raw.warnings:[]),...(Array.isArray(raw.quality?.warnings)?raw.quality.warnings:[]),...importedWarnings]).map(clean);
-    let classification=classify(raw,details,url);
+    let classification=classify(raw,details,url,options.sourceSearchUrl||raw.sourceSearchUrl||raw.search_url);
     if(suppliedId&&pathId&&suppliedId!==pathId){warnings.push('İlan numarası ile kaynak URL uyuşmuyor.');classification={...classification,status:'conflict'};}
     if(classification.category==='arsa'&&/\b(?:site dairesi|satilik daire|kiralik daire)\b/.test(norm(title))&&!raw.manualCategory){warnings.push('Başlık ile arsa kategorisi tutarsız; kaynağı kontrol edin.');classification={...classification,status:'conflict'};}
     if(classification.status==='unknown')warnings.push('Kategori için doğrulanabilir URL veya özellik bulunamadı.');
@@ -182,8 +190,9 @@
   function formatMoney(price,currency='TRY'){if(price===null||price===undefined||price==='')return 'Belirtilmemiş';try{return new Intl.NumberFormat('tr-TR',{style:'currency',currency,maximumFractionDigits:0}).format(price);}catch{return new Intl.NumberFormat('tr-TR').format(price)+' '+currency;}}
   // Account-protection settings: a separate minimized work window and a daily page budget.
   // These limit our own traffic; they do not hide the extension or bypass site checks.
-  const SAFETY_KEY='ilan5.safety.v1',DAILY_KEY='ilan5.daily.v1',SAFETY_DEFAULTS={separateWindow:true,dailyLimit:400,skipKnown:true,reuseKnownPhone:true};
-  function normalizeSafety(value){const raw=plain(value),limit=Number(raw.dailyLimit);return {separateWindow:raw.separateWindow!==false,skipKnown:raw.skipKnown!==false,reuseKnownPhone:raw.reuseKnownPhone!==false,dailyLimit:raw.dailyLimit!==undefined&&Number.isSafeInteger(limit)&&limit>=0&&limit<=100000?limit:SAFETY_DEFAULTS.dailyLimit};}
+  const SAFETY_KEY='ilan5.safety.v1',DAILY_KEY='ilan5.daily.v1',SAFETY_DEFAULTS={separateWindow:true,dailyLimit:400,phoneDailyLimit:150,skipKnown:true,reuseKnownPhone:true};
+  function normalizeSafety(value){const raw=plain(value),limit=(key)=>{const n=Number(raw[key]);return raw[key]!==undefined&&Number.isSafeInteger(n)&&n>=0&&n<=100000?n:SAFETY_DEFAULTS[key];};
+    return {separateWindow:raw.separateWindow!==false,skipKnown:raw.skipKnown!==false,reuseKnownPhone:raw.reuseKnownPhone!==false,dailyLimit:limit('dailyLimit'),phoneDailyLimit:limit('phoneDailyLimit')};}
   async function safetySettings(api){try{return normalizeSafety((await api.storage.local.get(SAFETY_KEY))?.[SAFETY_KEY]);}catch(_){return {...SAFETY_DEFAULTS};}}
   async function openWorkTab(api){
     const settings=await safetySettings(api);
@@ -195,14 +204,28 @@
   }
   const dayKey=time=>{const d=new Date(time);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
   // Reserves one listing-page visit from today's budget. A full budget returns the next local 00:05.
-  async function takeDailySlot(api,now=Date.now()){
-    const settings=await safetySettings(api);if(!settings.dailyLimit)return {allowed:true,limit:0,count:0};
+  async function dailyRecord(api,now){
     let stored=null;try{stored=(await api.storage.local.get(DAILY_KEY))?.[DAILY_KEY];}catch(_){stored=null;}
-    const today=dayKey(now),count=stored?.day===today?Number(stored.count)||0:0;
-    if(count>=settings.dailyLimit){const next=new Date(now);next.setHours(24,5,0,0);return {allowed:false,limit:settings.dailyLimit,count,resumeAt:next.getTime()};}
-    try{await api.storage.local.set({[DAILY_KEY]:{day:today,count:count+1}});}catch(_){/* Budget is best effort. */}
-    return {allowed:true,limit:settings.dailyLimit,count:count+1};
+    const today=dayKey(now);
+    return stored?.day===today?{day:today,count:Number(stored.count)||0,sites:plain(stored.sites)}:{day:today,count:0,sites:{}};
   }
-  root.IlanCore=Object.freeze({CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
+  async function saveDaily(api,record){try{await api.storage.local.set({[DAILY_KEY]:record});}catch(_){/* Budget is best effort. */}}
+  const nextMorning=now=>{const next=new Date(now);next.setHours(24,5,0,0);return next.getTime();};
+  // One listing-page visit from today's shared budget, also counted per site for the panel.
+  async function takeDailySlot(api,now=Date.now(),site=''){
+    const settings=await safetySettings(api),record=await dailyRecord(api,now);
+    if(settings.dailyLimit&&record.count>=settings.dailyLimit)return {allowed:false,limit:settings.dailyLimit,count:record.count,resumeAt:nextMorning(now)};
+    record.count++;if(site){const s=plain(record.sites[site]);record.sites[site]={pages:(Number(s.pages)||0)+1,phones:Number(s.phones)||0};}
+    await saveDaily(api,record);
+    return {allowed:true,limit:settings.dailyLimit,count:record.count};
+  }
+  // "Telefonu Göster" presses are budgeted per site; when spent, listings are still read without the press.
+  async function takePhoneSlot(api,now=Date.now(),site=''){
+    const settings=await safetySettings(api),record=await dailyRecord(api,now),s=plain(record.sites[site]),used=Number(s.phones)||0;
+    if(settings.phoneDailyLimit&&used>=settings.phoneDailyLimit)return {allowed:false,limit:settings.phoneDailyLimit,count:used};
+    record.sites[site]={pages:Number(s.pages)||0,phones:used+1};await saveDaily(api,record);
+    return {allowed:true,limit:settings.phoneDailyLimit,count:used+1};
+  }
+  root.IlanCore=Object.freeze({CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,takePhoneSlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanCore;
 })(globalThis);

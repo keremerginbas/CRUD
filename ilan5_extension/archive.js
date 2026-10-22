@@ -13,7 +13,8 @@
   const unique = values => [...new Set(values.filter(Boolean))];
   const isReview = r => r.archiveStatus==='review' || r.quality?.status==='review' || ['unknown','conflict'].includes(r.classification?.status) || r.category==='belirsiz';
   const isDeleted = r => Boolean(r.deletedAt);
-  const sourceName = s => ({hepsiemlak:'Hepsiemlak',sahibinden:'Sahibinden',import:'İçe aktarılan'})[s] || display(s);
+  const Sites = globalThis.IlanSites;
+  const sourceName = s => Sites ? Sites.name(s) : display(s);
   const phoneList = r => Array.isArray(r.phones) ? r.phones.filter(Boolean).map(String) : [];
   const formatPhone = phone => {const n=String(phone).replace(/\D/g,'');return /^90\d{10}$/.test(n) ? `0${n.slice(2,5)} ${n.slice(5,8)} ${n.slice(8,10)} ${n.slice(10)}` : phone;};
   const formatDate = value => {if(!value)return '—';const d=new Date(value);return Number.isNaN(d.valueOf())?String(value):new Intl.DateTimeFormat('tr-TR',{dateStyle:'medium',timeStyle:'short'}).format(d);};
@@ -72,17 +73,17 @@
   // Account-protection and Telegram alert settings live in the background worker.
   async function syncSafety(){if(!globalThis.chrome?.runtime?.sendMessage)return;try{const result=await runtime('ILAN_SAFETY_STATUS');renderSafety(result);}catch(_){/* Older worker. */}}
   function renderSafety(result){
-    if(!result)return;const s=result.safety||{},a=result.alerts||{};
+    if(!result)return;state.today=result.todaySites||{};state.limits=result.safety||{};renderSiteCards();const s=result.safety||{},a=result.alerts||{};
     if(!state.safetyLoaded||document.activeElement?.closest?.('#safetySettings,#alertSettings')===null){
-      $('safetyWindow').checked=s.separateWindow!==false;$('safetySkipKnown').checked=s.skipKnown!==false;$('safetyReusePhone').checked=s.reuseKnownPhone!==false;$('safetyDailyLimit').value=s.dailyLimit??400;
+      $('safetyWindow').checked=s.separateWindow!==false;$('safetyPhoneLimit').value=s.phoneDailyLimit??150;$('safetySkipKnown').checked=s.skipKnown!==false;$('safetyReusePhone').checked=s.reuseKnownPhone!==false;$('safetyDailyLimit').value=s.dailyLimit??400;
       $('alertPriceDrop').checked=a.priceDrop!==false;$('alertMinDrop').value=a.minDropPercent??5;$('alertNewListing').checked=a.newListing!==false;$('alertHealth').checked=a.health!==false;$('alertSummary').checked=a.summary!==false;$('alertSummaryTime').value=a.summaryTime||'08:30';
     }
     state.safetyLoaded=true;
     $('safetyToday').textContent=s.dailyLimit?`Bugün ${Number(result.todayCount||0).toLocaleString('tr-TR')} / ${Number(s.dailyLimit).toLocaleString('tr-TR')} ilan açıldı · 0 = sınırsız`:`Bugün ${Number(result.todayCount||0).toLocaleString('tr-TR')} ilan açıldı · limit kapalı`;
   }
   async function saveSafety(){
-    const limit=Number($('safetyDailyLimit').value);if(!Number.isInteger(limit)||limit<0){toast('Günlük limit 0 veya pozitif tam sayı olmalı.',true);return;}
-    try{renderSafety(await runtime('ILAN_SAFETY_CONFIG',{safety:{separateWindow:$('safetyWindow').checked,skipKnown:$('safetySkipKnown').checked,reuseKnownPhone:$('safetyReusePhone').checked,dailyLimit:limit}}));toast('Güvenli tarama ayarı kaydedildi.');}catch(error){toast(error.message,true);}
+    const limit=Number($('safetyDailyLimit').value),phoneLimit=Number($('safetyPhoneLimit').value);if(!Number.isInteger(limit)||limit<0||!Number.isInteger(phoneLimit)||phoneLimit<0){toast('Günlük limitler 0 veya pozitif tam sayı olmalı.',true);return;}
+    try{renderSafety(await runtime('ILAN_SAFETY_CONFIG',{safety:{phoneDailyLimit:Number($('safetyPhoneLimit').value),separateWindow:$('safetyWindow').checked,skipKnown:$('safetySkipKnown').checked,reuseKnownPhone:$('safetyReusePhone').checked,dailyLimit:limit}}));toast('Güvenli tarama ayarı kaydedildi.');}catch(error){toast(error.message,true);}
   }
   async function saveAlerts(){
     const percent=Number($('alertMinDrop').value);if(!Number.isFinite(percent)||percent<0||percent>90){toast('Fiyat düşüş eşiği 0–90 arasında olmalı.',true);return;}
@@ -123,6 +124,25 @@
     await renderBackup();toast(auto?'Haftalık otomatik yedek indirildi (İndirilenler klasörü).':'Tam arşiv yedeğinin indirilmesi başlatıldı.');
   }
   async function checkAutoBackup(){const config=await backupConfig();if(config.auto&&state.records.length&&(!config.lastAt||Date.now()-Date.parse(config.lastAt)>7*24*60*60*1000)){try{await runBackup(true);}catch(error){toast('Otomatik yedek alınamadı: '+error.message,true);}}}
+  // One card per site: archive size, today's pages and phone presses against their limits, last scan.
+  function renderSiteCards(){
+    const box=$('siteCards');if(!box||!Sites)return;
+    const counts=new Map();for(const r of state.records)if(!isDeleted(r))counts.set(r.source,(counts.get(r.source)||0)+1);
+    const lastRun=new Map();for(const s of state.searches||[]){const id=Sites.sourceFor(s.searchUrl);if(id&&s.lastRunAt&&(!lastRun.has(id)||s.lastRunAt>lastRun.get(id)))lastRun.set(id,s.lastRunAt);}
+    if(state.job?.source&&state.job.updatedAt&&(!lastRun.has(state.job.source)||state.job.updatedAt>lastRun.get(state.job.source)))lastRun.set(state.job.source,state.job.updatedAt);
+    const phoneLimit=Number(state.limits?.phoneDailyLimit??150),current=$('filterSource').value;
+    box.replaceChildren(...Sites.SITES.map(site=>{
+      const today=state.today?.[site.id]||{},card=el('button','site-card'+(current===site.id?' active':''));card.type='button';
+      card.setAttribute('aria-pressed',String(current===site.id));card.title=`${site.name} ilanlarını göster`;
+      const running=['running','paused','blocked'].includes(state.job?.status)&&state.job?.source===site.id;
+      const head=el('span','site-card-head');head.append(el('strong','',site.name));if(running)head.append(el('span','site-live',state.job.status==='running'?'Taranıyor':'Bekliyor'));
+      card.append(head,el('span','site-count',(counts.get(site.id)||0).toLocaleString('tr-TR')),el('span','site-label','arşivdeki ilan'),
+        el('span','site-meta',`Bugün: ${Number(today.pages||0).toLocaleString('tr-TR')} ilan · ${Number(today.phones||0).toLocaleString('tr-TR')}${phoneLimit?' / '+phoneLimit.toLocaleString('tr-TR'):''} telefon`),
+        el('span','site-meta',lastRun.has(site.id)?`Son tarama: ${formatDate(lastRun.get(site.id))}`:'Henüz taranmadı'));
+      card.addEventListener('click',()=>{$('filterSource').value=current===site.id?'all':site.id;state.page=1;render();renderSiteCards();$('archiveTitle')?.scrollIntoView({behavior:'smooth',block:'start'});});
+      return card;
+    }));
+  }
   function defaultListName(){const d=new Intl.DateTimeFormat('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(new Date());const name=$('trackSearchName')?.value.trim();return name?`${name} · ${d}`:`Liste ${d}`;}
   // Asks where the new crawl should go. Resolves to {listId} ('' = no list) or null when cancelled.
   function chooseList(preferred=''){
@@ -181,7 +201,7 @@
     const tbody=$('recordsBody');tbody.replaceChildren();
     for(const r of pageRows){
       const tr=el('tr'),first=el('td'),open=el('button','record-title',r.title||'Başlık okunamadı');open.type='button';open.addEventListener('click',()=>showDetail(r.id));first.append(open);
-      const meta=el('div','record-meta');meta.append(el('span','source-tag',sourceName(r.source)),el('span','',String(r.listingId||r.ilanNo||r.id||'').replace(/^(hepsiemlak|sahibinden):/,'')));first.append(meta);if(r.crm?.status)meta.append(el('span','insight-badge crm',Core.CRM_STATUSES[r.crm.status]));const av=availabilityBadge(r);first.append(av);tr.append(first);
+      const meta=el('div','record-meta');meta.append(el('span','source-tag',sourceName(r.source)),el('span','',String(r.listingId||r.ilanNo||r.id||'').replace(/^[a-z]+:/,'')));first.append(meta);if(r.crm?.status)meta.append(el('span','insight-badge crm',Core.CRM_STATUSES[r.crm.status]));const av=availabilityBadge(r);first.append(av);tr.append(first);
       const priceCell=el('td','price-cell',money(r)),stat=state.stats.get(r.id);if(stat){priceCell.append(el('span','ppa',`${Core.formatMoney(Math.round(stat.ppa),r.currency||'TRY')} / m²`));if(stat.opportunity){const badge=el('span','insight-badge opportunity',`Fırsat −%${Math.round((1-stat.ratio)*100)}`);badge.title=`Bölge medyanı ${Core.formatMoney(Math.round(stat.median),r.currency||'TRY')} / m² (${stat.sample} ilan)`;priceCell.append(badge);}}tr.append(priceCell);
       const loc=el('td');loc.append(el('span','location-main',[r.location?.city,r.location?.district].filter(Boolean).join(' / ')||'—'),el('span','location-sub',r.location?.neighborhood||''));tr.append(loc);
       let specific='—';if(['all','review','trash'].includes(state.category))specific=labels[r.category]||'Belirsiz';else if(state.category==='arac'){const detail=r.rawDetails||{};specific=[detail.Yıl||detail.Yil||detail.Model,detail.KM||detail.Km||detail.Kilometre].filter(Boolean).join(' · ')||'—';}else if(r.area!==null&&r.area!==undefined&&r.area!=='')specific=`${Number(r.area).toLocaleString('tr-TR')} m²`;
@@ -202,7 +222,7 @@
   const ARCHIVE_STAMP='ilan5.archive.updated';let autoTimer=null;
   async function archiveStamp(){try{return globalThis.chrome?.storage?.local?(await chrome.storage.local.get(ARCHIVE_STAMP))[ARCHIVE_STAMP]||0:0;}catch(_){return 0;}}
   function autoRefresh(){clearTimeout(autoTimer);autoTimer=setTimeout(async()=>{if(document.hidden){state.staleWhileHidden=true;return;}const stamp=await archiveStamp();if(state.loadedStamp!==undefined&&stamp===state.loadedStamp)return;refresh();},400);}
-  async function refresh(){if(state.loading){state.refreshAgain=true;return;}state.loading=true;try{const stamp=await archiveStamp();state.records=await DB.getAll();state.loadedStamp=stamp;state.stats=Core.marketStats(state.records);state.sellers=Core.sellerCounts(state.records);populateCities();populateLists();render();}catch(error){toast(`Arşiv okunamadı: ${error.message}`,true);}finally{state.loading=false;if(state.refreshAgain){state.refreshAgain=false;autoRefresh();}}}
+  async function refresh(){if(state.loading){state.refreshAgain=true;return;}state.loading=true;try{const stamp=await archiveStamp();state.records=await DB.getAll();state.loadedStamp=stamp;state.stats=Core.marketStats(state.records);state.sellers=Core.sellerCounts(state.records);populateCities();populateLists();render();renderSiteCards();}catch(error){toast(`Arşiv okunamadı: ${error.message}`,true);}finally{state.loading=false;if(state.refreshAgain){state.refreshAgain=false;autoRefresh();}}}
   function crmSection(r){
     const section=makeSection('Takip ve not'),box=el('div','crm-controls'),select=el('select'),note=el('textarea'),save=el('button','button secondary compact','Kaydet');
     select.setAttribute('aria-label','Takip durumu');select.append(new Option('Durum seçilmedi',''));for(const [key,name] of Object.entries(Core.CRM_STATUSES))select.append(new Option(name,key));select.value=r.crm?.status||'';
@@ -246,7 +266,7 @@
   function showCollect(){ $('collectPanel').hidden=false;$('showCollectBtn').setAttribute('aria-expanded','true');$('collectPanel').scrollIntoView({behavior:'smooth',block:'start'});$(state.collectMode==='links'?'directUrls':'searchUrl').focus();}
   async function runtime(type,config={}){if(!globalThis.chrome?.runtime?.sendMessage)throw Error('Bu ekranı kurulu İlan5 eklentisi üzerinden açın.');const result=await chrome.runtime.sendMessage({type,...config});if(!result?.ok)throw Error(result?.error||'İşlem için yanıt alınamadı.');return result;}
   const jobStates={idle:'Hazır',starting:'Başlatılıyor',running:'Tarama sürüyor',collecting:'Bağlantılar toplanıyor',paused:'Tarama duraklatıldı',blocked:'Tarayıcıda kontrol bekleniyor',stopping:'Durduruluyor',stopped:'Tarama durduruldu',completed:'Tarama tamamlandı',incomplete:'Tarama kısmen tamamlandı',done:'Tarama tamamlandı',error:'Tarama hatası'};
-  function renderJob(job){state.job=job;$('jobPanel').hidden=!job;updateCollectReady();if(!job){$('pageProgressSummary').hidden=true;$('captureBtn').disabled=state.busy;return;}
+  function renderJob(job){state.job=job;const siteKey=`${job?.source||''}|${job?.status||''}`;if(siteKey!==state.siteJobKey){state.siteJobKey=siteKey;renderSiteCards();}$('jobPanel').hidden=!job;updateCollectReady();if(!job){$('pageProgressSummary').hidden=true;$('captureBtn').disabled=state.busy;return;}
     renderPageProgress(job);
     const status=job.status||job.state||'idle',active=['starting','running','collecting','stopping'].includes(status),counts=job.counts||{};
     $('jobTitle').textContent=jobStates[status]||'Tarama durumu';$('jobMessage').textContent=job.message||job.currentUrl||'';$('jobDot').className=`job-dot ${status}`;
@@ -341,11 +361,9 @@
     try{
       const url=new URL(value);
       if(!['https:','http:'].includes(url.protocol)||url.username||url.password||url.port)return null;
-      const host=url.hostname.toLowerCase();
-      const source=['sahibinden','hepsiemlak'].find(name=>host===`${name}.com`||host===`www.${name}.com`||host===`m.${name}.com`);
-      if(!source)return null;
-      const isListing=source==='sahibinden'?/^\/ilan\/.+-\d+\/detay\/?$/.test(url.pathname):/\/\d+-\d+\/?$/.test(url.pathname);
-      return {source,isListing,url:url.href};
+      const site=Sites.forHost(url.hostname);
+      if(!site||url.hostname.toLowerCase().replace(/^(?:www|m)\./,'')!==site.domain)return null;
+      return {source:site.id,isListing:Boolean(Sites.listingId(url.href)),url:url.href};
     }catch{return null;}
   }
   function collectValidation(){
@@ -353,14 +371,20 @@
     const urls=unique(raw.split(/\r?\n/).map(value=>value.trim()));
     if(!urls.length)return {valid:false,empty:true,label:'Bağlantı ekleyin',message:''};
     const parsed=urls.map(collectUrl),invalid=parsed.findIndex(value=>!value);
-    if(invalid!==-1)return {valid:false,label:'Bağlantıyı kontrol edin',message:`${direct?`${invalid+1}. bağlantı: `:''}Geçerli bir Sahibinden veya Hepsiemlak adresi girin.`};
+    if(invalid!==-1)return {valid:false,label:'Bağlantıyı kontrol edin',message:`${direct?`${invalid+1}. bağlantı: `:''}Desteklenen bir site adresi girin: ${Sites.namesText()}.`};
     if(!direct&&(urls.length!==1||parsed[0].isListing))return {valid:false,label:'Arama bağlantısı gerekli',message:'Bu alan sonuç listesinin adresi içindir. Tek ilan için İlan bağlantıları sekmesini seçin.'};
     if(direct&&parsed.some(value=>!value.isListing))return {valid:false,label:'İlan bağlantısı gerekli',message:'Her satıra bir ilan detay bağlantısı girin. Sonuç listesi için Arama bağlantısı sekmesini seçin.'};
-    if(new Set(parsed.map(value=>value.source)).size>1)return {valid:false,label:'Kaynaklar farklı',message:'Sahibinden ve Hepsiemlak bağlantılarını ayrı taramalarda ekleyin.'};
+    if(new Set(parsed.map(value=>value.source)).size>1)return {valid:false,label:'Kaynaklar farklı',message:'Farklı sitelerin bağlantılarını ayrı taramalarda ekleyin.'};
     return {valid:true,urls,label:`${sourceName(parsed[0].source)} · Tarama hazır`,message:direct?`${urls.length.toLocaleString('tr-TR')} tekil ilan bağlantısı hazır.`:'Bağlantı biçimi geçerli. Tarama başlatıldığında sayfaya erişim kontrol edilir.'};
+  }
+  // A site that only lists one category (arabam.com → Araç) must not be filtered by another category.
+  function matchSiteCategory(source,selectId){
+    const fixed=Sites.get(source)?.category,select=$(selectId);
+    if(fixed&&select&&!['all',fixed].includes(select.value)){select.value=fixed;toast(`${sourceName(source)} bağlantısı için toplanacak kategori “${labels[fixed]}” yapıldı.`);}
   }
   function updateCollectReady(){
     const result=collectValidation(),direct=state.collectMode==='links',field=$(direct?'directUrls':'searchUrl');
+    if(result.valid)matchSiteCategory(collectUrl(result.urls[0])?.source,'collectCategory');
     $('collectionReadyText').textContent=result.label;$('collectionReady').classList.toggle('ready',result.valid);$('collectionReady').classList.toggle('warning',!result.valid&&!result.empty);
     $('collectValidation').textContent=result.message;$('collectValidation').hidden=!result.message;$('collectValidation').classList.toggle('invalid',!result.valid&&!result.empty);
     field.setAttribute('aria-invalid',String(!result.valid&&!result.empty));field.setAttribute('aria-describedby','collectValidation');field.setCustomValidity(!result.valid&&!result.empty?result.message:'');
@@ -385,10 +409,13 @@
     for(const id of ['importBtn','emptyImportBtn'])$(id).addEventListener('click',()=>$('importFile').click());$('importFile').addEventListener('change',event=>importFile(event.target.files[0]));
     $('backupBtn').addEventListener('click',async()=>{try{await runBackup(false);}catch(error){toast(error.message,true);}});
     $('autoBackup').addEventListener('change',async()=>{if(globalThis.chrome?.storage?.local)await chrome.storage.local.set({[BACKUP_KEY]:{...(await backupConfig()),auto:$('autoBackup').checked}});await renderBackup();toast($('autoBackup').checked?'Haftalık otomatik yedek açık. Panel açıldığında, son yedekten 7 gün geçtiyse yedek iner.':'Otomatik yedek kapatıldı.');});
-    for(const id of ['safetyWindow','safetySkipKnown','safetyReusePhone','safetyDailyLimit'])$(id).addEventListener('change',saveSafety);
+    for(const id of ['safetyWindow','safetySkipKnown','safetyReusePhone','safetyDailyLimit','safetyPhoneLimit'])$(id).addEventListener('change',saveSafety);
     for(const id of ['alertPriceDrop','alertMinDrop','alertNewListing','alertHealth','alertSummary','alertSummaryTime'])$(id).addEventListener('change',saveAlerts);
     $('summaryNowBtn').addEventListener('click',async()=>{$('summaryNowBtn').disabled=true;try{await runtime('ILAN_ALERTS_SUMMARY_NOW');toast('Günlük özet Telegram kuyruğuna alındı. Telegram bağlantısı doğrulanmamışsa gönderilmez.');}catch(error){toast(error.message,true);}finally{$('summaryNowBtn').disabled=false;}});
     for(const [key,name] of Object.entries(Core.CRM_STATUSES))$('filterCrm').append(new Option(name,key));
+    $('filterSource').replaceChildren(new Option('Tüm kaynaklar','all'),...Sites.SITES.map(site=>new Option(site.name,site.id)),new Option('İçe aktarılan','import'));
+    $('filterSource').addEventListener('change',renderSiteCards);
+    $('savedSearchUrl')?.addEventListener('change',()=>{const parsed=collectUrl($('savedSearchUrl').value.trim());if(parsed)matchSiteCategory(parsed.source,'savedSearchCategory');});
     $('listManageBtn').addEventListener('click',openListManager);$('listRenameBtn').addEventListener('click',renameList);
     $('listMergeBtn').addEventListener('click',()=>relabel($('listMergeSelect').value));$('listDeleteBtn').addEventListener('click',()=>relabel(''));
     $('xlsxBtn').addEventListener('click',()=>exportFiltered('exportXlsx'));$('csvBtn').addEventListener('click',()=>exportFiltered('exportCsv'));

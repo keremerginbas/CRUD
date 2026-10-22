@@ -120,7 +120,7 @@
       try { return await api.tabs.sendMessage(tabId, request); }
       catch (error) {
         if (!/receiving end|connection|could not establish/i.test(String(error))) throw error;
-        await api.scripting.executeScript({target: {tabId}, files: ['extractor.js', 'content.js']});
+        await api.scripting.executeScript({target: {tabId}, files: ['sites.js', 'extractor.js', 'content.js']});
         return api.tabs.sendMessage(tabId, request);
       }
     }
