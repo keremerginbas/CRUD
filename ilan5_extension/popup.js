@@ -1,7 +1,7 @@
 'use strict';
 const $=id=>document.getElementById(id);
-$('openArchive').addEventListener('click',()=>chrome.tabs.create({url:chrome.runtime.getURL('archive.html?collect=1')}));
-$('openArchiveOnly').addEventListener('click',()=>chrome.tabs.create({url:chrome.runtime.getURL('archive.html#archiveTitle')}));
+$('openArchive').addEventListener('click',()=>chrome.tabs.create({url:chrome.runtime.getURL('panel/index.html#/collect')}));
+$('openArchiveOnly').addEventListener('click',()=>chrome.tabs.create({url:chrome.runtime.getURL('panel/index.html#/dashboard')}));
 $('capture').addEventListener('click',async()=>{
   $('capture').disabled=true;$('message').className='';$('message').textContent='İlan okunuyor…';
   try{

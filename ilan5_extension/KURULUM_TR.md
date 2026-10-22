@@ -1,4 +1,4 @@
-# İlan5 3.0.0 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
+# İlan5 3.1.0 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,22 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.0.0** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.1.0** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 3.1.0 yeni panel: İlan5 Komuta Merkezi
+
+Eklenti simgesi → **Veri çekme ekranını aç** veya **Komuta merkezini aç** artık yeni paneli açar. Eski panel silinmedi: sol alttaki **Klasik panel** ile geçebilir, klasik panelden **Yeni panele geç** ile dönebilirsiniz. İkisi aynı arşivi kullanır.
+
+- **Genel bakış (Komuta Merkezi):** zaman aralığı (7/30/90 gün), site ve kategori seçicileri; dört KPI kartı (büyüme fırsatları, portföy değeri, kritik aksiyonlar, ulaşma oranı) ve her birinde arşivinizden hesaplanan “İlan5 içgörüsü”; son 7 günün büyüme nabzı, m² fiyat trendi, veri kalitesi skoru (telefon, tam alan, satıcı adı oranlarından), illere göre pazar dağılımı, aktif fırsat akışı (görüşmeler ve en güçlü fırsatlar), öncelikli işler, site kartları ve yayın durumu. Kartlara tıklayınca ilgili ilanlar filtrelenmiş olarak açılır.
+- **Üst çubuk:** tüm ilanlarda arama; zil simgesinde öncelikli işler (görüşülecekler, büyük fiyat düşüşleri, ulaşılmamış fırsatlar, bekleyen tarama, dolmak üzere olan telefon limitleri).
+- **İlanlar:** sütun başlığına tıklayarak sıralama (fiyat, m² fiyatı, konum, alan, eklenme), sütun gizleme/gösterme, sayfa başına 25–200 ilan, çoklu seçim ve toplu işlem: listeye ekle, takip durumu ver, çöp kutusuna taşı / geri al, seçilenleri Excel'e aktar.
+- **İlan ayrıntısı:** sağdan açılan çekmece; fiyat geçmişi kayıtlıysa fiyat grafiği.
+- **Koyu tema varsayılandır;** sol alttan açık temaya geçebilirsiniz (tercih bu bilgisayarda hatırlanır).
+- Veri çek, kayıtlı aramalar, ilan hareketleri, mesaj kampanyası, takip ve Telegram, ayarlar ve yedek ekranları klasik paneldeki bütün işlevleri içerir.
 
 ## 3.0.0 dört site tek panelde
 

@@ -4,3 +4,5 @@ __MACOSX/
 test_runtime/
 *.zip
 ilan5_extension/node_modules/
+tests/artifacts/
+ilan5_panel/node_modules/

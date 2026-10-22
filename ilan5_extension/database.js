@@ -126,6 +126,15 @@
       tx.oncomplete=()=>{if(seen)changed();resolve({seen});};tx.onerror=()=>reject(tx.error);
     });
   }
+  // Adds a list label to the chosen records (bulk action in the panel). Records keep their other lists.
+  async function addToList(ids,listId){
+    listId=core().clean(listId).slice(0,100);if(!listId)throw Error('Liste seçin.');
+    const db=await open();return new Promise((resolve,reject)=>{
+      const tx=db.transaction('records','readwrite'),store=tx.objectStore('records');let changed=0;
+      for(const id of new Set(ids)){const request=store.get(id);request.onsuccess=()=>{const record=request.result;if(!record||(record.lists||[]).includes(listId))return;record.lists=[...(record.lists||[]),listId];record.updatedAt=now();store.put(record);changed++;};}
+      tx.oncomplete=()=>{if(changed)notifyChanged();resolve({changed});};tx.onerror=()=>reject(tx.error);
+    });
+  }
   function setCrm(id,patch){return mutate(id,record=>({...record,crm:core().normalizeCrm({...record.crm,...patch,updatedAt:now()})}));}
   // Moves (toId) or removes (toId empty) a list label on every record. Records themselves are never deleted.
   async function relabelList(fromId,toId=''){
@@ -246,6 +255,6 @@
       tx.oncomplete=()=>{changed();resolve({saved:normalized.length,added,existing:normalized.length-added});};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Hareket yedeği kaydedilemedi.'));
     });
   }
-  root.IlanDB={getAll,get,getMany,markSeen,upsertMany,setCategory,setDeleted,setCrm,relabelList,patchMonitoring,getEvents,importEvents,getMessageTemplates,saveMessageTemplate,getMessageQueue,createMessageQueue,updateMessageItem,deleteMessageItem,clearMessageQueue,getNextMessageItem};
+  root.IlanDB={getAll,get,getMany,markSeen,addToList,upsertMany,setCategory,setDeleted,setCrm,relabelList,patchMonitoring,getEvents,importEvents,getMessageTemplates,saveMessageTemplate,getMessageQueue,createMessageQueue,updateMessageItem,deleteMessageItem,clearMessageQueue,getNextMessageItem};
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanDB;
 })(globalThis);

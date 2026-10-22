@@ -34,7 +34,7 @@ Edge kullanmak isterseniz aynı adımlar `edge://extensions` adresiyle geçerlid
 2. Sağ üstten **Geliştirici modu**nu açın.
 3. **Paketlenmemiş öğe yükle** → `C:\Ilan5\ilan5_extension` klasörünü seçin.
 4. Eklentiler (yapboz) simgesi → İlan5'in yanındaki raptiye ile araç çubuğuna sabitleyin.
-5. İlan5 simgesi → **Veri çekme ekranını aç**. Sol altta **Sürüm 3.0.0** yazmalıdır.
+5. İlan5 simgesi → **Veri çekme ekranını aç**. Sol altta **Sürüm 3.1.0** yazmalıdır.
 
 Chrome açılışta “Geliştirici modu uzantılarını devre dışı bırakın” uyarısı gösterebilir. **Kapat** (×) deyin; **Devre dışı bırak**'a basmayın.
 

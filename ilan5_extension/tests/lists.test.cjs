@@ -47,3 +47,13 @@ test('crawl into a new list adds the label without dropping earlier lists or cre
   await db.upsertMany([core.normalizeRecord(raw(980001))],{origin:'crawl',baseline:true});
   assert.deepEqual((await db.get('sahibinden:980001')).lists,['list-old']);
 });
+
+test('addToList labels chosen records once and leaves the rest untouched', async () => {
+  const db = database();
+  await db.upsertMany([core.normalizeRecord(raw(985001, {lists: ['a']})), core.normalizeRecord(raw(985002)), core.normalizeRecord(raw(985003))]);
+  assert.equal((await db.addToList(['sahibinden:985001', 'sahibinden:985002', 'sahibinden:985002', 'sahibinden:missing'], 'b')).changed, 2);
+  assert.deepEqual([...(await db.get('sahibinden:985001')).lists], ['a', 'b']);
+  assert.deepEqual([...(await db.get('sahibinden:985002')).lists], ['b']);
+  assert.deepEqual([...(await db.get('sahibinden:985003')).lists], []);
+  assert.equal((await db.addToList(['sahibinden:985001'], 'b')).changed, 0);
+});
