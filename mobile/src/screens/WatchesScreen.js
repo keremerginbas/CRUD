@@ -1,4 +1,4 @@
-import { Ban, BellRing, Bus, Clock, Pause, PartyPopper, Plane, Play, Plus, RefreshCw, Armchair, Trash2, TrendingDown } from 'lucide-react-native';
+import { Ban, BellRing, Bus, TrainFront, Clock, Pause, PartyPopper, Plane, Play, Plus, RefreshCw, Armchair, Trash2, TrendingDown } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import Animated, { FadeInDown, LinearTransition } from 'react-native-reanimated';
@@ -68,7 +68,7 @@ export default function WatchesScreen({ api, events, refreshEvents }) {
       ) : null}
 
       {watches.map((w, i) => {
-        const ModeIcon = w.mode === 'bus' ? Bus : Plane;
+        const ModeIcon = { bus: Bus, train: TrainFront, flight: Plane }[w.mode] ?? Bus;
         const f = w.filters ?? {};
         return (
           <Animated.View key={w.id} entering={FadeInDown.delay(i * 50)} layout={LinearTransition}>

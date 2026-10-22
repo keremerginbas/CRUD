@@ -59,3 +59,11 @@ test('OpenAI hata verirse öneri kural tabanlı yapılır', async () => {
   assert.match(r.text, /En ucuz: 10:00 Metro \(obilet\) – 900 TRY/);
   assert.match(r.text, /1 sefer dolu/);
 });
+
+test('kural tabanlı ayrıştırıcı YHT isteğini tren olarak anlar', () => {
+  const r = parseRequestRules('Yarın sabah Ankara İstanbul YHT bileti, dolu olan boşalırsa haber ver', NOW);
+  assert.equal(r.mode, 'train');
+  assert.equal(r.from, 'Ankara');
+  assert.equal(r.to, 'İstanbul');
+  assert.equal(r.watch, true);
+});

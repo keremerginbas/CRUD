@@ -4,7 +4,7 @@
 
 let browserPromise = null;
 
-async function getBrowser() {
+export async function getBrowser() {
   if (!browserPromise) {
     browserPromise = (async () => {
       let playwright;

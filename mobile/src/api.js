@@ -50,6 +50,9 @@ export function createApi(baseUrl) {
     deleteWatch: (id) => request(`/watches/${id}`, { method: 'DELETE' }),
     checkWatch: (id) => request(`/watches/${id}/check`, { method: 'POST', timeoutMs: 120000 }),
     events: (params = {}) => request(`/events?${query(params)}`),
+    route: (params) => request(`/route?${query(params)}`, { timeoutMs: 30000 }),
+    // Uygulamaya gömülen harita sayfasının adresi
+    mapUrl: (params) => `${root}/map?${query(params)}`,
     ask: (text) => request('/ai/ask', { method: 'POST', body: { text }, timeoutMs: 150000 }),
   };
 }

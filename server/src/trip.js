@@ -1,12 +1,12 @@
 // Normalize edilmiş bilet (sefer/uçuş) yapısı. Tüm sağlayıcılar bu şekle dönüştürülür:
 // {
-//   id, provider, providerName, mode: 'bus' | 'flight',
+//   id, provider, providerName, mode: 'bus' | 'flight' | 'train',
 //   company, from, to,
 //   departure: 'YYYY-MM-DDTHH:mm' (Türkiye yerel saati), arrival, durationMin,
 //   price, currency, seatsAvailable: number | null, soldOut: boolean, url
 // }
 
-export const MODES = ['bus', 'flight'];
+export const MODES = ['bus', 'flight', 'train'];
 
 const TR_MAP = { ç: 'c', ğ: 'g', ı: 'i', i: 'i', ö: 'o', ş: 's', ü: 'u', â: 'a', î: 'i', û: 'u' };
 

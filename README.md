@@ -1,16 +1,20 @@
 # Bilet Radar 🚌✈️
 
-obilet, Enuygun, Ucuzabilet ve Skyscanner'daki otobüs ve uçak biletlerini **tek ekranda** gösteren,
+obilet, Enuygun, Ucuzabilet, Skyscanner ve **TCDD (YHT)** biletlerini **tek ekranda** gösteren,
 sizin filtrelerinize göre **en ucuz/en uygun** olanları bulan ve **dolu bir bilet boşalınca telefonunuza
 bildirim gönderen** kişisel bir bot + mobil uygulama.
 
 ```
- Telefon (Expo Go)  ──Wi-Fi──▶  Bilgisayarınızdaki sunucu  ──▶  obilet / Enuygun / Ucuzabilet / Skyscanner
+ Telefon (Expo Go)  ──Wi-Fi──▶  Bilgisayarınızdaki sunucu  ──▶  obilet / Enuygun / Ucuzabilet / Skyscanner / TCDD
    Ara · Alarmlar · Ayarlar       arama + filtre + alarm motoru + yapay zekâ (OpenAI)
 ```
 
 ## Neler yapıyor?
 
+- **Otobüs, YHT/tren ve uçak:** TCDD'nin YHT ve anahat seferleri de aynı listede; dolu YHT boşalınca alarm çalışır.
+- **Güzergâh:** nereden nereye kaç km, arabayla kaç saat, seferlerin kaç saat sürdüğü, geçilen otoyollar
+  (ör. O-4 Anadolu Otoyolu, D-100) ve uygulama içinde harita. **Google Maps** ve **Yandex Maps** butonlarıyla
+  rota o uygulamalarda açılır (API anahtarı gerekmez).
 - **Tüm sitelerde tek aramada sonuç:** dolu biletler de dahil hepsi listelenir; her kartta site, firma, saat, süre, fiyat ve boş koltuk sayısı görünür.
 - **Filtreler:** dolu / müsait, site seçimi, fiyat aralığı, kalkış saati aralığı (sabah/akşam ya da ss:dd), en az boş koltuk, en uzun yolculuk süresi, firma/havayolu, sıralama (en ucuz, kalkış, en kısa, en çok koltuk).
 - **Yapay zekâ asistanı:** *"Yarın akşam 18-23 arası İstanbul'dan Ankara'ya 1000 TL altı otobüs, dolu olan boşalırsa haber ver"* gibi yazın. Asistan cümlenizi filtrelere çevirir, tüm sitelerde arar, en iyi 3 seçeneği önerir ve alarm kurmayı teklif eder.
@@ -74,6 +78,10 @@ Sitelerin adres yapısı `server/config/sites.json` dosyasındadır.
   `obilet.com/seferler/349-356/...` gibi olur. Bu sayıları `sites.json` → `obilet.modes.bus.cities` içine
   `{"istanbul": 349, "ankara": 356}` şeklinde ekleyin.
 - **Uçuşlarda** şehir yerine havalimanı kodu girin: IST, SAW, ESB, ADB, AYT…
+- **TCDD (YHT):** ebilet.tcddtasimacilik.gov.tr'nin arama adresi yok. Sunucu siteyi açar, sitenin kendi oturumunu
+  kullanarak istasyon listesini ve sefer/boş koltuk bilgisini sorgular. Şehir adı istasyona `sites.json` →
+  `tcdd.stationAliases` ile eşlenir (ör. "istanbul" → "İSTANBUL(SÖĞÜTLÜÇEŞME)"). Pendik, Bostancı gibi başka bir
+  istasyon için doğrudan istasyon adını yazabilirsiniz. Deneme: `npm run probe -- tcdd train Ankara İstanbul 2026-11-05`
 - Bir site sonuç getirmiyorsa `npm run probe -- enuygun flight IST ESB 2026-11-05` komutunu çalıştırın.
   Komut, yakalanan veriyi `server/data/probe-enuygun/` klasörüne kaydeder. Bu dosyalara bakarak
   `server/src/providers/heuristic.js` uyarlanır.
@@ -83,6 +91,14 @@ Sitelerin adres yapısı `server/config/sites.json` dosyasındadır.
 - Uygulama **kişisel kullanım** için tasarlandı: sonuçları 60 sn önbellekler, alarmları sırayla kontrol eder ve en sık 2 dakikada bir sorgular. Bu sınırları düşürmeyin.
 - Sitelerin iç yapısı değiştikçe adaptörlerin güncellenmesi gerekebilir.
 - Bilet satın alma işlemi yapılmaz. Karta dokununca ilgili sitedeki sayfa açılır.
+
+## Güzergâh ve harita servisleri
+
+- Rota, mesafe, süre ve otoyollar: [OSRM](https://project-osrm.org) (ücretsiz, anahtarsız). Kendi sunucunuzu kullanmak için `.env` dosyasına `OSRM_URL=` satırını ekleyin.
+- Şehir konumları: yerleşik tablo, bulunamazsa OpenStreetMap Nominatim.
+- Harita: Leaflet + OpenStreetMap; sunucunun `/map` sayfası uygulamaya gömülü açılır.
+- Google Maps / Yandex Maps: rota bu uygulamalarda (yüklü değilse tarayıcıda) açılır; trafik ve canlı süre orada görünür.
+- Tren ve uçakta harita düz çizgi ve kuş uçuşu mesafe gösterir; demiryolu hattı çizilmez.
 
 ## Uygulama kapalıyken bildirim (ntfy)
 
@@ -105,6 +121,9 @@ server/                 Node.js sunucu (bot)
   src/filters.js        filtre ve sıralama
   src/watcher.js        alarm motoru (dolu → boş, fiyat düşüşü…)
   src/ai.js             yapay zekâ asistanı (OpenAI + kural tabanlı yedek)
+  src/routes.js, geo.js güzergâh, otoyollar, konum bulma
+  src/providers/tcdd.js TCDD (YHT) adaptörü
+  public/map.html       uygulamaya gömülen harita
   config/sites.json     site adresleri ve şehir kodları
 mobile/                 Expo (React Native) uygulaması
   src/screens/          Ara, Alarmlar, Ayarlar ekranları
@@ -119,6 +138,7 @@ mobile/                 Expo (React Native) uygulaması
 | tailwind-merge + clsx | Çakışan sınıfları birleştiren `cn()` (`src/lib/cn.js`) |
 | lucide-react-native | İkonlar |
 | react-native-reanimated | Kart giriş animasyonları, basınca küçülen butonlar |
+| react-native-webview | Güzergâh haritası |
 | react-native-gifted-charts | "Saate göre en ucuz fiyat" grafiği (çubuğa dokununca o saat aralığı filtrelenir) |
 
 Renkler `mobile/tailwind.config.js` içinde tanımlı (`brand`, `ink`, `surface`, `night`, `ok`, `bad`, `warn`, `site`).

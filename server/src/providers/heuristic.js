@@ -7,11 +7,11 @@ import { epochToLocal, makeTrip } from '../trip.js';
 
 const DEPARTURE_KEYS = /^(departure(date|time|datetime)?|departs?(at|on)?|kalkis(tarihi|zamani|saati)?|journeydeparture|starttime|departuretime|takeoff|local_departure|departure_time)$/i;
 const ARRIVAL_KEYS = /^(arrival(date|time|datetime)?|arrives?(at|on)?|varis(tarihi|zamani|saati)?|journeyarrival|endtime|arrivaltime|landing|local_arrival|arrival_time)$/i;
-const PRICE_KEYS = /^(price|totalprice|total|amount|fare|fiyat|toplamfiyat|internetprice|originalprice|minprice|cheapestprice)$/i;
+const PRICE_KEYS = /^(price|totalprice|total|amount|fare|fiyat|toplamfiyat|internetprice|originalprice|minprice|cheapestprice|priceamount)$/i;
 // fiyat bir nesneyse ({ amount, currency } gibi) içindeki sayı bu anahtarlarda aranır
 const PRICE_INNER_KEYS = /^(amount|value|raw|total|price|tl|try)$/i;
 const COMPANY_KEYS = /^(company(name)?|partner(name)?|firma(adi)?|operator(name)?|airline(name)?|carrier(name)?|marketingcarrier(name)?|brand(name)?)$/i;
-const SEAT_KEYS = /^(availableseats?|seatsavailable|emptyseats?|bos(koltuk|koltuksayisi)|remainingseats?|availableseatcount|seatcount|freeseats?|seats(left|remaining)?)$/i;
+const SEAT_KEYS = /^(availableseats?|seatsavailable|emptyseats?|bos(koltuk|koltuksayisi)|remainingseats?|availableseatcount|seatcount|freeseats?|seats(left|remaining)?|availabilitycount)$/i;
 const SOLD_OUT_KEYS = /^(soldout|issoldout|isfull|full|dolu)$/i;
 const AVAILABLE_KEYS = /^(isavailable|available|issellable|sellable|bookable)$/i;
 

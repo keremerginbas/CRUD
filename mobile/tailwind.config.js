@@ -15,7 +15,7 @@ module.exports = {
         ok: { DEFAULT: '#0F9D58', soft: '#E3F5EA' },
         bad: { DEFAULT: '#D93025', soft: '#FDE8E7' },
         warn: { DEFAULT: '#B26A00', soft: '#FFF3E0' },
-        site: { obilet: '#E4002B', enuygun: '#16A34A', ucuzabilet: '#F97316', skyscanner: '#0770E3' },
+        site: { obilet: '#E4002B', enuygun: '#16A34A', ucuzabilet: '#F97316', skyscanner: '#0770E3', tcdd: '#C8102E' },
       },
       borderRadius: { xl2: '14px' },
     },

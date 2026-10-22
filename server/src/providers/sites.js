@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { slugify } from '../trip.js';
 import { captureJson } from './browser.js';
 import { extractTrips } from './heuristic.js';
+import { createTcddProvider } from './tcdd.js';
 
 const CONFIG_PATH = fileURLToPath(new URL('../../config/sites.json', import.meta.url));
 
@@ -36,6 +37,7 @@ export function buildUrl(template, { from, to, date }) {
 }
 
 export function createSiteProvider(id, site, { capture = captureJson } = {}) {
+  if (site.type === 'tcdd') return createTcddProvider(id, site);
   return {
     id,
     name: site.name,

@@ -15,7 +15,11 @@ test('demo modunda arama, filtre ve alarm uç noktaları', async (t) => {
   const base = `http://127.0.0.1:${server.address().port}/api`;
 
   const providers = await (await fetch(`${base}/providers`)).json();
-  assert.deepEqual(providers.map((p) => p.id), ['obilet', 'enuygun', 'ucuzabilet', 'skyscanner']);
+  assert.deepEqual(providers.map((p) => p.id), ['obilet', 'enuygun', 'ucuzabilet', 'skyscanner', 'tcdd']);
+
+  const train = await (await fetch(`${base}/search?mode=train&from=Ankara&to=İstanbul&date=2026-11-01`)).json();
+  assert.ok(train.trips.length > 0);
+  assert.ok(train.trips.every((t) => t.provider === 'tcdd' && t.mode === 'train'));
 
   const bus = await (await fetch(`${base}/search?mode=bus&from=İstanbul&to=Ankara&date=2026-11-01`)).json();
   assert.deepEqual([...new Set(bus.trips.map((t) => t.provider))].sort(), ['enuygun', 'obilet']);
@@ -65,4 +69,24 @@ test('asistan uç noktası cümleden arama yapar ve öneri döndürür', async (
   assert.ok(body.trips.every((trip) => trip.departure.slice(11, 16) >= '17:00'));
   assert.deepEqual(body.trips.map((trip) => trip.price), [...body.trips.map((trip) => trip.price)].sort((a, b) => a - b));
   assert.ok(body.advice.text.length > 0);
+});
+
+test('güzergâh ve harita sayfası uç noktaları', async (t) => {
+  const { createRouter } = await import('../src/routes.js');
+  const aggregator = createAggregator(createProviders('demo'));
+  const store = createStore(null);
+  const router = createRouter({ fetchImpl: async () => ({ ok: false }) });
+  const server = createApp({ aggregator, watcher: createWatcher({ store, aggregator }), store, router }).listen(0);
+  t.after(() => server.close());
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const route = await (await fetch(`${base}/api/route?from=İstanbul&to=Ankara&mode=bus`)).json();
+  assert.equal(route.from.name, 'İstanbul');
+  assert.match(route.links.google, /google\.com\/maps\/dir/);
+  assert.equal((await fetch(`${base}/api/route?from=&to=Ankara`)).status, 400);
+
+  const map = await fetch(`${base}/map?from=İstanbul&to=Ankara&mode=bus`);
+  assert.equal(map.status, 200);
+  assert.match(await map.text(), /leaflet\.js/);
+  assert.equal((await fetch(`${base}/vendor/leaflet/leaflet.js`)).status, 200);
 });

@@ -8,13 +8,13 @@ import { slugify, todayLocal } from './trip.js';
 const OPENAI_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
 
 const PARSE_PROMPT = `Kullanıcının Türkçe bilet isteğini JSON'a çevir. Sadece JSON döndür:
-{"mode":"bus"|"flight","from":string,"to":string,"date":"YYYY-MM-DD",
+{"mode":"bus"|"flight"|"train","from":string,"to":string,"date":"YYYY-MM-DD",
  "filters":{"priceMax":number|null,"priceMin":number|null,"departAfter":"HH:mm"|null,"departBefore":"HH:mm"|null,
  "minSeats":number|null,"status":"all"|"available"|"soldout","company":string|null,"maxDurationMin":number|null,
  "sort":"price"|"departure"|"duration"},
  "watch":boolean}
 Kurallar: uçak isteğinde from/to için havalimanı IATA kodu kullan (İstanbul=IST, Sabiha=SAW, Ankara=ESB, İzmir=ADB, Antalya=AYT).
-Otobüste şehir adını yaz. "en ucuz" → sort=price. "boşalırsa haber ver/takip et/alarm" → watch=true.
+Otobüste ve trende (YHT, hızlı tren, TCDD) şehir adını yaz. "en ucuz" → sort=price. "boşalırsa haber ver/takip et/alarm" → watch=true.
 "sabah"=06:00-12:00, "öğle"=12:00-17:00, "akşam"=17:00-23:59, "gece"=00:00-06:00. Bugünün tarihi: {TODAY}.`;
 
 const RECOMMEND_PROMPT = `Sen bir bilet asistanısın. Verilen bilet listesinden kullanıcıya en uygun 3 seçeneği öner.
@@ -48,7 +48,7 @@ const STOP_WORDS = new Set([
   ...MONTHS, 'bugun', 'yarin', 'obur', 'gun', 'sabah', 'ogle', 'aksam', 'gece', 'en', 'ucuz', 'uygun', 'otobus', 'ucak', 'ucus',
   'bilet', 'bileti', 'biletleri', 'dolu', 'olan', 'bos', 'musait', 'haber', 'ver', 'bildir', 'takip', 'alarm', 'kisi', 'koltuk',
   'yolcu', 'arasi', 'alti', 'ustu', 'lira', 'saat', 'saatleri', 'ile', 'icin', 'bana', 'bul', 'ara', 'olsun', 'fazla', 'bosalirsa',
-  'bosalinca', 'tarihinde', 'gidis', 'sefer', 'seferi', 'havalimani',
+  'bosalinca', 'tarihinde', 'gidis', 'sefer', 'seferi', 'havalimani', 'tren', 'treni', 'yht', 'hizli', 'tcdd',
 ]);
 const PARTS = { sabah: ['06:00', '12:00'], ogle: ['12:00', '17:00'], aksam: ['17:00', '23:59'], gece: ['00:00', '06:00'] };
 
@@ -66,7 +66,7 @@ export function parseRequestRules(text, now = Date.now()) {
   const raw = String(text);
   const s = slugify(raw).replace(/-/g, ' ');
   const today = todayLocal(now);
-  const mode = /\b(ucak|ucus|flight|havalimani)\b/.test(s) ? 'flight' : 'bus';
+  const mode = /\b(ucak|ucus|flight|havalimani)\b/.test(s) ? 'flight' : /\b(tren|yht|hizli tren|tcdd)\b/.test(s) ? 'train' : 'bus';
   const filters = { status: 'all', sort: /ucuz/.test(s) ? 'price' : 'departure' };
 
   // Tarih
@@ -164,7 +164,7 @@ export function createAssistant({ apiKey = process.env.OPENAI_API_KEY, model = p
         const parsed = JSON.parse(content);
         const filters = Object.fromEntries(Object.entries(parsed.filters ?? {}).filter(([, v]) => v !== null && v !== ''));
         return {
-          mode: parsed.mode === 'flight' ? 'flight' : 'bus',
+          mode: ['flight', 'train'].includes(parsed.mode) ? parsed.mode : 'bus',
           from: parsed.from || fallback.from,
           to: parsed.to || fallback.to,
           date: /^\d{4}-\d{2}-\d{2}$/.test(parsed.date ?? '') ? parsed.date : fallback.date,

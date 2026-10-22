@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Güzergâh</title>
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <style>
+    html, body, #map { height: 100%; margin: 0; background: #e8edf5; }
+    @media (prefers-color-scheme: dark) { html, body, #map { background: #0f1623; } }
+    #msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 14px system-ui, sans-serif; color: #667085; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="msg">Harita yükleniyor…</div>
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script>
+    // Mobil uygulama bu sayfayı /map?from=..&to=..&mode=.. adresiyle gömülü açar.
+    const params = new URLSearchParams(location.search);
+    const msg = document.getElementById('msg');
+    const map = L.map('map', { zoomControl: false, attributionControl: true });
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '© OpenStreetMap',
+    }).addTo(map);
+
+    fetch('/api/route?' + params.toString())
+      .then((r) => r.json().then((body) => (r.ok ? body : Promise.reject(new Error(body.error)))))
+      .then((route) => {
+        msg.remove();
+        const line = L.polyline(route.geometry, {
+          color: '#1463FF',
+          weight: 5,
+          opacity: 0.85,
+          dashArray: route.straight ? '8 8' : null,
+        }).addTo(map);
+        const dot = (p, color) => L.circleMarker([p.lat, p.lon], { radius: 7, color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }).addTo(map).bindTooltip(p.name);
+        dot(route.from, '#0F9D58');
+        dot(route.to, '#D93025');
+        map.fitBounds(line.getBounds(), { padding: [24, 24] });
+      })
+      .catch((err) => {
+        msg.textContent = 'Harita gösterilemedi: ' + err.message;
+      });
+  </script>
+</body>
+</html>

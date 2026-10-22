@@ -5,6 +5,14 @@ import { makeTrip } from '../trip.js';
 
 const BUS_COMPANIES = ['Metro Turizm', 'Kamil Koç', 'Pamukkale', 'Varan', 'Nilüfer', 'Süha Turizm', 'Has Turizm'];
 const AIRLINES = ['THY', 'Pegasus', 'AJet', 'SunExpress'];
+const TRAINS = ['YHT', 'YHT', 'YHT', 'Anahat Ekspresi'];
+
+// tür → firmalar, süre (dk) aralığı, fiyat aralığı, kapasite
+const PROFILES = {
+  bus: { companies: BUS_COMPANIES, duration: [240, 600], price: [500, 1400], capacity: 46 },
+  flight: { companies: AIRLINES, duration: [55, 115], price: [900, 3500], capacity: 9 },
+  train: { companies: TRAINS, duration: [210, 330], price: [450, 1100], capacity: 30 },
+};
 
 function hash(text) {
   let h = 2166136261;
@@ -43,7 +51,7 @@ export function createMockProvider({ id, name, modes, slotMinutes = 3, now = () 
     demo: true,
     async search({ mode, from, to, date }) {
       const random = rng(hash(`${id}|${mode}|${from}|${to}|${date}`));
-      const isBus = mode === 'bus';
+      const profile = PROFILES[mode] ?? PROFILES.bus;
       const count = 5 + Math.floor(random() * 5);
       const slot = Math.floor(now() / (slotMinutes * 60000));
       const trips = [];
@@ -52,13 +60,15 @@ export function createMockProvider({ id, name, modes, slotMinutes = 3, now = () 
         const hour = Math.floor(random() * 24);
         const minute = Math.floor(random() * 4) * 15;
         const time = `${pad(hour)}:${pad(minute)}`;
-        const duration = isBus ? 240 + Math.floor(random() * 360) : 55 + Math.floor(random() * 60);
-        const company = (isBus ? BUS_COMPANIES : AIRLINES)[Math.floor(random() * (isBus ? BUS_COMPANIES : AIRLINES).length)];
-        const basePrice = isBus ? 500 + random() * 900 : 900 + random() * 2600;
+        const [dMin, dMax] = profile.duration;
+        const [pMin, pMax] = profile.price;
+        const duration = dMin + Math.floor(random() * (dMax - dMin));
+        const company = profile.companies[Math.floor(random() * profile.companies.length)];
+        const basePrice = pMin + random() * (pMax - pMin);
 
         // Her zaman diliminde koltuk sayısı ve fiyat biraz oynar.
         const live = rng(hash(`${id}|${date}|${i}|${slot}`));
-        const capacity = isBus ? 46 : 9;
+        const capacity = profile.capacity;
         const seats = live() < 0.3 ? 0 : Math.floor(live() * (capacity + 1));
         const price = Math.round(basePrice * (0.9 + live() * 0.2));
 

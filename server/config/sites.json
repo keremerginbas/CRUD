@@ -49,5 +49,27 @@
         "cities": {}
       }
     }
+  },
+  "tcdd": {
+    "name": "TCDD",
+    "type": "tcdd",
+    "_not": "ebilet.tcddtasimacilik.gov.tr sitesini açar, sitenin kendi API oturumunu kullanarak sefer ve boş koltuk sorgular. Site yapısı değişirse apiUrl ve stationAliases güncellenmeli.",
+    "homeUrl": "https://ebilet.tcddtasimacilik.gov.tr/",
+    "apiUrl": "https://web-api-prod-ytp.tcddtasimacilik.gov.tr/tms/train/train-availability?environment=dev&userId=1",
+    "stationAliases": {
+      "istanbul": "İSTANBUL(SÖĞÜTLÜÇEŞME)",
+      "ankara": "ANKARA GAR",
+      "eskisehir": "ESKİŞEHİR",
+      "konya": "KONYA",
+      "izmit": "İZMİT YHT",
+      "kocaeli": "İZMİT YHT",
+      "sivas": "SİVAS",
+      "karaman": "KARAMAN",
+      "bilecik": "BİLECİK YHT",
+      "polatli": "POLATLI YHT"
+    },
+    "modes": {
+      "train": {}
+    }
   }
 }

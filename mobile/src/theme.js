@@ -19,6 +19,7 @@ export const providerColors = {
   enuygun: '#16A34A',
   ucuzabilet: '#F97316',
   skyscanner: '#0770E3',
+  tcdd: '#C8102E',
 };
 
 export function usePalette() {

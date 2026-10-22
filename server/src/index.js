@@ -6,6 +6,7 @@ import { createApp } from './app.js';
 import { createNotifier } from './notify.js';
 import { closeBrowser } from './providers/browser.js';
 import { createProviders } from './providers/index.js';
+import { createRouter } from './routes.js';
 import { createStore } from './store.js';
 import { createWatcher } from './watcher.js';
 
@@ -24,7 +25,7 @@ const aggregator = createAggregator(providers, { cacheTtlMs: Number(process.env.
 const store = createStore(dataPath);
 const watcher = createWatcher({ store, aggregator, notify: createNotifier() });
 const assistant = createAssistant();
-const app = createApp({ aggregator, watcher, store, assistant });
+const app = createApp({ aggregator, watcher, store, assistant, router: createRouter() });
 
 const server = app.listen(port, '0.0.0.0', () => {
   const lan = Object.values(networkInterfaces())

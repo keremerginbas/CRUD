@@ -1,9 +1,10 @@
-import { ArrowLeftRight, BellRing, Bus, ChevronLeft, ChevronRight, CircleAlert, Plane, Search, SlidersHorizontal, Sparkles } from 'lucide-react-native';
+import { ArrowLeftRight, BellRing, Bus, TrainFront, ChevronLeft, ChevronRight, CircleAlert, Plane, Search, SlidersHorizontal, Sparkles } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Pressable, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeInUp } from 'react-native-reanimated';
 import FilterPanel, { countActive } from '../components/FilterPanel';
 import PriceChart from '../components/PriceChart';
+import RouteCard from '../components/RouteCard';
 import TripCard, { formatPrice } from '../components/TripCard';
 import { Button, Card, Chip, Field, Row } from '../components/ui';
 import { addDays, label, today } from '../dates';
@@ -12,6 +13,7 @@ import { load, save } from '../storage';
 import { usePalette } from '../theme';
 
 const INTERVALS = [2, 5, 10, 30];
+const PLACEHOLDERS = { bus: ['İstanbul', 'Ankara'], train: ['Ankara', 'İstanbul'], flight: ['IST', 'ESB'] };
 const NOTIFY = [
   ['freed', 'Boşalınca'],
   ['seats_up', 'Koltuk açılınca'],
@@ -26,6 +28,7 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [askText, setAskText] = useState('');
   const [result, setResult] = useState(null);
+  const [searched, setSearched] = useState(null); // sonuçları üreten arama
   const [advice, setAdvice] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -63,6 +66,7 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
     try {
       const data = await api.search({ mode: q.mode, from: q.from.trim(), to: q.to.trim(), date: q.date });
       setResult(data);
+      setSearched({ ...q, from: q.from.trim(), to: q.to.trim() });
       save('lastSearch', q);
     } catch (err) {
       setError(err.message);
@@ -81,6 +85,7 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
       setQuery(q);
       setFilters({ ...DEFAULT_FILTERS, ...data.request.filters });
       setResult(data);
+      setSearched(q);
       setAdvice(data.advice);
       save('lastSearch', q);
       if (data.request.watch) setAlarm({ intervalMin: 5, notifyOn: ['freed', 'seats_up', 'price_drop'] });
@@ -134,6 +139,7 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
       <View className="mt-4 flex-row rounded-xl bg-surface-line p-1 dark:bg-night-card">
         {[
           ['bus', 'Otobüs', Bus],
+          ['train', 'YHT / Tren', TrainFront],
           ['flight', 'Uçak', Plane],
         ].map(([mode, text, Icon]) => {
           const active = query.mode === mode;
@@ -153,9 +159,9 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
       </View>
 
       <Row className="mt-3">
-        <Field label="Nereden" placeholder={query.mode === 'bus' ? 'İstanbul' : 'IST'} value={query.from} onChangeText={(from) => setQuery({ ...query, from })} />
+        <Field label="Nereden" placeholder={PLACEHOLDERS[query.mode][0]} value={query.from} onChangeText={(from) => setQuery({ ...query, from })} />
         <Button icon={ArrowLeftRight} variant="soft" size="sm" onPress={() => setQuery({ ...query, from: query.to, to: query.from })} className="mb-1" />
-        <Field label="Nereye" placeholder={query.mode === 'bus' ? 'Ankara' : 'ESB'} value={query.to} onChangeText={(to) => setQuery({ ...query, to })} />
+        <Field label="Nereye" placeholder={PLACEHOLDERS[query.mode][1]} value={query.to} onChangeText={(to) => setQuery({ ...query, to })} />
       </Row>
 
       <View className="my-3 flex-row flex-wrap items-center">
@@ -196,6 +202,14 @@ export default function SearchScreen({ api, providers, aiEnabled, onWatchCreated
               </Card>
             </Animated.View>
           ) : null}
+
+          <RouteCard
+            api={api}
+            mode={searched.mode}
+            from={searched.from}
+            to={searched.to}
+            tripDurations={chartTrips.map((t) => t.durationMin)}
+          />
 
           <PriceChart trips={chartTrips} onSelectRange={selectRange} selected={filters.departAfter} />
 

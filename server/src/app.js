@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { applyFilters } from './filters.js';
 import { MODES } from './trip.js';
@@ -12,7 +13,10 @@ function publicWatch({ snapshot, ...watch }) {
   return watch;
 }
 
-export function createApp({ aggregator, watcher, store, assistant }) {
+const PUBLIC_DIR = fileURLToPath(new URL('../public/', import.meta.url));
+const LEAFLET_DIR = fileURLToPath(new URL('../node_modules/leaflet/dist/', import.meta.url));
+
+export function createApp({ aggregator, watcher, store, assistant, router }) {
   const app = express();
   app.use(express.json({ limit: '100kb' }));
   app.use((req, res, next) => {
@@ -46,6 +50,20 @@ export function createApp({ aggregator, watcher, store, assistant }) {
       res.status(400).json({ error: err.message });
     }
   });
+
+  // GET /api/route?from=İstanbul&to=Ankara&mode=bus → mesafe, süre, otoyollar, harita çizgisi
+  app.get('/api/route', async (req, res) => {
+    if (!router) return res.status(404).json({ error: 'Güzergâh servisi kapalı.' });
+    try {
+      res.json(await router({ from: req.query.from, to: req.query.to, mode: req.query.mode }));
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  // Uygulamaya gömülen harita sayfası
+  app.use('/vendor/leaflet', express.static(LEAFLET_DIR));
+  app.get('/map', (req, res) => res.sendFile('map.html', { root: PUBLIC_DIR }));
 
   app.get('/api/providers', (req, res) => {
     res.json(aggregator.providers.map(({ id, name, modes, demo }) => ({ id, name, modes, demo })));
