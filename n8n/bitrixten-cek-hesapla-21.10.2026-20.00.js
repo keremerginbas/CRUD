@@ -61,11 +61,11 @@ const personeller = {
   "17984": { isim: "Ali Karaoğlu",        dep: "XRE PROJE SATIŞ" },
   "22186": { isim: "Ali Kemal Çınar",     dep: "XRE PROJE SATIŞ" },
   "26120": { isim: "Sefa Tuna Şencan",    dep: "XRE PROJE SATIŞ" },
+  "30070": { isim: "Burak Gülşen",        dep: "XRE PROJE SATIŞ" },
   "26352": { isim: "Emre Caner",          dep: "XRE PROJE SATIŞ" },
   "1174":  { isim: "Arda Kağan Ertaş",    dep: "XRE PROJE SATIŞ" },
   "116":   { isim: "Merve Gelleci",       dep: "XRE PROJE SATIŞ" },
   "25258": { isim: "Murat Çakıroğlu",     dep: "XRE PROJE SATIŞ" },
-  "30070": { isim: "Burak Gülşen",     dep: "XRE PROJE SATIŞ" },
   "5778":  { isim: "Tuğba Kütük",         dep: "XRE PROJE SATIŞ" },
   "11690": { isim: "Zeliha Bilginsoy",    dep: "XRE PROJE SATIŞ" },
 
@@ -86,6 +86,7 @@ const personeller = {
   "22182": { isim: "Zarife Ayoğlu",       dep: "XRE RECRUITING" },
   "29240": { isim: "Ayça İnal",           dep: "XRE RECRUITING" },
   "30342": { isim: "Ceren Delice",        dep: "XRE RECRUITING" }
+
 };
 
 // =========================================================
