@@ -1,0 +1,53 @@
+{
+  "_aciklama": "Gerçek site adaptörlerinin arama adresleri. {from} ve {to} önce 'cities' tablosunda aranır, bulunamazsa girilen metin kullanılır. Tarih yer tutucuları: {date}=YYYY-MM-DD, {dateTR}=GG.AA.YYYY, {dateYYMMDD}=YYAAGG. Site adres yapısını değiştirirse sadece bu dosyayı güncellemeniz yeterli.",
+  "obilet": {
+    "name": "obilet",
+    "modes": {
+      "bus": {
+        "url": "https://www.obilet.com/seferler/{from}-{to}/{date}",
+        "cityFormat": "id",
+        "cities": {}
+      },
+      "flight": {
+        "url": "https://www.obilet.com/ucuslar/{from}-{to}/{date}",
+        "cityFormat": "IATA",
+        "cities": {}
+      }
+    }
+  },
+  "enuygun": {
+    "name": "Enuygun",
+    "modes": {
+      "bus": {
+        "url": "https://www.enuygun.com/otobus-bileti/arama/{from}-{to}/?gidis={dateTR}",
+        "cityFormat": "slug",
+        "cities": {}
+      },
+      "flight": {
+        "url": "https://www.enuygun.com/ucak-bileti/arama/{from}-{to}/?gidis={dateTR}&yetiskin=1",
+        "cityFormat": "iata",
+        "cities": {}
+      }
+    }
+  },
+  "ucuzabilet": {
+    "name": "Ucuzabilet",
+    "modes": {
+      "flight": {
+        "url": "https://www.ucuzabilet.com/ucak-bileti/{from}-{to}?gidis={dateTR}&yetiskin=1",
+        "cityFormat": "IATA",
+        "cities": {}
+      }
+    }
+  },
+  "skyscanner": {
+    "name": "Skyscanner",
+    "modes": {
+      "flight": {
+        "url": "https://www.skyscanner.com.tr/transport/flights/{from}/{to}/{dateYYMMDD}/?adultsv2=1&cabinclass=economy",
+        "cityFormat": "iata",
+        "cities": {}
+      }
+    }
+  }
+}

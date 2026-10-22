@@ -1,70 +1,113 @@
-# Getting Started with Create React App
+# Bilet Radar 🚌✈️
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+obilet, Enuygun, Ucuzabilet ve Skyscanner'daki otobüs ve uçak biletlerini **tek ekranda** gösteren,
+sizin filtrelerinize göre **en ucuz/en uygun** olanları bulan ve **dolu bir bilet boşalınca telefonunuza
+bildirim gönderen** kişisel bir bot + mobil uygulama.
 
-## Available Scripts
+```
+ Telefon (Expo Go)  ──Wi-Fi──▶  Bilgisayarınızdaki sunucu  ──▶  obilet / Enuygun / Ucuzabilet / Skyscanner
+   Ara · Alarmlar · Ayarlar       arama + filtre + alarm motoru + yapay zekâ (OpenAI)
+```
 
-In the project directory, you can run:
+## Neler yapıyor?
 
-### `npm start`
+- **Tüm sitelerde tek aramada sonuç:** dolu biletler de dahil hepsi listelenir; her kartta site, firma, saat, süre, fiyat ve boş koltuk sayısı görünür.
+- **Filtreler:** dolu / müsait, site seçimi, fiyat aralığı, kalkış saati aralığı (sabah/akşam ya da ss:dd), en az boş koltuk, en uzun yolculuk süresi, firma/havayolu, sıralama (en ucuz, kalkış, en kısa, en çok koltuk).
+- **Yapay zekâ asistanı:** *"Yarın akşam 18-23 arası İstanbul'dan Ankara'ya 1000 TL altı otobüs, dolu olan boşalırsa haber ver"* gibi yazın. Asistan cümlenizi filtrelere çevirir, tüm sitelerde arar, en iyi 3 seçeneği önerir ve alarm kurmayı teklif eder.
+- **Alarm (bot):** kaydedilen arama 2, 5, 10 ya da 30 dakikada bir tekrar çalışır. Seçtiğiniz tarih ve saat aralığında şu durumlarda bildirim gönderir:
+  - 🎉 dolu bir sefer **boşalınca**
+  - 💺 koltuk açılınca
+  - 📉 fiyat düşünce
+  - 🆕 yeni sefer eklenince
+  - ⛔ (isterseniz) sefer dolunca
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Kurulum (bir kez)
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Gerekenler: bilgisayarda [Node.js 20+](https://nodejs.org), telefonda **Expo Go** (App Store / Google Play).
 
-### `npm test`
+```bash
+git clone https://github.com/keremerginbas/CRUD.git bilet-radar && cd bilet-radar
+npm run setup
+cp server/.env.example server/.env
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+`server/.env` dosyasını açıp doldurun:
 
-### `npm run build`
+```ini
+PROVIDERS=demo            # önce demo ile deneyin, sonra "live" yapın
+OPENAI_API_KEY=sk-...     # yapay zekâ için (boş kalırsa kural tabanlı asistan çalışır)
+NTFY_TOPIC=               # isteğe bağlı: uygulama kapalıyken bildirim (aşağıda)
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+> 🔐 `.env` dosyası git'e gönderilmez. API anahtarınızı koda, sohbete ya da GitHub'a yazmayın. Yazdıysanız
+> [platform.openai.com/api-keys](https://platform.openai.com/api-keys) adresinden iptal edip yenisini oluşturun.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Çalıştırma
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+İki terminal açın:
 
-### `npm run eject`
+```bash
+npm run server     # ekrana "Sunucu adresi: http://192.168.x.x:4000" yazar
+npm run mobile     # ekrana bir QR kod çıkar
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. Telefonda **Expo Go**'yu açın ve QR kodu okutun (iPhone'da kamera uygulamasıyla).
+2. Uygulamada **Ayarlar** sekmesine sunucunun yazdığı adresi girin, ardından *Kaydet ve bağlantıyı test et*'e dokunun.
+3. **Bildirim izni ver**'e dokunun.
+4. **Ara** sekmesinden arayın ya da asistana yazın.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Telefon ve bilgisayar **aynı Wi-Fi ağında** olmalı. Bağlanmıyorsa bilgisayarın güvenlik duvarında 4000 numaralı porta izin verin.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Gerçek sitelere bağlanma
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+```bash
+cd server
+npx playwright install chromium   # bir kez
+# .env içinde PROVIDERS=live  (ya da sadece bazıları: PROVIDERS=enuygun,skyscanner)
+npm start
+```
 
-## Learn More
+Sunucu her siteyi arka planda gerçek bir tarayıcıyla açar ve sitenin kendi sonuç verisini okur.
+Sitelerin adres yapısı `server/config/sites.json` dosyasındadır.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- **obilet otobüs** sayısal şehir kodu kullanır. obilet.com'da bir kez arama yapın; adres
+  `obilet.com/seferler/349-356/...` gibi olur. Bu sayıları `sites.json` → `obilet.modes.bus.cities` içine
+  `{"istanbul": 349, "ankara": 356}` şeklinde ekleyin.
+- **Uçuşlarda** şehir yerine havalimanı kodu girin: IST, SAW, ESB, ADB, AYT…
+- Bir site sonuç getirmiyorsa `npm run probe -- enuygun flight IST ESB 2026-11-05` komutunu çalıştırın.
+  Komut, yakalanan veriyi `server/data/probe-enuygun/` klasörüne kaydeder. Bu dosyalara bakarak
+  `server/src/providers/heuristic.js` uyarlanır.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+⚠️ **Bilmeniz gerekenler:**
+- Bu siteler herkese açık bir API sunmuyor. Otomatik sorgu yapmak kullanım koşullarına aykırı olabilir ve siteler bot korumasıyla (captcha) engelleyebilir; özellikle Skyscanner'da bu sık olur.
+- Uygulama **kişisel kullanım** için tasarlandı: sonuçları 60 sn önbellekler, alarmları sırayla kontrol eder ve en sık 2 dakikada bir sorgular. Bu sınırları düşürmeyin.
+- Sitelerin iç yapısı değiştikçe adaptörlerin güncellenmesi gerekebilir.
+- Bilet satın alma işlemi yapılmaz. Karta dokununca ilgili sitedeki sayfa açılır.
 
-### Code Splitting
+## Uygulama kapalıyken bildirim (ntfy)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+Expo Go'da uygulama açıkken alarmlar dakikada bir kontrol edilir ve yerel bildirim gösterilir. Telefon cebinizdeyken de
+haber almak için:
 
-### Analyzing the Bundle Size
+1. Telefona **ntfy** uygulamasını kurun (ücretsiz).
+2. Tahmin edilmesi zor bir konu adı seçin (ör. `bilet-radar-k7x2m9`) ve uygulamada bu konuya abone olun.
+3. `server/.env` dosyasına `NTFY_TOPIC=bilet-radar-k7x2m9` satırını ekleyin.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Sunucu çalıştığı sürece alarmlar telefonunuza anlık bildirim olarak düşer. Sunucuyu sürekli açık tutmak
+için evdeki bir bilgisayar, Raspberry Pi veya küçük bir VPS kullanabilirsiniz.
 
-### Making a Progressive Web App
+## Proje yapısı
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+```
+server/                 Node.js sunucu (bot)
+  src/providers/        site adaptörleri (sites.js), demo veri (mock.js), tarayıcı (browser.js), veri çıkarıcı (heuristic.js)
+  src/aggregator.js     tüm sitelerde paralel arama + önbellek
+  src/filters.js        filtre ve sıralama
+  src/watcher.js        alarm motoru (dolu → boş, fiyat düşüşü…)
+  src/ai.js             yapay zekâ asistanı (OpenAI + kural tabanlı yedek)
+  config/sites.json     site adresleri ve şehir kodları
+mobile/                 Expo (React Native) uygulaması
+  src/screens/          Ara, Alarmlar, Ayarlar ekranları
+```
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Testler: `npm test`
