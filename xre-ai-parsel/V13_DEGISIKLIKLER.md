@@ -8,6 +8,8 @@
 - **Kayıtlar tablosu:** Arama ve sıralama (TanStack Table v8), favori/sil.
 - **İmleç koordinatı + zoom göstergesi** harita sol altında.
 - **Koyu tema** sistem ayarına göre otomatik.
+- **AI raporu** ham Markdown yerine ikonlu bölüm kartları ve etiket/değer satırlarıyla gösteriliyor.
+- **Harita pinleri** logo biçiminde damla ikonlar: seçili nokta kırmızı, kayıtlı mavi, favori altın yıldızlı; not baloncuğu yenilendi.
 - **XRE Real Estate logosu** header ve sekme simgesinde; arka planı şeffaf SVG (`public/logo-mark.svg`).
 
 ## Düzeltmeler

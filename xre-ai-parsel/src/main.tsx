@@ -8,6 +8,7 @@ import './style.css';
 import {fetchBoundary, fetchJson, postJson, type Health, type ParcelResponse, type Pin, type Region, type RegionLevel} from '@/lib/api';
 import {MapView, type MapFocus} from '@/components/MapView';
 import {MarkersTable} from '@/components/MarkersTable';
+import {AnalysisView} from '@/components/AnalysisView';
 import {RegionCombobox} from '@/components/ui/region-combobox';
 import {Button} from '@/components/ui/button';
 import {Input, Label, Textarea} from '@/components/ui/input';
@@ -255,7 +256,7 @@ function App(){
         <CardContent className="space-y-3">
          <p className="text-xs leading-relaxed text-muted-foreground">Yalnızca doğrulanmış parsel verisi ve koordinat gönderilir. İmar hakkı ve güncel piyasa fiyatı ayrı doğrulama gerektirir.</p>
          <Button className="w-full" disabled={!pin||analyzing} onClick={analyze}><Sparkles size={16}/>{analyzing?'Analiz hazırlanıyor…':'Seçilen Noktayı AI ile Analiz Et'}</Button>
-         {analysis&&<motion.p initial={{opacity:0}} animate={{opacity:1}} className="whitespace-pre-wrap rounded-lg bg-muted/60 p-3 text-sm leading-relaxed">{analysis}</motion.p>}
+         {analysis&&<AnalysisView text={analysis} lat={pin?.lat} lng={pin?.lng}/>}
         </CardContent></Card>
       </TabsPanel>
 

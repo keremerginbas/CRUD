@@ -1,10 +1,20 @@
 import {useEffect, useState} from 'react';
 import {MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap, useMapEvents} from 'react-leaflet';
 import L from 'leaflet';
+import {Crosshair, MapPin, Star} from 'lucide-react';
 import type {Pin} from '@/lib/api';
 
-const markerIcon=L.divIcon({className:'custom-pin',html:'<div class="pin"></div>',iconSize:[22,22],iconAnchor:[11,11]});
-const favoriteMarkerIcon=L.divIcon({className:'custom-pin favorite-pin',html:'<div class="pin"></div>',iconSize:[22,22],iconAnchor:[11,11]});
+// Damla biçimli SVG pinler (logodaki iğneyle aynı form); ucu tam koordinata oturur.
+const STAR='<path d="M12 6.6l1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#fff"/>';
+const DOT='<circle cx="12" cy="11" r="3.6" fill="#fff"/>';
+const CROSS='<circle cx="12" cy="11" r="4.2" fill="none" stroke="#fff" stroke-width="1.8"/><circle cx="12" cy="11" r="1.5" fill="#fff"/>';
+function pinIcon(fill:string,inner:string,extra=''){
+ return L.divIcon({className:'xre-pin'+extra,iconSize:[34,44],iconAnchor:[17,42],popupAnchor:[0,-38],
+  html:`<svg viewBox="0 0 24 31" width="34" height="44"><ellipse cx="12" cy="29.6" rx="4.5" ry="1.3" fill="rgba(0,0,0,.28)"/><path d="M12 29C8 24.6 2.5 18 2.5 11.2a9.5 9.5 0 0 1 19 0C21.5 18 16 24.6 12 29z" fill="${fill}" stroke="#02201f" stroke-width="1.4"/>${inner}</svg>`});
+}
+const selectionIcon=pinIcon('#e21d35',CROSS,' xre-pin-selection');
+const savedIcon=pinIcon('#38b5fe',DOT);
+const favoriteIcon=pinIcon('#f4b330',STAR);
 
 // Esri World Imagery kırsal Türkiye'de çoğunlukla 18. seviyeye kadar gerçek görüntü verir;
 // 19+ istendiğinde "Map data not yet available" döşemesi döner. 18'den sonra döşemeyi büyütüyoruz.
@@ -51,6 +61,16 @@ function Clicker({onClick}:{onClick:(lat:number,lng:number)=>void}){
  return null;
 }
 
+function PinCard({title,kind,lat,lng}:{title:string;kind:'selection'|'saved'|'favorite';lat:number;lng:number}){
+ const meta={selection:{label:'Seçili',Icon:Crosshair,cls:'bg-rose-500/10 text-rose-600'},saved:{label:'Kayıtlı',Icon:MapPin,cls:'bg-sky-500/10 text-sky-600'},
+  favorite:{label:'Favori',Icon:Star,cls:'bg-amber-500/15 text-amber-600'}}[kind];
+ return <div className="min-w-44 space-y-1.5">
+  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${meta.cls}`}><meta.Icon size={11}/>{meta.label}</span>
+  <div className="text-sm font-bold leading-snug text-foreground">{title}</div>
+  <div className="font-mono text-[11px] text-muted-foreground">{lat.toFixed(6)}, {lng.toFixed(6)}</div>
+ </div>;
+}
+
 export function MapView({satellite,labels,boundary,parcel,parcelKey,focus,pin,showSelectionPin,focusPin,markers,onPick}:{
  satellite:boolean;labels:boolean;boundary:GeoJSON.Feature|null;parcel:GeoJSON.GeoJsonObject|null;parcelKey:string;
  focus:MapFocus|null;pin:Pin|null;showSelectionPin:boolean;focusPin:Pin|null;markers:Pin[];onPick:(lat:number,lng:number)=>void;
@@ -67,7 +87,9 @@ export function MapView({satellite,labels,boundary,parcel,parcelKey,focus,pin,sh
   <FitFocus focus={focus}/><FlyToPin target={focusPin}/>
   <Clicker onClick={onPick}/>
   <Readout/>
-  {pin&&showSelectionPin&&<Marker position={[pin.lat,pin.lng]} icon={markerIcon}><Popup>Seçilen nokta: {pin.lat.toFixed(6)}, {pin.lng.toFixed(6)}</Popup></Marker>}
-  {markers.map((p,i)=><Marker key={p.id??i} position={[p.lat,p.lng]} icon={p.favorite?favoriteMarkerIcon:markerIcon}><Popup>{p.note||'Kayıtlı nokta'}</Popup></Marker>)}
+  {pin&&showSelectionPin&&<Marker position={[pin.lat,pin.lng]} icon={selectionIcon} zIndexOffset={500}>
+   <Popup><PinCard title="Seçilen nokta" kind="selection" lat={pin.lat} lng={pin.lng}/></Popup></Marker>}
+  {markers.map((p,i)=><Marker key={p.id??i} position={[p.lat,p.lng]} icon={p.favorite?favoriteIcon:savedIcon}>
+   <Popup><PinCard title={p.note||'Kayıtlı nokta'} kind={p.favorite?'favorite':'saved'} lat={p.lat} lng={p.lng}/></Popup></Marker>)}
  </MapContainer>;
 }
