@@ -8,6 +8,7 @@
 - **Kayıtlar tablosu:** Arama ve sıralama (TanStack Table v8), favori/sil.
 - **İmleç koordinatı + zoom göstergesi** harita sol altında.
 - **Koyu tema** sistem ayarına göre otomatik.
+- **XRE Real Estate logosu** header ve sekme simgesinde; arka planı şeffaf SVG (`public/logo-mark.svg`).
 
 ## Düzeltmeler
 - Uydu görünümünde yüksek zoomda görülen **“Map data not yet available”** döşemeleri: Esri World Imagery kırsal alanlarda 18. seviyeden sonra gerçek görüntü vermiyor. Döşemeler artık 18'de alınıp 21'e kadar büyütülüyor.

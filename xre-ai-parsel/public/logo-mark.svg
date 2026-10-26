@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 772 700" fill="none">
+ <!-- XRE Real Estate işareti: şeffaf zemin -->
+ <mask id="gaps" maskUnits="userSpaceOnUse" x="0" y="0" width="772" height="700">
+  <rect width="772" height="700" fill="#fff"/>
+  <g fill="#000">
+   <path d="M0,365 L150,332 H250 L0,397 Z"/>
+   <path d="M0,476 L280,360 L320,380 L0,516 Z"/>
+   <path d="M0,642 L340,440 L362,462 L38,690 H0 Z"/>
+   <path d="M234,690 L390,480 L410,492 L286,690 Z"/>
+   <path d="M467,690 L555,332 H585 L511,690 Z"/>
+   <path d="M696,690 L606,332 H638 L734,690 Z"/>
+   <path d="M772,460 L658,332 H695 L772,395 Z"/>
+  </g>
+ </mask>
+ <g fill="#38b5fe" mask="url(#gaps)">
+  <path d="M0,318 V308 Q0,300 8,296 Q50,276 92,262 Q150,244 225,272 L240,318 Z"/>
+  <path d="M520,318 L545,290 Q575,284 595,272 Q640,250 690,268 Q725,290 762,305 Q772,309 772,318 Z"/>
+  <path d="M0,332 H772 V690 H0 Z"/>
+ </g>
+ <path fill="#022220" d="M386,495 C330,440 196,300 196,188 A190,190 0 1 1 576,188 C576,300 442,440 386,495 Z"/>
+ <path fill="#38b5fe" d="M386,470 L240,268 C226,244 214,218 214,188 A172,172 0 1 1 558,188 C558,218 546,244 532,268 Z"/>
+ <circle cx="386" cy="187" r="70" fill="#022220"/>
+ <circle cx="386" cy="187" r="46" fill="#fff"/>
+</svg>
