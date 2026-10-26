@@ -1,4 +1,6 @@
 import express from 'express';
+import fs from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import cors from 'cors';
 import 'dotenv/config';
 import {pool,requireDb,databaseMode} from './db.mjs';
@@ -309,4 +311,12 @@ app.post('/api/analysis',async(req,res)=>{
    source:'OpenAI; yerel TKGM verisi + içe aktarılan emsal ilanlar'+(usedWeb?' + web araştırması':'')});
  }catch(e){console.error('[AI]',e.message);res.status(502).json({error:'AI servisine erişilemedi.'})}
 });
-app.listen(Number(process.env.PORT||3001),host,()=>console.log('XRE API listening on '+host+':'+(process.env.PORT||3001)));
+// Derlenmiş arayüz (npm run build -> dist) varsa aynı porttan verilir: tek pencere, tek adres.
+const distDir=fileURLToPath(new URL('../dist',import.meta.url));
+if(fs.existsSync(distDir+'/index.html')){
+ app.use(express.static(distDir,{index:false,maxAge:'1h'}));
+ app.get(/^\/(?!api\/).*/,(_req,res)=>res.sendFile(distDir+'/index.html'));
+ console.log('Arayüz: dist klasöründen veriliyor.');
+}
+app.use('/api',(_req,res)=>res.status(404).json({error:'API uç noktası bulunamadı.'}));
+app.listen(Number(process.env.PORT||3001),host,()=>console.log('XRE hazır: http://localhost:'+(process.env.PORT||3001)));

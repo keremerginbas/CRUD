@@ -5,5 +5,6 @@ import {fileURLToPath,URL} from 'node:url';
 export default defineConfig({
  plugins:[react(),tailwindcss()],
  resolve:{alias:{'@':fileURLToPath(new URL('./src',import.meta.url))}},
- server:{host:'0.0.0.0',proxy:{'/api':'http://localhost:3001'}}
+ // strictPort: 5173 doluysa (eski pencere açıksa) başka porta kaymadan açık hata verir.
+ server:{host:'0.0.0.0',port:5173,strictPort:true,proxy:{'/api':'http://localhost:3001'}}
 });

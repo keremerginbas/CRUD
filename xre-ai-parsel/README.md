@@ -16,10 +16,10 @@ React/TypeScript + Leaflet harita, Express yerel API, Python TKGM istemcisi ve S
 
 ## Windows
 
-1. `KURULUM.bat`
-2. `TEST_TKGM_BAGLANTI.bat`
-3. `BASLAT_API.bat` ve `BASLAT_HARITA.bat`
-4. `http://localhost:5173`
+1. Zip'i **boş, yeni bir klasöre** açın (eski sürümün üzerine açmayın).
+2. `KURULUM.bat`
+3. **`BASLAT.bat`** — arayüzü derler, API ile birlikte tek pencerede açar: `http://localhost:3001`
+4. Geliştirme için (kod değiştirirken anında yenileme): `BASLAT_API.bat` + `BASLAT_HARITA.bat` → `http://localhost:5173`. 5173 doluysa Vite artık başka porta kaymaz, hata verir: önce eski pencereyi kapatın.
 
 Adım adım detay: `KURULUM_WINDOWS.md`.
 

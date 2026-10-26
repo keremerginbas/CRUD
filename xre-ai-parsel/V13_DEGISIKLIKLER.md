@@ -40,6 +40,7 @@
 Tailwind CSS v4 (`@tailwindcss/vite`), shadcn/ui tarzı bileşenler (`src/components/ui`, `class-variance-authority` + `tailwind-merge`), Base UI (Combobox, Tabs), Motion (sonuç kartı geçişleri; “hareketi azalt” ayarına uyar), Lucide, TanStack Table.
 
 ## Kurulum
+- **Önerilen:** `BASLAT.bat` → tek pencere, `http://localhost:3001` (arayüz derlenip API'den verilir; eski Vite penceresi veya port karışıklığı olmaz).
 V12 ile aynı: `KURULUM.bat` → `BASLAT_API.bat` + `BASLAT_HARITA.bat`. Yeni npm paketleri `npm install` ile gelir. `.env` ve `data/*.sqlite` V12'den kopyalanabilir.
 
 ## Bilinen sınırlar
