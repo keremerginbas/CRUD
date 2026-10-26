@@ -71,9 +71,9 @@ function PinCard({title,kind,lat,lng}:{title:string;kind:'selection'|'saved'|'fa
  </div>;
 }
 
-export function MapView({satellite,labels,boundary,parcel,parcelKey,focus,pin,showSelectionPin,focusPin,markers,onPick}:{
+export function MapView({satellite,labels,boundary,parcel,parcelKey,focus,pin,showSelectionPin,focusPin,markers,onPick,onMarkerClick}:{
  satellite:boolean;labels:boolean;boundary:GeoJSON.Feature|null;parcel:GeoJSON.GeoJsonObject|null;parcelKey:string;
- focus:MapFocus|null;pin:Pin|null;showSelectionPin:boolean;focusPin:Pin|null;markers:Pin[];onPick:(lat:number,lng:number)=>void;
+ focus:MapFocus|null;pin:Pin|null;showSelectionPin:boolean;focusPin:Pin|null;markers:Pin[];onPick:(lat:number,lng:number)=>void;onMarkerClick?:(p:Pin)=>void;
 }){
  return <MapContainer center={[39,35]} zoom={6} maxZoom={MAX_ZOOM} className="size-full" zoomControl>
   {satellite
@@ -89,7 +89,7 @@ export function MapView({satellite,labels,boundary,parcel,parcelKey,focus,pin,sh
   <Readout/>
   {pin&&showSelectionPin&&<Marker position={[pin.lat,pin.lng]} icon={selectionIcon} zIndexOffset={500}>
    <Popup><PinCard title="Seçilen nokta" kind="selection" lat={pin.lat} lng={pin.lng}/></Popup></Marker>}
-  {markers.map((p,i)=><Marker key={p.id??i} position={[p.lat,p.lng]} icon={p.favorite?favoriteIcon:savedIcon}>
+  {markers.map((p,i)=><Marker key={p.id??i} position={[p.lat,p.lng]} icon={p.favorite?favoriteIcon:savedIcon} eventHandlers={{click:()=>onMarkerClick?.(p)}}>
    <Popup><PinCard title={p.note||'Kayıtlı nokta'} kind={p.favorite?'favorite':'saved'} lat={p.lat} lng={p.lng}/></Popup></Marker>)}
  </MapContainer>;
 }

@@ -10,7 +10,19 @@
 - **Koyu tema** sistem ayarına göre otomatik.
 - **AI raporu** ham Markdown yerine ikonlu bölüm kartları ve etiket/değer satırlarıyla gösteriliyor.
 - **Harita pinleri** logo biçiminde damla ikonlar: seçili nokta kırmızı, kayıtlı mavi, favori altın yıldızlı; not baloncuğu yenilendi.
-- **XRE Real Estate logosu** header ve sekme simgesinde; arka planı şeffaf SVG (`public/logo-mark.svg`).
+- **XRE Software logosu** header ve sekme simgesinde; arka planı şeffaf SVG (`public/logo-mark.svg`).
+
+## Kayıttan parsel sınırı
+- Soldaki **Kayıtlar** listesinden veya haritadaki pinden bir kayıt seçildiğinde o noktanın **parseli kırmızı sınırla** çizilir.
+- Kayıt sırasında nokta, daha önce sorgulanmış (yerel arşivdeki) bir parselin içindeyse kayda otomatik bağlanır. Eski kayıtlarda da nokta arşivdeki bir parselin içindeyse sınır bulunur; değilse o parselin ada/parselini bir kez sorgulamanız yeterlidir.
+
+## AI analizi: emsal + resmî kaynak
+- **Emsal ilanlar:** İlan5 eklentisinin panelinden *Yedek (JSON)* veya *CSV* alın, Analiz sekmesindeki **İlan5 dosyası yükle** ile içe aktarın. Sahibinden/Emlakjet/Hepsiemlak arsa ilanları parselin il/ilçe/mahallesiyle eşleştirilir. **Satıcı adı, telefon ve açıklama saklanmaz.**
+- **Rakamlar kodda hesaplanır:** m² fiyatı medyanı, %25–%75 aralığı, uç değer ayıklama (1,5×IQR), benzer büyüklük süzgeci (1/3x–3x) ve parsel alanına göre istenen fiyat aralığı. Mahallede 5'ten az emsal varsa ilçe kullanılır, ilçede de 5'ten azsa **değer verilmez**. AI bu sayıları yeniden hesaplamaz, yalnızca yorumlar ve emsallere [E1] biçiminde atıf yapar.
+- **Aynı ada/parsel ilanı:** İlanda "Ada/Parsel No" bu parselle eşleşiyorsa ayrıca gösterilir.
+- **Web araştırması (OpenAI web_search):** AI ilgili belediyenin e-imar/imar durumu ve arsa m² birim değeri, e-Plan, DSİ kamulaştırma, ÇŞB yapı yaklaşık birim maliyetleri ve ilan sitelerini tarar; her bulgu kaynak linkiyle listelenir, bulunamayan konu "bulunamadı" yazılır. `.env` içinde `AI_WEB_SEARCH=false` ile kapatılır. Model desteklemezse analiz yerel verilerle sürer ve bu belirtilir.
+- **Resmî kaynak kontrolü:** TKGM Parsel Sorgu, e-Devlet tapu, e-Plan, belediye e-imar ve emsal/rayiç değer, DSİ, ÇŞB birim maliyet bağlantıları parsel bilgisiyle hazırlanır. Adresi belediyeye/yıla göre değişen kaynaklar arama bağlantısıdır.
+- Sınır: Bu kurumların çoğunun açık API'si yoktur ve bazıları giriş ister; uygulama bu sitelere otomatik giriş yapmaz, veri kazımaz. İmar ve değer için resmî belge gerekir.
 
 ## Düzeltmeler
 - Uydu görünümünde yüksek zoomda görülen **“Map data not yet available”** döşemeleri: Esri World Imagery kırsal alanlarda 18. seviyeden sonra gerçek görüntü vermiyor. Döşemeler artık 18'de alınıp 21'e kadar büyütülüyor.

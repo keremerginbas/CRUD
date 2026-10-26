@@ -1,9 +1,17 @@
-export type Pin={id?:number;lat:number;lng:number;note:string;favorite?:boolean};
+export type Pin={id?:number;lat:number;lng:number;note:string;favorite?:boolean;parcelId?:number|null};
 export type Region={id:number;name:string;hasBoundary?:boolean};
 export type RegionLevel='province'|'district'|'neighborhood';
 export type ParcelInfo={province?:string;district?:string;neighborhood?:string;block?:string;parcel?:string;areaM2?:number|null;qualification?:string|null;sheet?:string|null;geometry?:GeoJSON.Feature};
 export type ParcelResponse={ok?:boolean;error?:string;source?:string;checkedAt?:string;parcel?:ParcelInfo;warning?:string;localParcelId?:number|null};
-export type Health={parcelMode?:string;coordinateQueryEnabled?:boolean;aiConfigured?:boolean;database?:string};
+export type Health={parcelMode?:string;coordinateQueryEnabled?:boolean;aiConfigured?:boolean;aiWebSearch?:boolean;database?:string};
+export type StoredParcel=ParcelInfo&{id:number;source?:string;checkedAt?:string};
+export type Comparable={source:string;listingId:string;title:string;url:string;price:number;area:number;pricePerM2:number;neighborhood?:string;imar?:string|null;kaks?:string|null;tapu?:string|null;adaParsel?:string|null};
+export type Market={available:boolean;reason?:string;scope?:'neighborhood'|'district'|null;sizeBand?:boolean;minSample:number;totals:{district:number;neighborhood:number};
+ stats?:{n:number;trimmed:number;median:number;p25:number;p75:number;min:number;max:number}|null;estimate?:{low:number;mid:number;high:number;areaM2:number}|null;
+ comparables:Comparable[];sameParcelListings:Comparable[]};
+export type OfficialSource={id:string;group:string;title:string;detail:string;url:string;direct?:boolean};
+export type AnalysisResponse={analysis:string;citations?:{url:string;title:string}[];webSearch?:boolean;note?:string|null;market?:Market;sources?:OfficialSource[]};
+export type ComparableSummary={total:number;usable:number;districts:{city:string;district:string;n:number}[]};
 
 export async function fetchJson<T>(url:string,options?:RequestInit):Promise<T>{
  const res=await fetch(url,options);

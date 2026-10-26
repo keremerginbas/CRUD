@@ -5,7 +5,8 @@ import {ChevronRight, Database, FileUp, Layers, ListChecks, LocateFixed, Save, S
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
-import {fetchBoundary, fetchJson, postJson, type Health, type ParcelResponse, type Pin, type Region, type RegionLevel} from '@/lib/api';
+import {fetchBoundary, fetchJson, postJson, type AnalysisResponse, type Health, type OfficialSource, type ParcelResponse, type Pin, type Region, type RegionLevel, type StoredParcel} from '@/lib/api';
+import {ComparablesImport, MarketResult, OfficialSources} from '@/components/MarketPanels';
 import {MapView, type MapFocus} from '@/components/MapView';
 import {MarkersTable} from '@/components/MarkersTable';
 import {AnalysisView} from '@/components/AnalysisView';
@@ -60,6 +61,8 @@ function App(){
  const [satellite,setSatellite]=useState(true);
  const [labels,setLabels]=useState(true);
  const [analysis,setAnalysis]=useState('');
+ const [analysisData,setAnalysisData]=useState<AnalysisResponse|null>(null);
+ const [sources,setSources]=useState<OfficialSource[]>([]);
  const [analyzing,setAnalyzing]=useState(false);
  const [message,setMessage]=useState('İl seçerek başlayın. Her seçimde ilgili idari sınır haritada kırmızı çizgiyle gösterilir.');
  const [stored,setStored]=useState<Pin[]>([]);
@@ -96,6 +99,18 @@ function App(){
   return()=>{active=false};
  },[provinceId,districtId,neighborhoodId]);
 
+ // Resmî kaynak bağlantıları seçili bölge/parsel bilgisine göre güncellenir.
+ const sp=parcelResult?.parcel;
+ const sourceKey=[sp?.province||selectedProvince,sp?.district||selectedDistrict,sp?.neighborhood||selectedNeighborhood,sp?.block||'',sp?.parcel||''].join('|');
+ useEffect(()=>{
+  const [province,district,neighborhood,b,n]=sourceKey.split('|');
+  if(!district){setSources([]);return}
+  let active=true;
+  fetchJson<{sources:OfficialSource[]}>('/api/sources?'+new URLSearchParams({province,district,neighborhood,block:b,parcel:n}))
+   .then(d=>{if(active)setSources(d.sources)}).catch(()=>{});
+  return()=>{active=false};
+ },[sourceKey]);
+
  function selectProvince(id:string){setProvinceId(id);setDistrictId('');setNeighborhoodId('');setRegionsError('')}
  function selectDistrict(id:string){setDistrictId(id);setNeighborhoodId('');setRegionsError('')}
 
@@ -110,6 +125,24 @@ function App(){
    if(bounds.isValid()){const c=bounds.getCenter();setPin({lat:c.lat,lng:c.lng,note:''});setNote('');setFocusPin(null)}
   }
   setMessage(`${data.source||'Kadastro servisi'}: parsel yanıtı alındı.${data.warning?' '+data.warning:''}`);
+ }
+ // Kayıtlı nokta seçilince parselini çiz: önce kayda bağlı parsel, sonra yerel arşivde noktayı içeren parsel.
+ async function loadMarkerParcel(p:Pin){
+  try{
+   const d=p.parcelId?await fetchJson<{parcel:StoredParcel}>('/api/parcels/'+p.parcelId)
+    :await fetchJson<{parcel:StoredParcel}>(`/api/parcels/containing?lat=${p.lat}&lng=${p.lng}`);
+   const sp=d.parcel;
+   if(!sp.geometry)throw Error('Arşivdeki parselin sınır geometrisi yok.');
+   const key=`m${p.id}-${sp.id}-${Date.now()}`;
+   setParcelResult({ok:true,source:'Yerel arşiv (daha önce alınan TKGM yanıtı)',checkedAt:sp.checkedAt,localParcelId:sp.id,
+    parcel:{province:sp.province,district:sp.district,neighborhood:sp.neighborhood,block:sp.block,parcel:sp.parcel,areaM2:sp.areaM2,qualification:sp.qualification,sheet:sp.sheet,geometry:sp.geometry}});
+   setParcelGeometry(sp.geometry);setParcelKey(key);setFocus({data:sp.geometry,key,maxZoom:20});setAnalysis('');setAnalysisData(null);
+   setMessage(`“${p.note||'Kayıtlı nokta'}”: ${sp.block} ada / ${sp.parcel} parsel (${sp.neighborhood}) gösteriliyor.`);
+   return true;
+  }catch{
+   setMessage(`“${p.note||'Kayıtlı nokta'}” için arşivde parsel sınırı yok. Bu noktanın ada/parselini bir kez sorgulayın; sonra kayıt seçildiğinde sınır otomatik çizilir.`);
+   return false;
+  }
  }
  async function query(e:React.FormEvent){
   e.preventDefault();
@@ -140,8 +173,9 @@ function App(){
  async function save(){
   if(!pin)return;
   try{
-   const d=await postJson<{id:number}>('/api/markers',{...pin,note,favorite:false});
-   setStored(v=>[{...pin,note,id:d.id,favorite:false},...v]);setMessage('Konum ve not SQLite veritabanına kaydedildi.');
+   const d=await postJson<{id:number;parcelId:number|null}>('/api/markers',{lat:pin.lat,lng:pin.lng,note,favorite:false,parcelId:parcelResult?.localParcelId??undefined});
+   setStored(v=>[{...pin,note,id:d.id,favorite:false,parcelId:d.parcelId},...v]);
+   setMessage(d.parcelId?'Konum, not ve bağlı parsel kaydedildi.':'Konum ve not kaydedildi (bağlı parsel yok).');
   }catch(e){setMessage(e instanceof Error?e.message:'Kayıt başarısız.')}
  }
  const toggleFavorite=useCallback(async(p:Pin)=>{
@@ -158,17 +192,20 @@ function App(){
   try{await fetchJson('/api/markers/'+p.id,{method:'DELETE'});setStored(v=>v.filter(x=>x.id!==p.id))}
   catch(e){setMessage(e instanceof Error?e.message:'Silinemedi.')}
  },[]);
- const showMarker=useCallback((p:Pin)=>{setFocusPin({...p});setPin({...p});setNote(p.note||'');setShowSelectionPin(true)},[]);
+ const showMarker=useCallback((p:Pin)=>{
+  setPin({...p});setNote(p.note||'');setShowSelectionPin(false);
+  void loadMarkerParcel(p).then(found=>{if(!found){setFocusPin({...p});setShowSelectionPin(true)}});
+ },[]);
  async function analyze(){
-  if(!pin)return;setAnalyzing(true);setAnalysis('');
+  if(!pin)return;setAnalyzing(true);setAnalysis('');setAnalysisData(null);
   try{
    const v=parcelResult?.parcel;
    const context=v?{provider:parcelResult?.source,checkedAt:parcelResult?.checkedAt,province:v.province,district:v.district,
     neighborhood:v.neighborhood,block:v.block,parcel:v.parcel,qualification:v.qualification,areaM2:v.areaM2,
     // Geometri yüzlerce köşe içerebilir; LLM isteminde gerekmez.
     geometryAvailable:Boolean(v.geometry)}:{};
-   const data=await postJson<{analysis:string}>('/api/analysis',{lat:pin.lat,lng:pin.lng,context});
-   setAnalysis(data.analysis||'Analiz döndürülmedi.');
+   const data=await postJson<AnalysisResponse>('/api/analysis',{lat:pin.lat,lng:pin.lng,context});
+   setAnalysisData(data);setAnalysis(data.analysis||'Analiz döndürülmedi.');
   }catch(e){setAnalysis(e instanceof Error?e.message:'AI bağlantısı kurulamadı.')}finally{setAnalyzing(false)}
  }
 
@@ -181,7 +218,7 @@ function App(){
    <div className="flex items-center gap-2.5">
     <img src="/logo-mark.svg" alt="" className="h-10 w-auto drop-shadow-[0_0_6px_rgba(56,181,254,.35)]"/>
     <div className="leading-none">
-     <strong className="block font-[Bebas_Neue] text-[26px] font-normal tracking-wide text-[#38b5fe]">XRE REAL ESTATE</strong>
+     <strong className="block font-[Bebas_Neue] text-[26px] font-normal tracking-wide text-[#38b5fe]">XRE SOFTWARE</strong>
      <small className="mt-0.5 block font-[Montserrat] text-[9px] font-semibold tracking-[.32em] text-[#38b5fe]/85">PARSEL SORGU UYGULAMASI</small>
     </div>
    </div>
@@ -252,12 +289,16 @@ function App(){
           <LocateFixed size={16}/>{queryingCoordinate?'Koordinat sorgulanıyor…':'Seçilen Noktadaki Parseli Ara'}</Button>
          {health?.coordinateQueryEnabled===false&&<p className="text-[11px] text-muted-foreground">Koordinat sorgusu .env içinde kapalı (TKGM_COORDINATE_ENABLED).</p>}
         </CardContent></Card>
+       <ComparablesImport/>
        <Card><CardHeader><CardTitle>AI Değerlendirme</CardTitle><Badge tone={health?.aiConfigured?'ok':'neutral'}>{health?.aiConfigured?'Anahtar tanımlı':'Anahtar yok'}</Badge></CardHeader>
         <CardContent className="space-y-3">
-         <p className="text-xs leading-relaxed text-muted-foreground">Yalnızca doğrulanmış parsel verisi ve koordinat gönderilir. İmar hakkı ve güncel piyasa fiyatı ayrı doğrulama gerektirir.</p>
+         <p className="text-xs leading-relaxed text-muted-foreground">TKGM parsel verisi ve emsal istatistikleri (kodda hesaplanmış) gönderilir; AI rakam üretmez, yorumlar. {health?.aiWebSearch?'Web araştırması açık: resmî kaynaklar ve ilan siteleri kaynak linkiyle taranır.':'Web araştırması kapalı (AI_WEB_SEARCH=false).'}</p>
          <Button className="w-full" disabled={!pin||analyzing} onClick={analyze}><Sparkles size={16}/>{analyzing?'Analiz hazırlanıyor…':'Seçilen Noktayı AI ile Analiz Et'}</Button>
-         {analysis&&<AnalysisView text={analysis} lat={pin?.lat} lng={pin?.lng}/>}
+         {!p&&<p className="text-[11px] text-amber-700 dark:text-amber-400">Emsal karşılaştırması için önce parseli sorgulayın veya parseli olan bir kaydı seçin.</p>}
+         {analysisData?.market&&<MarketResult market={analysisData.market}/>}
+         {analysis&&<AnalysisView text={analysis} lat={pin?.lat} lng={pin?.lng} citations={analysisData?.citations} webSearch={analysisData?.webSearch} note={analysisData?.note}/>}
         </CardContent></Card>
+       {sources.length>0&&<OfficialSources sources={sources}/>}
       </TabsPanel>
 
       <TabsPanel value="records" className="space-y-4">
@@ -276,7 +317,7 @@ function App(){
 
    <section className="relative min-h-0 max-lg:h-[60vh] max-lg:min-h-[420px]">
     <MapView satellite={satellite} labels={labels} boundary={boundary} parcel={parcelGeometry} parcelKey={parcelKey} focus={focus}
-     pin={pin} showSelectionPin={showSelectionPin} focusPin={focusPin} markers={visibleMarkers}
+     pin={pin} showSelectionPin={showSelectionPin} focusPin={focusPin} markers={visibleMarkers} onMarkerClick={showMarker}
      onPick={(lat,lng)=>{setPin({lat,lng,note:''});setNote('');setShowSelectionPin(true)}}/>
     <div className="absolute top-2.5 right-2.5 z-[1000] flex max-w-[calc(100%-4.5rem)] flex-wrap items-center justify-end gap-1.5">
      {parcelGeometry&&<Button variant="danger" size="sm" className="bg-card shadow-md" onClick={()=>setFocus({data:parcelGeometry,key:parcelKey+'-'+Date.now(),maxZoom:20})}><LocateFixed size={14}/>Parsel</Button>}

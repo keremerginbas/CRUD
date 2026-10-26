@@ -3,18 +3,56 @@ import cors from 'cors';
 import 'dotenv/config';
 import {pool,requireDb,databaseMode} from './db.mjs';
 import {tkgmQuery} from './tkgm-bridge.mjs';
+import {containsPoint} from './geo.mjs';
+import {marketAnalysis, normalizeListing, placeKey} from './market.mjs';
+import {officialSources} from './sources.mjs';
 const app=express();
 // Local development is allowed without auth; remote exposure is blocked until a real login system exists.
 const host=process.env.HOST||'127.0.0.1';
 if(!['127.0.0.1','localhost','::1'].includes(host)&&process.env.ALLOW_UNAUTHENTICATED_REMOTE!=='I_UNDERSTAND_THE_RISK'){
  console.error('Refusing remote bind: authentication is not implemented.');process.exit(1);
 }
-app.disable('x-powered-by');app.use(cors({origin:process.env.CORS_ORIGIN||false}));app.use(express.json({limit:'100kb'}));
-app.get('/api/health',(_req,res)=>res.json({ok:true,parcelMode:process.env.TKGM_PARCEL_MODE||'public',parcelProviderConfigured:true,parcelProviderReachable:'test edilmedi',authorizedTokenConfigured:Boolean(process.env.TKGM_TOKEN),coordinateQueryEnabled:process.env.TKGM_COORDINATE_ENABLED==='true',pythonBridge:true,aiConfigured:Boolean(process.env.OPENAI_API_KEY),database:databaseMode}));
+app.disable('x-powered-by');app.use(cors({origin:process.env.CORS_ORIGIN||false}));// Emsal ice aktarma parcali buyuk govde alir; diger tum istekler 100 KB ile sinirli.
+const smallJson=express.json({limit:'100kb'}),importJson=express.json({limit:'8mb'});
+app.use((req,res,next)=>(req.path==='/api/comparables/import'?importJson:smallJson)(req,res,next));
+app.get('/api/health',(_req,res)=>res.json({ok:true,parcelMode:process.env.TKGM_PARCEL_MODE||'public',parcelProviderConfigured:true,parcelProviderReachable:'test edilmedi',authorizedTokenConfigured:Boolean(process.env.TKGM_TOKEN),coordinateQueryEnabled:process.env.TKGM_COORDINATE_ENABLED==='true',pythonBridge:true,aiConfigured:Boolean(process.env.OPENAI_API_KEY),aiWebSearch:process.env.AI_WEB_SEARCH!=='false',database:databaseMode}));
 
-app.get('/api/parcels/:id',async(req,res)=>{if(!await requireDb(res))return;const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Geçersiz parsel kimliği.'});try{const [rows]=await pool.execute('SELECT id,province,district,neighborhood,block_no,parcel_no,geometry,area_m2,source_name,source_checked_at FROM parcels WHERE id=?',[id]);res.status(rows.length?200:404).json(rows[0]||{error:'Parsel bulunamadı.'})}catch{res.status(500).json({error:'Parsel okunamadı.'})}});
+const PARCEL_COLUMNS='id,province,district,neighborhood,block_no,parcel_no,geometry,area_m2,qualification,sheet,source_name,source_checked_at';
+function parcelRow(row){
+ let geometry=row.geometry;
+ if(typeof geometry==='string'){try{geometry=JSON.parse(geometry)}catch{geometry=null}}
+ return {id:row.id,province:row.province,district:row.district,neighborhood:row.neighborhood,block:row.block_no,parcel:row.parcel_no,
+  areaM2:row.area_m2==null?null:Number(row.area_m2),qualification:row.qualification||null,sheet:row.sheet||null,geometry,
+  source:row.source_name,checkedAt:row.source_checked_at};
+}
+const validLatLng=(lat,lng)=>Number.isFinite(lat)&&Number.isFinite(lng)&&lat>=35&&lat<=43&&lng>=25&&lng<=46;
+// Daha once sorgulanip yerel arsive kaydedilmis parseller icinde noktayi iceren parsel (ag istegi yok).
+async function findContainingParcel(lat,lng){
+ const [rows]=await pool.query(`SELECT ${PARCEL_COLUMNS} FROM parcels WHERE geometry IS NOT NULL ORDER BY id DESC LIMIT 5000`);
+ for(const row of rows){const p=parcelRow(row);if(p.geometry&&containsPoint(p.geometry,lat,lng))return p}
+ return null;
+}
+app.get('/api/parcels/containing',async(req,res)=>{
+ const lat=Number(req.query.lat),lng=Number(req.query.lng);
+ if(!validLatLng(lat,lng))return res.status(400).json({error:'Geçerli Türkiye koordinatı gerekli.'});
+ try{const p=await findContainingParcel(lat,lng);res.status(p?200:404).json(p?{parcel:p}:{error:'Bu nokta yerel arşivdeki hiçbir parselin içinde değil.'})}
+ catch(e){console.error('[PARCEL CONTAINING]',e.message);res.status(500).json({error:'Parsel arşivi okunamadı.'})}
+});
+app.get('/api/parcels/:id',async(req,res)=>{if(!await requireDb(res))return;const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Geçersiz parsel kimliği.'});try{const [rows]=await pool.execute(`SELECT ${PARCEL_COLUMNS} FROM parcels WHERE id=?`,[id]);res.status(rows.length?200:404).json(rows.length?{parcel:parcelRow(rows[0])}:{error:'Parsel bulunamadı.'})}catch{res.status(500).json({error:'Parsel okunamadı.'})}});
 app.get('/api/markers',async(req,res)=>{if(!await requireDb(res))return;try{const [rows]=await pool.query('SELECT id,lat,lng,note,color,is_favorite AS favorite,parcel_id AS parcelId FROM map_markers WHERE user_id=? ORDER BY id DESC LIMIT 3000',['local']);res.json({markers:rows.map(row=>({...row,favorite:Boolean(row.favorite)}))})}catch{res.status(500).json({error:'Veritabanı sorgusu başarısız.'})}});
-app.post('/api/markers',async(req,res)=>{if(!await requireDb(res))return;const {lat,lng,note='',favorite=false}=req.body||{};if(!Number.isFinite(lat)||!Number.isFinite(lng)||lat<35||lat>43||lng<25||lng>46||typeof note!=='string'||note.length>3000)return res.status(400).json({error:'Geçersiz konum veya not.'});try{const [r]=await pool.execute('INSERT INTO map_markers(user_id,lat,lng,note,is_favorite) VALUES(?,?,?,?,?)',['local',lat,lng,note,Boolean(favorite)]);res.status(201).json({id:r.insertId})}catch(error){console.error('[MARKER INSERT ERROR]',error);res.status(500).json({error:'Kayıt başarısız.'})}});
+app.post('/api/markers',async(req,res)=>{
+ if(!await requireDb(res))return;
+ const {lat,lng,note='',favorite=false}=req.body||{};
+ if(!validLatLng(lat,lng)||typeof note!=='string'||note.length>3000)return res.status(400).json({error:'Geçersiz konum veya not.'});
+ try{
+  // Nokta arşivdeki bir parselin içindeyse kayda bağla; kayıt seçildiğinde parsel sınırı çizilebilsin.
+  let parcelId=Number.isSafeInteger(req.body.parcelId)&&req.body.parcelId>0?req.body.parcelId:null;
+  if(parcelId){const [rows]=await pool.execute('SELECT id FROM parcels WHERE id=?',[parcelId]);if(!rows.length)parcelId=null}
+  if(!parcelId)parcelId=(await findContainingParcel(lat,lng))?.id??null;
+  const [r]=await pool.execute('INSERT INTO map_markers(user_id,lat,lng,note,is_favorite,parcel_id) VALUES(?,?,?,?,?,?)',['local',lat,lng,note,Boolean(favorite),parcelId]);
+  res.status(201).json({id:r.insertId,parcelId});
+ }catch(error){console.error('[MARKER INSERT ERROR]',error);res.status(500).json({error:'Kayıt başarısız.'})}
+});
 app.patch('/api/markers/:id',async(req,res)=>{if(!await requireDb(res))return;const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<1||typeof req.body?.favorite!=='boolean')return res.status(400).json({error:'Geçersiz istek.'});try{const [r]=await pool.execute('UPDATE map_markers SET is_favorite=? WHERE id=? AND user_id=?',[req.body.favorite,id,'local']);res.status(r.affectedRows?200:404).json({ok:Boolean(r.affectedRows)})}catch(error){console.error('[MARKER UPDATE ERROR]',error);res.status(500).json({error:'Güncelleme başarısız.'})}});
 app.delete('/api/markers/:id',async(req,res)=>{if(!await requireDb(res))return;const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Geçersiz id.'});try{const [result]=await pool.execute('DELETE FROM map_markers WHERE id=? AND user_id=?',[id,'local']);res.status(result.affectedRows?200:404).json(result.affectedRows?{ok:true}:{error:'Kayıt bulunamadı.'})}catch{res.status(500).json({error:'Silme başarısız.'})}});
 app.get('/api/jobs/:id',async(req,res)=>{if(!await requireDb(res))return;const id=Number(req.params.id);if(!Number.isSafeInteger(id)||id<1)return res.status(400).json({error:'Geçersiz görev kimliği.'});try{const [rows]=await pool.execute('SELECT id,status,error_message,updated_at FROM query_jobs WHERE id=?',[id]);res.status(rows.length?200:404).json(rows[0]||{error:'Görev bulunamadı.'})}catch{res.status(500).json({error:'Görev okunamadı.'})}});
@@ -69,14 +107,14 @@ async function storeVerifiedParcel(payload,record){
  const block=String(p.block||payload.block||''),number=String(p.parcel||payload.parcel||'');
  // Save ONLY successful, geometry-backed upstream responses.
  if(!province||!district||!neighborhood||!block||!number||!p.geometry) return null;
- const values=[province,district,neighborhood,block,number,JSON.stringify(p.geometry),p.areaM2,record.source,new Date(record.checkedAt).toISOString().slice(0,19).replace('T',' ')];
+ const values=[province,district,neighborhood,block,number,JSON.stringify(p.geometry),p.areaM2,p.qualification||null,p.sheet||null,record.source,new Date(record.checkedAt).toISOString().slice(0,19).replace('T',' ')];
  if(databaseMode==='sqlite'){
-  await pool.execute(`INSERT INTO parcels(province,district,neighborhood,block_no,parcel_no,geometry,area_m2,source_name,source_checked_at)
-   VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(province,district,neighborhood,block_no,parcel_no) DO UPDATE SET
-   geometry=excluded.geometry,area_m2=excluded.area_m2,source_name=excluded.source_name,source_checked_at=excluded.source_checked_at`,values);
+  await pool.execute(`INSERT INTO parcels(province,district,neighborhood,block_no,parcel_no,geometry,area_m2,qualification,sheet,source_name,source_checked_at)
+   VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(province,district,neighborhood,block_no,parcel_no) DO UPDATE SET
+   geometry=excluded.geometry,area_m2=excluded.area_m2,qualification=excluded.qualification,sheet=excluded.sheet,source_name=excluded.source_name,source_checked_at=excluded.source_checked_at`,values);
  }else{
-  await pool.execute(`INSERT INTO parcels(province,district,neighborhood,block_no,parcel_no,geometry,area_m2,source_name,source_checked_at)
-   VALUES(?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE geometry=VALUES(geometry),area_m2=VALUES(area_m2),source_name=VALUES(source_name),source_checked_at=VALUES(source_checked_at)`,values);
+  await pool.execute(`INSERT INTO parcels(province,district,neighborhood,block_no,parcel_no,geometry,area_m2,qualification,sheet,source_name,source_checked_at)
+   VALUES(?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE geometry=VALUES(geometry),area_m2=VALUES(area_m2),qualification=VALUES(qualification),sheet=VALUES(sheet),source_name=VALUES(source_name),source_checked_at=VALUES(source_checked_at)`,values);
  }
  const [rows]=await pool.execute('SELECT id FROM parcels WHERE province=? AND district=? AND neighborhood=? AND block_no=? AND parcel_no=?',[province,district,neighborhood,block,number]);
  return rows[0]?.id||null;
@@ -109,15 +147,102 @@ app.post('/api/parcels/coordinate',async(req,res)=>{
  return res.json(result);
 });
 
+// --- Emsal ilanlar (İlan5 eklentisi JSON/CSV dışa aktarımı) ---
+const COMPARABLE_COLUMNS=['source','listing_id','title','price','currency','area','city','district','neighborhood','city_key','district_key','neighborhood_key','category','url','imar','kaks','tapu','ada_parsel','listing_status','captured_at'];
+app.post('/api/comparables/import',async(req,res)=>{
+ const records=req.body?.records;
+ if(!Array.isArray(records)||!records.length||records.length>2000)return res.status(400).json({error:'Bir istekte 1–2000 kayıt gönderin.'});
+ const listings=records.map(normalizeListing).filter(Boolean);
+ const placeholders=COMPARABLE_COLUMNS.map(()=>'?').join(',');
+ const update=COMPARABLE_COLUMNS.slice(2).map(c=>databaseMode==='sqlite'?`${c}=excluded.${c}`:`${c}=VALUES(${c})`).join(',');
+ const sql=`INSERT INTO comparables(${COMPARABLE_COLUMNS.join(',')}) VALUES(${placeholders}) `+
+  (databaseMode==='sqlite'?`ON CONFLICT(source,listing_id) DO UPDATE SET ${update}`:`ON DUPLICATE KEY UPDATE ${update}`);
+ try{
+  for(const l of listings)await pool.execute(sql,[l.source,l.listingId,l.title,l.price,l.currency,l.area,l.city,l.district,l.neighborhood,l.cityKey,l.districtKey,l.neighborhoodKey,l.category,l.url,l.imar,l.kaks,l.tapu,l.adaParsel,l.listingStatus,l.capturedAt]);
+  res.json({ok:true,received:records.length,saved:listings.length,skipped:records.length-listings.length});
+ }catch(e){console.error('[COMPARABLES IMPORT]',e.message);res.status(500).json({error:'Emsal kayıtları kaydedilemedi.'})}
+});
+app.get('/api/comparables/summary',async(_req,res)=>{
+ try{
+  const [[totals]]=await pool.query("SELECT COUNT(*) AS total,SUM(CASE WHEN category='arsa' AND listing_status<>'removed' AND price>0 AND area>0 THEN 1 ELSE 0 END) AS usable FROM comparables");
+  const [districts]=await pool.query("SELECT city,district,COUNT(*) AS n FROM comparables WHERE category='arsa' AND listing_status<>'removed' GROUP BY city_key,district_key ORDER BY n DESC LIMIT 15");
+  res.json({total:Number(totals?.total||0),usable:Number(totals?.usable||0),districts});
+ }catch(e){console.error('[COMPARABLES SUMMARY]',e.message);res.status(500).json({error:'Emsal özeti okunamadı.'})}
+});
+app.delete('/api/comparables',async(_req,res)=>{
+ try{await pool.execute('DELETE FROM comparables');res.json({ok:true})}catch{res.status(500).json({error:'Silinemedi.'})}
+});
+
+app.get('/api/sources',(req,res)=>{
+ const q=k=>String(req.query[k]||'').slice(0,150);
+ res.json({sources:officialSources({province:q('province'),district:q('district'),neighborhood:q('neighborhood'),block:q('block').replace(/\D/g,''),parcel:q('parcel').replace(/\D/g,'')})});
+});
+
+async function loadMarket(context){
+ const [rows]=await pool.execute(`SELECT ${COMPARABLE_COLUMNS.join(',')} FROM comparables WHERE city_key=? AND district_key=?`,[placeKey(context.province),placeKey(context.district)]);
+ return marketAnalysis(rows,context);
+}
+const round=(n,step=1)=>n==null?null:Math.round(n/step)*step;
+// LLM'e giden piyasa özeti: sayılar kodda hesaplanmış ve yuvarlanmıştır.
+function marketForPrompt(m){
+ if(!m.available)return {available:false,reason:m.reason,totals:m.totals};
+ return {available:true,scope:m.scope==='neighborhood'?'aynı mahalle':'aynı ilçe',sizeBand:m.sizeBand,sample:m.stats.n,outliersRemoved:m.stats.trimmed,
+  pricePerM2_TRY:{median:round(m.stats.median),p25:round(m.stats.p25),p75:round(m.stats.p75),min:round(m.stats.min),max:round(m.stats.max)},
+  askingValueRange_TRY:m.estimate&&{low:round(m.estimate.low,1000),mid:round(m.estimate.mid,1000),high:round(m.estimate.high,1000),areaM2:m.estimate.areaM2},
+  comparables:m.comparables.map((c,i)=>({ref:`E${i+1}`,source:c.source,neighborhood:c.neighborhood,areaM2:c.area,priceTRY:c.price,pricePerM2:round(c.pricePerM2),imar:c.imar,kaks:c.kaks,tapu:c.tapu,url:c.url})),
+  sameParcelListings:m.sameParcelListings.map(c=>({source:c.source,priceTRY:c.price,areaM2:c.area,imar:c.imar,url:c.url}))};
+}
+const ANALYSIS_INSTRUCTIONS=`Sen Türkiye'de arsa değerlemesi ve imar konusunda deneyimli, temkinli bir gayrimenkul analistisin. Türkçe yaz.
+KESİN KURALLAR:
+1. Sayısal değerleri YALNIZCA "verifiedContext" ve "market" alanlarından al. Hiçbir sayıyı yeniden hesaplama, yuvarlama veya tahmin etme; verildiği gibi kullan.
+2. market.available=false ise değer aralığı VERME; nedenini yaz ve kaç emsal gerektiğini belirt.
+3. Emsal değerleri ilan (istenen) fiyatlarıdır, satış fiyatı değildir; bunu açıkça belirt. Emsallere [E1], [E2] biçiminde atıf yap.
+4. TKGM niteliği "Arsa" olsa bile imarlı olduğu anlamına gelmez. İmar durumu, TAKS/KAKS ve yapılaşma hakkı ancak belediye imar durum belgesi ve onaylı plan (e-Plan) ile kesinleşir.
+5. Web araştırması yaptıysan yalnızca bulduğun ve kaynağını gösterebildiğin bilgileri yaz; her bilginin yanına kaynağın alan adını yaz. Bulamadığın konu için "bulunamadı" de. Kaynaksız iddia, uydurma kurum adı, tarih veya rakam YAZMA.
+6. Web araştırmasında öncelik: ilgili ilçe belediyesinin e-imar/imar durumu ve arsa m² birim değeri (emlak vergisi) sayfaları, e-Plan (Çevre, Şehircilik ve İklim Değişikliği Bakanlığı), DSİ kamulaştırma/proje bilgileri, Bakanlığın güncel yıl yapı yaklaşık birim maliyetleri tebliği, ardından sahibinden/emlakjet/hepsiemlak'taki aynı mahalle ilanları.
+7. Koordinatın tek başına parsel sınırını kanıtlamadığını unutma; geometri TKGM'den geldiyse bunu belirt.
+BAŞLIKLAR (### ile, bu sırayla): Özet, Parsel Verisi, Emsal Piyasa Analizi, Değer Aralığı (İlan Fiyatlarına Göre), Resmî Kaynak Bulguları, Riskler ve Eksik Bilgiler, Önerilen Adımlar.
+Maddeleri "- Etiket: değer" biçiminde kısa yaz.`;
+
+async function openaiResponse(body){
+ const response=await fetch((process.env.OPENAI_BASE_URL||'https://api.openai.com/v1').replace(/\/$/,'')+'/responses',{method:'POST',headers:{'Authorization':`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify(body)});
+ const data=await response.json().catch(()=>({}));
+ return {ok:response.ok,data};
+}
+function extractOutput(data){
+ const parts=(data.output||[]).filter(x=>x.type==='message').flatMap(x=>x.content||[]).filter(x=>x.type==='output_text');
+ const citations=new Map();
+ for(const part of parts)for(const a of part.annotations||[])if(a.type==='url_citation'&&/^https?:\/\//.test(a.url||''))citations.set(a.url,{url:a.url,title:a.title||a.url});
+ return {text:parts.map(x=>x.text).join('\n'),citations:[...citations.values()].slice(0,20)};
+}
+
 app.post('/api/analysis',async(req,res)=>{
  const {lat,lng,context}=req.body||{};
- if(typeof lat!=='number'||typeof lng!=='number'||lat<35||lat>43||lng<25||lng>46)return res.status(400).json({error:'Türkiye içinde geçerli koordinat gerekli.'});
+ if(!validLatLng(lat,lng))return res.status(400).json({error:'Türkiye içinde geçerli koordinat gerekli.'});
  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:'OPENAI_API_KEY sunucuda tanımlı değil.'});
+ const ctx=typeof context==='object'&&context!==null?context:{};
+ const parcel={province:String(ctx.province||''),district:String(ctx.district||''),neighborhood:String(ctx.neighborhood||''),
+  block:String(ctx.block||''),parcel:String(ctx.parcel||''),areaM2:Number(ctx.areaM2)||null};
+ let market={available:false,reason:'Parsel sorgulanmadı; emsal eşleştirmesi için önce ada/parsel sorgulayın.',totals:{district:0,neighborhood:0},comparables:[],sameParcelListings:[]};
+ try{if(parcel.province&&parcel.district)market=await loadMarket(parcel)}catch(e){console.error('[MARKET]',e.message)}
+ const sources=officialSources(parcel);
+ const webSearch=process.env.AI_WEB_SEARCH!=='false';
+ const body={model:process.env.OPENAI_MODEL||'gpt-4.1-mini',instructions:ANALYSIS_INSTRUCTIONS,max_output_tokens:1800,
+  input:JSON.stringify({coordinates:{lat,lng},verifiedContext:ctx,market:marketForPrompt(market),
+   officialSourcesToCheck:sources.map(s=>({title:s.title,detail:s.detail})),today:new Date().toISOString().slice(0,10)})};
  try{
- const response=await fetch('https://api.openai.com/v1/responses',{method:'POST',headers:{'Authorization':`Bearer ${process.env.OPENAI_API_KEY}`,'Content-Type':'application/json'},body:JSON.stringify({model:process.env.OPENAI_MODEL||'gpt-4.1-mini',instructions:'Türkçe yaz. Kullanıcının seçtiği koordinat için SADECE verilen doğrulanmış verilerden sonuç çıkar. Harita görüntüsüne, kadastro/imar kaydına, gerçek zamanlı yer bilgilerine erişimin yok. Bölge, ulaşım, fiyat, imar, parsel büyüklüğü, yatırım getirisi gibi unsurları uydurma. Önce veri durumu ve sınırları, sonra doğrulanabilir analiz ve gerekli veri kaynakları başlıklarıyla kısa rapor yaz. Koordinatın tek başına parsel sınırını kanıtlamadığını belirt.',input:JSON.stringify({coordinates:{lat,lng},verifiedContext:typeof context==='object'&&context!==null?context:{}}),max_output_tokens:550})});
- const data=await response.json();if(!response.ok)return res.status(502).json({error:'OpenAI API isteği başarısız.',details:data.error?.message||'Bilinmeyen hata'});
- const analysis=(data.output||[]).flatMap(x=>x.content||[]).filter(x=>x.type==='output_text').map(x=>x.text).join('\n');
- res.json({analysis,source:'OpenAI; yalnızca gönderilen bağlam',verifiedParcel:false});
- }catch(e){res.status(502).json({error:'AI servisine erişilemedi.'})}
+  let usedWeb=webSearch,note=null;
+  let r=await openaiResponse(webSearch?{...body,tools:[{type:'web_search'}]}:body);
+  if(!r.ok&&webSearch){
+   // Model web aramasını desteklemiyorsa aramasız tekrar dene ve kullanıcıya söyle.
+   console.error('[AI WEB SEARCH]',r.data.error?.message);
+   note='Web araştırması bu modelde/hesapta çalışmadı; analiz yalnızca yerel verilerle yapıldı.';usedWeb=false;
+   r=await openaiResponse(body);
+  }
+  if(!r.ok)return res.status(502).json({error:'OpenAI API isteği başarısız.',details:r.data.error?.message||'Bilinmeyen hata'});
+  const out=extractOutput(r.data);
+  res.json({analysis:out.text,citations:out.citations,webSearch:usedWeb,note,market,sources,model:body.model,
+   source:'OpenAI; yerel TKGM verisi + içe aktarılan emsal ilanlar'+(usedWeb?' + web araştırması':'')});
+ }catch(e){console.error('[AI]',e.message);res.status(502).json({error:'AI servisine erişilemedi.'})}
 });
 app.listen(Number(process.env.PORT||3001),host,()=>console.log('XRE API listening on '+host+':'+(process.env.PORT||3001)));

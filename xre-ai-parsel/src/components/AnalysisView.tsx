@@ -1,9 +1,10 @@
 import * as React from 'react';
 import {motion} from 'motion/react';
-import {CheckCircle2, ClipboardList, Database, FileSearch, Lightbulb, MapPin, ScrollText, ShieldAlert, Sparkles, type LucideIcon} from 'lucide-react';
+import {BarChart3, Landmark, ListChecks, TrendingUp, CheckCircle2, ClipboardList, Globe, Link2, Database, FileSearch, Lightbulb, MapPin, ScrollText, ShieldAlert, Sparkles, type LucideIcon} from 'lucide-react';
 import {cn} from '@/lib/utils';
 
 type Section={title:string;lines:string[]};
+const hostOf=(url:string)=>{try{return new URL(url).hostname.replace(/^www\./,'')}catch{return ''}};
 
 // AI raporu Markdown gelir; HTML olarak basmadan (XSS yok) başlık/madde/kalın biçimine çeviriyoruz.
 function parse(text:string):Section[]{
@@ -21,6 +22,11 @@ function parse(text:string):Section[]{
 
 const SECTION_STYLES:{match:RegExp;icon:LucideIcon;tone:string}[]=[
  {match:/veri durumu|sınır/i,icon:Database,tone:'text-sky-500 bg-sky-500/10'},
+ {match:/resmî|resmi|kaynak bulgu/i,icon:Landmark,tone:'text-violet-500 bg-violet-500/10'},
+ {match:/değer aralığı|fiyat/i,icon:TrendingUp,tone:'text-emerald-500 bg-emerald-500/10'},
+ {match:/emsal|piyasa/i,icon:BarChart3,tone:'text-sky-500 bg-sky-500/10'},
+ {match:/özet/i,icon:Sparkles,tone:'text-primary bg-primary/10'},
+ {match:/adım/i,icon:ListChecks,tone:'text-amber-500 bg-amber-500/10'},
  {match:/doğrulan|analiz/i,icon:FileSearch,tone:'text-emerald-500 bg-emerald-500/10'},
  {match:/kaynak|belge/i,icon:ClipboardList,tone:'text-violet-500 bg-violet-500/10'},
  {match:/sonuç|öneri|özet/i,icon:Lightbulb,tone:'text-amber-500 bg-amber-500/10'},
@@ -58,11 +64,11 @@ function Body({lines}:{lines:string[]}){
  return <div className="space-y-2">{blocks}</div>;
 }
 
-export function AnalysisView({text,lat,lng}:{text:string;lat?:number;lng?:number}){
+export function AnalysisView({text,lat,lng,citations=[],webSearch,note}:{text:string;lat?:number;lng?:number;citations?:{url:string;title:string}[];webSearch?:boolean;note?:string|null}){
  const sections=parse(text);
  return <div className="space-y-3">
   <div className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-primary/15 to-transparent px-3 py-2 text-xs font-semibold text-primary">
-   <Sparkles size={14}/>AI raporu
+   <Sparkles size={14}/>AI raporu{webSearch&&<span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-1.5 py-px text-[10px]"><Globe size={10}/>web araştırmalı</span>}
    {lat!=null&&lng!=null&&<span className="ml-auto inline-flex items-center gap-1 font-mono font-normal text-muted-foreground"><MapPin size={12}/>{lat.toFixed(5)}, {lng.toFixed(5)}</span>}
   </div>
   {sections.map((s,i)=>{
@@ -74,6 +80,12 @@ export function AnalysisView({text,lat,lng}:{text:string;lat?:number;lng?:number
     <Body lines={s.lines}/>
    </motion.section>;
   })}
+  {note&&<p className="rounded-md bg-amber-500/10 px-2.5 py-2 text-xs text-amber-700 dark:text-amber-300">{note}</p>}
+  {citations.length>0&&<section className="rounded-lg border border-border bg-card p-3">
+   <h4 className="mb-2 flex items-center gap-2 text-[13px] font-bold"><span className="grid size-7 place-items-center rounded-md bg-primary/10 text-primary"><Link2 size={15}/></span>Kaynaklar ({citations.length})</h4>
+   <ol className="space-y-1 text-xs">{citations.map((c,i)=><li key={c.url} className="flex gap-2"><span className="w-4 shrink-0 text-muted-foreground">{i+1}.</span>
+    <a href={c.url} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-primary hover:underline" title={c.url}>{c.title}<span className="ml-1 text-muted-foreground">· {hostOf(c.url)}</span></a></li>)}</ol>
+  </section>}
   <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground"><ShieldAlert size={13} className="mt-px shrink-0"/>AI çıktısıdır; tapu, imar ve değer bilgisi için resmî kaynaklardan doğrulayın.</p>
  </div>;
 }
