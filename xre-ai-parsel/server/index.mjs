@@ -313,7 +313,11 @@ app.post('/api/analysis',async(req,res)=>{
 });
 // Derlenmiş arayüz (npm run build -> dist) varsa aynı porttan verilir: tek pencere, tek adres.
 const distDir=fileURLToPath(new URL('../dist',import.meta.url));
-if(fs.existsSync(distDir+'/index.html')){
+const distIndex=distDir+'/index.html';
+// Derlenmemiş (src/main.tsx'e işaret eden) bir dist sunulmaz; beyaz sayfa yerine açık uyarı verilir.
+const distOk=fs.existsSync(distIndex)&&!/src=["']\/src\//.test(fs.readFileSync(distIndex,'utf8'));
+if(fs.existsSync(distIndex)&&!distOk)console.error('UYARI: dist/index.html derlenmemiş. node_modules klasörünü silip KURULUM.bat ve BASLAT.bat çalıştırın.');
+if(distOk){
  app.use(express.static(distDir,{index:false,maxAge:'1h'}));
  app.get(/^\/(?!api\/).*/,(_req,res)=>res.sendFile(distDir+'/index.html'));
  console.log('Arayüz: dist klasöründen veriliyor.');
