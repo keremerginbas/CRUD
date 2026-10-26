@@ -3,7 +3,7 @@ export type Region={id:number;name:string;hasBoundary?:boolean};
 export type RegionLevel='province'|'district'|'neighborhood';
 export type ParcelInfo={province?:string;district?:string;neighborhood?:string;block?:string;parcel?:string;areaM2?:number|null;qualification?:string|null;sheet?:string|null;geometry?:GeoJSON.Feature};
 export type ParcelResponse={ok?:boolean;error?:string;source?:string;checkedAt?:string;parcel?:ParcelInfo;warning?:string;localParcelId?:number|null};
-export type Health={parcelMode?:string;coordinateQueryEnabled?:boolean;aiConfigured?:boolean;aiWebSearch?:boolean;database?:string};
+export type Health={authRequired?:boolean;aiDailyLimit?:number;parcelMode?:string;coordinateQueryEnabled?:boolean;aiConfigured?:boolean;aiWebSearch?:boolean;database?:string};
 export type StoredParcel=ParcelInfo&{id:number;source?:string;checkedAt?:string};
 export type Comparable={source:string;listingId:string;title:string;url:string;price:number;area:number;pricePerM2:number;neighborhood?:string;imar?:string|null;kaks?:string|null;tapu?:string|null;adaParsel?:string|null};
 export type Market={available:boolean;reason?:string;scope?:'neighborhood'|'district'|null;sizeBand?:boolean;minSample:number;totals:{district:number;neighborhood:number};
@@ -14,7 +14,9 @@ export type AnalysisResponse={analysis:string;citations?:{url:string;title:strin
 export type ComparableSummary={total:number;usable:number;districts:{city:string;district:string;n:number}[]};
 
 export async function fetchJson<T>(url:string,options?:RequestInit):Promise<T>{
- const res=await fetch(url,options);
+ // Göreli adres: uygulama alt dizinde (ör. /parsel-sorgu/) yayınlandığında da doğru API'ye gider.
+ const res=await fetch(url.replace(/^\//,''),{credentials:'same-origin',...options});
+ if(res.status===401)window.dispatchEvent(new Event('xre:auth-required'));
  const raw=await res.text();
  let data:any;
  try{data=raw?JSON.parse(raw):{}}catch{throw new Error('Sunucu JSON yerine beklenmeyen yanıt döndürdü. API terminalini kontrol edin.')}

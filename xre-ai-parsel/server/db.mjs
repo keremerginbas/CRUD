@@ -1,12 +1,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {DatabaseSync} from 'node:sqlite';
 import mysql from 'mysql2/promise';
 
 const useMysql=Boolean(process.env.DATABASE_URL);
 const sqlitePath=path.resolve(process.env.SQLITE_PATH||'./data/xre-parsel.sqlite');
 let sqlite;
 if(!useMysql){
+ // node:sqlite Node 22.13+ ister; yoksa MySQL (DATABASE_URL) kullanın.
+ let DatabaseSync;
+ try{({DatabaseSync}=await import('node:sqlite'))}
+ catch{console.error('Bu Node sürümünde SQLite yok. Node 22.13+ seçin veya .env içinde DATABASE_URL ile MySQL kullanın.');process.exit(1)}
  fs.mkdirSync(path.dirname(sqlitePath),{recursive:true});
  sqlite=new DatabaseSync(sqlitePath);
  sqlite.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;
@@ -35,5 +38,12 @@ const sqliteAdapter={
  async query(sql,params=[]){return this.execute(sql,params)}
 };
 export const pool=useMysql?mysql.createPool({uri:process.env.DATABASE_URL,connectionLimit:5}):sqliteAdapter;
+// MySQL: tablolar db/schema.sql'den otomatik oluşturulur (CREATE TABLE IF NOT EXISTS); eski kurulumlara V13 sütunları eklenir.
+if(useMysql){
+ const schema=fs.readFileSync(new URL('../db/schema.sql',import.meta.url),'utf8').replace(/^--.*$/gm,'');
+ for(const sql of schema.split(';').map(x=>x.trim()).filter(Boolean)){try{await pool.query(sql)}catch(e){console.error('[MYSQL SCHEMA]',e.message)}}
+ for(const col of ['qualification VARCHAR(120) NULL','sheet VARCHAR(60) NULL']){try{await pool.query(`ALTER TABLE parcels ADD COLUMN ${col}`)}catch{}}
+ console.log('MySQL veritabanı hazır.');
+}
 export const databaseMode=useMysql?'mysql':'sqlite';
 export async function requireDb(_res){return true}

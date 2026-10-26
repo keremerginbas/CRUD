@@ -9,3 +9,4 @@ data/*.sqlite-shm
 __pycache__/
 *.py[cod]
 tsconfig.tsbuildinfo
+deploy/

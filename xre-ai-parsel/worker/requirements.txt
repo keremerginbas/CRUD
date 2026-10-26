@@ -1,3 +1,3 @@
 requests>=2.31,<3
 urllib3>=2,<3
-httpx>=0.27,<1
+# httpx yalnızca vendor async istemci içindir; köprü için gerekmez.

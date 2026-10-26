@@ -1,13 +1,14 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import {AnimatePresence, MotionConfig, motion} from 'motion/react';
-import {ChevronRight, Database, FileUp, Layers, ListChecks, LocateFixed, Save, Search, Sparkles, Tag} from 'lucide-react';
+import {ChevronRight, LogOut, Database, FileUp, Layers, ListChecks, LocateFixed, Save, Search, Sparkles, Tag} from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import {fetchBoundary, fetchJson, postJson, type AnalysisResponse, type Health, type OfficialSource, type ParcelResponse, type Pin, type Region, type RegionLevel, type StoredParcel} from '@/lib/api';
 import {ComparablesImport, DensityResult, MarketResult, OfficialSources} from '@/components/MarketPanels';
 import {DensityPanel} from '@/components/DensityPanel';
+import {AuthGate, logout} from '@/components/AuthGate';
 import {DensityLegend, type DensityMode} from '@/components/DensityLayer';
 import type {DensityPoint} from '@/lib/api';
 import {MapView, type MapFocus} from '@/components/MapView';
@@ -221,7 +222,7 @@ function App(){
  return <MotionConfig reducedMotion="user"><div className="flex h-dvh flex-col bg-background text-foreground max-lg:h-auto max-lg:min-h-dvh">
   <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-3 bg-brand px-4 text-white shadow-md">
    <div className="flex items-center gap-2.5">
-    <img src="/logo-mark.svg" alt="" className="h-10 w-auto drop-shadow-[0_0_6px_rgba(56,181,254,.35)]"/>
+    <img src="logo-mark.svg" alt="" className="h-10 w-auto drop-shadow-[0_0_6px_rgba(56,181,254,.35)]"/>
     <div className="leading-none">
      <strong className="block font-[Bebas_Neue] text-[26px] font-normal tracking-wide text-[#38b5fe]">XRE SOFTWARE</strong>
      <small className="mt-0.5 block font-[Montserrat] text-[9px] font-semibold tracking-[.32em] text-[#38b5fe]/85">PARSEL SORGU UYGULAMASI</small>
@@ -231,6 +232,7 @@ function App(){
     {health&&<><span className="hidden rounded-full bg-white/10 px-2.5 py-1 sm:inline">TKGM: {health.parcelMode}</span>
      <span className={`hidden rounded-full px-2.5 py-1 sm:inline ${health.aiConfigured?'bg-emerald-400/20 text-emerald-200':'bg-white/10 text-white/60'}`}>AI {health.aiConfigured?'hazır':'kapalı'}</span></>}
     <span className="rounded-full border border-white/20 px-2.5 py-1 font-semibold">V13</span>
+    {health?.authRequired&&<button onClick={()=>void logout()} title="Çıkış yap" aria-label="Çıkış yap" className="grid size-7 place-items-center rounded-full bg-white/10 hover:bg-white/20"><LogOut size={13}/></button>}
    </div>
   </header>
 
@@ -344,4 +346,4 @@ function App(){
   </main>
  </div></MotionConfig>;
 }
-createRoot(document.getElementById('root')!).render(<App/>);
+createRoot(document.getElementById('root')!).render(<AuthGate><App/></AuthGate>);

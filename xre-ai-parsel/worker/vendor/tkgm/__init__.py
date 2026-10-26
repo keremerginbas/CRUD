@@ -21,7 +21,10 @@ API base URL: https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api
 # tkgm-py — Türkiye Tapu ve Kadastro (TKGM) API'si için Python istemcisi.
 # Hızlı başlangıç: TKGMClient veya AsyncTKGMClient ile il/ilçe/mahalle/parsel sorgulayın.
 
-from .async_client import AsyncTKGMClient
+try:  # XRE: köprü yalnızca requests kullanır; httpx yoksa (paylaşımlı hosting) async istemci atlanır.
+    from .async_client import AsyncTKGMClient
+except ImportError:  # pragma: no cover
+    AsyncTKGMClient = None
 from .client import TKGMClient
 from .exceptions import (
     TKGMAuthError,

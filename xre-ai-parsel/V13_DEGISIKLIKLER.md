@@ -31,6 +31,13 @@
 - Aynı parsel için gelen birden çok satır toplanır; bozuk satırlar atlanır ve sayısı bildirilir. Veri SQLite'ta yıl/ilçe bazında saklanır, yeniden yüklenince değiştirilir.
 - AI analizine kodda hesaplanmış **işlem adetleri** eklenir: parselin 500 m / 1 km / 3 km çevresindeki işlemler, ilçe toplamı ve medyanı; parsel geometrisi arşivdeyse parselin kendi işlem sayısı. Bunlar fiyat değil, piyasa hareketliliği göstergesidir.
 
+## Sunucuya kurulum (cPanel)
+- **Şifreli giriş:** `.env` içinde `APP_PASSWORD` tanımlıysa uygulama giriş ekranıyla açılır (HMAC imzalı, HttpOnly oturum çerezi, 7 gün; 5 hatalı denemede 15 dk bekleme; başka siteden gelen yazma istekleri reddedilir). İnternete açık çalışırken (Passenger veya yerel olmayan HOST) şifre yoksa sunucu **başlamaz**.
+- **Alt dizin:** `BASE_PATH=/parsel-sorgu` ile `https://alanadi/parsel-sorgu/` altında çalışır; arayüz göreli adreslerle derlenir.
+- **Günlük AI sınırı:** `AI_DAILY_LIMIT` (varsayılan 50).
+- **Dağıtım paketi:** `npm run deploy` → `deploy/parsel-sorgu-app` (derlenmiş arayüz + sunucu + Python köprüsü, yalnızca 4 çalışma zamanı paketi). Başlangıç dosyası `app.cjs`. Adımlar: `KURULUM_CPANEL.md`.
+- MySQL kullanılırsa tablolar `db/schema.sql`'den otomatik oluşturulur. Python köprüsü artık yalnızca `requests` ister.
+
 ## Düzeltmeler
 - Uydu görünümünde yüksek zoomda görülen **“Map data not yet available”** döşemeleri: Esri World Imagery kırsal alanlarda 18. seviyeden sonra gerçek görüntü vermiyor. Döşemeler artık 18'de alınıp 21'e kadar büyütülüyor.
 - Uydu görünümüne isteğe bağlı yer adı/sınır etiket katmanı eklendi.

@@ -10,7 +10,8 @@
     "test:python": "py -3 -m unittest discover -s tests -v",
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit -p .",
-    "start": "vite build && node server/index.mjs"
+    "start": "vite build && node server/index.mjs",
+    "deploy": "vite build && node scripts/make-deploy.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

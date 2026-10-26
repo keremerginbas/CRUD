@@ -9,17 +9,40 @@ import {containsPoint} from './geo.mjs';
 import {marketAnalysis, normalizeListing, placeKey} from './market.mjs';
 import {officialSources} from './sources.mjs';
 import {densitySummary, normalizeDensityRows} from './density.mjs';
+import {installAuth} from './auth.mjs';
 const app=express();
-// Local development is allowed without auth; remote exposure is blocked until a real login system exists.
 const host=process.env.HOST||'127.0.0.1';
-if(!['127.0.0.1','localhost','::1'].includes(host)&&process.env.ALLOW_UNAUTHENTICATED_REMOTE!=='I_UNDERSTAND_THE_RISK'){
- console.error('Refusing remote bind: authentication is not implemented.');process.exit(1);
+// Passenger (cPanel "Setup Node.js App") altında uygulama internete açıktır; şifresiz başlatılmaz.
+const behindPassenger=Boolean(process.env.XRE_BEHIND_PASSENGER||process.env.PASSENGER_APP_ENV||process.env.PASSENGER_BASE_URI||typeof globalThis.PhusionPassenger!=='undefined');
+const exposed=behindPassenger||!['127.0.0.1','localhost','::1'].includes(host);
+if(exposed&&!process.env.APP_PASSWORD){
+ console.error('Uygulama internete açık çalışıyor ama .env içinde APP_PASSWORD tanımlı değil. Güvenlik için başlatılmadı.');process.exit(1);
 }
-app.disable('x-powered-by');app.use(cors({origin:process.env.CORS_ORIGIN||false}));// Emsal ice aktarma parcali buyuk govde alir; diger tum istekler 100 KB ile sinirli.
+// Alt dizinde yayın (ör. https://site.com.tr/parsel-sorgu): önek isteklerden ayıklanır.
+const basePath=(process.env.BASE_PATH||'').replace(/\/+$/,'');
+if(basePath)app.use((req,res,next)=>{
+ if(req.url===basePath)return res.redirect(301,basePath+'/');
+ if(req.url.startsWith(basePath+'/'))req.url=req.url.slice(basePath.length)||'/';
+ next();
+});
+if(exposed)app.set('trust proxy',1);
+app.disable('x-powered-by');app.use(cors({origin:process.env.CORS_ORIGIN||false}));
+app.use((_req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','SAMEORIGIN');next()});
+// Emsal/yoğunluk içe aktarma parçalı büyük gövde alır; diğer tüm istekler 100 KB ile sınırlı.
 const smallJson=express.json({limit:'100kb'}),importJson=express.json({limit:'8mb'});
 const LARGE_BODY=new Set(['/api/comparables/import','/api/density/import']);
 app.use((req,res,next)=>(LARGE_BODY.has(req.path)?importJson:smallJson)(req,res,next));
-app.get('/api/health',(_req,res)=>res.json({ok:true,parcelMode:process.env.TKGM_PARCEL_MODE||'public',parcelProviderConfigured:true,parcelProviderReachable:'test edilmedi',authorizedTokenConfigured:Boolean(process.env.TKGM_TOKEN),coordinateQueryEnabled:process.env.TKGM_COORDINATE_ENABLED==='true',pythonBridge:true,aiConfigured:Boolean(process.env.OPENAI_API_KEY),aiWebSearch:process.env.AI_WEB_SEARCH!=='false',database:databaseMode}));
+const auth=installAuth(app,{basePath});
+// OpenAI faturasını korumak için günlük AI analiz sınırı (varsayılan 50; 0 = sınırsız).
+const aiDailyLimit=Number(process.env.AI_DAILY_LIMIT??50);
+const aiUsage={day:'',count:0};
+function takeAiQuota(){
+ const day=new Date().toISOString().slice(0,10);
+ if(aiUsage.day!==day){aiUsage.day=day;aiUsage.count=0}
+ if(aiDailyLimit>0&&aiUsage.count>=aiDailyLimit)return false;
+ aiUsage.count++;return true;
+}
+app.get('/api/health',(_req,res)=>res.json({ok:true,parcelMode:process.env.TKGM_PARCEL_MODE||'public',parcelProviderConfigured:true,parcelProviderReachable:'test edilmedi',authorizedTokenConfigured:Boolean(process.env.TKGM_TOKEN),coordinateQueryEnabled:process.env.TKGM_COORDINATE_ENABLED==='true',pythonBridge:true,aiConfigured:Boolean(process.env.OPENAI_API_KEY),aiWebSearch:process.env.AI_WEB_SEARCH!=='false',authRequired:auth.enabled,aiDailyLimit,database:databaseMode}));
 
 const PARCEL_COLUMNS='id,province,district,neighborhood,block_no,parcel_no,geometry,area_m2,qualification,sheet,source_name,source_checked_at';
 function parcelRow(row){
@@ -284,6 +307,7 @@ app.post('/api/analysis',async(req,res)=>{
  const {lat,lng,context}=req.body||{};
  if(!validLatLng(lat,lng))return res.status(400).json({error:'Türkiye içinde geçerli koordinat gerekli.'});
  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:'OPENAI_API_KEY sunucuda tanımlı değil.'});
+ if(!takeAiQuota())return res.status(429).json({error:`Günlük AI analiz sınırına (${aiDailyLimit}) ulaşıldı. .env içinde AI_DAILY_LIMIT ile değiştirilebilir.`});
  const ctx=typeof context==='object'&&context!==null?context:{};
  const parcel={province:String(ctx.province||''),district:String(ctx.district||''),neighborhood:String(ctx.neighborhood||''),
   block:String(ctx.block||''),parcel:String(ctx.parcel||''),areaM2:Number(ctx.areaM2)||null};
@@ -323,4 +347,7 @@ if(distOk){
  console.log('Arayüz: dist klasöründen veriliyor.');
 }
 app.use('/api',(_req,res)=>res.status(404).json({error:'API uç noktası bulunamadı.'}));
-app.listen(Number(process.env.PORT||3001),host,()=>console.log('XRE hazır: http://localhost:'+(process.env.PORT||3001)));
+const port=Number(process.env.PORT||3001);
+// Passenger kendi soketini verir; host parametresi yalnızca yerel çalışmada kullanılır.
+if(behindPassenger)app.listen(port,()=>console.log('XRE Passenger altında hazır'+(basePath?' ('+basePath+')':'')));
+else app.listen(port,host,()=>console.log('XRE hazır: http://localhost:'+port+(basePath||'')+'/'+(auth.enabled?' (şifreli giriş açık)':'')));
