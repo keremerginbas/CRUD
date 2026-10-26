@@ -10,7 +10,7 @@ export type Market={available:boolean;reason?:string;scope?:'neighborhood'|'dist
  stats?:{n:number;trimmed:number;median:number;p25:number;p75:number;min:number;max:number}|null;estimate?:{low:number;mid:number;high:number;areaM2:number}|null;
  comparables:Comparable[];sameParcelListings:Comparable[]};
 export type OfficialSource={id:string;group:string;title:string;detail:string;url:string;direct?:boolean};
-export type AnalysisResponse={analysis:string;citations?:{url:string;title:string}[];webSearch?:boolean;note?:string|null;market?:Market;sources?:OfficialSource[]};
+export type AnalysisResponse={analysis:string;citations?:{url:string;title:string}[];webSearch?:boolean;note?:string|null;market?:Market;density?:DensitySummary;sources?:OfficialSource[]};
 export type ComparableSummary={total:number;usable:number;districts:{city:string;district:string;n:number}[]};
 
 export async function fetchJson<T>(url:string,options?:RequestInit):Promise<T>{
@@ -29,3 +29,7 @@ export const postJson=<T,>(url:string,body:unknown,method='POST')=>fetchJson<T>(
 // Sinir istekleri: il icin parentId 0.
 export const fetchBoundary=(level:RegionLevel,parentId:string|number,id:string|number)=>
  fetchJson<{feature:GeoJSON.Feature}>(`/api/regions/boundary/${level}/${parentId}/${id}`).then(d=>d.feature);
+export type DensityPoint={parcelRef:number;lat:number;lng:number;count:number};
+export type DensityDataset={year:number;province:string;district:string;parcels:number;transactions:number;importedAt?:string};
+export type DensitySummary={available:boolean;reason?:string;year?:number;district?:{parcels:number;transactions:number;medianPerParcel:number|null;maxPerParcel:number|null};
+ near?:{radiusM:number;parcels:number;transactions:number}[];thisParcel?:{transactions:number;matched:boolean}|null};

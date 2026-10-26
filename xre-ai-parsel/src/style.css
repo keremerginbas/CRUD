@@ -56,4 +56,8 @@
 .xre-pin-selection svg{animation:xre-drop .35s ease-out}
 @keyframes xre-drop{from{transform:translateY(-14px);opacity:0}to{transform:none;opacity:1}}
 
+/* TKGM alım satım küme haritası */
+.xre-cluster{display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle,#ff5a3c 0 55%,rgba(255,90,60,.35) 56%);color:#fff;font-weight:800;font-size:12px;text-shadow:0 1px 2px #0006;box-shadow:0 2px 8px #0004}
+.xre-density-dot{display:grid;place-items:center;border-radius:50%;background:#1d6cff;border:2px solid #fff;color:#fff;font-size:10px;font-weight:800;box-shadow:0 1px 4px #0005}
+
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}

@@ -6,6 +6,7 @@ import {tkgmQuery} from './tkgm-bridge.mjs';
 import {containsPoint} from './geo.mjs';
 import {marketAnalysis, normalizeListing, placeKey} from './market.mjs';
 import {officialSources} from './sources.mjs';
+import {densitySummary, normalizeDensityRows} from './density.mjs';
 const app=express();
 // Local development is allowed without auth; remote exposure is blocked until a real login system exists.
 const host=process.env.HOST||'127.0.0.1';
@@ -14,7 +15,8 @@ if(!['127.0.0.1','localhost','::1'].includes(host)&&process.env.ALLOW_UNAUTHENTI
 }
 app.disable('x-powered-by');app.use(cors({origin:process.env.CORS_ORIGIN||false}));// Emsal ice aktarma parcali buyuk govde alir; diger tum istekler 100 KB ile sinirli.
 const smallJson=express.json({limit:'100kb'}),importJson=express.json({limit:'8mb'});
-app.use((req,res,next)=>(req.path==='/api/comparables/import'?importJson:smallJson)(req,res,next));
+const LARGE_BODY=new Set(['/api/comparables/import','/api/density/import']);
+app.use((req,res,next)=>(LARGE_BODY.has(req.path)?importJson:smallJson)(req,res,next));
 app.get('/api/health',(_req,res)=>res.json({ok:true,parcelMode:process.env.TKGM_PARCEL_MODE||'public',parcelProviderConfigured:true,parcelProviderReachable:'test edilmedi',authorizedTokenConfigured:Boolean(process.env.TKGM_TOKEN),coordinateQueryEnabled:process.env.TKGM_COORDINATE_ENABLED==='true',pythonBridge:true,aiConfigured:Boolean(process.env.OPENAI_API_KEY),aiWebSearch:process.env.AI_WEB_SEARCH!=='false',database:databaseMode}));
 
 const PARCEL_COLUMNS='id,province,district,neighborhood,block_no,parcel_no,geometry,area_m2,qualification,sheet,source_name,source_checked_at';
@@ -178,6 +180,65 @@ app.get('/api/sources',(req,res)=>{
  res.json({sources:officialSources({province:q('province'),district:q('district'),neighborhood:q('neighborhood'),block:q('block').replace(/\D/g,''),parcel:q('parcel').replace(/\D/g,'')})});
 });
 
+// --- TKGM alım satım yoğunluğu (Parsel Sorgu > Analiz yanıtı içe aktarılır) ---
+const validYear=y=>Number.isInteger(y)&&y>=2000&&y<=2100;
+async function saveDensity(year,province,district,rows){
+ const data=normalizeDensityRows(rows);
+ const pk=placeKey(province),dk=placeKey(district);
+ // Aynı yıl/ilçe yeniden yüklenirse önceki veri tamamen değiştirilir (karışık veri olmasın).
+ await pool.execute('DELETE FROM density_points WHERE year=? AND province_key=? AND district_key=?',[year,pk,dk]);
+ for(const p of data.points)await pool.execute('INSERT INTO density_points(year,province,district,province_key,district_key,parcel_ref,lat,lng,count) VALUES(?,?,?,?,?,?,?,?,?)',[year,province.trim(),district.trim(),pk,dk,p.parcelRef,p.lat,p.lng,p.count]);
+ return {ok:true,year,province,district,rows:data.rows,parcels:data.points.length,transactions:data.transactions,invalid:data.invalid};
+}
+const validNames=(province,district)=>[province,district].every(v=>typeof v==='string'&&v.trim()&&v.length<=150);
+app.post('/api/density/import',async(req,res)=>{
+ const {year,province,district,rows}=req.body||{};
+ if(!validYear(year)||!validNames(province,district))return res.status(400).json({error:'Yıl, il ve ilçe seçili olmalı.'});
+ try{res.json(await saveDensity(year,province,district,rows))}
+ catch(e){const bad=/JSON|satır/.test(e.message);if(!bad)console.error('[DENSITY IMPORT]',e.message);res.status(bad?400:500).json({error:bad?e.message:'Yoğunluk verisi kaydedilemedi.'})}
+});
+// TKGM Parsel Sorgu > Analiz > Alım Satım Yoğunluğu'nu doğrudan çeker (AnalizTip=1).
+app.post('/api/density/fetch',async(req,res)=>{
+ const {year,districtId,province,district}=req.body||{};
+ if(!validYear(year)||!Number.isSafeInteger(districtId)||districtId<1||!validNames(province,district))
+  return res.status(400).json({error:'Yıl, il ve ilçe seçili olmalı.'});
+ const result=await tkgmQuery({action:'analysis',analysisType:1,year,districtId},{cacheMs:12*60*60*1000});
+ if(!result.ok)return sendProviderResult(res,result);
+ try{res.json({...await saveDensity(year,province,district,result.rows),source:result.source,checkedAt:result.checkedAt})}
+ catch(e){const bad=/JSON|satır/.test(e.message);if(!bad)console.error('[DENSITY FETCH]',e.message);res.status(bad?404:500).json({error:bad?'TKGM bu ilçe/yıl için işlem noktası döndürmedi.':'Yoğunluk verisi kaydedilemedi.'})}
+});
+app.get('/api/density/datasets',async(_req,res)=>{
+ try{const [rows]=await pool.query('SELECT year,province,district,COUNT(*) AS parcels,SUM(count) AS transactions,MAX(imported_at) AS importedAt FROM density_points GROUP BY year,province_key,district_key ORDER BY year DESC,province,district');
+  res.json({datasets:rows.map(r=>({...r,parcels:Number(r.parcels),transactions:Number(r.transactions)}))})}
+ catch(e){console.error('[DENSITY LIST]',e.message);res.status(500).json({error:'Yoğunluk verileri okunamadı.'})}
+});
+app.get('/api/density',async(req,res)=>{
+ const year=Number(req.query.year),province=String(req.query.province||''),district=String(req.query.district||'');
+ if(!validYear(year)||!province||!district)return res.status(400).json({error:'Yıl, il ve ilçe gerekli.'});
+ try{const [rows]=await pool.execute('SELECT parcel_ref AS parcelRef,lat,lng,count FROM density_points WHERE year=? AND province_key=? AND district_key=?',[year,placeKey(province),placeKey(district)]);
+  res.json({year,province,district,points:rows})}
+ catch(e){console.error('[DENSITY GET]',e.message);res.status(500).json({error:'Yoğunluk verisi okunamadı.'})}
+});
+app.delete('/api/density',async(req,res)=>{
+ const year=Number(req.query.year),province=String(req.query.province||''),district=String(req.query.district||'');
+ if(!validYear(year)||!province||!district)return res.status(400).json({error:'Yıl, il ve ilçe gerekli.'});
+ try{await pool.execute('DELETE FROM density_points WHERE year=? AND province_key=? AND district_key=?',[year,placeKey(province),placeKey(district)]);res.json({ok:true})}
+ catch{res.status(500).json({error:'Silinemedi.'})}
+});
+// Analiz için: ilçenin en güncel yılındaki yoğunluk özeti + parsel geometrisi arşivdeyse parselin kendi işlemleri.
+async function loadDensity(parcel,lat,lng){
+ const pk=placeKey(parcel.province),dk=placeKey(parcel.district);
+ const [[latest]]=await pool.execute('SELECT MAX(year) AS year FROM density_points WHERE province_key=? AND district_key=?',[pk,dk]);
+ if(!latest?.year)return {available:false,reason:'Bu ilçe için TKGM alım satım yoğunluğu verisi yüklenmedi.'};
+ const [points]=await pool.execute('SELECT parcel_ref AS parcelRef,lat,lng,count FROM density_points WHERE year=? AND province_key=? AND district_key=?',[latest.year,pk,dk]);
+ let geometry=null;
+ if(parcel.block&&parcel.parcel){
+  const [rows]=await pool.execute('SELECT geometry FROM parcels WHERE province=? AND district=? AND neighborhood=? AND block_no=? AND parcel_no=?',[parcel.province,parcel.district,parcel.neighborhood,parcel.block,parcel.parcel]);
+  if(rows[0]?.geometry){try{geometry=typeof rows[0].geometry==='string'?JSON.parse(rows[0].geometry):rows[0].geometry}catch{}}
+ }
+ return {available:true,year:Number(latest.year),source:'TKGM Parsel Sorgu > Analiz > Alım Satım Yoğunluğu (kullanıcı içe aktardı)',...densitySummary(points,{lat,lng,geometry})};
+}
+
 async function loadMarket(context){
  const [rows]=await pool.execute(`SELECT ${COMPARABLE_COLUMNS.join(',')} FROM comparables WHERE city_key=? AND district_key=?`,[placeKey(context.province),placeKey(context.district)]);
  return marketAnalysis(rows,context);
@@ -201,7 +262,8 @@ KESİN KURALLAR:
 5. Web araştırması yaptıysan yalnızca bulduğun ve kaynağını gösterebildiğin bilgileri yaz; her bilginin yanına kaynağın alan adını yaz. Bulamadığın konu için "bulunamadı" de. Kaynaksız iddia, uydurma kurum adı, tarih veya rakam YAZMA.
 6. Web araştırmasında öncelik: ilgili ilçe belediyesinin e-imar/imar durumu ve arsa m² birim değeri (emlak vergisi) sayfaları, e-Plan (Çevre, Şehircilik ve İklim Değişikliği Bakanlığı), DSİ kamulaştırma/proje bilgileri, Bakanlığın güncel yıl yapı yaklaşık birim maliyetleri tebliği, ardından sahibinden/emlakjet/hepsiemlak'taki aynı mahalle ilanları.
 7. Koordinatın tek başına parsel sınırını kanıtlamadığını unutma; geometri TKGM'den geldiyse bunu belirt.
-BAŞLIKLAR (### ile, bu sırayla): Özet, Parsel Verisi, Emsal Piyasa Analizi, Değer Aralığı (İlan Fiyatlarına Göre), Resmî Kaynak Bulguları, Riskler ve Eksik Bilgiler, Önerilen Adımlar.
+8. "tkgmTransactionDensity" TKGM'nin resmî alım satım yoğunluğu verisidir (işlem adedi, fiyat değil). available=true ise bölgenin piyasa hareketliliğini bununla yorumla; sayıları verildiği gibi kullan, yılını belirt. thisParcel.matched=false ise "bu parselde o yıl işlem kaydı görünmüyor" de, "hiç satılmamış" deme.
+BAŞLIKLAR (### ile, bu sırayla): Özet, Parsel Verisi, Alım Satım Hareketliliği (TKGM), Emsal Piyasa Analizi, Değer Aralığı (İlan Fiyatlarına Göre), Resmî Kaynak Bulguları, Riskler ve Eksik Bilgiler, Önerilen Adımlar.
 Maddeleri "- Etiket: değer" biçiminde kısa yaz.`;
 
 async function openaiResponse(body){
@@ -225,10 +287,12 @@ app.post('/api/analysis',async(req,res)=>{
   block:String(ctx.block||''),parcel:String(ctx.parcel||''),areaM2:Number(ctx.areaM2)||null};
  let market={available:false,reason:'Parsel sorgulanmadı; emsal eşleştirmesi için önce ada/parsel sorgulayın.',totals:{district:0,neighborhood:0},comparables:[],sameParcelListings:[]};
  try{if(parcel.province&&parcel.district)market=await loadMarket(parcel)}catch(e){console.error('[MARKET]',e.message)}
+ let density={available:false,reason:'Parsel il/ilçe bilgisi yok.'};
+ try{if(parcel.province&&parcel.district)density=await loadDensity(parcel,lat,lng)}catch(e){console.error('[DENSITY]',e.message)}
  const sources=officialSources(parcel);
  const webSearch=process.env.AI_WEB_SEARCH!=='false';
  const body={model:process.env.OPENAI_MODEL||'gpt-4.1-mini',instructions:ANALYSIS_INSTRUCTIONS,max_output_tokens:1800,
-  input:JSON.stringify({coordinates:{lat,lng},verifiedContext:ctx,market:marketForPrompt(market),
+  input:JSON.stringify({coordinates:{lat,lng},verifiedContext:ctx,market:marketForPrompt(market),tkgmTransactionDensity:density,
    officialSourcesToCheck:sources.map(s=>({title:s.title,detail:s.detail})),today:new Date().toISOString().slice(0,10)})};
  try{
   let usedWeb=webSearch,note=null;
@@ -241,7 +305,7 @@ app.post('/api/analysis',async(req,res)=>{
   }
   if(!r.ok)return res.status(502).json({error:'OpenAI API isteği başarısız.',details:r.data.error?.message||'Bilinmeyen hata'});
   const out=extractOutput(r.data);
-  res.json({analysis:out.text,citations:out.citations,webSearch:usedWeb,note,market,sources,model:body.model,
+  res.json({analysis:out.text,citations:out.citations,webSearch:usedWeb,note,market,density,sources,model:body.model,
    source:'OpenAI; yerel TKGM verisi + içe aktarılan emsal ilanlar'+(usedWeb?' + web araştırması':'')});
  }catch(e){console.error('[AI]',e.message);res.status(502).json({error:'AI servisine erişilemedi.'})}
 });

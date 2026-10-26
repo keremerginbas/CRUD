@@ -135,4 +135,18 @@ class TestBridge(unittest.TestCase):
         self.assertEqual(items[0]['geometry'],{'type':'Polygon','coordinates':[ring]})
         self.assertNotIn('geometry',items[1])
 
+    def test_analysis_request_and_validation(self):
+        rows=[{'parselId':1,'enlem':40.0,'boylam':32.3,'sayi':2,'extra':'x'},'bad']
+        with patch.dict(os.environ,{'TKGM_PARCEL_MODE':'public','TKGM_API_BASE':''}):
+            with mod.DirectTKGMClient() as c:
+                with patch.object(c.session,'get',return_value=FakeResponse(200,rows)) as req, patch.object(mod,'DirectTKGMClient',lambda **k:c):
+                    out=mod.handle({'action':'analysis','analysisType':1,'year':2025,'districtId':161})
+                self.assertEqual(req.call_args.args[0],mod.ANALYSIS_URL)
+                self.assertEqual(req.call_args.kwargs['params'],{'AnalizTip':1,'Yil':2025,'IlceId':161})
+                self.assertNotIn('Origin',c.session.headers)
+        self.assertEqual(out['rows'],[{'parselId':1,'enlem':40.0,'boylam':32.3,'sayi':2}])
+        for bad in ({'analysisType':9,'year':2025,'districtId':1},{'analysisType':1,'year':1999,'districtId':1},{'analysisType':1,'year':2025,'districtId':'1;x'}):
+            with patch.object(mod,'DirectTKGMClient',FakeClient):
+                with self.assertRaises(ValueError): mod.handle({'action':'analysis',**bad})
+
 if __name__=='__main__': unittest.main()

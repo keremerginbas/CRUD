@@ -24,6 +24,13 @@
 - **Resmî kaynak kontrolü:** TKGM Parsel Sorgu, e-Devlet tapu, e-Plan, belediye e-imar ve emsal/rayiç değer, DSİ, ÇŞB birim maliyet bağlantıları parsel bilgisiyle hazırlanır. Adresi belediyeye/yıla göre değişen kaynaklar arama bağlantısıdır.
 - Sınır: Bu kurumların çoğunun açık API'si yoktur ve bazıları giriş ister; uygulama bu sitelere otomatik giriş yapmaz, veri kazımaz. İmar ve değer için resmî belge gerekir.
 
+## TKGM Alım Satım Yoğunluğu (Parsel Sorgu > Analiz)
+- Analiz sekmesindeki **Alım Satım Yoğunluğu** kartı, seçili ilçe ve yıl için TKGM'nin kendi analiz servisinden veriyi çeker: `GET https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/analiz?AnalizTip=1&Yil=<yıl>&IlceId=<ilçe>` (adres, kullanıcının tarayıcı ağ kaydından alındı; token gönderilmez, tarayıcı başlığı taklit edilmez).
+- Haritada TKGM'deki gibi **Yoğunluk** (ısı, mavi→kırmızı lejant) veya **Küme** (rozette toplam işlem adedi) olarak gösterilir; **Gizle** ile kapatılır.
+- Servis reddederse TKGM Network → Response metni **yapıştırılarak** aynı biçimde kaydedilir.
+- Aynı parsel için gelen birden çok satır toplanır; bozuk satırlar atlanır ve sayısı bildirilir. Veri SQLite'ta yıl/ilçe bazında saklanır, yeniden yüklenince değiştirilir.
+- AI analizine kodda hesaplanmış **işlem adetleri** eklenir: parselin 500 m / 1 km / 3 km çevresindeki işlemler, ilçe toplamı ve medyanı; parsel geometrisi arşivdeyse parselin kendi işlem sayısı. Bunlar fiyat değil, piyasa hareketliliği göstergesidir.
+
 ## Düzeltmeler
 - Uydu görünümünde yüksek zoomda görülen **“Map data not yet available”** döşemeleri: Esri World Imagery kırsal alanlarda 18. seviyeden sonra gerçek görüntü vermiyor. Döşemeler artık 18'de alınıp 21'e kadar büyütülüyor.
 - Uydu görünümüne isteğe bağlı yer adı/sınır etiket katmanı eklendi.

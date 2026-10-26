@@ -16,6 +16,8 @@ if(!useMysql){
  CREATE TABLE IF NOT EXISTS ai_analyses(id INTEGER PRIMARY KEY AUTOINCREMENT,parcel_id INTEGER,marker_id INTEGER,analysis TEXT NOT NULL,context_json TEXT,model TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
  CREATE TABLE IF NOT EXISTS comparables(id INTEGER PRIMARY KEY AUTOINCREMENT,source TEXT NOT NULL,listing_id TEXT NOT NULL,title TEXT,price REAL,currency TEXT,area REAL,city TEXT,district TEXT,neighborhood TEXT,city_key TEXT,district_key TEXT,neighborhood_key TEXT,category TEXT,url TEXT,imar TEXT,kaks TEXT,tapu TEXT,ada_parsel TEXT,listing_status TEXT,captured_at TEXT,imported_at TEXT DEFAULT CURRENT_TIMESTAMP,UNIQUE(source,listing_id));
  CREATE INDEX IF NOT EXISTS idx_comparables_area ON comparables(city_key,district_key,neighborhood_key);
+ CREATE TABLE IF NOT EXISTS density_points(id INTEGER PRIMARY KEY AUTOINCREMENT,year INTEGER NOT NULL,province TEXT NOT NULL,district TEXT NOT NULL,province_key TEXT NOT NULL,district_key TEXT NOT NULL,parcel_ref INTEGER NOT NULL,lat REAL NOT NULL,lng REAL NOT NULL,count INTEGER NOT NULL,imported_at TEXT DEFAULT CURRENT_TIMESTAMP,UNIQUE(year,province_key,district_key,parcel_ref));
+ CREATE INDEX IF NOT EXISTS idx_density_area ON density_points(province_key,district_key,year);
  CREATE INDEX IF NOT EXISTS idx_markers_user ON map_markers(user_id);`);
  // V13: parsel niteligi/paftasi da arsivlenir (eski veritabanlarinda sutun yoksa eklenir).
  for(const column of ['qualification TEXT','sheet TEXT']){try{sqlite.exec(`ALTER TABLE parcels ADD COLUMN ${column}`)}catch{}}

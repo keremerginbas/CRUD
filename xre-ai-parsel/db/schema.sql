@@ -39,3 +39,10 @@ CREATE TABLE IF NOT EXISTS comparables (
 );
 -- V13 yükseltmesi (mevcut MySQL kurulumları için bir kez çalıştırın):
 -- ALTER TABLE parcels ADD COLUMN qualification VARCHAR(120) NULL, ADD COLUMN sheet VARCHAR(60) NULL;
+-- V13: TKGM Analiz > Alım Satım Yoğunluğu verisi (kullanıcı tarafından içe aktarılır)
+CREATE TABLE IF NOT EXISTS density_points (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, year SMALLINT NOT NULL, province VARCHAR(100) NOT NULL, district VARCHAR(100) NOT NULL,
+ province_key VARCHAR(100) NOT NULL, district_key VARCHAR(100) NOT NULL, parcel_ref BIGINT NOT NULL,
+ lat DOUBLE NOT NULL, lng DOUBLE NOT NULL, count INT NOT NULL, imported_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE KEY uniq_density (year,province_key,district_key,parcel_ref), INDEX idx_density_area(province_key,district_key,year)
+);

@@ -2,7 +2,8 @@ import {useEffect, useState} from 'react';
 import {MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap, useMapEvents} from 'react-leaflet';
 import L from 'leaflet';
 import {Crosshair, MapPin, Star} from 'lucide-react';
-import type {Pin} from '@/lib/api';
+import type {DensityPoint, Pin} from '@/lib/api';
+import {DensityLayer, type DensityMode} from './DensityLayer';
 
 // Damla biçimli SVG pinler (logodaki iğneyle aynı form); ucu tam koordinata oturur.
 const STAR='<path d="M12 6.6l1.6 3.3 3.6.5-2.6 2.5.6 3.6-3.2-1.7-3.2 1.7.6-3.6-2.6-2.5 3.6-.5z" fill="#fff"/>';
@@ -71,9 +72,9 @@ function PinCard({title,kind,lat,lng}:{title:string;kind:'selection'|'saved'|'fa
  </div>;
 }
 
-export function MapView({satellite,labels,boundary,parcel,parcelKey,focus,pin,showSelectionPin,focusPin,markers,onPick,onMarkerClick}:{
+export function MapView({satellite,labels,boundary,parcel,parcelKey,focus,pin,showSelectionPin,focusPin,markers,onPick,onMarkerClick,density,densityMode,densityKey}:{
  satellite:boolean;labels:boolean;boundary:GeoJSON.Feature|null;parcel:GeoJSON.GeoJsonObject|null;parcelKey:string;
- focus:MapFocus|null;pin:Pin|null;showSelectionPin:boolean;focusPin:Pin|null;markers:Pin[];onPick:(lat:number,lng:number)=>void;onMarkerClick?:(p:Pin)=>void;
+ focus:MapFocus|null;pin:Pin|null;showSelectionPin:boolean;focusPin:Pin|null;markers:Pin[];onPick:(lat:number,lng:number)=>void;onMarkerClick?:(p:Pin)=>void;density:DensityPoint[];densityMode:DensityMode|'off';densityKey:string;
 }){
  return <MapContainer center={[39,35]} zoom={6} maxZoom={MAX_ZOOM} className="size-full" zoomControl>
   {satellite
@@ -84,6 +85,7 @@ export function MapView({satellite,labels,boundary,parcel,parcelKey,focus,pin,sh
    style={{color:'#e21d35',weight:2.5,opacity:.95,fill:false,lineJoin:'round'}}/>}
   {parcel&&<GeoJSON key={parcelKey} data={parcel}
    style={{color:'#e21d35',weight:4,opacity:1,fillColor:'#ef334c',fillOpacity:.3,lineJoin:'round'}}/>}
+  {densityMode!=='off'&&density.length>0&&<DensityLayer points={density} mode={densityMode} fitKey={densityKey}/>}
   <FitFocus focus={focus}/><FlyToPin target={focusPin}/>
   <Clicker onClick={onPick}/>
   <Readout/>

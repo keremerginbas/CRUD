@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react';
-import {Building2, Calculator, Droplets, ExternalLink, FileSpreadsheet, Landmark, Loader2, MapPinned, Scale, Trash2, TrendingUp, Upload, type LucideIcon} from 'lucide-react';
-import {fetchJson, type ComparableSummary, type Market, type OfficialSource} from '@/lib/api';
+import {Flame, Building2, Calculator, Droplets, ExternalLink, FileSpreadsheet, Landmark, Loader2, MapPinned, Scale, Trash2, TrendingUp, Upload, type LucideIcon} from 'lucide-react';
+import {fetchJson, type ComparableSummary, type DensitySummary, type Market, type OfficialSource} from '@/lib/api';
 import {importListings, readListingFile} from '@/lib/comparables';
 import {Button} from './ui/button';
 import {Badge, Card, CardContent, CardHeader, CardTitle} from './ui/card';
@@ -78,6 +78,22 @@ export function MarketResult({market}:{market:Market}){
     </li>)}
    </ol>
    <p className="text-[11px] leading-relaxed text-muted-foreground">Uç değerler ({s.trimmed}) ayıklandı. İlan fiyatı satış fiyatı değildir; {market.comparables.map(c=>SOURCE_LABEL[c.source]||c.source).filter((v,i,a)=>a.indexOf(v)===i).join(', ')} ilanlarındaki imar bilgisi ilan sahibinin beyanıdır.</p>
+  </CardContent>
+ </Card>;
+}
+
+// TKGM alım satım yoğunluğu özeti (kodda hesaplanmış işlem adetleri).
+export function DensityResult({density}:{density:DensitySummary}){
+ if(!density.available)return <Card><CardHeader><CardTitle className="flex items-center gap-2"><Flame size={16} className="text-orange-500"/>Alım satım hareketliliği</CardTitle><Badge tone="warn">Veri yok</Badge></CardHeader>
+  <CardContent className="text-xs text-muted-foreground">{density.reason} Yukarıdaki “Alım Satım Yoğunluğu” kartından ilçe verisini getirin.</CardContent></Card>;
+ const n=(v?:number|null)=>v==null?'—':v.toLocaleString('tr-TR');
+ return <Card>
+  <CardHeader><CardTitle className="flex items-center gap-2"><Flame size={16} className="text-orange-500"/>Alım satım hareketliliği</CardTitle><Badge tone="ok">TKGM {density.year}</Badge></CardHeader>
+  <CardContent className="space-y-2">
+   {density.thisParcel&&<div className={`rounded-md px-2.5 py-2 text-xs font-semibold ${density.thisParcel.matched?'bg-orange-500/10 text-orange-700 dark:text-orange-300':'bg-muted text-muted-foreground'}`}>
+    {density.thisParcel.matched?`Bu parselde ${density.year} yılında ${density.thisParcel.transactions} işlem kaydı var.`:`Bu parselde ${density.year} yılı için işlem noktası görünmüyor.`}</div>}
+   <div className="grid grid-cols-3 gap-1.5">{(density.near||[]).map(r=><Stat key={r.radiusM} label={`${r.radiusM>=1000?r.radiusM/1000+' km':r.radiusM+' m'} çevre`} value={`${n(r.transactions)} işlem`}/>)}</div>
+   <p className="text-[11px] text-muted-foreground">İlçe geneli: {n(density.district?.transactions)} işlem, {n(density.district?.parcels)} parsel (parsel başına medyan {n(density.district?.medianPerParcel)}). İşlem adedidir, fiyat değildir.</p>
   </CardContent>
  </Card>;
 }

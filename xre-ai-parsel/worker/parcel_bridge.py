@@ -27,6 +27,10 @@ from tkgm.exceptions import (  # noqa: E402
 # Public access can change at any time; only the remote service decides.
 PUBLIC_BASE = 'https://cbsapi.tkgm.gov.tr/megsiswebapi.v3/api'
 AUTHORIZED_BASE = 'https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api'
+# Parsel Sorgu > Analiz ekranının kullandığı uç nokta (kullanıcının tarayıcı ağ kaydından):
+# GET .../megsiswebapi.v3.1/api/analiz?AnalizTip=1&Yil=2025&IlceId=161 -> [{parselId, enlem, boylam, sayi}]
+ANALYSIS_URL = 'https://cbsapi.tkgm.gov.tr/megsiswebapi.v3.1/api/analiz'
+ANALYSIS_TYPES = {1: 'Alım Satım Yoğunluğu'}
 
 
 class DirectTKGMClient:
@@ -79,6 +83,25 @@ class DirectTKGMClient:
             if any(x in msg.lower() for x in ('bulunamad', 'not found', 'no http resource')):
                 raise TKGMNotFoundError('Bu adreste kayıt bulunamadı.')
             raise TKGMParseError('TKGM beklenen veri biçimini döndürmedi.')
+        return data
+
+    def get_analysis(self, analysis_type, year, district_id):
+        # Sabit adres + doğrulanmış tam sayı parametreler; Origin/Referer taklidi yapılmaz.
+        response = self.session.get(ANALYSIS_URL, params={'AnalizTip': analysis_type, 'Yil': year, 'IlceId': district_id}, timeout=self.timeout)
+        if response.status_code in (401, 403):
+            raise TKGMAuthError('Analiz servisi isteği reddetti.')
+        if response.status_code == 429:
+            raise TKGMRateLimitError('Sorgu limiti.')
+        if not response.ok:
+            raise TKGMHTTPError(response.status_code, 'TKGM analiz yanıt hatası')
+        if len(response.content) > 20_000_000:
+            raise TKGMParseError('TKGM yanıtı boyut sınırını aşıyor.')
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise TKGMParseError('TKGM JSON yerine başka içerik döndürdü.') from exc
+        if not isinstance(data, list):
+            raise TKGMParseError('Analiz yanıtı liste değil.')
         return data
 
     @staticmethod
@@ -234,6 +257,20 @@ def handle(req):
             if received_parcel is not None and str(received_parcel).strip().isdigit() and int(received_parcel) != number:
                 raise TKGMNotFoundError('Parsel numarası gelen veriyle eşleşmedi.')
             return parcel_result(found, 'ada-parsel')
+        elif action == 'analysis':
+            analysis_type = parse_integer(req.get('analysisType'), 'Analiz tipi')
+            if analysis_type not in ANALYSIS_TYPES:
+                raise ValueError('Desteklenmeyen analiz tipi.')
+            year = parse_integer(req.get('year'), 'Yıl')
+            if not (2000 <= year <= datetime.now(timezone.utc).year):
+                raise ValueError('Yıl 2000 ile bu yıl arasında olmalıdır.')
+            district_id = parse_region_id(req.get('districtId'))
+            rows = client.get_analysis(analysis_type, year, district_id)
+            # Yalnızca beklenen alanlar aktarılır.
+            clean = [{'parselId': r.get('parselId'), 'enlem': r.get('enlem'), 'boylam': r.get('boylam'), 'sayi': r.get('sayi')}
+                     for r in rows if isinstance(r, dict)]
+            return {'ok': True, 'source': 'TKGM Parsel Sorgu analiz servisi (resmî belge değildir)',
+                    'checkedAt': datetime.now(timezone.utc).isoformat(), 'analysisType': ANALYSIS_TYPES[analysis_type], 'rows': clean}
         elif action == 'coordinate':
             try:
                 lat, lon = float(req.get('lat')), float(req.get('lng'))

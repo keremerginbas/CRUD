@@ -6,7 +6,10 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
 import {fetchBoundary, fetchJson, postJson, type AnalysisResponse, type Health, type OfficialSource, type ParcelResponse, type Pin, type Region, type RegionLevel, type StoredParcel} from '@/lib/api';
-import {ComparablesImport, MarketResult, OfficialSources} from '@/components/MarketPanels';
+import {ComparablesImport, DensityResult, MarketResult, OfficialSources} from '@/components/MarketPanels';
+import {DensityPanel} from '@/components/DensityPanel';
+import {DensityLegend, type DensityMode} from '@/components/DensityLayer';
+import type {DensityPoint} from '@/lib/api';
 import {MapView, type MapFocus} from '@/components/MapView';
 import {MarkersTable} from '@/components/MarkersTable';
 import {AnalysisView} from '@/components/AnalysisView';
@@ -69,6 +72,8 @@ function App(){
  const [showFavorites,setShowFavorites]=useState(true);
  const [showPins,setShowPins]=useState(true);
  const [tab,setTab]=useState<string>('query');
+ const [density,setDensity]=useState<{year:number;province:string;district:string;points:DensityPoint[]}|null>(null);
+ const [densityMode,setDensityMode]=useState<DensityMode|'off'>('heat');
 
  const regionError=useCallback((m:string)=>{setRegionsError(m);setMessage('İdari liste alınamadı: '+m)},[]);
  const provinces=useRegionList('/api/regions/provinces',regionError);
@@ -289,12 +294,14 @@ function App(){
           <LocateFixed size={16}/>{queryingCoordinate?'Koordinat sorgulanıyor…':'Seçilen Noktadaki Parseli Ara'}</Button>
          {health?.coordinateQueryEnabled===false&&<p className="text-[11px] text-muted-foreground">Koordinat sorgusu .env içinde kapalı (TKGM_COORDINATE_ENABLED).</p>}
         </CardContent></Card>
+       <DensityPanel province={selectedProvince} district={selectedDistrict} districtId={districtId} loaded={density} onLoaded={setDensity} mode={densityMode} onMode={setDensityMode}/>
        <ComparablesImport/>
        <Card><CardHeader><CardTitle>AI Değerlendirme</CardTitle><Badge tone={health?.aiConfigured?'ok':'neutral'}>{health?.aiConfigured?'Anahtar tanımlı':'Anahtar yok'}</Badge></CardHeader>
         <CardContent className="space-y-3">
          <p className="text-xs leading-relaxed text-muted-foreground">TKGM parsel verisi ve emsal istatistikleri (kodda hesaplanmış) gönderilir; AI rakam üretmez, yorumlar. {health?.aiWebSearch?'Web araştırması açık: resmî kaynaklar ve ilan siteleri kaynak linkiyle taranır.':'Web araştırması kapalı (AI_WEB_SEARCH=false).'}</p>
          <Button className="w-full" disabled={!pin||analyzing} onClick={analyze}><Sparkles size={16}/>{analyzing?'Analiz hazırlanıyor…':'Seçilen Noktayı AI ile Analiz Et'}</Button>
          {!p&&<p className="text-[11px] text-amber-700 dark:text-amber-400">Emsal karşılaştırması için önce parseli sorgulayın veya parseli olan bir kaydı seçin.</p>}
+         {analysisData?.density&&<DensityResult density={analysisData.density}/>}
          {analysisData?.market&&<MarketResult market={analysisData.market}/>}
          {analysis&&<AnalysisView text={analysis} lat={pin?.lat} lng={pin?.lng} citations={analysisData?.citations} webSearch={analysisData?.webSearch} note={analysisData?.note}/>}
         </CardContent></Card>
@@ -318,6 +325,7 @@ function App(){
    <section className="relative min-h-0 max-lg:h-[60vh] max-lg:min-h-[420px]">
     <MapView satellite={satellite} labels={labels} boundary={boundary} parcel={parcelGeometry} parcelKey={parcelKey} focus={focus}
      pin={pin} showSelectionPin={showSelectionPin} focusPin={focusPin} markers={visibleMarkers} onMarkerClick={showMarker}
+     density={density?.points??[]} densityMode={densityMode} densityKey={density?`${density.district}-${density.year}`:''}
      onPick={(lat,lng)=>{setPin({lat,lng,note:''});setNote('');setShowSelectionPin(true)}}/>
     <div className="absolute top-2.5 right-2.5 z-[1000] flex max-w-[calc(100%-4.5rem)] flex-wrap items-center justify-end gap-1.5">
      {parcelGeometry&&<Button variant="danger" size="sm" className="bg-card shadow-md" onClick={()=>setFocus({data:parcelGeometry,key:parcelKey+'-'+Date.now(),maxZoom:20})}><LocateFixed size={14}/>Parsel</Button>}
@@ -330,6 +338,7 @@ function App(){
       <FileUp size={14}/>GeoJSON<input type="file" accept=".geojson,.json,application/geo+json" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)void importGeoJSON(f);e.target.value=''}}/></label>
      <Button variant="outline" size="sm" className="shadow-md" onClick={()=>setSatellite(v=>!v)}><Layers size={14}/>{satellite?'Sokak':'Uydu'}</Button>
     </div>
+    {density&&densityMode==='heat'&&density.points.length>0&&<DensityLegend max={Math.max(...density.points.map(p=>p.count))}/>}
     {health?.database&&<span className="pointer-events-none absolute right-2 bottom-6 z-[1000] hidden items-center gap-1 rounded bg-card/80 px-1.5 py-0.5 text-[10px] text-muted-foreground md:flex"><Database size={10}/>{health.database}</span>}
    </section>
   </main>
