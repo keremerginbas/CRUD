@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+/* shadcn/ui tarzı tasarım belirteçleri: renkler tek yerden yönetilir, koyu tema otomatik. */
+:root{
+ --background:#f3f6f9;--foreground:#162b40;
+ --card:#ffffff;--card-foreground:#162b40;
+ --popover:#ffffff;--popover-foreground:#162b40;
+ --primary:#146c94;--primary-foreground:#ffffff;
+ --secondary:#e8f2f8;--secondary-foreground:#164a66;
+ --muted:#eef3f7;--muted-foreground:#647a8c;
+ --border:#dde6ee;--input:#d3dee8;--ring:#2b8fc0;
+ --success:#3a9c48;--parcel:#d21c33;--brand:#0b2036;
+}
+@media (prefers-color-scheme:dark){
+ :root{
+  --background:#0d1722;--foreground:#e4edf4;
+  --card:#132131;--card-foreground:#e4edf4;
+  --popover:#17283a;--popover-foreground:#e4edf4;
+  --primary:#3aa7d8;--primary-foreground:#04121c;
+  --secondary:#1b3246;--secondary-foreground:#cfe6f3;
+  --muted:#1a2b3c;--muted-foreground:#93a7b8;
+  --border:#24384b;--input:#2b4157;--ring:#3aa7d8;
+  --success:#46b056;--parcel:#ff5a6e;--brand:#08131f;
+ }
+}
+@theme inline{
+ --font-sans:'DM Sans',Inter,system-ui,sans-serif;
+ --color-background:var(--background);--color-foreground:var(--foreground);
+ --color-card:var(--card);--color-card-foreground:var(--card-foreground);
+ --color-popover:var(--popover);--color-popover-foreground:var(--popover-foreground);
+ --color-primary:var(--primary);--color-primary-foreground:var(--primary-foreground);
+ --color-secondary:var(--secondary);--color-secondary-foreground:var(--secondary-foreground);
+ --color-muted:var(--muted);--color-muted-foreground:var(--muted-foreground);
+ --color-border:var(--border);--color-input:var(--input);--color-ring:var(--ring);
+ --color-success:var(--success);--color-parcel:var(--parcel);--color-brand:var(--brand);
+}
+@layer base{
+ html,body,#root{height:100%;margin:0}
+ body{min-width:320px;background:var(--background);color:var(--foreground);font-family:var(--font-sans);font-synthesis:none;-webkit-font-smoothing:antialiased}
+ button{cursor:pointer}
+}
+
+/* Leaflet */
+.leaflet-container{font:inherit;background:var(--muted)}
+.leaflet-control-zoom{border:1px solid var(--border)!important;box-shadow:0 3px 14px #102e3d25!important;border-radius:10px!important;overflow:hidden}
+.leaflet-control-zoom a{color:var(--primary)!important;background:var(--card)!important;border-color:var(--border)!important}
+.leaflet-popup-content-wrapper{border-radius:12px!important;box-shadow:0 8px 24px #17384d30!important}
+.leaflet-control-attribution{font-size:10px}
+.pin{background:#e43f51;border:3px solid #fff;width:22px;height:22px;border-radius:50%;box-shadow:0 2px 10px #a9183c80}
+.favorite-pin .pin{background:#f4b942;box-shadow:0 0 0 4px rgba(244,185,66,.25),0 3px 12px rgba(22,55,77,.25)}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}}
