@@ -1,12 +1,13 @@
 @echo off
 cd /d "%~dp0"
-echo XRE AI Parsel V12 - ilk kurulum
-where node >nul 2>&1 || (echo HATA: Node.js kurulu degil. & pause & exit /b 1)
-where py >nul 2>&1 || (echo HATA: Python Launcher (py) bulunamadi. KURULUM_WINDOWS.md dosyasina bakin. & pause & exit /b 1)
-call npm.cmd install || (echo HATA: npm kurulumu basarisiz. & pause & exit /b 1)
-py -3 -m pip install -r worker\requirements.txt || (echo HATA: Python paketleri kurulamadi. & pause & exit /b 1)
+echo XRE AI Parsel V13 - ilk kurulum
+where node >nul 2>&1 || (echo HATA: Node.js kurulu degil. https://nodejs.org adresinden LTS surumunu kurun. & pause & exit /b 1)
+echo [1/3] npm paketleri kuruluyor...
+call npm.cmd install || (echo HATA: npm kurulumu basarisiz. Internet baglantisini kontrol edin. & pause & exit /b 1)
+echo [2/3] Python paketleri kuruluyor...
+where py >nul 2>&1 && (py -3 -m pip install -r worker\requirements.txt || echo UYARI: Python paketleri kurulamadi; parsel sorgusu calismaz.) || echo UYARI: Python Launcher (py) bulunamadi. KURULUM_WINDOWS.md dosyasina bakin; parsel sorgusu Python olmadan calismaz.
+echo [3/3] Ayarlar...
 if not exist .env (copy .env.example .env >nul && echo .env dosyasi olusturuldu.)
 echo.
 echo Kurulum tamamlandi. BASLAT_API.bat ve BASLAT_HARITA.bat dosyalarini ayri ayri calistirin.
-echo Parsel sorgusu once herkese acik TKGM baglantisinda token olmadan denenir.
 pause
