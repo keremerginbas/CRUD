@@ -36,5 +36,7 @@ OPENAI_MODEL=gpt-4.1-mini
 AI_WEB_SEARCH=true
 # Günlük AI analiz sınırı (0 = sınırsız)
 AI_DAILY_LIMIT=50
+# İlan5 eklentisinden otomatik ilan aktarımı için gizli anahtar (en az 16 karakter; boşsa kapalı)
+XRE_INGEST_TOKEN=
 `);
 console.log('Hazır:',out);

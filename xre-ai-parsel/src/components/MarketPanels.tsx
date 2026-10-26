@@ -1,5 +1,5 @@
 import {useEffect, useRef, useState} from 'react';
-import {Flame, Building2, Calculator, Droplets, ExternalLink, FileSpreadsheet, Landmark, Loader2, MapPinned, Scale, Trash2, TrendingUp, Upload, type LucideIcon} from 'lucide-react';
+import {Link2, Flame, Building2, Calculator, Droplets, ExternalLink, FileSpreadsheet, Landmark, Loader2, MapPinned, Scale, Trash2, TrendingUp, Upload, type LucideIcon} from 'lucide-react';
 import {fetchJson, type ComparableSummary, type DensitySummary, type Market, type OfficialSource} from '@/lib/api';
 import {importListings, readListingFile} from '@/lib/comparables';
 import {Button} from './ui/button';
@@ -9,6 +9,27 @@ const tl=(n:number)=>n.toLocaleString('tr-TR',{maximumFractionDigits:0})+' ₺';
 const SOURCE_LABEL:Record<string,string>={sahibinden:'Sahibinden',emlakjet:'Emlakjet',hepsiemlak:'Hepsiemlak'};
 
 // İlan5 eklentisinden emsal ilan aktarımı.
+// İlan5 eklentisinin "XRE'ye aktar" bölümüne yapıştırılacak adres ve anahtar.
+function ExtensionLink(){
+ const [info,setInfo]=useState<{enabled:boolean;token:string|null}|null>(null);
+ const [show,setShow]=useState(false);
+ const [copied,setCopied]=useState('');
+ useEffect(()=>{fetchJson<{enabled:boolean;token:string|null}>('/api/ingest/info').then(setInfo).catch(()=>{})},[]);
+ const appUrl=location.origin+location.pathname.replace(/\/(index\.html)?$/,'');
+ const copy=(label:string,v:string)=>void navigator.clipboard?.writeText(v).then(()=>{setCopied(label);setTimeout(()=>setCopied(''),1500)});
+ if(!info)return null;
+ return <details className="rounded-lg border border-border p-2.5 text-xs">
+  <summary className="flex cursor-pointer items-center gap-1.5 font-semibold"><Link2 size={13}/>İlan5 eklentisinden otomatik aktarım</summary>
+  {!info.enabled?<p className="mt-2 text-muted-foreground">Sunucunun <code>.env</code> dosyasına <code>XRE_INGEST_TOKEN=</code> ile en az 16 karakterlik gizli bir anahtar ekleyip uygulamayı yeniden başlatın.</p>
+  :<div className="mt-2 space-y-1.5">
+   <p className="text-muted-foreground">Eklenti simgesi → <b>XRE Parsel Sorgu'ya aktar</b> bölümüne yapıştırın:</p>
+   <div className="flex items-center gap-1"><code className="min-w-0 flex-1 truncate rounded bg-muted px-1.5 py-1">{appUrl}</code><Button size="sm" variant="ghost" onClick={()=>copy('url',appUrl)}>{copied==='url'?'✓':'Kopyala'}</Button></div>
+   <div className="flex items-center gap-1"><code className="min-w-0 flex-1 truncate rounded bg-muted px-1.5 py-1">{show?info.token:'••••••••••••••••'}</code>
+    <Button size="sm" variant="ghost" onClick={()=>setShow(v=>!v)}>{show?'Gizle':'Göster'}</Button><Button size="sm" variant="ghost" onClick={()=>copy('token',info.token||'')}>{copied==='token'?'✓':'Kopyala'}</Button></div>
+  </div>}
+ </details>;
+}
+
 export function ComparablesImport({onChange}:{onChange?:()=>void}){
  const [summary,setSummary]=useState<ComparableSummary|null>(null);
  const [busy,setBusy]=useState('');
@@ -42,6 +63,7 @@ export function ComparablesImport({onChange}:{onChange?:()=>void}){
    </div>
    <input ref={input} type="file" accept=".json,.csv,application/json,text/csv" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)void onFile(f);e.target.value=''}}/>
    {msg&&<p className="text-xs text-foreground/80">{msg}</p>}
+   <ExtensionLink/>
   </CardContent>
  </Card>;
 }

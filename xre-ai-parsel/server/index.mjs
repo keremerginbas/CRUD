@@ -10,6 +10,7 @@ import {marketAnalysis, normalizeListing, placeKey} from './market.mjs';
 import {officialSources} from './sources.mjs';
 import {densitySummary, normalizeDensityRows} from './density.mjs';
 import {installAuth} from './auth.mjs';
+import {installIngest} from './ingest.mjs';
 const app=express();
 const host=process.env.HOST||'127.0.0.1';
 // Passenger (cPanel "Setup Node.js App") altında uygulama internete açıktır; şifresiz başlatılmaz.
@@ -30,8 +31,10 @@ app.disable('x-powered-by');app.use(cors({origin:process.env.CORS_ORIGIN||false}
 app.use((_req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','SAMEORIGIN');next()});
 // Emsal/yoğunluk içe aktarma parçalı büyük gövde alır; diğer tüm istekler 100 KB ile sınırlı.
 const smallJson=express.json({limit:'100kb'}),importJson=express.json({limit:'8mb'});
-const LARGE_BODY=new Set(['/api/comparables/import','/api/density/import']);
+const LARGE_BODY=new Set(['/api/comparables/import','/api/density/import','/api/ingest/listings']);
 app.use((req,res,next)=>(LARGE_BODY.has(req.path)?importJson:smallJson)(req,res,next));
+// Eklenti aktarımı kendi anahtarıyla doğrulanır; oturum katmanından önce kaydedilir.
+installIngest(app,{token:process.env.XRE_INGEST_TOKEN||'',save:records=>saveListings(records)});
 const auth=installAuth(app,{basePath});
 // OpenAI faturasını korumak için günlük AI analiz sınırı (varsayılan 50; 0 = sınırsız).
 const aiDailyLimit=Number(process.env.AI_DAILY_LIMIT??50);
@@ -176,19 +179,23 @@ app.post('/api/parcels/coordinate',async(req,res)=>{
 
 // --- Emsal ilanlar (İlan5 eklentisi JSON/CSV dışa aktarımı) ---
 const COMPARABLE_COLUMNS=['source','listing_id','title','price','currency','area','city','district','neighborhood','city_key','district_key','neighborhood_key','category','url','imar','kaks','tapu','ada_parsel','listing_status','captured_at'];
-app.post('/api/comparables/import',async(req,res)=>{
- const records=req.body?.records;
- if(!Array.isArray(records)||!records.length||records.length>2000)return res.status(400).json({error:'Bir istekte 1–2000 kayıt gönderin.'});
+async function saveListings(records){
  const listings=records.map(normalizeListing).filter(Boolean);
  const placeholders=COMPARABLE_COLUMNS.map(()=>'?').join(',');
  const update=COMPARABLE_COLUMNS.slice(2).map(c=>databaseMode==='sqlite'?`${c}=excluded.${c}`:`${c}=VALUES(${c})`).join(',');
  const sql=`INSERT INTO comparables(${COMPARABLE_COLUMNS.join(',')}) VALUES(${placeholders}) `+
   (databaseMode==='sqlite'?`ON CONFLICT(source,listing_id) DO UPDATE SET ${update}`:`ON DUPLICATE KEY UPDATE ${update}`);
- try{
-  for(const l of listings)await pool.execute(sql,[l.source,l.listingId,l.title,l.price,l.currency,l.area,l.city,l.district,l.neighborhood,l.cityKey,l.districtKey,l.neighborhoodKey,l.category,l.url,l.imar,l.kaks,l.tapu,l.adaParsel,l.listingStatus,l.capturedAt]);
-  res.json({ok:true,received:records.length,saved:listings.length,skipped:records.length-listings.length});
- }catch(e){console.error('[COMPARABLES IMPORT]',e.message);res.status(500).json({error:'Emsal kayıtları kaydedilemedi.'})}
+ for(const l of listings)await pool.execute(sql,[l.source,l.listingId,l.title,l.price,l.currency,l.area,l.city,l.district,l.neighborhood,l.cityKey,l.districtKey,l.neighborhoodKey,l.category,l.url,l.imar,l.kaks,l.tapu,l.adaParsel,l.listingStatus,l.capturedAt]);
+ return {ok:true,received:records.length,saved:listings.length,skipped:records.length-listings.length};
+}
+app.post('/api/comparables/import',async(req,res)=>{
+ const records=req.body?.records;
+ if(!Array.isArray(records)||!records.length||records.length>2000)return res.status(400).json({error:'Bir istekte 1–2000 kayıt gönderin.'});
+ try{res.json(await saveListings(records))}
+ catch(e){console.error('[COMPARABLES IMPORT]',e.message);res.status(500).json({error:'Emsal kayıtları kaydedilemedi.'})}
 });
+// Uygulama içinden eklenti bağlantı bilgisi (yalnızca girişli kullanıcıya).
+app.get('/api/ingest/info',(_req,res)=>res.json({enabled:Boolean(process.env.XRE_INGEST_TOKEN),token:process.env.XRE_INGEST_TOKEN||null}));
 app.get('/api/comparables/summary',async(_req,res)=>{
  try{
   const [[totals]]=await pool.query("SELECT COUNT(*) AS total,SUM(CASE WHEN category='arsa' AND listing_status<>'removed' AND price>0 AND area>0 THEN 1 ELSE 0 END) AS usable FROM comparables");

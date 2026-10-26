@@ -24,3 +24,13 @@ test('oturum imzası, süre ve sahtecilik',()=>{
  assert.equal(verifySession('',  's1',now),false);assert.equal(verifySession('a.b','s1',now),false);
  assert.ok(payload);
 });
+
+import {tokenMatches} from '../server/ingest.mjs';
+test('eklenti aktarım anahtarı',()=>{
+ const t='test-ingest-token-1234567890';
+ assert.equal(tokenMatches('Bearer '+t,t),true);
+ assert.equal(tokenMatches('Bearer yanlis-anahtar-0000000',t),false);
+ assert.equal(tokenMatches(t,t),false,'Bearer öneki zorunlu');
+ assert.equal(tokenMatches('Bearer kisa',t),false);
+ assert.equal(tokenMatches('Bearer '+t,''),false,'sunucuda anahtar yoksa kapalı');
+});

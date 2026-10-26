@@ -38,6 +38,11 @@
 - **Dağıtım paketi:** `npm run deploy` → `deploy/parsel-sorgu-app` (derlenmiş arayüz + sunucu + Python köprüsü, yalnızca 4 çalışma zamanı paketi). Başlangıç dosyası `app.cjs`. Adımlar: `KURULUM_CPANEL.md`.
 - MySQL kullanılırsa tablolar `db/schema.sql`'den otomatik oluşturulur. Python köprüsü artık yalnızca `requests` ister.
 
+## İlan5 eklentisinden otomatik aktarım
+- Eklenti 3.2.0 popup'ındaki **XRE Parsel Sorgu'ya aktar** bölümü arşivdeki arsa ilanlarını doğrudan XRE'ye gönderir (elle veya 30 dakikada bir otomatik; yalnız değişenler, istenirse tümü). Dosya dışa/içe aktarma gerekmez.
+- Sunucu: `XRE_INGEST_TOKEN` ile korunan `POST /api/ingest/listings`; adres ve anahtar XRE'de Analiz → Emsal ilanlar → "İlan5 eklentisinden otomatik aktarım" bölümünden kopyalanır.
+- Kişisel veri (satıcı adı, telefon, açıklama, fotoğraf, notlar) eklentiden hiç gönderilmez; sunucu da ayrıca ayıklar. Ayrıntı: `integrations/ilan5/README.md`.
+
 ## Düzeltmeler
 - Uydu görünümünde yüksek zoomda görülen **“Map data not yet available”** döşemeleri: Esri World Imagery kırsal alanlarda 18. seviyeden sonra gerçek görüntü vermiyor. Döşemeler artık 18'de alınıp 21'e kadar büyütülüyor.
 - Uydu görünümüne isteğe bağlı yer adı/sınır etiket katmanı eklendi.
