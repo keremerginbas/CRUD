@@ -1,70 +1,99 @@
-# Getting Started with Create React App
+# Santral — Numara Maskeleme ve Çağrı Takip Uygulaması
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+fibimi IRM'deki "dijital telefon / maske no" mantığının şirket içi karşılığı:
 
-## Available Scripts
+- **Danışman müşteriyi aradığında** müşteri danışmanın cep numarasını değil, danışmanın **dijital (maske) numarasını** görür. Müşteriye "satış danışmanınız sizi arıyor, görüşmeniz kayıt altındadır" anonsu çalınır, görüşme kaydedilir.
+- **Müşteri dijital numarayı / ilan numarasını aradığında** çağrı mesai saatleri içindeyse danışmanın telefonuna yönlendirilir. Danışman açmadan önce "Alıcı Mustafa Utku, Zübeyde Hanım dükkan ilanından arıyor" anonsunu duyar ve telefonuna bildirim düşer. Mesai dışındaysa çağrı karşılama hattına (444'teki 7 hat) gider, danışmana cevapsız çağrı bildirimi gelir.
+- **444 24 53'ü arayan** müşteri santralin kuyruğuna düşer; 7 karşılama hattından hangisi müsaitse o açar.
+- Bütün çağrılar, hangi numaranın arandığı, süre ve ses kaydı uygulamada listelenir. Kayıtları danışmanın kendisi, izin verirse broker/asistan dinler.
 
-In the project directory, you can run:
+## Önemli: maskeleme telefonda değil santralde yapılır
 
-### `npm start`
+iOS ve Android hiçbir uygulamanın giden aramada arayan numarayı değiştirmesine ya da arama sesini kaydetmesine izin vermez. fibimi de dahil bu tür bütün uygulamalar şöyle çalışır:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```
+           (1) "Ara" butonu                (2) originate / click-to-call API
+ Danışman ─────────────────▶ Bizim sunucu ─────────────────────────────▶ Bulut Santral
+ telefonu ◀────────────────────────────────────────────────── (3) önce danışmanı arar
+                                                               (4) danışman açınca müşteriyi
+ Müşteri  ◀──────────── arayan: danışmanın dijital numarası ──     dijital numarayla arar,
+                                                                    anons çalar, kaydeder
+                                                               (5) olaylar + kayıt ──▶ Bizim sunucu ──▶ Uygulama
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Yani **numaraların bağlı olduğu santralin bir API'si olması şart**. Gereken API'ler:
 
-### `npm test`
+| İhtiyaç | Santralde karşılığı |
+|---|---|
+| Danışman uygulamadan aradığında maskeli arama | Click-to-call / originate (önce dahili, sonra dış numara; arayan numara seçilebilir) |
+| Gelen çağrıyı danışmana/mesaiye göre yönlendirme | Dinamik yönlendirme webhook'u (santral "nereye aktarayım?" diye sorar) — yoksa santral panelinde sabit yönlendirme |
+| Çağrı listesi | Çağrı olayı / CDR webhook'u |
+| Ses kaydı | Kayıt indirme API'si |
+| "Danışmanınız sizi arıyor" anonsu, 444 kuyruğu | Santral panelinde ses dosyası + kuyruk tanımı |
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Türk Telekom numaralarıyla ne yapmalı?
 
-### `npm run build`
+1. Türk Telekom (veya numaraları aldığınız bayi) **bulut santral API'si** veriyor mu, yukarıdaki tabloyu göstererek sorun. fibimi'nin Türk Telekom ile özel bir entegrasyonu olabilir; bu API size de açılıyorsa yeni bir adaptör yazmak yeterli (`server/src/providers/`).
+2. API verilmiyorsa numaraları (0312'ler, 0850'ler ve 444 24 53) **numara taşıma** ile herkese açık API'si olan bir BTK lisanslı bulut santrale taşıyın — ör. Verimor veya Netgsm. Projede Verimor adaptörü hazır.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Proje yapısı
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```
+server/   Node.js API (Express + SQLite)  — santral entegrasyonu, yönlendirme kuralları, çağrı kayıtları
+mobile/   Expo / React Native uygulaması  — iOS (App Store) ve Android (Play Store) tek kod tabanı
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Sunucu
 
-### `npm run eject`
+```bash
+cd server
+npm install
+cp .env.example .env      # değerleri doldurun
+npm run seed              # örnek kullanıcılar (şifre: Sifre1234)
+npm start
+npm test                  # yönlendirme kuralları ve API testleri
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+Node.js 22.13+ gerekir (yerleşik SQLite kullanılıyor). `PBX_PROVIDER=mock` ile santral olmadan çalışır.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+**Santral panelinde yapılacak tanımlar**
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- Çağrı olayı webhook'u → `POST https://<sunucu>/webhooks/pbx/event?token=<PBX_WEBHOOK_SECRET>`
+- Dinamik yönlendirme → `POST https://<sunucu>/webhooks/pbx/route?token=<PBX_WEBHOOK_SECRET>`
+  (santral HMAC imzası gönderebiliyorsa `X-Signature` başlığı da desteklenir)
+- Her danışmana bir dahili ve bir dijital numara; ilan bazlı takip istenirse ilan başına ek numara
+- 444 24 53 → karşılama kuyruğu (7 hat), adı `HUNT_GROUP_DESTINATION` ile aynı
+- Giden aramada müşteriye çalınacak anons ve "görüşmeniz kayıt altına alınmaktadır" bilgilendirmesi
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+> Verimor adaptöründeki webhook alan adları panelde seçilen biçime göre değişebilir. Canlıya almadan önce panelden örnek bir istek alıp `server/src/providers/verimor.js` içindeki alanları doğrulayın.
 
-## Learn More
+**Veri modeli:** `users` (danışman, mesai saatleri, kayıt dinleme izinleri), `numbers` (dijital numara / ilan numarası / 444 hattı ve kime ait olduğu), `contacts` (alıcı/satıcı), `calls`.
+Yeni danışman ve numara tanımı şimdilik doğrudan veritabanına yapılır (`src/seed.js` örnek); yönetim paneli sonraki adım.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Mobil uygulama
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```bash
+cd mobile
+npm install
+npx expo start            # geliştirme
+npm run typecheck
+```
 
-### Code Splitting
+Ekranlar: giriş, aramalar (gelen/giden/cevapsız, ofis geneli broker/asistan için), kişiler (arama + maskeli arama butonu), çağrı detayı (ses kaydı dinleme, geri ara), profil, santral ayarları (yönlendirilen telefon, sesli yönlendirme, kayıt dinleme izinleri, hafta içi/cumartesi/pazar mesai saatleri).
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+`mobile/app.json` içinde güncellenmesi gerekenler: `extra.apiUrl` (sunucu adresi), `ios.bundleIdentifier` ve `android.package` (ör. `com.sirketadi.santral`), uygulama adı ve ikonlar (`assets/`).
 
-### Analyzing the Bundle Size
+## App Store ve Play Store'da yayınlama
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Mac gerekmez; derleme ve gönderim Expo EAS bulutunda yapılır.
 
-### Making a Progressive Web App
+1. Hesaplar: **Apple Developer Program** (yıllık 99 $, şirket adına D-U-N-S numarası gerekir) ve **Google Play Console** (tek seferlik 25 $, kuruluş hesabı).
+2. `npx eas-cli@latest login` → `npx eas-cli@latest init` (projectId `app.json`'a yazılır, push bildirimleri için gerekli).
+3. iOS push için Apple anahtarı ve Android push için Firebase (FCM) kimliği: `npx eas-cli@latest credentials`.
+4. Derleme: `npx eas-cli@latest build --platform all --profile production`
+5. Gönderim: `npx eas-cli@latest submit --platform ios` / `--platform android` (`eas.json` içindeki `ascAppId` ve Play servis hesabı dosyasını doldurun).
+6. Mağaza sayfaları: gizlilik politikası URL'si (zorunlu), ekran görüntüleri, açıklama. Uygulama giriş gerektirdiği için **inceleme ekibine bir demo hesap** verin (mock santralli bir sunucu bu iş için uygundur). Şirket içi kullanım için App Store'da "Unlisted" dağıtım veya Apple Business Manager seçenekleri de değerlendirilebilir.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## KVKK
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Görüşme kaydı kişisel veri işleme sayılır. Müşteriye arama başında kayıt bilgilendirmesi yapılmalı, aydınlatma metni yayınlanmalı, kayıtların saklama süresi belirlenmeli; danışmanlar için de ayrı aydınlatma yapılmalıdır. Ses kayıtları santralde durur, uygulama yalnızca yetkili kullanıcıya sunucu üzerinden aktarır.
