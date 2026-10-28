@@ -20,9 +20,14 @@ export async function fetchJson<T>(url:string,options?:RequestInit):Promise<T>{
  const raw=await res.text();
  let data:any;
  try{data=raw?JSON.parse(raw):{}}catch{throw new Error('Sunucu JSON yerine beklenmeyen yanıt döndürdü. API terminalini kontrol edin.')}
- if(!res.ok)throw new Error(data.error||`Sunucu hatası: ${res.status}`);
+ if(!res.ok)throw new ApiError(data.error||`Sunucu hatası: ${res.status}`,res.status,data.code);
  return data as T;
 }
+export class ApiError extends Error{
+ constructor(message:string,public status:number,public code?:string){super(message)}
+}
+// Sunucunun TKGM'ye erişemediği durumlar (IP engeli, 401/403, ağ hatası): tarayıcıdan denemeye değer.
+export const isProviderBlocked=(e:unknown)=>e instanceof ApiError&&['ACCESS_RESTRICTED','AUTH_REQUIRED','UNAVAILABLE','UPSTREAM','BUSY'].includes(e.code||'');
 
 export const postJson=<T,>(url:string,body:unknown,method='POST')=>fetchJson<T>(url,{
  method,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)

@@ -1,6 +1,7 @@
 import {useEffect, useState} from 'react';
 import {ClipboardPaste, Download, EyeOff, Flame, Loader2, Trash2, Waypoints} from 'lucide-react';
-import {fetchJson, postJson, type DensityDataset, type DensityPoint} from '@/lib/api';
+import {ApiError, fetchJson, isProviderBlocked, postJson, type DensityDataset, type DensityPoint} from '@/lib/api';
+import {browserDensity, tkgmMode} from '@/lib/tkgm-browser';
 import type {DensityMode} from './DensityLayer';
 import {Button} from './ui/button';
 import {Badge, Card, CardContent, CardHeader, CardTitle} from './ui/card';
@@ -33,7 +34,16 @@ export function DensityPanel({province,district,districtId,loaded,onLoaded,mode,
  async function fromTkgm(){
   setBusy(true);setMsg('');
   try{
-   const r=await postJson<{parcels:number;transactions:number}>('/api/density/fetch',{year,districtId:Number(districtId),province,district});
+   let r:{parcels:number;transactions:number};
+   try{
+    if(tkgmMode.viaBrowser)throw new ApiError('tarayıcı modu',403,'ACCESS_RESTRICTED');
+    r=await postJson('/api/density/fetch',{year,districtId:Number(districtId),province,district});
+   }catch(e){
+    if(!isProviderBlocked(e))throw e;
+    // Sunucu TKGM'ye erişemiyor: analiz tarayıcıdan alınıp sunucuya kaydedilir.
+    tkgmMode.viaBrowser=true;
+    r=await postJson('/api/density/import',{year,province,district,rows:await browserDensity(year,districtId)});
+   }
    await show(year,province,district);await loadList();
    setMsg(`TKGM: ${year} yılında ${district} ilçesinde ${r.transactions.toLocaleString('tr-TR')} işlem, ${r.parcels.toLocaleString('tr-TR')} parsel.`);
   }catch(e){setMsg((e instanceof Error?e.message:'TKGM verisi alınamadı.')+' Gerekirse TKGM yanıtını aşağıdan yapıştırın.');setPaste(true)}

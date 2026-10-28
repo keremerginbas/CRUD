@@ -11,6 +11,7 @@ import {officialSources} from './sources.mjs';
 import {densitySummary, normalizeDensityRows} from './density.mjs';
 import {installAuth} from './auth.mjs';
 import {installIngest} from './ingest.mjs';
+import {validateClientParcel} from './parcel-validate.mjs';
 const app=express();
 const host=process.env.HOST||'127.0.0.1';
 // Passenger (cPanel "Setup Node.js App") altında uygulama internete açıktır; şifresiz başlatılmaz.
@@ -31,7 +32,7 @@ app.disable('x-powered-by');app.use(cors({origin:process.env.CORS_ORIGIN||false}
 app.use((_req,res,next)=>{res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','same-origin');res.setHeader('X-Frame-Options','SAMEORIGIN');next()});
 // Emsal/yoğunluk içe aktarma parçalı büyük gövde alır; diğer tüm istekler 100 KB ile sınırlı.
 const smallJson=express.json({limit:'100kb'}),importJson=express.json({limit:'8mb'});
-const LARGE_BODY=new Set(['/api/comparables/import','/api/density/import','/api/ingest/listings']);
+const LARGE_BODY=new Set(['/api/comparables/import','/api/density/import','/api/ingest/listings','/api/parcels/store']);
 app.use((req,res,next)=>(LARGE_BODY.has(req.path)?importJson:smallJson)(req,res,next));
 // Eklenti aktarımı kendi anahtarıyla doğrulanır; oturum katmanından önce kaydedilir.
 installIngest(app,{token:process.env.XRE_INGEST_TOKEN||'',save:records=>saveListings(records)});
@@ -162,6 +163,15 @@ app.post('/api/parcels/search',async(req,res)=>{
  try{result.localParcelId=await storeVerifiedParcel(req.body,result)}
  catch(e){console.error('[PARCEL STORE]',e.message);result.warning='Parsel verisi alındı ancak yerel arşive kaydedilemedi.'}
  return res.json(result);
+});
+
+// Sunucu TKGM'ye erişemediğinde tarayıcının aldığı parsel sonucu doğrulanıp arşive yazılır.
+app.post('/api/parcels/store',async(req,res)=>{
+ let parcel;try{parcel=validateClientParcel(req.body?.parcel)}catch(e){return res.status(400).json({error:e.message})}
+ const record={ok:true,source:'TKGM CBS (kullanıcının tarayıcısından; resmî belge değildir)',checkedAt:new Date().toISOString(),queryType:'ada-parsel',parcel};
+ try{record.localParcelId=await storeVerifiedParcel({},record)}
+ catch(e){console.error('[PARCEL STORE]',e.message);record.warning='Parsel alındı ancak yerel arşive kaydedilemedi.'}
+ res.json(record);
 });
 
 app.post('/api/parcels/coordinate',async(req,res)=>{

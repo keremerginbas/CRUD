@@ -5,7 +5,8 @@ import {ChevronRight, LogOut, Database, FileUp, Layers, ListChecks, LocateFixed,
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import './style.css';
-import {fetchBoundary, fetchJson, postJson, type AnalysisResponse, type Health, type OfficialSource, type ParcelResponse, type Pin, type Region, type RegionLevel, type StoredParcel} from '@/lib/api';
+import {browserBoundary, browserParcel, browserRegions, tkgmMode} from '@/lib/tkgm-browser';
+import {fetchBoundary, fetchJson, isProviderBlocked, postJson, type AnalysisResponse, type Health, type OfficialSource, type ParcelResponse, type Pin, type Region, type RegionLevel, type StoredParcel} from '@/lib/api';
 import {ComparablesImport, DensityResult, MarketResult, OfficialSources} from '@/components/MarketPanels';
 import {DensityPanel} from '@/components/DensityPanel';
 import {AuthGate, logout} from '@/components/AuthGate';
@@ -22,17 +23,26 @@ import {Tabs, TabsList, TabsPanel, TabsTab} from '@/components/ui/tabs';
 
 const BOUNDARY_ZOOM:Record<RegionLevel,number>={province:9,district:12,neighborhood:15};
 
-function useRegionList(url:string|null,onError:(m:string)=>void){
+const REGION_URL:Record<RegionLevel,(p:string)=>string>={province:()=>'/api/regions/provinces',district:p=>`/api/regions/districts/${p}`,neighborhood:p=>`/api/regions/neighborhoods/${p}`};
+// Önce sunucu; sunucu TKGM'ye erişemezse (VPS IP engeli vb.) aynı liste tarayıcıdan alınır.
+async function loadRegions(level:RegionLevel,parent:string):Promise<Region[]>{
+ if(!tkgmMode.viaBrowser){
+  try{return (await fetchJson<{items:Region[]}>(REGION_URL[level](parent))).items||[]}
+  catch(e){if(!isProviderBlocked(e))throw e;tkgmMode.viaBrowser=true}
+ }
+ return browserRegions(level,parent);
+}
+function useRegionList(level:RegionLevel,parent:string|null,onError:(m:string)=>void){
  const [items,setItems]=useState<Region[]>([]);
  const [loading,setLoading]=useState(false);
  useEffect(()=>{
   setItems([]);
-  if(!url)return;
+  if(parent===null)return;
   let active=true;setLoading(true);
-  fetchJson<{items:Region[]}>(url).then(d=>{if(active)setItems(d.items||[])})
+  loadRegions(level,parent).then(d=>{if(active)setItems(d)})
    .catch(e=>{if(active)onError(e.message)}).finally(()=>{if(active)setLoading(false)});
   return()=>{active=false};
- },[url]);
+ },[level,parent]);
  return {items,loading};
 }
 
@@ -73,13 +83,15 @@ function App(){
  const [showFavorites,setShowFavorites]=useState(true);
  const [showPins,setShowPins]=useState(true);
  const [tab,setTab]=useState<string>('query');
+ const [tkgmViaBrowser,setTkgmViaBrowser]=useState(false);
+ useEffect(()=>{const on=()=>{setTkgmViaBrowser(true);setRegionsError('')};window.addEventListener('xre:tkgm-browser',on);return()=>window.removeEventListener('xre:tkgm-browser',on)},[]);
  const [density,setDensity]=useState<{year:number;province:string;district:string;points:DensityPoint[]}|null>(null);
  const [densityMode,setDensityMode]=useState<DensityMode|'off'>('heat');
 
  const regionError=useCallback((m:string)=>{setRegionsError(m);setMessage('İdari liste alınamadı: '+m)},[]);
- const provinces=useRegionList('/api/regions/provinces',regionError);
- const districts=useRegionList(provinceId?`/api/regions/districts/${provinceId}`:null,regionError);
- const neighborhoods=useRegionList(districtId?`/api/regions/neighborhoods/${districtId}`:null,regionError);
+ const provinces=useRegionList('province','',regionError);
+ const districts=useRegionList('district',provinceId||null,regionError);
+ const neighborhoods=useRegionList('neighborhood',districtId||null,regionError);
  const nameOf=(list:Region[],id:string)=>list.find(v=>String(v.id)===id)?.name||'';
  const selectedProvince=nameOf(provinces.items,provinceId);
  const selectedDistrict=nameOf(districts.items,districtId);
@@ -97,7 +109,9 @@ function App(){
    :districtId?['district',provinceId,districtId]:provinceId?['province','0',provinceId]:null;
   if(!target){setBoundary(null);setBoundaryNote('');return}
   let active=true;
-  fetchBoundary(...target).then(feature=>{
+  const [level,parent,id]=target;
+  const local=tkgmMode.viaBrowser?browserBoundary(level,id):null;
+  (local?Promise.resolve(local):fetchBoundary(level,parent,id).catch(e=>{const f=browserBoundary(level,id);if(f)return f;throw e})).then(feature=>{
    if(!active)return;
    setBoundary(feature);setBoundaryNote('');
    setFocus({data:feature,key:`${target[0]}-${target[2]}`,maxZoom:BOUNDARY_ZOOM[target[0]]});
@@ -155,8 +169,19 @@ function App(){
   if(!neighborhoodId){setMessage('Lütfen listeden mahalle seçin.');return}
   setSearching(true);setParcelResult(null);setAnalysis('');
   try{
-   applyParcelResult(await postJson<ParcelResponse>('/api/parcels/search',{province:selectedProvince,district:selectedDistrict,
-    neighborhood:selectedNeighborhood,neighborhoodId:Number(neighborhoodId),block,parcel}));
+   let data:ParcelResponse|null=null;
+   if(!tkgmMode.viaBrowser){
+    try{data=await postJson<ParcelResponse>('/api/parcels/search',{province:selectedProvince,district:selectedDistrict,
+     neighborhood:selectedNeighborhood,neighborhoodId:Number(neighborhoodId),block,parcel})}
+    catch(err){if(!isProviderBlocked(err))throw err;tkgmMode.viaBrowser=true}
+   }
+   if(!data){
+    // Sunucu TKGM'ye erişemiyor: parsel tarayıcıdan alınır, doğrulanıp sunucu arşivine yazılır.
+    const found=await browserParcel(neighborhoodId,block,parcel);
+    data=await postJson<ParcelResponse>('/api/parcels/store',{parcel:{...found,
+     province:found.province||selectedProvince,district:found.district||selectedDistrict,neighborhood:found.neighborhood||selectedNeighborhood}});
+   }
+   applyParcelResult(data);
   }catch(e){setMessage(e instanceof Error?e.message:'Parsel sorgulaması başarısız.')}finally{setSearching(false)}
  }
  async function queryCoordinate(){
@@ -229,7 +254,7 @@ function App(){
     </div>
    </div>
    <div className="flex items-center gap-1.5 text-[11px]">
-    {health&&<><span className="hidden rounded-full bg-white/10 px-2.5 py-1 sm:inline">TKGM: {health.parcelMode}</span>
+    {health&&<><span className="hidden rounded-full bg-white/10 px-2.5 py-1 sm:inline" title={tkgmViaBrowser?'Sunucu TKGM\'ye erişemediği için sorgular tarayıcınızdan yapılıyor.':undefined}>TKGM: {tkgmViaBrowser?'tarayıcı üzerinden':health.parcelMode}</span>
      <span className={`hidden rounded-full px-2.5 py-1 sm:inline ${health.aiConfigured?'bg-emerald-400/20 text-emerald-200':'bg-white/10 text-white/60'}`}>AI {health.aiConfigured?'hazır':'kapalı'}</span></>}
     <span className="rounded-full border border-white/20 px-2.5 py-1 font-semibold">V13</span>
     {health?.authRequired&&<button onClick={()=>void logout()} title="Çıkış yap" aria-label="Çıkış yap" className="grid size-7 place-items-center rounded-full bg-white/10 hover:bg-white/20"><LogOut size={13}/></button>}

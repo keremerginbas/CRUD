@@ -38,6 +38,10 @@
 - **Dağıtım paketi:** `npm run deploy` → `deploy/parsel-sorgu-app` (derlenmiş arayüz + sunucu + Python köprüsü, yalnızca 4 çalışma zamanı paketi). Başlangıç dosyası `app.cjs`. Adımlar: `KURULUM_CPANEL.md`.
 - MySQL kullanılırsa tablolar `db/schema.sql`'den otomatik oluşturulur. Python köprüsü artık yalnızca `requests` ister.
 
+## TKGM sunucu engeline karşı tarayıcı yolu
+- VPS/hosting IP'si TKGM tarafından engellenirse (401/403) il/ilçe/mahalle listeleri, sınırlar, ada/parsel sorgusu ve alım satım yoğunluğu otomatik olarak **kullanıcının tarayıcısından** TKGM'ye sorulur (parselsorgu.tkgm.gov.tr'nin yaptığı GET istekleriyle aynı; token/başlık taklidi yok). Başlıkta "TKGM: tarayıcı üzerinden" görünür.
+- Tarayıcının aldığı parsel `POST /api/parcels/store` ile sunucuda Python köprüsündeki kontrollerin aynısıyla doğrulanıp arşive yazılır (kaynak: "kullanıcının tarayıcısından"); kayıt bağlama ve AI analizi aynen çalışır.
+
 ## İlan5 eklentisinden otomatik aktarım
 - Eklenti 3.2.0 popup'ındaki **XRE Parsel Sorgu'ya aktar** bölümü arşivdeki arsa ilanlarını doğrudan XRE'ye gönderir (elle veya 30 dakikada bir otomatik; yalnız değişenler, istenirse tümü). Dosya dışa/içe aktarma gerekmez.
 - Sunucu: `XRE_INGEST_TOKEN` ile korunan `POST /api/ingest/listings`; adres ve anahtar XRE'de Analiz → Emsal ilanlar → "İlan5 eklentisinden otomatik aktarım" bölümünden kopyalanır.
