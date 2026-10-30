@@ -258,7 +258,17 @@ export interface B24Role {
 }
 
 type Fetcher = (url: string, init?: RequestInit) => Promise<any>;
-const defaultFetch: Fetcher = async (url, init) => readJsonResponse(await fetchWithTimeout(url, init, 20_000));
+// Bitrix hata durumunda da (401/403/400) JSON gövdesinde nedeni döndürür
+// ({error, error_description}); gövde okunmazsa neden kaybolur ve süresi dolan
+// anahtar yenilenemez. Bu yüzden Bitrix hata gövdeleri b24Call'a olduğu gibi verilir.
+const defaultFetch: Fetcher = async (url, init) => {
+  const response = await fetchWithTimeout(url, init, 20_000);
+  if (!response.ok) {
+    const body = await response.clone().json().catch(() => null);
+    if (body && typeof body.error === "string") return body;
+  }
+  return readJsonResponse(response);
+};
 let fetcher: Fetcher = defaultFetch;
 /** Testler için Bitrix REST/OAuth çağrılarını değiştirir. */
 export function setB24Fetch(next: Fetcher | null) {
@@ -349,6 +359,11 @@ async function refresh(store: Store, portal: B24Portal): Promise<B24Portal> {
 }
 
 /** Portal adına Bitrix REST çağrısı; süresi dolan belirteci bir kez yeniler. */
+const scopeOf = (method: string) => {
+  const head = method.split(".")[0];
+  return { im: "im: Chat and notifications", imopenlines: "imopenlines: Open Channels", imconnector: "imconnector", crm: "crm: CRM", placement: "placement", user: "user" }[head] || head;
+};
+
 export async function b24Call(store: Store, portalIn: B24Portal, method: string, params: Record<string, unknown> = {}) {
   let portal = portalIn;
   if (portal.expiresAt && portal.expiresAt < Date.now() + 60_000 && portal.refreshToken) portal = await refresh(store, portal);
@@ -374,6 +389,8 @@ export async function b24Call(store: Store, portalIn: B24Portal, method: string,
     error: data?.error ? `${data.error}: ${data.error_description || ""}` : undefined,
     result: data?.error ? undefined : data?.result,
   });
+  if (data?.error === "insufficient_scope" || data?.error === "ACCESS_DENIED")
+    throw new Error(`Bitrix ${method}: uygulamanın bu işlem için izni yok (${scopeOf(method)}). Uygulama ayarlarında izni ekleyip uygulamayı yeniden açın.`);
   if (data?.error) throw new Error(`Bitrix ${method}: ${data.error_description || data.error}`);
   return data?.result;
 }

@@ -559,6 +559,7 @@ const MESSAGES_EN: Record<string, string> = {
 };
 const MESSAGE_PATTERNS_EN: [RegExp, string][] = [
   [/^(.*): hiçbir personelin rolü bu numarayı içermiyor; kuyruk değiştirilmedi\.$/, "$1: no staff role includes this number; the queue was not changed."],
+  [/^Bitrix (\S+): uygulamanın bu işlem için izni yok \((.*)\)\. Uygulama ayarlarında izni ekleyip uygulamayı yeniden açın\.$/, "Bitrix24 $1: the app has no permission for this ($2). Add the permission in the app settings and reopen the app."],
   [/^Bitrix (\S+): (.*)$/, "Bitrix24 $1: $2"],
   [/^Bu kod en fazla (\d+) numara için geçerli\.$/, "This code is valid for at most $1 numbers."],
   [/^Yapay zekâ servisi HTTP (\d+)$/, "AI service HTTP $1"],
