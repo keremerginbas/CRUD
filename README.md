@@ -67,6 +67,10 @@ npm test                  # yönlendirme kuralları ve API testleri
 
 Node.js 22.13+ gerekir (yerleşik SQLite kullanılıyor). `PBX_PROVIDER=mock` ile santral olmadan çalışır.
 
+**Canlı sunucu:** Türkiye'de bir VPS (KVKK için tercihen yurt içi), bir alan adı (ör. `santral.sirketiniz.com`) ve Docker yeterli. `Caddyfile` içine alan adını yazıp `docker compose up -d` çalıştırın; HTTPS sertifikası otomatik alınır.
+
+**Bitrix24:** Biten her çağrı müşteri kartına arama aktivitesi ve ses kaydıyla yazılır, kayıtlı olmayan numara için potansiyel müşteri açılır. Bitrix'te *Geliştirici kaynakları → Gelen webhook* (izinler: telephony, crm, user) oluşturup URL'yi `BITRIX_WEBHOOK_URL` olarak girin ve her danışmanın Bitrix kullanıcı kimliğini `users.bitrix_user_id` alanına yazın.
+
 **Santral panelinde yapılacak tanımlar**
 
 - Çağrı olayı webhook'u → `POST https://<sunucu>/webhooks/pbx/event?token=<PBX_WEBHOOK_SECRET>`

@@ -1,0 +1,4 @@
+# Alan adını kendi alan adınızla değiştirin; DNS'te A kaydı sunucunun IP'sini göstermeli
+santral.ornekalanadi.com {
+	reverse_proxy app:3000
+}

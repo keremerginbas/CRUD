@@ -11,6 +11,8 @@ const config = {
   pbx: { webhookSecret: 'hook', huntGroupDestination: 'queue:karsilama', customerAnnouncement: 'anons' },
 };
 const pushes = [];
+const bitrixCalls = [];
+const bitrix = { call: async (method, params) => { bitrixCalls.push([method, params]); return method.endsWith('register') ? { CALL_ID: 'externalCall.1' } : true; } };
 let base, provider, tokens = {};
 
 before(async () => {
@@ -22,12 +24,13 @@ before(async () => {
   add.run('KAAN', 'danisman', 'kaan@x.com', pw, '+905050000000', '+905050000000', '1001', 'ExpoPushToken[kaan]');
   add.run('BROKER', 'broker', 'broker@x.com', pw, '+905060000000', null, '1000', null);
   add.run('BAŞKA', 'danisman', 'baska@x.com', pw, '+905070000000', null, '1002', null);
-  db.exec(`INSERT INTO numbers VALUES ('+908504660149', 'personal', 1, 'Dijital hat'),
+  db.exec('UPDATE users SET bitrix_user_id = 15 WHERE id = 1');
+  db.exec(`INSERT INTO numbers (did, type, user_id, label) VALUES ('+908504660149', 'personal', 1, 'Dijital hat'),
     ('+908504660150', 'listing', 1, 'İlan 638'), ('4442453', 'hunt', NULL, '444')`);
   db.exec(`INSERT INTO contacts (name, phone, type, owner_id) VALUES ('MUSTAFA UTKU', '+905464962638', 'ALICI', 1)`);
 
   provider = createMockProvider();
-  const server = createApp({ db, provider, config, notify: async (...a) => pushes.push(a) }).listen(0);
+  const server = createApp({ db, provider, config, bitrix, notify: async (...a) => pushes.push(a) }).listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
   server.unref();
   for (const who of ['kaan', 'broker', 'baska']) {
@@ -90,6 +93,19 @@ test('ilan numarasını arayan müşteri danışmana yönlendirilir, bildirim gi
   assert.equal(inbound.contact_name, 'MUSTAFA UTKU');
   assert.equal((await call('GET', `/api/calls/${inbound.id}`, null, { token: tokens.kaan })).body.dialed_label, 'İlan 638');
   assert.equal((await call('GET', `/api/calls/${inbound.id}`, null, { token: tokens.baska })).status, 404);
+
+  // Biten çağrı Bitrix CRM'e kayıtla birlikte yazılır
+  await new Promise((r) => setTimeout(r, 50));
+  assert.deepEqual(bitrixCalls.map(([m]) => m),
+    ['telephony.externalcall.register', 'telephony.externalcall.finish', 'telephony.externalcall.attachRecord']);
+  const [, reg] = bitrixCalls[0];
+  assert.equal(reg.USER_ID, 15);
+  assert.equal(reg.PHONE_NUMBER, '05464962638');
+  assert.equal(reg.TYPE, 2);
+  assert.equal(reg.LINE_NUMBER, '08504660150');
+  assert.equal(bitrixCalls[1][1].DURATION, 42);
+  assert.equal(Buffer.from(bitrixCalls[2][1].FILE_CONTENT, 'base64').toString(), 'mock-audio');
+  assert.equal(inbound.bitrix_call_id ?? (await call('GET', `/api/calls/${inbound.id}`, null, { token: tokens.kaan })).body.bitrix_call_id, 'externalCall.1');
 
   assert.equal((await call('GET', `/api/calls/${inbound.id}/recording`, null, { token: tokens.kaan })).status, 200);
   assert.equal((await call('GET', `/api/calls/${inbound.id}/recording`, null, { token: tokens.baska })).status, 403);

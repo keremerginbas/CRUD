@@ -4,6 +4,7 @@ import { hashPassword, requireAuth, signToken, verifyPassword, verifyWebhook } f
 import { normalizePhone } from './phone.js';
 import { decideInboundRoute } from './routing.js';
 import { sendPush } from './push.js';
+import { syncCallToBitrix } from './bitrix.js';
 
 const SETTINGS_FIELDS = [
   'forward_phone', 'voice_announcement', 'recording_broker', 'recording_assistant',
@@ -15,7 +16,7 @@ const MANAGER_ROLES = new Set(['admin', 'broker', 'asistan']);
 
 const publicUser = ({ password_hash, push_token, ...u }) => u;
 
-export function createApp({ db, provider, config, notify = sendPush }) {
+export function createApp({ db, provider, config, notify = sendPush, bitrix = null }) {
   const app = express();
   const keepRaw = (req, _res, buf) => { req.rawBody = buf; };
   app.use(express.json({ verify: keepRaw }));
@@ -227,6 +228,8 @@ export function createApp({ db, provider, config, notify = sendPush }) {
       ended_at = CASE WHEN ? THEN datetime('now') ELSE ended_at END WHERE id = ?`)
       .run(ev.status, ev.durationSec || 0, ev.status === 'missed' ? null : ev.recordingRef, ended ? 1 : 0, call.id);
 
+    if (ended && bitrix) syncToBitrix(call.id);
+
     if (ev.status === 'missed' && call.direction === 'inbound' && call.user_id) {
       const user = q.userById.get(call.user_id);
       const contact = call.contact_id ? q.contactById.get(call.contact_id) : null;
@@ -234,6 +237,20 @@ export function createApp({ db, provider, config, notify = sendPush }) {
     }
     res.json({ ok: true });
   });
+
+  // Santral webhook'unu bekletmemek için arka planda çalışır; hata çağrıyı etkilemez
+  async function syncToBitrix(callId) {
+    const call = q.callById.get(callId);
+    const user = call.user_id ? q.userById.get(call.user_id) : null;
+    const bitrixUserId = user?.bitrix_user_id ?? config.bitrix?.defaultUserId;
+    if (call.bitrix_call_id || !bitrixUserId) return;
+    try {
+      const bitrixCallId = await syncCallToBitrix({ bitrix, provider, call, bitrixUserId });
+      db.prepare('UPDATE calls SET bitrix_call_id = ? WHERE id = ?').run(bitrixCallId, call.id);
+    } catch (err) {
+      console.error('Bitrix aktarımı başarısız:', err.message);
+    }
+  }
 
   app.get('/health', (_req, res) => res.json({ ok: true, provider: provider.name }));
 

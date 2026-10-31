@@ -5,6 +5,11 @@ export const config = {
   jwtSecret: env.JWT_SECRET ?? 'dev-secret',
   dbPath: env.DB_PATH ?? './data/santral.db',
   timezone: env.TZ_NAME ?? 'Europe/Istanbul',
+  bitrix: {
+    webhookUrl: env.BITRIX_WEBHOOK_URL ?? '',
+    // Danışmanı Bitrix'te eşleşmeyen çağrılar bu kullanıcıya yazılır (boşsa yazılmaz)
+    defaultUserId: env.BITRIX_DEFAULT_USER_ID ? Number(env.BITRIX_DEFAULT_USER_ID) : null,
+  },
   pbx: {
     provider: env.PBX_PROVIDER ?? 'mock',
     webhookSecret: env.PBX_WEBHOOK_SECRET ?? 'dev-webhook-secret',

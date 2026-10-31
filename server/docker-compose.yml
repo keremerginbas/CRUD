@@ -1,0 +1,20 @@
+# Kurulum: .env dosyasını doldurun, Caddyfile içindeki alan adını yazın, sonra: docker compose up -d
+services:
+  app:
+    build: .
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+  caddy:
+    # Alan adı için Let's Encrypt sertifikasını otomatik alır (HTTPS zorunlu: santral webhook'ları ve mağaza uygulaması için)
+    image: caddy:2.8
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    restart: unless-stopped
+volumes:
+  caddy_data:

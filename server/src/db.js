@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   sunday_start TEXT NOT NULL DEFAULT '10:00',
   sunday_end TEXT NOT NULL DEFAULT '17:00',
   push_token TEXT,
+  bitrix_user_id INTEGER,            -- Bitrix24'teki kullanıcı kimliği (CRM'e arama yazmak için)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS calls (
   status TEXT NOT NULL DEFAULT 'initiated',  -- initiated | ringing | answered | completed | missed | failed
   duration_sec INTEGER NOT NULL DEFAULT 0,
   recording_ref TEXT,
+  bitrix_call_id TEXT,
   started_at TEXT NOT NULL DEFAULT (datetime('now')),
   ended_at TEXT
 );
