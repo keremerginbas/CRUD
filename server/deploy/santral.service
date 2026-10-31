@@ -1,0 +1,20 @@
+# /etc/systemd/system/santral.service — Proxmox LXC içinde Docker'sız çalıştırma
+[Unit]
+Description=Santral maskeleme sunucusu
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=santral
+WorkingDirectory=/opt/santral/server
+EnvironmentFile=/opt/santral/server/.env
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/santral/server/data
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
