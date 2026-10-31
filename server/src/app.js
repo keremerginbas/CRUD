@@ -257,6 +257,8 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     }
   }
 
+  app.get('/', (_req, res) => res.type('text').send('Santral sunucusu çalışıyor. Bu adres mobil uygulama ve santral içindir.'))
+
   app.get('/health', (_req, res) => res.json({ ok: true, provider: provider.name }));
 
   app.use((err, _req, res, _next) => {
