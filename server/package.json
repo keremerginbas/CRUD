@@ -9,6 +9,7 @@
     "dev": "node --watch src/index.js",
     "seed": "node src/seed.js",
     "import-lines": "node src/import-lines.js",
+    "add-user": "node src/add-user.js",
     "test": "node --test"
   },
   "dependencies": {
