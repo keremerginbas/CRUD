@@ -8,6 +8,7 @@ export const config = {
   pbx: {
     provider: env.PBX_PROVIDER ?? 'mock',
     webhookSecret: env.PBX_WEBHOOK_SECRET ?? 'dev-webhook-secret',
+    logWebhooks: env.PBX_LOG_WEBHOOKS === '1',
     huntGroupDestination: env.HUNT_GROUP_DESTINATION ?? 'queue:karsilama',
     customerAnnouncement: env.CUSTOMER_ANNOUNCEMENT ?? 'danismaniniz-sizi-ariyor',
     verimor: {

@@ -36,6 +36,17 @@ Yani **numaraların bağlı olduğu santralin bir API'si olması şart**. Gereke
 1. Türk Telekom (veya numaraları aldığınız bayi) **bulut santral API'si** veriyor mu, yukarıdaki tabloyu göstererek sorun. fibimi'nin Türk Telekom ile özel bir entegrasyonu olabilir; bu API size de açılıyorsa yeni bir adaptör yazmak yeterli (`server/src/providers/`).
 2. API verilmiyorsa numaraları (0312'ler, 0850'ler ve 444 24 53) **numara taşıma** ile herkese açık API'si olan bir BTK lisanslı bulut santrale taşıyın — ör. Verimor veya Netgsm. Projede Verimor adaptörü hazır.
 
+## Netgsm hatlarıyla kurulum (mevcut yapı)
+
+Şirketin 0533 743 xx xx numaraları Netgsm santralinde birer dahiliye bağlı (ör. 114 → 0533 743 56 80). Uygulamada her danışmanın "dijital numarası" bu hattır:
+
+- **Giden arama:** Santral önce danışmanın dahilisini çaldırır, açınca müşteriyi danışmanın 0533 hattından arar. Müşteri danışmanın kişisel numarasını görmez.
+- **Gelen arama:** Müşteri 0533 hattını arar, santral sistemimize sorar, hattın sahibi danışmanın telefonu çalar. Santral aranan numara yerine dahiliyi gönderse de eşleşme yapılır.
+
+Hat listesi `server/hatlar.csv` dosyasında. Son sütuna danışmanın e-postasını yazıp `npm run import-lines -- hatlar.csv` çalıştırın.
+
+**Netgsm adaptörü henüz yok.** Netgsm'in arama başlatma, webhook ve ses kaydı API'lerinin dokümanı alındığında `server/src/providers/netgsm.js` yazılacak. İlk test aramasında `PBX_LOG_WEBHOOKS=1` ile Netgsm'in gönderdiği alanlar loglanır.
+
 ## Proje yapısı
 
 ```

@@ -25,6 +25,8 @@ export function createApp({ db, provider, config, notify = sendPush }) {
     userById: db.prepare('SELECT * FROM users WHERE id = ?'),
     userByEmail: db.prepare('SELECT * FROM users WHERE email = ?'),
     number: db.prepare('SELECT * FROM numbers WHERE did = ?'),
+    numberByExtension: db.prepare(`SELECT n.* FROM numbers n JOIN users u ON u.id = n.user_id
+      WHERE u.extension = ? AND n.type = 'personal' LIMIT 1`),
     numbersOfUser: db.prepare('SELECT * FROM numbers WHERE user_id = ? ORDER BY type'),
     personalNumber: db.prepare("SELECT did FROM numbers WHERE user_id = ? AND type = 'personal' LIMIT 1"),
     contactById: db.prepare('SELECT * FROM contacts WHERE id = ?'),
@@ -35,8 +37,19 @@ export function createApp({ db, provider, config, notify = sendPush }) {
       VALUES (?, ?, ?, ?, ?, ?, ?)`),
   };
 
+  // Santral aranan numarayı tam numara (0533...) ya da dahili (114) olarak gönderebilir
+  const findNumber = (dialed) => {
+    const raw = String(dialed ?? '').replace(/\D/g, '');
+    return q.number.get(normalizePhone(raw)) ?? (raw && raw.length <= 5 ? q.numberByExtension.get(raw) : undefined);
+  };
+
   const auth = requireAuth(config.jwtSecret);
-  const webhook = verifyWebhook(config.pbx.webhookSecret);
+  const verify = verifyWebhook(config.pbx.webhookSecret);
+  // PBX_LOG_WEBHOOKS=1: santralin gönderdiği ham alanları görmek için (yeni sağlayıcı bağlarken)
+  const webhook = (req, res, next) => verify(req, res, () => {
+    if (config.pbx.logWebhooks) console.log(`[webhook ${req.path}]`, JSON.stringify(req.body));
+    next();
+  });
   const me = (req) => q.userById.get(req.user.sub);
 
   // ---- Oturum ----
@@ -174,7 +187,7 @@ export function createApp({ db, provider, config, notify = sendPush }) {
   app.post('/webhooks/pbx/route', webhook, (req, res) => {
     const { callerPhone: rawCaller, dialedNumber, providerCallId } = provider.parseRouteRequest(req.body);
     const callerPhone = normalizePhone(rawCaller);
-    const number = q.number.get(normalizePhone(dialedNumber));
+    const number = findNumber(dialedNumber);
     const user = number?.user_id ? q.userById.get(number.user_id) : null;
     const contact = q.contactByPhone.get(callerPhone) ?? null;
     const decision = decideInboundRoute({
@@ -203,7 +216,7 @@ export function createApp({ db, provider, config, notify = sendPush }) {
 
     if (!call) {
       // Santralde doğrudan başlayan çağrı (ör. 444 hattına gelen ve kuyruktan cevaplanan)
-      const number = q.number.get(dialedNumber);
+      const number = findNumber(ev.dialedNumber);
       q.insertCall.run(ev.providerCallId, ev.direction, customerPhone, dialedNumber,
         number?.user_id ?? null, q.contactByPhone.get(customerPhone)?.id ?? null, ev.status);
       call = q.callByProviderId.get(ev.providerCallId);

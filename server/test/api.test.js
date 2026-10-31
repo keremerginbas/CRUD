@@ -98,6 +98,13 @@ test('ilan numarasını arayan müşteri danışmana yönlendirilir, bildirim gi
   assert.equal((await call('GET', `/api/calls/${inbound.id}/recording`, null, { token: tokens.broker })).status, 200);
 });
 
+test('santral aranan numara yerine dahiliyi gönderirse de danışman bulunur', async () => {
+  const route = { callId: 'in-ext', from: '05551234567', to: '1001' };
+  const r = await call('POST', '/webhooks/pbx/route', route, signed(route));
+  assert.equal(r.body.action, 'forward');
+  assert.equal(r.body.userId, 1);
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));

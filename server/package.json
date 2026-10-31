@@ -8,6 +8,7 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "seed": "node src/seed.js",
+    "import-lines": "node src/import-lines.js",
     "test": "node --test"
   },
   "dependencies": {
