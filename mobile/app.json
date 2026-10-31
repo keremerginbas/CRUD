@@ -53,7 +53,7 @@
       "backgroundColor": "#24262B"
     },
     "extra": {
-      "apiUrl": "https://santral-api.sirketiniz.com",
+      "apiUrl": "https://santral.xresoftware.com.tr",
       "eas": {
         "projectId": ""
       }
