@@ -1,70 +1,52 @@
-# Getting Started with Create React App
+# SEED/STUDIO — Generatif Web Deneyimi
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Her ziyarette (ve her **↻ Yeniden üret** tıklamasında) kendini yeniden kuran bir site.
+Tek bir **tohum** (seed) değerinden renk paleti, hero'daki akış alanı ve galerideki 7 generatif eser
+deterministik olarak üretilir. Aynı tohum her zaman aynı dünyayı verir: `?seed=0x...` ile paylaşılabilir.
 
-## Available Scripts
+## Yığın
 
-In the project directory, you can run:
+| Katman | Kullanım |
+|---|---|
+| **HTML / JS (React 18 + Vite)** | Bileşen tabanlı arayüz, Canvas 2D generatif çizim |
+| **Tailwind CSS v4** | `@theme` token'ları; `c1..c4` renkleri tohumla CSS değişkeni olarak değişir |
+| **GSAP** (yüklenen `gsap-public.zip` → `src/vendor/gsap`) | ScrollTrigger, SplitText, ScrambleText, DrawSVG, MotionPath, CustomEase |
+| **Lenis** | Pürüzsüz kaydırma; README'deki resmi GSAP senkronu (`gsap.ticker` → `lenis.raf`) |
+| **Node.js / Express** | `dist/` sunumu + `/api/seed` (günün tohumu), `/api/palette/:seed` |
+| **Figma** | `design/tokens.json` — Tokens Studio for Figma formatında renk/tipografi/radius token'ları |
 
-### `npm start`
+## Bölümler
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+1. **Loader**: sayaç ve tohum karıştırma (ScrambleText), ardından perde açılır.
+2. **Hero**: imleçle itilen, kaydırma hızıyla bükülen simplex-gürültü akış alanı ve SplitText başlık.
+3. **Hız şeridi**: Lenis hızıyla hızlanan, yönü değişen ve eğilen sonsuz marquee (ReactBits *Scroll Velocity* fikri).
+4. **Manifesto**: kaydırmayla kelime kelime aydınlanan metin.
+5. **Galeri**: sabitlenmiş yatay kaydırma, 7 algoritma (Akış Alanı, Sırtlar, Bölünme, Paketleme, Truchet, Yörüngeler, Yarım Ton) ve 3B eğilen kartlar (*Tilted Card*). Karta tıklayınca yeni bir varyasyon üretilir.
+6. **Laboratuvar**: algoritma seçimi, yoğunluk ve kaos sürgüleri, tohum girişi, PNG indirme ve "siteye uygula".
+7. **Süreç**: üst üste yığılan yapışkan kartlar (*Scroll Stack*), DrawSVG çizimleri ve MotionPath üzerinde ilerleyen nokta.
+8. **Footer**: imleçle dalgalanan dev tipografi ve tohumlu bağlantı paylaşımı.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Bunlara ek olarak özel imleç, tıklama kıvılcımları (*Click Spark*), manyetik butonlar, grain dokusu ve `prefers-reduced-motion` desteği bulunur.
 
-### `npm test`
+## Çalıştırma
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+npm install
+npm run dev        # Vite geliştirme sunucusu (http://localhost:5173), /api → :3000 proxy
+npm start          # ayrı terminalde Node API sunucusu (http://localhost:3000)
+npm run serve      # üretim: build + Express ile tek sunucu
+```
 
-### `npm run build`
+## Yapı
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```
+server/index.js          Express: statik dosyalar + generatif API
+src/lib/random.js        tohumlu PRNG, simplex gürültü, palet üretimi (sunucu ve istemci ortak)
+src/lib/art.js           7 generatif algoritma
+src/lib/gsap.js          zip'teki GSAP + eklenti kaydı + useGsap hook
+src/lib/lenis.jsx        Lenis ↔ ScrollTrigger senkronu, hız ref'i
+src/lib/seed.jsx         tohum/palet context'i, URL senkronu
+src/components/          FlowField, Cursor, ClickSpark, Magnetic, TiltCard, ArtCanvas, Loader...
+src/sections/            Nav, Hero, VelocityMarquee, Manifesto, Gallery, Lab, Process, Footer
+design/tokens.json       Figma (Tokens Studio) token'ları
+```

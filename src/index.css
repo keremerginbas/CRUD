@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+/* Tasarım token'ları — design/tokens.json (Figma Tokens Studio formatı) ile birebir.
+   c1..c4 her tohumda yeniden üretilir (src/lib/seed.jsx -> CSS değişkenleri). */
+@theme {
+  --color-ink: var(--ink, #0a0a0b);
+  --color-paper: var(--paper, #f2efe8);
+  --color-c1: var(--c1, #c6ff3d);
+  --color-c2: var(--c2, #ff4d8d);
+  --color-c3: var(--c3, #3d5cff);
+  --color-c4: var(--c4, #ffb23d);
+  --color-mist: #8a8a93;
+
+  --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+
+  --text-mega: clamp(4rem, 15vw, 16rem);
+  --text-giga: clamp(3rem, 9vw, 9.5rem);
+
+  --ease-seed: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --ink: #0a0a0b;
+    --paper: #f2efe8;
+  }
+  html { background: var(--color-ink); }
+  body {
+    @apply bg-ink text-paper font-sans antialiased;
+    overflow-x: clip;
+  }
+  ::selection { background: var(--color-c1); color: var(--color-ink); }
+  @media (pointer: fine) {
+    body, a, button, input, label { cursor: none; }
+  }
+  a { color: inherit; text-decoration: none; }
+}
+
+@layer components {
+  .eyebrow { @apply font-mono text-[11px] uppercase tracking-[0.25em] text-mist; }
+  .chip {
+    @apply inline-flex items-center gap-2 rounded-full border border-paper/15 px-3 py-1 font-mono text-[11px] uppercase tracking-widest;
+  }
+  .btn {
+    @apply relative inline-flex items-center gap-3 overflow-hidden rounded-full px-6 py-3 font-mono text-xs uppercase tracking-widest transition-colors duration-300;
+  }
+  .split-line { overflow: clip; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+  .text-stroke {
+    -webkit-text-stroke: 1px currentColor;
+    color: transparent;
+  }
+  .gradient-text {
+    background: linear-gradient(90deg, var(--color-c1), var(--color-c2), var(--color-c3), var(--color-c1));
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradient-pan 8s linear infinite;
+  }
+  .shiny {
+    background: linear-gradient(110deg, rgb(242 239 232 / 0.45) 35%, #fff 50%, rgb(242 239 232 / 0.45) 65%);
+    background-size: 250% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shine 3.5s linear infinite;
+  }
+  .grain {
+    pointer-events: none;
+    position: fixed;
+    inset: -50%;
+    z-index: 90;
+    opacity: 0.07;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    animation: grain 0.6s steps(4) infinite;
+  }
+  input[type="range"].slider {
+    @apply h-1 w-full appearance-none rounded-full bg-paper/15;
+  }
+  input[type="range"].slider::-webkit-slider-thumb {
+    @apply h-4 w-4 appearance-none rounded-full bg-c1;
+    box-shadow: 0 0 0 4px rgb(0 0 0 / 0.4);
+  }
+  input[type="range"].slider::-moz-range-thumb {
+    @apply h-4 w-4 rounded-full border-0 bg-c1;
+  }
+}
+
+@keyframes gradient-pan { to { background-position: 300% 0; } }
+@keyframes shine { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(-3%, 2%); }
+  50% { transform: translate(2%, -3%); }
+  75% { transform: translate(-1%, 3%); }
+  100% { transform: translate(0, 0); }
+}
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .grain, .gradient-text, .shiny { animation: none; }
+}
