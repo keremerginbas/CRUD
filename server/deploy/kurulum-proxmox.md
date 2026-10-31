@@ -24,7 +24,7 @@ IP adresini ağınıza göre değiştirin (sabit IP olmalı, Hestia buna yönlen
 apt update && apt install -y curl git ca-certificates
 curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt install -y nodejs
 useradd --system --home /opt/santral santral
-git clone -b claude/blissful-maxwell-8xset4 https://github.com/keremerginbas/CRUD.git /opt/santral
+git clone --single-branch --depth 1 -b claude/blissful-maxwell-8xset4 https://github.com/keremerginbas/CRUD.git /opt/santral
 cd /opt/santral/server && npm ci --omit=dev
 cp .env.example .env && nano .env        # JWT_SECRET, PBX_WEBHOOK_SECRET (uzun rastgele), BITRIX_WEBHOOK_URL ...
 mkdir -p data && chown -R santral: data && chmod 600 .env && chown santral: .env
