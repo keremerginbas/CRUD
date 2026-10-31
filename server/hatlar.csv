@@ -49,3 +49,15 @@ dahili,numara,etiket,danisman_email,tip
 123,05337435970,Satış hattı 123,,
 124,05337437426,Satış hattı 124,,
 125,05337437658,Satış hattı 125,,
+
+# --- Yapay zeka (sesli asistan) hatları: Vapi'de "BYO phone number", Netgsm'e SIP trunk ile bağlı ---
+# Gateway: sip8.netsantral.com:5060 UDP, kullanıcı 850 ana hesap. Şu an yalnızca giden arama açık.
+# Bu hatları sesli asistan yönetir; uygulama yönlendirmez, bu yüzden içe aktarılmaz (satırlar yorum).
+# 05337436902,XRE Netgsm Vapi
+# 05337437116,XRE Ankaport 7116
+# 05337436876,EFAS NTEPE
+# 05337435604,MAKSİMUM LİFE
+# 05337435613,MOTTO SARAYKÖY (adı ekranda kısaltılmış, kontrol edin)
+# 05337435632,EFAS NTEPE
+# 05337435654,EFAS NTEPE
+# 05337436014,FİNEST YAŞAM... (adı ekranda kısaltılmış, kontrol edin)
