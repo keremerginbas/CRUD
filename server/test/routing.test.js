@@ -55,3 +55,26 @@ test('telefon normalizasyonu', () => {
   assert.equal(normalizePhone('444 24 53'), '4442453');
   assert.equal(toLocalFormat('+905321234567'), '05321234567');
 });
+
+const assistant = { assistantDestination: '+905312814423', callerAnnouncement: 'satis-danismaninizi-ariyorsunuz' };
+const line = { type: 'personal', label: '0533 743 56 80' };
+
+test('kayıtlı müşteri sorumlu danışmana gider ve anons duyar', () => {
+  const owner = { ...user, id: 9, forward_phone: '+905559998877' };
+  const d = decideInboundRoute({ ...base, ...assistant, number: line, user, owner,
+    contact: { name: 'AHMET', type: 'ALICI' }, now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([d.action, d.destination, d.userId], ['forward', '+905559998877', 9]);
+  assert.equal(d.callerAnnouncement, 'satis-danismaninizi-ariyorsunuz');
+});
+
+test('kayıtlı olmayan müşteri asistana gider', () => {
+  const d = decideInboundRoute({ ...base, ...assistant, number: line, user, contact: null, now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([d.action, d.destination, d.reason], ['forward', '+905312814423', 'kayitsiz-musteri']);
+  assert.match(d.whisper, /Yeni müşteri/);
+});
+
+test('mesai dışında kayıtlı müşteri de asistana gider', () => {
+  const d = decideInboundRoute({ ...base, ...assistant, number: line, user,
+    contact: { name: 'AHMET', type: 'ALICI' }, now: at('2026-11-01T09:00:00Z') });
+  assert.deepEqual([d.destination, d.reason], ['+905312814423', 'mesai-disi']);
+});

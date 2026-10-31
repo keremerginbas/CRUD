@@ -28,19 +28,35 @@ export function isWithinWorkingHours(user, now = new Date(), timeZone = 'Europe/
 /**
  * Santralin "bu çağrıyı nereye yönlendireyim?" sorusuna verilen cevap.
  * - 444 hattı (hunt) → karşılama kuyruğu (müsait olan hat açar)
- * - Danışmanın dijital numarası / ilan numarası → mesai içindeyse danışmanın telefonu, değilse karşılama kuyruğu
+ * - Danışman hattı (0533 743 ...):
+ *     müşteri kayıtlıysa → müşterinin sorumlu danışmanı (yoksa hattın sahibi); müşteri
+ *       "satış danışmanınızı arıyorsunuz" anonsunu duyar
+ *     müşteri kayıtlı değilse → asistan hattı (tanımlıysa), değilse hattın sahibi
+ *     danışman mesai dışındaysa → asistan hattı, o da yoksa karşılama kuyruğu
  */
-export function decideInboundRoute({ number, user, contact, callerPhone, now, timeZone, huntDestination }) {
+export function decideInboundRoute({
+  number, user, contact, owner, callerPhone, now, timeZone, huntDestination, assistantDestination, callerAnnouncement,
+}) {
   const hunt = { action: 'queue', destination: huntDestination, whisper: null, userId: null };
   if (!number || number.type === 'hunt' || !user) return hunt;
-  if (!user.forward_phone || !isWithinWorkingHours(user, now, timeZone)) {
-    return { ...hunt, userId: user.id, reason: 'mesai-disi' };
+
+  const toAssistant = (reason, userId) => (assistantDestination
+    ? { action: 'forward', destination: assistantDestination, userId, reason,
+      whisper: whisperText({ number, contact, callerPhone }), callerAnnouncement: null }
+    : { ...hunt, userId, reason });
+
+  if (!contact && assistantDestination) return toAssistant('kayitsiz-musteri', user.id);
+
+  const target = owner ?? user;
+  if (!target.forward_phone || !isWithinWorkingHours(target, now, timeZone)) {
+    return toAssistant('mesai-disi', target.id);
   }
   return {
     action: 'forward',
-    destination: user.forward_phone,
-    userId: user.id,
-    whisper: user.voice_announcement ? whisperText({ number, contact, callerPhone }) : null,
+    destination: target.forward_phone,
+    userId: target.id,
+    whisper: target.voice_announcement ? whisperText({ number, contact, callerPhone }) : null,
+    callerAnnouncement: callerAnnouncement ?? null,
   };
 }
 

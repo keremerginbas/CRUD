@@ -16,6 +16,10 @@ export const config = {
     logWebhooks: env.PBX_LOG_WEBHOOKS === '1',
     huntGroupDestination: env.HUNT_GROUP_DESTINATION ?? 'queue:karsilama',
     customerAnnouncement: env.CUSTOMER_ANNOUNCEMENT ?? 'danismaniniz-sizi-ariyor',
+    // Gelen aramada kayıtlı müşteriye, danışmana bağlanırken çalınan anons
+    callerAnnouncement: env.CALLER_ANNOUNCEMENT ?? 'satis-danismaninizi-ariyorsunuz',
+    // Kayıtlı olmayan müşteri ve mesai dışı aramalar (boşsa kayıtsız müşteri de hattın sahibine gider)
+    assistantDestination: env.ASSISTANT_DESTINATION ?? '',
     verimor: {
       apiKey: env.VERIMOR_API_KEY ?? '',
       baseUrl: env.VERIMOR_BASE_URL ?? 'https://api.bulutsantralim.com',

@@ -121,6 +121,18 @@ test('santral aranan numara yerine dahiliyi gönderirse de danışman bulunur', 
   assert.equal(r.body.userId, 1);
 });
 
+test('asistan tanımlıyken kayıtsız müşteri asistana, kayıtlı müşteri danışmana gider', async () => {
+  config.pbx.assistantDestination = '+905312814423';
+  try {
+    const unknown = { callId: 'in-asst', from: '05440000000', to: '908504660149' };
+    assert.equal((await call('POST', '/webhooks/pbx/route', unknown, signed(unknown))).body.destination, '+905312814423');
+    const known = { callId: 'in-known', from: '05464962638', to: '908504660149' };
+    assert.equal((await call('POST', '/webhooks/pbx/route', known, signed(known))).body.destination, '+905050000000');
+  } finally {
+    config.pbx.assistantDestination = '';
+  }
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));

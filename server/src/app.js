@@ -191,17 +191,22 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const number = findNumber(dialedNumber);
     const user = number?.user_id ? q.userById.get(number.user_id) : null;
     const contact = q.contactByPhone.get(callerPhone) ?? null;
+    const owner = contact?.owner_id ? q.userById.get(contact.owner_id) : null;
     const decision = decideInboundRoute({
-      number, user, contact, callerPhone,
-      now: new Date(), timeZone: config.timezone, huntDestination: config.pbx.huntGroupDestination,
+      number, user, contact, owner, callerPhone,
+      now: new Date(), timeZone: config.timezone,
+      huntDestination: config.pbx.huntGroupDestination,
+      assistantDestination: config.pbx.assistantDestination,
+      callerAnnouncement: config.pbx.callerAnnouncement,
     });
 
     if (providerCallId && !q.callByProviderId.get(providerCallId)) {
       q.insertCall.run(providerCallId, 'inbound', callerPhone, number?.did ?? normalizePhone(dialedNumber),
         decision.userId, contact?.id ?? null, 'ringing');
     }
-    if (user && decision.action === 'forward') {
-      notify(user.push_token, contact?.name ?? callerPhone, `${number.label} numaranızı arıyor`,
+    const target = decision.userId ? q.userById.get(decision.userId) : null;
+    if (target && decision.action === 'forward' && decision.reason !== 'kayitsiz-musteri' && decision.reason !== 'mesai-disi') {
+      notify(target.push_token, contact?.name ?? callerPhone, `${number.label} numaranızı arıyor`,
         { type: 'incoming', providerCallId });
     }
     res.json(provider.formatRouteResponse(decision));
