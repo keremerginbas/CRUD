@@ -12,11 +12,11 @@ Netgsm webhook'ları ve mobil uygulama bu adrese gelir: https://santral.<alanadi
 pveam update && pveam download local debian-12-standard_12.7-1_amd64.tar.zst   # şablon adı pveam available ile kontrol edin
 pct create 140 local:vztmpl/debian-12-standard_12.7-1_amd64.tar.zst \
   --hostname santral --cores 2 --memory 2048 --swap 512 \
-  --rootfs local-lvm:16 --net0 name=eth0,bridge=vmbr0,ip=192.168.1.140/24,gw=192.168.1.1 \
+  --rootfs local-lvm:16 --net0 name=eth0,bridge=vmbr0,ip=192.168.1.253/24,gw=192.168.1.1 \
   --unprivileged 1 --onboot 1 --start 1
 ```
 
-IP adresini ağınıza göre değiştirin (sabit IP olmalı, Hestia buna yönlendirecek).
+IP adresini ağınıza göre değiştirin. Adres modemin DHCP aralığının dışında olmalı; içinde kalırsa modem aynı adresi başka bir cihaza verip çakışma çıkarır (Hestia 502 hatası verir).
 
 ## 2. Uygulama (CT 140 içinde: `pct enter 140`)
 
@@ -44,7 +44,7 @@ Rastgele anahtar üretmek için: `openssl rand -hex 32`
 ```bash
 cd /usr/local/hestia/data/templates/web/nginx
 cp default.tpl santral.tpl && cp default.stpl santral.stpl
-sed -i 's#proxy_pass .*;#proxy_pass http://192.168.1.140:3000;#' santral.tpl santral.stpl
+sed -i 's#proxy_pass .*;#proxy_pass http://192.168.1.253:3000;#' santral.tpl santral.stpl
 grep -n proxy_pass santral.stpl     # sadece "location /" bloğunda tek satır kalmalı; statik dosya bloklarını silin
 ```
 
