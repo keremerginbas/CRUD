@@ -97,7 +97,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\n\nreturn [{\n  json: {\n    durum: 'MESAJ_GONDERILMEDI_ONIZLEME',\n    sablon: 'efas_ntepe_gorsel_2',\n    dil: 'tr',\n    gorsel: 'https://xrex.com.tr/efas-ntepe-gorsel-2.jpg',\n    tekilAliciSayisi: items.length,\n    mesajlar: items.map(item => ({\n      telefon: item.json.phone,\n      payload: item.json.payload\n    }))\n  }\n}];"
+        "jsCode": "const items = $input.all();\n\nreturn [{\n  json: {\n    durum: 'MESAJ_GONDERILMEDI_ONIZLEME',\n    sablon: 'efas_ntepe_gorsel_2',\n    dil: 'tr',\n    gorsel: 'https://xresoftware.com.tr/xre-project-efas-n-tepe-gorsel.jpg',\n    tekilAliciSayisi: items.length,\n    mesajlar: items.map(item => ({\n      telefon: item.json.phone,\n      payload: item.json.payload\n    }))\n  }\n}];"
       },
       "id": "ee90d7c6-c856-4cca-86ab-d15d7eb44740",
       "name": "Onizleme - Gonderilmedi",
@@ -223,7 +223,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const f = $input.first().json;\n\nconst read = (key) => String(f[key] ?? '').trim();\n\nconst PHONE_NUMBER_ID = '1342496342275726';\nconst API_VERSION = 'v25.0';\nconst TEMPLATE_NAME = 'efas_ntepe_gorsel_2';\nconst LANGUAGE_CODE = 'tr';\nconst IMAGE_URL = 'https://xrex.com.tr/efas-ntepe-gorsel-2.jpg';\n\nconst mode = read('Islem');\nconst recipientsRaw = read('Alicilar');\nconst permission = read('Izin teyidi').toUpperCase();\n\nif (!['ONIZLEME', 'TEK_TEST', 'TOPLU_GONDER'].includes(mode)) {\n  throw new Error('Islem seciniz.');\n}\n\nif (!recipientsRaw) {\n  throw new Error('En az bir telefon numarasi girin.');\n}\n\nconst lines = recipientsRaw\n  .split(/\\r?\\n/)\n  .map(line => line.trim())\n  .filter(Boolean);\n\nif (!lines.length) {\n  throw new Error('En az bir telefon numarasi girin.');\n}\n\nif (lines.length > 250) {\n  throw new Error('Bir calistirmada en fazla 250 telefon numarasi kullanabilirsiniz.');\n}\n\nconst seen = new Set();\nconst result = [];\n\nfor (let i = 0; i < lines.length; i++) {\n\n  let rawPhone = lines[i];\n\n  if (rawPhone.includes('|')) {\n    rawPhone = rawPhone.split('|')[0].trim();\n  }\n\n  if (!/^[+\\d\\s().-]+$/.test(rawPhone)) {\n    throw new Error(`${i + 1}. satir: telefon bicimi gecersiz.`);\n  }\n\n  let phone = rawPhone.replace(/\\D/g, '');\n\n  if (phone.startsWith('00')) {\n    phone = phone.slice(2);\n  }\n\n  if (/^05\\d{9}$/.test(phone)) {\n    phone = '9' + phone;\n  }\n\n  if (/^5\\d{9}$/.test(phone)) {\n    phone = '90' + phone;\n  }\n\n  if (!/^[1-9]\\d{7,14}$/.test(phone)) {\n    throw new Error(`${i + 1}. satir: telefon numarasi gecersiz. Ornek: 905XXXXXXXXX`);\n  }\n\n  if (seen.has(phone)) {\n    continue;\n  }\n\n  seen.add(phone);\n\n  const payload = {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to: phone,\n    type: 'template',\n    template: {\n      name: TEMPLATE_NAME,\n      language: {\n        code: LANGUAGE_CODE\n      },\n      components: [\n        {\n          type: 'header',\n          parameters: [\n            {\n              type: 'image',\n              image: {\n                link: IMAGE_URL\n              }\n            }\n          ]\n        }\n      ]\n    }\n  };\n\n  result.push({\n    json: {\n      mode,\n      sira: result.length + 1,\n      toplamAlici: 0,\n      phone,\n      phoneNumberId: PHONE_NUMBER_ID,\n      apiVersion: API_VERSION,\n      templateName: TEMPLATE_NAME,\n      languageCode: LANGUAGE_CODE,\n      imageUrl: IMAGE_URL,\n      payload\n    }\n  });\n}\n\nif (!result.length) {\n  throw new Error('Gecerli alici bulunamadi.');\n}\n\nif (mode === 'TEK_TEST' && result.length !== 1) {\n  throw new Error('TEK_TEST icin sadece 1 telefon numarasi girin.');\n}\n\nif (mode === 'TOPLU_GONDER' && permission !== 'EVET') {\n  throw new Error('TOPLU_GONDER icin Izin teyidi alanina EVET yazin.');\n}\n\nfor (const item of result) {\n  item.json.toplamAlici = result.length;\n}\n\nreturn result;"
+        "jsCode": "const f = $input.first().json;\n\nconst read = (key) => String(f[key] ?? '').trim();\n\nconst PHONE_NUMBER_ID = '1342496342275726';\nconst API_VERSION = 'v25.0';\nconst TEMPLATE_NAME = 'efas_ntepe_gorsel_2';\nconst LANGUAGE_CODE = 'tr';\nconst IMAGE_URL = 'https://xresoftware.com.tr/xre-project-efas-n-tepe-gorsel.jpg';\n\nconst mode = read('Islem');\nconst recipientsRaw = read('Alicilar');\nconst permission = read('Izin teyidi').toUpperCase();\n\nif (!['ONIZLEME', 'TEK_TEST', 'TOPLU_GONDER'].includes(mode)) {\n  throw new Error('Islem seciniz.');\n}\n\nif (!recipientsRaw) {\n  throw new Error('En az bir telefon numarasi girin.');\n}\n\nconst lines = recipientsRaw\n  .split(/\\r?\\n/)\n  .map(line => line.trim())\n  .filter(Boolean);\n\nif (!lines.length) {\n  throw new Error('En az bir telefon numarasi girin.');\n}\n\nif (lines.length > 250) {\n  throw new Error('Bir calistirmada en fazla 250 telefon numarasi kullanabilirsiniz.');\n}\n\nconst seen = new Set();\nconst result = [];\n\nfor (let i = 0; i < lines.length; i++) {\n\n  let rawPhone = lines[i];\n\n  if (rawPhone.includes('|')) {\n    rawPhone = rawPhone.split('|')[0].trim();\n  }\n\n  if (!/^[+\\d\\s().-]+$/.test(rawPhone)) {\n    throw new Error(`${i + 1}. satir: telefon bicimi gecersiz.`);\n  }\n\n  let phone = rawPhone.replace(/\\D/g, '');\n\n  if (phone.startsWith('00')) {\n    phone = phone.slice(2);\n  }\n\n  if (/^05\\d{9}$/.test(phone)) {\n    phone = '9' + phone;\n  }\n\n  if (/^5\\d{9}$/.test(phone)) {\n    phone = '90' + phone;\n  }\n\n  if (!/^[1-9]\\d{7,14}$/.test(phone)) {\n    throw new Error(`${i + 1}. satir: telefon numarasi gecersiz. Ornek: 905XXXXXXXXX`);\n  }\n\n  if (seen.has(phone)) {\n    continue;\n  }\n\n  seen.add(phone);\n\n  const payload = {\n    messaging_product: 'whatsapp',\n    recipient_type: 'individual',\n    to: phone,\n    type: 'template',\n    template: {\n      name: TEMPLATE_NAME,\n      language: {\n        code: LANGUAGE_CODE\n      },\n      components: [\n        {\n          type: 'header',\n          parameters: [\n            {\n              type: 'image',\n              image: {\n                link: IMAGE_URL\n              }\n            }\n          ]\n        }\n      ]\n    }\n  };\n\n  result.push({\n    json: {\n      mode,\n      sira: result.length + 1,\n      toplamAlici: 0,\n      phone,\n      phoneNumberId: PHONE_NUMBER_ID,\n      apiVersion: API_VERSION,\n      templateName: TEMPLATE_NAME,\n      languageCode: LANGUAGE_CODE,\n      imageUrl: IMAGE_URL,\n      payload\n    }\n  });\n}\n\nif (!result.length) {\n  throw new Error('Gecerli alici bulunamadi.');\n}\n\nif (mode === 'TEK_TEST' && result.length !== 1) {\n  throw new Error('TEK_TEST icin sadece 1 telefon numarasi girin.');\n}\n\nif (mode === 'TOPLU_GONDER' && permission !== 'EVET') {\n  throw new Error('TOPLU_GONDER icin Izin teyidi alanina EVET yazin.');\n}\n\nfor (const item of result) {\n  item.json.toplamAlici = result.length;\n}\n\nreturn result;"
       },
       "id": "ccaf71cf-5a1d-48c8-a031-c8f00f1118ff",
       "name": "Listeyi Kontrol Et",
@@ -317,7 +317,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst state = $getWorkflowStaticData('global');\n\nif (!Number.isInteger(state.efasNtepeRoundRobin)) {\n  state.efasNtepeRoundRobin = 0;\n}\n\nconst ekip = [\n  { id: 23564, ad: 'Duygu Ayyayla' },\n  { id: 23562, ad: 'Burcu Kansu' }\n];\n\nreturn items.map((item) => {\n  const j = item.json || {};\n\n  const atanan = ekip[state.efasNtepeRoundRobin % ekip.length];\n  state.efasNtepeRoundRobin =\n    (state.efasNtepeRoundRobin + 1) % ekip.length;\n\n  let telefon = String(j.telefon || '').replace(/\\D/g, '');\n  if (telefon.startsWith('00')) telefon = telefon.slice(2);\n  if (/^05\\d{9}$/.test(telefon)) telefon = '9' + telefon;\n  if (/^5\\d{9}$/.test(telefon)) telefon = '90' + telefon;\n\n  const musteriAdi =\n    String(j.profilAdi || '').trim() ||\n    'WhatsApp Müşterisi';\n\n  const mesaj =\n    String(j.mesajMetni || '').trim() ||\n    ('📎 ' + String(j.mesajTipi || 'Medya mesajı'));\n\n  const now = $now.setZone('Europe/Istanbul');\n\n  return {\n    json: {\n      marka: 'EFAS N TEPE',\n      kaynak: 'META WHATSAPP',\n      messageId: j.messageId || null,\n      musteriAdi,\n      telefon,\n      telefonE164: telefon ? '+' + telefon : '',\n      mesaj,\n      mesajTipi: j.mesajTipi || null,\n      tarih: now.toFormat('dd.MM.yyyy'),\n      saat: now.toFormat('HH:mm:ss'),\n\n      categoryId: 28,\n      stageId: 'C28:UC_NHPUY5',\n      stageAdi: 'META SMS GELEN',\n\n      assignedById: atanan.id,\n      assignedByName: atanan.ad\n    }\n  };\n});"
+        "jsCode": "const items = $input.all();\nconst state = $getWorkflowStaticData('global');\n\nif (!Number.isInteger(state.efasNtepeRoundRobin)) {\n  state.efasNtepeRoundRobin = 0;\n}\n\nconst ekip = [\n  { id: 23564, ad: 'Duygu Ayyayla' },\n  { id: 23562, ad: 'Burcu Kansu' }\n];\n\nreturn items.map((item) => {\n  const j = item.json || {};\n\n  const atanan = ekip[state.efasNtepeRoundRobin % ekip.length];\n  state.efasNtepeRoundRobin =\n    (state.efasNtepeRoundRobin + 1) % ekip.length;\n\n  let telefon = String(j.telefon || '').replace(/\\D/g, '');\n  if (telefon.startsWith('00')) telefon = telefon.slice(2);\n  if (/^05\\d{9}$/.test(telefon)) telefon = '9' + telefon;\n  if (/^5\\d{9}$/.test(telefon)) telefon = '90' + telefon;\n\n  const musteriAdi =\n    String(j.profilAdi || '').trim() ||\n    'WhatsApp Müşterisi';\n\n  const mesaj =\n    String(j.mesajMetni || '').trim() ||\n    ('📎 ' + String(j.mesajTipi || 'Medya mesajı'));\n\n  const now = $now.setZone('Europe/Istanbul');\n\n  return {\n    json: {\n      marka: 'EFAS N TEPE',\n      kaynak: 'META WHATSAPP',\n      messageId: j.messageId || null,\n      musteriAdi,\n      telefon,\n      telefonE164: telefon ? '+' + telefon : '',\n      mesaj,\n      mesajTipi: j.mesajTipi || null,\n      tarih: now.toFormat('dd.MM.yyyy'),\n      saat: now.toFormat('HH:mm:ss'),\n\n      leadStatusId: 'UC_PQDHUK',\n      leadStatusAdi: 'EFAS İÇİN GELEN',\n\n      assignedById: atanan.id,\n      assignedByName: atanan.ad\n    }\n  };\n});"
       },
       "id": "dacbd537-a9b2-481d-841f-021b62c54aee",
       "name": "EFAS Gelen Mesaji Hazirla",
@@ -455,10 +455,10 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://api.telegram.org/bot8618958506:AAEdEttaBicumDtlF7FfMaYCXIk012wRt_8/sendMessage",
+        "url": "https://api.telegram.org/botTELEGRAM_BOT_TOKEN/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"chat_id\": \"-5329455659\", \"text\": \"🏢 EFAS N TEPE | YENİ WHATSAPP MESAJI\\n\\n👤 Müşteri: \" + $json.musteriAdi + \"\\n📞 Telefon: \" + $json.telefonE164 + \"\\n\\n💬 Mesaj:\\n\" + $json.mesaj + \"\\n\\n📌 Statü: META SMS GELEN\\n👩‍💼 Sorumlu: \" + $json.assignedByName + \"\\n🕒 \" + $json.tarih + \" \" + $json.saat } }}",
+        "jsonBody": "={{ { \"chat_id\": \"-5329455659\", \"text\": \"🏢 EFAS N TEPE | YENİ WHATSAPP MESAJI\\n\\n👤 Müşteri: \" + $json.musteriAdi + \"\\n📞 Telefon: \" + $json.telefonE164 + \"\\n\\n💬 Mesaj:\\n\" + $json.mesaj + \"\\n\\n📌 Lead Statü: EFAS İÇİN GELEN\\n👩‍💼 Sorumlu: \" + $json.assignedByName + \"\\n🕒 \" + $json.tarih + \" \" + $json.saat } }}",
         "options": {
           "timeout": 20000
         }
@@ -474,13 +474,14 @@
     },
     {
       "parameters": {
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.duplicate.findbycomm.json",
+        "url": "https://xre.bitrix24.com.tr/rest/1/BITRIX_WEBHOOK_KEY/crm.duplicate.findbycomm.json",
+        "options": {},
         "sendQuery": true,
         "queryParameters": {
           "parameters": [
             {
               "name": "entity_type",
-              "value": "CONTACT"
+              "value": "LEAD"
             },
             {
               "name": "type",
@@ -491,11 +492,10 @@
               "value": "={{ $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 }}"
             }
           ]
-        },
-        "options": {}
+        }
       },
-      "id": "6d6571ec-f574-4dd4-84f0-457a33e0d3e7",
-      "name": "Bitrix - Kisi Bul",
+      "id": "be3eb274-aa3c-4218-963f-22b6156ea80a",
+      "name": "Bitrix - Lead Bul",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
@@ -514,8 +514,8 @@
           },
           "conditions": [
             {
-              "id": "c04973fc-58e9-4e18-9eba-4cf0436c350e",
-              "leftValue": "={{ !!($json.result && $json.result.CONTACT && $json.result.CONTACT.length > 0) }}",
+              "id": "0d2f36fa-d989-40d4-aeac-b7119d8d63e0",
+              "leftValue": "={{ !!($json.result && Array.isArray($json.result.LEAD) && $json.result.LEAD.length > 0) }}",
               "rightValue": true,
               "operator": {
                 "type": "boolean",
@@ -527,8 +527,8 @@
         },
         "options": {}
       },
-      "id": "9a506994-5c22-49b6-868d-89ab78ca3b5b",
-      "name": "Bitrix - Kisi Var mi",
+      "id": "cc55981c-b223-40f9-93c8-94a8adfd602c",
+      "name": "Bitrix - Lead Var mi",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
@@ -539,13 +539,86 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.contact.add.json",
+        "url": "https://xre.bitrix24.com.tr/rest/1/BITRIX_WEBHOOK_KEY/crm.lead.update.json",
+        "options": {},
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
+              "name": "id",
+              "value": "={{ $('Bitrix - Lead Bul').item.json.result.LEAD.map(Number).sort((a,b)=>b-a)[0] }}"
+            },
+            {
+              "name": "fields[STATUS_ID]",
+              "value": "UC_PQDHUK"
+            },
+            {
+              "name": "fields[ASSIGNED_BY_ID]",
+              "value": "={{ $('EFAS Gelen Mesaji Hazirla').item.json.assignedById }}"
+            }
+          ]
+        }
+      },
+      "id": "82b91d76-2242-48eb-a2bc-be0de84a202f",
+      "name": "Bitrix - Lead Guncelle",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        752,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/BITRIX_WEBHOOK_KEY/crm.timeline.comment.add.json",
+        "options": {},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "fields[ENTITY_ID]",
+              "value": "={{ $('Bitrix - Lead Bul').item.json.result.LEAD.map(Number).sort((a,b)=>b-a)[0] }}"
+            },
+            {
+              "name": "fields[ENTITY_TYPE]",
+              "value": "lead"
+            },
+            {
+              "name": "fields[COMMENT]",
+              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 + '\\n👤 Sorumlu: ' + $('EFAS Gelen Mesaji Hazirla').item.json.assignedByName }}"
+            }
+          ]
+        }
+      },
+      "id": "7fb58e55-bef5-4014-99ec-52379353fbdc",
+      "name": "Bitrix - Timeline Yaz Mevcut Lead",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        992,
+        768
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/BITRIX_WEBHOOK_KEY/crm.lead.add.json",
+        "options": {},
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "fields[TITLE]",
+              "value": "={{ 'EFAS N TEPE WhatsApp - ' + $('EFAS Gelen Mesaji Hazirla').item.json.musteriAdi }}"
+            },
+            {
               "name": "fields[NAME]",
               "value": "={{ $('EFAS Gelen Mesaji Hazirla').item.json.musteriAdi }}"
+            },
+            {
+              "name": "fields[STATUS_ID]",
+              "value": "UC_PQDHUK"
             },
             {
               "name": "fields[ASSIGNED_BY_ID]",
@@ -560,308 +633,55 @@
               "value": "MOBILE"
             },
             {
+              "name": "fields[SOURCE_DESCRIPTION]",
+              "value": "EFAS N TEPE - Meta WhatsApp"
+            },
+            {
               "name": "fields[COMMENTS]",
               "value": "={{ 'EFAS N TEPE - Meta WhatsApp üzerinden gelen müşteri.\\n\\nİlk mesaj: ' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj }}"
             }
           ]
-        },
-        "options": {}
+        }
       },
-      "id": "567423db-cf7d-4de1-a65a-6a2018a8a527",
-      "name": "Bitrix - Yeni Kisi Olustur",
+      "id": "21f60d16-5280-4aa6-9cc7-767b168e0be4",
+      "name": "Bitrix - Lead Olustur",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
         752,
-        1040
-      ]
-    },
-    {
-      "parameters": {
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.deal.list.json",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "filter[CONTACT_ID]",
-              "value": "={{ $json.result.CONTACT[0] }}"
-            },
-            {
-              "name": "filter[CATEGORY_ID]",
-              "value": "28"
-            },
-            {
-              "name": "order[ID]",
-              "value": "DESC"
-            },
-            {
-              "name": "select[]",
-              "value": "ID"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "ae8da1d1-ee9a-49dc-b53b-0e8dc9ce2dd1",
-      "name": "Bitrix - EFAS Deal Ara",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        752,
-        768
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "id": "10f6565e-d432-43b5-8abc-debd382c6e8e",
-              "leftValue": "={{ Array.isArray($json.result) && $json.result.length > 0 }}",
-              "rightValue": true,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "074a9f8c-a26b-4d5b-9ae0-3828c218a59e",
-      "name": "Bitrix - Deal Var mi",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.2,
-      "position": [
-        992,
-        768
+        1008
       ]
     },
     {
       "parameters": {
         "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.deal.update.json",
+        "url": "https://xre.bitrix24.com.tr/rest/1/BITRIX_WEBHOOK_KEY/crm.timeline.comment.add.json",
+        "options": {},
         "sendBody": true,
         "bodyParameters": {
           "parameters": [
             {
-              "name": "id",
-              "value": "={{ $('Bitrix - EFAS Deal Ara').item.json.result[0].ID }}"
+              "name": "fields[ENTITY_ID]",
+              "value": "={{ $('Bitrix - Lead Olustur').item.json.result }}"
             },
             {
-              "name": "fields[CATEGORY_ID]",
-              "value": "28"
+              "name": "fields[ENTITY_TYPE]",
+              "value": "lead"
             },
             {
-              "name": "fields[STAGE_ID]",
-              "value": "C28:UC_NHPUY5"
-            },
-            {
-              "name": "fields[ASSIGNED_BY_ID]",
-              "value": "={{ $('EFAS Gelen Mesaji Hazirla').item.json.assignedById }}"
+              "name": "fields[COMMENT]",
+              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 + '\\n👤 Sorumlu: ' + $('EFAS Gelen Mesaji Hazirla').item.json.assignedByName }}"
             }
           ]
-        },
-        "options": {}
+        }
       },
-      "id": "76404ff4-97d3-43cd-83da-9a43355b055b",
-      "name": "Bitrix - Deal Guncelle",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1232,
-        688
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.deal.add.json",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "fields[TITLE]",
-              "value": "={{ 'EFAS N TEPE WhatsApp - ' + $('EFAS Gelen Mesaji Hazirla').item.json.musteriAdi }}"
-            },
-            {
-              "name": "fields[CATEGORY_ID]",
-              "value": "28"
-            },
-            {
-              "name": "fields[STAGE_ID]",
-              "value": "C28:UC_NHPUY5"
-            },
-            {
-              "name": "fields[ASSIGNED_BY_ID]",
-              "value": "={{ $('EFAS Gelen Mesaji Hazirla').item.json.assignedById }}"
-            },
-            {
-              "name": "fields[CONTACT_ID]",
-              "value": "={{ $('Bitrix - Kisi Bul').item.json.result.CONTACT[0] }}"
-            },
-            {
-              "name": "fields[COMMENTS]",
-              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "6a852549-6dcb-4b71-922a-2c742c7bbfff",
-      "name": "Bitrix - Deal Olustur Mevcut Kisi",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1232,
-        848
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.deal.add.json",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "fields[TITLE]",
-              "value": "={{ 'EFAS N TEPE WhatsApp - ' + $('EFAS Gelen Mesaji Hazirla').item.json.musteriAdi }}"
-            },
-            {
-              "name": "fields[CATEGORY_ID]",
-              "value": "28"
-            },
-            {
-              "name": "fields[STAGE_ID]",
-              "value": "C28:UC_NHPUY5"
-            },
-            {
-              "name": "fields[ASSIGNED_BY_ID]",
-              "value": "={{ $('EFAS Gelen Mesaji Hazirla').item.json.assignedById }}"
-            },
-            {
-              "name": "fields[CONTACT_ID]",
-              "value": "={{ $('Bitrix - Yeni Kisi Olustur').item.json.result }}"
-            },
-            {
-              "name": "fields[COMMENTS]",
-              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "5f673550-960a-463d-8141-d0e1f9d28515",
-      "name": "Bitrix - Deal Olustur Yeni Kisi",
+      "id": "79e18975-6575-4ce4-bfbf-1a3a60750465",
+      "name": "Bitrix - Timeline Yaz Yeni Lead",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
         992,
-        1040
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.timeline.comment.add.json",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "fields[ENTITY_ID]",
-              "value": "={{ $('Bitrix - EFAS Deal Ara').item.json.result[0].ID }}"
-            },
-            {
-              "name": "fields[ENTITY_TYPE]",
-              "value": "deal"
-            },
-            {
-              "name": "fields[COMMENT]",
-              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 + '\\n👤 Sorumlu: ' + $('EFAS Gelen Mesaji Hazirla').item.json.assignedByName }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "2c252b74-f304-4042-b336-8e5dd4972c1e",
-      "name": "Bitrix - Timeline Yaz Guncel",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1472,
-        688
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.timeline.comment.add.json",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "fields[ENTITY_ID]",
-              "value": "={{ $('Bitrix - Deal Olustur Mevcut Kisi').item.json.result }}"
-            },
-            {
-              "name": "fields[ENTITY_TYPE]",
-              "value": "deal"
-            },
-            {
-              "name": "fields[COMMENT]",
-              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 + '\\n👤 Sorumlu: ' + $('EFAS Gelen Mesaji Hazirla').item.json.assignedByName }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "e371c2aa-1260-40c4-a6d7-e5eed7532ad7",
-      "name": "Bitrix - Timeline Yaz Mevcut",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1472,
-        848
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/ud2lbbn3zuir12x5/crm.timeline.comment.add.json",
-        "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "fields[ENTITY_ID]",
-              "value": "={{ $('Bitrix - Deal Olustur Yeni Kisi').item.json.result }}"
-            },
-            {
-              "name": "fields[ENTITY_TYPE]",
-              "value": "deal"
-            },
-            {
-              "name": "fields[COMMENT]",
-              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 + '\\n👤 Sorumlu: ' + $('EFAS Gelen Mesaji Hazirla').item.json.assignedByName }}"
-            }
-          ]
-        },
-        "options": {}
-      },
-      "id": "db65fa5a-2b04-4651-a0fc-671d58ae024b",
-      "name": "Bitrix - Timeline Yaz Yeni",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.4,
-      "position": [
-        1232,
-        1040
+        1008
       ]
     }
   ],
@@ -1020,109 +840,58 @@
             "index": 0
           },
           {
-            "node": "Bitrix - Kisi Bul",
+            "node": "Bitrix - Lead Bul",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Bitrix - Kisi Bul": {
+    "Bitrix - Lead Bul": {
       "main": [
         [
           {
-            "node": "Bitrix - Kisi Var mi",
+            "node": "Bitrix - Lead Var mi",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Bitrix - Kisi Var mi": {
+    "Bitrix - Lead Var mi": {
       "main": [
         [
           {
-            "node": "Bitrix - EFAS Deal Ara",
+            "node": "Bitrix - Lead Guncelle",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Bitrix - Yeni Kisi Olustur",
+            "node": "Bitrix - Lead Olustur",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Bitrix - Yeni Kisi Olustur": {
+    "Bitrix - Lead Guncelle": {
       "main": [
         [
           {
-            "node": "Bitrix - Deal Olustur Yeni Kisi",
+            "node": "Bitrix - Timeline Yaz Mevcut Lead",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Bitrix - Deal Olustur Yeni Kisi": {
+    "Bitrix - Lead Olustur": {
       "main": [
         [
           {
-            "node": "Bitrix - Timeline Yaz Yeni",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bitrix - EFAS Deal Ara": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Deal Var mi",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bitrix - Deal Var mi": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Deal Guncelle",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Bitrix - Deal Olustur Mevcut Kisi",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bitrix - Deal Guncelle": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Timeline Yaz Guncel",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bitrix - Deal Olustur Mevcut Kisi": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Timeline Yaz Mevcut",
+            "node": "Bitrix - Timeline Yaz Yeni Lead",
             "type": "main",
             "index": 0
           }
