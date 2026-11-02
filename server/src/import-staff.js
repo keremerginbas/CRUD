@@ -1,11 +1,11 @@
 // Personeli içe aktarır: node --env-file=.env src/import-staff.js personel.csv
-// CSV sütunları: bitrix_id,ad_soyad,departman,hat,dahili,eposta,rol
+// CSV sütunları: bitrix_id,ad_soyad,departman,hat,dahili,kullanici_adi,rol (kullanıcı adı ya da e-posta)
 // Kullanıcı yoksa açılır (şifresi kimseye bilinmez; yönetici panelden "Şifre sıfırla" ile verir),
 // varsa adı, departmanı, Bitrix kimliği ve dahilisi güncellenir. Hat kullanıcıya atanır.
 import { readFileSync } from 'node:fs';
 import { config } from './config.js';
 import { openDb } from './db.js';
-import { generatePassword, hashPassword } from './auth.js';
+import { generatePassword, hashPassword, normalizeLogin } from './auth.js';
 import { normalizePhone } from './phone.js';
 
 const ROLES = ['admin', 'broker', 'asistan', 'danisman'];
@@ -33,7 +33,7 @@ const rows = readFileSync(file, 'utf8').split(/\r?\n/).slice(1).filter((l) => l.
 for (const line of rows) {
   const [bitrixId, name, department, phone, extension, email, role = 'danisman'] = line.split(',').map((c) => c.trim());
   if (!email || !name) {
-    console.warn(`Atlandı (ad veya e-posta yok): ${line}`);
+    console.warn(`Atlandı (ad veya kullanıcı adı yok): ${line}`);
     stats.skipped++;
     continue;
   }
@@ -44,12 +44,12 @@ for (const line of rows) {
   }
   const did = normalizePhone(phone);
   const upperName = name.toLocaleUpperCase('tr-TR');
-  let user = q.byEmail.get(email.toLowerCase());
+  let user = q.byEmail.get(normalizeLogin(email));
   if (user) {
     q.update.run(upperName, department || null, bitrixId ? Number(bitrixId) : null, extension || null, user.id);
     stats.updated++;
   } else {
-    const { lastInsertRowid } = q.insert.run(upperName, role, email.toLowerCase(), hashPassword(generatePassword()),
+    const { lastInsertRowid } = q.insert.run(upperName, role, normalizeLogin(email), hashPassword(generatePassword()),
       did, extension || null, department || null, bitrixId ? Number(bitrixId) : null);
     user = { id: Number(lastInsertRowid) };
     stats.created++;

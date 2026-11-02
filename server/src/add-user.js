@@ -2,7 +2,7 @@
 // node src/add-user.js <eposta> "<Ad Soyad>" <admin|broker|asistan|danisman> <cep_telefonu> [dahili]
 import { config } from './config.js';
 import { openDb } from './db.js';
-import { generatePassword, hashPassword } from './auth.js';
+import { generatePassword, hashPassword, normalizeLogin } from './auth.js';
 import { normalizePhone } from './phone.js';
 
 const [email, name, role, phone, extension = null] = process.argv.slice(2);
@@ -13,14 +13,14 @@ if (!email || !name || !['admin', 'broker', 'asistan', 'danisman'].includes(role
 
 const db = openDb(config.dbPath);
 const password = generatePassword();
-const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
+const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(normalizeLogin(email));
 if (existing) {
   db.prepare('UPDATE users SET password_hash = ?, name = ?, role = ? WHERE id = ?')
     .run(hashPassword(password), name.toLocaleUpperCase('tr-TR'), role, existing.id);
   console.log(`Şifre sıfırlandı, ad ve rol güncellendi: ${email}`);
 } else {
   db.prepare(`INSERT INTO users (name, role, email, password_hash, phone, forward_phone, extension)
-    VALUES (?, ?, ?, ?, ?, ?, ?)`).run(name.toLocaleUpperCase('tr-TR'), role, email.toLowerCase(),
+    VALUES (?, ?, ?, ?, ?, ?, ?)`).run(name.toLocaleUpperCase('tr-TR'), role, normalizeLogin(email),
     hashPassword(password), normalizePhone(phone), normalizePhone(phone), extension);
   console.log(`Kullanıcı eklendi: ${email} (${role})`);
 }

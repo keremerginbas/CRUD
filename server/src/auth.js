@@ -7,6 +7,12 @@ export function hashPassword(password) {
   return `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;
 }
 
+const TR_ASCII = { ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u' };
+
+// Giriş adı: e-posta ya da kullanıcı adı (abdullah.acikgoz). Türkçe karakterle yazılsa da eşleşir.
+export const normalizeLogin = (value) => String(value ?? '').trim().toLocaleLowerCase('tr-TR')
+  .replace(/[çğıöşü]/g, (c) => TR_ASCII[c]);
+
 export const generatePassword = () => randomBytes(9).toString('base64url');
 
 export function verifyPassword(password, stored) {

@@ -95,7 +95,7 @@ async function maskedCall({ contactId, phone, name }) {
 function loginView() {
   const form = el('form', { class: 'card stack' },
     el('h1', {}, 'Santral girişi'),
-    field('E-posta', el('input', { type: 'email', name: 'email', required: true, autocomplete: 'username' })),
+    field('Kullanıcı adı', el('input', { type: 'text', name: 'email', required: true, autocomplete: 'username', autocapitalize: 'none', spellcheck: 'false', placeholder: 'ad.soyad' })),
     field('Şifre', el('input', { type: 'password', name: 'password', required: true, autocomplete: 'current-password' })),
     el('button', { class: 'btn', type: 'submit' }, 'Giriş yap'));
   form.addEventListener('submit', (e) => {
@@ -337,7 +337,7 @@ async function teamView(secret = null) {
   const addUser = el('form', { class: 'card stack', hidden: true },
     el('div', { class: 'row' },
       el('div', { class: 'grow' }, field('Ad soyad', el('input', { type: 'text', name: 'name', required: true }))),
-      el('div', { class: 'grow' }, field('E-posta', el('input', { type: 'email', name: 'email', required: true })))),
+      el('div', { class: 'grow' }, field('Kullanıcı adı', el('input', { type: 'text', name: 'email', required: true, autocapitalize: 'none', placeholder: 'ad.soyad' })))),
     el('div', { class: 'row' },
       el('div', { class: 'grow' }, field('Cep telefonu', el('input', { type: 'tel', name: 'phone', required: true }))),
       el('div', { class: 'grow' }, field('Rol', el('select', { name: 'role' },

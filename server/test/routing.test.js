@@ -27,12 +27,16 @@ test('gece yarısını aşan mesai', () => {
   assert.equal(isWithinWorkingHours(night, at('2026-10-27T09:00:00Z')), false); // Salı 12:00
 });
 
-test('444: kayıtsız müşteri karşılama kuyruğuna gider', () => {
-  const d = decideInboundRoute({ ...base, number: { type: 'hunt', label: '444' }, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
-  assert.deepEqual([d.action, d.destination], ['queue', 'queue:karsilama']);
+test('444: kayıtsız müşteri asistana, asistan tanımlı değilse karşılama kuyruğuna gider', () => {
+  const hunt = { type: 'hunt', label: '444 24 53' };
+  const d = decideInboundRoute({ ...base, assistantDestination: '+905312814423', number: hunt, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([d.action, d.destination, d.reason], ['forward', '+905312814423', 'kayitsiz-musteri']);
+  assert.match(d.whisper, /444 24 53 hattından/);
+  const q = decideInboundRoute({ ...base, number: hunt, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([q.action, q.destination], ['queue', 'queue:karsilama']);
 });
 
-test('444: kayıtlı müşteri doğrudan danışmanına gider, danışman mesai dışındaysa kuyruğa', () => {
+test('444: kayıtlı müşteri doğrudan danışmanına gider, danışman mesai dışındaysa asistana/kuyruğa', () => {
   const hunt = { type: 'hunt', label: '444 24 53' };
   const contact = { name: 'AHMET', type: 'ALICI' };
   const d = decideInboundRoute({ ...base, number: hunt, user: null, owner: user, contact, callerAnnouncement: 'anons', now: at('2026-10-27T06:00:00Z') });
@@ -40,6 +44,8 @@ test('444: kayıtlı müşteri doğrudan danışmanına gider, danışman mesai 
   assert.equal(d.whisper, 'Alıcı AHMET 444 24 53 hattından arıyor.');
   const off = decideInboundRoute({ ...base, number: hunt, user: null, owner: user, contact, now: at('2026-11-01T09:00:00Z') });
   assert.equal(off.action, 'queue');
+  const offAsst = decideInboundRoute({ ...base, assistantDestination: '+905312814423', number: hunt, user: null, owner: user, contact, now: at('2026-11-01T09:00:00Z') });
+  assert.deepEqual([offAsst.destination, offAsst.reason, offAsst.userId], ['+905312814423', 'mesai-disi', 7]);
 });
 
 test('mesai içinde dijital numara danışmanın telefonuna fısıltı anonsuyla gider', () => {

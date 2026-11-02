@@ -28,7 +28,7 @@ export function isWithinWorkingHours(user, now = new Date(), timeZone = 'Europe/
 /**
  * Santralin "bu çağrıyı nereye yönlendireyim?" sorusuna verilen cevap.
  * - 444 hattı (hunt): müşteri bir danışmana kayıtlıysa ve danışman mesaideyse doğrudan o danışman,
- *     değilse karşılama kuyruğu (0312 hatları sırayla çalar)
+ *     değilse asistan hattı (tanımlı değilse karşılama kuyruğu: 0312 hatları sırayla çalar)
  * - Danışman hattı (0533 743 ...):
  *     müşteri kayıtlıysa → müşterinin sorumlu danışmanı (yoksa hattın sahibi); müşteri
  *       "satış danışmanınızı arıyorsunuz" anonsunu duyar
@@ -51,13 +51,16 @@ export function decideInboundRoute({
   });
   const available = (target) => target?.forward_phone && isWithinWorkingHours(target, now, timeZone);
 
-  if (number.type === 'hunt') return contact && available(owner) ? toConsultant(owner) : hunt;
 
   const toAssistant = (reason, userId) => (assistantDestination
     ? { action: 'forward', destination: assistantDestination, userId, reason,
       whisper: whisperText({ number, contact, callerPhone, toAssistant: true }), callerAnnouncement: null }
     : { ...hunt, userId, reason });
 
+  if (number.type === 'hunt') {
+    if (contact && available(owner)) return toConsultant(owner);
+    return toAssistant(contact ? 'mesai-disi' : 'kayitsiz-musteri', owner?.id ?? null);
+  }
   if (!user) return toAssistant('sahipsiz-hat', null);
   if (!contact && assistantDestination) return toAssistant('kayitsiz-musteri', user.id);
 

@@ -50,6 +50,15 @@ async function call(method, path, body, { token, headers = {} } = {}) {
 
 const signed = (body) => ({ headers: { 'x-signature': createHmac('sha256', 'hook').update(JSON.stringify(body)).digest('hex') } });
 
+test('kullanıcı adı büyük harf ve Türkçe karakterle de girer', async () => {
+  db.exec("UPDATE users SET email = 'kaan.ince' WHERE id = 1");
+  try {
+    assert.equal((await call('POST', '/api/auth/login', { email: ' KAAN.İNCE ', password: 'Sifre1234' })).status, 200);
+  } finally {
+    db.exec("UPDATE users SET email = 'kaan@x.com' WHERE id = 1");
+  }
+});
+
 test('yanlış şifre reddedilir', async () => {
   assert.equal((await call('POST', '/api/auth/login', { email: 'kaan@x.com', password: 'yanlis' })).status, 401);
 });

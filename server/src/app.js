@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
-import { generatePassword, hashPassword, requireAuth, signToken, verifyPassword, verifyWebhook } from './auth.js';
+import { generatePassword, hashPassword, normalizeLogin, requireAuth, signToken, verifyPassword, verifyWebhook } from './auth.js';
 import { normalizePhone } from './phone.js';
 import { decideInboundRoute } from './routing.js';
 import { sendPush } from './push.js';
@@ -61,9 +61,9 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
 
   // ---- Oturum ----
   app.post('/api/auth/login', (req, res) => {
-    const user = q.userByEmail.get(String(req.body?.email ?? '').toLowerCase());
+    const user = q.userByEmail.get(normalizeLogin(req.body?.email));
     if (!user || !verifyPassword(String(req.body?.password ?? ''), user.password_hash)) {
-      return res.status(401).json({ error: 'E-posta veya şifre hatalı' });
+      return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
     }
     res.json({ token: signToken({ sub: user.id, role: user.role }, config.jwtSecret), user: publicUser(user) });
   });
@@ -273,12 +273,12 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
 
   app.post('/api/users', auth, admin, (req, res) => {
     const { email, name, role = 'danisman', phone, extension = null } = req.body ?? {};
-    if (!email || !name || !normalizePhone(phone)) return res.status(400).json({ error: 'E-posta, ad ve telefon zorunlu' });
+    if (!normalizeLogin(email) || !name || !normalizePhone(phone)) return res.status(400).json({ error: 'Kullanıcı adı, ad ve telefon zorunlu' });
     if (!ROLES.includes(role)) return res.status(400).json({ error: 'Geçersiz rol' });
-    if (q.userByEmail.get(String(email).toLowerCase())) return res.status(409).json({ error: 'Bu e-posta zaten kayıtlı' });
+    if (q.userByEmail.get(normalizeLogin(email))) return res.status(409).json({ error: 'Bu kullanıcı adı zaten kayıtlı' });
     const password = generatePassword();
     const { lastInsertRowid } = db.prepare(`INSERT INTO users (name, role, email, password_hash, phone, forward_phone, extension)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`).run(String(name).toLocaleUpperCase('tr-TR'), role, String(email).toLowerCase(),
+      VALUES (?, ?, ?, ?, ?, ?, ?)`).run(String(name).toLocaleUpperCase('tr-TR'), role, normalizeLogin(email),
       hashPassword(password), normalizePhone(phone), normalizePhone(phone), extension || null);
     res.status(201).json({ user: publicUser(q.userById.get(lastInsertRowid)), password });
   });

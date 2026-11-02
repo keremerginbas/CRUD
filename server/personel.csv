@@ -1,23 +1,23 @@
-bitrix_id,ad_soyad,departman,hat,dahili,eposta,rol
-# E-postalar ad.soyad@xre.com.tr kalıbıyla üretildi (iki isimliler bitişik: alikemal.cinar). Gerçek adreslerle karşılaştırın.
-# rol: admin | broker | asistan | danisman. Eposta boş satırlar atlanır (hat sahibi bilinmiyor).
+bitrix_id,ad_soyad,departman,hat,dahili,kullanici_adi,rol
+# Kullanıcı adı panele girişte kullanılır (satışçılar ortak e-posta kullandığı için e-posta yerine). Kalıp: ad.soyad, iki isimliler bitişik: alikemal.cinar
+# rol: admin | broker | asistan | danisman. Kullanıcı adı boş satırlar atlanır.
 # Boştaki hatlar (personel ayrıldı): 0533 743 75 89, 0533 743 56 80, 0533 743 68 58, 0533 743 74 29, 0533 743 76 58. Aranırlarsa asistana düşer.
-23180,Abdullah Açıkgöz,XRE ARSA,+905337435601,107,abdullah.acikgoz@xre.com.tr,danisman
-17984,Ali Karaoğlu,XRE PROJE SATIŞ,+905337437434,106,ali.karaoglu@xre.com.tr,danisman
-22186,Ali Kemal Çınar,XRE PROJE SATIŞ,+905337437550,109,alikemal.cinar@xre.com.tr,danisman
-30070,Burak Gülşen,XRE PROJE SATIŞ,+905337437177,121,burak.gulsen@xre.com.tr,danisman
-26352,Emre Caner,XRE PROJE SATIŞ,+905337437147,122,emre.caner@xre.com.tr,danisman
-1174,Arda Kağan Ertaş,XRE PROJE SATIŞ,+905337435976,105,ardakagan.ertas@xre.com.tr,danisman
-116,Merve Gelleci,XRE PROJE SATIŞ,+905337437109,110,merve.gelleci@xre.com.tr,danisman
-25258,Murat Çakıroğlu,XRE PROJE SATIŞ,+905337436867,115,murat.cakiroglu@xre.com.tr,danisman
-5778,Tuğba Kütük,XRE PROJE SATIŞ,+905337435988,104,tugba.kutuk@xre.com.tr,danisman
-11690,Zeliha Bilginsoy,XRE PROJE SATIŞ,+905337437435,108,zeliha.bilginsoy@xre.com.tr,danisman
-25314,Hatice Aldemir,XRE BARTER,+905337437616,111,hatice.aldemir@xre.com.tr,danisman
-27876,Yiğitcan Dilek,XRE BARTER,+905337437096,120,yigitcan.dilek@xre.com.tr,danisman
-27878,Aleyna Özdemir,XRE BARTER,+905337435692,117,aleyna.ozdemir@xre.com.tr,danisman
-27446,Beril Sarıyıldız,XRE PARTNERS,+905337435970,123,beril.sariyildiz@xre.com.tr,danisman
-27332,Rüstem Sarıoğlan,XRE FRANCHİSE,+905337437124,102,rustem.sarioglan@xre.com.tr,danisman
-29240,Ayça İnal,XRE MEMNUNİYET ARAMA,+905337437586,101,ayca.inal@xre.com.tr,danisman
-30342,Ceren Delice,XRE MEMNUNİYET ARAMA,+905337437426,124,ceren.delice@xre.com.tr,danisman
-30868,Müzeyyen Günay,XRE ELEKTRİK,+905337436861,112,muzeyyen.gunay@xre.com.tr,danisman
-22182,Zarife Ayoğlu,XRE RECRUITING,+905422478514,103,zarife.ayoglu@xre.com.tr,danisman
+23180,Abdullah Açıkgöz,XRE ARSA,+905337435601,107,abdullah.acikgoz,danisman
+17984,Ali Karaoğlu,XRE PROJE SATIŞ,+905337437434,106,ali.karaoglu,danisman
+22186,Ali Kemal Çınar,XRE PROJE SATIŞ,+905337437550,109,alikemal.cinar,danisman
+30070,Burak Gülşen,XRE PROJE SATIŞ,+905337437177,121,burak.gulsen,danisman
+26352,Emre Caner,XRE PROJE SATIŞ,+905337437147,122,emre.caner,danisman
+1174,Arda Kağan Ertaş,XRE PROJE SATIŞ,+905337435976,105,ardakagan.ertas,danisman
+116,Merve Gelleci,XRE PROJE SATIŞ,+905337437109,110,merve.gelleci,danisman
+25258,Murat Çakıroğlu,XRE PROJE SATIŞ,+905337436867,115,murat.cakiroglu,danisman
+5778,Tuğba Kütük,XRE PROJE SATIŞ,+905337435988,104,tugba.kutuk,danisman
+11690,Zeliha Bilginsoy,XRE PROJE SATIŞ,+905337437435,108,zeliha.bilginsoy,danisman
+25314,Hatice Aldemir,XRE BARTER,+905337437616,111,hatice.aldemir,danisman
+27876,Yiğitcan Dilek,XRE BARTER,+905337437096,120,yigitcan.dilek,danisman
+27878,Aleyna Özdemir,XRE BARTER,+905337435692,117,aleyna.ozdemir,danisman
+27446,Beril Sarıyıldız,XRE PARTNERS,+905337435970,123,beril.sariyildiz,danisman
+27332,Rüstem Sarıoğlan,XRE FRANCHİSE,+905337437124,102,rustem.sarioglan,danisman
+29240,Ayça İnal,XRE MEMNUNİYET ARAMA,+905337437586,101,ayca.inal,danisman
+30342,Ceren Delice,XRE MEMNUNİYET ARAMA,+905337437426,124,ceren.delice,danisman
+30868,Müzeyyen Günay,XRE ELEKTRİK,+905337436861,112,muzeyyen.gunay,danisman
+22182,Zarife Ayoğlu,XRE RECRUITING,+905422478514,103,zarife.ayoglu,danisman
