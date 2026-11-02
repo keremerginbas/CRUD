@@ -13,6 +13,7 @@ read -rp "Operatörün SIP sunucusu (alan adı ya da IP): " HOST
 read -rp "Doğrulama yöntemi: 1) kullanıcı adı/şifre  2) IP doğrulama [1]: " MODE
 MODE="${MODE:-1}"
 read -rp "Operatörün bildirdiği ek SIP IP adresleri (boşlukla ayırın, yoksa Enter): " EXTRA
+read -rp "Bu trunk'a/dahiliye gelen hattın numarası (ör. 5337437589; operatör aranan numarayı iletmezse kullanılır): " DID
 
 if [[ "$MODE" == "1" ]]; then
   read -rp "Trunk kullanıcı adı: " SIPUSER
@@ -81,7 +82,9 @@ IPS="$(getent ahostsv4 "$HOST" | awk '{print $1}' | sort -u) $EXTRA"
 for ip in $IPS; do echo "permit=$ip/255.255.255.255" >> "$CONF/pjsip_trunk_acl.conf"; done
 echo "== İzin verilen operatör adresleri:"; sed 's/^permit=/   /' "$CONF/pjsip_trunk_acl.conf"
 
-chown asterisk:asterisk "$CONF/pjsip_trunk.conf" "$CONF/pjsip_trunk_acl.conf"
+printf '; pbx/trunk.sh tarafından yazıldı\nTRUNK_DID=%s\n' "$DID" > "$CONF/xre_trunk.conf"
+chown asterisk:asterisk "$CONF/pjsip_trunk.conf" "$CONF/pjsip_trunk_acl.conf" "$CONF/xre_trunk.conf"
+asterisk -rx 'dialplan reload' >/dev/null
 asterisk -rx 'module reload res_pjsip.so' >/dev/null
 sleep 5
 if [[ "$MODE" == "1" ]]; then
