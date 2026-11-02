@@ -1,0 +1,151 @@
+{
+  "name": "EFAS - WhatsApp Gorunen Ad Duzeltme",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "t0",
+      "name": "Calistir 1",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/v25.0/1342496342275726?fields=verified_name,name_status,new_name_status,display_phone_number,status,platform_type",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "r0",
+      "name": "1 - Gorunen Ad Durumu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "7VTpdNMLhMwvcxq2",
+          "name": "META KAAN BEY MESAJ GÖNDERME"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "t200",
+      "name": "Calistir 2",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/v25.0/1342496342275726",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"pin\": \"123456\"}"
+      },
+      "id": "r200",
+      "name": "2 - PIN Belirle (gerekirse)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "7VTpdNMLhMwvcxq2",
+          "name": "META KAAN BEY MESAJ GÖNDERME"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "t400",
+      "name": "Calistir 3",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://graph.facebook.com/v25.0/1342496342275726/register",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {},
+        "method": "POST",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"messaging_product\": \"whatsapp\", \"pin\": \"123456\"}"
+      },
+      "id": "r400",
+      "name": "3 - Numarayi Yeniden Kaydet",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        260,
+        400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "7VTpdNMLhMwvcxq2",
+          "name": "META KAAN BEY MESAJ GÖNDERME"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Calistir 1": {
+      "main": [
+        [
+          {
+            "node": "1 - Gorunen Ad Durumu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calistir 2": {
+      "main": [
+        [
+          {
+            "node": "2 - PIN Belirle (gerekirse)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calistir 3": {
+      "main": [
+        [
+          {
+            "node": "3 - Numarayi Yeniden Kaydet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
