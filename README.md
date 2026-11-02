@@ -47,10 +47,14 @@ Hat listesi `server/hatlar.csv` dosyasında. Son sütuna danışmanın e-postas�
 
 **Netgsm adaptörü henüz yok.** Netgsm'in arama başlatma, webhook ve ses kaydı API'lerinin dokümanı alındığında `server/src/providers/netgsm.js` yazılacak. İlk test aramasında `PBX_LOG_WEBHOOKS=1` ile Netgsm'in gönderdiği alanlar loglanır.
 
+## Web paneli
+
+`https://santral.xresoftware.com.tr` adresinde çalışan web paneli bilgisayardan ve telefonun tarayıcısından kullanılır (telefonda "Ana ekrana ekle" ile uygulama gibi durur). Ekranlar: aramalar (gelen/giden/cevapsız, ses kaydı dinleme, geri arama), kişiler (arama, ekleme, maskeli arama), ayarlar (yönlendirilen telefon, sesli yönlendirme, kayıt dinleme izinleri, mesai saatleri, şifre) ve yöneticiler için ekip ve hatlar (kullanıcı ekleme, şifre sıfırlama, hattı danışmana atama). Kaynak: `server/public/`, derleme gerekmez.
+
 ## Proje yapısı
 
 ```
-server/   Node.js API (Express + SQLite)  — santral entegrasyonu, yönlendirme kuralları, çağrı kayıtları
+server/   Node.js API (Express + SQLite) ve web paneli (public/) — santral entegrasyonu, yönlendirme kuralları, çağrı kayıtları
 mobile/   Expo / React Native uygulaması  — iOS (App Store) ve Android (Play Store) tek kod tabanı
 ```
 

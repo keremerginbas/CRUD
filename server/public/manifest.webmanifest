@@ -1,0 +1,10 @@
+{
+  "name": "XRE Santral",
+  "short_name": "Santral",
+  "start_url": "/#/aramalar",
+  "display": "standalone",
+  "background_color": "#24262b",
+  "theme_color": "#24262b",
+  "lang": "tr",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

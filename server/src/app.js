@@ -1,6 +1,7 @@
 import express from 'express';
+import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
-import { hashPassword, requireAuth, signToken, verifyPassword, verifyWebhook } from './auth.js';
+import { generatePassword, hashPassword, requireAuth, signToken, verifyPassword, verifyWebhook } from './auth.js';
 import { normalizePhone } from './phone.js';
 import { decideInboundRoute } from './routing.js';
 import { sendPush } from './push.js';
@@ -13,6 +14,11 @@ const SETTINGS_FIELDS = [
 ];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const MANAGER_ROLES = new Set(['admin', 'broker', 'asistan']);
+const ROLES = ['admin', 'broker', 'asistan', 'danisman'];
+const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
+
+const requireRole = (...roles) => (req, res, next) => (roles.includes(req.user.role)
+  ? next() : res.status(403).json({ error: 'Bu işlem için yetkiniz yok' }));
 
 const publicUser = ({ password_hash, push_token, ...u }) => u;
 
@@ -257,7 +263,51 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     }
   }
 
-  app.get('/', (_req, res) => res.type('text').send('Santral sunucusu çalışıyor. Bu adres mobil uygulama ve santral içindir.'));
+  // ---- Ekip ve hat yönetimi ----
+  const manager = requireRole(...MANAGER_ROLES);
+  const admin = requireRole('admin');
+
+  app.get('/api/users', auth, manager, (_req, res) => {
+    res.json(db.prepare('SELECT * FROM users ORDER BY name COLLATE NOCASE').all().map(publicUser));
+  });
+
+  app.post('/api/users', auth, admin, (req, res) => {
+    const { email, name, role = 'danisman', phone, extension = null } = req.body ?? {};
+    if (!email || !name || !normalizePhone(phone)) return res.status(400).json({ error: 'E-posta, ad ve telefon zorunlu' });
+    if (!ROLES.includes(role)) return res.status(400).json({ error: 'Geçersiz rol' });
+    if (q.userByEmail.get(String(email).toLowerCase())) return res.status(409).json({ error: 'Bu e-posta zaten kayıtlı' });
+    const password = generatePassword();
+    const { lastInsertRowid } = db.prepare(`INSERT INTO users (name, role, email, password_hash, phone, forward_phone, extension)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`).run(String(name).toLocaleUpperCase('tr-TR'), role, String(email).toLowerCase(),
+      hashPassword(password), normalizePhone(phone), normalizePhone(phone), extension || null);
+    res.status(201).json({ user: publicUser(q.userById.get(lastInsertRowid)), password });
+  });
+
+  app.post('/api/users/:id/reset-password', auth, admin, (req, res) => {
+    if (!q.userById.get(req.params.id)) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    const password = generatePassword();
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), req.params.id);
+    res.json({ password });
+  });
+
+  app.get('/api/numbers', auth, manager, (_req, res) => {
+    res.json(db.prepare(`SELECT n.*, u.name AS user_name FROM numbers n LEFT JOIN users u ON u.id = n.user_id
+      ORDER BY n.type, n.did`).all());
+  });
+
+  app.put('/api/numbers/:did', auth, admin, (req, res) => {
+    const number = q.number.get(req.params.did);
+    if (!number) return res.status(404).json({ error: 'Hat bulunamadı' });
+    const userId = req.body?.user_id ?? null;
+    if (userId !== null && !q.userById.get(userId)) return res.status(400).json({ error: 'Kullanıcı bulunamadı' });
+    const label = String(req.body?.label ?? number.label).trim() || number.label;
+    db.prepare('UPDATE numbers SET user_id = ?, label = ? WHERE did = ?')
+      .run(number.type === 'hunt' ? null : userId, label, number.did);
+    res.json(q.number.get(number.did));
+  });
+
+  // Web arayüzü (public/): tek sayfalık uygulama
+  app.use(express.static(PUBLIC_DIR, { index: 'index.html', maxAge: '1h' }));
 
   app.get('/health', (_req, res) => res.json({ ok: true, provider: provider.name }));
 

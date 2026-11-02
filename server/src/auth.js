@@ -7,6 +7,8 @@ export function hashPassword(password) {
   return `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;
 }
 
+export const generatePassword = () => randomBytes(9).toString('base64url');
+
 export function verifyPassword(password, stored) {
   const [salt, hash] = stored.split(':');
   const actual = scryptSync(password, salt, 64);

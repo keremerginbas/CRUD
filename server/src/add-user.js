@@ -1,9 +1,8 @@
 // Kullanıcı ekler; varsa şifresini sıfırlar, adını ve rolünü günceller; şifre rastgele üretilip ekrana bir kez yazılır.
 // node src/add-user.js <eposta> "<Ad Soyad>" <admin|broker|asistan|danisman> <cep_telefonu> [dahili]
-import { randomBytes } from 'node:crypto';
 import { config } from './config.js';
 import { openDb } from './db.js';
-import { hashPassword } from './auth.js';
+import { generatePassword, hashPassword } from './auth.js';
 import { normalizePhone } from './phone.js';
 
 const [email, name, role, phone, extension = null] = process.argv.slice(2);
@@ -13,7 +12,7 @@ if (!email || !name || !['admin', 'broker', 'asistan', 'danisman'].includes(role
 }
 
 const db = openDb(config.dbPath);
-const password = randomBytes(9).toString('base64url');
+const password = generatePassword();
 const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase());
 if (existing) {
   db.prepare('UPDATE users SET password_hash = ?, name = ?, role = ? WHERE id = ?')

@@ -13,10 +13,10 @@ const config = {
 const pushes = [];
 const bitrixCalls = [];
 const bitrix = { call: async (method, params) => { bitrixCalls.push([method, params]); return method.endsWith('register') ? { CALL_ID: 'externalCall.1' } : true; } };
-let base, provider, tokens = {};
+let base, provider, db, tokens = {};
 
 before(async () => {
-  const db = openDb(':memory:');
+  db = openDb(':memory:');
   const pw = hashPassword('Sifre1234');
   const add = db.prepare(`INSERT INTO users (name, role, email, password_hash, phone, forward_phone, extension, push_token,
     work_start, work_end, saturday_enabled, saturday_start, saturday_end, sunday_enabled, sunday_start, sunday_end)
@@ -146,6 +146,32 @@ test('santral ayarları doğrulanır ve kaydedilir', async () => {
   assert.equal(ok.body.sunday_enabled, 0);
   assert.equal(ok.body.forward_phone, '+905050352940');
   assert.equal(ok.body.password_hash, undefined);
+});
+
+test('yönetici ekip ve hatları yönetir, danışman yönetemez', async () => {
+  db.exec("UPDATE users SET role = 'admin' WHERE email = 'broker@x.com'");
+  const adminToken = (await call('POST', '/api/auth/login', { email: 'broker@x.com', password: 'Sifre1234' })).body.token;
+  try {
+    assert.equal((await call('GET', '/api/users', null, { token: tokens.baska })).status, 403);
+    const created = await call('POST', '/api/users', { email: 'Yeni@x.com', name: 'yeni danışman', phone: '0532 000 00 00' }, { token: adminToken });
+    assert.equal(created.status, 201);
+    assert.equal(created.body.user.name, 'YENİ DANIŞMAN');
+    assert.equal((await call('POST', '/api/auth/login', { email: 'yeni@x.com', password: created.body.password })).status, 200);
+    assert.equal((await call('POST', '/api/users', { email: 'yeni@x.com', name: 'x', phone: '05320000000' }, { token: adminToken })).status, 409);
+
+    const did = encodeURIComponent('+908504660150');
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { user_id: created.body.user.id }, { token: tokens.kaan })).status, 403);
+    const moved = await call('PUT', `/api/numbers/${did}`, { user_id: created.body.user.id, label: 'İlan 999' }, { token: adminToken });
+    assert.deepEqual([moved.body.user_id, moved.body.label], [created.body.user.id, 'İlan 999']);
+    const hunt = await call('PUT', `/api/numbers/4442453`, { user_id: created.body.user.id }, { token: adminToken });
+    assert.equal(hunt.body.user_id, null);
+    await call('PUT', `/api/numbers/${did}`, { user_id: 1, label: 'İlan 638' }, { token: adminToken });
+
+    const reset = await call('POST', `/api/users/${created.body.user.id}/reset-password`, null, { token: adminToken });
+    assert.equal((await call('POST', '/api/auth/login', { email: 'yeni@x.com', password: reset.body.password })).status, 200);
+  } finally {
+    db.exec("UPDATE users SET role = 'broker' WHERE email = 'broker@x.com'");
+  }
 });
 
 test('danışman yalnızca kendi çağrılarını, broker hepsini görür', async () => {
