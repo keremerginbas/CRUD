@@ -22,7 +22,7 @@ cat > "$TMP/xre_globals.conf" <<CONFEOF
 ; pbx/connect.sh tarafından yazıldı
 APP_URL=http://$APP_IP:3000
 APP_TOKEN=$TOKEN
-TRUNK=netgsm
+TRUNK=trunk
 SOUNDS=/var/lib/asterisk/sounds/custom
 HUNT_FALLBACK=$ASSIST
 CONFEOF
@@ -44,7 +44,7 @@ set_env PBX_PROVIDER asterisk
 set_env ASTERISK_ARI_URL "http://$PBX_IP:8088"
 set_env ASTERISK_ARI_USER xre
 set_env ASTERISK_ARI_PASSWORD "$ARIPASS"
-set_env ASTERISK_TRUNK netgsm
+set_env ASTERISK_TRUNK trunk
 pct exec "$CT_APP" -- systemctl restart santral
 sleep 3
 

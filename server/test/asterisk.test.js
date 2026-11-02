@@ -20,7 +20,7 @@ before(async () => {
       }
     });
   }).listen(0);
-  provider = createAsteriskProvider({ ariUrl: `http://127.0.0.1:${ari.address().port}`, ariUser: 'xre', ariPassword: 'gizli', trunk: 'netgsm' });
+  provider = createAsteriskProvider({ ariUrl: `http://127.0.0.1:${ari.address().port}`, ariUser: 'xre', ariPassword: 'gizli', trunk: 'trunk' });
 });
 after(() => ari.close());
 
@@ -30,7 +30,7 @@ test('arama başlatma önce danışmanı arar, müşteri ve hat değişken olara
   const url = new URL(req.url, 'http://x');
   assert.equal(req.method, 'POST');
   assert.equal(url.pathname, '/ari/channels');
-  assert.equal(url.searchParams.get('endpoint'), 'PJSIP/05321112233@netgsm');
+  assert.equal(url.searchParams.get('endpoint'), 'PJSIP/05321112233@trunk');
   assert.equal(url.searchParams.get('context'), 'xre-click2call');
   assert.equal(url.searchParams.get('callerId'), '05337435601');
   assert.equal(url.searchParams.get('channelId'), providerCallId);

@@ -40,10 +40,12 @@ id asterisk >/dev/null 2>&1 || useradd --system --home /var/lib/asterisk --shell
 # Örnek ayarlardaki demo dialplan'ları kaldır; sadece bizim ayarlarımız çalışsın
 rm -f /etc/asterisk/extensions.ael /etc/asterisk/extensions.lua /etc/asterisk/users.conf
 install -m 640 "$REPO"/asterisk/*.conf /etc/asterisk/
-for f in pjsip_netgsm.conf pjsip_netgsm_acl.conf xre_globals.conf ari_users.conf; do
+for f in pjsip_trunk.conf pjsip_trunk_acl.conf xre_globals.conf ari_users.conf; do
   [[ -f /etc/asterisk/$f ]] || install -m 640 /dev/null /etc/asterisk/$f
 done
 mkdir -p /var/lib/asterisk/sounds/custom /var/spool/asterisk/recording /var/log/asterisk
+# Eski adlarla yazılmış trunk dosyaları artık kullanılmıyor
+rm -f /etc/asterisk/pjsip_netgsm.conf /etc/asterisk/pjsip_netgsm_acl.conf
 chown -R asterisk:asterisk /etc/asterisk /var/lib/asterisk /var/log/asterisk /var/spool/asterisk
 
 echo "== Servis"

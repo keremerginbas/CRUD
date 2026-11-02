@@ -37,8 +37,8 @@ echo "== Kullanılan ses: $VOICE  (başka ses için: VOICE=<ad> $0)"
 mkdir -p "$OUT"
 for name in "${!TEXT[@]}"; do
   echo "${TEXT[$name]}" | "$TTS/bin/python" -m piper -m "$TTS/$VOICE.onnx" -f "/tmp/$name.wav" 2>/dev/null
-  # Telefon hattı için 8 kHz, mono, 16 bit
-  sox "/tmp/$name.wav" -r 8000 -c 1 -b 16 "$OUT/$name.wav"
+  # Telefon hattı için 8 kHz, mono, 16 bit; -1 dB'e normalize (taşmayı önler)
+  sox "/tmp/$name.wav" -r 8000 -c 1 -b 16 "$OUT/$name.wav" gain -n -1
   rm -f "/tmp/$name.wav"
   echo "hazır: $name.wav ($(soxi -D "$OUT/$name.wav" | cut -c1-4) sn)"
 done

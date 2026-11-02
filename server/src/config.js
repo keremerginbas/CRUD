@@ -24,7 +24,7 @@ export const config = {
       ariUrl: env.ASTERISK_ARI_URL ?? '',
       ariUser: env.ASTERISK_ARI_USER ?? '',
       ariPassword: env.ASTERISK_ARI_PASSWORD ?? '',
-      trunk: env.ASTERISK_TRUNK ?? 'netgsm',
+      trunk: env.ASTERISK_TRUNK ?? 'trunk',
     },
     verimor: {
       apiKey: env.VERIMOR_API_KEY ?? '',

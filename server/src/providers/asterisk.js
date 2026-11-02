@@ -5,12 +5,12 @@ import { toLocalFormat } from '../phone.js';
  * Kendi Asterisk santralimiz (pbx/ klasöründeki ayarlarla).
  * - Arama başlatma: ARI ile önce danışmanın cebi aranır, açınca dialplan (xre-click2call) müşteriyi
  *   danışmanın hattından arar.
- * - Gelen arama: dialplan (from-netgsm) /webhooks/pbx/route'a sorar; cevap düz metindir:
+ * - Gelen arama: dialplan (from-trunk) /webhooks/pbx/route'a sorar; cevap düz metindir:
  *   "eylem,hedef,arayana_anons,danismana_anons" (dialplan'da CUT ile ayrıştırılır).
  * - Olaylar: dialplan kapanışta (xre-hangup) /webhooks/pbx/event'e form gövdesi gönderir.
  * - Kayıtlar: /var/spool/asterisk/recording altında, ARI "stored recordings" ile indirilir.
  */
-export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = 'netgsm' }) {
+export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = 'trunk' }) {
   if (!ariUrl || !ariUser || !ariPassword) throw new Error('ASTERISK_ARI_URL / ASTERISK_ARI_USER / ASTERISK_ARI_PASSWORD tanımlı değil');
   const auth = `Basic ${Buffer.from(`${ariUser}:${ariPassword}`).toString('base64')}`;
   const ari = (path, init = {}) => fetch(new URL(`/ari${path}`, ariUrl), {
