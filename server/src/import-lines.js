@@ -1,6 +1,6 @@
 // Santral hatlarını içe aktarır: node src/import-lines.js hatlar.csv
 // CSV sütunları: dahili,numara,etiket,danisman_email,tip
-//   danisman_email boşsa hat kimseye atanmaz; dahili boş olabilir
+//   danisman_email boşsa hat yeni eklenirken kimseye atanmaz, mevcut atama (ör. panelden yapılan) korunur
 //   tip: personal (kişiye ait hat, varsayılan) | hunt (444 gibi karşılama hattı)
 import { readFileSync } from 'node:fs';
 import { config } from './config.js';
@@ -17,7 +17,8 @@ const db = openDb(config.dbPath);
 const userByEmail = db.prepare('SELECT id, name FROM users WHERE email = ?');
 const setExtension = db.prepare('UPDATE users SET extension = ? WHERE id = ?');
 const upsertNumber = db.prepare(`INSERT INTO numbers (did, type, user_id, label) VALUES (?, ?, ?, ?)
-  ON CONFLICT(did) DO UPDATE SET type = excluded.type, user_id = excluded.user_id, label = excluded.label`);
+  ON CONFLICT(did) DO UPDATE SET type = excluded.type, label = excluded.label,
+    user_id = CASE WHEN excluded.type = 'hunt' THEN NULL ELSE COALESCE(excluded.user_id, numbers.user_id) END`);
 
 const rows = readFileSync(file, 'utf8').split(/\r?\n/).slice(1).filter((l) => l.trim() && !l.startsWith('#'));
 let assigned = 0;
