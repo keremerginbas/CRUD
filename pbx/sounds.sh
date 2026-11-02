@@ -4,7 +4,7 @@
 # Metni değiştirmek için aşağıdaki satırları düzenleyip tekrar çalıştırın. Kendi kaydınızı kullanmak için
 # aynı adla 8 kHz mono WAV dosyasını /var/lib/asterisk/sounds/custom/ altına koymanız yeterli.
 set -euo pipefail
-VOICE="${VOICE:-tr_TR-fahrettin-medium}"
+VOICE="${VOICE:-}"   # boşsa mevcut Türkçe seslerden ilki seçilir
 TTS=/opt/xre-tts
 OUT=/var/lib/asterisk/sounds/custom
 export DEBIAN_FRONTEND=noninteractive
@@ -24,7 +24,15 @@ if [[ ! -x $TTS/bin/python ]]; then
   "$TTS/bin/pip" install -q piper-tts
 fi
 command -v sox >/dev/null || apt-get install -y -q sox >/dev/null
-[[ -f $TTS/$VOICE.onnx ]] || { echo "== Ses modeli indiriliyor: $VOICE"; "$TTS/bin/python" -m piper.download_voices --download-dir "$TTS" "$VOICE"; }
+if [[ -z "$VOICE" ]]; then
+  # Piper'ın ses listesinden Türkçe sesleri bul
+  VOICES="$(curl -fsSL https://huggingface.co/rhasspy/piper-voices/resolve/main/voices.json | grep -oE '"tr_TR-[a-z0-9_]+-(x_low|low|medium|high)"' | tr -d '"' | sort -u)"
+  [[ -n "$VOICES" ]] || { echo "Türkçe ses listesi alınamadı"; exit 1; }
+  echo "== Mevcut Türkçe sesler:"; echo "$VOICES" | sed 's/^/   /'
+  VOICE="$(echo "$VOICES" | grep -m1 -- '-medium$' || echo "$VOICES" | head -1)"
+fi
+echo "== Kullanılan ses: $VOICE  (başka ses için: VOICE=<ad> $0)"
+[[ -f $TTS/$VOICE.onnx ]] || { echo "== Ses modeli indiriliyor"; "$TTS/bin/python" -m piper.download_voices --download-dir "$TTS" "$VOICE"; }
 
 mkdir -p "$OUT"
 for name in "${!TEXT[@]}"; do
