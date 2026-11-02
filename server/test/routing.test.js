@@ -78,3 +78,12 @@ test('mesai dışında kayıtlı müşteri de asistana gider', () => {
     contact: { name: 'AHMET', type: 'ALICI' }, now: at('2026-11-01T09:00:00Z') });
   assert.deepEqual([d.destination, d.reason], ['+905312814423', 'mesai-disi']);
 });
+
+test('sahibi olmayan hat (ayrılan personel) asistana, asistan yoksa kuyruğa gider', () => {
+  const free = { type: 'personal', label: 'Boşta (eski personel) 114' };
+  const d = decideInboundRoute({ ...base, ...assistant, number: free, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([d.action, d.destination, d.reason], ['forward', '+905312814423', 'sahipsiz-hat']);
+  assert.match(d.whisper, /Boşta \(eski personel\) 114/);
+  const q = decideInboundRoute({ ...base, number: free, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
+  assert.equal(q.action, 'queue');
+});

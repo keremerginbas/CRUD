@@ -1,6 +1,7 @@
 bitrix_id,ad_soyad,departman,hat,dahili,eposta,rol
 # E-postalar ad.soyad@xre.com.tr kalıbıyla üretildi (iki isimliler bitişik: alikemal.cinar). Gerçek adreslerle karşılaştırın.
 # rol: admin | broker | asistan | danisman. Eposta boş satırlar atlanır (hat sahibi bilinmiyor).
+# Boştaki hatlar (personel ayrıldı): 0533 743 75 89, 0533 743 56 80, 0533 743 68 58, 0533 743 74 29. Aranırlarsa asistana düşer.
 23180,Abdullah Açıkgöz,XRE ARSA,+905337435601,107,abdullah.acikgoz@xre.com.tr,danisman
 17984,Ali Karaoğlu,XRE PROJE SATIŞ,+905337437434,106,ali.karaoglu@xre.com.tr,danisman
 22186,Ali Kemal Çınar,XRE PROJE SATIŞ,+905337437550,109,alikemal.cinar@xre.com.tr,danisman
@@ -20,5 +21,3 @@ bitrix_id,ad_soyad,departman,hat,dahili,eposta,rol
 30342,Ceren Delice,XRE MEMNUNİYET ARAMA,+905337437426,124,ceren.delice@xre.com.tr,danisman
 30868,Müzeyyen Günay,XRE ELEKTRİK,+905337437658,125,muzeyyen.gunay@xre.com.tr,danisman
 22182,Zarife Ayoğlu,XRE RECRUITING,+905422478514,103,zarife.ayoglu@xre.com.tr,danisman
-25120,,,+905337437589,119,,danisman
-26120,,,+905337436858,116,,danisman

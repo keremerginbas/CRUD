@@ -33,18 +33,20 @@ export function isWithinWorkingHours(user, now = new Date(), timeZone = 'Europe/
  *       "satış danışmanınızı arıyorsunuz" anonsunu duyar
  *     müşteri kayıtlı değilse → asistan hattı (tanımlıysa), değilse hattın sahibi
  *     danışman mesai dışındaysa → asistan hattı, o da yoksa karşılama kuyruğu
+ * - Kimseye atanmamış hat (ör. ayrılan personelin numarası) → asistan hattı, o da yoksa karşılama kuyruğu
  */
 export function decideInboundRoute({
   number, user, contact, owner, callerPhone, now, timeZone, huntDestination, assistantDestination, callerAnnouncement,
 }) {
   const hunt = { action: 'queue', destination: huntDestination, whisper: null, userId: null };
-  if (!number || number.type === 'hunt' || !user) return hunt;
+  if (!number || number.type === 'hunt') return hunt;
 
   const toAssistant = (reason, userId) => (assistantDestination
     ? { action: 'forward', destination: assistantDestination, userId, reason,
-      whisper: whisperText({ number, contact, callerPhone }), callerAnnouncement: null }
+      whisper: whisperText({ number, contact, callerPhone, toAssistant: true }), callerAnnouncement: null }
     : { ...hunt, userId, reason });
 
+  if (!user) return toAssistant('sahipsiz-hat', null);
   if (!contact && assistantDestination) return toAssistant('kayitsiz-musteri', user.id);
 
   const target = owner ?? user;
@@ -61,8 +63,10 @@ export function decideInboundRoute({
 }
 
 // Danışmana çağrı açılmadan önce okunan kısa anons
-export function whisperText({ number, contact, callerPhone }) {
+// Asistana giden aramada hat asistanın değildir; hangi hattın arandığı adıyla söylenir
+export function whisperText({ number, contact, callerPhone, toAssistant = false }) {
   const who = contact ? `${contact.type === 'SATICI' ? 'Satıcı' : 'Alıcı'} ${contact.name}` : 'Yeni müşteri';
-  const via = number.type === 'listing' ? `${number.label} ilanından` : 'dijital hattınızdan';
+  const via = number.type === 'listing' ? `${number.label} ilanından`
+    : toAssistant ? `${number.label} hattından` : 'dijital hattınızdan';
   return `${who} ${via} arıyor.${contact ? '' : ` Numara ${callerPhone}.`}`;
 }
