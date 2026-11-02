@@ -27,9 +27,19 @@ test('gece yarısını aşan mesai', () => {
   assert.equal(isWithinWorkingHours(night, at('2026-10-27T09:00:00Z')), false); // Salı 12:00
 });
 
-test('444 hattı her zaman karşılama kuyruğuna gider', () => {
-  const d = decideInboundRoute({ ...base, number: { type: 'hunt', label: '444' }, user: null, now: at('2026-10-27T06:00:00Z') });
+test('444: kayıtsız müşteri karşılama kuyruğuna gider', () => {
+  const d = decideInboundRoute({ ...base, number: { type: 'hunt', label: '444' }, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
   assert.deepEqual([d.action, d.destination], ['queue', 'queue:karsilama']);
+});
+
+test('444: kayıtlı müşteri doğrudan danışmanına gider, danışman mesai dışındaysa kuyruğa', () => {
+  const hunt = { type: 'hunt', label: '444 24 53' };
+  const contact = { name: 'AHMET', type: 'ALICI' };
+  const d = decideInboundRoute({ ...base, number: hunt, user: null, owner: user, contact, callerAnnouncement: 'anons', now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([d.action, d.destination, d.userId, d.callerAnnouncement], ['forward', '+905551112233', 7, 'anons']);
+  assert.equal(d.whisper, 'Alıcı AHMET 444 24 53 hattından arıyor.');
+  const off = decideInboundRoute({ ...base, number: hunt, user: null, owner: user, contact, now: at('2026-11-01T09:00:00Z') });
+  assert.equal(off.action, 'queue');
 });
 
 test('mesai içinde dijital numara danışmanın telefonuna fısıltı anonsuyla gider', () => {

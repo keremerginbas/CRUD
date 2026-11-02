@@ -27,7 +27,8 @@ export function isWithinWorkingHours(user, now = new Date(), timeZone = 'Europe/
 
 /**
  * Santralin "bu çağrıyı nereye yönlendireyim?" sorusuna verilen cevap.
- * - 444 hattı (hunt) → karşılama kuyruğu (müsait olan hat açar)
+ * - 444 hattı (hunt): müşteri bir danışmana kayıtlıysa ve danışman mesaideyse doğrudan o danışman,
+ *     değilse karşılama kuyruğu (0312 hatları sırayla çalar)
  * - Danışman hattı (0533 743 ...):
  *     müşteri kayıtlıysa → müşterinin sorumlu danışmanı (yoksa hattın sahibi); müşteri
  *       "satış danışmanınızı arıyorsunuz" anonsunu duyar
@@ -39,7 +40,18 @@ export function decideInboundRoute({
   number, user, contact, owner, callerPhone, now, timeZone, huntDestination, assistantDestination, callerAnnouncement,
 }) {
   const hunt = { action: 'queue', destination: huntDestination, whisper: null, userId: null };
-  if (!number || number.type === 'hunt') return hunt;
+  if (!number) return hunt;
+
+  const toConsultant = (target) => ({
+    action: 'forward',
+    destination: target.forward_phone,
+    userId: target.id,
+    whisper: target.voice_announcement ? whisperText({ number, contact, callerPhone }) : null,
+    callerAnnouncement: callerAnnouncement ?? null,
+  });
+  const available = (target) => target?.forward_phone && isWithinWorkingHours(target, now, timeZone);
+
+  if (number.type === 'hunt') return contact && available(owner) ? toConsultant(owner) : hunt;
 
   const toAssistant = (reason, userId) => (assistantDestination
     ? { action: 'forward', destination: assistantDestination, userId, reason,
@@ -50,16 +62,7 @@ export function decideInboundRoute({
   if (!contact && assistantDestination) return toAssistant('kayitsiz-musteri', user.id);
 
   const target = owner ?? user;
-  if (!target.forward_phone || !isWithinWorkingHours(target, now, timeZone)) {
-    return toAssistant('mesai-disi', target.id);
-  }
-  return {
-    action: 'forward',
-    destination: target.forward_phone,
-    userId: target.id,
-    whisper: target.voice_announcement ? whisperText({ number, contact, callerPhone }) : null,
-    callerAnnouncement: callerAnnouncement ?? null,
-  };
+  return available(target) ? toConsultant(target) : toAssistant('mesai-disi', target.id);
 }
 
 // Danışmana çağrı açılmadan önce okunan kısa anons
@@ -67,6 +70,6 @@ export function decideInboundRoute({
 export function whisperText({ number, contact, callerPhone, toAssistant = false }) {
   const who = contact ? `${contact.type === 'SATICI' ? 'Satıcı' : 'Alıcı'} ${contact.name}` : 'Yeni müşteri';
   const via = number.type === 'listing' ? `${number.label} ilanından`
-    : toAssistant ? `${number.label} hattından` : 'dijital hattınızdan';
+    : toAssistant || number.type === 'hunt' ? `${number.label} hattından` : 'dijital hattınızdan';
   return `${who} ${via} arıyor.${contact ? '' : ` Numara ${callerPhone}.`}`;
 }

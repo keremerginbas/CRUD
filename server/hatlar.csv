@@ -48,7 +48,7 @@ dahili,numara,etiket,danisman_email,tip
 122,05337437147,Satış hattı 122,,
 123,05337435970,Satış hattı 123,,
 124,05337437426,Satış hattı 124,,
-125,05337437658,Satış hattı 125,,
+125,05337437658,Boşta (eski personel) 125,,
 
 # --- Yapay zeka (sesli asistan) hatları: Vapi'de "BYO phone number", Netgsm'e SIP trunk ile bağlı ---
 # Gateway: sip8.netsantral.com:5060 UDP, kullanıcı 850 ana hesap. Şu an yalnızca giden arama açık.
