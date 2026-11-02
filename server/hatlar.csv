@@ -23,6 +23,9 @@ dahili,numara,etiket,danisman_email,tip
 ,03122191036,Danışman hattı 1036,,
 ,03122190082,Danışman hattı 0082,,
 
+# --- Test hattı (santral testleri için; Netgsm'de 119'a yönlendirilir) ---
+,05337435628,Test hattı 5628,,
+
 # --- Satışçı hatları (Netgsm, Bitrix24'e bağlı). Sadece son 4 hanesi bilinenler 0533 743 ile tamamlandı: Netgsm panelinden doğrulayın.
 # 101 numarası Bitrix'te 3 kişilik kuyruk olarak tanımlı.
 101,05337437586,Satış hattı 101,,
