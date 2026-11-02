@@ -77,7 +77,7 @@ CONFEOF
 } > "$CONF/pjsip_trunk.conf"
 
 # Sadece operatörün adreslerinden SIP kabul et
-IPS="$(getent ahostsv4 "$HOST" | awk '{print $1}' | sort -u) $EXTRA"
+IPS="$( { getent ahostsv4 "$HOST" | awk '{print $1}'; for ip in $EXTRA; do echo "$ip"; done; } | sort -u)"
 : > "$CONF/pjsip_trunk_acl.conf"
 for ip in $IPS; do echo "permit=$ip/255.255.255.255" >> "$CONF/pjsip_trunk_acl.conf"; done
 echo "== İzin verilen operatör adresleri:"; sed 's/^permit=/   /' "$CONF/pjsip_trunk_acl.conf"
