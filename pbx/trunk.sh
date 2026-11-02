@@ -19,8 +19,7 @@ read -rp "Operatörün SIP sunucusu (alan adı ya da IP): " HOST
 read -rp "Doğrulama yöntemi: 1) kullanıcı adı/şifre  2) IP doğrulama [1]: " MODE
 MODE="${MODE:-1}"
 read -rp "Operatörün bildirdiği ek SIP IP adresleri (boşlukla ayırın, yoksa Enter): " EXTRA
-DID=""
-[[ "$NAME" != "trunk" ]] || read -rp "Bu trunk'a/dahiliye gelen hattın numarası (ör. 5337437589; operatör aranan numarayı iletmezse kullanılır): " DID
+read -rp "Bu dahilinin numarası (ör. 5337437589; operatör aranan numarayı iletmezse kullanılır): " DID
 
 if [[ "$MODE" == "1" ]]; then
   read -rp "Trunk kullanıcı adı: " SIPUSER
@@ -76,6 +75,7 @@ force_rport=yes
 rewrite_contact=yes
 dtmf_mode=rfc4733
 CONFEOF
+  [[ -z "$DID" ]] || echo "set_var=XRE_LINE_DID=$DID"
   if [[ "$MODE" == "1" ]]; then
     printf 'outbound_auth=%s-auth\nfrom_user=%s\nfrom_domain=%s\n' "$NAME" "$SIPUSER" "$HOST"
   fi
