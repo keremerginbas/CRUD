@@ -324,7 +324,7 @@ async function teamView(secret = null) {
 
   const userRows = users.map((u) => el('tr', {},
     el('td', {}, u.name, el('div', { class: 'muted' }, u.email)),
-    el('td', {}, ROLE_LABELS[u.role] ?? u.role),
+    el('td', {}, ROLE_LABELS[u.role] ?? u.role, u.department && el('div', { class: 'muted' }, u.department)),
     el('td', { class: 'hide-sm' }, u.phone),
     el('td', {}, isAdmin() && el('button', {
       class: 'btn outline small',

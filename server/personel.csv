@@ -1,0 +1,24 @@
+bitrix_id,ad_soyad,departman,hat,dahili,eposta,rol
+# E-postalar ad.soyad@xre.com.tr kalıbıyla üretildi (iki isimliler bitişik: alikemal.cinar). Gerçek adreslerle karşılaştırın.
+# rol: admin | broker | asistan | danisman. Eposta boş satırlar atlanır (hat sahibi bilinmiyor).
+23180,Abdullah Açıkgöz,XRE ARSA,+905337435601,107,abdullah.acikgoz@xre.com.tr,danisman
+17984,Ali Karaoğlu,XRE PROJE SATIŞ,+905337437434,106,ali.karaoglu@xre.com.tr,danisman
+22186,Ali Kemal Çınar,XRE PROJE SATIŞ,+905337437550,109,alikemal.cinar@xre.com.tr,danisman
+30070,Burak Gülşen,XRE PROJE SATIŞ,,,burak.gulsen@xre.com.tr,danisman
+26352,Emre Caner,XRE PROJE SATIŞ,+905337437147,122,emre.caner@xre.com.tr,danisman
+1174,Arda Kağan Ertaş,XRE PROJE SATIŞ,+905337435976,105,ardakagan.ertas@xre.com.tr,danisman
+116,Merve Gelleci,XRE PROJE SATIŞ,+905337437109,110,merve.gelleci@xre.com.tr,danisman
+25258,Murat Çakıroğlu,XRE PROJE SATIŞ,+905337436867,115,murat.cakiroglu@xre.com.tr,danisman
+5778,Tuğba Kütük,XRE PROJE SATIŞ,+905337435988,104,tugba.kutuk@xre.com.tr,danisman
+11690,Zeliha Bilginsoy,XRE PROJE SATIŞ,+905337437435,108,zeliha.bilginsoy@xre.com.tr,danisman
+25314,Hatice Aldemir,XRE BARTER,+905337437616,111,hatice.aldemir@xre.com.tr,danisman
+27876,Yiğitcan Dilek,XRE BARTER,+905337437096,120,yigitcan.dilek@xre.com.tr,danisman
+27878,Aleyna Özdemir,XRE BARTER,+905337435692,117,aleyna.ozdemir@xre.com.tr,danisman
+27446,Beril Sarıyıldız,XRE PARTNERS,+905337435970,123,beril.sariyildiz@xre.com.tr,danisman
+27332,Rüstem Sarıoğlan,XRE FRANCHİSE,+905337437124,102,rustem.sarioglan@xre.com.tr,danisman
+29240,Ayça İnal,XRE MEMNUNİYET ARAMA,+905337437586,101,ayca.inal@xre.com.tr,danisman
+30342,Ceren Delice,XRE MEMNUNİYET ARAMA,+905337437426,124,ceren.delice@xre.com.tr,danisman
+30868,Müzeyyen Günay,XRE ELEKTRİK,+905337437658,125,muzeyyen.gunay@xre.com.tr,danisman
+22182,Zarife Ayoğlu,XRE RECRUITING,+905422478514,103,zarife.ayoglu@xre.com.tr,danisman
+25120,,,+905337437589,119,,danisman
+26120,,,+905337436858,116,,danisman

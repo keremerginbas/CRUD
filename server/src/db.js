@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS users (
   sunday_start TEXT NOT NULL DEFAULT '10:00',
   sunday_end TEXT NOT NULL DEFAULT '17:00',
   push_token TEXT,
+  department TEXT,
   bitrix_user_id INTEGER,            -- Bitrix24'teki kullanıcı kimliği (CRM'e arama yazmak için)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -71,5 +72,20 @@ export function openDb(path) {
   const db = new DatabaseSync(path);
   db.exec('PRAGMA foreign_keys = ON;');
   db.exec(SCHEMA);
+  migrate(db);
   return db;
+}
+
+// Mevcut veritabanlarına sonradan eklenen sütunlar (CREATE TABLE IF NOT EXISTS bunları eklemez)
+const ADDED_COLUMNS = [
+  ['users', 'department', 'TEXT'],
+  ['users', 'bitrix_user_id', 'INTEGER'],
+  ['calls', 'bitrix_call_id', 'TEXT'],
+];
+
+function migrate(db) {
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    const exists = db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
+    if (!exists) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
 }

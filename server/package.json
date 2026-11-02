@@ -10,6 +10,7 @@
     "seed": "node src/seed.js",
     "import-lines": "node src/import-lines.js",
     "add-user": "node src/add-user.js",
+    "import-staff": "node src/import-staff.js",
     "test": "node --test"
   },
   "dependencies": {
