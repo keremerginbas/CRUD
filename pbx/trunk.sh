@@ -90,7 +90,7 @@ for ip in $IPS; do echo "permit=$ip/255.255.255.255" >> "$CONF/pjsip_${NAME}_acl
 echo "== İzin verilen operatör adresleri:"; sed 's/^permit=/   /' "$CONF/pjsip_${NAME}_acl.conf"
 
 if [[ "$NAME" == "trunk" ]]; then
-  printf '; pbx/trunk.sh tarafından yazıldı\nTRUNK_DID=%s\n' "$DID" > "$CONF/xre_trunk.conf"
+  printf '; pbx/trunk.sh tarafından yazıldı\nTRUNK_DID=%s\nTRUNK_HOST=%s\n' "$DID" "$HOST" > "$CONF/xre_trunk.conf"
 fi
 chown asterisk:asterisk "$CONF"/pjsip_${NAME}*.conf "$CONF/xre_trunk.conf"
 asterisk -rx 'dialplan reload' >/dev/null
