@@ -11,6 +11,20 @@ Operatör SIP trunk ◀──▶ Asterisk (CT 150, 192.168.1.247) ◀──▶ U
 - Kapanışta `xre-hangup` sonucu uygulamaya bildirir (`/webhooks/pbx/event`).
 - Kayıtlar `/var/spool/asterisk/recording` altındadır, uygulama ARI üzerinden indirir.
 
+## Tarayıcı telefonu (WebRTC)
+
+Danışman panelden (tarayıcı/telefon tarayıcısı) konuşur; operatöre sadece müşteriye giden tek arama gider.
+
+```
+Panel ══ wss://santral.xresoftware.com.tr/ws (Hestia) ══▶ Asterisk :8088/ws ──▶ trunk ──▶ müşteri
+```
+
+- Her panel kullanıcısı santralde `u<id>` kullanıcısıdır; şifreyi uygulama üretir, `pbx/sync-webrtc.sh` santrale yazar.
+- Panelden arama `xre-webrtc` dialplan'ına düşer; Asterisk uygulamaya sorar (`/webhooks/pbx/outbound`), uygulama
+  danışmanın hattını verir, müşteri o hattan aranır. Danışmanlar bu kullanıcılarla serbestçe dışarı arayamaz.
+- Gelen aramada danışman panelde açıksa (kayıtlıysa) arama panelde çalar, değilse cebine yönlendirilir.
+- Ses: DTLS-SRTP, ICE; `rtp.conf` iç adresi 81.214.28.155 olarak bildirir (UDP 10000–10200 modemde açık olmalı).
+
 ## Güvenlik
 - Santrale hiçbir telefon kayıt olamaz; tek SIP bağlantısı operatör trunk'ıdır.
 - SIP yalnızca iç ağdan ve operatörün adreslerinden kabul edilir (`pjsip.conf` → `[acl]`).

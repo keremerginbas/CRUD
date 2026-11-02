@@ -1,8 +1,9 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
+import { randomBytes } from 'node:crypto';
 import { generatePassword, hashPassword, normalizeLogin, requireAuth, signToken, verifyPassword, verifyWebhook } from './auth.js';
-import { normalizePhone } from './phone.js';
+import { normalizePhone, toLocalFormat } from './phone.js';
 import { decideInboundRoute } from './routing.js';
 import { sendPush } from './push.js';
 import { syncCallToBitrix } from './bitrix.js';
@@ -79,6 +80,24 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     if (String(next ?? '').length < 8) return res.status(400).json({ error: 'Yeni şifre en az 8 karakter olmalı' });
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(next), req.user.sub);
     res.status(204).end();
+  });
+
+  // Tarayıcı telefonu bilgileri (sadece kendi santralimizde)
+  app.get('/api/me/sip', auth, (req, res) => {
+    if (!provider.supportsBrowserPhone) return res.json({ enabled: false });
+    let { sip_secret: secret } = me(req);
+    if (!secret) {
+      secret = randomBytes(18).toString('hex');
+      db.prepare('UPDATE users SET sip_secret = ? WHERE id = ?').run(secret, req.user.sub);
+    }
+    const host = req.get('x-forwarded-host') ?? req.get('host');
+    res.json({
+      enabled: true,
+      wsUrl: config.sip?.wsUrl || `wss://${host}/ws`,
+      domain: config.sip?.domain || host.split(':')[0],
+      user: `u${req.user.sub}`,
+      password: secret,
+    });
   });
 
   app.put('/api/me/push-token', auth, (req, res) => {
@@ -220,6 +239,23 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const answer = provider.formatRouteResponse(decision);
     if (typeof answer === 'string') res.type('text').send(answer);
     else res.json(answer);
+  });
+
+  // Tarayıcıdan arama: santral "bu danışman bu numarayı arayabilir mi, hangi hattı göstereyim?" diye sorar.
+  // Cevap düz metin: "ok,<hat>,<müşteri>" ya da "deny,<neden>"
+  app.post('/webhooks/pbx/outbound', webhook, (req, res) => {
+    const userId = Number(String(req.body?.user ?? '').replace(/^u/, ''));
+    const user = userId ? q.userById.get(userId) : null;
+    const customerPhone = normalizePhone(req.body?.to);
+    if (!user) return res.type('text').send('deny,kullanici-yok');
+    if (!/^\+90[2-5]\d{9}$/.test(customerPhone)) return res.type('text').send('deny,gecersiz-numara');
+    const line = q.personalNumber.get(user.id)?.did;
+    if (!line) return res.type('text').send('deny,hat-yok');
+    const callId = String(req.body?.callId ?? '');
+    if (callId && !q.callByProviderId.get(callId)) {
+      q.insertCall.run(callId, 'outbound', customerPhone, line, user.id, q.contactByPhone.get(customerPhone)?.id ?? null, 'initiated');
+    }
+    res.type('text').send(`ok,${toLocalFormat(line)},${toLocalFormat(customerPhone)}`);
   });
 
   // Çağrı durum olayları (çaldı, açıldı, kapandı, kayıt hazır)

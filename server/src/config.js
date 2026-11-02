@@ -5,6 +5,11 @@ export const config = {
   jwtSecret: env.JWT_SECRET ?? 'dev-secret',
   dbPath: env.DB_PATH ?? './data/santral.db',
   timezone: env.TZ_NAME ?? 'Europe/Istanbul',
+  // Tarayıcı telefonu (WebRTC): panel santrale bu WebSocket adresinden bağlanır (Hestia /ws → Asterisk :8088/ws)
+  sip: {
+    wsUrl: env.SIP_WS_URL ?? '',
+    domain: env.SIP_DOMAIN ?? '',
+  },
   bitrix: {
     webhookUrl: env.BITRIX_WEBHOOK_URL ?? '',
     // Danışmanı Bitrix'te eşleşmeyen çağrılar bu kullanıcıya yazılır (boşsa yazılmaz)

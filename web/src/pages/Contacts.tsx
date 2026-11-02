@@ -51,7 +51,7 @@ export function Contacts() {
         {contacts?.map((c) => (
           <Row
             key={c.id} title={c.name} callLabel={`${c.name} kişisini ara`}
-            onCall={() => maskedCall({ contactId: c.id, name: c.name })}
+            onCall={() => maskedCall({ contactId: c.id, phone: c.phone, name: c.name })}
             details={[c.phone, c.type === 'SATICI' ? 'Satıcı' : 'Alıcı', formatDate(c.created_at)]}
           />
         ))}

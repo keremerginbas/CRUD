@@ -20,6 +20,7 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
 
   return {
     name: 'asterisk',
+    supportsBrowserPhone: true,
 
     async originate({ agentPhone, customerPhone, callerId }) {
       const id = `xre-${randomUUID()}`;
@@ -50,9 +51,11 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
 
     parseRouteRequest: (body) => ({ callerPhone: body.from, dialedNumber: body.to, providerCallId: body.callId }),
 
+    // 5. alan: danışmanın tarayıcı telefonu (u<id>); panelde açıksa önce orası çalar
     formatRouteResponse(decision) {
-      if (decision.action !== 'forward') return 'queue,,0,0';
-      return ['forward', toLocalFormat(decision.destination), decision.callerAnnouncement ? 1 : 0, decision.whisper ? 1 : 0].join(',');
+      if (decision.action !== 'forward') return 'queue,,0,0,';
+      const browser = !decision.reason && decision.userId ? `u${decision.userId}` : '';
+      return ['forward', toLocalFormat(decision.destination), decision.callerAnnouncement ? 1 : 0, decision.whisper ? 1 : 0, browser].join(',');
     },
 
     fetchRecording: (ref) => ari(`/recordings/stored/${encodeURIComponent(ref)}/file`),

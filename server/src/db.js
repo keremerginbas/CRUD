@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
   sunday_end TEXT NOT NULL DEFAULT '17:00',
   push_token TEXT,
   department TEXT,
+  sip_secret TEXT,                  -- tarayıcı telefonu (WebRTC) şifresi; kullanıcı adı u<id>
   bitrix_user_id INTEGER,            -- Bitrix24'teki kullanıcı kimliği (CRM'e arama yazmak için)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -79,6 +80,7 @@ export function openDb(path) {
 // Mevcut veritabanlarına sonradan eklenen sütunlar (CREATE TABLE IF NOT EXISTS bunları eklemez)
 const ADDED_COLUMNS = [
   ['users', 'department', 'TEXT'],
+  ['users', 'sip_secret', 'TEXT'],
   ['users', 'bitrix_user_id', 'INTEGER'],
   ['calls', 'bitrix_call_id', 'TEXT'],
 ];

@@ -1,7 +1,9 @@
 import { ActionIcon, AppShell, Center, Group, Loader, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { IconAddressBook, IconLogout, IconPhone, IconSettings, IconUsers, type Icon } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
 import { useEffect } from 'react';
+import { CallBar, PhoneStatusDot } from './components/CallBar';
 import { CallDetail } from './pages/CallDetail';
 import { Calls } from './pages/Calls';
 import { Contacts } from './pages/Contacts';
@@ -10,6 +12,7 @@ import { Settings } from './pages/Settings';
 import { Team } from './pages/Team';
 import { go, useRoute } from './router';
 import { MANAGERS, useSession } from './session';
+import { softphone } from './softphone';
 
 type NavItem = { path: string; label: string; icon: Icon; managerOnly?: boolean };
 const NAV: NavItem[] = [
@@ -30,6 +33,14 @@ export function App() {
   useEffect(() => {
     if (me && !items.some((n) => n.path === current)) go('aramalar');
   }, [me, current]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Giriş yapınca tarayıcı telefonu santrale bağlanır, çıkışta kapanır
+  useEffect(() => {
+    if (!me) return;
+    softphone.onEnded((reason) => { if (reason) notifications.show({ color: 'red', title: 'Görüşme kurulamadı', message: reason }); });
+    softphone.start(me.name);
+    return () => softphone.stop();
+  }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!ready) return <Center h="100vh"><Loader /></Center>;
   if (!me) return <Login />;
@@ -57,6 +68,7 @@ export function App() {
           </Group>
         )}
         <Group gap="xs" ml="auto">
+          <PhoneStatusDot />
           <Text size="sm" c="dimmed" visibleFrom="sm">{me.name}</Text>
           <Tooltip label="Çıkış yap">
             <ActionIcon variant="subtle" color="gray" size="lg" onClick={logout} aria-label="Çıkış yap">
@@ -68,6 +80,7 @@ export function App() {
 
       <AppShell.Main>
         <div style={{ maxWidth: 960, margin: '0 auto', paddingBottom: 96 }}>{content}</div>
+        <CallBar />
       </AppShell.Main>
 
       {mobile && (

@@ -2,9 +2,18 @@ import { Text } from '@mantine/core';
 import { modals } from '@mantine/modals';
 import { notifications } from '@mantine/notifications';
 import { api } from '../api';
+import { softphone } from '../softphone';
 
-// Santral önce danışmanın telefonunu çaldırır, açınca müşteriyi danışmanın hattından arar
-export function maskedCall(target: { contactId?: number; phone?: string; name: string }) {
+// Tarayıcı telefonu bağlıysa arama panelden yapılır; değilse santral önce danışmanın cebini arar
+export function maskedCall(target: { contactId?: number; phone: string; name: string }) {
+  if (softphone.getState().status === 'ready') {
+    try {
+      softphone.call(target.phone, target.name);
+    } catch (e) {
+      notifications.show({ color: 'red', title: 'Arama başlatılamadı', message: (e as Error).message });
+    }
+    return;
+  }
   modals.openConfirmModal({
     title: `${target.name} aransın mı?`,
     centered: true,

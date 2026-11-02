@@ -174,6 +174,40 @@ test('santral düz metin cevap verirse metin olarak döner, olay form gövdesiyl
   assert.equal(calls.find((c) => c.provider_call_id === 'txt-1').duration_sec, 7);
 });
 
+test('tarayıcı telefonu: bilgiler sadece santral destekliyorsa verilir ve şifre kalıcıdır', async () => {
+  assert.equal((await call('GET', '/api/me/sip', null, { token: tokens.kaan })).body.enabled, false);
+  provider.supportsBrowserPhone = true;
+  try {
+    const a = (await call('GET', '/api/me/sip', null, { token: tokens.kaan })).body;
+    const b = (await call('GET', '/api/me/sip', null, { token: tokens.kaan })).body;
+    assert.equal(a.enabled, true);
+    assert.equal(a.user, 'u1');
+    assert.match(a.password, /^[0-9a-f]{36}$/);
+    assert.equal(a.password, b.password);
+    assert.match(a.wsUrl, /^wss:\/\/127\.0\.0\.1:\d+\/ws$/);
+  } finally {
+    delete provider.supportsBrowserPhone;
+  }
+});
+
+test('tarayıcıdan arama: santral danışmanın hattını sorar, arama kaydı açılır', async () => {
+  const ask = async (body) => {
+    const res = await fetch(`${base}/webhooks/pbx/outbound?token=hook`, {
+      method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body),
+    });
+    return res.text();
+  };
+  assert.equal(await ask({ user: 'u1', to: '05464962638', callId: 'web-1' }), 'ok,08504660149,05464962638');
+  const calls = (await call('GET', '/api/calls', null, { token: tokens.kaan })).body;
+  const row = calls.find((c) => c.provider_call_id === 'web-1');
+  assert.deepEqual([row.direction, row.contact_name, row.dialed_number], ['outbound', 'MUSTAFA UTKU', '+908504660149']);
+  assert.equal(await ask({ user: 'u999', to: '05464962638' }), 'deny,kullanici-yok');
+  assert.equal(await ask({ user: 'u1', to: '00441234567890' }), 'deny,gecersiz-numara');
+  assert.equal(await ask({ user: 'u3', to: '05464962638' }), 'deny,hat-yok');
+  const unsigned = await fetch(`${base}/webhooks/pbx/outbound`, { method: 'POST', body: 'user=u1&to=05464962638', headers: { 'content-type': 'application/x-www-form-urlencoded' } });
+  assert.equal(unsigned.status, 401);
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));
