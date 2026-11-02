@@ -1,0 +1,2 @@
+# Web arayüzü derleme çıktısı (web/ klasöründen npm run build ile üretilir)
+server/public/

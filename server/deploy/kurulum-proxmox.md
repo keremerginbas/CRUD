@@ -59,6 +59,8 @@ grep -n proxy_pass santral.stpl     # sadece "location /" bloğunda tek satır k
 
 ## Güncelleme
 
+Proxmox kabuğunda tek komut (kodu çeker, paketleri kurar, web panelini derler, servisi yeniden başlatır):
+
 ```bash
-cd /opt/santral && git pull && cd server && npm ci --omit=dev && systemctl restart santral
+pct exec 140 -- /opt/santral/server/deploy/update.sh
 ```
