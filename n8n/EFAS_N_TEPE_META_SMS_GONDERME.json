@@ -317,7 +317,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst state = $getWorkflowStaticData('global');\n\nif (!Number.isInteger(state.efasNtepeRoundRobin)) {\n  state.efasNtepeRoundRobin = 0;\n}\n\nconst ekip = [\n  { id: 23564, ad: 'Duygu Ayyayla' },\n  { id: 23562, ad: 'Burcu Kansu' }\n];\n\nreturn items.map((item) => {\n  const j = item.json || {};\n\n  const atanan = ekip[state.efasNtepeRoundRobin % ekip.length];\n  state.efasNtepeRoundRobin =\n    (state.efasNtepeRoundRobin + 1) % ekip.length;\n\n  let telefon = String(j.telefon || '').replace(/\\D/g, '');\n  if (telefon.startsWith('00')) telefon = telefon.slice(2);\n  if (/^05\\d{9}$/.test(telefon)) telefon = '9' + telefon;\n  if (/^5\\d{9}$/.test(telefon)) telefon = '90' + telefon;\n\n  const musteriAdi =\n    String(j.profilAdi || '').trim() ||\n    'WhatsApp Müşterisi';\n\n  const mesaj =\n    String(j.mesajMetni || '').trim() ||\n    ('📎 ' + String(j.mesajTipi || 'Medya mesajı'));\n\n  const now = $now.setZone('Europe/Istanbul');\n\n  return {\n    json: {\n      marka: 'EFAS N TEPE',\n      kaynak: 'META WHATSAPP',\n      messageId: j.messageId || null,\n      musteriAdi,\n      telefon,\n      telefonE164: telefon ? '+' + telefon : '',\n      mesaj,\n      mesajTipi: j.mesajTipi || null,\n      tarih: now.toFormat('dd.MM.yyyy'),\n      saat: now.toFormat('HH:mm:ss'),\n\n      leadStatusId: 'UC_PQDHUK',\n      leadStatusAdi: 'EFAS İÇİN GELEN',\n\n      assignedById: atanan.id,\n      assignedByName: atanan.ad\n    }\n  };\n});"
+        "jsCode": "const items = $input.all();\nreturn items.map((item) => {\n  const j = item.json || {};\n\n  let telefon = String(j.telefon || '').replace(/\\D/g, '');\n  if (telefon.startsWith('00')) telefon = telefon.slice(2);\n  if (/^05\\d{9}$/.test(telefon)) telefon = '9' + telefon;\n  if (/^5\\d{9}$/.test(telefon)) telefon = '90' + telefon;\n\n  const musteriAdi =\n    String(j.profilAdi || '').trim() ||\n    'WhatsApp Müşterisi';\n\n  const mesaj =\n    String(j.mesajMetni || '').trim() ||\n    ('📎 ' + String(j.mesajTipi || 'Medya mesajı'));\n\n  const now = $now.setZone('Europe/Istanbul');\n\n  return {\n    json: {\n      marka: 'EFAS N TEPE',\n      kaynak: 'META WHATSAPP',\n      messageId: j.messageId || null,\n      musteriAdi,\n      telefon,\n      telefonE164: telefon ? '+' + telefon : '',\n      mesaj,\n      mesajTipi: j.mesajTipi || null,\n      tarih: now.toFormat('dd.MM.yyyy'),\n      saat: now.toFormat('HH:mm:ss'),\n\n      leadStatusId: 'UC_PQDHUK',\n      leadStatusAdi: 'EFAS İÇİN GELEN'\n    }\n  };\n});"
       },
       "id": "dacbd537-a9b2-481d-841f-021b62c54aee",
       "name": "EFAS Gelen Mesaji Hazirla",
@@ -458,7 +458,7 @@
         "url": "https://api.telegram.org/botTELEGRAM_BOT_TOKEN/sendMessage",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { \"chat_id\": \"-5329455659\", \"text\": \"🏢 EFAS N TEPE | YENİ WHATSAPP MESAJI\\n\\n👤 Müşteri: \" + $json.musteriAdi + \"\\n📞 Telefon: \" + $json.telefonE164 + \"\\n\\n💬 Mesaj:\\n\" + $json.mesaj + \"\\n\\n📌 Lead Statü: EFAS İÇİN GELEN\\n👩‍💼 Sorumlu: \" + $json.assignedByName + \"\\n🕒 \" + $json.tarih + \" \" + $json.saat } }}",
+        "jsonBody": "={{ { \"chat_id\": \"-5329455659\", \"text\": \"🏢 EFAS N TEPE | YENİ WHATSAPP MESAJI\\n\\n👤 Müşteri: \" + $json.musteriAdi + \"\\n📞 Telefon: \" + $json.telefonE164 + \"\\n\\n💬 Mesaj:\\n\" + $json.mesaj + \"\\n\\n📌 Lead Statü: EFAS İÇİN GELEN\\n🕒 \" + $json.tarih + \" \" + $json.saat } }}",
         "options": {
           "timeout": 20000
         }
@@ -551,10 +551,6 @@
             {
               "name": "fields[STATUS_ID]",
               "value": "UC_PQDHUK"
-            },
-            {
-              "name": "fields[ASSIGNED_BY_ID]",
-              "value": "={{ $('EFAS Gelen Mesaji Hazirla').item.json.assignedById }}"
             }
           ]
         }
@@ -586,7 +582,7 @@
             },
             {
               "name": "fields[COMMENT]",
-              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 + '\\n👤 Sorumlu: ' + $('EFAS Gelen Mesaji Hazirla').item.json.assignedByName }}"
+              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 }}"
             }
           ]
         }
@@ -619,10 +615,6 @@
             {
               "name": "fields[STATUS_ID]",
               "value": "UC_PQDHUK"
-            },
-            {
-              "name": "fields[ASSIGNED_BY_ID]",
-              "value": "={{ $('EFAS Gelen Mesaji Hazirla').item.json.assignedById }}"
             },
             {
               "name": "fields[PHONE][0][VALUE]",
@@ -670,7 +662,7 @@
             },
             {
               "name": "fields[COMMENT]",
-              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 + '\\n👤 Sorumlu: ' + $('EFAS Gelen Mesaji Hazirla').item.json.assignedByName }}"
+              "value": "={{ '🏢 EFAS N TEPE - WhatsApp\\n\\n📩 Gelen mesaj:\\n' + $('EFAS Gelen Mesaji Hazirla').item.json.mesaj + '\\n\\n📞 ' + $('EFAS Gelen Mesaji Hazirla').item.json.telefonE164 }}"
             }
           ]
         }
