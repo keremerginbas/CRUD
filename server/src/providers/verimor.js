@@ -21,6 +21,7 @@ export function createVerimorProvider({ apiKey, baseUrl }) {
 
   return {
     name: 'verimor',
+    requiresExtension: true,
 
     // Click-to-call: santral önce danışmanın dahilisini/telefonunu arar, açınca müşteriyi
     // danışmanın dijital numarası (caller_id) ile arar. Müşteri danışmanın gerçek numarasını görmez.

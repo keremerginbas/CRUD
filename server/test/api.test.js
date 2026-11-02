@@ -80,6 +80,20 @@ test('bozuk token 401 döner, kişi araması telefonla çalışır', async () =>
   assert.equal((await call('GET', '/api/contacts?q=utku', null, { token: tokens.kaan })).body.length, 1);
 });
 
+test('dahili gerektirmeyen santralde dahilisi olmayan danışman da arama başlatır', async () => {
+  db.exec("UPDATE users SET extension = NULL WHERE id = 1");
+  try {
+    const res = await call('POST', '/api/calls/click-to-call', { contactId: 1 }, { token: tokens.kaan });
+    assert.equal(res.status, 201);
+    assert.equal(provider.originated.at(-1).agentPhone, '+905050000000');
+    provider.requiresExtension = true;
+    assert.equal((await call('POST', '/api/calls/click-to-call', { contactId: 1 }, { token: tokens.kaan })).status, 409);
+  } finally {
+    delete provider.requiresExtension;
+    db.exec("UPDATE users SET extension = '1001' WHERE id = 1");
+  }
+});
+
 test('webhook imzasız istekleri reddeder', async () => {
   assert.equal((await call('POST', '/webhooks/pbx/route', { from: '1', to: '2' })).status, 401);
 });

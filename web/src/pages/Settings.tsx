@@ -1,6 +1,6 @@
 import { Badge, Button, Checkbox, Collapse, Group, Paper, PasswordInput, SimpleGrid, Stack, Switch, Text, TextInput, Title } from '@mantine/core';
 import { TimeInput } from '@mantine/dates';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { api } from '../api';
 import { toastError, toastOk } from '../components/maskedCall';
 import { useSession } from '../session';
@@ -33,6 +33,8 @@ export function Settings() {
   const { me, refresh } = useSession();
   const [form, setForm] = useState(() => initial(me!));
   const [saving, setSaving] = useState(false);
+  // Hat ataması gibi başka ekranlarda yapılan değişiklikler görünsün
+  useEffect(() => { refresh().catch(() => {}); }, [refresh]);
   const set = <K extends keyof typeof form>(key: K, value: (typeof form)[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const hours = (day: DayKey) => (

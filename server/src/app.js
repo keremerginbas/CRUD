@@ -157,13 +157,15 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     if (!customerPhone) return res.status(400).json({ error: 'Aranacak numara bulunamadı' });
     const callerId = q.personalNumber.get(user.id)?.did;
     if (!callerId) return res.status(409).json({ error: 'Size tanımlı dijital numara yok, yöneticinize başvurun' });
-    if (!user.extension) return res.status(409).json({ error: 'Santral dahili numaranız tanımlı değil' });
+    // Bulut santraller danışmanın dahilisini, kendi santralimiz danışmanın cep telefonunu arar
+    if (provider.requiresExtension && !user.extension) return res.status(409).json({ error: 'Santral dahili numaranız tanımlı değil' });
+    if (!user.forward_phone && !user.phone) return res.status(409).json({ error: 'Ayarlar sayfasından yönlendirilen telefonunuzu girin' });
 
     let providerCallId;
     try {
       ({ providerCallId } = await provider.originate({
         agentExtension: user.extension,
-        agentPhone: user.forward_phone ?? user.phone,
+        agentPhone: user.forward_phone || user.phone,
         customerPhone,
         callerId,
         announcement: config.pbx.customerAnnouncement,
