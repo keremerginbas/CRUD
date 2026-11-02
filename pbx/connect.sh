@@ -16,6 +16,9 @@ TOKEN="$(get_env PBX_WEBHOOK_SECRET)"
 [[ -n "$TOKEN" ]] || { echo "CT $CT_APP içinde PBX_WEBHOOK_SECRET bulunamadı"; exit 1; }
 ASSIST="$(get_env ASSISTANT_DESTINATION | sed 's/^+90/0/')"
 ARIPASS="$(openssl rand -hex 24)"
+# İkinci dahili (pbx/trunk.sh agent) bağlıysa danışman aramaları ondan yapılır
+AGENT=trunk
+pct exec "$CT_PBX" -- test -s /etc/asterisk/pjsip_agent.conf && AGENT=agent
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cat > "$TMP/xre_globals.conf" <<CONFEOF
@@ -23,6 +26,7 @@ cat > "$TMP/xre_globals.conf" <<CONFEOF
 APP_URL=http://$APP_IP:3000
 APP_TOKEN=$TOKEN
 TRUNK=trunk
+AGENT_TRUNK=$AGENT
 SOUNDS=/var/lib/asterisk/sounds/custom
 HUNT_FALLBACK=$ASSIST
 CONFEOF
@@ -45,6 +49,7 @@ set_env ASTERISK_ARI_URL "http://$PBX_IP:8088"
 set_env ASTERISK_ARI_USER xre
 set_env ASTERISK_ARI_PASSWORD "$ARIPASS"
 set_env ASTERISK_TRUNK trunk
+set_env ASTERISK_AGENT_TRUNK "$AGENT"
 pct exec "$CT_APP" -- systemctl restart santral
 sleep 3
 
@@ -54,3 +59,4 @@ echo "== Santral → uygulama:"
 pct exec "$CT_PBX" -- curl -s -m 5 "http://$APP_IP:3000/health" || echo "ULASILAMADI"
 echo
 echo "== Asistan (yedek) hattı: ${ASSIST:-TANIMLI DEĞİL}"
+echo "== Danışmanları arayan bağlantı: $AGENT"

@@ -39,6 +39,12 @@ test('arama başlatma önce danışmanı arar, müşteri ve hat değişken olara
   assert.equal(req.auth, `Basic ${Buffer.from('xre:gizli').toString('base64')}`);
 });
 
+test('ayrı danışman bağlantısı varsa danışman ondan aranır', async () => {
+  const p2 = createAsteriskProvider({ ariUrl: `http://127.0.0.1:${ari.address().port}`, ariUser: 'xre', ariPassword: 'gizli', trunk: 'trunk', agentTrunk: 'agent' });
+  await p2.originate({ agentPhone: '+905321112233', customerPhone: '+905464962638', callerId: '+905337437589' });
+  assert.equal(new URL(seen.at(-1).url, 'http://x').searchParams.get('endpoint'), 'PJSIP/05321112233@agent');
+});
+
 test('yönlendirme cevabı dialplan için düz metin', () => {
   assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905551112233', callerAnnouncement: 'x', whisper: 'Alıcı arıyor' }), 'forward,05551112233,1,1');
   assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905312814423', callerAnnouncement: null, whisper: null }), 'forward,05312814423,0,0');

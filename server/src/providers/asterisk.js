@@ -10,7 +10,7 @@ import { toLocalFormat } from '../phone.js';
  * - Olaylar: dialplan kapanışta (xre-hangup) /webhooks/pbx/event'e form gövdesi gönderir.
  * - Kayıtlar: /var/spool/asterisk/recording altında, ARI "stored recordings" ile indirilir.
  */
-export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = 'trunk' }) {
+export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = 'trunk', agentTrunk = trunk }) {
   if (!ariUrl || !ariUser || !ariPassword) throw new Error('ASTERISK_ARI_URL / ASTERISK_ARI_USER / ASTERISK_ARI_PASSWORD tanımlı değil');
   const auth = `Basic ${Buffer.from(`${ariUser}:${ariPassword}`).toString('base64')}`;
   const ari = (path, init = {}) => fetch(new URL(`/ari${path}`, ariUrl), {
@@ -25,7 +25,7 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
       const id = `xre-${randomUUID()}`;
       const line = toLocalFormat(callerId);
       const params = new URLSearchParams({
-        endpoint: `PJSIP/${toLocalFormat(agentPhone)}@${trunk}`,
+        endpoint: `PJSIP/${toLocalFormat(agentPhone)}@${agentTrunk}`,
         context: 'xre-click2call', extension: 's', priority: '1',
         callerId: line, timeout: '30', channelId: id,
       });

@@ -25,6 +25,8 @@ export const config = {
       ariUser: env.ASTERISK_ARI_USER ?? '',
       ariPassword: env.ASTERISK_ARI_PASSWORD ?? '',
       trunk: env.ASTERISK_TRUNK ?? 'trunk',
+      // Danışmanın cebini arayan bağlantı (operatör dahilisi tek görüşmeye izin veriyorsa ayrı dahili)
+      agentTrunk: env.ASTERISK_AGENT_TRUNK || env.ASTERISK_TRUNK || 'trunk',
     },
     verimor: {
       apiKey: env.VERIMOR_API_KEY ?? '',
