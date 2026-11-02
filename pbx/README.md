@@ -25,8 +25,9 @@ Netgsm SIP trunk ◀──▶ Asterisk (CT 150, 192.168.1.247) ◀──▶ Uygu
 4. Modem: UDP 5060 ve UDP 10000-10200 → 192.168.1.247.
 
 ## Anonslar
-`/var/lib/asterisk/sounds/custom/` altına 8 kHz mono WAV olarak konur; yoksa sessizce atlanır:
-- `xre-danismaninizi-ariyorsunuz.wav` — gelen aramada müşteriye
+`pbx/sounds.sh` bunları Türkçe yapay sesle üretir (metinler betiğin içinde). Kendi kaydınızı kullanmak için aynı adla 8 kHz mono WAV dosyasını `/var/lib/asterisk/sounds/custom/` altına koyun; dosya yoksa anons sessizce atlanır:
+- `xre-danismaninizi-ariyorsunuz.wav` — gelen aramada, danışmana bağlanan müşteriye
+- `xre-kayit-bilgisi.wav` — gelen aramada, asistana giden müşteriye (KVKK kayıt bilgisi)
 - `xre-musteriniz-ariyor.wav` — gelen aramada danışmana, bağlanmadan önce
 - `xre-musterinize-baglaniyorsunuz.wav` — "Ara" düğmesinde danışmana
 - `xre-danismaniniz-ariyor.wav` — "Ara" düğmesinde müşteriye
