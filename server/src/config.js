@@ -20,6 +20,12 @@ export const config = {
     callerAnnouncement: env.CALLER_ANNOUNCEMENT ?? 'satis-danismaninizi-ariyorsunuz',
     // Kayıtlı olmayan müşteri ve mesai dışı aramalar (boşsa kayıtsız müşteri de hattın sahibine gider)
     assistantDestination: env.ASSISTANT_DESTINATION ?? '',
+    asterisk: {
+      ariUrl: env.ASTERISK_ARI_URL ?? '',
+      ariUser: env.ASTERISK_ARI_USER ?? '',
+      ariPassword: env.ASTERISK_ARI_PASSWORD ?? '',
+      trunk: env.ASTERISK_TRUNK ?? 'netgsm',
+    },
     verimor: {
       apiKey: env.VERIMOR_API_KEY ?? '',
       baseUrl: env.VERIMOR_BASE_URL ?? 'https://api.bulutsantralim.com',

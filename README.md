@@ -67,6 +67,7 @@ Sunucuda güncelleme tek komut: `pct exec 140 -- /opt/santral/server/deploy/upda
 ```
 server/   Node.js API (Express + SQLite) — santral entegrasyonu, yönlendirme kuralları, çağrı kayıtları; derlenen paneli servis eder
 web/      Web paneli (React + Mantine), derlenince server/public'e yazılır
+pbx/      Asterisk santral ayarları ve kurulum betikleri (bkz. pbx/README.md)
 mobile/   Expo / React Native uygulaması (şimdilik kullanılmıyor; web paneli tercih edildi)
 ```
 

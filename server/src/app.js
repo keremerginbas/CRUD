@@ -215,7 +215,9 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       notify(target.push_token, contact?.name ?? callerPhone, `${number.label} numaranızı arıyor`,
         { type: 'incoming', providerCallId });
     }
-    res.json(provider.formatRouteResponse(decision));
+    const answer = provider.formatRouteResponse(decision);
+    if (typeof answer === 'string') res.type('text').send(answer);
+    else res.json(answer);
   });
 
   // Çağrı durum olayları (çaldı, açıldı, kapandı, kayıt hazır)

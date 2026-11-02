@@ -142,6 +142,24 @@ test('asistan tanımlıyken kayıtsız müşteri asistana, kayıtlı müşteri d
   }
 });
 
+test('santral düz metin cevap verirse metin olarak döner, olay form gövdesiyle gelir', async () => {
+  const original = provider.formatRouteResponse;
+  provider.formatRouteResponse = () => 'forward,05050000000,1,1';
+  try {
+    const route = { callId: 'txt-1', from: '05464962638', to: '908504660150' };
+    const r = await call('POST', '/webhooks/pbx/route', route, signed(route));
+    assert.equal(r.body, 'forward,05050000000,1,1');
+  } finally {
+    provider.formatRouteResponse = original;
+  }
+  // Asterisk CURL() POST gövdesi application/x-www-form-urlencoded gelir
+  const form = 'callId=txt-1&direction=inbound&from=05464962638&to=908504660150&status=completed&duration=7';
+  const res = await fetch(`${base}/webhooks/pbx/event?token=hook`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form });
+  assert.equal(res.status, 200);
+  const calls = (await call('GET', '/api/calls', null, { token: tokens.kaan })).body;
+  assert.equal(calls.find((c) => c.provider_call_id === 'txt-1').duration_sec, 7);
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));
