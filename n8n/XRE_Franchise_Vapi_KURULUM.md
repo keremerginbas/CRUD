@@ -15,8 +15,8 @@ BITRIX_WEBHOOK_KODU=... TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... python3 work
 | Kart **YAPAY ZEKA POTANSİYEL MÜŞTERİLER**'e eklenir | Vapi arar, kart **YAPAY ZEKA ARIYOR**'a geçer | Rüstem Sarıoğlan (27332): anlaşma + kişi |
 | Randevu verir (1. veya 2. aramada) | **Randevu Oluşturulan** (`C4:1`). "Randevu Tarihi ve Saati" alanı doldurulur, Rüstem'e yapılacak iş açılır, **Telegram grubuna bildirim** gider, müşteriye **Erccell ile randevu SMS'i** gider | Rüstem |
 | İstemiyor | **YAPAY ZEKA OLUMSUZ** | Rüstem |
-| 1. aramada ulaşılamadı (açmadı / meşgul / sesli mesaj / sonuç alınamadı) | **YAPAY ZEKA ULAŞILAMAYANLAR**. Ertesi gün 10:30'da tekrar aranır (Pazar ise Pazartesi) | Rüstem |
-| 2. aramada da ulaşılamadı | **YAPAY ZEKA OLUMSUZ** | Rüstem |
+| 1. aramada ulaşılamadı (açmadı / meşgul / sesli mesaj / sonuç alınamadı) | **YAPAY ZEKA ULAŞILAMAYANLAR**. Ertesi gün 10:30'da tekrar aranır (Pazar ise Pazartesi) Müşteri açmadıysa "sizi aradık, ulaşamadık" SMS'i gider | Rüstem |
+| 2. aramada da ulaşılamadı | **YAPAY ZEKA OLUMSUZ**. "Tekrar aradık, 0533 743 60 24'ten bize ulaşabilirsiniz" SMS'i gider | Rüstem |
 | Telefon numarası geçersiz | **YAPAY ZEKA OLUMSUZ** + not | Rüstem |
 
 - **Mesai saati:** Mesai dışında (09:30–20:00, Pazar hariç) eklenen kartlar bir sonraki mesai başlangıcında aranır.
@@ -36,7 +36,7 @@ BITRIX_WEBHOOK_KODU=... TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... python3 work
 
 1. **Vapi - Franchise Aramasını Başlat**, **Vapi - Tekrar Arama (2. deneme)** ve **Vapi - Bugünkü Aramalar** düğümlerinde credential olarak Vapi API anahtarını seçin (Header Auth: `Authorization` = `Bearer <VAPI_PRIVATE_KEY>`).
 2. Telegram botu (@xre_rapor_bot) gruba üye olmalı.
-   **Erccell - Randevu SMS** düğümünün en üstündeki `SMS_USER` / `SMS_PASSWORD` alanlarına West Point akışındaki Erccell bilgilerini yazın
+   **Erccell - Müşteri SMS** düğümünün en üstündeki `SMS_USER` / `SMS_PASSWORD` alanlarına West Point akışındaki Erccell bilgilerini yazın
    (ya da üretirken `ERCCELL_KULLANICI` / `ERCCELL_SIFRE` ortam değişkenlerini verin).
    SMS örneği: "Merhaba Kerem Berk, randevunuz 26.11.2026 saat 11:00 olarak planlanmistir. XRE'li gunler dileriz."
    Tarih/saat netleşmediyse (teyit uyarısı varsa) SMS gönderilmez; sonuç kartın zaman akışına not düşer.

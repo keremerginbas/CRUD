@@ -327,6 +327,8 @@ const aktivite=sonuc==='randevu'?{
 }:null;
 
 return [{json:{...j,deal_id:dealId,contact_id:contactId,musteri_adi:musteriAdi,musteri_tel:musteriTel,sonuc,deal_fields:fields,not,aktivite,randevu_var:!!aktivite,
+  ulasilamadi_sms:(giden&&sonuc==='ulasilamadi')?(ikinciDeneme?2:1):0,
+  tekrar_tarih:(()=>{const t=parts(sonrakiTekrar(refMs)); return `${p2(t.d)}.${p2(t.m)}.${t.y} saat ${TEKRAR_ARAMA_SAATI}`;})(),
   randevu_okunur:randevu?okunur(randevu.ms):'',randevu_iso:(randevu&&randevu.saatVar&&!uyarilar.length)?iso(randevu.ms):'',uyarilar,deal_link:`https://xre.bitrix24.com.tr/crm/deal/details/${dealId}/`}}];''')
 
 S = "$('Anlaşmayı Bul + Sonucu Belirle').first().json"
@@ -357,30 +359,42 @@ const satirlar=[
 ].filter(x=>x!=='');
 await telegram(this,satirlar.join('\n'));
 return [{json:{telegram:'gonderildi'}}];''', onError="continueRegularOutput")
-code("Erccell - Randevu SMS", [1776, 224], r'''// ===== ERCCELL AYARLARI (diğer flow'daki SMS kullanıcı adı / şifresi) =====
+code("Erccell - Müşteri SMS", [1552, 400], r'''// ===== ERCCELL AYARLARI (diğer flow'daki SMS kullanıcı adı / şifresi) =====
 const SMS_USER='__SMS_USER__'; const SMS_PASSWORD='__SMS_PASS__'; const SMS_BASLIK='XRE';
+const GERI_DONUS_NO='0533 743 60 24'; // Vapi numarası (inbound asistan karşılar)
 // ==========================================================================
 const j=$('Anlaşmayı Bul + Sonucu Belirle').first().json;
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 // Türkçe karakterleri sadeleştir (çalışan West Point akışındaki gibi düz ASCII)
 const tr=s=>String(s).replace(/ı/g,'i').replace(/İ/g,'I').replace(/ş/g,'s').replace(/Ş/g,'S').replace(/ğ/g,'g').replace(/Ğ/g,'G').replace(/ü/g,'u').replace(/Ü/g,'U').replace(/ö/g,'o').replace(/Ö/g,'O').replace(/ç/g,'c').replace(/Ç/g,'C');
 const hane=String(j.musteri_tel||'').replace(/\D/g,'').replace(/^90/,'').replace(/^0/,'');
-// Tarih okunamadıysa ya da teyit gerekiyorsa müşteriye yanlış tarih gitmesin
-if(!j.randevu_iso) return [{json:{deal_id:j.deal_id,sms_durum:'Randevu SMS\'i gönderilmedi: randevu tarihi netleşmedi.'}}];
-if(!/^5\d{9}$/.test(hane)) return [{json:{deal_id:j.deal_id,sms_durum:'Randevu SMS\'i gönderilmedi: geçerli cep telefonu yok.'}}];
-const [tarih,saat]=[j.randevu_iso.slice(8,10)+'.'+j.randevu_iso.slice(5,7)+'.'+j.randevu_iso.slice(0,4), j.randevu_iso.slice(11,16)];
-const ad=String(j.musteri_adi||'').trim();
-const mesaj=tr(`Merhaba ${ad?ad+', ':''}randevunuz ${tarih} saat ${saat} olarak planlanmıştır. XRE'li günler dileriz.`);
-const numara='90'+hane;
+const ad=String(j.musteri_adi||'').trim(); const merhaba=`Merhaba ${ad?ad+', ':''}`;
+let tur, mesaj;
+if(j.randevu_var){
+  tur='Randevu SMS\'i';
+  // Tarih okunamadıysa ya da teyit gerekiyorsa müşteriye yanlış tarih gitmesin
+  if(!j.randevu_iso) return [{json:{sms_durum:tur+' gönderilmedi: randevu tarihi netleşmedi.'}}];
+  const tarih=j.randevu_iso.slice(8,10)+'.'+j.randevu_iso.slice(5,7)+'.'+j.randevu_iso.slice(0,4), saat=j.randevu_iso.slice(11,16);
+  mesaj=`${merhaba}randevunuz ${tarih} saat ${saat} olarak planlanmıştır. XRE'li günler dileriz.`;
+}else if(j.ulasilamadi_sms===1){
+  tur='Ulaşılamadı SMS\'i (1. arama)';
+  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi aradık ancak ulaşamadık. ${j.tekrar_tarih}'da tekrar arayacağız. Dilerseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;
+}else if(j.ulasilamadi_sms===2){
+  tur='Ulaşılamadı SMS\'i (2. arama)';
+  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi tekrar aradık ancak ulaşamadık. Görüşmek isterseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;
+}else return [{json:{sms_durum:''}}];
+if(!/^5\d{9}$/.test(hane)) return [{json:{sms_durum:tur+' gönderilmedi: geçerli cep telefonu yok.'}}];
+mesaj=tr(mesaj); const numara='90'+hane;
 const xml='<?xml version="1.0" encoding="UTF-8"?>\n<CORPORATESMS><HEADER><USERNAME>'+esc(SMS_USER)+'</USERNAME><PASSWORD>'+esc(SMS_PASSWORD)+'</PASSWORD><SMSHEADER><![CDATA['+SMS_BASLIK+']]></SMSHEADER><SMSTYPE>UC</SMSTYPE><SENDTYPE>1:N</SENDTYPE></HEADER><SMS><SMS_MESSAGE><![CDATA['+mesaj+']]></SMS_MESSAGE><NUMBERS>'+numara+'</NUMBERS></SMS></CORPORATESMS>';
 let yanit;
 try{
   yanit=await this.helpers.httpRequest({method:'POST',url:'https://gateway.erccell.com.tr/corporatesms/sendsms/',headers:{'Content-Type':'text/xml; charset=UTF-8'},body:xml,json:false,encoding:'text',timeout:20000,ignoreHttpStatusErrors:true});
   if(typeof yanit!=='string') yanit=Buffer.isBuffer(yanit)?yanit.toString('utf8'):JSON.stringify(yanit);
 }catch(e){ yanit='HATA: '+String((e&&e.message)||e); }
-return [{json:{deal_id:j.deal_id,sms_numara:numara,sms_mesaj:mesaj,sms_durum:`Randevu SMS'i gönderildi (${numara}): "${mesaj}"\nErccell yanıtı: ${String(yanit).slice(0,300)}`}}];''', onError="continueRegularOutput")
-bx("Bitrix - Not: Randevu SMS", [2000, 224], "crm.timeline.comment.add",
-   "{fields:{ENTITY_ID:" + S + ".deal_id,ENTITY_TYPE:\"deal\",COMMENT:String($json.sms_durum||('Randevu SMS hatası: '+JSON.stringify($json.error||$json))).slice(0,1000)}}", on_error=True)
+return [{json:{sms_numara:numara,sms_mesaj:mesaj,sms_durum:`${tur} gönderildi (${numara}): "${mesaj}"\nErccell yanıtı: ${String(yanit).slice(0,300)}`}}];''', onError="continueRegularOutput")
+iff("SMS Notu Var mı?", [1776, 400], "!!$json.sms_durum || !!$json.error")
+bx("Bitrix - Not: SMS", [2000, 320], "crm.timeline.comment.add",
+   "{fields:{ENTITY_ID:" + S + ".deal_id,ENTITY_TYPE:\"deal\",COMMENT:String($json.sms_durum||('SMS hatası: '+JSON.stringify($json.error||$json))).slice(0,1000)}}", on_error=True)
 iff("WhatsApp İzni Var mı?", [2224, 304], S + ".link_istegi === true")
 node("WhatsApp - Franchise Bilgi Gönder", "n8n-nodes-base.httpRequest", 4.1, [2448, 224],
      {"method": "POST", "url": "YOUR_WHATSAPP_GATEWAY_URL", "sendHeaders": True,
@@ -500,8 +514,8 @@ for a, b in [("Webhook - Franchise Anlaşmalar", "Deal ID Al"), ("Deal ID Al", "
              ("Vapi Sonuç Event mi?", "Anlaşmayı Bul + Sonucu Belirle"), ("Anlaşmayı Bul + Sonucu Belirle", "Bitrix - Anlaşmayı Güncelle + Rüstem"),
              ("Bitrix - Anlaşmayı Güncelle + Rüstem", "Bitrix - Sonuç Kişi Sorumlusu Rüstem"), ("Bitrix - Sonuç Kişi Sorumlusu Rüstem", "Bitrix - Görüşme Notu"),
              ("Bitrix - Görüşme Notu", "Randevu mu?"), ("Randevu mu?", "Bitrix - Randevu Aktivitesi (Rüstem)"),
-             ("Bitrix - Randevu Aktivitesi (Rüstem)", "Telegram - Randevu Bildirimi"), ("Telegram - Randevu Bildirimi", "Erccell - Randevu SMS"),
-             ("Erccell - Randevu SMS", "Bitrix - Not: Randevu SMS"), ("Bitrix - Not: Randevu SMS", "WhatsApp İzni Var mı?"),
+             ("Bitrix - Randevu Aktivitesi (Rüstem)", "Telegram - Randevu Bildirimi"), ("Telegram - Randevu Bildirimi", "Erccell - Müşteri SMS"),
+             ("Erccell - Müşteri SMS", "SMS Notu Var mı?"), ("SMS Notu Var mı?", "Bitrix - Not: SMS"), ("Bitrix - Not: SMS", "WhatsApp İzni Var mı?"),
              ("WhatsApp İzni Var mı?", "WhatsApp - Franchise Bilgi Gönder"),
              ("Her Gün 10:30 (Pzt-Cmt)", "Tekrar Aranacakları Listele"), ("Tekrar Aranacakları Listele", "Vapi - Tekrar Arama (2. deneme)"),
              ("Vapi - Tekrar Arama (2. deneme)", "Tekrar Arama Başladı mı?"), ("Tekrar Arama Başladı mı?", "Bitrix - Not: 2. Arama Başladı"),
@@ -512,7 +526,8 @@ for a, b in [("Webhook - Franchise Anlaşmalar", "Deal ID Al"), ("Deal ID Al", "
 link("Telefon Geçerli mi?", "Bitrix - Geçersiz Telefon Olumsuz", 1)
 link("Mesai Dışı mı?", "Arama Değişkenleri", 1)
 link("Vapi Araması Başladı mı?", "Bitrix - Not: Arama Başlatılamadı", 1)
-link("Randevu mu?", "WhatsApp İzni Var mı?", 1)
+link("Randevu mu?", "Erccell - Müşteri SMS", 1)
+link("SMS Notu Var mı?", "WhatsApp İzni Var mı?", 1)
 link("Tekrar Arama Başladı mı?", "Tekrar İşaretini Kaldır", 1)
 
 names = [n["name"] for n in nodes]
