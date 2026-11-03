@@ -161,7 +161,10 @@ function Workspace() {
     "/integrations": "integrations",
     "/apps": "integrations",
   };
+  // Bitrix aktarımı ve uygulama ayarları yalnız çalışma alanı sahibine görünür.
+  const ownerOnly = new Set(["/apps"]);
   const permitted = (url: string) =>
+    ownerOnly.has(url) ? Boolean(user?.isOwner) :
     (url === "/data-quality" &&
       Boolean(
         user?.permissions?.crm?.read ||
