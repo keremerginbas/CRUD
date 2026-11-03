@@ -1,0 +1,837 @@
+{
+  "name": "XRE Franchise Vapi - Anlaşmalar",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "franchise-vapi-deal-trigger",
+        "options": {}
+      },
+      "id": "ae2cc1ff-2c76-5b87-8dc7-34f48fcf4e4c",
+      "name": "Webhook - Franchise Anlaşmalar",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -464,
+        -176
+      ],
+      "webhookId": "99988d02-dd95-44fa-bfff-6f487126cbab"
+    },
+    {
+      "parameters": {
+        "jsCode": "const j=$input.first().json||{}; const b=j.body||{}; const q=j.query||{};\nconst raw=b[\"document_id[2]\"]||b[\"data[FIELDS][ID]\"]||b[\"data[FIELDS_AFTER][ID]\"]||b.id||q.id||\"\";\nconst dealId=String(raw).replace(\"DEAL_\",\"\").trim(); if(!dealId)return [];\nreturn [{json:{deal_id:dealId}}];"
+      },
+      "id": "1263d45a-b2ff-5ade-8c08-f624b3734d9d",
+      "name": "Deal ID Al",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.deal.get.json?id={{ $json.deal_id }}",
+        "options": {}
+      },
+      "id": "83e7309d-55cf-5110-8e9b-c3513121c4b6",
+      "name": "Bitrix - Deal Detayını Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        -16,
+        -176
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.result && String($json.result.CATEGORY_ID) === '4' && String($json.result.STAGE_ID) === 'C4:UC_E68BUC' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "549f55f9-f4cd-5cee-9485-6825501181a0",
+      "name": "Potansiyel Müşteri mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -176
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.contact.get.json?id={{ $json.result.CONTACT_ID || 0 }}",
+        "options": {}
+      },
+      "id": "104bdcd3-1546-53a4-9441-be78ac38623d",
+      "name": "Bitrix - Kişi Detayını Çek",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        432,
+        -256
+      ],
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mesai saatleri (Türkiye saati). Bu aralık dışında eklenen kayıtlar bir sonraki mesai başlangıcında aranır.\nconst MESAI={baslangic:'09:30',bitis:'20:00',pazar_ara:false};\nconst TR=3*3600e3; // Europe/Istanbul = UTC+3 (yaz saati yok)\n\nconst staticData=$getWorkflowStaticData('global');\nstaticData.franchiseVapiProcessed=staticData.franchiseVapiProcessed||{};\nconst deal=$('Bitrix - Deal Detayını Çek').first().json.result||{};\nconst contact=($input.first().json||{}).result||{};\nconst dealId=String(deal.ID||''); if(!dealId)return [];\nconst now=Date.now(); const last=staticData.franchiseVapiProcessed[dealId];\nif(last && (now-last)<3600000) return [];\nstaticData.franchiseVapiProcessed[dealId]=now;\nfor(const [k,v] of Object.entries(staticData.franchiseVapiProcessed)){ if(now-v>7*864e5) delete staticData.franchiseVapiProcessed[k]; }\n\nfunction first(v){ if(!v)return \"\"; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||\"\"; if(typeof v===\"object\")return v.VALUE||v.value||\"\"; return String(v);}\nfunction tc(s){return String(s||\"\").toLocaleLowerCase(\"tr-TR\").split(\" \").filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase(\"tr-TR\")+w.slice(1)).join(\" \");}\nfunction phone(raw){let d=String(raw||\"\").replace(/\\D/g,\"\"); if(d.startsWith(\"0090\"))d=d.slice(2); if(d.startsWith(\"90\")&&d.length===12)return \"+\"+d; if(d.startsWith(\"0\")&&d.length===11)return \"+90\"+d.slice(1); if(d.length===10&&d.startsWith(\"5\"))return \"+90\"+d; return \"\";}\n\nconst firstName=tc(contact.NAME||deal.NAME||\"\"); const lastName=tc(contact.LAST_NAME||deal.LAST_NAME||\"\");\nconst fullName=(firstName+\" \"+lastName).trim()||tc(deal.TITLE||\"\");\nconst phoneE164=phone(first(contact.PHONE))||phone(first(deal.PHONE));\nconst email=first(contact.EMAIL)||first(deal.EMAIL);\n\n// Mesai kontrolü\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nconst [bh,bm]=MESAI.baslangic.split(':').map(Number); const [eh,em]=MESAI.bitis.split(':').map(Number);\nfunction mesaiIci(ms){const x=parts(ms); if(!MESAI.pazar_ara&&x.wd===0)return false; const dk=x.hh*60+x.mi; return dk>=bh*60+bm && dk<eh*60+em;}\nlet bekle_until='';\nif(!mesaiIci(now)){ for(let i=0;i<8;i++){ const g=parts(now+i*864e5); const bas=Date.UTC(g.y,g.m-1,g.d,bh,bm)-TR; if(bas>now&&mesaiIci(bas)){bekle_until=new Date(bas).toISOString();break;} } }\n\nreturn [{json:{deal_id:dealId,contact_id:String(deal.CONTACT_ID||contact.ID||''),full_name:fullName||firstName||\"Değerli Aday\",first_name:firstName,phone_e164:phoneE164,phone_valid:!!phoneE164,email,bekle_until,mesai_disi:!!bekle_until}}];"
+      },
+      "id": "487b4573-7afb-5dd4-ae4a-29fa551ba850",
+      "name": "Franchise Arama Verisini Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.phone_valid === true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "d9e9a84a-0258-5ac8-9bda-2c1312eb22a4",
+      "name": "Telefon Geçerli mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        880,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.mesai_disi === true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "e256a2af-08e4-58b4-b0df-6da0dc9d2345",
+      "name": "Mesai Dışı mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "dateTime": "={{ $json.bekle_until }}"
+      },
+      "id": "6e5e775b-cc8d-529d-8c0d-fab315f4e4d4",
+      "name": "Mesai Başlangıcını Bekle",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1328,
+        -432
+      ],
+      "webhookId": "85a48ef9-ef1b-55c6-8468-a1cd3c5876a3"
+    },
+    {
+      "parameters": {
+        "jsCode": "const TR=3*3600e3;\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nconst p2=n=>String(n).padStart(2,'0');\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nconst j=$('Franchise Arama Verisini Hazırla').first().json;\nconst now=Date.now(); const t=parts(now);\n// Asistanın \"yarın\", \"perşembe\", \"haftaya salı\" gibi ifadeleri doğru tarihe çevirebilmesi için 21 günlük takvim\nconst takvim=[]; for(let i=0;i<21;i++){const g=parts(now+i*864e5); takvim.push(`${GUN[g.wd]} ${p2(g.d)}.${p2(g.m)}.${g.y} = ${g.y}-${p2(g.m)}-${p2(g.d)}${i===0?' (bugün)':i===1?' (yarın)':''}`);}\nconst dynamic_greeting=j.first_name?`Merhabalar, ben iksre Gayrimenkul'den Selin. ${j.first_name} ile mi görüşüyorum?`:`Merhabalar, ben iksre Gayrimenkul'den Selin. Kiminle görüşüyorum acaba?`;\nreturn [{json:{...j,\n  start_mode:j.first_name?'confirm_name':'ask_name', dynamic_greeting,\n  bugunun_tarihi:`${p2(t.d)}.${p2(t.m)}.${t.y}`, bugun_iso:`${t.y}-${p2(t.m)}-${p2(t.d)}`, bugun_gun:GUN[t.wd],\n  su_anki_saat:`${p2(t.hh)}:${p2(t.mi)}`, takvim:takvim.join('\\n'), arama_turu:'Giden'}}];"
+      },
+      "id": "922045ee-5849-5bcf-bc9c-fa529fc70614",
+      "name": "Arama Değişkenleri",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.deal.update.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({id:$json.deal_id,fields:{STAGE_ID:\"C4:UC_5688TP\",ASSIGNED_BY_ID:27332},params:{REGISTER_SONET_EVENT:\"Y\"}}) }}",
+        "options": {}
+      },
+      "id": "5050289c-1016-584b-a965-d06996526bec",
+      "name": "Bitrix - Yapay Zeka Arıyor + Rüstem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1776,
+        -336
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.contact.update.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({id:$('Arama Değişkenleri').first().json.contact_id||0,fields:{ASSIGNED_BY_ID:27332},params:{REGISTER_SONET_EVENT:\"N\"}}) }}",
+        "options": {}
+      },
+      "id": "7e273522-cca3-5a7f-9194-fb2059a112cc",
+      "name": "Bitrix - Kişi Sorumlusu Rüstem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2000,
+        -336
+      ],
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vapi.ai/call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\nassistantId:\"65a798f1-95dc-487f-9d60-cfa10994d3fb\",\nphoneNumberId:\"8c3a1ba4-5ae9-46c7-8ea7-85df0654295c\",\ncustomer:{number:$('Arama Değişkenleri').first().json.phone_e164,name:$('Arama Değişkenleri').first().json.full_name},\nassistantOverrides:{variableValues:{\nuser_name:$('Arama Değişkenleri').first().json.full_name,\nisim:$('Arama Değişkenleri').first().json.first_name,\nstart_mode:$('Arama Değişkenleri').first().json.start_mode,\ndynamic_greeting:$('Arama Değişkenleri').first().json.dynamic_greeting,\nbitrix_id:$('Arama Değişkenleri').first().json.deal_id,\nbitrix_deal_id:$('Arama Değişkenleri').first().json.deal_id,\ncustomer_phone:$('Arama Değişkenleri').first().json.phone_e164,\ncustomer_email:$('Arama Değişkenleri').first().json.email,\nbugunun_tarihi:$('Arama Değişkenleri').first().json.bugunun_tarihi,\nbugun_iso:$('Arama Değişkenleri').first().json.bugun_iso,\nbugun_gun:$('Arama Değişkenleri').first().json.bugun_gun,\nsu_anki_saat:$('Arama Değişkenleri').first().json.su_anki_saat,\ntakvim:$('Arama Değişkenleri').first().json.takvim,\narama_turu:\"Giden\"\n}},\nmetadata:{bitrix_deal_id:$('Arama Değişkenleri').first().json.deal_id,bitrix_contact_id:$('Arama Değişkenleri').first().json.contact_id,project:\"franchise\",arama_turu:\"Giden\"}\n}) }}",
+        "options": {}
+      },
+      "id": "59074f8d-11a2-5fa9-b643-7a58a064afe2",
+      "name": "Vapi - Franchise Aramasını Başlat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2224,
+        -336
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "FUVtxEey6Fmi84f2",
+          "name": "META XRE FRANCHISE WHATSAPP"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ !!$json.id }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "9630e07c-39f8-5fce-9890-7ca8c7a946b4",
+      "name": "Vapi Araması Başladı mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.timeline.comment.add.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({fields:{ENTITY_ID:$('Arama Değişkenleri').first().json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: Arama başlatılamadı. Hata: \"+String(($json.error&&($json.error.message||JSON.stringify($json.error)))||$json.message||JSON.stringify($json)).slice(0,500)}}) }}",
+        "options": {}
+      },
+      "id": "f1f98434-227c-528f-a6c1-aeecbc969375",
+      "name": "Bitrix - Not: Arama Başlatılamadı",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        2672,
+        -256
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.deal.update.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({id:$('Franchise Arama Verisini Hazırla').first().json.deal_id,fields:{STAGE_ID:\"C4:UC_B3W6CW\",ASSIGNED_BY_ID:27332},params:{REGISTER_SONET_EVENT:\"Y\"}}) }}",
+        "options": {}
+      },
+      "id": "6bcdfca6-d52d-5acf-8a29-77022aaca53f",
+      "name": "Bitrix - Geçersiz Telefon Olumsuz",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1104,
+        -96
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.timeline.comment.add.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({fields:{ENTITY_ID:$('Franchise Arama Verisini Hazırla').first().json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: Kişi kartında geçerli bir telefon numarası bulunamadı; arama başlatılamadı.\"}}) }}",
+        "options": {}
+      },
+      "id": "e3384fe5-4f90-5753-a8cf-75502feb8633",
+      "name": "Bitrix - Not: Geçersiz Telefon",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1328,
+        -96
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "franchise-vapi-call-result",
+        "options": {}
+      },
+      "id": "7426525e-0f87-5fcc-aab8-74b8a3cf4485",
+      "name": "Webhook - Franchise Vapi Sonucu",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -464,
+        368
+      ],
+      "webhookId": "a500cee9-e0a1-453a-aaab-22ca3274da2c"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input=$input.first().json||{}; const raw=input.body||input; const msg=raw.message||raw; const call=msg.call||raw.call||{}; const analysis=msg.analysis||call.analysis||raw.analysis||{}; const artifact=msg.artifact||call.artifact||raw.artifact||{};\nconst eventType=String(msg.type||raw.type||''); if(eventType!=='end-of-call-report') return [{json:{event:'vapi_ignored'}}];\nfunction fs(v){if(!v||typeof v!=='object')return{}; if(v.franchise_call_result&&typeof v.franchise_call_result==='object')return v.franchise_call_result; const ks=['arama_sonucu','appointment_date','aranacak_saat','dnc_talebi','extracted_name','xre_bilgi_durumu','ofis_durumu','bolge','ilgi_seviyesi','link_istegi','arama_turu','call_summary','call_successful','user_sentiment']; if(ks.some(k=>Object.prototype.hasOwnProperty.call(v,k)))return v; if(Array.isArray(v)){for(const x of v){const r=fs(x); if(Object.keys(r).length)return r;}} for(const x of Object.values(v)){if(x&&typeof x==='object'){const r=fs(x); if(Object.keys(r).length)return r;}} return{};}\nlet s={}; for(const c of [analysis.structuredData,analysis.structuredDataMulti,msg.structuredOutputs,msg.structuredOutput,artifact.structuredOutputs,artifact.structuredOutput,call.structuredOutputs,call.structuredOutput]){const r=fs(c); if(Object.keys(r).length){s=r;break;}}\nconst vars=call.assistantOverrides?.variableValues||{}; const meta={...(raw.metadata||{}),...(msg.metadata||{}),...(call.metadata||{}),...(vars||{})};\nconst er=String(call.endedReason||msg.endedReason||'').toLowerCase(); let result=String(s.arama_sonucu||'').trim();\nif(!result && (er.includes('did-not-answer')||er.includes('no-answer')||er.includes('busy')||er.includes('voicemail')||er.includes('failed')||er.includes('error'))) result='ulasilamadi';\nconst ctype=String(call.type||'').toLowerCase().includes('inbound')?'Gelen':(meta.arama_turu||'Giden');\nreturn [{json:{event:'call_analyzed',deal_id:String(meta.bitrix_deal_id||meta.bitrix_id||''),contact_id:String(meta.bitrix_contact_id||''),arama_turu:ctype,ended_reason:er,ended_at:String(msg.endedAt||call.endedAt||''),recording_url:String(artifact.recordingUrl||msg.recordingUrl||''),arama_sonucu:result,appointment_date:String(s.appointment_date||''),aranacak_saat:String(s.aranacak_saat||''),dnc_talebi:s.dnc_talebi===true,extracted_name:String(s.extracted_name||''),xre_bilgi_durumu:String(s.xre_bilgi_durumu||''),ofis_durumu:String(s.ofis_durumu||''),bolge:String(s.bolge||''),ilgi_seviyesi:String(s.ilgi_seviyesi||''),link_istegi:s.link_istegi===true,call_summary:String(s.call_summary||analysis.summary||''),call_successful:s.call_successful===true,user_sentiment:String(s.user_sentiment||''),customer_phone:String(call.customer?.number||meta.customer_phone||'')}}];"
+      },
+      "id": "b77364f9-9b39-5bed-b621-05fe4277d9ff",
+      "name": "Vapi - Franchise Normalize",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.event === 'call_analyzed' }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "fa533a34-e051-5628-8596-05cf296b7651",
+      "name": "Vapi Sonuç Event mi?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -16,
+        368
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== AYARLAR =====\nconst BITRIX='https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK';\nconst ST={POTANSIYEL:'C4:UC_E68BUC',ARIYOR:'C4:UC_5688TP',RANDEVU:'C4:UC_DEJOO8',OLUMSUZ:'C4:UC_B3W6CW'};\nconst SORUMLU_ID=27332; // Rüstem Sarıoğlan\n// Anlaşma kartında randevu tarihi için özel bir alan varsa kodunu yazın (örn. 'UF_CRM_1730000000'). Boşsa sadece aktivite + not yazılır.\nconst RANDEVU_UF_ALANI='';\n// ===================\nconst TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nconst bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction okunur(ms){const t=parts(ms); return `${p2(t.d)}.${p2(t.m)}.${t.y} ${GUN[t.wd]} ${p2(t.hh)}:${p2(t.mi)}`;}\nfunction iso(ms){const t=parts(ms); return `${t.y}-${p2(t.m)}-${p2(t.d)}T${p2(t.hh)}:${p2(t.mi)}:00+03:00`;}\nfunction norm(s){return String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[\\s-]+/g,'_').trim();}\n\n// Randevu metnini Türkiye saatine göre kesin tarihe çevirir. Desteklenen: 2026-11-05 14:00, 2026-11-05T14:00(+03:00), 05.11.2026 14:00, 05/11 14.30, \"yarın 15:00\", \"perşembe saat 11\", \"öğleden sonra 3\"\nfunction parseRandevu(raw,refMs){\n  const s=String(raw||'').trim(); if(!s) return null;\n  if(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d+)?)?(Z|[+-]\\d{2}:?\\d{2})$/.test(s)){const ms=Date.parse(s); if(!isNaN(ms)) return {ms,saatVar:true};}\n  const low=s.toLocaleLowerCase('tr-TR'); let y=null,m,d,rest=s,mt;\n  if((mt=s.match(/(\\d{4})-(\\d{1,2})-(\\d{1,2})/))){y=+mt[1];m=+mt[2];d=+mt[3];rest=s.replace(mt[0],' ');}\n  else if((mt=s.match(/(\\d{1,2})[./](\\d{1,2})(?:[./](\\d{2,4}))?(?![:\\d])/))&&!/^\\d{1,2}[.:]\\d{2}$/.test(mt[0])){d=+mt[1];m=+mt[2];y=mt[3]?+mt[3]:null;if(y!==null&&y<100)y+=2000;rest=s.replace(mt[0],' ');}\n  else{\n    const r=parts(refMs); let add=null;\n    if(/öbür gün|ertesi gün/.test(low))add=2; else if(/yarın/.test(low))add=1; else if(/bugün/.test(low))add=0;\n    else{const adlar=[['cumartesi',6],['pazartesi',1],['salı',2],['çarşamba',3],['perşembe',4],['cuma',5],['pazar',0]];\n      for(const [ad,wd] of adlar){if(low.includes(ad)){add=(wd-r.wd+7)%7; if(add===0)add=7; if(/haftaya|gelecek hafta|önümüzdeki hafta/.test(low)&&add<7)add+=7; break;}}}\n    if(add===null) return null; const g=parts(refMs+add*864e5); y=g.y;m=g.m;d=g.d;\n  }\n  let hh=null,mi=0;\n  if((mt=rest.match(/(\\d{1,2})[:.](\\d{2})/))){hh=+mt[1];mi=+mt[2];}\n  else if((mt=rest.toLocaleLowerCase('tr-TR').match(/saat\\s*(\\d{1,2})/)||rest.toLocaleLowerCase('tr-TR').match(/(?:öğleden sonra|akşam|sabah)\\s*(\\d{1,2})/))){hh=+mt[1];}\n  if(hh!==null&&hh<12&&/öğleden sonra|akşam/.test(low))hh+=12;\n  if(hh!==null&&hh>=1&&hh<=7&&!/sabah/.test(low))hh+=12; // \"saat 3\" -> 15:00 (iş saatlerinde 01-07 arası randevu olmaz)\n  if(y===null){const r=parts(refMs); y=r.y; if(Date.UTC(y,m-1,d)<Date.UTC(r.y,r.m-1,r.d))y++;}\n  if(!(m>=1&&m<=12&&d>=1&&d<=31&&(hh===null||(hh>=0&&hh<=23))&&mi>=0&&mi<=59)) return null;\n  const ms=Date.UTC(y,m-1,d,hh===null?10:hh,mi)-TR; const c=parts(ms);\n  if(c.m!==m||c.d!==d) return null; // 31.02 gibi geçersiz tarih\n  return {ms,saatVar:hh!==null};\n}\n\nconst j=$input.first().json;\nlet dealId=j.deal_id;\n// Gelen aramalarda (inbound) deal id gelmez: telefon numarasından bulunur\nif(!dealId && j.customer_phone){\n  const dg=j.customer_phone.replace(/\\D/g,'').replace(/^90/,'').replace(/^0/,'');\n  const dup=await bx('crm.duplicate.findbycomm',{entity_type:'CONTACT',type:'PHONE',values:['+90'+dg,'90'+dg,'0'+dg,dg]});\n  const kisiler=(dup.result&&dup.result.CONTACT)||[];\n  for(const cid of kisiler){\n    const dl=await bx('crm.deal.list',{filter:{CATEGORY_ID:4,CONTACT_ID:cid},order:{ID:'DESC'},select:['ID']});\n    if(dl.result&&dl.result[0]){dealId=String(dl.result[0].ID);break;}\n  }\n}\nif(!dealId) return [];\nconst deal=(await bx('crm.deal.get',{id:dealId})).result||{};\nif(String(deal.CATEGORY_ID)!=='4') return [];\nconst contactId=String(deal.CONTACT_ID||j.contact_id||'');\n\nconst refMs=Date.parse(j.ended_at)||Date.now();\nconst r=norm(j.arama_sonucu);\nconst OLUMSUZLAR=['olumsuz','ilgilenmiyor','ilgisiz','istemiyor','red','reddetti','dnc','aranmak_istemiyor'];\nconst ULASILAMADI=['ulasilamadi','cevapsiz','mesgul','sesli_mesaj','telesekreter','yanlis_numara'];\nlet sonuc;\nif(j.dnc_talebi||OLUMSUZLAR.includes(r)) sonuc='olumsuz';\nelse if(r.startsWith('randevu')||(!!j.appointment_date&&!r)) sonuc='randevu';\nelse if(ULASILAMADI.includes(r)) sonuc='ulasilamadi';\nelse if(['tekrar_ara','geri_ara','sonra_ara','dusunecek'].includes(r)||j.aranacak_saat) sonuc='tekrar_ara';\nelse sonuc='belirsiz';\n\nconst uyarilar=[]; let randevu=null;\nif(sonuc==='randevu'){\n  randevu=parseRandevu(j.appointment_date,refMs);\n  if(!randevu) uyarilar.push(`Randevu tarihi okunamadı (\"${j.appointment_date||'boş'}\") — müşteriyle teyit edin.`);\n  else{\n    if(!randevu.saatVar) uyarilar.push('Randevu saati belirtilmemiş (10:00 varsayıldı) — saati teyit edin.');\n    if(randevu.ms<refMs-30*60e3) uyarilar.push('Randevu tarihi geçmişte görünüyor — teyit edin.');\n    if(randevu.ms>refMs+90*864e5) uyarilar.push('Randevu tarihi 90 günden ileri — teyit edin.');\n    const h=parts(randevu.ms).hh; if(randevu.saatVar&&(h<8||h>=21)) uyarilar.push('Randevu saati mesai dışı — teyit edin.');\n  }\n}\n\n// Aşama: sadece yapay zeka aşamalarındaki kartlar taşınır; satış ekibinin ilerlettiği kartlar geri çekilmez.\nconst AI=[ST.POTANSIYEL,ST.ARIYOR,ST.RANDEVU,ST.OLUMSUZ];\nconst hedef={randevu:ST.RANDEVU,olumsuz:ST.OLUMSUZ,ulasilamadi:ST.ARIYOR,tekrar_ara:ST.ARIYOR,belirsiz:ST.ARIYOR}[sonuc];\nconst fields={ASSIGNED_BY_ID:SORUMLU_ID};\nif(AI.includes(String(deal.STAGE_ID))&&!(String(deal.STAGE_ID)===ST.RANDEVU&&sonuc!=='randevu')) fields.STAGE_ID=hedef;\nif(randevu&&RANDEVU_UF_ALANI) fields[RANDEVU_UF_ALANI]=iso(randevu.ms);\n\nconst etiket={randevu:'RANDEVU OLUŞTURDU',olumsuz:'OLUMSUZ',ulasilamadi:'ULAŞILAMADI',tekrar_ara:'TEKRAR ARANACAK',belirsiz:'SONUÇ BELİRSİZ — görüşmeyi kontrol edin'}[sonuc];\nconst not=[\n  `Vapi AI Franchise Görüşmesi (${j.arama_turu})`,\n  `Sonuç: ${etiket}`,\n  randevu?`Randevu: ${okunur(randevu.ms)}`:'',\n  ...uyarilar.map(u=>'⚠ '+u),\n  j.aranacak_saat?`Tekrar arama: ${j.aranacak_saat}`:'',\n  j.extracted_name?`İsim: ${j.extracted_name}`:'',\n  j.bolge?`Bölge: ${j.bolge}`:'', j.ofis_durumu?`Ofis durumu: ${j.ofis_durumu}`:'',\n  j.xre_bilgi_durumu?`XRE bilgisi: ${j.xre_bilgi_durumu}`:'', j.ilgi_seviyesi?`İlgi: ${j.ilgi_seviyesi}`:'',\n  j.dnc_talebi?'DNC: EVET (tekrar aranmak istemiyor)':'',\n  j.call_summary?`Özet: ${j.call_summary}`:'',\n  j.recording_url?`Kayıt: ${j.recording_url}`:'',\n  j.ended_reason?`Bitiş nedeni: ${j.ended_reason}`:''\n].filter(Boolean).join('\\n');\n\nconst aktivite=sonuc==='randevu'?{\n  deadline:randevu?iso(randevu.ms):iso(Date.now()+3600e3),\n  title:randevu?`Franchise randevusu – ${okunur(randevu.ms)}`:'Franchise randevu tarihini teyit et',\n  description:not\n}:null;\n\nreturn [{json:{...j,deal_id:dealId,contact_id:contactId,sonuc,deal_fields:fields,not,aktivite,randevu_var:!!aktivite}}];"
+      },
+      "id": "19cae414-ff3d-5413-be62-4755d8c94a45",
+      "name": "Anlaşmayı Bul + Sonucu Belirle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.deal.update.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({id:$json.deal_id,fields:$json.deal_fields,params:{REGISTER_SONET_EVENT:\"Y\"}}) }}",
+        "options": {}
+      },
+      "id": "0095e0fd-6947-5e6c-84b0-d802eb1d2477",
+      "name": "Bitrix - Anlaşmayı Güncelle + Rüstem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        432,
+        304
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.contact.update.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({id:$('Anlaşmayı Bul + Sonucu Belirle').first().json.contact_id||0,fields:{ASSIGNED_BY_ID:27332},params:{REGISTER_SONET_EVENT:\"N\"}}) }}",
+        "options": {}
+      },
+      "id": "1884a6ff-5e5d-5e4b-888f-3216e9eb5d49",
+      "name": "Bitrix - Sonuç Kişi Sorumlusu Rüstem",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        656,
+        304
+      ],
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.timeline.comment.add.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({fields:{ENTITY_ID:$('Anlaşmayı Bul + Sonucu Belirle').first().json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:$('Anlaşmayı Bul + Sonucu Belirle').first().json.not}}) }}",
+        "options": {}
+      },
+      "id": "3bec5000-1dee-5a03-a9ee-69f6b6c6f47c",
+      "name": "Bitrix - Görüşme Notu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        880,
+        304
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $('Anlaşmayı Bul + Sonucu Belirle').first().json.randevu_var === true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "7e5124a4-9ea6-5223-a0e8-f10ab77aa570",
+      "name": "Randevu mu?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1104,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.activity.todo.add.json",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ownerTypeId:2,ownerId:Number($('Anlaşmayı Bul + Sonucu Belirle').first().json.deal_id),deadline:$('Anlaşmayı Bul + Sonucu Belirle').first().json.aktivite.deadline,title:$('Anlaşmayı Bul + Sonucu Belirle').first().json.aktivite.title,description:$('Anlaşmayı Bul + Sonucu Belirle').first().json.aktivite.description,responsibleId:27332,pingOffsets:[60]}) }}",
+        "options": {}
+      },
+      "id": "58371351-4eaf-5a0e-94a6-75aa5c53c3f7",
+      "name": "Bitrix - Randevu Aktivitesi (Rüstem)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1328,
+        224
+      ],
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $('Anlaşmayı Bul + Sonucu Belirle').first().json.link_istegi === true }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "2103e13d-7de2-5f56-8677-55f6a74b8d37",
+      "name": "WhatsApp İzni Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        1552,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "YOUR_WHATSAPP_GATEWAY_URL",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "phone",
+              "value": "={{ $('Anlaşmayı Bul + Sonucu Belirle').first().json.customer_phone }}"
+            },
+            {
+              "name": "message",
+              "value": "Türkiye ve Kıbrıs genelindeki XRE Kurucu 100 Ofis yapılanmasıyla ilgili tanıtım bilgileri: xre.com.tr/ofis-basvuru"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "62ef8e11-56a6-5455-9f3c-bd2bbbfe616e",
+      "name": "WhatsApp - Franchise Bilgi Gönder",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1776,
+        224
+      ],
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - Franchise Anlaşmalar": {
+      "main": [
+        [
+          {
+            "node": "Deal ID Al",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deal ID Al": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Deal Detayını Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Deal Detayını Çek": {
+      "main": [
+        [
+          {
+            "node": "Potansiyel Müşteri mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Potansiyel Müşteri mi?": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Kişi Detayını Çek",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Kişi Detayını Çek": {
+      "main": [
+        [
+          {
+            "node": "Franchise Arama Verisini Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Franchise Arama Verisini Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Telefon Geçerli mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telefon Geçerli mi?": {
+      "main": [
+        [
+          {
+            "node": "Mesai Dışı mı?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bitrix - Geçersiz Telefon Olumsuz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mesai Dışı mı?": {
+      "main": [
+        [
+          {
+            "node": "Mesai Başlangıcını Bekle",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Arama Değişkenleri",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mesai Başlangıcını Bekle": {
+      "main": [
+        [
+          {
+            "node": "Arama Değişkenleri",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arama Değişkenleri": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Yapay Zeka Arıyor + Rüstem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Yapay Zeka Arıyor + Rüstem": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Kişi Sorumlusu Rüstem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Kişi Sorumlusu Rüstem": {
+      "main": [
+        [
+          {
+            "node": "Vapi - Franchise Aramasını Başlat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi - Franchise Aramasını Başlat": {
+      "main": [
+        [
+          {
+            "node": "Vapi Araması Başladı mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Geçersiz Telefon Olumsuz": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Not: Geçersiz Telefon",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook - Franchise Vapi Sonucu": {
+      "main": [
+        [
+          {
+            "node": "Vapi - Franchise Normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi - Franchise Normalize": {
+      "main": [
+        [
+          {
+            "node": "Vapi Sonuç Event mi?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi Sonuç Event mi?": {
+      "main": [
+        [
+          {
+            "node": "Anlaşmayı Bul + Sonucu Belirle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anlaşmayı Bul + Sonucu Belirle": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Anlaşmayı Güncelle + Rüstem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Anlaşmayı Güncelle + Rüstem": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Sonuç Kişi Sorumlusu Rüstem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Sonuç Kişi Sorumlusu Rüstem": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Görüşme Notu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Görüşme Notu": {
+      "main": [
+        [
+          {
+            "node": "Randevu mu?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Randevu mu?": {
+      "main": [
+        [
+          {
+            "node": "Bitrix - Randevu Aktivitesi (Rüstem)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "WhatsApp İzni Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bitrix - Randevu Aktivitesi (Rüstem)": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp İzni Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp İzni Var mı?": {
+      "main": [
+        [
+          {
+            "node": "WhatsApp - Franchise Bilgi Gönder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi Araması Başladı mı?": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Bitrix - Not: Arama Başlatılamadı",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "7e2486ea-a99c-426d-b7f2-80b5a8407c59",
+  "meta": {
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  },
+  "id": "YyZhu3ruLdUMHiJ9",
+  "tags": []
+}
