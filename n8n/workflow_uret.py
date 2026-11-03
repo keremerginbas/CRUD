@@ -44,7 +44,7 @@ JS_DEGISKEN = r'''function aramaDegiskenleri(firstName){
   const now=Date.now(); const t=parts(now); const takvim=[];
   for(let i=0;i<21;i++){const g=parts(now+i*864e5); takvim.push(`${GUN[g.wd]} ${p2(g.d)}.${p2(g.m)}.${g.y} = ${g.y}-${p2(g.m)}-${p2(g.d)}${i===0?' (bugün)':i===1?' (yarın)':''}`);}
   return {start_mode:firstName?'confirm_name':'ask_name',
-    dynamic_greeting:firstName?`Merhabalar, ben iksre Gayrimenkul'den Selin. ${firstName} ile mi görüşüyorum?`:`Merhabalar, ben iksre Gayrimenkul'den Selin. Kiminle görüşüyorum acaba?`,
+    dynamic_greeting:firstName?`Merhabalar, ben İksre Gayrimenkul'den Selin. ${firstName} ile mi görüşüyorum?`:`Merhabalar, ben İksre Gayrimenkul'den Selin. Kiminle görüşüyorum acaba?`,
     bugunun_tarihi:`${p2(t.d)}.${p2(t.m)}.${t.y}`, bugun_iso:`${t.y}-${p2(t.m)}-${p2(t.d)}`, bugun_gun:GUN[t.wd],
     su_anki_saat:`${p2(t.hh)}:${p2(t.mi)}`, takvim:takvim.join('\n'), arama_turu:'Giden'};
 }
