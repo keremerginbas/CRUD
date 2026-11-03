@@ -359,7 +359,7 @@ const aktivite=sonuc==='randevu'?{
   description:not
 }:null;
 
-return [{json:{...j,deal_id:dealId,contact_id:contactId,musteri_adi:musteriAdi,musteri_tel:musteriTel,sonuc,deal_fields:fields,not,aktivite,randevu_var:!!aktivite,
+return [{json:{...j,deal_id:dealId,contact_id:contactId,musteri_adi:musteriAdi,musteri_ilk_ad:(adSoyad(kisi.NAME||'',kisi.LAST_NAME||'').ad||musteriAdi),musteri_tel:musteriTel,sonuc,deal_fields:fields,not,aktivite,randevu_var:!!aktivite,
   ulasilamadi_sms:(giden&&sonuc==='ulasilamadi')?(ikinciDeneme?2:1):0,
   tekrar_tarih:(()=>{const t=parts(sonrakiTekrar(refMs)); return `${p2(t.d)}.${p2(t.m)}.${t.y} saat ${TEKRAR_ARAMA_SAATI}`;})(),
   randevu_okunur:randevu?okunur(randevu.ms):'',randevu_iso:(randevu&&randevu.saatVar&&!uyarilar.length)?iso(randevu.ms):'',uyarilar,deal_link:`https://xre.bitrix24.com.tr/crm/deal/details/${dealId}/`}}];''')
@@ -402,7 +402,8 @@ const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'
 // Türkçe karakterleri sadeleştir (çalışan West Point akışındaki gibi düz ASCII)
 const tr=s=>String(s).replace(/ı/g,'i').replace(/İ/g,'I').replace(/ş/g,'s').replace(/Ş/g,'S').replace(/ğ/g,'g').replace(/Ğ/g,'G').replace(/ü/g,'u').replace(/Ü/g,'U').replace(/ö/g,'o').replace(/Ö/g,'O').replace(/ç/g,'c').replace(/Ç/g,'C');
 const hane=String(j.musteri_tel||'').replace(/\D/g,'').replace(/^90/,'').replace(/^0/,'');
-const ad=String(j.musteri_adi||'').trim(); const merhaba=`Merhaba ${ad?ad+', ':''}`;
+// Tek SMS (160 karakter) sınırı: Erccell uzun mesajı reddedebiliyor; sığmazsa isim çıkarılır
+const ad=String(j.musteri_ilk_ad||j.musteri_adi||'').trim(); let merhaba=`Merhaba ${ad?ad+', ':''}`;
 let tur, mesaj;
 if(j.randevu_var){
   tur='Randevu SMS\'i';
@@ -412,13 +413,13 @@ if(j.randevu_var){
   mesaj=`${merhaba}randevunuz ${tarih} saat ${saat} olarak planlanmıştır. XRE'li günler dileriz.`;
 }else if(j.ulasilamadi_sms===1){
   tur='Ulaşılamadı SMS\'i (1. arama)';
-  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi aradık ancak ulaşamadık. ${j.tekrar_tarih}'dan itibaren tekrar arayacağız. Dilerseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;
+  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi aradık, ulaşamadık. Yarın 10:30'dan itibaren tekrar arayacağız. Bize ${GERI_DONUS_NO} numarasından ulaşabilirsiniz.`;
 }else if(j.ulasilamadi_sms===2){
   tur='Ulaşılamadı SMS\'i (2. arama)';
-  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi tekrar aradık ancak ulaşamadık. Görüşmek isterseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;
+  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi tekrar aradık, ulaşamadık. Görüşmek için ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;
 }else return [{json:{sms_durum:''}}];
 if(!/^5\d{9}$/.test(hane)) return [{json:{sms_durum:tur+' gönderilmedi: geçerli cep telefonu yok.'}}];
-mesaj=tr(mesaj); const numara='90'+hane;
+mesaj=tr(mesaj); if(mesaj.length>160&&ad) mesaj=mesaj.replace(tr(`Merhaba ${ad}, `),'Merhaba, '); const numara='90'+hane;
 const xml='<?xml version="1.0" encoding="UTF-8"?>\n<CORPORATESMS><HEADER><USERNAME>'+esc(SMS_USER)+'</USERNAME><PASSWORD>'+esc(SMS_PASSWORD)+'</PASSWORD><SMSHEADER><![CDATA['+SMS_BASLIK+']]></SMSHEADER><SMSTYPE>UC</SMSTYPE><SENDTYPE>1:N</SENDTYPE></HEADER><SMS><SMS_MESSAGE><![CDATA['+mesaj+']]></SMS_MESSAGE><NUMBERS>'+numara+'</NUMBERS></SMS></CORPORATESMS>';
 let yanit;
 try{
