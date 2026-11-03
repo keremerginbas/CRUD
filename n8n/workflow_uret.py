@@ -66,8 +66,8 @@ const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 JS_SONUC_ALANI = r'''function fs(v,depth=0){if(!v||typeof v!=='object'||depth>6)return{}; if(v.franchise_call_result&&typeof v.franchise_call_result==='object')return v.franchise_call_result; const ks=['arama_sonucu','appointment_date','aranacak_saat','dnc_talebi','extracted_name','xre_bilgi_durumu','ofis_durumu','bolge','ilgi_seviyesi','link_istegi','arama_turu','call_summary','call_successful','user_sentiment']; if(ks.some(k=>Object.prototype.hasOwnProperty.call(v,k)))return v; if(Array.isArray(v)){for(const x of v){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} for(const x of Object.values(v)){if(x&&typeof x==='object'){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} return{};}
 const ULASILAMAZ_NEDEN=['did-not-answer','no-answer','busy','voicemail','failed','error'];
 function norm(s){return String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[\s-]+/g,'_').trim();}
-const OLUMSUZLAR=['olumsuz','ilgilenmiyor','ilgisiz','istemiyor','red','reddetti','dnc','aranmak_istemiyor'];
-const ULASILAMADI=['ulasilamadi','cevapsiz','mesgul','sesli_mesaj','telesekreter','yanlis_numara'];
+const OLUMSUZLAR=['olumsuz','ilgilenmiyor','ilgisiz','istemiyor','red','reddetti','dnc','aranmak_istemiyor','yanlis_kisi','yanlis_numara'];
+const ULASILAMADI=['ulasilamadi','cevapsiz','mesgul','sesli_mesaj','telesekreter'];
 '''
 
 nodes = []
@@ -297,7 +297,7 @@ let sonuc;
 if(j.dnc_talebi||OLUMSUZLAR.includes(r)) sonuc='olumsuz';
 else if(r.startsWith('randevu')||(!!j.appointment_date&&!r)) sonuc='randevu';
 else if(ULASILAMADI.includes(r)) sonuc='ulasilamadi';
-else if(['tekrar_ara','geri_ara','sonra_ara','dusunecek'].includes(r)||j.aranacak_saat) sonuc='tekrar_ara';
+else if(['tekrar_ara','geri_ara','sonra_ara','dusunecek','dusunuyor','geri_aranacak'].includes(r)||j.aranacak_saat) sonuc='tekrar_ara';
 else sonuc='belirsiz';
 const giden=j.arama_turu!=='Gelen';
 const ikinciDeneme=Number(j.deneme||1)>=2;
