@@ -9,7 +9,8 @@ BX = "https://xre.bitrix24.com.tr/rest/1/" + (os.environ["BITRIX_WEBHOOK_KODU"] 
 TG_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"] if GIZLI else "YOUR_TELEGRAM_BOT_TOKEN"
 TG_CHAT = os.environ["TELEGRAM_CHAT_ID"] if GIZLI else "YOUR_TELEGRAM_CHAT_ID"
 
-POT, ARIYOR, RANDEVU, ULAS, OLUMSUZ = "C4:UC_E68BUC", "C4:UC_5688TP", "C4:UC_DEJOO8", "C4:UC_VNGV9N", "C4:UC_B3W6CW"
+POT, ARIYOR, RANDEVU, ULAS, OLUMSUZ = "C4:UC_E68BUC", "C4:UC_5688TP", "C4:1", "C4:UC_VNGV9N", "C4:UC_B3W6CW"
+AI_RANDEVU_ESKI = "C4:UC_DEJOO8"  # YAPAY ZEKA RANDEVU OLUŞTURANLAR (artık hedef değil)
 RUSTEM = 27332
 ASSISTANT_OUT = "65a798f1-95dc-487f-9d60-cfa10994d3fb"
 ASSISTANT_IN = "0b1a70cf-7139-44d5-96e9-59504dddef4c"
@@ -17,7 +18,7 @@ PHONE_ID = "8c3a1ba4-5ae9-46c7-8ea7-85df0654295c"
 VAPI_CRED = {"httpHeaderAuth": {"id": "FUVtxEey6Fmi84f2", "name": "META XRE FRANCHISE WHATSAPP"}}
 
 def fill(js):
-    for k, v in {"__BX__": BX, "__POT__": POT, "__ARIYOR__": ARIYOR, "__RANDEVU__": RANDEVU, "__ULAS__": ULAS,
+    for k, v in {"__BX__": BX, "__POT__": POT, "__ARIYOR__": ARIYOR, "__RANDEVU__": RANDEVU, "__AI_RANDEVU_ESKI__": AI_RANDEVU_ESKI, "__ULAS__": ULAS,
                  "__OLUMSUZ__": OLUMSUZ, "__RUSTEM__": str(RUSTEM), "__TG_TOKEN__": TG_TOKEN, "__TG_CHAT__": TG_CHAT,
                  "__PHONE_ID__": PHONE_ID, "__AS_OUT__": ASSISTANT_OUT, "__AS_IN__": ASSISTANT_IN}.items():
         js = js.replace(k, v)
@@ -195,7 +196,7 @@ iff("Vapi Sonuç Event mi?", [-16, 368], "$json.event === 'call_analyzed'")
 
 code("Anlaşmayı Bul + Sonucu Belirle", [208, 304], JS_ZAMAN + JS_KISI + JS_SONUC_ALANI + r'''// ===== AYARLAR =====
 const BITRIX='__BX__';
-const ST={POTANSIYEL:'__POT__',ARIYOR:'__ARIYOR__',RANDEVU:'__RANDEVU__',ULASILAMAYAN:'__ULAS__',OLUMSUZ:'__OLUMSUZ__'};
+const ST={POTANSIYEL:'__POT__',ARIYOR:'__ARIYOR__',RANDEVU:'__RANDEVU__',AI_RANDEVU_ESKI:'__AI_RANDEVU_ESKI__',ULASILAMAYAN:'__ULAS__',OLUMSUZ:'__OLUMSUZ__'};
 const SORUMLU_ID=__RUSTEM__; // Rüstem Sarıoğlan
 const TEKRAR_ARAMA_SAATI='10:30';
 // Randevu tarihinin yazılacağı anlaşma alanları (diğer pipeline'larda kullanılan alanlar)
@@ -283,7 +284,7 @@ if(sonuc==='randevu'){
 }
 
 // Hedef aşama:
-//  randevu -> RANDEVU OLUŞTURANLAR, olumsuz -> OLUMSUZ
+//  randevu -> Randevu Oluşturulan (C4:1), olumsuz -> OLUMSUZ
 //  ulaşılamadı / sonra ara / belirsiz -> 1. denemede ULAŞILAMAYANLAR (ertesi gün 10:30'da tekrar aranır), 2. denemede OLUMSUZ
 //  gelen aramada net sonuç yoksa aşama değişmez
 let hedef=null, etiket;
@@ -296,7 +297,7 @@ else{
   else{hedef=ST.ULASILAMAYAN; etiket=`${neden} — ${okunur(sonrakiTekrar(refMs))} tekrar aranacak`;}
 }
 // Sadece yapay zeka aşamalarındaki kartlar taşınır; satış ekibinin ilerlettiği kartlar ve randevulu kartlar geri çekilmez.
-const AI=[ST.POTANSIYEL,ST.ARIYOR,ST.ULASILAMAYAN,ST.OLUMSUZ,ST.RANDEVU];
+const AI=[ST.POTANSIYEL,ST.ARIYOR,ST.ULASILAMAYAN,ST.OLUMSUZ,ST.AI_RANDEVU_ESKI,ST.RANDEVU];
 const cur=String(deal.STAGE_ID);
 const fields={ASSIGNED_BY_ID:SORUMLU_ID};
 if(hedef&&AI.includes(cur)&&!(cur===ST.RANDEVU&&hedef!==ST.RANDEVU)) fields.STAGE_ID=hedef;
