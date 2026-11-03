@@ -12,7 +12,7 @@ BITRIX_WEBHOOK_KODU=... TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... python3 work
 
 **Arama kuyruğu:** Her 3 dakikada bir çalışır. 3 Vapi numarasının her biri bir müşteri arar, yani 3 dakikada en fazla 3 arama yapılır.
 Numaralar: 0533 743 60 24, 0533 743 68 03, 0533 743 60 04.
-Kuyruk mesai saatlerinde (09:30–20:00, Pazar hariç) çalışır. Sırası şöyledir:
+Kuyruk haftanın 7 günü 09:30–19:00 arasında çalışır. Sırası şöyledir:
 1. Ertesi gün 10:30'dan itibaren tekrar aranacak ulaşılamayanlar.
 2. **YAPAY ZEKA POTANSİYEL MÜŞTERİLER** aşamasındaki kartlar, eskiden yeniye.
 

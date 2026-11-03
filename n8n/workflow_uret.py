@@ -71,7 +71,22 @@ const ULASILAMADI=['ulasilamadi','cevapsiz','mesgul','sesli_mesaj','telesekreter
 '''
 
 nodes = []
+def guvenli_ifade(v):
+    """n8n ifadeleri '={{ ... }}' içinde '}}' ya da '{{' geçemez; araya boşluk koyar."""
+    if isinstance(v, str) and v.startswith("={{") and v.endswith("}}"):
+        ic = v[3:-2]
+        while "}}" in ic or "{{" in ic:
+            ic = ic.replace("}}", "} }").replace("{{", "{ {")
+        return "={{" + ic + "}}"
+    if isinstance(v, dict):
+        return {k: guvenli_ifade(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [guvenli_ifade(x) for x in v]
+    return v
+
 def node(name, type_, ver, pos, params, **extra):
+    if type_ != "n8n-nodes-base.code":
+        params = guvenli_ifade(params)
     n = {"parameters": params, "id": str(uuid.uuid5(uuid.NAMESPACE_URL, "xre-franchise/" + name)),
          "name": name, "type": type_, "typeVersion": ver, "position": pos}
     n.update(extra)
@@ -123,7 +138,7 @@ const BITRIX='__BX__';
 const ST={POT:'__POT__',ARIYOR:'__ARIYOR__',ULAS:'__ULAS__',OLUMSUZ:'__OLUMSUZ__'};
 const SORUMLU_ID=__RUSTEM__; // Rüstem Sarıoğlan
 const NUMARALAR=__NUMARALAR__; // Vapi numara ID -> görünen numara
-const MESAI={baslangic:'09:30',bitis:'20:00',pazar_ara:false};
+const MESAI={baslangic:'09:30',bitis:'19:00',pazar_ara:true};
 const TEKRAR_ARAMA_SAATI='10:30'; // ulaşılamayanlar ertesi gün bu saatten itibaren kuyruğa girer
 // ===================
 const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});
@@ -248,8 +263,8 @@ function parseRandevu(raw,refMs){
   if(c.m!==m||c.d!==d) return null; // 31.02 gibi geçersiz tarih
   return {ms,saatVar:hh!==null};
 }
-// Bir sonraki tekrar arama zamanı: ertesi gün 10:30 (Pazar ise Pazartesi)
-function sonrakiTekrar(refMs){const [h,mn]=TEKRAR_ARAMA_SAATI.split(':').map(Number); for(let i=1;i<4;i++){const g=parts(refMs+i*864e5); if(g.wd!==0) return Date.UTC(g.y,g.m-1,g.d,h,mn)-TR;} }
+// Bir sonraki tekrar arama zamanı: ertesi gün 10:30 (haftanın 7 günü)
+function sonrakiTekrar(refMs){const [h,mn]=TEKRAR_ARAMA_SAATI.split(':').map(Number); const g=parts(refMs+864e5); return Date.UTC(g.y,g.m-1,g.d,h,mn)-TR;}
 
 const j=$input.first().json;
 // Aynı arama sonucu iki kez gelirse tekrar işlenmez
