@@ -70,6 +70,8 @@ const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').rep
 JS_SONUC_ALANI = r'''// Vapi'deki alan adlarında boşluk kalmış olabilir ("arama_sonucu  "): anahtarlar kırpılır
 function fs(v){const r=fs0(v); return Object.fromEntries(Object.entries(r).map(([k,x])=>[String(k).trim(),x]));}
 function fs0(v,depth=0){if(!v||typeof v!=='object'||depth>6)return{}; if(v.franchise_call_result&&typeof v.franchise_call_result==='object')return v.franchise_call_result; const ks=['arama_sonucu','appointment_date','aranacak_saat','dnc_talebi','extracted_name','xre_bilgi_durumu','ofis_durumu','bolge','ilgi_seviyesi','link_istegi','arama_turu','call_summary','call_successful','user_sentiment']; if(Object.keys(v).some(k=>ks.includes(String(k).trim())))return v; if(Array.isArray(v)){for(const x of v){const r=fs0(x,depth+1); if(Object.keys(r).length)return r;}} for(const x of Object.values(v)){if(x&&typeof x==='object'){const r=fs0(x,depth+1); if(Object.keys(r).length)return r;}} return{};}
+// Müşteri hiç aranamadıysa (SIP/hat hatası) bu 'ulaşılamadı' değil, teknik hatadır
+const TEKNIK_HATA=['error-sip','failed-to-connect','providerfault','call.start.error','sip-gateway'];
 const ULASILAMAZ_NEDEN=['did-not-answer','no-answer','busy','voicemail','failed','error'];
 function norm(s){return String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[\s-]+/g,'_').trim();}
 const OLUMSUZLAR=['olumsuz','ilgilenmiyor','ilgisiz','istemiyor','red','reddetti','dnc','aranmak_istemiyor','yanlis_kisi','yanlis_numara'];
@@ -122,7 +124,7 @@ def bx(name, pos, method, body_expr, on_error=False, get_url=None):
 def vapi_call(name, pos, v):
     body = ("{\nassistantId:\"" + ASSISTANT_OUT + "\",\nphoneNumberId:V.phone_number_id,\n"
             "customer:{number:V.phone_e164,name:V.full_name},\n"
-            "assistantOverrides:{variableValues:{\n"
+            "assistantOverrides:{firstMessageInterruptionsEnabled:false,variableValues:{\n"
             "user_name:V.full_name,\nisim:V.first_name,\nstart_mode:V.start_mode,\ndynamic_greeting:V.dynamic_greeting,\n"
             "bitrix_id:V.deal_id,\nbitrix_deal_id:V.deal_id,\ncustomer_phone:V.phone_e164,\ncustomer_email:V.email,\n"
             "bugunun_tarihi:V.bugunun_tarihi,\nbugun_iso:V.bugun_iso,\nbugun_gun:V.bugun_gun,\nsu_anki_saat:V.su_anki_saat,\n"
@@ -157,7 +159,10 @@ const sd=$getWorkflowStaticData('global');
 sd.franchiseKuyruk=sd.franchiseKuyruk||{}; sd.franchiseRetry=sd.franchiseRetry||{};
 for(const [k,v] of Object.entries(sd.franchiseKuyruk)) if(now-v>30*60e3) delete sd.franchiseKuyruk[k];
 for(const [k,v] of Object.entries(sd.franchiseRetry)) if(now-v>30*864e5) delete sd.franchiseRetry[k];
-const numaraIdleri=Object.keys(NUMARALAR); const kapasite=numaraIdleri.length;
+// Üst üste 2 kez bağlanamayan numara 1 saat kullanılmaz
+sd.numaraHata=sd.numaraHata||{};
+const saglikli=Object.keys(NUMARALAR).filter(id=>{const h=sd.numaraHata[id]; return !(h&&h.n>=2&&now-h.son<60*60e3);});
+const numaraIdleri=saglikli.length?saglikli:Object.keys(NUMARALAR); const kapasite=numaraIdleri.length;
 
 // Adaylar: önce ertesi gün tekrar aranacak ulaşılamayanlar, sonra yeni potansiyeller (eskiden yeniye)
 const adaylar=[];
@@ -225,6 +230,7 @@ const eventType=String(msg.type||raw.type||''); if(eventType!=='end-of-call-repo
 let s={}; for(const c of [analysis.structuredData,analysis.structuredDataMulti,msg.structuredOutputs,msg.structuredOutput,artifact.structuredOutputs,artifact.structuredOutput,call.structuredOutputs,call.structuredOutput]){const r=fs(c); if(Object.keys(r).length){s=r;break;}}
 const vars=call.assistantOverrides?.variableValues||{}; const meta={...(raw.metadata||{}),...(msg.metadata||{}),...(call.metadata||{}),...(vars||{})};
 const er=String(call.endedReason||msg.endedReason||'').toLowerCase(); let result=String(s.arama_sonucu||'').trim();
+if(!result && TEKNIK_HATA.some(x=>er.includes(x))) result='teknik_hata';
 if(!result && ULASILAMAZ_NEDEN.some(x=>er.includes(x))) result='ulasilamadi';
 const ctype=String(call.type||'').toLowerCase().includes('inbound')?'Gelen':(meta.arama_turu||'Giden');
 return [{json:{event:'call_analyzed',call_id:String(call.id||''),deal_id:String(meta.bitrix_deal_id||meta.bitrix_id||''),contact_id:String(meta.bitrix_contact_id||''),deneme:Number(meta.deneme||1),arama_turu:ctype,ended_reason:er,ended_at:String(msg.endedAt||call.endedAt||''),recording_url:String(artifact.recordingUrl||msg.recordingUrl||''),arama_sonucu:result,appointment_date:String(s.appointment_date||''),aranacak_saat:String(s.aranacak_saat||''),dnc_talebi:s.dnc_talebi===true,extracted_name:String(s.extracted_name||''),xre_bilgi_durumu:String(s.xre_bilgi_durumu||''),ofis_durumu:String(s.ofis_durumu||''),bolge:String(s.bolge||''),ilgi_seviyesi:String(s.ilgi_seviyesi||''),link_istegi:s.link_istegi===true,call_summary:String(s.call_summary||analysis.summary||''),call_successful:s.call_successful===true,user_sentiment:String(s.user_sentiment||''),customer_phone:String(call.customer?.number||meta.customer_phone||''),phone_number_id:String(call.phoneNumberId||msg.phoneNumber?.id||'')}}];''')
@@ -296,6 +302,23 @@ const contactId=String(deal.CONTACT_ID||j.contact_id||'');
 let kisi={}; if(contactId&&contactId!=='0'){ try{ kisi=(await bx('crm.contact.get',{id:contactId})).result||{}; }catch(e){} }
 const musteriAdi=adSoyad(kisi.NAME||'',kisi.LAST_NAME||'').tam||j.extracted_name||deal.TITLE||'';
 const musteriTel=phone(first(kisi.PHONE))||j.customer_phone;
+
+const NUMARALAR=__NUMARALAR__;
+sd.numaraHata=sd.numaraHata||{}; sd.franchiseHata=sd.franchiseHata||{}; sd.franchiseKuyruk=sd.franchiseKuyruk||{}; sd.franchiseRetry=sd.franchiseRetry||{};
+// Teknik hata: müşterinin telefonu hiç çalmadı. Ulaşılamadı sayılmaz, SMS gitmez; kart kuyruğa geri alınır.
+if(norm(j.arama_sonucu)==='teknik_hata'){
+  const n=(sd.franchiseHata[dealId]||0)+1; sd.franchiseHata[dealId]=n;
+  if(j.phone_number_id){ const h=sd.numaraHata[j.phone_number_id]||{n:0}; sd.numaraHata[j.phone_number_id]={n:h.n+1,son:Date.now()}; }
+  const numara=NUMARALAR[j.phone_number_id]||'bilinmeyen numara'; const cur0=String(deal.STAGE_ID);
+  const fields={ASSIGNED_BY_ID:SORUMLU_ID}; let metin;
+  if(n<3&&j.arama_turu!=='Gelen'){
+    delete sd.franchiseKuyruk[dealId];
+    if(Number(j.deneme||1)>=2) delete sd.franchiseRetry[dealId]; else if([ST.ARIYOR,ST.POTANSIYEL].includes(cur0)) fields.STAGE_ID=ST.POTANSIYEL;
+    metin=`Vapi AI: ${numara} numarasından arama bağlanamadı (teknik hata: ${j.ended_reason}). Müşterinin telefonu çalmadı; birkaç dakika içinde tekrar denenecek (${n}/3).`;
+  }else metin=`Vapi AI: Arama ${n} kez teknik hata nedeniyle bağlanamadı (${j.ended_reason}). Otomatik deneme durduruldu, manuel kontrol edin.`;
+  return [{json:{...j,deal_id:dealId,contact_id:contactId,musteri_adi:musteriAdi,musteri_tel:musteriTel,sonuc:'teknik_hata',deal_fields:fields,not:metin,aktivite:null,randevu_var:false,ulasilamadi_sms:0,link_istegi:false}}];
+}
+if(j.phone_number_id) delete sd.numaraHata[j.phone_number_id]; // numara bağlanabiliyor
 
 const refMs=Date.parse(j.ended_at)||Date.now();
 const r=norm(j.arama_sonucu);
@@ -460,13 +483,14 @@ const z=$('Rapor Zaman Aralığı').first().json;
 let calls=[]; for(const it of $input.all()){const v=it.json; if(Array.isArray(v))calls.push(...v); else if(v&&Array.isArray(v.results))calls.push(...v.results); else if(v&&v.id)calls.push(v);}
 calls=calls.filter(c=>NUMARALAR[c.phoneNumberId]||ASISTANLAR.includes(c.assistantId));
 const numaraBazinda={};
-const aranan=new Set(),gelen=new Set(),iletisim=new Set(),randevu=new Set(),olumsuz=new Set(),girisimDisi=new Set();
+const aranan=new Set(),gelen=new Set(),iletisim=new Set(),randevu=new Set(),olumsuz=new Set(); const teknik={};
 let saniye=0,maliyet=0,giden=0,gelenSayi=0;
 for(const c of calls){
   const num=(c.customer&&c.customer.number)||c.id; const inbound=String(c.type||'').includes('inbound');
   const er=String(c.endedReason||'').toLowerCase();
   const s=fs([c.analysis&&c.analysis.structuredData,c.artifact&&c.artifact.structuredOutputs,c.structuredOutputs,c.analysis]);
   const r=norm(s.arama_sonucu);
+  if(!r&&TEKNIK_HATA.some(x=>er.includes(x))){ const nn=NUMARALAR[c.phoneNumberId]||'diğer'; teknik[nn]=(teknik[nn]||0)+1; continue; }
   const dur=(c.startedAt&&c.endedAt)?Math.max(0,(Date.parse(c.endedAt)-Date.parse(c.startedAt))/1000):0;
   const ulasilamadi=!c.startedAt||ULASILAMAZ_NEDEN.some(x=>er.includes(x))||ULASILAMADI.includes(r);
   maliyet+=Number(c.cost||0);
@@ -492,6 +516,7 @@ const metin=[
   '',
   ...(Object.keys(numaraBazinda).length?['📱 Numara bazında giden arama:',...Object.entries(numaraBazinda).map(([k,v])=>`   ${esc(k)}: ${v}`)]:[]),
   '',
+  ...(Object.keys(teknik).length?['⚠️ Bağlanamayan arama (hat/teknik hata):',...Object.entries(teknik).map(([k,v])=>`   ${esc(k)}: ${v}`),'']:[]),
   `🔁 Yarın 10:30'dan itibaren tekrar aranacak havuz: ${bekleyen}`,
   `💵 Vapi maliyeti: $${maliyet.toFixed(2)}`
 ].join('\n');
