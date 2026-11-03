@@ -1,0 +1,4 @@
+
+# n8n workflow içinde gerçek anahtar bulunan kopyalar repoya yüklenmez
+*GIZLI*.json
+*.gizli.json

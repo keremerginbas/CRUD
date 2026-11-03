@@ -1,39 +1,47 @@
 # XRE Franchise – Vapi otomasyonu kurulum notları
 
-Workflow dosyası: `XRE_Franchise_Vapi_Anlasmalar.json`
+- `XRE_Franchise_Vapi_Anlasmalar.json`: n8n workflow'u (anahtarlar yer tutucu olarak duruyor)
+- `workflow_uret.py`: workflow'u yeniden üretir. Gerçek anahtarlar ortam değişkenlerinden okunur.
+  Anahtarlı kopya (`*GIZLI*.json`) repoya yüklenmez.
+
+```bash
+BITRIX_WEBHOOK_KODU=... TELEGRAM_BOT_TOKEN=... TELEGRAM_CHAT_ID=... python3 workflow_uret.py XRE_Franchise_Vapi_Anlasmalar_GIZLI.json gizli
+```
 
 ## Akış
 
-| Durum | Aşama | Sorumlu (anlaşma + kişi) |
+| Durum | Sonuç | Sorumlu |
 |---|---|---|
-| Karta **YAPAY ZEKA POTANSİYEL** aşamasında eklenir | Vapi arar ve kartı **YAPAY ZEKA ARIYOR** aşamasına taşır | Rüstem Sarıoğlan (27332) |
-| Randevu verir | **YAPAY ZEKA RANDEVU OLUŞTURANLAR** + Rüstem'e randevu saatinde yapılacak iş + zaman akışına not | 27332 |
-| İstemiyor / aranmak istemiyor | **YAPAY ZEKA OLUMSUZ** | 27332 |
-| Ulaşılamadı / tekrar aranacak / sonuç belirsiz | **YAPAY ZEKA ARIYOR** aşamasında kalır, zaman akışına not | 27332 |
-| Telefon numarası geçersiz | **YAPAY ZEKA OLUMSUZ** + not | 27332 |
+| Kart **YAPAY ZEKA POTANSİYEL MÜŞTERİLER**'e eklenir | Vapi arar, kart **YAPAY ZEKA ARIYOR**'a geçer | Rüstem Sarıoğlan (27332): anlaşma + kişi |
+| Randevu verir (1. veya 2. aramada) | **YAPAY ZEKA RANDEVU OLUŞTURANLAR**. "Randevu Tarihi ve Saati" alanı doldurulur, Rüstem'e yapılacak iş açılır, **Telegram grubuna bildirim** gider | Rüstem |
+| İstemiyor | **YAPAY ZEKA OLUMSUZ** | Rüstem |
+| 1. aramada ulaşılamadı (açmadı / meşgul / sesli mesaj / sonuç alınamadı) | **YAPAY ZEKA ULAŞILAMAYANLAR**. Ertesi gün 10:30'da tekrar aranır (Pazar ise Pazartesi) | Rüstem |
+| 2. aramada da ulaşılamadı | **YAPAY ZEKA OLUMSUZ** | Rüstem |
+| Telefon numarası geçersiz | **YAPAY ZEKA OLUMSUZ** + not | Rüstem |
 
-- Kart mesai saati dışında eklendiyse (09:30–20:00, Pazar hariç) bir sonraki mesai başlangıcında aranır.
-- Satış ekibinin ileri aşamaya taşıdığı kartlar Vapi sonucu nedeniyle geri çekilmez.
-- Gelen aramalarda (inbound) anlaşma kartı telefon numarasından bulunur.
+- **Mesai saati:** Mesai dışında (09:30–20:00, Pazar hariç) eklenen kartlar bir sonraki mesai başlangıcında aranır.
+- **Tekrar aramalar:** 10:30'da dakikada 3 arama hızıyla yapılır. Bu sınır Vapi'nin eş zamanlı arama limitine takılmamak için konuldu.
+- **Gün sonu raporu:** Her gün 20:00'de Telegram grubuna gider. İçeriği:
+  - aranan kişi sayısı
+  - iletişime geçilen kişi sayısı
+  - randevu sayısı
+  - olumsuz sayısı
+  - ulaşılamayan sayısı
+  - toplam konuşma dakikası
+  - (ek olarak) ertesi gün tekrar aranacak havuz ve Vapi maliyeti
+- **Satış ekibinin kartları:** Satış ekibinin ileri aşamaya taşıdığı kartlar geri çekilmez.
+- **Gelen aramalar:** Müşteri geri ararsa kart telefon numarasından bulunur. Gelen aramada net bir sonuç çıkmazsa aşama değişmez.
 
-## İçe aktarmadan önce
+## n8n'e aldıktan sonra
 
-1. JSON dosyasında `YOUR_WEBHOOK` ifadesini Bitrix gelen webhook kodunuzla değiştirin (tüm geçtiği yerlerde).
-2. Gerekli Bitrix webhook izinleri: `crm`.
-3. Aşama kodları: POTANSİYEL `C4:UC_E68BUC`, ARIYOR `C4:UC_5688TP`, RANDEVU `C4:UC_DEJOO8`, OLUMSUZ `C4:UC_B3W6CW`.
-
-## İçe aktardıktan sonra
-
-1. **Vapi - Franchise Aramasını Başlat** düğümünde credential olarak Vapi API anahtarını seçin
-   (Header Auth: `Authorization` = `Bearer <VAPI_PRIVATE_KEY>`).
-2. (İsteğe bağlı) Anlaşma kartında randevu tarihi için özel alan varsa,
-   **Anlaşmayı Bul + Sonucu Belirle** düğümündeki `RANDEVU_UF_ALANI` değerine alan kodunu yazın.
-3. Workflow'u **Active** yapın.
-4. Bitrix: Satış otomasyonu → **YAPAY ZEKA POTANSİYEL** sütunundaki "Giden webhook" kuralının adresi:
-   `https://<n8n-adresiniz>/webhook/franchise-vapi-deal-trigger` (Bitrix anlaşma ID'sini kendisi gönderir)
-5. Vapi: Outbound ve Inbound asistanlarının **Server URL** alanı (Advanced → Server):
+1. **Vapi - Franchise Aramasını Başlat**, **Vapi - Tekrar Arama (2. deneme)** ve **Vapi - Bugünkü Aramalar** düğümlerinde credential olarak Vapi API anahtarını seçin (Header Auth: `Authorization` = `Bearer <VAPI_PRIVATE_KEY>`).
+2. Telegram botu (@xre_rapor_bot) gruba üye olmalı.
+3. Workflow'u **Active** yapın. Saatler workflow ayarlarında Europe/Istanbul olarak tanımlı.
+4. Bitrix: **YAPAY ZEKA POTANSİYEL MÜŞTERİLER** sütunundaki "Giden webhook" kuralının adresi:
+   `https://<n8n-adresiniz>/webhook/franchise-vapi-deal-trigger`
+5. Vapi: Outbound ve Inbound asistanlarının **Server URL** alanı:
    `https://<n8n-adresiniz>/webhook/franchise-vapi-call-result`
-   Server Messages içinde `end-of-call-report` seçili olmalı.
+   (`end-of-call-report` mesajı açık olmalı.)
 
 ## Vapi asistanına eklenecekler (tarih doğruluğu için)
 
