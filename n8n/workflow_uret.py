@@ -16,13 +16,16 @@ AI_RANDEVU_ESKI = "C4:UC_DEJOO8"  # YAPAY ZEKA RANDEVU OLUŞTURANLAR (artık hed
 RUSTEM = 27332
 ASSISTANT_OUT = "65a798f1-95dc-487f-9d60-cfa10994d3fb"
 ASSISTANT_IN = "0b1a70cf-7139-44d5-96e9-59504dddef4c"
-PHONE_ID = "8c3a1ba4-5ae9-46c7-8ea7-85df0654295c"
+# Vapi numaraları: id -> müşteriye görünen numara. Her 3 dakikada her numara en fazla 1 arama başlatır.
+NUMARALAR = {"8c3a1ba4-5ae9-46c7-8ea7-85df0654295c": "0533 743 60 24",
+             "536bf387-1d12-4586-ac73-94db146dfe05": "0533 743 68 03",
+             "d0c20592-51aa-4bd3-a6e3-6fe01e0e9afd": "0533 743 60 04"}
 VAPI_CRED = {"httpHeaderAuth": {"id": "FUVtxEey6Fmi84f2", "name": "META XRE FRANCHISE WHATSAPP"}}
 
 def fill(js):
     for k, v in {"__BX__": BX, "__POT__": POT, "__ARIYOR__": ARIYOR, "__RANDEVU__": RANDEVU, "__AI_RANDEVU_ESKI__": AI_RANDEVU_ESKI, "__ULAS__": ULAS,
                  "__OLUMSUZ__": OLUMSUZ, "__RUSTEM__": str(RUSTEM), "__TG_TOKEN__": TG_TOKEN, "__TG_CHAT__": TG_CHAT, "__SMS_USER__": SMS_USER, "__SMS_PASS__": SMS_PASS,
-                 "__PHONE_ID__": PHONE_ID, "__AS_OUT__": ASSISTANT_OUT, "__AS_IN__": ASSISTANT_IN}.items():
+                 "__NUMARALAR__": json.dumps(NUMARALAR, ensure_ascii=False), "__AS_OUT__": ASSISTANT_OUT, "__AS_IN__": ASSISTANT_IN}.items():
         js = js.replace(k, v)
     assert "__" not in js.replace("__proto__", ""), js[:200]
     return js
@@ -95,90 +98,101 @@ def bx(name, pos, method, body_expr, on_error=False, get_url=None):
         extra["onError"] = "continueRegularOutput"
     node(name, "n8n-nodes-base.httpRequest", 4.1, pos, p, **extra)
 
-def vapi_call(name, pos, v, batching=False):
-    body = ("{\nassistantId:\"" + ASSISTANT_OUT + "\",\nphoneNumberId:\"" + PHONE_ID + "\",\n"
+def vapi_call(name, pos, v):
+    body = ("{\nassistantId:\"" + ASSISTANT_OUT + "\",\nphoneNumberId:V.phone_number_id,\n"
             "customer:{number:V.phone_e164,name:V.full_name},\n"
             "assistantOverrides:{variableValues:{\n"
             "user_name:V.full_name,\nisim:V.first_name,\nstart_mode:V.start_mode,\ndynamic_greeting:V.dynamic_greeting,\n"
             "bitrix_id:V.deal_id,\nbitrix_deal_id:V.deal_id,\ncustomer_phone:V.phone_e164,\ncustomer_email:V.email,\n"
             "bugunun_tarihi:V.bugunun_tarihi,\nbugun_iso:V.bugun_iso,\nbugun_gun:V.bugun_gun,\nsu_anki_saat:V.su_anki_saat,\n"
             "takvim:V.takvim,\narama_turu:\"Giden\",\ndeneme:String(V.deneme)\n}},\n"
-            "metadata:{bitrix_deal_id:V.deal_id,bitrix_contact_id:V.contact_id,project:\"franchise\",arama_turu:\"Giden\",deneme:String(V.deneme)}\n}").replace("V.", v + ".")
+            "metadata:{bitrix_deal_id:V.deal_id,bitrix_contact_id:V.contact_id,arayan_numara:V.arayan_numara,project:\"franchise\",arama_turu:\"Giden\",deneme:String(V.deneme)}\n}").replace("V.", v + ".")
     opts = {}
-    if batching:  # Vapi eş zamanlı arama sınırına takılmamak için dakikada 3 arama
-        opts = {"batching": {"batch": {"batchSize": 3, "batchInterval": 60000}}}
     node(name, "n8n-nodes-base.httpRequest", 4.1, pos,
          {"method": "POST", "url": "https://api.vapi.ai/call", "authentication": "genericCredentialType",
           "genericAuthType": "httpHeaderAuth", "sendBody": True, "specifyBody": "json",
           "jsonBody": "={{ JSON.stringify(" + body + ") }}", "options": opts},
          credentials=VAPI_CRED, onError="continueRegularOutput")
 
-# ================================================================ 1) İLK ARAMA
-node("Webhook - Franchise Anlaşmalar", "n8n-nodes-base.webhook", 2.1, [-464, -176],
-     {"httpMethod": "POST", "path": "franchise-vapi-deal-trigger", "options": {}},
-     webhookId="99988d02-dd95-44fa-bfff-6f487126cbab")
+# ================================================================ 1) ARAMA KUYRUĞU (her 3 dakikada, numara başına 1 arama)
+node("Her 3 Dakikada", "n8n-nodes-base.scheduleTrigger", 1.2, [-464, -176],
+     {"rule": {"interval": [{"field": "cronExpression", "expression": "*/3 * * * *"}]}})
 
-code("Deal ID Al", [-240, -176], r'''const j=$input.first().json||{}; const b=j.body||{}; const q=j.query||{};
-const raw=b["document_id[2]"]||b["data[FIELDS][ID]"]||b["data[FIELDS_AFTER][ID]"]||b.id||q.id||"";
-const dealId=String(raw).replace("DEAL_","").trim(); if(!dealId)return [];
-return [{json:{deal_id:dealId}}];''')
-
-bx("Bitrix - Deal Detayını Çek", [-16, -176], None, None, get_url="crm.deal.get.json?id={{ $json.deal_id }}")
-iff("Potansiyel Müşteri mi?", [208, -176],
-    "!!$json.result && String($json.result.CATEGORY_ID) === '4' && String($json.result.STAGE_ID) === '" + POT + "'")
-# Anlaşma kartında telefon/isim yok; bunlar bağlı KİŞİ kartından okunur.
-bx("Bitrix - Kişi Detayını Çek", [432, -256], None, None, on_error=True,
-   get_url="crm.contact.get.json?id={{ $json.result.CONTACT_ID || 0 }}")
-
-code("Franchise Arama Verisini Hazırla", [656, -256], JS_ZAMAN + JS_KISI + r'''// Mesai saatleri (Türkiye saati). Bu aralık dışında eklenen kayıtlar bir sonraki mesai başlangıcında aranır.
+code("Arama Kuyruğu (3 numara)", [-240, -176], JS_ZAMAN + JS_KISI + JS_DEGISKEN + r'''// ===== AYARLAR =====
+const BITRIX='__BX__';
+const ST={POT:'__POT__',ARIYOR:'__ARIYOR__',ULAS:'__ULAS__',OLUMSUZ:'__OLUMSUZ__'};
+const SORUMLU_ID=__RUSTEM__; // Rüstem Sarıoğlan
+const NUMARALAR=__NUMARALAR__; // Vapi numara ID -> görünen numara
 const MESAI={baslangic:'09:30',bitis:'20:00',pazar_ara:false};
-const staticData=$getWorkflowStaticData('global');
-staticData.franchiseVapiProcessed=staticData.franchiseVapiProcessed||{};
-const deal=$('Bitrix - Deal Detayını Çek').first().json.result||{};
-const contact=($input.first().json||{}).result||{};
-const dealId=String(deal.ID||''); if(!dealId)return [];
-const now=Date.now(); const last=staticData.franchiseVapiProcessed[dealId];
-if(last && (now-last)<3600000) return [];
-staticData.franchiseVapiProcessed[dealId]=now;
-for(const [k,v] of Object.entries(staticData.franchiseVapiProcessed)){ if(now-v>7*864e5) delete staticData.franchiseVapiProcessed[k]; }
+const TEKRAR_ARAMA_SAATI='10:30'; // ulaşılamayanlar ertesi gün bu saatten itibaren kuyruğa girer
+// ===================
+const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});
+const not=(id,text)=>bx('crm.timeline.comment.add',{fields:{ENTITY_ID:id,ENTITY_TYPE:'deal',COMMENT:text}}).catch(()=>{});
+const now=Date.now(); const t=parts(now); const dk=t.hh*60+t.mi;
+const hm=s=>{const [h,m]=s.split(':').map(Number); return h*60+m;};
+if((!MESAI.pazar_ara&&t.wd===0)||dk<hm(MESAI.baslangic)||dk>=hm(MESAI.bitis)) return [];
 
-const firstName=tc(contact.NAME||deal.NAME||""); const lastName=tc(contact.LAST_NAME||deal.LAST_NAME||"");
-const fullName=(firstName+" "+lastName).trim()||tc(deal.TITLE||"");
-const phoneE164=phone(first(contact.PHONE))||phone(first(deal.PHONE));
-const email=first(contact.EMAIL)||first(deal.EMAIL);
+const sd=$getWorkflowStaticData('global');
+sd.franchiseKuyruk=sd.franchiseKuyruk||{}; sd.franchiseRetry=sd.franchiseRetry||{};
+for(const [k,v] of Object.entries(sd.franchiseKuyruk)) if(now-v>30*60e3) delete sd.franchiseKuyruk[k];
+for(const [k,v] of Object.entries(sd.franchiseRetry)) if(now-v>30*864e5) delete sd.franchiseRetry[k];
+const numaraIdleri=Object.keys(NUMARALAR); const kapasite=numaraIdleri.length;
 
-const [bh,bm]=MESAI.baslangic.split(':').map(Number); const [eh,em]=MESAI.bitis.split(':').map(Number);
-function mesaiIci(ms){const x=parts(ms); if(!MESAI.pazar_ara&&x.wd===0)return false; const dk=x.hh*60+x.mi; return dk>=bh*60+bm && dk<eh*60+em;}
-let bekle_until='';
-if(!mesaiIci(now)){ for(let i=0;i<8;i++){ const g=parts(now+i*864e5); const bas=Date.UTC(g.y,g.m-1,g.d,bh,bm)-TR; if(bas>now&&mesaiIci(bas)){bekle_until=new Date(bas).toISOString();break;} } }
+// Adaylar: önce ertesi gün tekrar aranacak ulaşılamayanlar, sonra yeni potansiyeller (eskiden yeniye)
+const adaylar=[];
+if(dk>=hm(TEKRAR_ARAMA_SAATI)){
+  const bugunBaslangic=Date.UTC(t.y,t.m-1,t.d)-TR; let start=0;
+  do{ const r=await bx('crm.deal.list',{filter:{CATEGORY_ID:4,STAGE_ID:ST.ULAS},select:['ID','TITLE','CONTACT_ID','MOVED_TIME'],order:{ID:'ASC'},start});
+      for(const d of (r.result||[])){ const moved=Date.parse(d.MOVED_TIME||''); if(moved&&moved<bugunBaslangic&&!sd.franchiseRetry[d.ID]) adaylar.push({d,deneme:2}); }
+      start=r.next; }while(start);
+}
+const yeni=await bx('crm.deal.list',{filter:{CATEGORY_ID:4,STAGE_ID:ST.POT},select:['ID','TITLE','CONTACT_ID'],order:{ID:'ASC'}});
+for(const d of (yeni.result||[])) adaylar.push({d,deneme:1});
 
-return [{json:{deal_id:dealId,contact_id:String(deal.CONTACT_ID||contact.ID||''),full_name:fullName||firstName||"Değerli Aday",first_name:firstName,phone_e164:phoneE164,phone_valid:!!phoneE164,email,deneme:1,bekle_until,mesai_disi:!!bekle_until}}];''')
+const out=[];
+for(const {d,deneme} of adaylar){
+  if(out.length>=kapasite) break;
+  const id=String(d.ID); if(sd.franchiseKuyruk[id]) continue;
+  sd.franchiseKuyruk[id]=now;
+  try{
+    let c={}; if(d.CONTACT_ID&&String(d.CONTACT_ID)!=='0'){ try{ c=(await bx('crm.contact.get',{id:d.CONTACT_ID})).result||{}; }catch(e){} }
+    const tel=phone(first(c.PHONE));
+    if(!tel){
+      if(deneme===2) sd.franchiseRetry[id]=now;
+      await bx('crm.deal.update',{id,fields:{STAGE_ID:ST.OLUMSUZ,ASSIGNED_BY_ID:SORUMLU_ID},params:{REGISTER_SONET_EVENT:'Y'}});
+      await not(id,'Vapi AI: Kişi kartında geçerli bir telefon numarası bulunamadı; arama yapılamadı.');
+      continue;
+    }
+    if(deneme===1) await bx('crm.deal.update',{id,fields:{STAGE_ID:ST.ARIYOR,ASSIGNED_BY_ID:SORUMLU_ID},params:{REGISTER_SONET_EVENT:'Y'}});
+    else{ sd.franchiseRetry[id]=now; await bx('crm.deal.update',{id,fields:{ASSIGNED_BY_ID:SORUMLU_ID}}); }
+    if(c.ID){ try{ await bx('crm.contact.update',{id:c.ID,fields:{ASSIGNED_BY_ID:SORUMLU_ID},params:{REGISTER_SONET_EVENT:'N'}}); }catch(e){} }
+    sd.numaraSirasi=((sd.numaraSirasi||0)+1)%kapasite;
+    const numaraId=numaraIdleri[sd.numaraSirasi];
+    const firstName=tc(c.NAME||''); const fullName=(firstName+' '+tc(c.LAST_NAME||'')).trim()||tc(d.TITLE||'');
+    out.push({json:{deal_id:id,contact_id:String(d.CONTACT_ID||''),full_name:fullName||'Değerli Aday',first_name:firstName,phone_e164:tel,email:first(c.EMAIL),
+      deneme,phone_number_id:numaraId,arayan_numara:NUMARALAR[numaraId],...aramaDegiskenleri(firstName)}});
+  }catch(e){ delete sd.franchiseKuyruk[id]; }
+}
+return out;''')
 
-iff("Telefon Geçerli mi?", [880, -256], "$json.phone_valid === true")
-iff("Mesai Dışı mı?", [1104, -336], "$json.mesai_disi === true")
-node("Mesai Başlangıcını Bekle", "n8n-nodes-base.wait", 1.1, [1328, -432],
-     {"resume": "specificTime", "dateTime": "={{ $json.bekle_until }}"},
-     webhookId=str(uuid.uuid5(uuid.NAMESPACE_URL, "xre-franchise/wait")))
-
-code("Arama Değişkenleri", [1552, -336], JS_ZAMAN + JS_DEGISKEN + r'''const j=$('Franchise Arama Verisini Hazırla').first().json;
-return [{json:{...j,...aramaDegiskenleri(j.first_name)}}];''')
-
-bx("Bitrix - Yapay Zeka Arıyor + Rüstem", [1776, -336], "crm.deal.update",
-   "{id:$json.deal_id,fields:{STAGE_ID:\"" + ARIYOR + "\",ASSIGNED_BY_ID:" + str(RUSTEM) + "},params:{REGISTER_SONET_EVENT:\"Y\"}}")
-bx("Bitrix - Kişi Sorumlusu Rüstem", [2000, -336], "crm.contact.update",
-   "{id:$('Arama Değişkenleri').first().json.contact_id||0,fields:{ASSIGNED_BY_ID:" + str(RUSTEM) + "},params:{REGISTER_SONET_EVENT:\"N\"}}",
-   on_error=True)
-V = "$('Arama Değişkenleri').first().json"
-vapi_call("Vapi - Franchise Aramasını Başlat", [2224, -336], V)
-iff("Vapi Araması Başladı mı?", [2448, -336], "!!$json.id")
-bx("Bitrix - Not: Arama Başlatılamadı", [2672, -256], "crm.timeline.comment.add",
-   "{fields:{ENTITY_ID:" + V + ".deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: Arama başlatılamadı. Hata: \"+String(($json.error&&($json.error.message||JSON.stringify($json.error)))||$json.message||JSON.stringify($json)).slice(0,500)}}")
-
-H = "$('Franchise Arama Verisini Hazırla').first().json"
-bx("Bitrix - Geçersiz Telefon Olumsuz", [1104, -96], "crm.deal.update",
-   "{id:" + H + ".deal_id,fields:{STAGE_ID:\"" + OLUMSUZ + "\",ASSIGNED_BY_ID:" + str(RUSTEM) + "},params:{REGISTER_SONET_EVENT:\"Y\"}}")
-bx("Bitrix - Not: Geçersiz Telefon", [1328, -96], "crm.timeline.comment.add",
-   "{fields:{ENTITY_ID:" + H + ".deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: Kişi kartında geçerli bir telefon numarası bulunamadı; arama başlatılamadı.\"}}")
+vapi_call("Vapi - Aramayı Başlat", [-16, -176], "$json")
+iff("Vapi Araması Başladı mı?", [208, -176], "!!$json.id")
+bx("Bitrix - Not: Arama Başladı", [432, -256], "crm.timeline.comment.add",
+   "{fields:{ENTITY_ID:$('Arama Kuyruğu (3 numara)').item.json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: \"+$('Arama Kuyruğu (3 numara)').item.json.deneme+\". arama başlatıldı (arayan numara: \"+$('Arama Kuyruğu (3 numara)').item.json.arayan_numara+\").\"}}", on_error=True)
+code("Başarısız Aramayı Kuyruğa Al", [432, -96], r'''const BITRIX='__BX__'; const ST_POT='__POT__';
+const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});
+const k=$('Arama Kuyruğu (3 numara)').item.json; const id=k.deal_id;
+const sd=$getWorkflowStaticData('global'); sd.franchiseHata=sd.franchiseHata||{}; sd.franchiseKuyruk=sd.franchiseKuyruk||{}; sd.franchiseRetry=sd.franchiseRetry||{};
+const n=(sd.franchiseHata[id]||0)+1; sd.franchiseHata[id]=n;
+const e=$json.error; const hata=String((e&&(e.message||JSON.stringify(e)))||$json.message||JSON.stringify($json)).slice(0,400);
+let metin;
+if(n<3){
+  delete sd.franchiseKuyruk[id];
+  if(Number(k.deneme)===1) await bx('crm.deal.update',{id,fields:{STAGE_ID:ST_POT}}); else delete sd.franchiseRetry[id];
+  metin=`Vapi AI: Arama başlatılamadı (${n}/3), birkaç dakika içinde tekrar denenecek. Hata: ${hata}`;
+}else metin=`Vapi AI: Arama 3 kez başlatılamadı, otomatik deneme durduruldu — manuel kontrol edin. Hata: ${hata}`;
+await bx('crm.timeline.comment.add',{fields:{ENTITY_ID:id,ENTITY_TYPE:'deal',COMMENT:metin}});
+return {json:{deal_id:id,deneme_hatasi:n}};''', each=True, onError="continueRegularOutput")
 
 # ================================================================ 2) ARAMA SONUCU
 node("Webhook - Franchise Vapi Sonucu", "n8n-nodes-base.webhook", 2.1, [-464, 368],
@@ -192,7 +206,7 @@ const vars=call.assistantOverrides?.variableValues||{}; const meta={...(raw.meta
 const er=String(call.endedReason||msg.endedReason||'').toLowerCase(); let result=String(s.arama_sonucu||'').trim();
 if(!result && ULASILAMAZ_NEDEN.some(x=>er.includes(x))) result='ulasilamadi';
 const ctype=String(call.type||'').toLowerCase().includes('inbound')?'Gelen':(meta.arama_turu||'Giden');
-return [{json:{event:'call_analyzed',call_id:String(call.id||''),deal_id:String(meta.bitrix_deal_id||meta.bitrix_id||''),contact_id:String(meta.bitrix_contact_id||''),deneme:Number(meta.deneme||1),arama_turu:ctype,ended_reason:er,ended_at:String(msg.endedAt||call.endedAt||''),recording_url:String(artifact.recordingUrl||msg.recordingUrl||''),arama_sonucu:result,appointment_date:String(s.appointment_date||''),aranacak_saat:String(s.aranacak_saat||''),dnc_talebi:s.dnc_talebi===true,extracted_name:String(s.extracted_name||''),xre_bilgi_durumu:String(s.xre_bilgi_durumu||''),ofis_durumu:String(s.ofis_durumu||''),bolge:String(s.bolge||''),ilgi_seviyesi:String(s.ilgi_seviyesi||''),link_istegi:s.link_istegi===true,call_summary:String(s.call_summary||analysis.summary||''),call_successful:s.call_successful===true,user_sentiment:String(s.user_sentiment||''),customer_phone:String(call.customer?.number||meta.customer_phone||'')}}];''')
+return [{json:{event:'call_analyzed',call_id:String(call.id||''),deal_id:String(meta.bitrix_deal_id||meta.bitrix_id||''),contact_id:String(meta.bitrix_contact_id||''),deneme:Number(meta.deneme||1),arama_turu:ctype,ended_reason:er,ended_at:String(msg.endedAt||call.endedAt||''),recording_url:String(artifact.recordingUrl||msg.recordingUrl||''),arama_sonucu:result,appointment_date:String(s.appointment_date||''),aranacak_saat:String(s.aranacak_saat||''),dnc_talebi:s.dnc_talebi===true,extracted_name:String(s.extracted_name||''),xre_bilgi_durumu:String(s.xre_bilgi_durumu||''),ofis_durumu:String(s.ofis_durumu||''),bolge:String(s.bolge||''),ilgi_seviyesi:String(s.ilgi_seviyesi||''),link_istegi:s.link_istegi===true,call_summary:String(s.call_summary||analysis.summary||''),call_successful:s.call_successful===true,user_sentiment:String(s.user_sentiment||''),customer_phone:String(call.customer?.number||meta.customer_phone||''),phone_number_id:String(call.phoneNumberId||msg.phoneNumber?.id||'')}}];''')
 
 iff("Vapi Sonuç Event mi?", [-16, 368], "$json.event === 'call_analyzed'")
 
@@ -360,10 +374,11 @@ const satirlar=[
 await telegram(this,satirlar.join('\n'));
 return [{json:{telegram:'gonderildi'}}];''', onError="continueRegularOutput")
 code("Erccell - Müşteri SMS", [1552, 400], r'''// ===== ERCCELL AYARLARI (diğer flow'daki SMS kullanıcı adı / şifresi) =====
+const j=$('Anlaşmayı Bul + Sonucu Belirle').first().json; const j_numara=()=>j.phone_number_id;
 const SMS_USER='__SMS_USER__'; const SMS_PASSWORD='__SMS_PASS__'; const SMS_BASLIK='XRE';
-const GERI_DONUS_NO='0533 743 60 24'; // Vapi numarası (inbound asistan karşılar)
+const NUMARALAR=__NUMARALAR__;
+const GERI_DONUS_NO=NUMARALAR[j_numara()]||'0533 743 60 24'; // müşteriyi arayan numara (inbound asistan karşılar)
 // ==========================================================================
-const j=$('Anlaşmayı Bul + Sonucu Belirle').first().json;
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
 // Türkçe karakterleri sadeleştir (çalışan West Point akışındaki gibi düz ASCII)
 const tr=s=>String(s).replace(/ı/g,'i').replace(/İ/g,'I').replace(/ş/g,'s').replace(/Ş/g,'S').replace(/ğ/g,'g').replace(/Ğ/g,'G').replace(/ü/g,'u').replace(/Ü/g,'U').replace(/ö/g,'o').replace(/Ö/g,'O').replace(/ç/g,'c').replace(/Ç/g,'C');
@@ -378,7 +393,7 @@ if(j.randevu_var){
   mesaj=`${merhaba}randevunuz ${tarih} saat ${saat} olarak planlanmıştır. XRE'li günler dileriz.`;
 }else if(j.ulasilamadi_sms===1){
   tur='Ulaşılamadı SMS\'i (1. arama)';
-  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi aradık ancak ulaşamadık. ${j.tekrar_tarih}'da tekrar arayacağız. Dilerseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;
+  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi aradık ancak ulaşamadık. ${j.tekrar_tarih}'dan itibaren tekrar arayacağız. Dilerseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;
 }else if(j.ulasilamadi_sms===2){
   tur='Ulaşılamadı SMS\'i (2. arama)';
   mesaj=`${merhaba}XRE Gayrimenkul olarak sizi tekrar aradık ancak ulaşamadık. Görüşmek isterseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;
@@ -404,42 +419,6 @@ node("WhatsApp - Franchise Bilgi Gönder", "n8n-nodes-base.httpRequest", 4.1, [2
           {"name": "message", "value": "Türkiye ve Kıbrıs genelindeki XRE Kurucu 100 Ofis yapılanmasıyla ilgili tanıtım bilgileri: xre.com.tr/ofis-basvuru"}]},
       "options": {}}, onError="continueRegularOutput")
 
-# ================================================================ 3) ULAŞILAMAYANLARI TEKRAR ARA (10:30)
-node("Her Gün 10:30 (Pzt-Cmt)", "n8n-nodes-base.scheduleTrigger", 1.2, [-464, 816],
-     {"rule": {"interval": [{"field": "cronExpression", "expression": "30 10 * * 1-6"}]}})
-
-code("Tekrar Aranacakları Listele", [-240, 816], JS_ZAMAN + JS_KISI + JS_DEGISKEN + r'''const BITRIX='__BX__'; const ST_ULAS='__ULAS__';
-const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});
-const now=Date.now(); const t=parts(now); const bugunBaslangic=Date.UTC(t.y,t.m-1,t.d)-TR;
-// ULAŞILAMAYANLAR aşamasında, dün veya daha önce bu aşamaya düşmüş kartlar
-let start=0; const deals=[];
-do{ const r=await bx('crm.deal.list',{filter:{CATEGORY_ID:4,STAGE_ID:ST_ULAS},select:['ID','TITLE','CONTACT_ID','MOVED_TIME'],order:{ID:'ASC'},start});
-    deals.push(...(r.result||[])); start=r.next; }while(start);
-const sd=$getWorkflowStaticData('global'); sd.franchiseRetry=sd.franchiseRetry||{};
-for(const [k,v] of Object.entries(sd.franchiseRetry)) if(now-v>30*864e5) delete sd.franchiseRetry[k];
-const out=[];
-for(const d of deals){
-  const moved=Date.parse(d.MOVED_TIME||''); if(!moved||moved>=bugunBaslangic) continue;
-  if(sd.franchiseRetry[d.ID]) continue; // 2. arama zaten yapıldı
-  let c={}; if(d.CONTACT_ID&&String(d.CONTACT_ID)!=='0'){ try{ c=(await bx('crm.contact.get',{id:d.CONTACT_ID})).result||{}; }catch(e){} }
-  const tel=phone(first(c.PHONE)); if(!tel) continue;
-  sd.franchiseRetry[d.ID]=now;
-  const firstName=tc(c.NAME||''); const fullName=(firstName+' '+tc(c.LAST_NAME||'')).trim()||tc(d.TITLE||'');
-  out.push({json:{deal_id:String(d.ID),contact_id:String(d.CONTACT_ID||''),full_name:fullName||'Değerli Aday',first_name:firstName,phone_e164:tel,email:first(c.EMAIL),deneme:2,...aramaDegiskenleri(firstName)}});
-}
-return out;''')
-
-vapi_call("Vapi - Tekrar Arama (2. deneme)", [-16, 816], "$json", batching=True)
-iff("Tekrar Arama Başladı mı?", [208, 816], "!!$json.id")
-bx("Bitrix - Not: 2. Arama Başladı", [432, 736], "crm.timeline.comment.add",
-   "{fields:{ENTITY_ID:$('Tekrar Aranacakları Listele').item.json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: Ulaşılamayan müşteri 2. kez aranıyor. Yine ulaşılamazsa OLUMSUZ'a taşınacak.\"}}")
-code("Tekrar İşaretini Kaldır", [432, 896], r'''// Arama başlatılamadıysa ertesi gün 10:30'da yeniden denensin
-const sd=$getWorkflowStaticData('global'); sd.franchiseRetry=sd.franchiseRetry||{};
-const id=$('Tekrar Aranacakları Listele').item.json.deal_id; delete sd.franchiseRetry[id];
-const e=$json.error; return {json:{deal_id:id,hata:String((e&&(e.message||JSON.stringify(e)))||$json.message||JSON.stringify($json)).slice(0,500)}};''', each=True)
-bx("Bitrix - Not: 2. Arama Başlatılamadı", [656, 896], "crm.timeline.comment.add",
-   "{fields:{ENTITY_ID:$json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: 2. arama başlatılamadı, ertesi gün 10:30'da tekrar denenecek. Hata: \"+$json.hata}}")
-
 # ================================================================ 4) GÜN SONU RAPORU (20:00)
 node("Her Gün 20:00", "n8n-nodes-base.scheduleTrigger", 1.2, [-464, 1136],
      {"rule": {"interval": [{"field": "cronExpression", "expression": "0 20 * * *"}]}})
@@ -453,11 +432,12 @@ node("Vapi - Bugünkü Aramalar", "n8n-nodes-base.httpRequest", 4.1, [-16, 1136]
           {"name": "createdAtLt", "value": "={{ $json.bitis }}"},
           {"name": "limit", "value": "1000"}]}, "options": {}},
      credentials=VAPI_CRED, retryOnFail=True, alwaysOutputData=True)
-code("Günlük Rapor - Telegram", [208, 1136], JS_SONUC_ALANI + JS_TELEGRAM + r'''const BITRIX='__BX__'; const PHONE_ID='__PHONE_ID__'; const ASISTANLAR=['__AS_OUT__','__AS_IN__'];
+code("Günlük Rapor - Telegram", [208, 1136], JS_SONUC_ALANI + JS_TELEGRAM + r'''const BITRIX='__BX__'; const NUMARALAR=__NUMARALAR__; const ASISTANLAR=['__AS_OUT__','__AS_IN__'];
 const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});
 const z=$('Rapor Zaman Aralığı').first().json;
 let calls=[]; for(const it of $input.all()){const v=it.json; if(Array.isArray(v))calls.push(...v); else if(v&&Array.isArray(v.results))calls.push(...v.results); else if(v&&v.id)calls.push(v);}
-calls=calls.filter(c=>c.phoneNumberId===PHONE_ID||ASISTANLAR.includes(c.assistantId));
+calls=calls.filter(c=>NUMARALAR[c.phoneNumberId]||ASISTANLAR.includes(c.assistantId));
+const numaraBazinda={};
 const aranan=new Set(),gelen=new Set(),iletisim=new Set(),randevu=new Set(),olumsuz=new Set(),girisimDisi=new Set();
 let saniye=0,maliyet=0,giden=0,gelenSayi=0;
 for(const c of calls){
@@ -468,7 +448,7 @@ for(const c of calls){
   const dur=(c.startedAt&&c.endedAt)?Math.max(0,(Date.parse(c.endedAt)-Date.parse(c.startedAt))/1000):0;
   const ulasilamadi=!c.startedAt||ULASILAMAZ_NEDEN.some(x=>er.includes(x))||ULASILAMADI.includes(r);
   maliyet+=Number(c.cost||0);
-  if(inbound){gelen.add(num);gelenSayi++;} else {aranan.add(num);giden++;}
+  if(inbound){gelen.add(num);gelenSayi++;} else {aranan.add(num);giden++; const nn=NUMARALAR[c.phoneNumberId]||'diğer'; numaraBazinda[nn]=(numaraBazinda[nn]||0)+1;}
   if(!ulasilamadi){iletisim.add(num); saniye+=dur;}
   if(r.startsWith('randevu')) randevu.add(num);
   else if(s.dnc_talebi===true||OLUMSUZLAR.includes(r)) olumsuz.add(num);
@@ -488,7 +468,9 @@ const metin=[
   `📵 Ulaşılamayan: <b>${ulasilamayan}</b>`,
   `⏱ Toplam konuşma: <b>${dk.toFixed(1).replace('.',',')} dk</b>`,
   '',
-  `🔁 Yarın 10:30'da tekrar aranacak havuz: ${bekleyen}`,
+  ...(Object.keys(numaraBazinda).length?['📱 Numara bazında giden arama:',...Object.entries(numaraBazinda).map(([k,v])=>`   ${esc(k)}: ${v}`)]:[]),
+  '',
+  `🔁 Yarın 10:30'dan itibaren tekrar aranacak havuz: ${bekleyen}`,
   `💵 Vapi maliyeti: $${maliyet.toFixed(2)}`
 ].join('\n');
 await telegram(this,metin);
@@ -502,14 +484,8 @@ def link(a, b, out=0):
         m.append([])
     m[out].append({"node": b, "type": "main", "index": 0})
 
-for a, b in [("Webhook - Franchise Anlaşmalar", "Deal ID Al"), ("Deal ID Al", "Bitrix - Deal Detayını Çek"),
-             ("Bitrix - Deal Detayını Çek", "Potansiyel Müşteri mi?"), ("Potansiyel Müşteri mi?", "Bitrix - Kişi Detayını Çek"),
-             ("Bitrix - Kişi Detayını Çek", "Franchise Arama Verisini Hazırla"), ("Franchise Arama Verisini Hazırla", "Telefon Geçerli mi?"),
-             ("Telefon Geçerli mi?", "Mesai Dışı mı?"), ("Mesai Dışı mı?", "Mesai Başlangıcını Bekle"),
-             ("Mesai Başlangıcını Bekle", "Arama Değişkenleri"),
-             ("Arama Değişkenleri", "Bitrix - Yapay Zeka Arıyor + Rüstem"), ("Bitrix - Yapay Zeka Arıyor + Rüstem", "Bitrix - Kişi Sorumlusu Rüstem"),
-             ("Bitrix - Kişi Sorumlusu Rüstem", "Vapi - Franchise Aramasını Başlat"), ("Vapi - Franchise Aramasını Başlat", "Vapi Araması Başladı mı?"),
-             ("Bitrix - Geçersiz Telefon Olumsuz", "Bitrix - Not: Geçersiz Telefon"),
+for a, b in [("Her 3 Dakikada", "Arama Kuyruğu (3 numara)"), ("Arama Kuyruğu (3 numara)", "Vapi - Aramayı Başlat"),
+             ("Vapi - Aramayı Başlat", "Vapi Araması Başladı mı?"), ("Vapi Araması Başladı mı?", "Bitrix - Not: Arama Başladı"),
              ("Webhook - Franchise Vapi Sonucu", "Vapi - Franchise Normalize"), ("Vapi - Franchise Normalize", "Vapi Sonuç Event mi?"),
              ("Vapi Sonuç Event mi?", "Anlaşmayı Bul + Sonucu Belirle"), ("Anlaşmayı Bul + Sonucu Belirle", "Bitrix - Anlaşmayı Güncelle + Rüstem"),
              ("Bitrix - Anlaşmayı Güncelle + Rüstem", "Bitrix - Sonuç Kişi Sorumlusu Rüstem"), ("Bitrix - Sonuç Kişi Sorumlusu Rüstem", "Bitrix - Görüşme Notu"),
@@ -517,18 +493,12 @@ for a, b in [("Webhook - Franchise Anlaşmalar", "Deal ID Al"), ("Deal ID Al", "
              ("Bitrix - Randevu Aktivitesi (Rüstem)", "Telegram - Randevu Bildirimi"), ("Telegram - Randevu Bildirimi", "Erccell - Müşteri SMS"),
              ("Erccell - Müşteri SMS", "SMS Notu Var mı?"), ("SMS Notu Var mı?", "Bitrix - Not: SMS"), ("Bitrix - Not: SMS", "WhatsApp İzni Var mı?"),
              ("WhatsApp İzni Var mı?", "WhatsApp - Franchise Bilgi Gönder"),
-             ("Her Gün 10:30 (Pzt-Cmt)", "Tekrar Aranacakları Listele"), ("Tekrar Aranacakları Listele", "Vapi - Tekrar Arama (2. deneme)"),
-             ("Vapi - Tekrar Arama (2. deneme)", "Tekrar Arama Başladı mı?"), ("Tekrar Arama Başladı mı?", "Bitrix - Not: 2. Arama Başladı"),
-             ("Tekrar İşaretini Kaldır", "Bitrix - Not: 2. Arama Başlatılamadı"),
              ("Her Gün 20:00", "Rapor Zaman Aralığı"), ("Rapor Zaman Aralığı", "Vapi - Bugünkü Aramalar"),
              ("Vapi - Bugünkü Aramalar", "Günlük Rapor - Telegram")]:
     link(a, b)
-link("Telefon Geçerli mi?", "Bitrix - Geçersiz Telefon Olumsuz", 1)
-link("Mesai Dışı mı?", "Arama Değişkenleri", 1)
-link("Vapi Araması Başladı mı?", "Bitrix - Not: Arama Başlatılamadı", 1)
+link("Vapi Araması Başladı mı?", "Başarısız Aramayı Kuyruğa Al", 1)
 link("Randevu mu?", "Erccell - Müşteri SMS", 1)
 link("SMS Notu Var mı?", "WhatsApp İzni Var mı?", 1)
-link("Tekrar Arama Başladı mı?", "Tekrar İşaretini Kaldır", 1)
 
 names = [n["name"] for n in nodes]
 assert len(names) == len(set(names))

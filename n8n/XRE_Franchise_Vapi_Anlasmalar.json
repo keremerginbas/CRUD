@@ -3,26 +3,30 @@
   "nodes": [
     {
       "parameters": {
-        "httpMethod": "POST",
-        "path": "franchise-vapi-deal-trigger",
-        "options": {}
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/3 * * * *"
+            }
+          ]
+        }
       },
-      "id": "ae2cc1ff-2c76-5b87-8dc7-34f48fcf4e4c",
-      "name": "Webhook - Franchise Anlaşmalar",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 2.1,
+      "id": "2aa7bebf-6d21-5fe6-9e4d-44bc2fb0b48b",
+      "name": "Her 3 Dakikada",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
       "position": [
         -464,
         -176
-      ],
-      "webhookId": "99988d02-dd95-44fa-bfff-6f487126cbab"
+      ]
     },
     {
       "parameters": {
-        "jsCode": "const j=$input.first().json||{}; const b=j.body||{}; const q=j.query||{};\nconst raw=b[\"document_id[2]\"]||b[\"data[FIELDS][ID]\"]||b[\"data[FIELDS_AFTER][ID]\"]||b.id||q.id||\"\";\nconst dealId=String(raw).replace(\"DEAL_\",\"\").trim(); if(!dealId)return [];\nreturn [{json:{deal_id:dealId}}];"
+        "jsCode": "const TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction first(v){ if(!v)return \"\"; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||\"\"; if(typeof v===\"object\")return v.VALUE||v.value||\"\"; return String(v);}\nfunction tc(s){return String(s||\"\").toLocaleLowerCase(\"tr-TR\").split(\" \").filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase(\"tr-TR\")+w.slice(1)).join(\" \");}\nfunction phone(raw){let d=String(raw||\"\").replace(/\\D/g,\"\"); if(d.startsWith(\"0090\"))d=d.slice(2); if(d.startsWith(\"90\")&&d.length===12)return \"+\"+d; if(d.startsWith(\"0\")&&d.length===11)return \"+90\"+d.slice(1); if(d.length===10&&d.startsWith(\"5\"))return \"+90\"+d; return \"\";}\nfunction aramaDegiskenleri(firstName){\n  const now=Date.now(); const t=parts(now); const takvim=[];\n  for(let i=0;i<21;i++){const g=parts(now+i*864e5); takvim.push(`${GUN[g.wd]} ${p2(g.d)}.${p2(g.m)}.${g.y} = ${g.y}-${p2(g.m)}-${p2(g.d)}${i===0?' (bugün)':i===1?' (yarın)':''}`);}\n  return {start_mode:firstName?'confirm_name':'ask_name',\n    dynamic_greeting:firstName?`Merhabalar, ben iksre Gayrimenkul'den Selin. ${firstName} ile mi görüşüyorum?`:`Merhabalar, ben iksre Gayrimenkul'den Selin. Kiminle görüşüyorum acaba?`,\n    bugunun_tarihi:`${p2(t.d)}.${p2(t.m)}.${t.y}`, bugun_iso:`${t.y}-${p2(t.m)}-${p2(t.d)}`, bugun_gun:GUN[t.wd],\n    su_anki_saat:`${p2(t.hh)}:${p2(t.mi)}`, takvim:takvim.join('\\n'), arama_turu:'Giden'};\n}\n// ===== AYARLAR =====\nconst BITRIX='https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK';\nconst ST={POT:'C4:UC_E68BUC',ARIYOR:'C4:UC_5688TP',ULAS:'C4:UC_VNGV9N',OLUMSUZ:'C4:UC_B3W6CW'};\nconst SORUMLU_ID=27332; // Rüstem Sarıoğlan\nconst NUMARALAR={\"8c3a1ba4-5ae9-46c7-8ea7-85df0654295c\": \"0533 743 60 24\", \"536bf387-1d12-4586-ac73-94db146dfe05\": \"0533 743 68 03\", \"d0c20592-51aa-4bd3-a6e3-6fe01e0e9afd\": \"0533 743 60 04\"}; // Vapi numara ID -> görünen numara\nconst MESAI={baslangic:'09:30',bitis:'20:00',pazar_ara:false};\nconst TEKRAR_ARAMA_SAATI='10:30'; // ulaşılamayanlar ertesi gün bu saatten itibaren kuyruğa girer\n// ===================\nconst bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});\nconst not=(id,text)=>bx('crm.timeline.comment.add',{fields:{ENTITY_ID:id,ENTITY_TYPE:'deal',COMMENT:text}}).catch(()=>{});\nconst now=Date.now(); const t=parts(now); const dk=t.hh*60+t.mi;\nconst hm=s=>{const [h,m]=s.split(':').map(Number); return h*60+m;};\nif((!MESAI.pazar_ara&&t.wd===0)||dk<hm(MESAI.baslangic)||dk>=hm(MESAI.bitis)) return [];\n\nconst sd=$getWorkflowStaticData('global');\nsd.franchiseKuyruk=sd.franchiseKuyruk||{}; sd.franchiseRetry=sd.franchiseRetry||{};\nfor(const [k,v] of Object.entries(sd.franchiseKuyruk)) if(now-v>30*60e3) delete sd.franchiseKuyruk[k];\nfor(const [k,v] of Object.entries(sd.franchiseRetry)) if(now-v>30*864e5) delete sd.franchiseRetry[k];\nconst numaraIdleri=Object.keys(NUMARALAR); const kapasite=numaraIdleri.length;\n\n// Adaylar: önce ertesi gün tekrar aranacak ulaşılamayanlar, sonra yeni potansiyeller (eskiden yeniye)\nconst adaylar=[];\nif(dk>=hm(TEKRAR_ARAMA_SAATI)){\n  const bugunBaslangic=Date.UTC(t.y,t.m-1,t.d)-TR; let start=0;\n  do{ const r=await bx('crm.deal.list',{filter:{CATEGORY_ID:4,STAGE_ID:ST.ULAS},select:['ID','TITLE','CONTACT_ID','MOVED_TIME'],order:{ID:'ASC'},start});\n      for(const d of (r.result||[])){ const moved=Date.parse(d.MOVED_TIME||''); if(moved&&moved<bugunBaslangic&&!sd.franchiseRetry[d.ID]) adaylar.push({d,deneme:2}); }\n      start=r.next; }while(start);\n}\nconst yeni=await bx('crm.deal.list',{filter:{CATEGORY_ID:4,STAGE_ID:ST.POT},select:['ID','TITLE','CONTACT_ID'],order:{ID:'ASC'}});\nfor(const d of (yeni.result||[])) adaylar.push({d,deneme:1});\n\nconst out=[];\nfor(const {d,deneme} of adaylar){\n  if(out.length>=kapasite) break;\n  const id=String(d.ID); if(sd.franchiseKuyruk[id]) continue;\n  sd.franchiseKuyruk[id]=now;\n  try{\n    let c={}; if(d.CONTACT_ID&&String(d.CONTACT_ID)!=='0'){ try{ c=(await bx('crm.contact.get',{id:d.CONTACT_ID})).result||{}; }catch(e){} }\n    const tel=phone(first(c.PHONE));\n    if(!tel){\n      if(deneme===2) sd.franchiseRetry[id]=now;\n      await bx('crm.deal.update',{id,fields:{STAGE_ID:ST.OLUMSUZ,ASSIGNED_BY_ID:SORUMLU_ID},params:{REGISTER_SONET_EVENT:'Y'}});\n      await not(id,'Vapi AI: Kişi kartında geçerli bir telefon numarası bulunamadı; arama yapılamadı.');\n      continue;\n    }\n    if(deneme===1) await bx('crm.deal.update',{id,fields:{STAGE_ID:ST.ARIYOR,ASSIGNED_BY_ID:SORUMLU_ID},params:{REGISTER_SONET_EVENT:'Y'}});\n    else{ sd.franchiseRetry[id]=now; await bx('crm.deal.update',{id,fields:{ASSIGNED_BY_ID:SORUMLU_ID}}); }\n    if(c.ID){ try{ await bx('crm.contact.update',{id:c.ID,fields:{ASSIGNED_BY_ID:SORUMLU_ID},params:{REGISTER_SONET_EVENT:'N'}}); }catch(e){} }\n    sd.numaraSirasi=((sd.numaraSirasi||0)+1)%kapasite;\n    const numaraId=numaraIdleri[sd.numaraSirasi];\n    const firstName=tc(c.NAME||''); const fullName=(firstName+' '+tc(c.LAST_NAME||'')).trim()||tc(d.TITLE||'');\n    out.push({json:{deal_id:id,contact_id:String(d.CONTACT_ID||''),full_name:fullName||'Değerli Aday',first_name:firstName,phone_e164:tel,email:first(c.EMAIL),\n      deneme,phone_number_id:numaraId,arayan_numara:NUMARALAR[numaraId],...aramaDegiskenleri(firstName)}});\n  }catch(e){ delete sd.franchiseKuyruk[id]; }\n}\nreturn out;"
       },
-      "id": "1263d45a-b2ff-5ade-8c08-f624b3734d9d",
-      "name": "Deal ID Al",
+      "id": "e1fc04e1-3f9f-51fb-8014-faf359bc26af",
+      "name": "Arama Kuyruğu (3 numara)",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -32,193 +36,22 @@
     },
     {
       "parameters": {
-        "url": "=https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.deal.get.json?id={{ $json.deal_id }}",
-        "options": {}
-      },
-      "id": "83e7309d-55cf-5110-8e9b-c3513121c4b6",
-      "name": "Bitrix - Deal Detayını Çek",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        -16,
-        -176
-      ],
-      "retryOnFail": true
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ !!$json.result && String($json.result.CATEGORY_ID) === '4' && String($json.result.STAGE_ID) === 'C4:UC_E68BUC' }}",
-              "value2": true
-            }
-          ]
-        }
-      },
-      "id": "549f55f9-f4cd-5cee-9485-6825501181a0",
-      "name": "Potansiyel Müşteri mi?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        208,
-        -176
-      ]
-    },
-    {
-      "parameters": {
-        "url": "=https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.contact.get.json?id={{ $json.result.CONTACT_ID || 0 }}",
-        "options": {}
-      },
-      "id": "104bdcd3-1546-53a4-9441-be78ac38623d",
-      "name": "Bitrix - Kişi Detayını Çek",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        432,
-        -256
-      ],
-      "retryOnFail": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "jsCode": "const TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction first(v){ if(!v)return \"\"; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||\"\"; if(typeof v===\"object\")return v.VALUE||v.value||\"\"; return String(v);}\nfunction tc(s){return String(s||\"\").toLocaleLowerCase(\"tr-TR\").split(\" \").filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase(\"tr-TR\")+w.slice(1)).join(\" \");}\nfunction phone(raw){let d=String(raw||\"\").replace(/\\D/g,\"\"); if(d.startsWith(\"0090\"))d=d.slice(2); if(d.startsWith(\"90\")&&d.length===12)return \"+\"+d; if(d.startsWith(\"0\")&&d.length===11)return \"+90\"+d.slice(1); if(d.length===10&&d.startsWith(\"5\"))return \"+90\"+d; return \"\";}\n// Mesai saatleri (Türkiye saati). Bu aralık dışında eklenen kayıtlar bir sonraki mesai başlangıcında aranır.\nconst MESAI={baslangic:'09:30',bitis:'20:00',pazar_ara:false};\nconst staticData=$getWorkflowStaticData('global');\nstaticData.franchiseVapiProcessed=staticData.franchiseVapiProcessed||{};\nconst deal=$('Bitrix - Deal Detayını Çek').first().json.result||{};\nconst contact=($input.first().json||{}).result||{};\nconst dealId=String(deal.ID||''); if(!dealId)return [];\nconst now=Date.now(); const last=staticData.franchiseVapiProcessed[dealId];\nif(last && (now-last)<3600000) return [];\nstaticData.franchiseVapiProcessed[dealId]=now;\nfor(const [k,v] of Object.entries(staticData.franchiseVapiProcessed)){ if(now-v>7*864e5) delete staticData.franchiseVapiProcessed[k]; }\n\nconst firstName=tc(contact.NAME||deal.NAME||\"\"); const lastName=tc(contact.LAST_NAME||deal.LAST_NAME||\"\");\nconst fullName=(firstName+\" \"+lastName).trim()||tc(deal.TITLE||\"\");\nconst phoneE164=phone(first(contact.PHONE))||phone(first(deal.PHONE));\nconst email=first(contact.EMAIL)||first(deal.EMAIL);\n\nconst [bh,bm]=MESAI.baslangic.split(':').map(Number); const [eh,em]=MESAI.bitis.split(':').map(Number);\nfunction mesaiIci(ms){const x=parts(ms); if(!MESAI.pazar_ara&&x.wd===0)return false; const dk=x.hh*60+x.mi; return dk>=bh*60+bm && dk<eh*60+em;}\nlet bekle_until='';\nif(!mesaiIci(now)){ for(let i=0;i<8;i++){ const g=parts(now+i*864e5); const bas=Date.UTC(g.y,g.m-1,g.d,bh,bm)-TR; if(bas>now&&mesaiIci(bas)){bekle_until=new Date(bas).toISOString();break;} } }\n\nreturn [{json:{deal_id:dealId,contact_id:String(deal.CONTACT_ID||contact.ID||''),full_name:fullName||firstName||\"Değerli Aday\",first_name:firstName,phone_e164:phoneE164,phone_valid:!!phoneE164,email,deneme:1,bekle_until,mesai_disi:!!bekle_until}}];"
-      },
-      "id": "487b4573-7afb-5dd4-ae4a-29fa551ba850",
-      "name": "Franchise Arama Verisini Hazırla",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        656,
-        -256
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ $json.phone_valid === true }}",
-              "value2": true
-            }
-          ]
-        }
-      },
-      "id": "d9e9a84a-0258-5ac8-9bda-2c1312eb22a4",
-      "name": "Telefon Geçerli mi?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        880,
-        -256
-      ]
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ $json.mesai_disi === true }}",
-              "value2": true
-            }
-          ]
-        }
-      },
-      "id": "e256a2af-08e4-58b4-b0df-6da0dc9d2345",
-      "name": "Mesai Dışı mı?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        1104,
-        -336
-      ]
-    },
-    {
-      "parameters": {
-        "resume": "specificTime",
-        "dateTime": "={{ $json.bekle_until }}"
-      },
-      "id": "6e5e775b-cc8d-529d-8c0d-fab315f4e4d4",
-      "name": "Mesai Başlangıcını Bekle",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        1328,
-        -432
-      ],
-      "webhookId": "85a48ef9-ef1b-55c6-8468-a1cd3c5876a3"
-    },
-    {
-      "parameters": {
-        "jsCode": "const TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction aramaDegiskenleri(firstName){\n  const now=Date.now(); const t=parts(now); const takvim=[];\n  for(let i=0;i<21;i++){const g=parts(now+i*864e5); takvim.push(`${GUN[g.wd]} ${p2(g.d)}.${p2(g.m)}.${g.y} = ${g.y}-${p2(g.m)}-${p2(g.d)}${i===0?' (bugün)':i===1?' (yarın)':''}`);}\n  return {start_mode:firstName?'confirm_name':'ask_name',\n    dynamic_greeting:firstName?`Merhabalar, ben iksre Gayrimenkul'den Selin. ${firstName} ile mi görüşüyorum?`:`Merhabalar, ben iksre Gayrimenkul'den Selin. Kiminle görüşüyorum acaba?`,\n    bugunun_tarihi:`${p2(t.d)}.${p2(t.m)}.${t.y}`, bugun_iso:`${t.y}-${p2(t.m)}-${p2(t.d)}`, bugun_gun:GUN[t.wd],\n    su_anki_saat:`${p2(t.hh)}:${p2(t.mi)}`, takvim:takvim.join('\\n'), arama_turu:'Giden'};\n}\nconst j=$('Franchise Arama Verisini Hazırla').first().json;\nreturn [{json:{...j,...aramaDegiskenleri(j.first_name)}}];"
-      },
-      "id": "922045ee-5849-5bcf-bc9c-fa529fc70614",
-      "name": "Arama Değişkenleri",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1552,
-        -336
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.deal.update.json",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({id:$json.deal_id,fields:{STAGE_ID:\"C4:UC_5688TP\",ASSIGNED_BY_ID:27332},params:{REGISTER_SONET_EVENT:\"Y\"}}) }}",
-        "options": {}
-      },
-      "id": "5050289c-1016-584b-a965-d06996526bec",
-      "name": "Bitrix - Yapay Zeka Arıyor + Rüstem",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1776,
-        -336
-      ],
-      "retryOnFail": true
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.contact.update.json",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({id:$('Arama Değişkenleri').first().json.contact_id||0,fields:{ASSIGNED_BY_ID:27332},params:{REGISTER_SONET_EVENT:\"N\"}}) }}",
-        "options": {}
-      },
-      "id": "7e273522-cca3-5a7f-9194-fb2059a112cc",
-      "name": "Bitrix - Kişi Sorumlusu Rüstem",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        2000,
-        -336
-      ],
-      "retryOnFail": true,
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
         "method": "POST",
         "url": "https://api.vapi.ai/call",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\nassistantId:\"65a798f1-95dc-487f-9d60-cfa10994d3fb\",\nphoneNumberId:\"8c3a1ba4-5ae9-46c7-8ea7-85df0654295c\",\ncustomer:{number:$('Arama Değişkenleri').first().json.phone_e164,name:$('Arama Değişkenleri').first().json.full_name},\nassistantOverrides:{variableValues:{\nuser_name:$('Arama Değişkenleri').first().json.full_name,\nisim:$('Arama Değişkenleri').first().json.first_name,\nstart_mode:$('Arama Değişkenleri').first().json.start_mode,\ndynamic_greeting:$('Arama Değişkenleri').first().json.dynamic_greeting,\nbitrix_id:$('Arama Değişkenleri').first().json.deal_id,\nbitrix_deal_id:$('Arama Değişkenleri').first().json.deal_id,\ncustomer_phone:$('Arama Değişkenleri').first().json.phone_e164,\ncustomer_email:$('Arama Değişkenleri').first().json.email,\nbugunun_tarihi:$('Arama Değişkenleri').first().json.bugunun_tarihi,\nbugun_iso:$('Arama Değişkenleri').first().json.bugun_iso,\nbugun_gun:$('Arama Değişkenleri').first().json.bugun_gun,\nsu_anki_saat:$('Arama Değişkenleri').first().json.su_anki_saat,\ntakvim:$('Arama Değişkenleri').first().json.takvim,\narama_turu:\"Giden\",\ndeneme:String($('Arama Değişkenleri').first().json.deneme)\n}},\nmetadata:{bitrix_deal_id:$('Arama Değişkenleri').first().json.deal_id,bitrix_contact_id:$('Arama Değişkenleri').first().json.contact_id,project:\"franchise\",arama_turu:\"Giden\",deneme:String($('Arama Değişkenleri').first().json.deneme)}\n}) }}",
+        "jsonBody": "={{ JSON.stringify({\nassistantId:\"65a798f1-95dc-487f-9d60-cfa10994d3fb\",\nphoneNumberId:$json.phone_number_id,\ncustomer:{number:$json.phone_e164,name:$json.full_name},\nassistantOverrides:{variableValues:{\nuser_name:$json.full_name,\nisim:$json.first_name,\nstart_mode:$json.start_mode,\ndynamic_greeting:$json.dynamic_greeting,\nbitrix_id:$json.deal_id,\nbitrix_deal_id:$json.deal_id,\ncustomer_phone:$json.phone_e164,\ncustomer_email:$json.email,\nbugunun_tarihi:$json.bugunun_tarihi,\nbugun_iso:$json.bugun_iso,\nbugun_gun:$json.bugun_gun,\nsu_anki_saat:$json.su_anki_saat,\ntakvim:$json.takvim,\narama_turu:\"Giden\",\ndeneme:String($json.deneme)\n}},\nmetadata:{bitrix_deal_id:$json.deal_id,bitrix_contact_id:$json.contact_id,arayan_numara:$json.arayan_numara,project:\"franchise\",arama_turu:\"Giden\",deneme:String($json.deneme)}\n}) }}",
         "options": {}
       },
-      "id": "59074f8d-11a2-5fa9-b643-7a58a064afe2",
-      "name": "Vapi - Franchise Aramasını Başlat",
+      "id": "4aa8bf63-4130-5477-9a2d-32d8f1f26a7a",
+      "name": "Vapi - Aramayı Başlat",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        2224,
-        -336
+        -16,
+        -176
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -244,8 +77,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 1,
       "position": [
-        2448,
-        -336
+        208,
+        -176
       ]
     },
     {
@@ -254,56 +87,34 @@
         "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.timeline.comment.add.json",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({fields:{ENTITY_ID:$('Arama Değişkenleri').first().json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: Arama başlatılamadı. Hata: \"+String(($json.error&&($json.error.message||JSON.stringify($json.error)))||$json.message||JSON.stringify($json)).slice(0,500)}}) }}",
+        "jsonBody": "={{ JSON.stringify({fields:{ENTITY_ID:$('Arama Kuyruğu (3 numara)').item.json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: \"+$('Arama Kuyruğu (3 numara)').item.json.deneme+\". arama başlatıldı (arayan numara: \"+$('Arama Kuyruğu (3 numara)').item.json.arayan_numara+\").\"}}) }}",
         "options": {}
       },
-      "id": "f1f98434-227c-528f-a6c1-aeecbc969375",
-      "name": "Bitrix - Not: Arama Başlatılamadı",
+      "id": "6c6a2183-bde0-5b81-939f-84ffa3deb814",
+      "name": "Bitrix - Not: Arama Başladı",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.1,
       "position": [
-        2672,
+        432,
         -256
       ],
-      "retryOnFail": true
+      "retryOnFail": true,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.deal.update.json",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({id:$('Franchise Arama Verisini Hazırla').first().json.deal_id,fields:{STAGE_ID:\"C4:UC_B3W6CW\",ASSIGNED_BY_ID:27332},params:{REGISTER_SONET_EVENT:\"Y\"}}) }}",
-        "options": {}
+        "mode": "runOnceForEachItem",
+        "jsCode": "const BITRIX='https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK'; const ST_POT='C4:UC_E68BUC';\nconst bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});\nconst k=$('Arama Kuyruğu (3 numara)').item.json; const id=k.deal_id;\nconst sd=$getWorkflowStaticData('global'); sd.franchiseHata=sd.franchiseHata||{}; sd.franchiseKuyruk=sd.franchiseKuyruk||{}; sd.franchiseRetry=sd.franchiseRetry||{};\nconst n=(sd.franchiseHata[id]||0)+1; sd.franchiseHata[id]=n;\nconst e=$json.error; const hata=String((e&&(e.message||JSON.stringify(e)))||$json.message||JSON.stringify($json)).slice(0,400);\nlet metin;\nif(n<3){\n  delete sd.franchiseKuyruk[id];\n  if(Number(k.deneme)===1) await bx('crm.deal.update',{id,fields:{STAGE_ID:ST_POT}}); else delete sd.franchiseRetry[id];\n  metin=`Vapi AI: Arama başlatılamadı (${n}/3), birkaç dakika içinde tekrar denenecek. Hata: ${hata}`;\n}else metin=`Vapi AI: Arama 3 kez başlatılamadı, otomatik deneme durduruldu — manuel kontrol edin. Hata: ${hata}`;\nawait bx('crm.timeline.comment.add',{fields:{ENTITY_ID:id,ENTITY_TYPE:'deal',COMMENT:metin}});\nreturn {json:{deal_id:id,deneme_hatasi:n}};"
       },
-      "id": "6bcdfca6-d52d-5acf-8a29-77022aaca53f",
-      "name": "Bitrix - Geçersiz Telefon Olumsuz",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
+      "id": "64f5211e-8d35-5b5a-acd8-bb580b8b5e6e",
+      "name": "Başarısız Aramayı Kuyruğa Al",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
-        1104,
+        432,
         -96
       ],
-      "retryOnFail": true
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.timeline.comment.add.json",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({fields:{ENTITY_ID:$('Franchise Arama Verisini Hazırla').first().json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: Kişi kartında geçerli bir telefon numarası bulunamadı; arama başlatılamadı.\"}}) }}",
-        "options": {}
-      },
-      "id": "e3384fe5-4f90-5753-a8cf-75502feb8633",
-      "name": "Bitrix - Not: Geçersiz Telefon",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        1328,
-        -96
-      ],
-      "retryOnFail": true
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -323,7 +134,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function fs(v,depth=0){if(!v||typeof v!=='object'||depth>6)return{}; if(v.franchise_call_result&&typeof v.franchise_call_result==='object')return v.franchise_call_result; const ks=['arama_sonucu','appointment_date','aranacak_saat','dnc_talebi','extracted_name','xre_bilgi_durumu','ofis_durumu','bolge','ilgi_seviyesi','link_istegi','arama_turu','call_summary','call_successful','user_sentiment']; if(ks.some(k=>Object.prototype.hasOwnProperty.call(v,k)))return v; if(Array.isArray(v)){for(const x of v){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} for(const x of Object.values(v)){if(x&&typeof x==='object'){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} return{};}\nconst ULASILAMAZ_NEDEN=['did-not-answer','no-answer','busy','voicemail','failed','error'];\nfunction norm(s){return String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[\\s-]+/g,'_').trim();}\nconst OLUMSUZLAR=['olumsuz','ilgilenmiyor','ilgisiz','istemiyor','red','reddetti','dnc','aranmak_istemiyor'];\nconst ULASILAMADI=['ulasilamadi','cevapsiz','mesgul','sesli_mesaj','telesekreter','yanlis_numara'];\nconst input=$input.first().json||{}; const raw=input.body||input; const msg=raw.message||raw; const call=msg.call||raw.call||{}; const analysis=msg.analysis||call.analysis||raw.analysis||{}; const artifact=msg.artifact||call.artifact||raw.artifact||{};\nconst eventType=String(msg.type||raw.type||''); if(eventType!=='end-of-call-report') return [{json:{event:'vapi_ignored'}}];\nlet s={}; for(const c of [analysis.structuredData,analysis.structuredDataMulti,msg.structuredOutputs,msg.structuredOutput,artifact.structuredOutputs,artifact.structuredOutput,call.structuredOutputs,call.structuredOutput]){const r=fs(c); if(Object.keys(r).length){s=r;break;}}\nconst vars=call.assistantOverrides?.variableValues||{}; const meta={...(raw.metadata||{}),...(msg.metadata||{}),...(call.metadata||{}),...(vars||{})};\nconst er=String(call.endedReason||msg.endedReason||'').toLowerCase(); let result=String(s.arama_sonucu||'').trim();\nif(!result && ULASILAMAZ_NEDEN.some(x=>er.includes(x))) result='ulasilamadi';\nconst ctype=String(call.type||'').toLowerCase().includes('inbound')?'Gelen':(meta.arama_turu||'Giden');\nreturn [{json:{event:'call_analyzed',call_id:String(call.id||''),deal_id:String(meta.bitrix_deal_id||meta.bitrix_id||''),contact_id:String(meta.bitrix_contact_id||''),deneme:Number(meta.deneme||1),arama_turu:ctype,ended_reason:er,ended_at:String(msg.endedAt||call.endedAt||''),recording_url:String(artifact.recordingUrl||msg.recordingUrl||''),arama_sonucu:result,appointment_date:String(s.appointment_date||''),aranacak_saat:String(s.aranacak_saat||''),dnc_talebi:s.dnc_talebi===true,extracted_name:String(s.extracted_name||''),xre_bilgi_durumu:String(s.xre_bilgi_durumu||''),ofis_durumu:String(s.ofis_durumu||''),bolge:String(s.bolge||''),ilgi_seviyesi:String(s.ilgi_seviyesi||''),link_istegi:s.link_istegi===true,call_summary:String(s.call_summary||analysis.summary||''),call_successful:s.call_successful===true,user_sentiment:String(s.user_sentiment||''),customer_phone:String(call.customer?.number||meta.customer_phone||'')}}];"
+        "jsCode": "function fs(v,depth=0){if(!v||typeof v!=='object'||depth>6)return{}; if(v.franchise_call_result&&typeof v.franchise_call_result==='object')return v.franchise_call_result; const ks=['arama_sonucu','appointment_date','aranacak_saat','dnc_talebi','extracted_name','xre_bilgi_durumu','ofis_durumu','bolge','ilgi_seviyesi','link_istegi','arama_turu','call_summary','call_successful','user_sentiment']; if(ks.some(k=>Object.prototype.hasOwnProperty.call(v,k)))return v; if(Array.isArray(v)){for(const x of v){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} for(const x of Object.values(v)){if(x&&typeof x==='object'){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} return{};}\nconst ULASILAMAZ_NEDEN=['did-not-answer','no-answer','busy','voicemail','failed','error'];\nfunction norm(s){return String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[\\s-]+/g,'_').trim();}\nconst OLUMSUZLAR=['olumsuz','ilgilenmiyor','ilgisiz','istemiyor','red','reddetti','dnc','aranmak_istemiyor'];\nconst ULASILAMADI=['ulasilamadi','cevapsiz','mesgul','sesli_mesaj','telesekreter','yanlis_numara'];\nconst input=$input.first().json||{}; const raw=input.body||input; const msg=raw.message||raw; const call=msg.call||raw.call||{}; const analysis=msg.analysis||call.analysis||raw.analysis||{}; const artifact=msg.artifact||call.artifact||raw.artifact||{};\nconst eventType=String(msg.type||raw.type||''); if(eventType!=='end-of-call-report') return [{json:{event:'vapi_ignored'}}];\nlet s={}; for(const c of [analysis.structuredData,analysis.structuredDataMulti,msg.structuredOutputs,msg.structuredOutput,artifact.structuredOutputs,artifact.structuredOutput,call.structuredOutputs,call.structuredOutput]){const r=fs(c); if(Object.keys(r).length){s=r;break;}}\nconst vars=call.assistantOverrides?.variableValues||{}; const meta={...(raw.metadata||{}),...(msg.metadata||{}),...(call.metadata||{}),...(vars||{})};\nconst er=String(call.endedReason||msg.endedReason||'').toLowerCase(); let result=String(s.arama_sonucu||'').trim();\nif(!result && ULASILAMAZ_NEDEN.some(x=>er.includes(x))) result='ulasilamadi';\nconst ctype=String(call.type||'').toLowerCase().includes('inbound')?'Gelen':(meta.arama_turu||'Giden');\nreturn [{json:{event:'call_analyzed',call_id:String(call.id||''),deal_id:String(meta.bitrix_deal_id||meta.bitrix_id||''),contact_id:String(meta.bitrix_contact_id||''),deneme:Number(meta.deneme||1),arama_turu:ctype,ended_reason:er,ended_at:String(msg.endedAt||call.endedAt||''),recording_url:String(artifact.recordingUrl||msg.recordingUrl||''),arama_sonucu:result,appointment_date:String(s.appointment_date||''),aranacak_saat:String(s.aranacak_saat||''),dnc_talebi:s.dnc_talebi===true,extracted_name:String(s.extracted_name||''),xre_bilgi_durumu:String(s.xre_bilgi_durumu||''),ofis_durumu:String(s.ofis_durumu||''),bolge:String(s.bolge||''),ilgi_seviyesi:String(s.ilgi_seviyesi||''),link_istegi:s.link_istegi===true,call_summary:String(s.call_summary||analysis.summary||''),call_successful:s.call_successful===true,user_sentiment:String(s.user_sentiment||''),customer_phone:String(call.customer?.number||meta.customer_phone||''),phone_number_id:String(call.phoneNumberId||msg.phoneNumber?.id||'')}}];"
       },
       "id": "b77364f9-9b39-5bed-b621-05fe4277d9ff",
       "name": "Vapi - Franchise Normalize",
@@ -480,7 +291,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ===== ERCCELL AYARLARI (diğer flow'daki SMS kullanıcı adı / şifresi) =====\nconst SMS_USER='YOUR_ERCCELL_USER'; const SMS_PASSWORD='YOUR_ERCCELL_PASSWORD'; const SMS_BASLIK='XRE';\nconst GERI_DONUS_NO='0533 743 60 24'; // Vapi numarası (inbound asistan karşılar)\n// ==========================================================================\nconst j=$('Anlaşmayı Bul + Sonucu Belirle').first().json;\nconst esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&apos;');\n// Türkçe karakterleri sadeleştir (çalışan West Point akışındaki gibi düz ASCII)\nconst tr=s=>String(s).replace(/ı/g,'i').replace(/İ/g,'I').replace(/ş/g,'s').replace(/Ş/g,'S').replace(/ğ/g,'g').replace(/Ğ/g,'G').replace(/ü/g,'u').replace(/Ü/g,'U').replace(/ö/g,'o').replace(/Ö/g,'O').replace(/ç/g,'c').replace(/Ç/g,'C');\nconst hane=String(j.musteri_tel||'').replace(/\\D/g,'').replace(/^90/,'').replace(/^0/,'');\nconst ad=String(j.musteri_adi||'').trim(); const merhaba=`Merhaba ${ad?ad+', ':''}`;\nlet tur, mesaj;\nif(j.randevu_var){\n  tur='Randevu SMS\\'i';\n  // Tarih okunamadıysa ya da teyit gerekiyorsa müşteriye yanlış tarih gitmesin\n  if(!j.randevu_iso) return [{json:{sms_durum:tur+' gönderilmedi: randevu tarihi netleşmedi.'}}];\n  const tarih=j.randevu_iso.slice(8,10)+'.'+j.randevu_iso.slice(5,7)+'.'+j.randevu_iso.slice(0,4), saat=j.randevu_iso.slice(11,16);\n  mesaj=`${merhaba}randevunuz ${tarih} saat ${saat} olarak planlanmıştır. XRE'li günler dileriz.`;\n}else if(j.ulasilamadi_sms===1){\n  tur='Ulaşılamadı SMS\\'i (1. arama)';\n  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi aradık ancak ulaşamadık. ${j.tekrar_tarih}'da tekrar arayacağız. Dilerseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;\n}else if(j.ulasilamadi_sms===2){\n  tur='Ulaşılamadı SMS\\'i (2. arama)';\n  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi tekrar aradık ancak ulaşamadık. Görüşmek isterseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;\n}else return [{json:{sms_durum:''}}];\nif(!/^5\\d{9}$/.test(hane)) return [{json:{sms_durum:tur+' gönderilmedi: geçerli cep telefonu yok.'}}];\nmesaj=tr(mesaj); const numara='90'+hane;\nconst xml='<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<CORPORATESMS><HEADER><USERNAME>'+esc(SMS_USER)+'</USERNAME><PASSWORD>'+esc(SMS_PASSWORD)+'</PASSWORD><SMSHEADER><![CDATA['+SMS_BASLIK+']]></SMSHEADER><SMSTYPE>UC</SMSTYPE><SENDTYPE>1:N</SENDTYPE></HEADER><SMS><SMS_MESSAGE><![CDATA['+mesaj+']]></SMS_MESSAGE><NUMBERS>'+numara+'</NUMBERS></SMS></CORPORATESMS>';\nlet yanit;\ntry{\n  yanit=await this.helpers.httpRequest({method:'POST',url:'https://gateway.erccell.com.tr/corporatesms/sendsms/',headers:{'Content-Type':'text/xml; charset=UTF-8'},body:xml,json:false,encoding:'text',timeout:20000,ignoreHttpStatusErrors:true});\n  if(typeof yanit!=='string') yanit=Buffer.isBuffer(yanit)?yanit.toString('utf8'):JSON.stringify(yanit);\n}catch(e){ yanit='HATA: '+String((e&&e.message)||e); }\nreturn [{json:{sms_numara:numara,sms_mesaj:mesaj,sms_durum:`${tur} gönderildi (${numara}): \"${mesaj}\"\\nErccell yanıtı: ${String(yanit).slice(0,300)}`}}];"
+        "jsCode": "// ===== ERCCELL AYARLARI (diğer flow'daki SMS kullanıcı adı / şifresi) =====\nconst j=$('Anlaşmayı Bul + Sonucu Belirle').first().json; const j_numara=()=>j.phone_number_id;\nconst SMS_USER='YOUR_ERCCELL_USER'; const SMS_PASSWORD='YOUR_ERCCELL_PASSWORD'; const SMS_BASLIK='XRE';\nconst NUMARALAR={\"8c3a1ba4-5ae9-46c7-8ea7-85df0654295c\": \"0533 743 60 24\", \"536bf387-1d12-4586-ac73-94db146dfe05\": \"0533 743 68 03\", \"d0c20592-51aa-4bd3-a6e3-6fe01e0e9afd\": \"0533 743 60 04\"};\nconst GERI_DONUS_NO=NUMARALAR[j_numara()]||'0533 743 60 24'; // müşteriyi arayan numara (inbound asistan karşılar)\n// ==========================================================================\nconst esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&apos;');\n// Türkçe karakterleri sadeleştir (çalışan West Point akışındaki gibi düz ASCII)\nconst tr=s=>String(s).replace(/ı/g,'i').replace(/İ/g,'I').replace(/ş/g,'s').replace(/Ş/g,'S').replace(/ğ/g,'g').replace(/Ğ/g,'G').replace(/ü/g,'u').replace(/Ü/g,'U').replace(/ö/g,'o').replace(/Ö/g,'O').replace(/ç/g,'c').replace(/Ç/g,'C');\nconst hane=String(j.musteri_tel||'').replace(/\\D/g,'').replace(/^90/,'').replace(/^0/,'');\nconst ad=String(j.musteri_adi||'').trim(); const merhaba=`Merhaba ${ad?ad+', ':''}`;\nlet tur, mesaj;\nif(j.randevu_var){\n  tur='Randevu SMS\\'i';\n  // Tarih okunamadıysa ya da teyit gerekiyorsa müşteriye yanlış tarih gitmesin\n  if(!j.randevu_iso) return [{json:{sms_durum:tur+' gönderilmedi: randevu tarihi netleşmedi.'}}];\n  const tarih=j.randevu_iso.slice(8,10)+'.'+j.randevu_iso.slice(5,7)+'.'+j.randevu_iso.slice(0,4), saat=j.randevu_iso.slice(11,16);\n  mesaj=`${merhaba}randevunuz ${tarih} saat ${saat} olarak planlanmıştır. XRE'li günler dileriz.`;\n}else if(j.ulasilamadi_sms===1){\n  tur='Ulaşılamadı SMS\\'i (1. arama)';\n  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi aradık ancak ulaşamadık. ${j.tekrar_tarih}'dan itibaren tekrar arayacağız. Dilerseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;\n}else if(j.ulasilamadi_sms===2){\n  tur='Ulaşılamadı SMS\\'i (2. arama)';\n  mesaj=`${merhaba}XRE Gayrimenkul olarak sizi tekrar aradık ancak ulaşamadık. Görüşmek isterseniz ${GERI_DONUS_NO} numarasından bize ulaşabilirsiniz. XRE'li günler dileriz.`;\n}else return [{json:{sms_durum:''}}];\nif(!/^5\\d{9}$/.test(hane)) return [{json:{sms_durum:tur+' gönderilmedi: geçerli cep telefonu yok.'}}];\nmesaj=tr(mesaj); const numara='90'+hane;\nconst xml='<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<CORPORATESMS><HEADER><USERNAME>'+esc(SMS_USER)+'</USERNAME><PASSWORD>'+esc(SMS_PASSWORD)+'</PASSWORD><SMSHEADER><![CDATA['+SMS_BASLIK+']]></SMSHEADER><SMSTYPE>UC</SMSTYPE><SENDTYPE>1:N</SENDTYPE></HEADER><SMS><SMS_MESSAGE><![CDATA['+mesaj+']]></SMS_MESSAGE><NUMBERS>'+numara+'</NUMBERS></SMS></CORPORATESMS>';\nlet yanit;\ntry{\n  yanit=await this.helpers.httpRequest({method:'POST',url:'https://gateway.erccell.com.tr/corporatesms/sendsms/',headers:{'Content-Type':'text/xml; charset=UTF-8'},body:xml,json:false,encoding:'text',timeout:20000,ignoreHttpStatusErrors:true});\n  if(typeof yanit!=='string') yanit=Buffer.isBuffer(yanit)?yanit.toString('utf8'):JSON.stringify(yanit);\n}catch(e){ yanit='HATA: '+String((e&&e.message)||e); }\nreturn [{json:{sms_numara:numara,sms_mesaj:mesaj,sms_durum:`${tur} gönderildi (${numara}): \"${mesaj}\"\\nErccell yanıtı: ${String(yanit).slice(0,300)}`}}];"
       },
       "id": "a6c5f3cd-e801-5193-9608-f88675f1ceb6",
       "name": "Erccell - Müşteri SMS",
@@ -596,145 +407,6 @@
           "interval": [
             {
               "field": "cronExpression",
-              "expression": "30 10 * * 1-6"
-            }
-          ]
-        }
-      },
-      "id": "16e9b4d0-9dbf-5d45-9198-9d349419a858",
-      "name": "Her Gün 10:30 (Pzt-Cmt)",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [
-        -464,
-        816
-      ]
-    },
-    {
-      "parameters": {
-        "jsCode": "const TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction first(v){ if(!v)return \"\"; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||\"\"; if(typeof v===\"object\")return v.VALUE||v.value||\"\"; return String(v);}\nfunction tc(s){return String(s||\"\").toLocaleLowerCase(\"tr-TR\").split(\" \").filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase(\"tr-TR\")+w.slice(1)).join(\" \");}\nfunction phone(raw){let d=String(raw||\"\").replace(/\\D/g,\"\"); if(d.startsWith(\"0090\"))d=d.slice(2); if(d.startsWith(\"90\")&&d.length===12)return \"+\"+d; if(d.startsWith(\"0\")&&d.length===11)return \"+90\"+d.slice(1); if(d.length===10&&d.startsWith(\"5\"))return \"+90\"+d; return \"\";}\nfunction aramaDegiskenleri(firstName){\n  const now=Date.now(); const t=parts(now); const takvim=[];\n  for(let i=0;i<21;i++){const g=parts(now+i*864e5); takvim.push(`${GUN[g.wd]} ${p2(g.d)}.${p2(g.m)}.${g.y} = ${g.y}-${p2(g.m)}-${p2(g.d)}${i===0?' (bugün)':i===1?' (yarın)':''}`);}\n  return {start_mode:firstName?'confirm_name':'ask_name',\n    dynamic_greeting:firstName?`Merhabalar, ben iksre Gayrimenkul'den Selin. ${firstName} ile mi görüşüyorum?`:`Merhabalar, ben iksre Gayrimenkul'den Selin. Kiminle görüşüyorum acaba?`,\n    bugunun_tarihi:`${p2(t.d)}.${p2(t.m)}.${t.y}`, bugun_iso:`${t.y}-${p2(t.m)}-${p2(t.d)}`, bugun_gun:GUN[t.wd],\n    su_anki_saat:`${p2(t.hh)}:${p2(t.mi)}`, takvim:takvim.join('\\n'), arama_turu:'Giden'};\n}\nconst BITRIX='https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK'; const ST_ULAS='C4:UC_VNGV9N';\nconst bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});\nconst now=Date.now(); const t=parts(now); const bugunBaslangic=Date.UTC(t.y,t.m-1,t.d)-TR;\n// ULAŞILAMAYANLAR aşamasında, dün veya daha önce bu aşamaya düşmüş kartlar\nlet start=0; const deals=[];\ndo{ const r=await bx('crm.deal.list',{filter:{CATEGORY_ID:4,STAGE_ID:ST_ULAS},select:['ID','TITLE','CONTACT_ID','MOVED_TIME'],order:{ID:'ASC'},start});\n    deals.push(...(r.result||[])); start=r.next; }while(start);\nconst sd=$getWorkflowStaticData('global'); sd.franchiseRetry=sd.franchiseRetry||{};\nfor(const [k,v] of Object.entries(sd.franchiseRetry)) if(now-v>30*864e5) delete sd.franchiseRetry[k];\nconst out=[];\nfor(const d of deals){\n  const moved=Date.parse(d.MOVED_TIME||''); if(!moved||moved>=bugunBaslangic) continue;\n  if(sd.franchiseRetry[d.ID]) continue; // 2. arama zaten yapıldı\n  let c={}; if(d.CONTACT_ID&&String(d.CONTACT_ID)!=='0'){ try{ c=(await bx('crm.contact.get',{id:d.CONTACT_ID})).result||{}; }catch(e){} }\n  const tel=phone(first(c.PHONE)); if(!tel) continue;\n  sd.franchiseRetry[d.ID]=now;\n  const firstName=tc(c.NAME||''); const fullName=(firstName+' '+tc(c.LAST_NAME||'')).trim()||tc(d.TITLE||'');\n  out.push({json:{deal_id:String(d.ID),contact_id:String(d.CONTACT_ID||''),full_name:fullName||'Değerli Aday',first_name:firstName,phone_e164:tel,email:first(c.EMAIL),deneme:2,...aramaDegiskenleri(firstName)}});\n}\nreturn out;"
-      },
-      "id": "1807bddd-f67f-52c1-9c28-f877943fcb96",
-      "name": "Tekrar Aranacakları Listele",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        -240,
-        816
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://api.vapi.ai/call",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({\nassistantId:\"65a798f1-95dc-487f-9d60-cfa10994d3fb\",\nphoneNumberId:\"8c3a1ba4-5ae9-46c7-8ea7-85df0654295c\",\ncustomer:{number:$json.phone_e164,name:$json.full_name},\nassistantOverrides:{variableValues:{\nuser_name:$json.full_name,\nisim:$json.first_name,\nstart_mode:$json.start_mode,\ndynamic_greeting:$json.dynamic_greeting,\nbitrix_id:$json.deal_id,\nbitrix_deal_id:$json.deal_id,\ncustomer_phone:$json.phone_e164,\ncustomer_email:$json.email,\nbugunun_tarihi:$json.bugunun_tarihi,\nbugun_iso:$json.bugun_iso,\nbugun_gun:$json.bugun_gun,\nsu_anki_saat:$json.su_anki_saat,\ntakvim:$json.takvim,\narama_turu:\"Giden\",\ndeneme:String($json.deneme)\n}},\nmetadata:{bitrix_deal_id:$json.deal_id,bitrix_contact_id:$json.contact_id,project:\"franchise\",arama_turu:\"Giden\",deneme:String($json.deneme)}\n}) }}",
-        "options": {
-          "batching": {
-            "batch": {
-              "batchSize": 3,
-              "batchInterval": 60000
-            }
-          }
-        }
-      },
-      "id": "be96487d-7e5c-59b4-b1c9-a9d8b9c22b8f",
-      "name": "Vapi - Tekrar Arama (2. deneme)",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        -16,
-        816
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "FUVtxEey6Fmi84f2",
-          "name": "META XRE FRANCHISE WHATSAPP"
-        }
-      },
-      "onError": "continueRegularOutput"
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "boolean": [
-            {
-              "value1": "={{ !!$json.id }}",
-              "value2": true
-            }
-          ]
-        }
-      },
-      "id": "eb1af880-ea50-51a0-87cc-43fea290e5ca",
-      "name": "Tekrar Arama Başladı mı?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 1,
-      "position": [
-        208,
-        816
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.timeline.comment.add.json",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({fields:{ENTITY_ID:$('Tekrar Aranacakları Listele').item.json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: Ulaşılamayan müşteri 2. kez aranıyor. Yine ulaşılamazsa OLUMSUZ'a taşınacak.\"}}) }}",
-        "options": {}
-      },
-      "id": "2b3870bc-d04c-510b-a3a2-1b631930bce4",
-      "name": "Bitrix - Not: 2. Arama Başladı",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        432,
-        736
-      ],
-      "retryOnFail": true
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "// Arama başlatılamadıysa ertesi gün 10:30'da yeniden denensin\nconst sd=$getWorkflowStaticData('global'); sd.franchiseRetry=sd.franchiseRetry||{};\nconst id=$('Tekrar Aranacakları Listele').item.json.deal_id; delete sd.franchiseRetry[id];\nconst e=$json.error; return {json:{deal_id:id,hata:String((e&&(e.message||JSON.stringify(e)))||$json.message||JSON.stringify($json)).slice(0,500)}};"
-      },
-      "id": "df2e3214-b63e-5114-8b0a-d540657e2741",
-      "name": "Tekrar İşaretini Kaldır",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        432,
-        896
-      ]
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/crm.timeline.comment.add.json",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({fields:{ENTITY_ID:$json.deal_id,ENTITY_TYPE:\"deal\",COMMENT:\"Vapi AI: 2. arama başlatılamadı, ertesi gün 10:30'da tekrar denenecek. Hata: \"+$json.hata}}) }}",
-        "options": {}
-      },
-      "id": "f89049ef-9fbb-5409-b106-d85a34c843ee",
-      "name": "Bitrix - Not: 2. Arama Başlatılamadı",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.1,
-      "position": [
-        656,
-        896
-      ],
-      "retryOnFail": true
-    },
-    {
-      "parameters": {
-        "rule": {
-          "interval": [
-            {
-              "field": "cronExpression",
               "expression": "0 20 * * *"
             }
           ]
@@ -805,7 +477,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function fs(v,depth=0){if(!v||typeof v!=='object'||depth>6)return{}; if(v.franchise_call_result&&typeof v.franchise_call_result==='object')return v.franchise_call_result; const ks=['arama_sonucu','appointment_date','aranacak_saat','dnc_talebi','extracted_name','xre_bilgi_durumu','ofis_durumu','bolge','ilgi_seviyesi','link_istegi','arama_turu','call_summary','call_successful','user_sentiment']; if(ks.some(k=>Object.prototype.hasOwnProperty.call(v,k)))return v; if(Array.isArray(v)){for(const x of v){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} for(const x of Object.values(v)){if(x&&typeof x==='object'){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} return{};}\nconst ULASILAMAZ_NEDEN=['did-not-answer','no-answer','busy','voicemail','failed','error'];\nfunction norm(s){return String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[\\s-]+/g,'_').trim();}\nconst OLUMSUZLAR=['olumsuz','ilgilenmiyor','ilgisiz','istemiyor','red','reddetti','dnc','aranmak_istemiyor'];\nconst ULASILAMADI=['ulasilamadi','cevapsiz','mesgul','sesli_mesaj','telesekreter','yanlis_numara'];\nconst TG_TOKEN='YOUR_TELEGRAM_BOT_TOKEN'; const TG_CHAT='YOUR_TELEGRAM_CHAT_ID';\n// Grup ID'si -100 önekli (süper grup) olabilir ya da grup süper gruba yükseltilmiş olabilir: hepsi denenir.\nasync function telegram(ctx,text){\n  const ids=[TG_CHAT]; if(!String(TG_CHAT).startsWith('-100')) ids.push('-100'+String(TG_CHAT).replace(/^-/,''));\n  let last;\n  for(let i=0;i<ids.length;i++){\n    const r=await ctx.helpers.httpRequest({method:'POST',url:`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,body:{chat_id:ids[i],text,parse_mode:'HTML',disable_web_page_preview:true},json:true,ignoreHttpStatusErrors:true});\n    if(r&&r.ok) return {ok:true,chat_id:ids[i]};\n    last=r; const mig=r&&r.parameters&&r.parameters.migrate_to_chat_id; if(mig) ids.splice(i+1,0,String(mig));\n  }\n  throw new Error('Telegram mesajı gönderilemedi: '+JSON.stringify(last));\n}\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst BITRIX='https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK'; const PHONE_ID='8c3a1ba4-5ae9-46c7-8ea7-85df0654295c'; const ASISTANLAR=['65a798f1-95dc-487f-9d60-cfa10994d3fb','0b1a70cf-7139-44d5-96e9-59504dddef4c'];\nconst bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});\nconst z=$('Rapor Zaman Aralığı').first().json;\nlet calls=[]; for(const it of $input.all()){const v=it.json; if(Array.isArray(v))calls.push(...v); else if(v&&Array.isArray(v.results))calls.push(...v.results); else if(v&&v.id)calls.push(v);}\ncalls=calls.filter(c=>c.phoneNumberId===PHONE_ID||ASISTANLAR.includes(c.assistantId));\nconst aranan=new Set(),gelen=new Set(),iletisim=new Set(),randevu=new Set(),olumsuz=new Set(),girisimDisi=new Set();\nlet saniye=0,maliyet=0,giden=0,gelenSayi=0;\nfor(const c of calls){\n  const num=(c.customer&&c.customer.number)||c.id; const inbound=String(c.type||'').includes('inbound');\n  const er=String(c.endedReason||'').toLowerCase();\n  const s=fs([c.analysis&&c.analysis.structuredData,c.artifact&&c.artifact.structuredOutputs,c.structuredOutputs,c.analysis]);\n  const r=norm(s.arama_sonucu);\n  const dur=(c.startedAt&&c.endedAt)?Math.max(0,(Date.parse(c.endedAt)-Date.parse(c.startedAt))/1000):0;\n  const ulasilamadi=!c.startedAt||ULASILAMAZ_NEDEN.some(x=>er.includes(x))||ULASILAMADI.includes(r);\n  maliyet+=Number(c.cost||0);\n  if(inbound){gelen.add(num);gelenSayi++;} else {aranan.add(num);giden++;}\n  if(!ulasilamadi){iletisim.add(num); saniye+=dur;}\n  if(r.startsWith('randevu')) randevu.add(num);\n  else if(s.dnc_talebi===true||OLUMSUZLAR.includes(r)) olumsuz.add(num);\n}\nconst ulasilamayan=[...aranan].filter(n=>!iletisim.has(n)).length;\nlet bekleyen='-'; try{ bekleyen=(await bx('crm.deal.list',{filter:{CATEGORY_ID:4,STAGE_ID:'C4:UC_VNGV9N'},select:['ID']})).total; }catch(e){}\nconst dk=saniye/60;\nconst metin=[\n  `📊 <b>XRE FRANCHISE – GÜN SONU RAPORU</b>`,\n  `🗓 ${esc(z.tarih)}`,\n  '',\n  `📞 Aranan kişi: <b>${aranan.size}</b> (toplam ${giden} arama)`,\n  `📲 Gelen arama: <b>${gelen.size}</b>`,\n  `🗣 İletişime geçilen: <b>${iletisim.size}</b>`,\n  `📅 Randevu oluşturulan: <b>${randevu.size}</b>`,\n  `❌ Olumsuz: <b>${olumsuz.size}</b>`,\n  `📵 Ulaşılamayan: <b>${ulasilamayan}</b>`,\n  `⏱ Toplam konuşma: <b>${dk.toFixed(1).replace('.',',')} dk</b>`,\n  '',\n  `🔁 Yarın 10:30'da tekrar aranacak havuz: ${bekleyen}`,\n  `💵 Vapi maliyeti: $${maliyet.toFixed(2)}`\n].join('\\n');\nawait telegram(this,metin);\nreturn [{json:{aranan:aranan.size,iletisim:iletisim.size,randevu:randevu.size,olumsuz:olumsuz.size,ulasilamayan,dakika:+dk.toFixed(1)}}];"
+        "jsCode": "function fs(v,depth=0){if(!v||typeof v!=='object'||depth>6)return{}; if(v.franchise_call_result&&typeof v.franchise_call_result==='object')return v.franchise_call_result; const ks=['arama_sonucu','appointment_date','aranacak_saat','dnc_talebi','extracted_name','xre_bilgi_durumu','ofis_durumu','bolge','ilgi_seviyesi','link_istegi','arama_turu','call_summary','call_successful','user_sentiment']; if(ks.some(k=>Object.prototype.hasOwnProperty.call(v,k)))return v; if(Array.isArray(v)){for(const x of v){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} for(const x of Object.values(v)){if(x&&typeof x==='object'){const r=fs(x,depth+1); if(Object.keys(r).length)return r;}} return{};}\nconst ULASILAMAZ_NEDEN=['did-not-answer','no-answer','busy','voicemail','failed','error'];\nfunction norm(s){return String(s||'').toLocaleLowerCase('tr-TR').replace(/ı/g,'i').replace(/ş/g,'s').replace(/ğ/g,'g').replace(/ü/g,'u').replace(/ö/g,'o').replace(/ç/g,'c').replace(/[\\s-]+/g,'_').trim();}\nconst OLUMSUZLAR=['olumsuz','ilgilenmiyor','ilgisiz','istemiyor','red','reddetti','dnc','aranmak_istemiyor'];\nconst ULASILAMADI=['ulasilamadi','cevapsiz','mesgul','sesli_mesaj','telesekreter','yanlis_numara'];\nconst TG_TOKEN='YOUR_TELEGRAM_BOT_TOKEN'; const TG_CHAT='YOUR_TELEGRAM_CHAT_ID';\n// Grup ID'si -100 önekli (süper grup) olabilir ya da grup süper gruba yükseltilmiş olabilir: hepsi denenir.\nasync function telegram(ctx,text){\n  const ids=[TG_CHAT]; if(!String(TG_CHAT).startsWith('-100')) ids.push('-100'+String(TG_CHAT).replace(/^-/,''));\n  let last;\n  for(let i=0;i<ids.length;i++){\n    const r=await ctx.helpers.httpRequest({method:'POST',url:`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`,body:{chat_id:ids[i],text,parse_mode:'HTML',disable_web_page_preview:true},json:true,ignoreHttpStatusErrors:true});\n    if(r&&r.ok) return {ok:true,chat_id:ids[i]};\n    last=r; const mig=r&&r.parameters&&r.parameters.migrate_to_chat_id; if(mig) ids.splice(i+1,0,String(mig));\n  }\n  throw new Error('Telegram mesajı gönderilemedi: '+JSON.stringify(last));\n}\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst BITRIX='https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK'; const NUMARALAR={\"8c3a1ba4-5ae9-46c7-8ea7-85df0654295c\": \"0533 743 60 24\", \"536bf387-1d12-4586-ac73-94db146dfe05\": \"0533 743 68 03\", \"d0c20592-51aa-4bd3-a6e3-6fe01e0e9afd\": \"0533 743 60 04\"}; const ASISTANLAR=['65a798f1-95dc-487f-9d60-cfa10994d3fb','0b1a70cf-7139-44d5-96e9-59504dddef4c'];\nconst bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${BITRIX}/${m}.json`,body,json:true});\nconst z=$('Rapor Zaman Aralığı').first().json;\nlet calls=[]; for(const it of $input.all()){const v=it.json; if(Array.isArray(v))calls.push(...v); else if(v&&Array.isArray(v.results))calls.push(...v.results); else if(v&&v.id)calls.push(v);}\ncalls=calls.filter(c=>NUMARALAR[c.phoneNumberId]||ASISTANLAR.includes(c.assistantId));\nconst numaraBazinda={};\nconst aranan=new Set(),gelen=new Set(),iletisim=new Set(),randevu=new Set(),olumsuz=new Set(),girisimDisi=new Set();\nlet saniye=0,maliyet=0,giden=0,gelenSayi=0;\nfor(const c of calls){\n  const num=(c.customer&&c.customer.number)||c.id; const inbound=String(c.type||'').includes('inbound');\n  const er=String(c.endedReason||'').toLowerCase();\n  const s=fs([c.analysis&&c.analysis.structuredData,c.artifact&&c.artifact.structuredOutputs,c.structuredOutputs,c.analysis]);\n  const r=norm(s.arama_sonucu);\n  const dur=(c.startedAt&&c.endedAt)?Math.max(0,(Date.parse(c.endedAt)-Date.parse(c.startedAt))/1000):0;\n  const ulasilamadi=!c.startedAt||ULASILAMAZ_NEDEN.some(x=>er.includes(x))||ULASILAMADI.includes(r);\n  maliyet+=Number(c.cost||0);\n  if(inbound){gelen.add(num);gelenSayi++;} else {aranan.add(num);giden++; const nn=NUMARALAR[c.phoneNumberId]||'diğer'; numaraBazinda[nn]=(numaraBazinda[nn]||0)+1;}\n  if(!ulasilamadi){iletisim.add(num); saniye+=dur;}\n  if(r.startsWith('randevu')) randevu.add(num);\n  else if(s.dnc_talebi===true||OLUMSUZLAR.includes(r)) olumsuz.add(num);\n}\nconst ulasilamayan=[...aranan].filter(n=>!iletisim.has(n)).length;\nlet bekleyen='-'; try{ bekleyen=(await bx('crm.deal.list',{filter:{CATEGORY_ID:4,STAGE_ID:'C4:UC_VNGV9N'},select:['ID']})).total; }catch(e){}\nconst dk=saniye/60;\nconst metin=[\n  `📊 <b>XRE FRANCHISE – GÜN SONU RAPORU</b>`,\n  `🗓 ${esc(z.tarih)}`,\n  '',\n  `📞 Aranan kişi: <b>${aranan.size}</b> (toplam ${giden} arama)`,\n  `📲 Gelen arama: <b>${gelen.size}</b>`,\n  `🗣 İletişime geçilen: <b>${iletisim.size}</b>`,\n  `📅 Randevu oluşturulan: <b>${randevu.size}</b>`,\n  `❌ Olumsuz: <b>${olumsuz.size}</b>`,\n  `📵 Ulaşılamayan: <b>${ulasilamayan}</b>`,\n  `⏱ Toplam konuşma: <b>${dk.toFixed(1).replace('.',',')} dk</b>`,\n  '',\n  ...(Object.keys(numaraBazinda).length?['📱 Numara bazında giden arama:',...Object.entries(numaraBazinda).map(([k,v])=>`   ${esc(k)}: ${v}`)]:[]),\n  '',\n  `🔁 Yarın 10:30'dan itibaren tekrar aranacak havuz: ${bekleyen}`,\n  `💵 Vapi maliyeti: $${maliyet.toFixed(2)}`\n].join('\\n');\nawait telegram(this,metin);\nreturn [{json:{aranan:aranan.size,iletisim:iletisim.size,randevu:randevu.size,olumsuz:olumsuz.size,ulasilamayan,dakika:+dk.toFixed(1)}}];"
       },
       "id": "08d7fd85-ffd3-5dea-bafa-58702f589265",
       "name": "Günlük Rapor - Telegram",
@@ -819,153 +491,29 @@
   ],
   "pinData": {},
   "connections": {
-    "Webhook - Franchise Anlaşmalar": {
+    "Her 3 Dakikada": {
       "main": [
         [
           {
-            "node": "Deal ID Al",
+            "node": "Arama Kuyruğu (3 numara)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Deal ID Al": {
+    "Arama Kuyruğu (3 numara)": {
       "main": [
         [
           {
-            "node": "Bitrix - Deal Detayını Çek",
+            "node": "Vapi - Aramayı Başlat",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Bitrix - Deal Detayını Çek": {
-      "main": [
-        [
-          {
-            "node": "Potansiyel Müşteri mi?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Potansiyel Müşteri mi?": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Kişi Detayını Çek",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bitrix - Kişi Detayını Çek": {
-      "main": [
-        [
-          {
-            "node": "Franchise Arama Verisini Hazırla",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Franchise Arama Verisini Hazırla": {
-      "main": [
-        [
-          {
-            "node": "Telefon Geçerli mi?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Telefon Geçerli mi?": {
-      "main": [
-        [
-          {
-            "node": "Mesai Dışı mı?",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Bitrix - Geçersiz Telefon Olumsuz",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mesai Dışı mı?": {
-      "main": [
-        [
-          {
-            "node": "Mesai Başlangıcını Bekle",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Arama Değişkenleri",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Mesai Başlangıcını Bekle": {
-      "main": [
-        [
-          {
-            "node": "Arama Değişkenleri",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Arama Değişkenleri": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Yapay Zeka Arıyor + Rüstem",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bitrix - Yapay Zeka Arıyor + Rüstem": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Kişi Sorumlusu Rüstem",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bitrix - Kişi Sorumlusu Rüstem": {
-      "main": [
-        [
-          {
-            "node": "Vapi - Franchise Aramasını Başlat",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Vapi - Franchise Aramasını Başlat": {
+    "Vapi - Aramayı Başlat": {
       "main": [
         [
           {
@@ -976,11 +524,18 @@
         ]
       ]
     },
-    "Bitrix - Geçersiz Telefon Olumsuz": {
+    "Vapi Araması Başladı mı?": {
       "main": [
         [
           {
-            "node": "Bitrix - Not: Geçersiz Telefon",
+            "node": "Bitrix - Not: Arama Başladı",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Başarısız Aramayı Kuyruğa Al",
             "type": "main",
             "index": 0
           }
@@ -1155,68 +710,6 @@
         ]
       ]
     },
-    "Her Gün 10:30 (Pzt-Cmt)": {
-      "main": [
-        [
-          {
-            "node": "Tekrar Aranacakları Listele",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tekrar Aranacakları Listele": {
-      "main": [
-        [
-          {
-            "node": "Vapi - Tekrar Arama (2. deneme)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Vapi - Tekrar Arama (2. deneme)": {
-      "main": [
-        [
-          {
-            "node": "Tekrar Arama Başladı mı?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tekrar Arama Başladı mı?": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Not: 2. Arama Başladı",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Tekrar İşaretini Kaldır",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Tekrar İşaretini Kaldır": {
-      "main": [
-        [
-          {
-            "node": "Bitrix - Not: 2. Arama Başlatılamadı",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Her Gün 20:00": {
       "main": [
         [
@@ -1249,18 +742,6 @@
           }
         ]
       ]
-    },
-    "Vapi Araması Başladı mı?": {
-      "main": [
-        [],
-        [
-          {
-            "node": "Bitrix - Not: Arama Başlatılamadı",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
     }
   },
   "active": false,
@@ -1269,7 +750,7 @@
     "binaryMode": "separate",
     "timezone": "Europe/Istanbul"
   },
-  "versionId": "d05e709c-d871-4913-8154-d8a1b42cb309",
+  "versionId": "54fc0196-a458-45f3-b566-06c60d4af149",
   "meta": {
     "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
   },
