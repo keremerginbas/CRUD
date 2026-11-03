@@ -38,7 +38,7 @@ function parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.get
 JS_KISI = r'''function first(v){ if(!v)return ""; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||""; if(typeof v==="object")return v.VALUE||v.value||""; return String(v);}
 function tc(s){return String(s||"").toLocaleLowerCase("tr-TR").split(" ").filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase("tr-TR")+w.slice(1)).join(" ");}
 // Bitrix'te soyadı hem "Adı" hem "Soyadı" alanına yazılmış olabilir: "Kerem Berk Erginbas" + "Erginbas"
-function adSoyad(n,s){ let ad=tc(n), soyad=tc(s); const k=x=>x.toLocaleLowerCase('tr-TR');
+function adSoyad(n,s){ let ad=tc(n), soyad=tc(s); const k=x=>x.toLocaleLowerCase('tr-TR').replace(/ı/g,'i');
   if(soyad&&k(ad)===k(soyad)) ad=''; else if(soyad&&k(ad).endsWith(' '+k(soyad))) ad=ad.slice(0,ad.length-soyad.length).trim();
   return {ad, tam:(ad+' '+soyad).trim()}; }
 function phone(raw){let d=String(raw||"").replace(/\D/g,""); if(d.startsWith("0090"))d=d.slice(2); if(d.startsWith("90")&&d.length===12)return "+"+d; if(d.startsWith("0")&&d.length===11)return "+90"+d.slice(1); if(d.length===10&&d.startsWith("5"))return "+90"+d; return "";}
