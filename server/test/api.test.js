@@ -240,6 +240,9 @@ test('yönetici ekip ve hatları yönetir, danışman yönetemez', async () => {
     assert.deepEqual([moved.body.user_id, moved.body.label], [created.body.user.id, 'İlan 999']);
     const hunt = await call('PUT', `/api/numbers/4442453`, { user_id: created.body.user.id }, { token: adminToken });
     assert.equal(hunt.body.user_id, null);
+    // Sadece ad değişince sahip korunur
+    const renamed = await call('PUT', `/api/numbers/${did}`, { label: 'Yeni ad' }, { token: adminToken });
+    assert.deepEqual([renamed.body.user_id, renamed.body.label], [created.body.user.id, 'Yeni ad']);
     await call('PUT', `/api/numbers/${did}`, { user_id: 1, label: 'İlan 638' }, { token: adminToken });
 
     const reset = await call('POST', `/api/users/${created.body.user.id}/reset-password`, null, { token: adminToken });

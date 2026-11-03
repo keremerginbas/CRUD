@@ -338,7 +338,8 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
   app.put('/api/numbers/:did', auth, admin, (req, res) => {
     const number = q.number.get(req.params.did);
     if (!number) return res.status(404).json({ error: 'Hat bulunamadı' });
-    const userId = req.body?.user_id ?? null;
+    // Gönderilmeyen alan değişmez (sadece ad değiştirmek sahibini silmesin)
+    const userId = 'user_id' in (req.body ?? {}) ? (req.body.user_id ?? null) : number.user_id;
     if (userId !== null && !q.userById.get(userId)) return res.status(400).json({ error: 'Kullanıcı bulunamadı' });
     const label = String(req.body?.label ?? number.label).trim() || number.label;
     db.prepare('UPDATE numbers SET user_id = ?, label = ? WHERE did = ?')

@@ -72,6 +72,15 @@ export function Team() {
     }
   };
 
+  const rename = async (n: PbxNumber, label: string) => {
+    if (!label.trim() || label.trim() === n.label) return;
+    try {
+      await api(`/api/numbers/${encodeURIComponent(n.did)}`, { method: 'PUT', body: { label: label.trim() } });
+      numbers.setData((list) => list?.map((x) => (x.did === n.did ? { ...x, label: label.trim() } : x)) ?? null);
+      toastOk('Hat adı kaydedildi');
+    } catch (e) { toastError(e); }
+  };
+
   const assign = async (n: PbxNumber, value: string | null) => {
     try {
       await api(`/api/numbers/${encodeURIComponent(n.did)}`, { method: 'PUT', body: { user_id: value ? Number(value) : null } });
@@ -123,7 +132,16 @@ export function Team() {
                 <Table.Tbody>
                   {shownNumbers.map((n) => (
                     <Table.Tr key={n.did}>
-                      <Table.Td><Text>{n.did}</Text><Text size="xs" c="dimmed">{n.label}</Text></Table.Td>
+                      <Table.Td>
+                        <Text>{n.did}</Text>
+                        {isAdmin ? (
+                          <TextInput
+                            key={n.label} defaultValue={n.label} size="xs" variant="unstyled" c="dimmed" aria-label={`${n.did} adı`}
+                            onBlur={(e) => rename(n, e.currentTarget.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                          />
+                        ) : <Text size="xs" c="dimmed">{n.label}</Text>}
+                      </Table.Td>
                       <Table.Td><Text size="sm">{NUMBER_TYPES[n.type]}</Text></Table.Td>
                       <Table.Td>
                         {n.type === 'hunt' ? <Text size="sm" c="dimmed">Kuyruk</Text> : (
