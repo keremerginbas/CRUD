@@ -1,0 +1,573 @@
+{
+  "name": "MOTTO SARAYKENT - Vapi Outbound",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "motto-form-lead",
+        "options": {}
+      },
+      "id": "6d15d145-65b3-5c20-8ad1-4b949f18d6fe",
+      "name": "Bitrix - Motto Form Lead",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -600,
+        0
+      ],
+      "webhookId": "46f073cb-ce0a-5f47-bf87-e351016caf57"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================================================================\n//  MOTTO SARAYKENT — AYARLAR (değiştirmeniz gereken her şey burada)\n// ================================================================\nconst AYARLAR = {\n  PROJE_ADI: 'MOTTO SARAYKENT',\n  BITRIX: 'https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK',\n  // Vapi\n  VAPI_ASISTAN: 'MOTTO SARAYKENT - OUTBOUND', // asistanın Vapi'deki ADI ya da ID'si\n  NUMARA_ID: '7a0ea572-de5c-4437-9ede-dab72b28d86d', // +90 533 743 71 16\n  NUMARA: '0533 743 71 16',\n  // Bitrix lead statüleri\n  KAYNAK_STATU: 'UC_7DXC14', // MOTTO İÇİN GELEN — bu statüdeki lead'ler aranır, statüye DOKUNULMAZ\n  RANDEVU_STATU: 'UC_WK3LVR', // RANDEVU OLUŞTURANLAR (yapay zeka statüsü isteniyorsa: 'UC_ML92HM')\n  RANDEVU_ALANI: 'UF_CRM_1769424669', // lead \"Randevu Tarihi\" (datetime)\n  // Randevu oluşunca lead bu satışçılara SIRAYLA atanır (başka hiçbir durumda sorumlu değişmez)\n  SATIS_SORUMLU_IDLERI: [17984, 22186, 26120, 26352, 1174, 116, 25258, 5778, 11690],\n  // Arama saatleri (Türkiye saati). Dışında düşen form bir sonraki başlangıçta aranır.\n  MESAI: { BASLA: '09:30', BITIS: '19:00', PAZAR_ARA: true },\n  HAT_BEKLEME_DK: 2, // hat meşgulse kaç dakikada bir tekrar bakılsın\n  HAT_BEKLEME_MAX: 45, // en fazla kaç kez beklensin (2 dk x 45 = 90 dk)\n  // Telegram\n  TELEGRAM_TOKEN: 'YOUR_TELEGRAM_BOT_TOKEN',\n  TELEGRAM_RANDEVU_CHAT: '-5179169844', // anlık randevu bildirimi\n  TELEGRAM_RAPOR_CHAT: '-5110365688', // 20:00 gün sonu raporu\n};\nreturn [{ json: AYARLAR }];\n"
+      },
+      "id": "310b2429-5d9d-5a42-af65-10af5624ddf9",
+      "name": "AYARLAR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction iso(ms){const t=parts(ms); return `${t.y}-${p2(t.m)}-${p2(t.d)}T${p2(t.hh)}:${p2(t.mi)}:00+03:00`;}\nfunction okunur(ms){const t=parts(ms); return `${p2(t.d)}.${p2(t.m)}.${t.y} ${GUN[t.wd]} ${p2(t.hh)}:${p2(t.mi)}`;}\nfunction first(v){ if(!v)return ''; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||''; if(typeof v==='object')return v.VALUE||v.value||''; return String(v);}\nfunction tc(s){return String(s||'').toLocaleLowerCase('tr-TR').split(' ').filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase('tr-TR')+w.slice(1)).join(' ');}\nfunction phone(raw){let d=String(raw||'').replace(/\\D/g,''); if(d.startsWith('0090'))d=d.slice(2); if(d.startsWith('90')&&d.length===12)return '+'+d; if(d.startsWith('0')&&d.length===11)return '+90'+d.slice(1); if(d.length===10&&d.startsWith('5'))return '+90'+d; return '';}\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst hm=s=>{const [h,m]=String(s).split(':').map(Number); return h*60+(m||0);};\nfunction mesaiIci(ms,M){const x=parts(ms); if(!M.PAZAR_ARA&&x.wd===0)return false; const dk=x.hh*60+x.mi; return dk>=hm(M.BASLA)&&dk<hm(M.BITIS);}\nfunction sonrakiMesai(ms,M){for(let i=0;i<9;i++){const g=parts(ms+i*864e5); const bas=Date.UTC(g.y,g.m-1,g.d)-TR+hm(M.BASLA)*60e3; if(bas>ms&&mesaiIci(bas,M))return bas;} return ms+864e5;}\nasync function telegram(ctx,token,chat,text){\n  const ids=[String(chat)]; if(!ids[0].startsWith('-100')) ids.push('-100'+ids[0].replace(/^-/,''));\n  let last;\n  for(let i=0;i<ids.length;i++){\n    const r=await ctx.helpers.httpRequest({method:'POST',url:`https://api.telegram.org/bot${token}/sendMessage`,body:{chat_id:ids[i],text,parse_mode:'HTML',disable_web_page_preview:true},json:true,ignoreHttpStatusErrors:true});\n    if(r&&r.ok) return true; last=r; const mig=r&&r.parameters&&r.parameters.migrate_to_chat_id; if(mig) ids.splice(i+1,0,String(mig));\n  }\n  throw new Error('Telegram mesajı gönderilemedi: '+JSON.stringify(last));\n}\nconst ULASILAMAZ=['did-not-answer','no-answer','busy','voicemail','failed','error','silence-timed-out'];\nconst A=$('AYARLAR').first().json; const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${A.BITRIX}/${m}.json`,body,json:true});\n// Bitrix robotundan gelen lead'i okur; sadece MOTTO İÇİN GELEN statüsündekileri arar. Statüye dokunmaz.\nconst w=$('Bitrix - Motto Form Lead').first().json; const b=w.body||{}; const q=w.query||{};\nconst leadId=String(b['document_id[2]']||b['data[FIELDS][ID]']||b.id||q.id||'').replace('LEAD_','').trim();\nif(!/^\\d+$/.test(leadId)) return [];\nconst sd=$getWorkflowStaticData('global'); sd.mottoAranan=sd.mottoAranan||{};\nconst now=Date.now();\nfor(const [k,v] of Object.entries(sd.mottoAranan)) if(now-v>30*864e5) delete sd.mottoAranan[k];\nif(sd.mottoAranan[leadId] && now-sd.mottoAranan[leadId]<24*3600e3) return []; // aynı lead 24 saatte bir kez\nconst lead=(await bx('crm.lead.get',{id:leadId})).result||{};\nif(String(lead.STATUS_ID)!==A.KAYNAK_STATU) return [];\nlet kisi={}; if(lead.CONTACT_ID&&String(lead.CONTACT_ID)!=='0'){ try{ kisi=(await bx('crm.contact.get',{id:lead.CONTACT_ID})).result||{}; }catch(e){} }\nconst tel=phone(first(lead.PHONE))||phone(first(kisi.PHONE));\nlet ad=tc(lead.NAME||kisi.NAME||''), soyad=tc(lead.LAST_NAME||kisi.LAST_NAME||'');\nconst k=x=>x.toLocaleLowerCase('tr-TR').replace(/ı/g,'i');\nif(soyad&&k(ad).endsWith(' '+k(soyad))) ad=ad.slice(0,ad.length-soyad.length).trim();\nif(!tel){\n  await bx('crm.timeline.comment.add',{fields:{ENTITY_ID:leadId,ENTITY_TYPE:'lead',COMMENT:`${A.PROJE_ADI} yapay zeka: geçerli telefon numarası bulunamadı, arama yapılmadı.`}});\n  return [];\n}\nsd.mottoAranan[leadId]=now;\nreturn [{json:{lead_id:leadId,ad,ad_soyad:(ad+' '+soyad).trim(),telefon:tel,eposta:first(lead.EMAIL)||first(kisi.EMAIL)}}];"
+      },
+      "id": "5a828c35-f15c-54ce-bbef-b36eac0c4748",
+      "name": "Lead Hazırla",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.vapi.ai/assistant",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "b3d018f2-dc77-51ed-9936-9c2c48bc5a7e",
+      "name": "Vapi: Asistanlar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zIhaRE8nBbWH1bw6",
+          "name": "Vapi Header Auth"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "url": "https://api.vapi.ai/call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "createdAtGt",
+              "value": "={{ new Date(Date.now() - 20*60000).toISOString() }}"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "34fb08f2-01b0-59a0-a43f-995d837c57f9",
+      "name": "Vapi: Son Çağrılar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        280,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zIhaRE8nBbWH1bw6",
+          "name": "Vapi Header Auth"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction iso(ms){const t=parts(ms); return `${t.y}-${p2(t.m)}-${p2(t.d)}T${p2(t.hh)}:${p2(t.mi)}:00+03:00`;}\nfunction okunur(ms){const t=parts(ms); return `${p2(t.d)}.${p2(t.m)}.${t.y} ${GUN[t.wd]} ${p2(t.hh)}:${p2(t.mi)}`;}\nfunction first(v){ if(!v)return ''; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||''; if(typeof v==='object')return v.VALUE||v.value||''; return String(v);}\nfunction tc(s){return String(s||'').toLocaleLowerCase('tr-TR').split(' ').filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase('tr-TR')+w.slice(1)).join(' ');}\nfunction phone(raw){let d=String(raw||'').replace(/\\D/g,''); if(d.startsWith('0090'))d=d.slice(2); if(d.startsWith('90')&&d.length===12)return '+'+d; if(d.startsWith('0')&&d.length===11)return '+90'+d.slice(1); if(d.length===10&&d.startsWith('5'))return '+90'+d; return '';}\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst hm=s=>{const [h,m]=String(s).split(':').map(Number); return h*60+(m||0);};\nfunction mesaiIci(ms,M){const x=parts(ms); if(!M.PAZAR_ARA&&x.wd===0)return false; const dk=x.hh*60+x.mi; return dk>=hm(M.BASLA)&&dk<hm(M.BITIS);}\nfunction sonrakiMesai(ms,M){for(let i=0;i<9;i++){const g=parts(ms+i*864e5); const bas=Date.UTC(g.y,g.m-1,g.d)-TR+hm(M.BASLA)*60e3; if(bas>ms&&mesaiIci(bas,M))return bas;} return ms+864e5;}\nasync function telegram(ctx,token,chat,text){\n  const ids=[String(chat)]; if(!ids[0].startsWith('-100')) ids.push('-100'+ids[0].replace(/^-/,''));\n  let last;\n  for(let i=0;i<ids.length;i++){\n    const r=await ctx.helpers.httpRequest({method:'POST',url:`https://api.telegram.org/bot${token}/sendMessage`,body:{chat_id:ids[i],text,parse_mode:'HTML',disable_web_page_preview:true},json:true,ignoreHttpStatusErrors:true});\n    if(r&&r.ok) return true; last=r; const mig=r&&r.parameters&&r.parameters.migrate_to_chat_id; if(mig) ids.splice(i+1,0,String(mig));\n  }\n  throw new Error('Telegram mesajı gönderilemedi: '+JSON.stringify(last));\n}\nconst ULASILAMAZ=['did-not-answer','no-answer','busy','voicemail','failed','error','silence-timed-out'];\nconst A=$('AYARLAR').first().json; const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${A.BITRIX}/${m}.json`,body,json:true});\n// Mesai dışıysa ya da hat meşgulse bekletir; boşsa arama isteğini hazırlar\nconst L=$('Lead Hazırla').first().json; const now=Date.now();\nconst tur=$runIndex; // kaçıncı kez kontrol ediliyor\nif(!mesaiIci(now,A.MESAI)) return [{json:{durum:'bekle',bekle_until:new Date(sonrakiMesai(now,A.MESAI)).toISOString()}}];\n// Bu sırada satış ekibi lead'i başka statüye taşıdıysa arama\nconst lead=(await bx('crm.lead.get',{id:L.lead_id})).result||{};\nif(String(lead.STATUS_ID)!==A.KAYNAK_STATU) return [{json:{durum:'iptal',neden:'lead statüsü değişti'}}];\n// Hat meşgul mü (aynı numaradan bitmemiş çağrı var mı)\nconst aktif=$input.all().map(i=>i.json).flatMap(v=>Array.isArray(v)?v:[v]).filter(c=>c&&c.id&&c.phoneNumberId===A.NUMARA_ID&&c.status&&c.status!=='ended');\nif(aktif.length){\n  if(tur>=A.HAT_BEKLEME_MAX){\n    await bx('crm.timeline.comment.add',{fields:{ENTITY_ID:L.lead_id,ENTITY_TYPE:'lead',COMMENT:`${A.PROJE_ADI} yapay zeka: hat uzun süre meşgul kaldı, arama yapılamadı. Müşteriyi manuel arayın.`}});\n    return [{json:{durum:'iptal',neden:'hat meşgul'}}];\n  }\n  return [{json:{durum:'bekle',bekle_until:new Date(now+A.HAT_BEKLEME_DK*60e3).toISOString()}}];\n}\n// Asistan (ad ya da ID)\nconst norm=s=>String(s||'').toLocaleLowerCase('tr-TR').replace(/\\s+/g,' ').trim();\nconst liste=$('Vapi: Asistanlar').all().map(i=>i.json).flatMap(v=>Array.isArray(v)?v:[v]).filter(a=>a&&a.id);\nconst asistan=liste.find(a=>a.id===A.VAPI_ASISTAN)||liste.find(a=>norm(a.name)===norm(A.VAPI_ASISTAN))||(/^[0-9a-f-]{36}$/i.test(A.VAPI_ASISTAN)?{id:A.VAPI_ASISTAN}:null);\nif(!asistan) throw new Error(`Vapi'de \"${A.VAPI_ASISTAN}\" asistanı bulunamadı. AYARLAR > VAPI_ASISTAN değerini kontrol edin.`);\nconst t=parts(now); const takvim=[];\nfor(let i=0;i<21;i++){const g=parts(now+i*864e5); takvim.push(`${GUN[g.wd]} ${p2(g.d)}.${p2(g.m)}.${g.y} = ${g.y}-${p2(g.m)}-${p2(g.d)}${i===0?' (bugün)':i===1?' (yarın)':''}`);}\nconst vars={lead_id:L.lead_id,bitrix_id:L.lead_id,musteri_adi:L.ad||'',isim:L.ad||'',user_name:L.ad_soyad||'',start_mode:L.ad?'confirm_name':'ask_name',\n  customer_phone:L.telefon,customer_email:L.eposta||'',bugun_gun:GUN[t.wd],bugunun_tarihi:`${p2(t.d)}.${p2(t.m)}.${t.y}`,bugun_iso:`${t.y}-${p2(t.m)}-${p2(t.d)}`,\n  su_anki_saat:`${p2(t.hh)}:${p2(t.mi)}`,takvim:takvim.join('\\n'),arama_turu:'Giden'};\nreturn [{json:{durum:'ara',vapiBody:{assistantId:asistan.id,phoneNumberId:A.NUMARA_ID,customer:L.ad_soyad?{number:L.telefon,name:L.ad_soyad.slice(0,40)}:{number:L.telefon},\n  assistantOverrides:{variableValues:vars},metadata:{project:'motto-saraykent',lead_id:L.lead_id,bitrix_id:L.lead_id}}}}];"
+      },
+      "id": "326788c4-298e-5e71-975c-175b3b1764ff",
+      "name": "Hat ve Saat Kontrolü",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        500,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "211a8e9a-cc16-402e-af95-e394bf2ad5da",
+                    "leftValue": "={{ $json.durum }}",
+                    "rightValue": "ara",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ara"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "da44c795-94df-45b8-a4f6-b2bfb23f9617",
+                    "leftValue": "={{ $json.durum }}",
+                    "rightValue": "bekle",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Bekle"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0c208612-f64f-5be7-8f51-3c8ae623436b",
+      "name": "Ne Yapılacak?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "specificTime",
+        "dateTime": "={{ $json.bekle_until }}"
+      },
+      "id": "e30651d7-41ea-5d8e-8c67-dd1effed7c59",
+      "name": "Bekle",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        940,
+        120
+      ],
+      "webhookId": "e9406fd0-8a53-543e-aaa6-e2b2e1bdd247"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vapi.ai/call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.vapiBody) }}",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "4c28b334-3118-56e4-bbbf-db8054240ac1",
+      "name": "Vapi: Aramayı Başlat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        940,
+        -120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zIhaRE8nBbWH1bw6",
+          "name": "Vapi Header Auth"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const A=$('AYARLAR').first().json; const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${A.BITRIX}/${m}.json`,body,json:true});\nconst L=$('Lead Hazırla').first().json; const r=$input.first().json;\nconst metin=r.id?`${A.PROJE_ADI} yapay zeka araması başlatıldı (arayan numara: ${A.NUMARA}).`\n  :`${A.PROJE_ADI} yapay zeka araması BAŞLATILAMADI — müşteriyi manuel arayın. Hata: ${String((r.error&&(r.error.message||JSON.stringify(r.error)))||r.message||JSON.stringify(r)).slice(0,300)}`;\nawait bx('crm.timeline.comment.add',{fields:{ENTITY_ID:L.lead_id,ENTITY_TYPE:'lead',COMMENT:metin}});\nreturn [{json:{lead_id:L.lead_id,call_id:r.id||'',basladi:!!r.id}}];"
+      },
+      "id": "837e9ee7-a84a-5a2d-a419-330941b7d9ca",
+      "name": "Arama Notu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1160,
+        -120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "motto-vapi-call-result",
+        "options": {}
+      },
+      "id": "0c8716ce-04ab-5784-aada-88c1b9fc90f4",
+      "name": "Vapi - Motto Sonuç",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -600,
+        500
+      ],
+      "webhookId": "ad818ccb-4bd0-5f16-8cc5-52d3073eaa9e"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================================================================\n//  MOTTO SARAYKENT — AYARLAR (değiştirmeniz gereken her şey burada)\n// ================================================================\nconst AYARLAR = {\n  PROJE_ADI: 'MOTTO SARAYKENT',\n  BITRIX: 'https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK',\n  // Vapi\n  VAPI_ASISTAN: 'MOTTO SARAYKENT - OUTBOUND', // asistanın Vapi'deki ADI ya da ID'si\n  NUMARA_ID: '7a0ea572-de5c-4437-9ede-dab72b28d86d', // +90 533 743 71 16\n  NUMARA: '0533 743 71 16',\n  // Bitrix lead statüleri\n  KAYNAK_STATU: 'UC_7DXC14', // MOTTO İÇİN GELEN — bu statüdeki lead'ler aranır, statüye DOKUNULMAZ\n  RANDEVU_STATU: 'UC_WK3LVR', // RANDEVU OLUŞTURANLAR (yapay zeka statüsü isteniyorsa: 'UC_ML92HM')\n  RANDEVU_ALANI: 'UF_CRM_1769424669', // lead \"Randevu Tarihi\" (datetime)\n  // Randevu oluşunca lead bu satışçılara SIRAYLA atanır (başka hiçbir durumda sorumlu değişmez)\n  SATIS_SORUMLU_IDLERI: [17984, 22186, 26120, 26352, 1174, 116, 25258, 5778, 11690],\n  // Arama saatleri (Türkiye saati). Dışında düşen form bir sonraki başlangıçta aranır.\n  MESAI: { BASLA: '09:30', BITIS: '19:00', PAZAR_ARA: true },\n  HAT_BEKLEME_DK: 2, // hat meşgulse kaç dakikada bir tekrar bakılsın\n  HAT_BEKLEME_MAX: 45, // en fazla kaç kez beklensin (2 dk x 45 = 90 dk)\n  // Telegram\n  TELEGRAM_TOKEN: 'YOUR_TELEGRAM_BOT_TOKEN',\n  TELEGRAM_RANDEVU_CHAT: '-5179169844', // anlık randevu bildirimi\n  TELEGRAM_RAPOR_CHAT: '-5110365688', // 20:00 gün sonu raporu\n};\nreturn [{ json: AYARLAR }];\n"
+      },
+      "id": "8f752f9e-6ccc-5bf4-8ffa-ae6e0090a756",
+      "name": "AYARLAR (Sonuç)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction iso(ms){const t=parts(ms); return `${t.y}-${p2(t.m)}-${p2(t.d)}T${p2(t.hh)}:${p2(t.mi)}:00+03:00`;}\nfunction okunur(ms){const t=parts(ms); return `${p2(t.d)}.${p2(t.m)}.${t.y} ${GUN[t.wd]} ${p2(t.hh)}:${p2(t.mi)}`;}\nfunction first(v){ if(!v)return ''; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||''; if(typeof v==='object')return v.VALUE||v.value||''; return String(v);}\nfunction tc(s){return String(s||'').toLocaleLowerCase('tr-TR').split(' ').filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase('tr-TR')+w.slice(1)).join(' ');}\nfunction phone(raw){let d=String(raw||'').replace(/\\D/g,''); if(d.startsWith('0090'))d=d.slice(2); if(d.startsWith('90')&&d.length===12)return '+'+d; if(d.startsWith('0')&&d.length===11)return '+90'+d.slice(1); if(d.length===10&&d.startsWith('5'))return '+90'+d; return '';}\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst hm=s=>{const [h,m]=String(s).split(':').map(Number); return h*60+(m||0);};\nfunction mesaiIci(ms,M){const x=parts(ms); if(!M.PAZAR_ARA&&x.wd===0)return false; const dk=x.hh*60+x.mi; return dk>=hm(M.BASLA)&&dk<hm(M.BITIS);}\nfunction sonrakiMesai(ms,M){for(let i=0;i<9;i++){const g=parts(ms+i*864e5); const bas=Date.UTC(g.y,g.m-1,g.d)-TR+hm(M.BASLA)*60e3; if(bas>ms&&mesaiIci(bas,M))return bas;} return ms+864e5;}\nasync function telegram(ctx,token,chat,text){\n  const ids=[String(chat)]; if(!ids[0].startsWith('-100')) ids.push('-100'+ids[0].replace(/^-/,''));\n  let last;\n  for(let i=0;i<ids.length;i++){\n    const r=await ctx.helpers.httpRequest({method:'POST',url:`https://api.telegram.org/bot${token}/sendMessage`,body:{chat_id:ids[i],text,parse_mode:'HTML',disable_web_page_preview:true},json:true,ignoreHttpStatusErrors:true});\n    if(r&&r.ok) return true; last=r; const mig=r&&r.parameters&&r.parameters.migrate_to_chat_id; if(mig) ids.splice(i+1,0,String(mig));\n  }\n  throw new Error('Telegram mesajı gönderilemedi: '+JSON.stringify(last));\n}\nconst ULASILAMAZ=['did-not-answer','no-answer','busy','voicemail','failed','error','silence-timed-out'];\nconst A=$('AYARLAR (Sonuç)').first().json; const bx=(m,body)=>this.helpers.httpRequest({method:'POST',url:`${A.BITRIX}/${m}.json`,body,json:true});\n// Görüşme bitti. Statüye/sorumluya YALNIZCA randevu oluştuysa dokunulur.\nconst raw=$('Vapi - Motto Sonuç').first().json; const body=raw.body||raw; const msg=body.message||body;\nif(String(msg.type||'')!=='end-of-call-report') return [];\nconst call=msg.call||{}; const art=msg.artifact||call.artifact||{}; const an=msg.analysis||call.analysis||{};\nconst vv=(call.assistantOverrides&&call.assistantOverrides.variableValues)||{}; const meta={...(call.metadata||{}),...(msg.metadata||{})};\nif(meta.project&&meta.project!=='motto-saraykent') return [];\nconst leadId=String(meta.lead_id||vv.lead_id||'').replace(/\\D/g,''); if(!leadId) return [];\nconst sd=$getWorkflowStaticData('global'); sd.mottoCagri=sd.mottoCagri||{};\nif(call.id){ if(sd.mottoCagri[call.id]) return []; sd.mottoCagri[call.id]=Date.now(); for(const [k,v] of Object.entries(sd.mottoCagri)) if(Date.now()-v>3*864e5) delete sd.mottoCagri[k]; }\n\n// Görüşme içeriği\nconst mesajlar=art.messages||msg.messages||[];\nconst kullanici=mesajlar.filter(m=>m&&m.role==='user'&&String(m.message||'').trim());\nconst er=String(msg.endedReason||call.endedReason||'').toLowerCase();\nconst ulasildi=kullanici.length>0&&!ULASILAMAZ.some(x=>er.includes(x)&&x!=='silence-timed-out');\n// Randevu: randevu_olustur aracı çağrıldıysa ya da yapılandırılmış sonuç randevu ise\nlet arac=null;\n(function ara(v,d){ if(!v||typeof v!=='object'||d>8||arac) return; const f=v.function||v;\n  if(f&&typeof f.name==='string'&&/randevu/i.test(f.name)&&f.arguments!==undefined){ try{arac=typeof f.arguments==='string'?JSON.parse(f.arguments):f.arguments;}catch(e){arac={};} return; }\n  for(const x of Object.values(v)) ara(x,d+1); })(mesajlar,0);\nlet yapi={}; (function bul(v,d){ if(!v||typeof v!=='object'||d>6) return; const ks=Object.keys(v).map(k=>k.trim()); if(ks.includes('arama_sonucu')||ks.includes('appointment_date')){ for(const [k,x] of Object.entries(v)) yapi[k.trim()]=x; return; } for(const x of Object.values(v)) bul(x,d+1); })([an.structuredData,art.structuredOutputs,msg.structuredOutputs,call.structuredOutputs],0);\nconst sonuc=String(yapi.arama_sonucu||'').toLowerCase();\nconst randevu=!!arac||sonuc.startsWith('randevu');\n// Randevu tarihi (varsa): araç argümanları ya da yapılandırılmış sonuçtan\nfunction tarihBul(o){ if(!o) return null; let t='',s='';\n  for(const [k,v] of Object.entries(o)){ const kk=k.toLowerCase(); if(!v) continue;\n    if(/tarih|date|gun/.test(kk)&&!t) t=String(v); else if(/saat|time/.test(kk)&&!s) s=String(v); }\n  const m=/(\\d{4})-(\\d{1,2})-(\\d{1,2})(?:[T ](\\d{1,2})[:.](\\d{2}))?/.exec(t); if(!m) return null;\n  let hh=m[4], mi=m[5]; const ms=/(\\d{1,2})[:.](\\d{2})/.exec(s); if(!hh&&ms){hh=ms[1];mi=ms[2];} if(!hh) return null;\n  if(/[+-]\\d{2}:?\\d{2}$|Z$/.test(t.trim())){ const x=Date.parse(t.trim()); return isNaN(x)?null:x; }\n  return Date.UTC(+m[1],+m[2]-1,+m[3],+hh,+mi)-TR; }\nlet randevuMs=randevu?(tarihBul(arac)||tarihBul(yapi)):null;\nif(randevuMs&&(randevuMs<Date.now()-30*60e3||randevuMs>Date.now()+90*864e5)) randevuMs=null;\n\nconst lead=(await bx('crm.lead.get',{id:leadId})).result||{};\nconst adSoyad=tc([lead.NAME,lead.LAST_NAME].filter(Boolean).join(' '))||(arac&&arac.ad_soyad)||'';\nconst tel=phone(first(lead.PHONE))||phone(call.customer&&call.customer.number);\nconst ozet=String(yapi.call_summary||yapi.ozet||an.summary||'').trim();\nconst kayit=art.recordingUrl||msg.recordingUrl||'';\nconst sure=Math.round(Number(msg.durationSeconds)||0);\nlet baslik, atanan='';\n\nif(randevu){\n  // Satışçılara sırayla dağıt\n  const liste=(A.SATIS_SORUMLU_IDLERI||[]).map(String).filter(Boolean);\n  sd.mottoSira=Number(sd.mottoSira)||0; atanan=liste.length?liste[sd.mottoSira%liste.length]:String(lead.ASSIGNED_BY_ID||''); sd.mottoSira=(sd.mottoSira+1)%Math.max(liste.length,1);\n  const fields={STATUS_ID:A.RANDEVU_STATU,ASSIGNED_BY_ID:atanan};\n  if(randevuMs) fields[A.RANDEVU_ALANI]=iso(randevuMs);\n  const u=await bx('crm.lead.update',{id:leadId,fields,params:{REGISTER_SONET_EVENT:'Y'}});\n  if(!u||u.error) throw new Error('Bitrix lead güncellenemedi: '+JSON.stringify(u));\n  const gorev=randevuMs||(Date.now()+15*60e3);\n  await bx('crm.activity.todo.add',{ownerTypeId:1,ownerId:Number(leadId),deadline:iso(gorev),responsibleId:Number(atanan)||undefined,\n    title:`${A.PROJE_ADI} randevu — ${randevuMs?okunur(randevuMs):'GÜN/SAAT BELİRLEYİN'} — ${adSoyad||tel}`.slice(0,250),\n    description:[`Yapay zeka görüşmesinde randevu oluşturuldu.`,randevuMs?`Randevu: ${okunur(randevuMs)}`:'Gün ve saat belirlenmedi — müşteriyi arayıp birlikte belirleyin.',`Telefon: ${tel}`,ozet?`Özet: ${ozet}`:''].filter(Boolean).join('\\n'),\n    pingOffsets:randevuMs?[1440,60]:[0]});\n  baslik=`RANDEVU OLUŞTURDU${randevuMs?` — ${okunur(randevuMs)}`:' — gün/saat satış temsilcisince belirlenecek'}`;\n  // Telegram anlık bildirim\n  try{ await telegram(this,A.TELEGRAM_TOKEN,A.TELEGRAM_RANDEVU_CHAT,[\n    '📅 <b>YENİ MOTTO SARAYKENT RANDEVUSU</b>','',\n    `👤 <b>${esc(adSoyad||'-')}</b>`,`📞 ${esc(tel||'-')}`,\n    `🗓 <b>${esc(randevuMs?okunur(randevuMs):'Gün/saat satış temsilcisince belirlenecek')}</b>`,\n    `👔 Atanan satışçı ID: ${esc(atanan)}`,\n    ozet?`\\n📝 ${esc(ozet.slice(0,600))}`:'',\n    `\\n🔗 <a href=\"https://xre.bitrix24.com.tr/crm/lead/details/${leadId}/\">Bitrix kartını aç</a>`].filter(Boolean).join('\\n')); }catch(e){}\n} else if(!ulasildi){\n  baslik='ULAŞILAMADI';\n} else {\n  baslik=`görüşüldü, randevu oluşmadı${sonuc?` (${sonuc})`:''}`;\n}\nawait bx('crm.timeline.comment.add',{fields:{ENTITY_ID:leadId,ENTITY_TYPE:'lead',COMMENT:[\n  `${A.PROJE_ADI} yapay zeka görüşmesi — ${baslik}`,\n  randevu?`Statü: RANDEVU OLUŞTURANLAR, sorumlu: ${atanan}`:'Statü ve sorumlu değiştirilmedi.',\n  `Süre: ${sure} sn | Bitiş: ${er||'-'}`, ozet?`Özet: ${ozet.slice(0,1500)}`:'', kayit?`Ses kaydı: ${kayit}`:''].filter(Boolean).join('\\n')}});\nreturn [{json:{lead_id:leadId,randevu,ulasildi,atanan,baslik}}];"
+      },
+      "id": "31453ea6-4e15-5220-8e66-fcd6f902eafa",
+      "name": "Sonucu İşle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -160,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 * * *"
+            }
+          ]
+        }
+      },
+      "id": "f733912d-9145-56c4-8e68-66355cec0e04",
+      "name": "Her Gün 20:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -600,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================================================================\n//  MOTTO SARAYKENT — AYARLAR (değiştirmeniz gereken her şey burada)\n// ================================================================\nconst AYARLAR = {\n  PROJE_ADI: 'MOTTO SARAYKENT',\n  BITRIX: 'https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK',\n  // Vapi\n  VAPI_ASISTAN: 'MOTTO SARAYKENT - OUTBOUND', // asistanın Vapi'deki ADI ya da ID'si\n  NUMARA_ID: '7a0ea572-de5c-4437-9ede-dab72b28d86d', // +90 533 743 71 16\n  NUMARA: '0533 743 71 16',\n  // Bitrix lead statüleri\n  KAYNAK_STATU: 'UC_7DXC14', // MOTTO İÇİN GELEN — bu statüdeki lead'ler aranır, statüye DOKUNULMAZ\n  RANDEVU_STATU: 'UC_WK3LVR', // RANDEVU OLUŞTURANLAR (yapay zeka statüsü isteniyorsa: 'UC_ML92HM')\n  RANDEVU_ALANI: 'UF_CRM_1769424669', // lead \"Randevu Tarihi\" (datetime)\n  // Randevu oluşunca lead bu satışçılara SIRAYLA atanır (başka hiçbir durumda sorumlu değişmez)\n  SATIS_SORUMLU_IDLERI: [17984, 22186, 26120, 26352, 1174, 116, 25258, 5778, 11690],\n  // Arama saatleri (Türkiye saati). Dışında düşen form bir sonraki başlangıçta aranır.\n  MESAI: { BASLA: '09:30', BITIS: '19:00', PAZAR_ARA: true },\n  HAT_BEKLEME_DK: 2, // hat meşgulse kaç dakikada bir tekrar bakılsın\n  HAT_BEKLEME_MAX: 45, // en fazla kaç kez beklensin (2 dk x 45 = 90 dk)\n  // Telegram\n  TELEGRAM_TOKEN: 'YOUR_TELEGRAM_BOT_TOKEN',\n  TELEGRAM_RANDEVU_CHAT: '-5179169844', // anlık randevu bildirimi\n  TELEGRAM_RAPOR_CHAT: '-5110365688', // 20:00 gün sonu raporu\n};\nreturn [{ json: AYARLAR }];\n"
+      },
+      "id": "981172f6-efff-5e32-8cbd-dc3e81a1e13b",
+      "name": "AYARLAR (Rapor)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -380,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.vapi.ai/call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "createdAtGe",
+              "value": "={{ new Date(Date.UTC(new Date(Date.now()+3*3600e3).getUTCFullYear(), new Date(Date.now()+3*3600e3).getUTCMonth(), new Date(Date.now()+3*3600e3).getUTCDate()) - 3*3600e3).toISOString() }}"
+            },
+            {
+              "name": "limit",
+              "value": "1000"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "id": "da3df823-05fd-559c-b3b8-f08058fad4b2",
+      "name": "Vapi: Bugünkü Aramalar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -160,
+        900
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "zIhaRE8nBbWH1bw6",
+          "name": "Vapi Header Auth"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const TR=3*3600e3; const p2=n=>String(n).padStart(2,'0');\nconst GUN=['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];\nfunction parts(ms){const d=new Date(ms+TR); return {y:d.getUTCFullYear(),m:d.getUTCMonth()+1,d:d.getUTCDate(),wd:d.getUTCDay(),hh:d.getUTCHours(),mi:d.getUTCMinutes()};}\nfunction iso(ms){const t=parts(ms); return `${t.y}-${p2(t.m)}-${p2(t.d)}T${p2(t.hh)}:${p2(t.mi)}:00+03:00`;}\nfunction okunur(ms){const t=parts(ms); return `${p2(t.d)}.${p2(t.m)}.${t.y} ${GUN[t.wd]} ${p2(t.hh)}:${p2(t.mi)}`;}\nfunction first(v){ if(!v)return ''; if(Array.isArray(v)&&v[0])return v[0].VALUE||v[0].value||''; if(typeof v==='object')return v.VALUE||v.value||''; return String(v);}\nfunction tc(s){return String(s||'').toLocaleLowerCase('tr-TR').split(' ').filter(Boolean).map(w=>w.charAt(0).toLocaleUpperCase('tr-TR')+w.slice(1)).join(' ');}\nfunction phone(raw){let d=String(raw||'').replace(/\\D/g,''); if(d.startsWith('0090'))d=d.slice(2); if(d.startsWith('90')&&d.length===12)return '+'+d; if(d.startsWith('0')&&d.length===11)return '+90'+d.slice(1); if(d.length===10&&d.startsWith('5'))return '+90'+d; return '';}\nconst esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');\nconst hm=s=>{const [h,m]=String(s).split(':').map(Number); return h*60+(m||0);};\nfunction mesaiIci(ms,M){const x=parts(ms); if(!M.PAZAR_ARA&&x.wd===0)return false; const dk=x.hh*60+x.mi; return dk>=hm(M.BASLA)&&dk<hm(M.BITIS);}\nfunction sonrakiMesai(ms,M){for(let i=0;i<9;i++){const g=parts(ms+i*864e5); const bas=Date.UTC(g.y,g.m-1,g.d)-TR+hm(M.BASLA)*60e3; if(bas>ms&&mesaiIci(bas,M))return bas;} return ms+864e5;}\nasync function telegram(ctx,token,chat,text){\n  const ids=[String(chat)]; if(!ids[0].startsWith('-100')) ids.push('-100'+ids[0].replace(/^-/,''));\n  let last;\n  for(let i=0;i<ids.length;i++){\n    const r=await ctx.helpers.httpRequest({method:'POST',url:`https://api.telegram.org/bot${token}/sendMessage`,body:{chat_id:ids[i],text,parse_mode:'HTML',disable_web_page_preview:true},json:true,ignoreHttpStatusErrors:true});\n    if(r&&r.ok) return true; last=r; const mig=r&&r.parameters&&r.parameters.migrate_to_chat_id; if(mig) ids.splice(i+1,0,String(mig));\n  }\n  throw new Error('Telegram mesajı gönderilemedi: '+JSON.stringify(last));\n}\nconst ULASILAMAZ=['did-not-answer','no-answer','busy','voicemail','failed','error','silence-timed-out'];\nconst A=$('AYARLAR (Rapor)').first().json;\nlet calls=$input.all().map(i=>i.json).flatMap(v=>Array.isArray(v)?v:(v&&Array.isArray(v.results)?v.results:[v])).filter(c=>c&&c.id&&c.phoneNumberId===A.NUMARA_ID);\nconst giden=calls.filter(c=>!String(c.type||'').includes('inbound'));\nconst kisi=new Set(), ulasilan=new Set(); let basarili=0,basarisiz=0,saniye=0,randevu=0,maliyet=0,gelen=calls.length-giden.length;\nfor(const c of giden){\n  const num=(c.customer&&c.customer.number)||c.id; kisi.add(num);\n  const er=String(c.endedReason||'').toLowerCase();\n  const konustu=!!c.startedAt&&!ULASILAMAZ.filter(x=>x!=='silence-timed-out').some(x=>er.includes(x))&&((c.artifact&&c.artifact.messages)||c.messages||[]).some(m=>m&&m.role==='user');\n  if(konustu){ basarili++; ulasilan.add(num); if(c.startedAt&&c.endedAt) saniye+=Math.max(0,(Date.parse(c.endedAt)-Date.parse(c.startedAt))/1000); } else basarisiz++;\n  if(JSON.stringify((c.artifact&&c.artifact.messages)||c.messages||[]).match(/\"name\":\"[^\"]*randevu[^\"]*\"/i)||/\"arama_sonucu\"\\s*:\\s*\"randevu/i.test(JSON.stringify(c.analysis||{})+JSON.stringify((c.artifact&&c.artifact.structuredOutputs)||{}))) randevu++;\n  maliyet+=Number(c.cost||0);\n}\nconst t=parts(Date.now()); const dk=saniye/60;\nconst metin=[\n  '📊 <b>MOTTO SARAYKENT — GÜN SONU RAPORU</b>',\n  `🗓 ${p2(t.d)}.${p2(t.m)}.${t.y} ${GUN[t.wd]}`,'',\n  `📞 Yapılan arama: <b>${giden.length}</b>`,\n  `👥 Aranan kişi: <b>${kisi.size}</b>`,\n  `🗣 İletişime geçilen kişi: <b>${ulasilan.size}</b>`,\n  `✅ Başarılı arama (müşteriyle konuşuldu): <b>${basarili}</b>`,\n  `❌ Başarısız arama (açmadı/meşgul/ulaşılamadı): <b>${basarisiz}</b>`,\n  `📅 Randevu oluşturulan: <b>${randevu}</b>`,\n  `⏱ Toplam konuşma süresi: <b>${dk.toFixed(1).replace('.',',')} dk</b>`,\n  gelen?`📲 Gelen arama: <b>${gelen}</b>`:'',\n  '',`📱 Arayan numara: ${esc(A.NUMARA)}`,`💵 Vapi maliyeti: $${maliyet.toFixed(2)}`].filter(x=>x!=='' || true).join('\\n').replace(/\\n{3,}/g,'\\n\\n');\nawait telegram(this,A.TELEGRAM_TOKEN,A.TELEGRAM_RAPOR_CHAT,metin);\nreturn [{json:{arama:giden.length,kisi:kisi.size,iletisim:ulasilan.size,basarili,basarisiz,randevu,dakika:+dk.toFixed(1)}}];"
+      },
+      "id": "563be5f6-ec4b-5944-8095-4c79ea5b3ee3",
+      "name": "Gün Sonu Raporu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        900
+      ]
+    },
+    {
+      "parameters": {
+        "width": 760,
+        "height": 360,
+        "content": "## MOTTO SARAYKENT — Vapi\n**1. Bitrix:** Müşteri adayları → Otomasyon kuralları → **MOTTO İÇİN GELEN** sütununa *Giden webhook* kuralı ekleyin:\n`https://xre111.shop/webhook/motto-form-lead`\n\n**2. Vapi:** MOTTO SARAYKENT - OUTBOUND asistanı → Advanced → Server URL:\n`https://xre111.shop/webhook/motto-vapi-call-result` (Server Messages: end-of-call-report)\n\n**3. n8n:** 3 Vapi düğümünde credential = Vapi Header Auth. Workflow'u Active yapın.\n\nStatü değiştirilmez. Yalnızca randevu oluşursa lead RANDEVU OLUŞTURANLAR'a geçer ve satışçılara sırayla atanır.\nAyarlar: her tetikleyicinin hemen arkasındaki AYARLAR düğümü (üçü aynı tutulmalı)."
+      },
+      "id": "2c846d25-de8b-5e9d-838c-85ebf936cc09",
+      "name": "KURULUM",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -640,
+        -420
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Bitrix - Motto Form Lead": {
+      "main": [
+        [
+          {
+            "node": "AYARLAR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AYARLAR": {
+      "main": [
+        [
+          {
+            "node": "Lead Hazırla",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead Hazırla": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Asistanlar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Asistanlar": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Son Çağrılar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Son Çağrılar": {
+      "main": [
+        [
+          {
+            "node": "Hat ve Saat Kontrolü",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hat ve Saat Kontrolü": {
+      "main": [
+        [
+          {
+            "node": "Ne Yapılacak?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ne Yapılacak?": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Aramayı Başlat",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bekle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bekle": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Son Çağrılar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Aramayı Başlat": {
+      "main": [
+        [
+          {
+            "node": "Arama Notu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi - Motto Sonuç": {
+      "main": [
+        [
+          {
+            "node": "AYARLAR (Sonuç)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AYARLAR (Sonuç)": {
+      "main": [
+        [
+          {
+            "node": "Sonucu İşle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Her Gün 20:00": {
+      "main": [
+        [
+          {
+            "node": "AYARLAR (Rapor)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AYARLAR (Rapor)": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Bugünkü Aramalar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Bugünkü Aramalar": {
+      "main": [
+        [
+          {
+            "node": "Gün Sonu Raporu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Istanbul"
+  },
+  "meta": {
+    "instanceId": "6dcbeae59cf89cdc0a07d718f42dfd9fbd0d6bdd06e3e96e03e86795f4ea2a95"
+  }
+}
