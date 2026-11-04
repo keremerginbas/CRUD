@@ -27,8 +27,6 @@ const AYARLAR = {
   SATIS_SORUMLU_IDLERI: [17984, 22186, 26120, 26352, 1174, 116, 25258, 5778, 11690],
   // Arama saatleri (Türkiye saati). Dışında düşen form bir sonraki başlangıçta aranır.
   MESAI: { BASLA: '09:30', BITIS: '19:00', PAZAR_ARA: true },
-  HAT_BEKLEME_DK: 2, // hat meşgulse kaç dakikada bir tekrar bakılsın
-  HAT_BEKLEME_MAX: 45, // en fazla kaç kez beklensin (2 dk x 45 = 90 dk)
   // Telegram
   TELEGRAM_TOKEN: '__TG__',
   TELEGRAM_RANDEVU_CHAT: '-5179169844', // anlık randevu bildirimi
@@ -103,28 +101,12 @@ node("Vapi: Asistanlar", "n8n-nodes-base.httpRequest", 4.2, [60, 0],
      {"url": "https://api.vapi.ai/assistant", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
       "sendQuery": True, "queryParameters": {"parameters": [{"name": "limit", "value": "100"}]}, "options": {"timeout": 20000}},
      credentials=VAPI_CRED, executeOnce=True, alwaysOutputData=True, retryOnFail=True)
-node("Vapi: Son Çağrılar", "n8n-nodes-base.httpRequest", 4.2, [280, 0],
-     {"url": "https://api.vapi.ai/call", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
-      "sendQuery": True, "queryParameters": {"parameters": [
-          {"name": "createdAtGt", "value": "={{ new Date(Date.now() - 20*60000).toISOString() }}"},
-          {"name": "limit", "value": "100"}]}, "options": {"timeout": 20000}},
-     credentials=VAPI_CRED, executeOnce=True, alwaysOutputData=True, retryOnFail=True)
-code("Hat ve Saat Kontrolü", [500, 0], ORTAK + A + r"""// Mesai dışıysa ya da hat meşgulse bekletir; boşsa arama isteğini hazırlar
+code("Saat Kontrolü", [280, 0], ORTAK + A + r"""// Mesai dışıysa bekletir; içindeyse müşteriyi TEK SEFER arar (hat meşgulse tekrar denemez)
 const L=$('Lead Hazırla').first().json; const now=Date.now();
-const tur=$runIndex; // kaçıncı kez kontrol ediliyor
 if(!mesaiIci(now,A.MESAI)) return [{json:{durum:'bekle',bekle_until:new Date(sonrakiMesai(now,A.MESAI)).toISOString()}}];
 // Bu sırada satış ekibi lead'i başka statüye taşıdıysa arama
 const lead=(await bx('crm.lead.get',{id:L.lead_id})).result||{};
 if(String(lead.STATUS_ID)!==A.KAYNAK_STATU) return [{json:{durum:'iptal',neden:'lead statüsü değişti'}}];
-// Hat meşgul mü (aynı numaradan bitmemiş çağrı var mı)
-const aktif=$input.all().map(i=>i.json).flatMap(v=>Array.isArray(v)?v:[v]).filter(c=>c&&c.id&&c.phoneNumberId===A.NUMARA_ID&&c.status&&c.status!=='ended');
-if(aktif.length){
-  if(tur>=A.HAT_BEKLEME_MAX){
-    await bx('crm.timeline.comment.add',{fields:{ENTITY_ID:L.lead_id,ENTITY_TYPE:'lead',COMMENT:`${A.PROJE_ADI} yapay zeka: hat uzun süre meşgul kaldı, arama yapılamadı. Müşteriyi manuel arayın.`}});
-    return [{json:{durum:'iptal',neden:'hat meşgul'}}];
-  }
-  return [{json:{durum:'bekle',bekle_until:new Date(now+A.HAT_BEKLEME_DK*60e3).toISOString()}}];
-}
 // Asistan (ad ya da ID)
 const norm=s=>String(s||'').toLocaleLowerCase('tr-TR').replace(/\s+/g,' ').trim();
 const liste=$('Vapi: Asistanlar').all().map(i=>i.json).flatMap(v=>Array.isArray(v)?v:[v]).filter(a=>a&&a.id);
@@ -137,7 +119,7 @@ const vars={lead_id:L.lead_id,bitrix_id:L.lead_id,musteri_adi:L.ad||'',isim:L.ad
   su_anki_saat:`${p2(t.hh)}:${p2(t.mi)}`,takvim:takvim.join('\n'),arama_turu:'Giden'};
 return [{json:{durum:'ara',vapiBody:{assistantId:asistan.id,phoneNumberId:A.NUMARA_ID,customer:L.ad_soyad?{number:L.telefon,name:L.ad_soyad.slice(0,40)}:{number:L.telefon},
   assistantOverrides:{variableValues:vars},metadata:{project:'motto-saraykent',lead_id:L.lead_id,bitrix_id:L.lead_id}}}}];""")
-node("Ne Yapılacak?", "n8n-nodes-base.switch", 3.2, [720, 0], {
+node("Ne Yapılacak?", "n8n-nodes-base.switch", 3.2, [500, 0], {
     "rules": {"values": [
         {"conditions": {"options": {"caseSensitive": True, "leftValue": "", "typeValidation": "loose", "version": 2},
                         "conditions": [{"id": str(uuid.uuid4()), "leftValue": "={{ $json.durum }}", "rightValue": "ara", "operator": {"type": "string", "operation": "equals"}}],
@@ -146,13 +128,13 @@ node("Ne Yapılacak?", "n8n-nodes-base.switch", 3.2, [720, 0], {
                         "conditions": [{"id": str(uuid.uuid4()), "leftValue": "={{ $json.durum }}", "rightValue": "bekle", "operator": {"type": "string", "operation": "equals"}}],
                         "combinator": "and"}, "renameOutput": True, "outputKey": "Bekle"}]},
     "options": {}})
-node("Bekle", "n8n-nodes-base.wait", 1.1, [940, 120], {"resume": "specificTime", "dateTime": "={{ $json.bekle_until }}"},
+node("Bekle", "n8n-nodes-base.wait", 1.1, [720, 120], {"resume": "specificTime", "dateTime": "={{ $json.bekle_until }}"},
      webhookId=str(uuid.uuid5(uuid.NAMESPACE_URL, "motto/wait")))
-node("Vapi: Aramayı Başlat", "n8n-nodes-base.httpRequest", 4.2, [940, -120],
+node("Vapi: Aramayı Başlat", "n8n-nodes-base.httpRequest", 4.2, [720, -120],
      {"method": "POST", "url": "https://api.vapi.ai/call", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth",
       "sendBody": True, "specifyBody": "json", "jsonBody": "={{ JSON.stringify($json.vapiBody) }}", "options": {"timeout": 30000}},
      credentials=VAPI_CRED, onError="continueRegularOutput")
-code("Arama Notu", [1160, -120], A + r"""const L=$('Lead Hazırla').first().json; const r=$input.first().json;
+code("Arama Notu", [940, -120], A + r"""const L=$('Lead Hazırla').first().json; const r=$input.first().json;
 const metin=r.id?`${A.PROJE_ADI} yapay zeka araması başlatıldı (arayan numara: ${A.NUMARA}).`
   :`${A.PROJE_ADI} yapay zeka araması BAŞLATILAMADI — müşteriyi manuel arayın. Hata: ${String((r.error&&(r.error.message||JSON.stringify(r.error)))||r.message||JSON.stringify(r)).slice(0,300)}`;
 await bx('crm.timeline.comment.add',{fields:{ENTITY_ID:L.lead_id,ENTITY_TYPE:'lead',COMMENT:metin}});
@@ -292,8 +274,8 @@ def link(a, b, out=0):
     while len(m) <= out: m.append([])
     m[out].append({"node": b, "type": "main", "index": 0})
 for a, b in [("Bitrix - Motto Form Lead", "AYARLAR"), ("AYARLAR", "Lead Hazırla"), ("Lead Hazırla", "Vapi: Asistanlar"),
-             ("Vapi: Asistanlar", "Vapi: Son Çağrılar"), ("Vapi: Son Çağrılar", "Hat ve Saat Kontrolü"), ("Hat ve Saat Kontrolü", "Ne Yapılacak?"),
-             ("Ne Yapılacak?", "Vapi: Aramayı Başlat"), ("Bekle", "Vapi: Son Çağrılar"), ("Vapi: Aramayı Başlat", "Arama Notu"),
+             ("Vapi: Asistanlar", "Saat Kontrolü"), ("Saat Kontrolü", "Ne Yapılacak?"),
+             ("Ne Yapılacak?", "Vapi: Aramayı Başlat"), ("Bekle", "Saat Kontrolü"), ("Vapi: Aramayı Başlat", "Arama Notu"),
              ("Vapi - Motto Sonuç", "AYARLAR (Sonuç)"), ("AYARLAR (Sonuç)", "Sonucu İşle"),
              ("Her Gün 20:00", "AYARLAR (Rapor)"), ("AYARLAR (Rapor)", "Vapi: Bugünkü Aramalar"), ("Vapi: Bugünkü Aramalar", "Gün Sonu Raporu")]:
     link(a, b)

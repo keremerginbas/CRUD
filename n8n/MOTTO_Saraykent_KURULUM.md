@@ -10,7 +10,7 @@
 | Randevu oluşturur | **RANDEVU OLUŞTURANLAR** (`UC_WK3LVR`), Randevu Tarihi doldurulur, satışçıya yapılacak iş açılır, Telegram -5179169844 | satışçılara sırayla |
 | Görüşüldü, randevu yok / ulaşılamadı | sadece not | değişmez |
 
-- Mesai dışında düşen form ertesi 09:30'da aranır. Hat meşgulse 2 dakikada bir tekrar bakılır.
+- Mesai dışında düşen form ertesi 09:30'da aranır. Her müşteri yalnızca 1 kez aranır; hat meşgulse ya da arama başlatılamazsa tekrar denenmez, karta not düşer.
 - Aynı lead 24 saat içinde ikinci kez aranmaz. Statüdeki eski 208 kayıt aranmaz (kural yalnızca yeni girişte çalışır).
 - Gün sonu raporu her gün 20:00'de Telegram -5110365688'e gider.
 
