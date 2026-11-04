@@ -35,12 +35,15 @@ export function isWithinWorkingHours(user, now = new Date(), timeZone = 'Europe/
  *     müşteri kayıtlı değilse → asistan hattı (tanımlıysa), değilse hattın sahibi
  *     danışman mesai dışındaysa → asistan hattı, o da yoksa karşılama kuyruğu
  * - Kimseye atanmamış hat (ör. ayrılan personelin numarası) → asistan hattı, o da yoksa karşılama kuyruğu
+ * - Hat listesinde olmayan numara → reddet (santral açmaz, operatör aramayı başka hedefe verir)
  */
 export function decideInboundRoute({
   number, user, contact, owner, callerPhone, now, timeZone, huntDestination, assistantDestination, callerAnnouncement,
 }) {
   const hunt = { action: 'queue', destination: huntDestination, whisper: null, userId: null };
-  if (!number) return hunt;
+  // Tanımadığımız bir numaraya gelen arama (ör. operatörün departmanından düşen şirket araması):
+  // açmadan reddet ki operatör aramayı diğer hedeflere versin
+  if (!number) return { action: 'reject', destination: null, whisper: null, userId: null, reason: 'bilinmeyen-numara' };
 
   const toConsultant = (target) => ({
     action: 'forward',

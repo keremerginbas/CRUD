@@ -12,6 +12,8 @@ CONF=/etc/asterisk
 NAME="${1:-trunk}"
 [[ "$NAME" == "trunk" || "$NAME" == "agent" ]] || { echo "Ad trunk ya da agent olmalı"; exit 1; }
 echo "== Bağlantı: $NAME"
+# Danışmanları arayan dahili gelen arama kabul etmez (from-agent meşgul döner)
+CONTEXT=from-trunk; [[ "$NAME" == "agent" ]] && CONTEXT=from-agent
 
 read -rp "Operatör adı (bilgi için, ör. Türk Telekom): " OPERATOR
 read -rp "Operatörün SIP sunucusu (alan adı ya da IP): " HOST
@@ -65,7 +67,7 @@ qualify_frequency=60
 [$NAME]
 type=endpoint
 transport=transport-udp
-context=from-trunk
+context=$CONTEXT
 disallow=all
 allow=alaw,ulaw
 aors=$NAME

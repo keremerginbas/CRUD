@@ -227,7 +227,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       callerAnnouncement: config.pbx.callerAnnouncement,
     });
 
-    if (providerCallId && !q.callByProviderId.get(providerCallId)) {
+    if (decision.action !== 'reject' && providerCallId && !q.callByProviderId.get(providerCallId)) {
       q.insertCall.run(providerCallId, 'inbound', callerPhone, number?.did ?? normalizePhone(dialedNumber),
         decision.userId, contact?.id ?? null, 'ringing');
     }

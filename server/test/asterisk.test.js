@@ -50,6 +50,7 @@ test('yönlendirme cevabı dialplan için düz metin', () => {
   assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905551112233', userId: 7, callerAnnouncement: 'x', whisper: 'Alıcı arıyor' }), 'forward,05551112233,1,1,u7');
   assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905312814423', userId: 7, reason: 'kayitsiz-musteri', callerAnnouncement: null, whisper: 'x' }), 'forward,05312814423,0,1,');
   assert.equal(provider.formatRouteResponse({ action: 'queue', destination: 'queue:karsilama' }), 'queue,,0,0,');
+  assert.equal(provider.formatRouteResponse({ action: 'reject' }), 'reject,,0,0,');
 });
 
 test('olaylar gelen ve giden aramada doğru ayrıştırılır', () => {

@@ -103,3 +103,8 @@ test('sahibi olmayan hat (ayrılan personel) asistana, asistan yoksa kuyruğa gi
   const q = decideInboundRoute({ ...base, number: free, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
   assert.equal(q.action, 'queue');
 });
+
+test('hat listesinde olmayan numaraya gelen arama reddedilir (şirketin diğer aramaları yakalanmaz)', () => {
+  const d = decideInboundRoute({ ...base, assistantDestination: '+905312814423', number: undefined, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([d.action, d.reason], ['reject', 'bilinmeyen-numara']);
+});

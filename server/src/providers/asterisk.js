@@ -53,6 +53,7 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
 
     // 5. alan: danışmanın tarayıcı telefonu (u<id>); panelde açıksa önce orası çalar
     formatRouteResponse(decision) {
+      if (decision.action === 'reject') return 'reject,,0,0,';
       if (decision.action !== 'forward') return 'queue,,0,0,';
       const browser = !decision.reason && decision.userId ? `u${decision.userId}` : '';
       return ['forward', toLocalFormat(decision.destination), decision.callerAnnouncement ? 1 : 0, decision.whisper ? 1 : 0, browser].join(',');
