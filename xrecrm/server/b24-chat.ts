@@ -19,6 +19,8 @@ import {
   b24Call,
   evolution,
   loadChat,
+  saveChat,
+  saveLidPhone,
   page,
   portalById,
   activeSettings,
@@ -141,6 +143,9 @@ export async function bindCardTabs(store: Store, portal: B24Portal, base: string
 }
 
 const toWa = (v: unknown) => {
+  // WhatsApp gizli kimliği (…@lid) numara gibi temizlenmez; sohbet anahtarı olarak korunur.
+  const raw = String(v ?? "").trim();
+  if (/^\d{6,20}@lid$/.test(raw)) return raw;
   const d = normalizePhone(v);
   return d.length >= 10 && d.length <= 15 ? d : "";
 };
@@ -249,6 +254,39 @@ export function registerChatRoutes(app: Express, store: Store) {
         status: ctx.portal.lines[line].status,
       }));
       return { threads: chats, lines, admin: ctx.viewer.admin };
+    }),
+  );
+
+  // Gizli numaralı (…@lid) sohbeti gerçek numarayla eşleştirir ve iki sohbeti birleştirir.
+  app.post(
+    "/b24/chat/link",
+    json,
+    withViewer(async (ctx, body) => {
+      const lidChat = await chatFor(ctx, body);
+      if (!lidChat.phone.endsWith("@lid")) fail(400, "Bu sohbet zaten bir numaraya bağlı.");
+      const target = toWa(body.target);
+      if (!target || target.endsWith("@lid")) fail(400, "Geçerli bir telefon numarası girin.");
+      await saveLidPhone(store, ctx.portal.id, lidChat.line, lidChat.phone, target);
+      const main = await loadChat(store, ctx.portal.id, lidChat.line, target, lidChat.name);
+      main.name = main.name || lidChat.name;
+      main.history = [...main.history, ...lidChat.history].sort((a, b) => a.at - b.at);
+      main.inbound += lidChat.inbound;
+      main.outbound += lidChat.outbound;
+      main.lang = main.lang || lidChat.lang;
+      main.lastInboundAt = Math.max(main.lastInboundAt || 0, lidChat.lastInboundAt || 0) || undefined;
+      main.lastOutboundAt = Math.max(main.lastOutboundAt || 0, lidChat.lastOutboundAt || 0) || undefined;
+      main.waitingSince = lidChat.waitingSince ?? main.waitingSince;
+      main.createdAt = Math.min(main.createdAt || Date.now(), lidChat.createdAt || Date.now());
+      await saveChat(store, main);
+      const lidThread = (await store.get<Thread>(THREAD_KIND, lidChat.id, SYSTEM_OWNER))?.payload;
+      if (lidThread?.messages.length) {
+        const mainThread = (await store.get<Thread>(THREAD_KIND, main.id, SYSTEM_OWNER))?.payload || { id: main.id, memberId: main.memberId, line: main.line, phone: main.phone, messages: [] };
+        mainThread.messages = [...mainThread.messages, ...lidThread.messages].sort((a, b) => a.at - b.at).slice(-THREAD_MAX);
+        await store.put(THREAD_KIND, main.id, mainThread, SYSTEM_OWNER);
+      }
+      await store.delete(THREAD_KIND, lidChat.id, SYSTEM_OWNER).catch(() => undefined);
+      await store.delete(CHAT_KIND, lidChat.id, SYSTEM_OWNER).catch(() => undefined);
+      return { line: main.line, phone: main.phone, name: main.name };
     }),
   );
 
@@ -450,7 +488,7 @@ const TEXT = {
     meetChange: "Oda bağlantımı değiştir", meetSetup: "Google Meet odanız",
     meetHelp: "Kendi sabit odanızı bir kez kaydedin: Google Takvim'de kendinize tekrar eden bir etkinlik oluşturup \"Google Meet ile görüntülü görüşme ekle\" deyin (ya da meet.google.com → Yeni toplantı → Sonraki bir toplantı için toplantı oluştur). Bağlantıyı buraya yapıştırın. Kayıtlar sizin Google Drive'ınıza düşer.",
     save: "Kaydet", saved: "Oda bağlantınız kaydedildi.", call: "Ara", callPhone: "Telefonla ara (Bitrix)",
-    callWa: "WhatsApp Web ile ara", callApp: "WhatsApp masaüstü uygulamasıyla ara", callNote: "Sohbet yeni sekmede WhatsApp Web'de açılır; sağ üstteki 📞 ile arayın. İlk seferde şirket telefonuyla QR'ı okutun (WhatsApp → Ayarlar → Bağlı cihazlar → Cihaz bağla); arama şirket numarasından yapılır. Tarayıcınızda arama düğmesi yoksa masaüstü uygulamasını kullanın.",
+    hidden: "Gizli numara", link: "Numarayla eşleştir", linkAsk: "WhatsApp bu kişinin numarasını göstermedi. Gerçek numarasını yazın (ör. 0506 123 45 67); iki sohbet birleşir ve sonraki mesajlar bu numaraya düşer.", linked: "Sohbetler birleştirildi.", callWa: "WhatsApp Web ile ara", callApp: "WhatsApp masaüstü uygulamasıyla ara", callNote: "Sohbet yeni sekmede WhatsApp Web'de açılır; sağ üstteki 📞 ile arayın. İlk seferde şirket telefonuyla QR'ı okutun (WhatsApp → Ayarlar → Bağlı cihazlar → Cihaz bağla); arama şirket numarasından yapılır. Tarayıcınızda arama düğmesi yoksa masaüstü uygulamasını kullanın.",
     connected: "Bağlı", disconnected: "Bağlantı yok", connecting: "Bağlanıyor",
     offAdmin: "Bu numaranın WhatsApp bağlantısı kopmuş. Panel → Bağlantılar'dan QR okutun.",
     offUser: "Bu numaranın WhatsApp bağlantısı kopmuş. Yöneticinizden numarayı yeniden bağlamasını isteyin.",
@@ -471,7 +509,7 @@ const TEXT = {
     meetChange: "Change my room link", meetSetup: "Your Google Meet room",
     meetHelp: "Save your permanent room once: create a recurring event for yourself in Google Calendar and add Google Meet video conferencing (or meet.google.com → New meeting → Create a meeting for later). Paste the link here. Recordings are saved to your Google Drive.",
     save: "Save", saved: "Your room link was saved.", call: "Call", callPhone: "Call by phone (Bitrix24)",
-    callWa: "Call with WhatsApp Web", callApp: "Call with the WhatsApp desktop app", callNote: "The chat opens in WhatsApp Web in a new tab; press 📞 at the top right to call. The first time, scan the QR code with the company phone (WhatsApp → Settings → Linked devices → Link a device); the call is made from the company number. If your browser shows no call button, use the desktop app.",
+    hidden: "Hidden number", link: "Link to number", linkAsk: "WhatsApp did not reveal this person’s number. Enter their real number; both chats are merged and later messages go to this number.", linked: "Chats merged.", callWa: "Call with WhatsApp Web", callApp: "Call with the WhatsApp desktop app", callNote: "The chat opens in WhatsApp Web in a new tab; press 📞 at the top right to call. The first time, scan the QR code with the company phone (WhatsApp → Settings → Linked devices → Link a device); the call is made from the company number. If your browser shows no call button, use the desktop app.",
     connected: "Connected", disconnected: "Disconnected", connecting: "Connecting",
     offAdmin: "This number's WhatsApp connection is lost. Scan the QR code again in Panel → Connections.",
     offUser: "This number's WhatsApp connection is lost. Ask your administrator to reconnect it.",
@@ -573,7 +611,7 @@ const CHAT_JS = String.raw`
 var C=window.XRE_CHAT,X=C.txt,$=function(s){return document.querySelector(s)};
 var S={threads:[],lines:[],cur:null,filter:"all",line:"",q:"",count:-1};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
-function phone(p){p=String(p||"");return p?"+"+p.replace(/^(\d{2})(\d{3})(\d{3})(\d{2})(\d{2})$/,"$1 $2 $3 $4 $5"):""}
+function phone(p){p=String(p||"");if(/@lid$/.test(p))return X.hidden;return p?"+"+p.replace(/^(\d{2})(\d{3})(\d{3})(\d{2})(\d{2})$/,"$1 $2 $3 $4 $5"):""}
 var loc=C.lang==="tr"?"tr-TR":"en-US";
 function hm(t){return new Date(t).toLocaleTimeString(loc,{hour:"2-digit",minute:"2-digit"})}
 function dayOf(t){return new Date(t).toLocaleDateString(loc,{day:"numeric",month:"long",year:"numeric"})}
@@ -634,7 +672,7 @@ function blankCard(){
 
 function open(t){
   S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count=-1;$("#app").classList.add("open");renderList();
-  $("#pane").innerHTML='<header><button class="btn ghost backbtn" id="back">← '+esc(X.back)+'</button><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><div class="who"><b id="hn">'+esc(t.name||phone(t.phone))+'</b><span>'+esc(phone(t.phone))+(t.lineName?" · "+esc(t.lineName):"")+'</span></div><span class="st" id="lst"></span></header>'
+  $("#pane").innerHTML='<header><button class="btn ghost backbtn" id="back">← '+esc(X.back)+'</button><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><div class="who"><b id="hn">'+esc(t.name||phone(t.phone))+'</b><span>'+esc(phone(t.phone))+(t.lineName?" · "+esc(t.lineName):"")+'</span></div><span class="st" id="lst"></span>'+(/@lid$/.test(t.phone)?'<button type="button" class="btn ghost" id="bLink">🔗 '+esc(X.link)+'</button>':'')+'</header>'
     +'<div class="msgs" id="msgs" aria-live="polite"><div class="blank">'+esc(X.load)+'</div></div>'
     +'<form class="composer" id="cmp"><div class="offmsg" id="offmsg" hidden></div>'
     +'<div class="tools2" style="position:relative"><button type="button" class="ic" id="bAttach" title="'+esc(X.attach)+'" aria-label="'+esc(X.attach)+'">📎</button><input type="file" id="file" hidden accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">'
@@ -644,6 +682,7 @@ function open(t){
     +'<div class="rec" id="recBar" hidden><span class="dot" aria-hidden="true"></span><b>'+esc(X.recording)+'</b> <span id="recT">0:00</span><button type="button" class="btn primary" id="recSend">'+esc(X.stop)+'</button><button type="button" class="btn ghost" id="recCancel">'+esc(X.cancel)+'</button></div>'
     +'<div class="row1" id="row1"><textarea id="txt" rows="1" placeholder="'+esc(X.placeholder)+'"></textarea><button class="btn primary" id="sendBtn">'+esc(X.send)+'</button></div><small>'+esc(X.hint)+'</small></form>';
   $("#back").onclick=function(){$("#app").classList.remove("open")};
+  if($("#bLink"))$("#bLink").onclick=function(){var v=prompt(X.linkAsk,"");if(!v)return;api("link",{line:t.line,phone:t.phone,target:v}).then(function(r){toast(X.linked);loadThreads().then(function(){var n=S.threads.find(function(x){return x.line===r.line&&x.phone===r.phone});if(n)open(n)})}).catch(function(e){toast(e.message,true)})};
   var ta=$("#txt");ta.oninput=function(){ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px"};
   ta.onkeydown=function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
   $("#cmp").onsubmit=function(e){e.preventDefault();send()};

@@ -740,8 +740,26 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     // Bitrix'ten verilen cevap aynı gizli kimliğe gider
     await fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][message][text]": "Cevap", "data[MESSAGES][0][chat][id]": "998877665544@lid", "auth[member_id]": MEMBER, "auth[application_token]": "app-token", "auth[access_token]": "tok-2" }));
     await new Promise((r) => setTimeout(r, 60));
-    const out = evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1);
+    const out = evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1)!;
     expect((typeof out.body === "string" ? JSON.parse(out.body) : out.body).number).toBe("998877665544@lid");
+    // Sohbet ekranında gizli kimlikli sohbet açılır ve mesajları görünür
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const chatUrl = JSON.parse(home.match(/CHAT_URL=("[^"]*")/)![1]);
+    const view = await (await fetch(new URL(chatUrl, base).toString())).text();
+    const ct = JSON.parse(view.match(/window\.XRE_CHAT=(\{.*?\});<\/script>/)![1]).t;
+    const msgs = await (await fetch(`${base}/b24/chat/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "998877665544@lid" }) })).json();
+    expect(msgs.phone).toBe("998877665544@lid");
+    expect(msgs.messages.map((m: any) => m.text)).toContain("Numarasız");
+    // Temsilci gerçek numarayı eşleştirir: sohbetler birleşir, sonraki mesaj numaraya düşer
+    const linked = await (await fetch(`${base}/b24/chat/link`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "998877665544@lid", target: "0532 111 22 33" }) })).json();
+    expect(linked).toMatchObject({ line: "3", phone: "905321112233" });
+    const merged = await (await fetch(`${base}/b24/chat/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "905321112233" }) })).json();
+    expect(merged.messages.map((m: any) => m.text)).toContain("Numarasız");
+    const threads = await (await fetch(`${base}/b24/chat/threads`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct }) })).json();
+    expect(threads.threads.some((x: any) => x.phone === "998877665544@lid")).toBe(false);
+    await hook({ id: "LID3", remoteJid: "998877665544@lid" }, "Yeni mesaj");
+    await new Promise((r) => setTimeout(r, 60));
+    expect(sent().at(-1)).toMatchObject({ chat: { id: "905321112233" }, user: { phone: "+905321112233" }, message: { text: "Yeni mesaj" } });
   });
 
   it("AI asistan bilgi tabanından cevap verir, temsilci yazınca susar, gerektiğinde devreder", async () => {

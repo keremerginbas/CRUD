@@ -157,6 +157,16 @@ export async function loadChat(store: Store, memberId: string, line: string, pho
   const found = (await store.get<B24Chat>(CHAT_KIND, id, SYSTEM_OWNER))?.payload;
   return found || { id, memberId, line, phone, name, inbound: 0, outbound: 0, sinceQualify: 0, history: [] };
 }
+// WhatsApp gizli kimliği (…@lid) → gerçek numara eşleştirmesi (hat başına).
+export const LID_KIND = "b24-lid";
+const lidKey = (memberId: string, line: string, lid: string) => `${memberId}:${line}:${lid}`;
+export async function lidPhone(store: Store, memberId: string, line: string, lid: string): Promise<string> {
+  return (await store.get<{ phone: string }>(LID_KIND, lidKey(memberId, line, lid), SYSTEM_OWNER))?.payload?.phone || "";
+}
+export async function saveLidPhone(store: Store, memberId: string, line: string, lid: string, phone: string) {
+  await store.put(LID_KIND, lidKey(memberId, line, lid), { memberId, line, lid, phone }, SYSTEM_OWNER);
+}
+
 export async function saveChat(store: Store, chat: B24Chat) {
   chat.history = chat.history.slice(-40);
   await store.put(CHAT_KIND, chat.id, chat, SYSTEM_OWNER);
@@ -572,7 +582,16 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   // WhatsApp bazı sohbetlerde numara yerine gizli kimlik (…@lid) kullanır; gerçek
   // numara varsa ayrı alanda gelir (remoteJidAlt / senderPn). Yoksa sohbet gizli
   // kimlikle açılır ve cevaplar da o kimliğe gönderilir.
-  const remoteJid = withPhoneJid(String(key.remoteJid || ""), key.remoteJidAlt, key.senderPn, data?.senderPn, data?.remoteJidAlt);
+  const rawJid = String(key.remoteJid || "");
+  let remoteJid = withPhoneJid(rawJid, key.remoteJidAlt, key.senderPn, data?.senderPn, data?.remoteJidAlt);
+  if (rawJid.endsWith("@lid")) {
+    const lid = `${rawJid.split("@")[0].replace(/\D/g, "")}@lid`;
+    if (remoteJid.endsWith("@s.whatsapp.net")) await saveLidPhone(store, portal.id, map.line, lid, normalizePhone(remoteJid.split("@")[0]));
+    else {
+      const known = await lidPhone(store, portal.id, map.line, lid);
+      if (known) remoteJid = `${known}@s.whatsapp.net`;
+    }
+  }
   const isGroup = remoteJid.endsWith("@g.us");
   const isLid = remoteJid.endsWith("@lid");
   if (!remoteJid.endsWith("@s.whatsapp.net") && !isLid && !(isGroup && options.groups)) return; // durumlar ve (kapalıysa) gruplar aktarılmaz
@@ -1088,7 +1107,7 @@ export async function uninstallPortal(store: Store, portal: B24Portal) {
     Object.entries(portal.lines).map(([id, l]) => [id, { ...l, status: "disconnected", phone: undefined, profileName: undefined, updatedAt: new Date().toISOString() }]),
   );
   await savePortal(store, { ...portal, active: false, accessToken: "", refreshToken: "", applicationToken: undefined, lines });
-  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report", THREAD_KIND, CAMPAIGN_KIND]) {
+  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report", THREAD_KIND, CAMPAIGN_KIND, LID_KIND]) {
     for (const row of await store.list<{ memberId?: string }>(kind, SYSTEM_OWNER))
       if (row.payload?.memberId === portal.id) await store.delete(kind, row.id, SYSTEM_OWNER);
   }
