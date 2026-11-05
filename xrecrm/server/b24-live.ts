@@ -543,6 +543,36 @@ export function registerLivePanelRoutes(app: Express, store: Store, panel: Panel
       return { chats: [...found.values()] };
     }),
   );
+  // Elle eklenen sohbet: Telegram Web bağlantısı, @kullanıcıadı ya da numara.
+  // Telegram Web gruplarda -100 önekini göstermez; iki biçim de denenir.
+  app.post(
+    "/b24/panel/reports/telegram/resolve",
+    json,
+    panel(async (portal, b) => {
+      const t = await tgOf(portal);
+      const raw = String(b.input || "").trim();
+      const hash = raw.includes("#") ? raw.slice(raw.lastIndexOf("#") + 1) : raw.replace(/^https?:\/\/t\.me\//, "@");
+      const candidates: string[] = [];
+      if (/^@?[A-Za-z][A-Za-z0-9_]{3,63}$/.test(hash)) candidates.push(hash.startsWith("@") ? hash : `@${hash}`);
+      else {
+        const num = hash.replace(/[^\d-]/g, "");
+        if (/^-100\d{5,}$/.test(num)) candidates.push(num, `-${num.slice(4)}`);
+        else if (/^-\d{4,}$/.test(num)) candidates.push(num, `-100${num.slice(1)}`);
+        else if (/^\d{4,}$/.test(num)) candidates.push(num, `-${num}`, `-100${num}`);
+      }
+      if (!candidates.length) throw Object.assign(new Error("Geçerli bir sohbet kimliği girin."), { statusCode: 400 });
+      for (const id of candidates) {
+        try {
+          const chat = await telegram(decryptValue(t.token), "getChat", { chat_id: id });
+          const title = chat?.title || [chat?.first_name, chat?.last_name].filter(Boolean).join(" ") || chat?.username || String(chat?.id);
+          return { chat: { id: String(chat?.id ?? id), title: String(title).slice(0, 120) } };
+        } catch {
+          /* sıradaki biçim denenir */
+        }
+      }
+      throw Object.assign(new Error("Telegram bu sohbeti bulamadı. Botun gruba ekli olduğundan emin olun."), { statusCode: 404 });
+    }),
+  );
   app.post(
     "/b24/panel/reports/telegram/test",
     json,

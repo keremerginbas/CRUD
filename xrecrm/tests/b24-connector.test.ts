@@ -685,6 +685,10 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
       if (method === "getMe") return json({ ok: true, result: { username: "demo_rapor_bot" } });
       if (method === "getUpdates") return json({ ok: true, result: [{ my_chat_member: { chat: { id: -1009990001, title: "Demo Raporlar", type: "supergroup" } } }] });
       if (method === "sendMessage") return json({ ok: true, result: { message_id: 1 } });
+      if (method === "getChat") {
+        const id = JSON.parse(init.body).chat_id;
+        return id === "-1009990001" ? json({ ok: true, result: { id: -1009990001, title: "Demo Raporlar", type: "supergroup" } }) : new Response(JSON.stringify({ ok: false, error_code: 400, description: "Bad Request: chat not found" }), { status: 400 });
+      }
       return json({ ok: false, description: "?" });
     }) as any);
     const { store, base } = await setup({ evoState: "open" });
@@ -699,6 +703,9 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect((await panel("reports/telegram/connect", { token: "yanlis" })).status).toBe(400);
     const connected = await panel("reports/telegram/connect", { token: TOKEN });
     expect(connected.body.telegram).toEqual({ connected: true, bot: "demo_rapor_bot", chats: [] });
+    // Telegram Web bağlantısı yapıştırılırsa -100 önekli doğru kimlik bulunur
+    expect((await panel("reports/telegram/resolve", { input: "https://web.telegram.org/k/#-9990001" })).body.chat).toEqual({ id: "-1009990001", title: "Demo Raporlar" });
+    expect((await panel("reports/telegram/resolve", { input: "-12345" })).status).toBe(404);
     const found = await panel("reports/telegram/discover");
     expect(found.body.chats).toEqual([{ id: "-1009990001", title: "Demo Raporlar", type: "supergroup" }]);
     const saved = await panel("reports/save", { daily: true, hour: 9, phones: [], userIds: [], line: "", telegramChats: found.body.chats });

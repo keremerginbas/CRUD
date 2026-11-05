@@ -500,6 +500,8 @@ export const PANEL_EN: Record<string, string> = {
   "sohbete gönderildi.": "chats received it.",
   "sohbete deneme mesajı gönderildi.": "chats received a test message.",
   "Telegram botu kaldırılsın mı?": "Remove the Telegram bot?",
+  "Grup bağlantısı ya da kimliği (ör. https://web.telegram.org/k/#-5110365688)": "Group link or ID (e.g. https://web.telegram.org/k/#-5110365688)",
+  "eklendi. Ayarları kaydet’e basmayı unutmayın.": "added. Remember to click Save settings.",
 };
 
 const PIECE_SPLIT = /([<>"]|(?<!\\)')/;
@@ -546,6 +548,7 @@ export function localizeHtml(html: string, lang: Lang, dict: Record<string, stri
 // ---- Sunucu mesajları (hata/uyarı) ----
 
 const MESSAGES_EN: Record<string, string> = {
+  "Telegram bu sohbeti bulamadı. Botun gruba ekli olduğundan emin olun.": "Telegram could not find this chat. Make sure the bot is a member of the group.",
   "Önce Telegram botunu bağlayın.": "Connect the Telegram bot first.",
   "Geçerli bir bot anahtarı girin (BotFather'ın verdiği 123456:ABC… biçiminde).": "Enter a valid bot token (in the 123456:ABC… format given by BotFather).",
   "Bu bot başka bir sistemde (ör. n8n webhook) kullanılıyor; sohbetler otomatik bulunamıyor. Sohbet kimliğini elle ekleyin.": "This bot is used by another system (e.g. an n8n webhook), so chats cannot be found automatically. Add the chat ID manually.",
