@@ -472,6 +472,16 @@ async function activateLine(store: Store, portal: B24Portal, line: string, activ
   }
 }
 
+/** …@lid adresinin yerine, gelmişse gerçek numaralı adresi döndürür. */
+function withPhoneJid(jid: string, ...alts: unknown[]): string {
+  if (!jid.endsWith("@lid")) return jid;
+  for (const alt of alts) {
+    const v = String(alt || "");
+    if (v.endsWith("@s.whatsapp.net")) return v;
+  }
+  return jid;
+}
+
 /** Müşteri adına Bitrix sohbetine kısa bir not (arama, silme, düzenleme). */
 export async function sendClientMessage(
   store: Store,
@@ -480,6 +490,7 @@ export async function sendClientMessage(
   msg: { phone: string; name: string; id: string; text: string; sender?: string },
 ) {
   const isGroup = msg.phone.endsWith("@g.us");
+  const anon = !isGroup && msg.phone.endsWith("@lid");
   const userId = isGroup ? msg.sender || msg.phone : msg.phone;
   const lang = langOf(portal);
   await b24Call(store, portal, "imconnector.send.messages", {
@@ -487,7 +498,7 @@ export async function sendClientMessage(
     LINE: line,
     MESSAGES: [
       {
-        user: { id: userId, name: msg.name || (isGroup ? pick(lang, "Grup üyesi", "Group member") : `+${msg.phone}`), ...(isGroup && !msg.sender ? {} : { phone: `+${userId}`, skip_phone_validate: "Y" }) },
+        user: { id: userId, name: msg.name || (isGroup ? pick(lang, "Grup üyesi", "Group member") : `+${msg.phone}`), ...((isGroup && !msg.sender) || anon ? {} : { phone: `+${userId}`, skip_phone_validate: "Y" }) },
         message: { id: msg.id, date: Math.floor(Date.now() / 1000), text: msg.text },
         chat: { id: msg.phone, name: isGroup ? pick(lang, "WhatsApp grubu", "WhatsApp group") : msg.name || `+${msg.phone}` },
       },
@@ -558,11 +569,17 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   if (!event.startsWith("messages.upsert") && !data?.key) return;
   const key = data?.key || {};
   if (key.fromMe) return;
-  const remoteJid = String(key.remoteJid || "");
+  // WhatsApp bazı sohbetlerde numara yerine gizli kimlik (…@lid) kullanır; gerçek
+  // numara varsa ayrı alanda gelir (remoteJidAlt / senderPn). Yoksa sohbet gizli
+  // kimlikle açılır ve cevaplar da o kimliğe gönderilir.
+  const remoteJid = withPhoneJid(String(key.remoteJid || ""), key.remoteJidAlt, key.senderPn, data?.senderPn, data?.remoteJidAlt);
   const isGroup = remoteJid.endsWith("@g.us");
-  if (!remoteJid.endsWith("@s.whatsapp.net") && !(isGroup && options.groups)) return; // durumlar ve (kapalıysa) gruplar aktarılmaz
-  const sender = isGroup ? normalizePhone(jidPhone(key.participant || data?.participant || "")) : "";
-  const phone = isGroup ? `${remoteJid.split("@")[0]}@g.us` : normalizePhone(remoteJid.split("@")[0]);
+  const isLid = remoteJid.endsWith("@lid");
+  if (!remoteJid.endsWith("@s.whatsapp.net") && !isLid && !(isGroup && options.groups)) return; // durumlar ve (kapalıysa) gruplar aktarılmaz
+  const participant = withPhoneJid(String(key.participant || data?.participant || ""), key.participantAlt, key.participantPn);
+  const sender = isGroup && !participant.endsWith("@lid") ? normalizePhone(jidPhone(participant)) : "";
+  const phone = isGroup ? `${remoteJid.split("@")[0]}@g.us` : isLid ? `${remoteJid.split("@")[0].replace(/\D/g, "")}@lid` : normalizePhone(remoteJid.split("@")[0]);
+  if (!phone || phone === "@lid") return;
   const rawMessage = data?.message || {};
   // Silinen ve düzenlenen mesajlar
   const protocol = rawMessage.protocolMessage;
@@ -653,19 +670,21 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
       {
         user: isGroup
           ? { id: sender || phone, name: String(data?.pushName || "").slice(0, 120) || (sender ? `+${sender}` : pick(uiLang, "Grup üyesi", "Group member")), ...(sender ? { phone: `+${sender}`, skip_phone_validate: "Y" } : {}) }
-          : {
-              id: phone,
-              name: String(data?.pushName || "").slice(0, 120) || `+${phone}`,
-              phone: `+${phone}`,
-              skip_phone_validate: "Y",
-            },
+          : isLid
+            ? { id: phone, name: String(data?.pushName || "").slice(0, 120) || pick(uiLang, "WhatsApp kullanıcısı", "WhatsApp user") }
+            : {
+                id: phone,
+                name: String(data?.pushName || "").slice(0, 120) || `+${phone}`,
+                phone: `+${phone}`,
+                skip_phone_validate: "Y",
+              },
         message: {
           id: String(key.id || crypto.randomUUID()),
           date: Math.floor(Number(data?.messageTimestamp || Date.now() / 1000)),
           text: display || (files.length ? "" : pick(uiLang, "[Medya]", "[Media]")),
           ...(files.length ? { files } : {}),
         },
-        chat: { id: phone, name: isGroup ? pick(uiLang, "WhatsApp grubu", "WhatsApp group") : String(data?.pushName || `+${phone}`).slice(0, 120) },
+        chat: { id: phone, name: isGroup ? pick(uiLang, "WhatsApp grubu", "WhatsApp group") : String(data?.pushName || (isLid ? pick(uiLang, "WhatsApp kullanıcısı", "WhatsApp user") : `+${phone}`)).slice(0, 120) },
       },
     ],
   });
@@ -755,7 +774,7 @@ async function deliverFromBitrix(store: Store, portal: B24Portal, line: string, 
   const delivered: any[] = [];
   for (const item of messages) {
     const chatRef = String(item?.chat?.id || "");
-    const to = chatRef.endsWith("@g.us") ? `${chatRef.split("@")[0].replace(/\D/g, "")}@g.us` : normalizePhone(chatRef);
+    const to = chatRef.endsWith("@g.us") || chatRef.endsWith("@lid") ? `${chatRef.split("@")[0].replace(/\D/g, "")}@${chatRef.split("@")[1]}` : normalizePhone(chatRef);
     if (!to) continue;
     const agentText = String(item?.message?.text || "")
       .replace(/\[br\]/gi, "\n")

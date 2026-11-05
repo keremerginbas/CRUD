@@ -721,6 +721,29 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect((await panel("reports/telegram/disconnect")).body.telegram.connected).toBe(false);
   });
 
+  it("WhatsApp gizli kimlik (@lid) mesajları: gerçek numara varsa ona, yoksa kimliğe bağlanır; cevap geri gider", async () => {
+    const { base, bx, evo } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const instance = instanceName(MEMBER, "3");
+    const hook = (key: Record<string, unknown>, text: string) =>
+      fetch(`${base}/api/webhooks/evolution?token=hook-secret`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ event: "messages.upsert", instance, data: { key, pushName: "Ali", message: { conversation: text } } }) });
+    const sent = () => bx.filter((c) => c.method === "imconnector.send.messages").map((c) => c.body.MESSAGES[0]);
+    await hook({ id: "LID1", remoteJid: "112233445566@lid", remoteJidAlt: "905061234567@s.whatsapp.net" }, "Merhaba");
+    await new Promise((r) => setTimeout(r, 60));
+    expect(sent().at(-1)).toMatchObject({ chat: { id: "905061234567" }, user: { id: "905061234567", phone: "+905061234567" }, message: { text: "Merhaba" } });
+    await hook({ id: "LID2", remoteJid: "998877665544@lid" }, "Numarasız");
+    await new Promise((r) => setTimeout(r, 60));
+    const anon = sent().at(-1);
+    expect(anon).toMatchObject({ chat: { id: "998877665544@lid" }, user: { id: "998877665544@lid", name: "Ali" }, message: { text: "Numarasız" } });
+    expect(anon.user.phone).toBeUndefined();
+    // Bitrix'ten verilen cevap aynı gizli kimliğe gider
+    await fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][message][text]": "Cevap", "data[MESSAGES][0][chat][id]": "998877665544@lid", "auth[member_id]": MEMBER, "auth[application_token]": "app-token", "auth[access_token]": "tok-2" }));
+    await new Promise((r) => setTimeout(r, 60));
+    const out = evo.filter((c) => c.url === `/message/sendText/${instance}`).at(-1);
+    expect((typeof out.body === "string" ? JSON.parse(out.body) : out.body).number).toBe("998877665544@lid");
+  });
+
   it("AI asistan bilgi tabanından cevap verir, temsilci yazınca susar, gerektiğinde devreder", async () => {
     process.env.XRE_OPENAI_API_KEY = "sk-test";
     setAgentMergeDelay(20);
