@@ -8,7 +8,7 @@ import { createMemoryStore } from "../server/db";
 import { CONNECTOR_ID, checkLineHealth, instanceName, portalById, setB24Fetch, settingsTicket } from "../server/b24-connector";
 import { setAiFetch } from "../server/b24-ai";
 import { inWorkingHours, setAgentMergeDelay, DEFAULT_AGENT } from "../server/b24-agent";
-import { dueReports, DEFAULT_REPORTS } from "../server/b24-live";
+import { dueReports, DEFAULT_REPORTS, setTelegramFetch } from "../server/b24-live";
 import { panelHtml } from "../server/b24-panel-html";
 import { localizeMessage } from "../server/b24-i18n";
 import { normalizeRecipient, setCampaignGap, setMetaFetch } from "../server/b24-campaigns";
@@ -671,6 +671,47 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(new Uint8Array(await r.arrayBuffer())).toEqual(new Uint8Array([0x49, 0x44, 0x33]));
     expect(calls[0]).toMatchObject({ url: "https://api.openai.com/v1/audio/speech", auth: "Bearer sk-test", body: { model: "gpt-4o-mini-tts", voice: "nova", input: "Merhaba", instructions: "Sıcak" } });
     setAiFetch(null);
+  });
+
+  it("rapor Telegram'a da gider: bot bağlanır, sohbet bulunur, anahtar panele sızmaz", async () => {
+    const SECRET = "FAKE_test_secret_value_0123456789abcdef";
+    const TOKEN = `111111111:${SECRET}`;
+    const tg: any[] = [];
+    setTelegramFetch((async (url: string, init: any) => {
+      const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+      if (!url.includes(`/bot${TOKEN}/`)) return new Response(JSON.stringify({ ok: false, error_code: 401, description: "Unauthorized" }), { status: 401 });
+      const method = url.split("/").pop();
+      tg.push({ method, body: init?.body ? JSON.parse(init.body) : null });
+      if (method === "getMe") return json({ ok: true, result: { username: "demo_rapor_bot" } });
+      if (method === "getUpdates") return json({ ok: true, result: [{ my_chat_member: { chat: { id: -1009990001, title: "Demo Raporlar", type: "supergroup" } } }] });
+      if (method === "sendMessage") return json({ ok: true, result: { message_id: 1 } });
+      return json({ ok: false, description: "?" });
+    }) as any);
+    const { store, base } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const t = home.match(/const T="([^"]+)"/)?.[1];
+    const panel = async (path: string, body: Record<string, unknown> = {}) => {
+      const r = await fetch(`${base}/b24/panel/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
+      return { status: r.status, body: await r.json() };
+    };
+    expect((await panel("reports/telegram/connect", { token: "yanlis" })).status).toBe(400);
+    const connected = await panel("reports/telegram/connect", { token: TOKEN });
+    expect(connected.body.telegram).toEqual({ connected: true, bot: "demo_rapor_bot", chats: [] });
+    const found = await panel("reports/telegram/discover");
+    expect(found.body.chats).toEqual([{ id: "-1009990001", title: "Demo Raporlar", type: "supergroup" }]);
+    const saved = await panel("reports/save", { daily: true, hour: 9, phones: [], userIds: [], line: "", telegramChats: found.body.chats });
+    expect(saved.body.settings.telegram).toEqual({ connected: true, bot: "demo_rapor_bot", chats: [{ id: "-1009990001", title: "Demo Raporlar" }] });
+    expect(JSON.stringify((await panel("reports/state")).body)).not.toContain(SECRET);
+    expect(JSON.stringify((await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload)).not.toContain(SECRET);
+    expect((await panel("reports/telegram/test")).body).toEqual({ sent: 1, errors: [] });
+    const created = await panel("reports/create", { period: "daily", send: true, origin: "https://crm.xre.test" });
+    expect(created.body.delivery).toMatchObject({ sent: 1, errors: [] });
+    const report = tg.filter((c) => c.method === "sendMessage").at(-1);
+    expect(report.body).toMatchObject({ chat_id: "-1009990001" });
+    expect(report.body.text).toContain("https://crm.xre.test/b24/report/");
+    expect((await panel("reports/telegram/disconnect")).body.telegram.connected).toBe(false);
   });
 
   it("AI asistan bilgi tabanından cevap verir, temsilci yazınca susar, gerektiğinde devreder", async () => {

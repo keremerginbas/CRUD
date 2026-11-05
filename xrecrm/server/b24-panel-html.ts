@@ -645,6 +645,26 @@ function bindList(){
   document.querySelectorAll("[data-cdet]").forEach(b=>b.onclick=async()=>{try{const r=await api("campaigns/get",{id:b.dataset.cdet});const RS={pending:"Bekliyor",accepted:"Meta kabul etti",failed:"Hata"};
     openSheet(esc(r.campaign.name),'<p class="sub">'+esc(r.campaign.template.name)+' · '+r.campaign.accepted+' / '+r.campaign.total+'</p><div class="list">'+r.recipients.map(x=>'<div class="row" style="grid-template-columns:1fr 1fr"><div><div class="phone">'+esc(phone(x.phone))+'</div>'+(x.name?'<div class="sub">'+esc(x.name)+'</div>':'')+'</div><div><span class="lic '+(x.status==="accepted"?"active":x.status==="pending"?"trial":"expired")+'">'+RS[x.status]+'</span>'+(x.error?'<div class="sub">'+esc(x.error)+'</div>':'')+'</div></div>').join("")+'</div>');}catch(e){toast(e.message,true);}});
 }
+let TG={on:false,bot:"",list:[],sel:new Set()};
+function tgRender(){
+  const box=$("#tg");if(!box)return;
+  if(!TG.on){
+    box.innerHTML='<ol class="steps"><li>'+esc("Telegram’da @BotFather’a /newbot yazıp bir bot oluşturun ve verdiği anahtarı kopyalayın.")+'</li><li>'+esc("Botu raporun gideceği gruba ekleyip grupta bir mesaj yazın ya da kendi hesabınızdan bota Başlat deyin.")+'</li><li>'+esc("Anahtarı aşağıya yapıştırıp bağlayın, sonra Sohbetleri bul’a basın.")+'</li></ol>'
+      +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><input class="search" id="tg-token" type="password" autocomplete="off" placeholder="'+esc("Bot anahtarı")+'" style="flex:1"><button class="btn primary" id="tg-connect">Bağla</button></div>';
+    $("#tg-connect").onclick=async()=>{try{const r=await api("reports/telegram/connect",{token:$("#tg-token").value});TG.on=true;TG.bot=r.telegram.bot;tgRender();toast("Telegram botu bağlandı.");}catch(e){toast(e.message,true);}};
+    return;
+  }
+  box.innerHTML='<div class="bar" style="margin:0 0 8px"><span><span class="status ok">@'+esc(TG.bot)+'</span></span><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="tg-find">Sohbetleri bul</button><button class="btn" id="tg-test">Deneme gönder</button><button class="btn ghost" id="tg-off">Kaldır</button></div></div>'
+    +(TG.list.length?'<div class="userpick">'+TG.list.map(c=>'<label class="check"><input type="checkbox" data-tg="'+esc(c.id)+'"'+(TG.sel.has(c.id)?" checked":"")+'> '+esc(c.title||c.id)+' <span class="sub">'+esc(c.id)+'</span></label>').join("")+'</div>':'<p class="sub">'+esc("Henüz sohbet yok. Botu gruba ekleyip grupta bir mesaj yazın, sonra Sohbetleri bul’a basın.")+'</p>')
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><input class="search" id="tg-id" placeholder="'+esc("Sohbet kimliği (ör. -1001234567890)")+'" style="flex:1"><button class="btn" id="tg-add">Ekle</button></div>'
+    +'<p class="note">'+esc("Seçtiğiniz sohbetlere rapor bağlantısı WhatsApp’takiyle aynı anda gider. Değişikliklerden sonra Ayarları kaydet’e basın.")+'</p>';
+  box.querySelectorAll("[data-tg]").forEach(c=>c.onchange=()=>{c.checked?TG.sel.add(c.dataset.tg):TG.sel.delete(c.dataset.tg);});
+  const add=(c)=>{if(!TG.list.some(x=>x.id===c.id))TG.list.push(c);};
+  $("#tg-find").onclick=async()=>{try{const r=await api("reports/telegram/discover");r.chats.forEach(c=>{add(c);TG.sel.add(c.id);});tgRender();toast(r.chats.length?(r.chats.length+" "+"sohbet bulundu."):"Sohbet bulunamadı. Botu gruba ekleyip grupta bir mesaj yazın.",!r.chats.length);}catch(e){toast(e.message,true);}};
+  $("#tg-add").onclick=()=>{const id=$("#tg-id").value.trim();if(!/^-?\d{4,20}$/.test(id)){toast("Geçerli bir sohbet kimliği girin.",true);return;}add({id,title:id});TG.sel.add(id);tgRender();};
+  $("#tg-test").onclick=async()=>{try{const r=await api("reports/telegram/test",{chats:TG.list.filter(c=>TG.sel.has(c.id))});if(r.errors.length)toast((r.sent?r.sent+" "+"sohbete gönderildi. ":"")+r.errors.join(" · "),true);else toast(r.sent+" "+"sohbete deneme mesajı gönderildi.");}catch(e){toast(e.message,true);}};
+  $("#tg-off").onclick=async()=>{if(!confirm("Telegram botu kaldırılsın mı?"))return;try{await api("reports/telegram/disconnect");TG={on:false,bot:"",list:[],sel:new Set()};tgRender();}catch(e){toast(e.message,true);}};
+}
 async function reports(){
   const m=$("#main");m.innerHTML='<p class="sub">Yükleniyor…</p>';
   try{R=await api("reports/state");}catch(e){m.innerHTML='<div class="empty"><strong>Raporlar alınamadı</strong>'+esc(e.message)+'</div>';return;}
@@ -658,9 +678,11 @@ async function reports(){
     +'<h3 class="section">Kime gitsin?</h3><div class="formgrid"><label class="field">WhatsApp numaraları<textarea class="area" id="r-ph" rows="3" placeholder="0532 000 00 00 (her satıra bir numara)">'+esc(s.phones.map(phone).join("\\n"))+'</textarea></label>'
     +'<label class="field">Gönderen bağlantı<select id="r-l"><option value="">Seçin</option>'+R.lines.map(l=>'<option value="'+esc(l.id)+'"'+(l.id===s.line?" selected":"")+(l.open?"":" disabled")+'>'+esc(l.label)+(l.open?"":" (bağlı değil)")+'</option>').join("")+'</select></label></div>'
     +'<p class="sub" style="font-weight:600;margin:4px 0">Bitrix bildirimi gidecek kişiler</p><div class="userpick" id="r-u">'+S.users.map(u=>'<label class="check"><input type="checkbox" value="'+esc(u.id)+'"'+(s.userIds.includes(String(u.id))?" checked":"")+'> '+esc(u.name)+'</label>').join("")+'</div>'
+    +'<h3 class="section">Telegram</h3><div class="list" id="tg" style="padding:14px 18px"></div>'
     +'<div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="r-save">Ayarları kaydet</button></div>'
     +'<h3 class="section">Oluşturulan raporlar</h3>'+(R.reports.length?'<div class="list reps"><div class="row head"><span>Rapor</span><span>Dönem</span><span>Özet</span><span></span></div>'+R.reports.map(r=>'<div class="row"><div><div class="name">'+esc(PL[r.period])+'</div><div class="sub">'+esc(new Date(r.createdAt).toLocaleString("tr-TR",{timeZone:"Europe/Istanbul"}))+'</div></div><div>'+esc(r.from===r.to?r.from:r.from+" – "+r.to)+'</div><div class="sub">'+esc(r.headline||"—")+'</div><div class="acts"><a class="btn" href="'+esc(r.url)+'" target="_blank" rel="noopener">Aç</a><button class="btn ghost" data-copy="'+esc(r.url)+'">Bağlantıyı kopyala</button></div></div>').join("")+'</div>':'<div class="list"><div class="empty">Henüz rapor yok. “Anlık rapor oluştur” ile ilkini deneyin.</div></div>');
-  const form=()=>({daily:$("#r-d").checked,weekly:$("#r-w").checked,monthly:$("#r-m").checked,hour:Number($("#r-h").value),phones:$("#r-ph").value.split("\\n"),line:$("#r-l").value,userIds:[...document.querySelectorAll("#r-u input:checked")].map(i=>i.value),origin:location.origin});
+  const T0=s.telegram||{connected:false,chats:[]};TG={on:T0.connected,bot:T0.bot||"",list:T0.chats.slice(),sel:new Set(T0.chats.map(c=>c.id))};tgRender();
+  const form=()=>({telegramChats:TG.list.filter(c=>TG.sel.has(c.id)),daily:$("#r-d").checked,weekly:$("#r-w").checked,monthly:$("#r-m").checked,hour:Number($("#r-h").value),phones:$("#r-ph").value.split("\\n"),line:$("#r-l").value,userIds:[...document.querySelectorAll("#r-u input:checked")].map(i=>i.value),origin:location.origin});
   $("#r-save").onclick=async()=>{try{await api("reports/save",form());toast("Rapor ayarları kaydedildi.");}catch(e){toast(e.message,true);}};
   const make=async send=>{const btn=send?$("#r-send"):$("#r-make");btn.disabled=true;btn.textContent="Hazırlanıyor…";
     try{if(send)await api("reports/save",form());const r=await api("reports/create",{period:$("#r-p").value,send,origin:location.origin});

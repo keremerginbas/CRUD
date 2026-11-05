@@ -10,6 +10,7 @@ import type { Store } from "./db.js";
 import { aiConfigured, chatJson } from "./b24-ai.js";
 import { lineUsable, planAllows, requireFeature } from "./b24-billing.js";
 import { deleteMedia } from "./whatsapp-media.js";
+import { decryptValue, encryptValue } from "./integration-settings.js";
 import { langOf, pick, type Lang } from "./b24-i18n.js";
 import {
   b24Call,
@@ -41,8 +42,42 @@ export interface ReportSettings {
   line: string;
   /** Zamanlanmış gönderimde bağlantı adresi (PUBLIC_ORIGIN yoksa) */
   origin?: string;
+  /** Raporun gideceği Telegram botu (anahtar şifreli) ve sohbetler */
+  telegram?: TelegramTarget;
   lastSent?: Partial<Record<ReportPeriod, string>>;
 }
+export interface TelegramTarget {
+  token: string;
+  bot: string;
+  chats: { id: string; title: string }[];
+}
+
+// ---------- Telegram ----------
+
+let tgFetch: typeof fetch = (...args) => fetch(...args);
+/** Testler için Telegram isteklerini yönlendirir. */
+export function setTelegramFetch(fn: typeof fetch) {
+  tgFetch = fn;
+}
+async function telegram(token: string, method: string, body?: Record<string, unknown>) {
+  const res = await tgFetch(`https://api.telegram.org/bot${token}/${method}`, {
+    method: body ? "POST" : "GET",
+    ...(body ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {}),
+  }).catch((e) => {
+    throw Object.assign(new Error(`Telegram'a ulaşılamadı: ${(e as Error).message}`), { statusCode: 502 });
+  });
+  const data: any = await (res as globalThis.Response).json().catch(() => ({}));
+  if (!data?.ok) throw Object.assign(new Error(`Telegram: ${data?.description || `HTTP ${(res as globalThis.Response).status}`}`), { statusCode: 400, code: data?.error_code });
+  return data.result;
+}
+/** Panele giden Telegram durumu: anahtar asla dönmez. */
+export const publicTelegram = (t?: TelegramTarget) => (t ? { connected: true, bot: t.bot, chats: t.chats } : { connected: false, bot: "", chats: [] as { id: string; title: string }[] });
+const publicSettings = (cfg: ReportSettings) => ({ ...cfg, telegram: publicTelegram(cfg.telegram) });
+const tgChatId = (v: unknown) => {
+  const id = String(v ?? "").trim();
+  return /^-?\d{4,20}$/.test(id) ? id : /^@[A-Za-z0-9_]{4,64}$/.test(id) ? id : "";
+};
+
 export const DEFAULT_REPORTS: ReportSettings = { daily: false, weekly: false, monthly: false, hour: 9, phones: [], userIds: [], line: "" };
 export const reportSettings = (portal: B24Portal): ReportSettings => ({ ...DEFAULT_REPORTS, ...(portal.reports || {}) });
 
@@ -307,6 +342,17 @@ export async function deliverReport(store: Store, portal: B24Portal, report: Rep
         }
       }
   }
+  if (cfg.telegram?.chats.length) {
+    const token = decryptValue(cfg.telegram.token);
+    for (const chat of cfg.telegram.chats) {
+      try {
+        await telegram(token, "sendMessage", { chat_id: chat.id, text });
+        sent++;
+      } catch (error) {
+        errors.push(`Telegram ${chat.title || chat.id}: ${(error as Error).message}`);
+      }
+    }
+  }
   for (const userId of cfg.userIds) {
     try {
       await b24Call(store, portal, "im.notify.system.add", { USER_ID: Number(userId), MESSAGE: `📊 [URL=${url}]${title}[/URL]` });
@@ -342,7 +388,7 @@ export async function runReportSchedule(store: Store, now = Date.now()) {
   const portals = (await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((p) => p.active && p.reports);
   for (const portal of portals) {
     const cfg = reportSettings(portal);
-    if (!cfg.phones.length && !cfg.userIds.length) continue;
+    if (!cfg.phones.length && !cfg.userIds.length && !cfg.telegram?.chats.length) continue;
     if (!(await planAllows(store, portal, "reports"))) continue;
     for (const { period, key } of dueReports(cfg, now)) {
       const fresh = (await portalById(store, portal.id)) || portal;
@@ -414,7 +460,7 @@ export function registerLivePanelRoutes(app: Express, store: Store, panel: Panel
         .slice(0, 30)
         .map((r) => ({ token: r.token, period: r.period, from: r.from, to: r.to, createdAt: r.createdAt, headline: r.ai?.headline || "", url: reportUrl(portal, r.token) }));
       const lines = Object.entries(portal.lines).map(([id, l]) => ({ id, label: lineLabel(portal, id), open: l.status === "connected" }));
-      return { settings: reportSettings(portal), reports, lines, aiConfigured: aiConfigured() };
+      return { settings: publicSettings(reportSettings(portal)), reports, lines, aiConfigured: aiConfigured() };
     }),
   );
   app.post(
@@ -434,12 +480,96 @@ export function registerLivePanelRoutes(app: Express, store: Store, panel: Panel
         line: fresh.lines[digits(b.line)] ? digits(b.line) : "",
         origin: typeof b.origin === "string" && /^https:\/\/[\w.-]+(:\d+)?$/.test(b.origin) ? b.origin : current.origin,
         lastSent: current.lastSent,
+        telegram: current.telegram
+          ? {
+              ...current.telegram,
+              chats: Array.isArray(b.telegramChats)
+                ? b.telegramChats
+                    .map((c: any) => ({ id: tgChatId(c?.id), title: String(c?.title || "").slice(0, 120) }))
+                    .filter((c: { id: string }) => c.id)
+                    .slice(0, 10)
+                : current.telegram.chats,
+            }
+          : undefined,
       };
       if (reports.phones.length && !reports.line) throw Object.assign(new Error("Raporun gönderileceği bağlantıyı seçin."), { statusCode: 400 });
       await savePortal(store, { ...fresh, reports });
-      return { settings: reports };
+      return { settings: publicSettings(reports) };
     }),
   );
+  // Telegram: bot bağla, sohbetleri bul, dene, kaldır.
+  const tgSave = async (portal: B24Portal, telegramCfg: TelegramTarget | undefined) => {
+    const fresh = (await portalById(store, portal.id)) || portal;
+    await savePortal(store, { ...fresh, reports: { ...reportSettings(fresh), telegram: telegramCfg } });
+    return publicTelegram(telegramCfg);
+  };
+  const tgOf = async (portal: B24Portal) => {
+    const t = reportSettings((await portalById(store, portal.id)) || portal).telegram;
+    if (!t) throw Object.assign(new Error("Önce Telegram botunu bağlayın."), { statusCode: 409 });
+    return t;
+  };
+  app.post(
+    "/b24/panel/reports/telegram/connect",
+    json,
+    panel(async (portal, b) => {
+      await requireFeature(store, portal, "reports");
+      const token = String(b.token || "").trim();
+      if (!/^\d{5,15}:[A-Za-z0-9_-]{30,64}$/.test(token)) throw Object.assign(new Error("Geçerli bir bot anahtarı girin (BotFather'ın verdiği 123456:ABC… biçiminde)."), { statusCode: 400 });
+      const me = await telegram(token, "getMe");
+      const current = reportSettings((await portalById(store, portal.id)) || portal).telegram;
+      return { telegram: await tgSave(portal, { token: encryptValue(token), bot: String(me?.username || ""), chats: current?.chats || [] }) };
+    }),
+  );
+  app.post(
+    "/b24/panel/reports/telegram/discover",
+    json,
+    panel(async (portal) => {
+      const t = await tgOf(portal);
+      let updates: any[] = [];
+      try {
+        updates = (await telegram(decryptValue(t.token), "getUpdates", { allowed_updates: ["message", "my_chat_member", "channel_post"] })) || [];
+      } catch (error) {
+        if ((error as Error & { code?: number }).code === 409)
+          throw Object.assign(new Error("Bu bot başka bir sistemde (ör. n8n webhook) kullanılıyor; sohbetler otomatik bulunamıyor. Sohbet kimliğini elle ekleyin."), { statusCode: 409 });
+        throw error;
+      }
+      const found = new Map<string, { id: string; title: string; type: string }>();
+      for (const u of updates) {
+        const chat = u?.message?.chat || u?.my_chat_member?.chat || u?.channel_post?.chat;
+        if (!chat?.id) continue;
+        const title = chat.title || [chat.first_name, chat.last_name].filter(Boolean).join(" ") || chat.username || String(chat.id);
+        found.set(String(chat.id), { id: String(chat.id), title: String(title).slice(0, 120), type: String(chat.type || "") });
+      }
+      return { chats: [...found.values()] };
+    }),
+  );
+  app.post(
+    "/b24/panel/reports/telegram/test",
+    json,
+    panel(async (portal, b) => {
+      const t = await tgOf(portal);
+      const chats = Array.isArray(b.chats) && b.chats.length ? b.chats.map((c: any) => ({ id: tgChatId(c?.id), title: String(c?.title || "") })).filter((c: { id: string }) => c.id) : t.chats;
+      if (!chats.length) throw Object.assign(new Error("Telegram sohbeti seçin."), { statusCode: 400 });
+      const lang = langOf(portal);
+      const errors: string[] = [];
+      let sent = 0;
+      for (const chat of chats.slice(0, 10)) {
+        try {
+          await telegram(decryptValue(t.token), "sendMessage", { chat_id: chat.id, text: pick(lang, "✅ WhatsApp by XRE: raporlar bu sohbete gelecek.", "✅ WhatsApp by XRE: reports will be sent to this chat.") });
+          sent++;
+        } catch (error) {
+          errors.push(`${chat.title || chat.id}: ${(error as Error).message}`);
+        }
+      }
+      return { sent, errors };
+    }),
+  );
+  app.post(
+    "/b24/panel/reports/telegram/disconnect",
+    json,
+    panel(async (portal) => ({ telegram: await tgSave(portal, undefined) })),
+  );
+
   app.post(
     "/b24/panel/reports/create",
     json,

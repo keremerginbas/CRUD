@@ -482,6 +482,24 @@ export const PANEL_EN: Record<string, string> = {
   "Ödeme dönemi · {p} paketi, numara başına": "Billing period · {p} plan, per number",
   "Kampanya durdurulsun mu?": "Stop the campaign?",
   "Meta kabul etti": "Accepted by Meta",
+  "Telegram’da @BotFather’a /newbot yazıp bir bot oluşturun ve verdiği anahtarı kopyalayın.": "In Telegram, send /newbot to @BotFather to create a bot and copy the token it gives you.",
+  "Botu raporun gideceği gruba ekleyip grupta bir mesaj yazın ya da kendi hesabınızdan bota Başlat deyin.": "Add the bot to the group that should receive reports and send a message there, or press Start in the bot from your own account.",
+  "Anahtarı aşağıya yapıştırıp bağlayın, sonra Sohbetleri bul’a basın.": "Paste the token below and connect, then click Find chats.",
+  "Bot anahtarı": "Bot token",
+  "Telegram botu bağlandı.": "Telegram bot connected.",
+  "Sohbetleri bul": "Find chats",
+  "Deneme gönder": "Send test",
+  "Kaldır": "Remove",
+  "Henüz sohbet yok. Botu gruba ekleyip grupta bir mesaj yazın, sonra Sohbetleri bul’a basın.": "No chats yet. Add the bot to a group and send a message there, then click Find chats.",
+  "Sohbet kimliği (ör. -1001234567890)": "Chat ID (e.g. -1001234567890)",
+  "Ekle": "Add",
+  "Seçtiğiniz sohbetlere rapor bağlantısı WhatsApp’takiyle aynı anda gider. Değişikliklerden sonra Ayarları kaydet’e basın.": "The report link is sent to the selected chats at the same time as WhatsApp. Click Save settings after changes.",
+  "sohbet bulundu.": "chats found.",
+  "Sohbet bulunamadı. Botu gruba ekleyip grupta bir mesaj yazın.": "No chats found. Add the bot to a group and send a message there.",
+  "Geçerli bir sohbet kimliği girin.": "Enter a valid chat ID.",
+  "sohbete gönderildi.": "chats received it.",
+  "sohbete deneme mesajı gönderildi.": "chats received a test message.",
+  "Telegram botu kaldırılsın mı?": "Remove the Telegram bot?",
 };
 
 const PIECE_SPLIT = /([<>"]|(?<!\\)')/;
@@ -528,6 +546,10 @@ export function localizeHtml(html: string, lang: Lang, dict: Record<string, stri
 // ---- Sunucu mesajları (hata/uyarı) ----
 
 const MESSAGES_EN: Record<string, string> = {
+  "Önce Telegram botunu bağlayın.": "Connect the Telegram bot first.",
+  "Geçerli bir bot anahtarı girin (BotFather'ın verdiği 123456:ABC… biçiminde).": "Enter a valid bot token (in the 123456:ABC… format given by BotFather).",
+  "Bu bot başka bir sistemde (ör. n8n webhook) kullanılıyor; sohbetler otomatik bulunamıyor. Sohbet kimliğini elle ekleyin.": "This bot is used by another system (e.g. an n8n webhook), so chats cannot be found automatically. Add the chat ID manually.",
+  "Telegram sohbeti seçin.": "Select a Telegram chat.",
   "Sayfanın süresi doldu; yeniden açın.": "This page has expired; please open it again.",
   "Bağlantı bulunamadı.": "Connection not found.",
   "Bitrix yeni Açık Kanal oluşturmadı.": "Bitrix24 did not create a new Open Channel.",
@@ -560,6 +582,7 @@ const MESSAGES_EN: Record<string, string> = {
 const MESSAGE_PATTERNS_EN: [RegExp, string][] = [
   [/^(.*): hiçbir personelin rolü bu numarayı içermiyor; kuyruk değiştirilmedi\.$/, "$1: no staff role includes this number; the queue was not changed."],
   [/^Bitrix (\S+): uygulamanın bu işlem için izni yok \((.*)\)\. Uygulama ayarlarında izni ekleyip uygulamayı yeniden açın\.$/, "Bitrix24 $1: the app has no permission for this ($2). Add the permission in the app settings and reopen the app."],
+  [/^Telegram'a ulaşılamadı: (.*)$/, "Could not reach Telegram: $1"],
   [/^Bitrix (\S+): (.*)$/, "Bitrix24 $1: $2"],
   [/^Bu kod en fazla (\d+) numara için geçerli\.$/, "This code is valid for at most $1 numbers."],
   [/^Yapay zekâ servisi HTTP (\d+)$/, "AI service HTTP $1"],
