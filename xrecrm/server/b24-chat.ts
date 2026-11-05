@@ -488,7 +488,7 @@ const TEXT = {
     meetChange: "Oda bağlantımı değiştir", meetSetup: "Google Meet odanız",
     meetHelp: "Kendi sabit odanızı bir kez kaydedin: Google Takvim'de kendinize tekrar eden bir etkinlik oluşturup \"Google Meet ile görüntülü görüşme ekle\" deyin (ya da meet.google.com → Yeni toplantı → Sonraki bir toplantı için toplantı oluştur). Bağlantıyı buraya yapıştırın. Kayıtlar sizin Google Drive'ınıza düşer.",
     save: "Kaydet", saved: "Oda bağlantınız kaydedildi.", call: "Ara", callPhone: "Telefonla ara (Bitrix)",
-    hidden: "Gizli numara", link: "Numarayla eşleştir", linkAsk: "WhatsApp bu kişinin numarasını göstermedi. Gerçek numarasını yazın (ör. 0506 123 45 67); iki sohbet birleşir ve sonraki mesajlar bu numaraya düşer.", linked: "Sohbetler birleştirildi.", callWa: "WhatsApp Web ile ara", callApp: "WhatsApp masaüstü uygulamasıyla ara", callNote: "Sohbet yeni sekmede WhatsApp Web'de açılır; sağ üstteki 📞 ile arayın. İlk seferde şirket telefonuyla QR'ı okutun (WhatsApp → Ayarlar → Bağlı cihazlar → Cihaz bağla); arama şirket numarasından yapılır. Tarayıcınızda arama düğmesi yoksa masaüstü uygulamasını kullanın.",
+    hidden: "Gizli numara", link: "Numarayla eşleştir", linkAsk: "WhatsApp bu kişinin numarasını göstermedi. Gerçek numarasını yazın; iki sohbet birleşir ve sonraki mesajlar bu numaraya düşer.", linked: "Sohbetler birleştirildi.", callWa: "WhatsApp Web ile ara", callApp: "WhatsApp masaüstü uygulamasıyla ara", callNote: "Sohbet yeni sekmede WhatsApp Web'de açılır; sağ üstteki 📞 ile arayın. İlk seferde şirket telefonuyla QR'ı okutun (WhatsApp → Ayarlar → Bağlı cihazlar → Cihaz bağla); arama şirket numarasından yapılır. Tarayıcınızda arama düğmesi yoksa masaüstü uygulamasını kullanın.",
     connected: "Bağlı", disconnected: "Bağlantı yok", connecting: "Bağlanıyor",
     offAdmin: "Bu numaranın WhatsApp bağlantısı kopmuş. Panel → Bağlantılar'dan QR okutun.",
     offUser: "Bu numaranın WhatsApp bağlantısı kopmuş. Yöneticinizden numarayı yeniden bağlamasını isteyin.",
@@ -578,6 +578,7 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 .menu{position:absolute;bottom:100%;left:0;margin-bottom:6px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-m);box-shadow:var(--shadow);min-width:240px;padding:6px;z-index:5}
 .menu button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:6px;cursor:pointer;color:inherit;font:inherit}
 .menu button:hover{background:var(--paper)}.menu p{margin:6px 10px;color:var(--ink-3);font-size:11.5px;line-height:1.4}
+.linkbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--accent-soft);font-size:13px}.linkbar span{flex:1 1 260px}.linkbar input{width:170px;padding:7px 10px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper);color:inherit;font:inherit}
 .composer .offmsg{color:var(--danger);font-weight:600;font-size:12.5px;margin-bottom:8px}
 @media (max-width:720px){
   .app,.app.card{grid-template-columns:1fr}
@@ -673,7 +674,7 @@ function blankCard(){
 function open(t){
   S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count=-1;$("#app").classList.add("open");renderList();
   $("#pane").innerHTML='<header><button class="btn ghost backbtn" id="back">← '+esc(X.back)+'</button><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><div class="who"><b id="hn">'+esc(t.name||phone(t.phone))+'</b><span>'+esc(phone(t.phone))+(t.lineName?" · "+esc(t.lineName):"")+'</span></div><span class="st" id="lst"></span>'+(/@lid$/.test(t.phone)?'<button type="button" class="btn ghost" id="bLink">🔗 '+esc(X.link)+'</button>':'')+'</header>'
-    +'<div class="msgs" id="msgs" aria-live="polite"><div class="blank">'+esc(X.load)+'</div></div>'
+    +(/@lid$/.test(t.phone)?'<form class="linkbar" id="linkBar" hidden><span>'+esc(X.linkAsk)+'</span><input id="linkNum" inputmode="tel" placeholder="0506 123 45 67"><button class="btn primary" id="linkGo">'+esc(X.link)+'</button></form>':'')+'<div class="msgs" id="msgs" aria-live="polite"><div class="blank">'+esc(X.load)+'</div></div>'
     +'<form class="composer" id="cmp"><div class="offmsg" id="offmsg" hidden></div>'
     +'<div class="tools2" style="position:relative"><button type="button" class="ic" id="bAttach" title="'+esc(X.attach)+'" aria-label="'+esc(X.attach)+'">📎</button><input type="file" id="file" hidden accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">'
     +'<button type="button" class="ic" id="bRec" title="'+esc(X.record)+'" aria-label="'+esc(X.record)+'">🎤</button>'
@@ -682,7 +683,7 @@ function open(t){
     +'<div class="rec" id="recBar" hidden><span class="dot" aria-hidden="true"></span><b>'+esc(X.recording)+'</b> <span id="recT">0:00</span><button type="button" class="btn primary" id="recSend">'+esc(X.stop)+'</button><button type="button" class="btn ghost" id="recCancel">'+esc(X.cancel)+'</button></div>'
     +'<div class="row1" id="row1"><textarea id="txt" rows="1" placeholder="'+esc(X.placeholder)+'"></textarea><button class="btn primary" id="sendBtn">'+esc(X.send)+'</button></div><small>'+esc(X.hint)+'</small></form>';
   $("#back").onclick=function(){$("#app").classList.remove("open")};
-  if($("#bLink"))$("#bLink").onclick=function(){var v=prompt(X.linkAsk,"");if(!v)return;api("link",{line:t.line,phone:t.phone,target:v}).then(function(r){toast(X.linked);loadThreads().then(function(){var n=S.threads.find(function(x){return x.line===r.line&&x.phone===r.phone});if(n)open(n)})}).catch(function(e){toast(e.message,true)})};
+  if($("#bLink")){$("#bLink").onclick=function(){var b=$("#linkBar");b.hidden=!b.hidden;if(!b.hidden)$("#linkNum").focus()};$("#linkBar").onsubmit=function(e){e.preventDefault();var v=$("#linkNum").value.trim();if(!v){$("#linkNum").focus();return}$("#linkGo").disabled=true;api("link",{line:t.line,phone:t.phone,target:v}).then(function(r){toast(X.linked);loadThreads().then(function(){var n=S.threads.find(function(x){return x.line===r.line&&x.phone===r.phone});if(n)open(n)})}).catch(function(e){$("#linkGo").disabled=false;toast(e.message,true)})}};
   var ta=$("#txt");ta.oninput=function(){ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px"};
   ta.onkeydown=function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
   $("#cmp").onsubmit=function(e){e.preventDefault();send()};
