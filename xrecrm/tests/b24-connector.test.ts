@@ -55,6 +55,10 @@ async function setup(opts: { evoState?: string } = {}) {
       evo.push({ url: req.url || "", body: raw ? JSON.parse(raw) : {} });
       res.writeHead(200, { "content-type": "application/json" });
       if (req.url?.startsWith("/instance/connectionState")) return res.end(JSON.stringify({ instance: { state: opts.evoState || "close" } }));
+      if (req.url?.startsWith("/chat/whatsappNumbers")) {
+        const n = JSON.parse(raw || "{}").numbers?.[0];
+        return res.end(JSON.stringify([{ exists: true, jid: `${n}@s.whatsapp.net`, number: n, ...(n === "905559990000" ? { lid: "777000111222@lid" } : {}) }]));
+      }
       if (req.url?.startsWith("/chat/getBase64FromMediaMessage")) return res.end(JSON.stringify({ base64: Buffer.from("OggS-ses").toString("base64") }));
       if (req.url?.startsWith("/instance/fetchInstances"))
         return res.end(JSON.stringify([{ name: instanceName(MEMBER, "3"), ownerJid: "905321110000@s.whatsapp.net", profileName: "Müşteri AŞ" }]));
@@ -760,6 +764,46 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await hook({ id: "LID3", remoteJid: "998877665544@lid" }, "Yeni mesaj");
     await new Promise((r) => setTimeout(r, 60));
     expect(sent().at(-1)).toMatchObject({ chat: { id: "905321112233" }, user: { phone: "+905321112233" }, message: { text: "Yeni mesaj" } });
+  });
+
+  it("gizli kimlikli cevap otomatik doğru sohbete düşer: gönderirken öğrenilir, farklı alandaki numara bulunur, tek bekleyen sohbete bağlanır", async () => {
+    const { base, bx } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const instance = instanceName(MEMBER, "3");
+    const hook = (key: Record<string, unknown>, text: string, extra: Record<string, unknown> = {}) =>
+      fetch(`${base}/api/webhooks/evolution?token=hook-secret`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ event: "messages.upsert", instance, data: { key, pushName: "Müşteri", message: { conversation: text }, ...extra } }) });
+    const agentWrites = (to: string, text: string) =>
+      fetch(`${base}/b24/events`, formPost({ event: "ONIMCONNECTORMESSAGEADD", "data[CONNECTOR]": CONNECTOR_ID, "data[LINE]": "3", "data[MESSAGES][0][message][text]": text, "data[MESSAGES][0][chat][id]": to, "auth[member_id]": MEMBER, "auth[application_token]": "app-token", "auth[access_token]": "tok-2" }));
+    const sent = () => bx.filter((c) => c.method === "imconnector.send.messages").map((c) => c.body.MESSAGES[0]);
+    const wait = () => new Promise((r) => setTimeout(r, 80));
+
+    // 1) Temsilci yazınca WhatsApp sunucusundan gizli kimlik öğrenilir; cevap numaralı sohbete düşer
+    await agentWrites("905559990000", "Merhaba Ahmet Bey");
+    await wait();
+    await hook({ id: "A1", remoteJid: "777000111222@lid" }, "Merhaba, buyrun");
+    await wait();
+    expect(sent().at(-1)).toMatchObject({ chat: { id: "905559990000" }, message: { text: "Merhaba, buyrun" } });
+
+    // 2) Numara beklenmedik bir alanda gelirse de bulunur
+    await hook({ id: "A2", remoteJid: "333444555666@lid", senderPhone: "905441230000@s.whatsapp.net" }, "Bilgi alabilir miyim");
+    await wait();
+    expect(sent().at(-1)).toMatchObject({ chat: { id: "905441230000" } });
+
+    // 3) Cevap bekleyen tek sohbet varsa gizli kimlikli cevap ona bağlanır
+    await agentWrites("905327778899", "Teklifimiz ektedir");
+    await wait();
+    await hook({ id: "A3", remoteJid: "888999000111@lid" }, "Teşekkürler");
+    await wait();
+    expect(sent().at(-1)).toMatchObject({ chat: { id: "905327778899" }, message: { text: "Teşekkürler" } });
+
+    // İki sohbet cevap beklerken tahmin yapılmaz, gizli kimlikle kalır
+    await agentWrites("905320000001", "A");
+    await agentWrites("905320000002", "B");
+    await wait();
+    await hook({ id: "A4", remoteJid: "123123123123@lid" }, "Kimim ben?");
+    await wait();
+    expect(sent().at(-1)).toMatchObject({ chat: { id: "123123123123@lid" } });
   });
 
   it("AI asistan bilgi tabanından cevap verir, temsilci yazınca susar, gerektiğinde devreder", async () => {

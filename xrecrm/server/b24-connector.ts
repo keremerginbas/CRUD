@@ -167,6 +167,21 @@ export async function saveLidPhone(store: Store, memberId: string, line: string,
   await store.put(LID_KIND, lidKey(memberId, line, lid), { memberId, line, lid, phone }, SYSTEM_OWNER);
 }
 
+/**
+ * Son çare: aynı hatta son 12 saatte yazılmış ve henüz cevap gelmemiş TEK bir sohbet
+ * varsa gizli kimlikli cevap ona aittir. Birden fazla aday varsa tahmin edilmez.
+ */
+export async function guessLidPhone(store: Store, memberId: string, line: string, lid: string): Promise<string> {
+  if ((await store.get<B24Chat>(CHAT_KIND, chatId(memberId, line, lid), SYSTEM_OWNER))?.payload) return ""; // bu kimlikle zaten sohbet var
+  const since = Date.now() - 12 * 3_600_000;
+  const candidates = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER))
+    .map((r) => r.payload)
+    .filter((c) => c.memberId === memberId && c.line === line && /^\d+$/.test(c.phone) && (c.lastOutboundAt || 0) > since && (c.lastInboundAt || 0) < (c.lastOutboundAt || 0));
+  if (candidates.length !== 1) return "";
+  await saveLidPhone(store, memberId, line, lid, candidates[0].phone);
+  return candidates[0].phone;
+}
+
 export async function saveChat(store: Store, chat: B24Chat) {
   chat.history = chat.history.slice(-40);
   await store.put(CHAT_KIND, chat.id, chat, SYSTEM_OWNER);
@@ -482,6 +497,35 @@ async function activateLine(store: Store, portal: B24Portal, line: string, activ
   }
 }
 
+/** Nesnede (en fazla 3 seviye) verilen sonekle biten ilk JID; mesaj içeriği taranmaz. */
+function findJid(obj: unknown, suffix: string, skip: string[] = [], depth = 0): string {
+  if (typeof obj === "string") return obj.endsWith(suffix) && !skip.includes(obj) ? obj : "";
+  if (!obj || typeof obj !== "object" || depth > 3) return "";
+  for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+    if (k === "message" || k === "contextInfo" || k === "quoted") continue;
+    const hit = findJid(v, suffix, skip, depth + 1);
+    if (hit) return hit;
+  }
+  return "";
+}
+
+/** Bir gönderimden sonra numaranın gizli kimliğini WhatsApp sunucusundan öğrenir (hat başına bir kez). */
+const lidLookups = new Set<string>();
+export async function learnLid(store: Store, portal: B24Portal, line: string, phone: string) {
+  const instance = portal.lines[line]?.instance;
+  if (!instance || !/^\d{8,15}$/.test(phone)) return;
+  const cacheKey = `${portal.id}:${line}:${phone}`;
+  if (lidLookups.has(cacheKey)) return;
+  lidLookups.add(cacheKey);
+  try {
+    const res = await evolution(`/chat/whatsappNumbers/${encodeURIComponent(instance)}`, { method: "POST", body: JSON.stringify({ numbers: [phone] }) });
+    const lid = findJid(res, "@lid");
+    if (lid) await saveLidPhone(store, portal.id, line, `${lid.split("@")[0].replace(/\D/g, "")}@lid`, phone);
+  } catch {
+    lidLookups.delete(cacheKey);
+  }
+}
+
 /** …@lid adresinin yerine, gelmişse gerçek numaralı adresi döndürür. */
 function withPhoneJid(jid: string, ...alts: unknown[]): string {
   if (!jid.endsWith("@lid")) return jid;
@@ -578,18 +622,32 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
 
   if (!event.startsWith("messages.upsert") && !data?.key) return;
   const key = data?.key || {};
-  if (key.fromMe) return;
+  if (key.fromMe) {
+    // Kendi gönderdiğimiz mesajın yankısı: numara ile gizli kimlik birlikte gelirse eşleştirmeyi kaydet.
+    const own = portal.lines[map.line]?.phone ? [`${portal.lines[map.line].phone}@s.whatsapp.net`] : [];
+    const lidJid = findJid(key, "@lid") || findJid(data, "@lid");
+    const pnJid = findJid(key, "@s.whatsapp.net", own) || findJid(data, "@s.whatsapp.net", own);
+    if (lidJid && pnJid) await saveLidPhone(store, portal.id, map.line, `${lidJid.split("@")[0].replace(/\D/g, "")}@lid`, normalizePhone(pnJid.split("@")[0]));
+    return;
+  }
   // WhatsApp bazı sohbetlerde numara yerine gizli kimlik (…@lid) kullanır; gerçek
   // numara varsa ayrı alanda gelir (remoteJidAlt / senderPn). Yoksa sohbet gizli
   // kimlikle açılır ve cevaplar da o kimliğe gönderilir.
   const rawJid = String(key.remoteJid || "");
-  let remoteJid = withPhoneJid(rawJid, key.remoteJidAlt, key.senderPn, data?.senderPn, data?.remoteJidAlt);
+  let remoteJid = withPhoneJid(rawJid, key.remoteJidAlt, key.senderPn, key.senderPN, data?.senderPn, data?.senderPN, data?.remoteJidAlt);
   if (rawJid.endsWith("@lid")) {
     const lid = `${rawJid.split("@")[0].replace(/\D/g, "")}@lid`;
+    if (!remoteJid.endsWith("@s.whatsapp.net")) {
+      // Alan adı sürüme göre değişiyor: numarayı anahtar ve veri alanlarında ara (kendi hattımız hariç).
+      const own = portal.lines[map.line]?.phone ? [`${portal.lines[map.line].phone}@s.whatsapp.net`] : [];
+      const found = findJid(key, "@s.whatsapp.net", own) || findJid({ ...data, key: undefined }, "@s.whatsapp.net", own);
+      if (found) remoteJid = found;
+    }
     if (remoteJid.endsWith("@s.whatsapp.net")) await saveLidPhone(store, portal.id, map.line, lid, normalizePhone(remoteJid.split("@")[0]));
     else {
-      const known = await lidPhone(store, portal.id, map.line, lid);
+      const known = (await lidPhone(store, portal.id, map.line, lid)) || (await guessLidPhone(store, portal.id, map.line, lid));
       if (known) remoteJid = `${known}@s.whatsapp.net`;
+      else console.warn(`WhatsApp by XRE: gizli numara eşleşmedi (${portal.domain} hat ${map.line}); alanlar: key[${Object.keys(key).join(",")}] data[${Object.keys(data || {}).join(",")}]`);
     }
   }
   const isGroup = remoteJid.endsWith("@g.us");
@@ -763,6 +821,7 @@ export async function recordOutbound(
   const local = msg.local ?? msg.original ?? msg.text;
   if (local) chat.history.push({ from: "temsilci", text: local, at: now });
   await saveChat(store, chat);
+  void learnLid(store, portal, line, chat.phone);
   await appendThread(store, chat, { dir: "out", text: msg.text, ...(msg.original ? { original: msg.original } : {}), by: msg.agent, via: msg.via, at: now, ...(msg.waId ? { waId: msg.waId } : {}), ...(msg.media ? { media: msg.media } : {}) });
   await bumpStat(store, portal.id, (s) => {
     const ls = lineStat(s, line);
