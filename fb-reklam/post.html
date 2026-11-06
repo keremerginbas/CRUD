@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8">
+<style>
+:root{--bg:#0A0F1F;--ink:#F4F6FB;--mute:#9AA4BF;--acc:#3DF5B4;--acc2:#5B7CFF;--line:rgba(255,255,255,.08)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:var(--h);background:var(--bg);overflow:hidden}
+body{font-family:"Inter Display","Inter",sans-serif;color:var(--ink);position:relative}
+.grid{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:60px 60px;mask-image:radial-gradient(ellipse at 75% 40%,#000 10%,transparent 70%)}
+.glow{position:absolute;width:760px;height:760px;right:-220px;top:calc(var(--h)*.12);border-radius:50%;background:radial-gradient(circle,rgba(91,124,255,.45),transparent 65%);filter:blur(20px)}
+.glow2{position:absolute;width:520px;height:520px;left:-180px;bottom:-200px;border-radius:50%;background:radial-gradient(circle,rgba(61,245,180,.22),transparent 65%)}
+.wrap{position:absolute;inset:0;padding:72px 76px;display:flex;flex-direction:column}
+.top{display:flex;justify-content:space-between;align-items:center}
+.logo{display:flex;align-items:center;gap:14px;font-weight:800;font-size:34px;letter-spacing:-.5px}
+.mark{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;font-family:"JetBrains Mono";font-weight:800;font-size:22px;color:var(--bg)}
+.logo span{color:var(--mute);font-weight:500}
+.badge{font-family:"JetBrains Mono";font-size:20px;font-weight:600;color:var(--acc);border:1.5px solid rgba(61,245,180,.45);background:rgba(61,245,180,.08);padding:12px 20px;border-radius:999px;display:flex;align-items:center;gap:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:var(--acc);box-shadow:0 0 14px var(--acc)}
+.main{flex:1;display:flex;flex-direction:column;justify-content:center}
+h1{font-size:var(--h1);line-height:1.02;font-weight:800;letter-spacing:-3px}
+.row{display:flex;gap:40px;margin-top:var(--rowgap);align-items:center}.left{flex:1}
+h1 em{font-style:normal;background:linear-gradient(90deg,var(--acc),#8FB0FF);-webkit-background-clip:text;color:transparent}
+.sub{font-size:28px;line-height:1.35;color:var(--mute);}
+.code{flex:0 0 372px;align-self:center;background:rgba(17,24,48,.85);border:1px solid rgba(255,255,255,.12);border-radius:20px;box-shadow:0 30px 80px rgba(0,0,0,.5);transform:rotate(3deg);overflow:hidden}
+.bar{display:flex;gap:8px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.bar i{width:12px;height:12px;border-radius:50%;background:#2A3557}
+.bar i:first-child{background:#FF6B6B}.bar i:nth-child(2){background:#FFC24B}.bar i:nth-child(3){background:var(--acc)}
+pre{font-family:"JetBrains Mono";font-size:18px;line-height:1.75;padding:20px 22px 26px;color:#C9D2EC}
+.k{color:#8FB0FF}.s{color:var(--acc)}.c{color:#5D6886}.f{color:#FFC24B}
+.chips{display:flex;flex-wrap:wrap;gap:14px;margin-top:var(--chipgap)}
+.chip{font-size:24px;font-weight:600;padding:14px 22px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12)}
+.cta{margin-top:40px;display:flex;align-items:center;justify-content:space-between;background:var(--ink);color:var(--bg);border-radius:22px;padding:26px 30px}
+.cta b{font-size:32px;font-weight:800;letter-spacing:-.5px}
+.cta small{display:block;font-size:21px;color:#4A5370;font-weight:500;margin-top:4px}
+.btn{background:var(--bg);color:var(--acc);font-family:"JetBrains Mono";font-weight:700;font-size:22px;padding:18px 24px;border-radius:14px}
+</style></head>
+<body>
+<div class="grid"></div><div class="glow"></div><div class="glow2"></div>
+
+<div class="wrap">
+  <div class="top">
+    <div class="logo"><div class="mark">&lt;/&gt;</div>XRE<span>Software</span></div>
+    <div class="badge"><i class="dot"></i>YENİ · Hizmetteyiz</div>
+  </div>
+  <div class="main">
+    <h1>Fikrinizi <em>yazılıma</em><br>dönüştürüyoruz.</h1>
+    <div class="row"><div class="left"><p class="sub">İşletmenize özel web, mobil ve otomasyon çözümleri — fikirden yayına uçtan uca.</p>
+    <div class="chips">
+      <div class="chip">Web Yazılım</div><div class="chip">Mobil Uygulama</div>
+      <div class="chip">Özel Yazılım</div><div class="chip">Otomasyon & Entegrasyon</div>
+    </div></div><div class="code"><div class="bar"><i></i><i></i><i></i></div>
+<pre><span class="c">// fikriniz → ürününüz</span>
+<span class="k">const</span> proje = <span class="f">xre</span>.<span class="f">baslat</span>({
+  fikir: <span class="s">"sizin"</span>,
+  kod:   <span class="s">"bizden"</span>,
+  hedef: <span class="s">"büyüme"</span>
+});
+<span class="k">await</span> proje.<span class="f">yayinla</span>(); <span class="s">✓</span></pre></div></div>
+  </div>
+  <div class="cta">
+    <div><b>Ücretsiz keşif görüşmesi</b><small>Projenizi konuşalım, yol haritanızı çıkaralım.</small></div>
+    <div class="btn">xresoftware.com.tr →</div>
+  </div>
+</div>
+</body></html>
