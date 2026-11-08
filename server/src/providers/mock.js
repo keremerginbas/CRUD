@@ -20,7 +20,7 @@ export function createMockProvider() {
       durationSec: Number(body.duration ?? 0),
       recordingRef: body.recording ?? null,
     }),
-    parseRouteRequest: (body) => ({ callerPhone: body.from, dialedNumber: body.to, providerCallId: body.callId }),
+    parseRouteRequest: (body) => ({ callerPhone: body.from, dialedNumber: body.to, providerCallId: body.callId, trunk: body.trunk }),
     formatRouteResponse: (decision) => decision,
     async fetchRecording() {
       return new Response('mock-audio', { headers: { 'content-type': 'audio/mpeg' } });

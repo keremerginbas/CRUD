@@ -45,6 +45,15 @@ test('ayrı danışman bağlantısı varsa danışman ondan aranır', async () =
   assert.equal(new URL(seen.at(-1).url, 'http://x').searchParams.get('endpoint'), 'PJSIP/05321112233@agent');
 });
 
+test('hattın operatör bağlantısı aramaya değişken olarak eklenir', async () => {
+  await provider.originate({ agentPhone: '+905321112233', customerPhone: '+905464962638', callerId: '+903122191672', trunk: 'tt' });
+  assert.deepEqual(JSON.parse(seen.at(-1).body).variables, { XRE_CUSTOMER: '05464962638', XRE_LINE: '03122191672', XRE_LINE_TRUNK: 'tt' });
+});
+
+test('gelen arama isteğinde aramanın geldiği bağlantı okunur', () => {
+  assert.equal(provider.parseRouteRequest({ from: '05464962638', to: '03122191672', callId: 'c', trunk: 'tt' }).trunk, 'tt');
+});
+
 test('yönlendirme cevabı dialplan için düz metin', () => {
   // Danışmana giden aramada 5. alan tarayıcı telefonu; asistana giden aramada boş
   assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905551112233', userId: 7, callerAnnouncement: 'x', whisper: 'Alıcı arıyor' }), 'forward,05551112233,1,1,u7');

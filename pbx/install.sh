@@ -43,6 +43,11 @@ install -m 640 "$REPO"/asterisk/*.conf /etc/asterisk/
 for f in pjsip_trunk.conf pjsip_trunk_acl.conf pjsip_agent.conf pjsip_agent_acl.conf pjsip_webrtc_users.conf xre_globals.conf xre_trunk.conf ari_users.conf; do
   [[ -f /etc/asterisk/$f ]] || install -m 640 /dev/null /etc/asterisk/$f
 done
+# Operatör bağlantıları klasörü (pbx/trunk.sh <ad>); boş dosyalar, hiç bağlantı yokken de ayarlar yüklensin diye
+mkdir -p /etc/asterisk/xre.d
+for f in pjsip acl globals; do
+  [[ -f /etc/asterisk/xre.d/$f-00-bos.conf ]] || echo "; boş: bağlantılar pbx/trunk.sh ile eklenir" > /etc/asterisk/xre.d/$f-00-bos.conf
+done
 mkdir -p /var/lib/asterisk/sounds/custom /var/spool/asterisk/recording /var/log/asterisk
 # Eski adlarla yazılmış trunk dosyaları artık kullanılmıyor
 rm -f /etc/asterisk/pjsip_netgsm.conf /etc/asterisk/pjsip_netgsm_acl.conf

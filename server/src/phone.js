@@ -10,6 +10,9 @@ export function normalizePhone(raw) {
   return digits.length > 7 && !digits.startsWith('444') ? `+${digits}` : digits;
 }
 
+// Santraldeki operatör bağlantısı (trunk) adı: pbx/trunk.sh ile aynı kural; dialplan'a güvenle yazılabilir
+export const TRUNK_NAME_RE = /^[a-z][a-z0-9_]{1,19}$/;
+
 // Santral API'leri genelde 0 ile başlayan yerel biçim ister: 05XXXXXXXXX
 export function toLocalFormat(phone) {
   const n = normalizePhone(phone);

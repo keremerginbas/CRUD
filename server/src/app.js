@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 import { generatePassword, hashPassword, normalizeLogin, requireAuth, signToken, verifyPassword, verifyWebhook } from './auth.js';
-import { normalizePhone, toLocalFormat } from './phone.js';
+import { normalizePhone, toLocalFormat, TRUNK_NAME_RE } from './phone.js';
 import { decideInboundRoute } from './routing.js';
 import { sendPush } from './push.js';
 import { syncCallToBitrix } from './bitrix.js';
@@ -36,7 +36,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     numberByExtension: db.prepare(`SELECT n.* FROM numbers n JOIN users u ON u.id = n.user_id
       WHERE u.extension = ? AND n.type = 'personal' LIMIT 1`),
     numbersOfUser: db.prepare('SELECT * FROM numbers WHERE user_id = ? ORDER BY type'),
-    personalNumber: db.prepare("SELECT did FROM numbers WHERE user_id = ? AND type = 'personal' LIMIT 1"),
+    personalNumber: db.prepare("SELECT did, trunk FROM numbers WHERE user_id = ? AND type = 'personal' LIMIT 1"),
     contactById: db.prepare('SELECT * FROM contacts WHERE id = ?'),
     contactByPhone: db.prepare('SELECT * FROM contacts WHERE phone = ? ORDER BY id LIMIT 1'),
     callById: db.prepare('SELECT * FROM calls WHERE id = ?'),
@@ -174,7 +174,8 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const contact = req.body?.contactId ? q.contactById.get(req.body.contactId) : null;
     const customerPhone = normalizePhone(contact?.phone ?? req.body?.phone);
     if (!customerPhone) return res.status(400).json({ error: 'Aranacak numara bulunamadı' });
-    const callerId = q.personalNumber.get(user.id)?.did;
+    const personal = q.personalNumber.get(user.id);
+    const callerId = personal?.did;
     if (!callerId) return res.status(409).json({ error: 'Size tanımlı dijital numara yok, yöneticinize başvurun' });
     // Bulut santraller danışmanın dahilisini, kendi santralimiz danışmanın cep telefonunu arar
     if (provider.requiresExtension && !user.extension) return res.status(409).json({ error: 'Santral dahili numaranız tanımlı değil' });
@@ -187,6 +188,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
         agentPhone: user.forward_phone || user.phone,
         customerPhone,
         callerId,
+        trunk: personal.trunk ?? null,
         announcement: config.pbx.customerAnnouncement,
       }));
     } catch (err) {
@@ -213,9 +215,14 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
   // ---- Santral webhook'ları ----
   // Gelen çağrı: santral hangi hedefe aktaracağını sorar
   app.post('/webhooks/pbx/route', webhook, (req, res) => {
-    const { callerPhone: rawCaller, dialedNumber, providerCallId } = provider.parseRouteRequest(req.body);
+    const { callerPhone: rawCaller, dialedNumber, providerCallId, trunk } = provider.parseRouteRequest(req.body);
     const callerPhone = normalizePhone(rawCaller);
     const number = findNumber(dialedNumber);
+    // Numaranın hangi operatör bağlantısından geldiği ilk aramada öğrenilir; giden aramalar da oradan çıkar
+    // (panelden elle seçilen bağlantı değiştirilmez)
+    if (number && !number.trunk && TRUNK_NAME_RE.test(trunk ?? '')) {
+      db.prepare('UPDATE numbers SET trunk = ? WHERE did = ? AND trunk IS NULL').run(trunk, number.did);
+    }
     const user = number?.user_id ? q.userById.get(number.user_id) : null;
     const contact = q.contactByPhone.get(callerPhone) ?? null;
     const owner = contact?.owner_id ? q.userById.get(contact.owner_id) : null;
@@ -242,20 +249,22 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
   });
 
   // Tarayıcıdan arama: santral "bu danışman bu numarayı arayabilir mi, hangi hattı göstereyim?" diye sorar.
-  // Cevap düz metin: "ok,<hat>,<müşteri>" ya da "deny,<neden>"
+  // Cevap düz metin: "ok,<hat>,<müşteri>,<operatör bağlantısı>" ya da "deny,<neden>"
+  // (bağlantı boşsa santral varsayılan trunk'ı kullanır)
   app.post('/webhooks/pbx/outbound', webhook, (req, res) => {
     const userId = Number(String(req.body?.user ?? '').replace(/^u/, ''));
     const user = userId ? q.userById.get(userId) : null;
     const customerPhone = normalizePhone(req.body?.to);
     if (!user) return res.type('text').send('deny,kullanici-yok');
     if (!/^\+90[2-5]\d{9}$/.test(customerPhone)) return res.type('text').send('deny,gecersiz-numara');
-    const line = q.personalNumber.get(user.id)?.did;
+    const personal = q.personalNumber.get(user.id);
+    const line = personal?.did;
     if (!line) return res.type('text').send('deny,hat-yok');
     const callId = String(req.body?.callId ?? '');
     if (callId && !q.callByProviderId.get(callId)) {
       q.insertCall.run(callId, 'outbound', customerPhone, line, user.id, q.contactByPhone.get(customerPhone)?.id ?? null, 'initiated');
     }
-    res.type('text').send(`ok,${toLocalFormat(line)},${toLocalFormat(customerPhone)}`);
+    res.type('text').send(`ok,${toLocalFormat(line)},${toLocalFormat(customerPhone)},${personal.trunk ?? ''}`);
   });
 
   // Çağrı durum olayları (çaldı, açıldı, kapandı, kayıt hazır)
@@ -342,8 +351,14 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const userId = 'user_id' in (req.body ?? {}) ? (req.body.user_id ?? null) : number.user_id;
     if (userId !== null && !q.userById.get(userId)) return res.status(400).json({ error: 'Kullanıcı bulunamadı' });
     const label = String(req.body?.label ?? number.label).trim() || number.label;
-    db.prepare('UPDATE numbers SET user_id = ?, label = ? WHERE did = ?')
-      .run(number.type === 'hunt' ? null : userId, label, number.did);
+    // Operatör bağlantısı: santraldeki trunk adı; boş = santralin varsayılanı
+    let trunk = number.trunk;
+    if ('trunk' in (req.body ?? {})) {
+      trunk = String(req.body.trunk ?? '').trim().toLowerCase() || null;
+      if (trunk && !TRUNK_NAME_RE.test(trunk)) return res.status(400).json({ error: 'Geçersiz bağlantı adı (küçük harf, rakam, _)' });
+    }
+    db.prepare('UPDATE numbers SET user_id = ?, label = ?, trunk = ? WHERE did = ?')
+      .run(number.type === 'hunt' ? null : userId, label, trunk, number.did);
     res.json(q.number.get(number.did));
   });
 

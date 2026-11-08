@@ -197,7 +197,8 @@ test('tarayıcıdan arama: santral danışmanın hattını sorar, arama kaydı a
     });
     return res.text();
   };
-  assert.equal(await ask({ user: 'u1', to: '05464962638', callId: 'web-1' }), 'ok,08504660149,05464962638');
+  // 4. alan: hattın bağlı olduğu operatör bağlantısı (boşsa santralin varsayılan trunk'ı)
+  assert.equal(await ask({ user: 'u1', to: '05464962638', callId: 'web-1' }), 'ok,08504660149,05464962638,');
   const calls = (await call('GET', '/api/calls', null, { token: tokens.kaan })).body;
   const row = calls.find((c) => c.provider_call_id === 'web-1');
   assert.deepEqual([row.direction, row.contact_name, row.dialed_number], ['outbound', 'MUSTAFA UTKU', '+908504660149']);
@@ -206,6 +207,41 @@ test('tarayıcıdan arama: santral danışmanın hattını sorar, arama kaydı a
   assert.equal(await ask({ user: 'u3', to: '05464962638' }), 'deny,hat-yok');
   const unsigned = await fetch(`${base}/webhooks/pbx/outbound`, { method: 'POST', body: 'user=u1&to=05464962638', headers: { 'content-type': 'application/x-www-form-urlencoded' } });
   assert.equal(unsigned.status, 401);
+});
+
+test('hat başına operatör: giden arama hattın bağlantısından çıkar, gelen arama bağlantıyı öğretir', async () => {
+  const ask = async (path, body) => (await fetch(`${base}${path}?token=hook`, {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body),
+  })).text();
+  try {
+    // Gelen arama hangi bağlantıdan geldiyse hat o bağlantıya kaydedilir (ilk kez)
+    const route = { from: '05464962638', to: '908504660149', callId: 'tr-1', trunk: 'netgsm' };
+    await call('POST', '/webhooks/pbx/route', route, signed(route));
+    assert.equal(db.prepare("SELECT trunk FROM numbers WHERE did = '+908504660149'").get().trunk, 'netgsm');
+    assert.equal(await ask('/webhooks/pbx/outbound', { user: 'u1', to: '05464962638' }), 'ok,08504660149,05464962638,netgsm');
+    // Sonraki aramalar elle seçilen bağlantıyı değiştirmez
+    const again = { ...route, callId: 'tr-2', trunk: 'tt' };
+    await call('POST', '/webhooks/pbx/route', again, signed(again));
+    assert.equal(db.prepare("SELECT trunk FROM numbers WHERE did = '+908504660149'").get().trunk, 'netgsm');
+    // Geçersiz bağlantı adı yazılmaz
+    db.exec("UPDATE numbers SET trunk = NULL WHERE did = '+908504660149'");
+    const bad = { ...route, callId: 'tr-3', trunk: 'x;Dial' };
+    await call('POST', '/webhooks/pbx/route', bad, signed(bad));
+    assert.equal(db.prepare("SELECT trunk FROM numbers WHERE did = '+908504660149'").get().trunk, null);
+  } finally {
+    db.exec("UPDATE numbers SET trunk = NULL WHERE did = '+908504660149'");
+  }
+});
+
+test('panelden aramada hattın operatör bağlantısı santrale iletilir', async () => {
+  db.exec("UPDATE numbers SET trunk = 'verimor' WHERE did = '+908504660149'");
+  try {
+    const r = await call('POST', '/api/calls/click-to-call', { phone: '05464962638' }, { token: tokens.kaan });
+    assert.equal(r.status, 201);
+    assert.equal(provider.originated.at(-1).trunk, 'verimor');
+  } finally {
+    db.exec("UPDATE numbers SET trunk = NULL WHERE did = '+908504660149'");
+  }
 });
 
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
@@ -243,6 +279,11 @@ test('yönetici ekip ve hatları yönetir, danışman yönetemez', async () => {
     // Sadece ad değişince sahip korunur
     const renamed = await call('PUT', `/api/numbers/${did}`, { label: 'Yeni ad' }, { token: adminToken });
     assert.deepEqual([renamed.body.user_id, renamed.body.label], [created.body.user.id, 'Yeni ad']);
+    // Operatör bağlantısı: geçerli ad ya da boş (varsayılan)
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { trunk: 'tt' }, { token: adminToken })).body.trunk, 'tt');
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { trunk: 'x y' }, { token: adminToken })).status, 400);
+    const cleared = await call('PUT', `/api/numbers/${did}`, { trunk: '' }, { token: adminToken });
+    assert.deepEqual([cleared.body.trunk, cleared.body.user_id], [null, created.body.user.id]);
     await call('PUT', `/api/numbers/${did}`, { user_id: 1, label: 'İlan 638' }, { token: adminToken });
 
     const reset = await call('POST', `/api/users/${created.body.user.id}/reset-password`, null, { token: adminToken });

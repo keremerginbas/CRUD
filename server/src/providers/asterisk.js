@@ -22,7 +22,7 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
     name: 'asterisk',
     supportsBrowserPhone: true,
 
-    async originate({ agentPhone, customerPhone, callerId }) {
+    async originate({ agentPhone, customerPhone, callerId, trunk: lineTrunk }) {
       const id = `xre-${randomUUID()}`;
       const line = toLocalFormat(callerId);
       const params = new URLSearchParams({
@@ -32,7 +32,10 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
       });
       const res = await ari(`/channels?${params}`, {
         method: 'POST',
-        body: JSON.stringify({ variables: { XRE_CUSTOMER: toLocalFormat(customerPhone), XRE_LINE: line } }),
+        // XRE_LINE_TRUNK: hattın bağlı olduğu operatör bağlantısı; müşteri o bağlantıdan aranır
+        body: JSON.stringify({ variables: {
+          XRE_CUSTOMER: toLocalFormat(customerPhone), XRE_LINE: line, ...(lineTrunk && { XRE_LINE_TRUNK: lineTrunk }),
+        } }),
       });
       if (!res.ok) throw new Error(`Asterisk arama başlatamadı (${res.status}): ${await res.text()}`);
       return { providerCallId: id };
@@ -49,7 +52,8 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
       recordingRef: body.recording || null,
     }),
 
-    parseRouteRequest: (body) => ({ callerPhone: body.from, dialedNumber: body.to, providerCallId: body.callId }),
+    // trunk: aramanın geldiği operatör bağlantısı (santraldeki endpoint adı)
+    parseRouteRequest: (body) => ({ callerPhone: body.from, dialedNumber: body.to, providerCallId: body.callId, trunk: body.trunk }),
 
     // 5. alan: danışmanın tarayıcı telefonu (u<id>); panelde açıksa önce orası çalar
     formatRouteResponse(decision) {

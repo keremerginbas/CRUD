@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS numbers (
   did TEXT PRIMARY KEY,
   type TEXT NOT NULL CHECK (type IN ('personal','listing','hunt')),
   user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  label TEXT NOT NULL
+  label TEXT NOT NULL,
+  trunk TEXT                        -- numaranın bağlı olduğu operatör bağlantısı (santraldeki trunk adı; boşsa varsayılan)
 );
 
 CREATE TABLE IF NOT EXISTS contacts (
@@ -83,6 +84,7 @@ const ADDED_COLUMNS = [
   ['users', 'sip_secret', 'TEXT'],
   ['users', 'bitrix_user_id', 'INTEGER'],
   ['calls', 'bitrix_call_id', 'TEXT'],
+  ['numbers', 'trunk', 'TEXT'],
 ];
 
 function migrate(db) {
