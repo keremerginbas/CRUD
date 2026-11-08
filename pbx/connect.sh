@@ -2,6 +2,8 @@
 # Uygulama (CT 140) ile santrali (CT 150) birbirine bağlar. Proxmox kabuğunda root olarak:
 #   pct exec 150 -- cat /opt/santral/pbx/connect.sh | bash
 # Şifreler otomatik üretilir/taşınır; ekrana yazılmaz.
+# Varsayılan operatör bağlantısı "trunk"tır; başka bir bağlantıyı varsayılan yapmak için (ör. tt):
+#   pct exec 150 -- cat /opt/santral/pbx/connect.sh | TRUNK=tt bash
 set -euo pipefail
 CT_APP="${CT_APP:-140}"; CT_PBX="${CT_PBX:-150}"
 APP_IP="${APP_IP:-192.168.1.253}"; PBX_IP="${PBX_IP:-192.168.1.247}"
@@ -16,16 +18,20 @@ TOKEN="$(get_env PBX_WEBHOOK_SECRET)"
 [[ -n "$TOKEN" ]] || { echo "CT $CT_APP içinde PBX_WEBHOOK_SECRET bulunamadı"; exit 1; }
 ASSIST="$(get_env ASSISTANT_DESTINATION | sed 's/^+90/0/')"
 ARIPASS="$(openssl rand -hex 24)"
-# İkinci dahili (pbx/trunk.sh agent) bağlıysa danışman aramaları ondan yapılır
-AGENT=trunk
-pct exec "$CT_PBX" -- test -s /etc/asterisk/pjsip_agent.conf && AGENT=agent
+TRUNK="${TRUNK:-trunk}"
+[[ "$TRUNK" =~ ^[a-z][a-z0-9_]{1,19}$ ]] || { echo "Geçersiz bağlantı adı: $TRUNK"; exit 1; }
+has_conn() { pct exec "$CT_PBX" -- bash -c "test -f /etc/asterisk/xre.d/pjsip-$1.conf || grep -qs type=endpoint /etc/asterisk/pjsip_$1.conf"; }
+has_conn "$TRUNK" || echo "!! UYARI: santralde '$TRUNK' bağlantısı yok; önce pbx/trunk.sh $TRUNK çalıştırın"
+# Danışman bağlantısı (pbx/trunk.sh agent) varsa danışmanların cebi ondan aranır
+AGENT="$TRUNK"
+has_conn agent && AGENT=agent
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cat > "$TMP/xre_globals.conf" <<CONFEOF
 ; pbx/connect.sh tarafından yazıldı
 APP_URL=http://$APP_IP:3000
 APP_TOKEN=$TOKEN
-TRUNK=trunk
+TRUNK=$TRUNK
 AGENT_TRUNK=$AGENT
 SOUNDS=/var/lib/asterisk/sounds/custom
 HUNT_FALLBACK=$ASSIST
@@ -48,7 +54,7 @@ set_env PBX_PROVIDER asterisk
 set_env ASTERISK_ARI_URL "http://$PBX_IP:8088"
 set_env ASTERISK_ARI_USER xre
 set_env ASTERISK_ARI_PASSWORD "$ARIPASS"
-set_env ASTERISK_TRUNK trunk
+set_env ASTERISK_TRUNK "$TRUNK"
 set_env ASTERISK_AGENT_TRUNK "$AGENT"
 pct exec "$CT_APP" -- systemctl restart santral
 sleep 3
@@ -59,4 +65,6 @@ echo "== Santral → uygulama:"
 pct exec "$CT_PBX" -- curl -s -m 5 "http://$APP_IP:3000/health" || echo "ULASILAMADI"
 echo
 echo "== Asistan (yedek) hattı: ${ASSIST:-TANIMLI DEĞİL}"
+echo "== Varsayılan operatör bağlantısı: $TRUNK"
 echo "== Danışmanları arayan bağlantı: $AGENT"
+echo "== Kontrol: pct exec $CT_PBX -- /opt/santral/pbx/doctor.sh"

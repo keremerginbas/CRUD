@@ -81,6 +81,20 @@ export function Team() {
     } catch (e) { toastError(e); }
   };
 
+  // Hattın operatör bağlantısı (santraldeki trunk adı: netgsm, tt...). Boş = santralin varsayılanı
+  const setTrunk = async (n: PbxNumber, input: HTMLInputElement) => {
+    const trunk = input.value.trim().toLowerCase();
+    if (trunk === (n.trunk ?? '')) return;
+    try {
+      const saved = await api<PbxNumber>(`/api/numbers/${encodeURIComponent(n.did)}`, { method: 'PUT', body: { trunk } });
+      numbers.setData((list) => list?.map((x) => (x.did === n.did ? { ...x, trunk: saved.trunk } : x)) ?? null);
+      toastOk(trunk ? `${n.did} → ${trunk} bağlantısı` : `${n.did} varsayılan bağlantıda`);
+    } catch (e) {
+      input.value = n.trunk ?? '';
+      toastError(e);
+    }
+  };
+
   const assign = async (n: PbxNumber, value: string | null) => {
     try {
       await api(`/api/numbers/${encodeURIComponent(n.did)}`, { method: 'PUT', body: { user_id: value ? Number(value) : null } });
@@ -126,9 +140,9 @@ export function Team() {
         <Tabs.Panel value="hatlar" pt="md">
           <TextInput mb="md" placeholder="Numara, etiket veya kişi ara" leftSection={<IconSearch size={16} />} value={numberSearch} onChange={(e) => setNumberSearch(e.currentTarget.value)} />
           {!numbers.data ? <Skeleton h={240} radius="lg" /> : (
-            <Table.ScrollContainer minWidth={560}>
+            <Table.ScrollContainer minWidth={720}>
               <Table verticalSpacing="sm">
-                <Table.Thead><Table.Tr><Table.Th>Numara</Table.Th><Table.Th>Tür</Table.Th><Table.Th w={260}>Kimin</Table.Th></Table.Tr></Table.Thead>
+                <Table.Thead><Table.Tr><Table.Th>Numara</Table.Th><Table.Th>Tür</Table.Th><Table.Th w={150}>Operatör bağlantısı</Table.Th><Table.Th w={260}>Kimin</Table.Th></Table.Tr></Table.Thead>
                 <Table.Tbody>
                   {shownNumbers.map((n) => (
                     <Table.Tr key={n.did}>
@@ -143,6 +157,15 @@ export function Team() {
                         ) : <Text size="xs" c="dimmed">{n.label}</Text>}
                       </Table.Td>
                       <Table.Td><Text size="sm">{NUMBER_TYPES[n.type]}</Text></Table.Td>
+                      <Table.Td>
+                        {isAdmin ? (
+                          <TextInput
+                            key={n.trunk ?? ''} defaultValue={n.trunk ?? ''} placeholder="varsayılan" size="xs" aria-label={`${n.did} operatör bağlantısı`}
+                            onBlur={(e) => setTrunk(n, e.currentTarget)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                          />
+                        ) : <Text size="sm" c="dimmed">{n.trunk ?? 'varsayılan'}</Text>}
+                      </Table.Td>
                       <Table.Td>
                         {n.type === 'hunt' ? <Text size="sm" c="dimmed">Kuyruk</Text> : (
                           <Select

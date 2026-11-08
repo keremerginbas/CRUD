@@ -260,6 +260,24 @@ echo "== Giden: yurt dışı numara aranamaz"
 call 00441234567890-asu1-u1 3
 if grep -q "E2E-IN to=00441234567890" "$LOG"; then echo "  ✗ yurt dışı arandı"; FAIL=1; else echo "  ✓ yurt dışı aranmadı"; fi
 
+echo "== Araç: arayan numara testi (cli-test.sh)"
+XRE_WAIT=1 XRE_LOG="$W/pbx/log/messages.log" "$REPO/pbx/cli-test.sh" 0312 219 16 72 05321110000 tt >/dev/null || true
+XRE_WAIT=1 "$REPO/pbx/cli-test.sh" 03122191672 05321110000 tt >/dev/null
+expect "test araması TT'den, hat 0'lı biçimde" "E2E-IN to=05321110000 from=03122191672 pai=<sip:03122191672@127.0.0.3> via=127.0.0.3:5070"
+if "$REPO/pbx/cli-test.sh" 03122191672 00441234567 >/dev/null 2>&1; then echo "  ✗ yurt dışı test araması kabul edildi"; FAIL=1; else echo "  ✓ yurt dışı test araması reddedildi"; fi
+
+echo "== Araç: sağlık kontrolü (doctor.sh)"
+if XRE_LOG="$W/pbx/log/messages.log" "$REPO/pbx/doctor.sh" > "$W/doctor.txt" 2>&1; then echo "  ✓ doctor.sh sorun bulmadı"; else echo "  ✗ doctor.sh:"; sed 's/^/      /' "$W/doctor.txt"; FAIL=1; fi
+for want in "netgsm: erişilebilir (1 kanal, biçim 10, numara 8503465993)" "tt: erişilebilir (4 kanal, biçim 0" "verimor: kayıtlı, erişilebilir (2 kanal, biçim 90" "arama 'bize ait değil' diye reddedildi"; do
+  grep -qF "$want" "$W/doctor.txt" && echo "  ✓ doctor: $want" || { echo "  ✗ doctor çıktısında yok: $want"; FAIL=1; }
+done
+A 'pjsip send unregister verimor-reg' >/dev/null; sleep 1
+B 'pjsip show aor 8501112233' >/dev/null
+printf '%s\n' 2 127.0.0.5:5070 1 "" 8501112233 2 90 8501112233 yanlissifre | "$REPO/pbx/trunk.sh" verimor >/dev/null
+sleep 2
+if XRE_LOG="$W/pbx/log/messages.log" "$REPO/pbx/doctor.sh" > "$W/doctor2.txt" 2>&1; then echo "  ✗ yanlış şifre fark edilmedi"; FAIL=1
+else grep -q "verimor: operatöre kayıt olamadı" "$W/doctor2.txt" && echo "  ✓ yanlış şifre fark edildi" || { echo "  ✗ yanlış şifre mesajı yok:"; sed 's/^/      /' "$W/doctor2.txt"; FAIL=1; }; fi
+
 echo "== Uygulama kayıtları"
 sleep 2
 ROWS="$(sql "SELECT direction, dialed_number, status FROM calls ORDER BY id")"

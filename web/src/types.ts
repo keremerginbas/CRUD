@@ -1,5 +1,5 @@
 export type Role = 'admin' | 'broker' | 'asistan' | 'danisman';
-export type PbxNumber = { did: string; type: 'personal' | 'listing' | 'hunt'; label: string; user_id: number | null; user_name?: string | null };
+export type PbxNumber = { did: string; type: 'personal' | 'listing' | 'hunt'; label: string; user_id: number | null; user_name?: string | null; trunk?: string | null };
 
 export type User = {
   id: number; name: string; title: string; role: Role; email: string; phone: string;
