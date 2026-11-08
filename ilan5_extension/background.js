@@ -946,11 +946,29 @@
       } catch (_) { /* The engine reports the address problem. */ }
       return siteIds.includes(message.source) ? message.source : '';
     }
+    // Opens the detail page (and phone button, within the daily limits) of listings saved from
+    // list pages. Links are split per site; a site that is already busy is reported, not queued.
+    async function completeDetails(message) {
+      const groups = new Map();
+      for (const value of (Array.isArray(message.urls) ? message.urls : []).slice(0, 5000)) {
+        try { const ref = listingRef(String(value)); if (!groups.has(ref.source)) groups.set(ref.source, []); groups.get(ref.source).push(ref.url); } catch (_) { /* not a listing address */ }
+      }
+      if (!groups.size) return {ok: false, error: 'Tamamlanacak ilan bağlantısı yok.'};
+      const jobs = await getJobs(), started = [], busy = [];
+      for (const [site, urls] of groups) {
+        if (jobs.some(job => job.source === site && ['running', 'paused', 'blocked'].includes(job.status))) { busy.push(site); continue; }
+        const result = await dispatch(() => engines[site].handle({type: 'ILAN_START_LINKS', urls, category: message.category || 'all', listId: message.listId || '', delayMs: message.delayMs || 4000, revealPhone: message.revealPhone !== false}), site);
+        if (result?.ok) started.push({site, count: urls.length}); else busy.push(site);
+      }
+      if (!started.length) return {ok: false, error: 'Seçili ilanların sitelerinde zaten çalışan bir tarama var. Bitince tekrar deneyin.', busy};
+      return {ok: true, started, busy, jobs: await getJobs()};
+    }
     async function crawlerCommand(message) {
       const source = sourceOfCommand(message);
       if (['ILAN_START', 'ILAN_START_LINKS'].includes(message.type)) return engines[source || siteIds[0]].handle(message);
       if (message.type === 'ILAN_CAPTURE_TAB') return engines[siteIds[0]].handle(message);
       if (message.type === 'ILAN_STATUS') { const jobs = await getJobs(); return {ok: true, job: latestJob(jobs), jobs}; }
+      if (message.type === 'ILAN_COMPLETE_DETAILS') return completeDetails(message);
       // Pause/resume/stop one site, or every site that has a job in a matching state.
       const wanted = {ILAN_PAUSE: ['running'], ILAN_RESUME: ['paused', 'blocked', 'stopped'], ILAN_STOP: ['starting', 'running', 'collecting', 'paused', 'blocked', 'error']}[message.type];
       if (!wanted) return {ok: false, error: 'Bilinmeyen komut.'};
@@ -971,7 +989,7 @@
       const result=await crawlerCommand(message);if(result.ok&&message.type!=='ILAN_STATUS')syncSearchJob();return result;
     }
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-      if (!/^ILAN_(START|START_LINKS|PAUSE|RESUME|STOP|STATUS|CAPTURE_TAB|ALERTS_(STATUS|CONFIG|SUMMARY_NOW)|SAFETY_(STATUS|CONFIG)|MONITOR_(STATUS|CONFIG|RUN|PAUSE|RESUME)|TELEGRAM_(STATUS|CONFIG|VERIFY|TEST|RETRY)|SEARCH_(STATUS|SAVE|RUN|TOGGLE|REMOVE)|MESSAGE_(STATUS|TEMPLATE|QUEUE|PREPARE_NEXT|MARK_SENT|SKIP|DELETE|CLEAR))$/.test(message && message.type || '')) return false;
+      if (!/^ILAN_(START|START_LINKS|COMPLETE_DETAILS|PAUSE|RESUME|STOP|STATUS|CAPTURE_TAB|ALERTS_(STATUS|CONFIG|SUMMARY_NOW)|SAFETY_(STATUS|CONFIG)|MONITOR_(STATUS|CONFIG|RUN|PAUSE|RESUME)|TELEGRAM_(STATUS|CONFIG|VERIFY|TEST|RETRY)|SEARCH_(STATUS|SAVE|RUN|TOGGLE|REMOVE)|MESSAGE_(STATUS|TEMPLATE|QUEUE|PREPARE_NEXT|MARK_SENT|SKIP|DELETE|CLEAR))$/.test(message && message.type || '')) return false;
       // Controls originate from our popup/archive. Content scripts on a visited
       // website are readers only, and cannot start or modify archive jobs.
       const extensionRoot = chrome.runtime.getURL('');

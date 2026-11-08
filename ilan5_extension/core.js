@@ -234,6 +234,25 @@
     record.sites[site]={...s,pages:Number(s.pages)||0,phones:Number(s.phones)||0,lists:used+1};await saveDaily(api,record);
     return {allowed:true,limit:settings.listDailyLimit,count:used+1};
   }
-  root.IlanCore=Object.freeze({CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,takePhoneSlot,takeListSlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
+  // The same property advertised on several sites (or re-listed on one): records that share
+  // category, province, district, area (m², rounded) and price, or a phone number and area.
+  // Returns {groups: [[id,...],...], byId: Map(id -> group index)}; only groups of 2+ are kept.
+  function duplicateGroups(records){
+    const parent=new Map(),find=id=>{let root=id;while(parent.get(root)!==root)root=parent.get(root);let node=id;while(parent.get(node)!==root){const next=parent.get(node);parent.set(node,root);node=next;}return root;};
+    const union=(a,b)=>{const ra=find(a),rb=find(b);if(ra!==rb)parent.set(rb,ra);};
+    const keys=new Map(),link=(key,id)=>{if(!keys.has(key))keys.set(key,id);else union(keys.get(key),id);};
+    for(const r of records||[]){
+      if(!r||r.deletedAt||!r.id)continue;const area=Number(r.area),price=Number(r.price);
+      if(!(area>0)||!(price>0))continue;
+      parent.set(r.id,r.id);const a=Math.round(area);
+      const city=norm(r.location?.city),district=norm(r.location?.district);
+      if(city&&district)link(['p',r.category,city,district,a,Math.round(price),r.currency||'TRY'].join('|'),r.id);
+      for(const phone of (r.phones||[]).slice(0,3))if(phone)link(['t',phone,r.category,a].join('|'),r.id);
+    }
+    const members=new Map();for(const id of parent.keys()){const root=find(id);if(!members.has(root))members.set(root,[]);members.get(root).push(id);}
+    const groups=[...members.values()].filter(g=>g.length>1),byId=new Map();groups.forEach((g,i)=>g.forEach(id=>byId.set(id,i)));
+    return {groups,byId};
+  }
+  root.IlanCore=Object.freeze({duplicateGroups,CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,takePhoneSlot,takeListSlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanCore;
 })(globalThis);

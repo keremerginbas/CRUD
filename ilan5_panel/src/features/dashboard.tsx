@@ -97,6 +97,11 @@ export function runPriority(p: Priority) {
 
 export function Dashboard() {
   const records = useStore(s => s.records);
+  const addedToday = React.useMemo(() => {
+    const start = new Date(); start.setHours(0, 0, 0, 0); const map = new Map<string, number>();
+    for (const r of records) if (!isDeleted(r) && Date.parse(r.firstSeenAt || r.capturedAt || '') >= start.getTime()) map.set(r.source, (map.get(r.source) || 0) + 1);
+    return map;
+  }, [records]);
   const stats = useStore(s => s.stats);
   const safety = useStore(s => s.safety);
   const jobs = useStore(s => s.jobs);
@@ -325,7 +330,7 @@ export function Dashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Siteler" description="Bugünkü kullanım ve son tarama">
+        <Panel title="Siteler" description={`Bugün toplam ${num([...addedToday.values()].reduce((a, b) => a + b, 0))} yeni ilan · hızlı modda liste sayfası başına ~50 ilan`}>
           <div className="grid grid-cols-2 gap-3" data-testid="site-cards">
             {Sites().SITES.map(site => {
               const today = safety?.todaySites?.[site.id] || {}, limit = Number(safety?.safety.phoneDailyLimit ?? 150), siteJob = jobs.find(j => j.source === site.id), running = siteJob && ['running', 'paused', 'blocked'].includes(siteJob.status);
@@ -334,7 +339,7 @@ export function Dashboard() {
                   <span className="absolute inset-x-0 top-0 h-0.5" style={{background: siteColor(site.id)}} />
                   <span className="flex items-center justify-between text-sm font-semibold">{site.name}{running && <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] text-success">{siteJob!.status === 'running' ? 'Taranıyor' : 'Bekliyor'}</span>}</span>
                   <span className="text-2xl font-semibold tabular-nums">{num(records.filter(r => !isDeleted(r) && r.source === site.id).length)}</span>
-                  <span className="text-[11px] text-muted-foreground">Bugün {num(today.pages)} ilan · {num(today.phones)}{limit ? `/${num(limit)}` : ''} telefon</span>
+                  <span className="text-[11px] text-muted-foreground" data-testid="site-today">Bugün +{num(addedToday.get(site.id) || 0)} yeni · {num(today.lists)} liste sf. · {num(today.pages)} detay · {num(today.phones)}{limit ? `/${num(limit)}` : ''} tel.</span>
                   {limit > 0 && <Progress value={Math.min(100, Math.round(Number(today.phones || 0) / limit * 100))} label={`${site.name} telefon limiti`} />}
                 </button>
               );

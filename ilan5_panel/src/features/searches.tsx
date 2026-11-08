@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {Play, Power, Trash2, ExternalLink, Plus, BookmarkX} from 'lucide-react';
+import {Play, Power, Trash2, ExternalLink, Plus, BookmarkX, Zap, ScanSearch} from 'lucide-react';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
@@ -19,7 +19,7 @@ const STATUS: Record<string, string> = {idle: 'Hazır', running: 'Taranıyor', q
 export function Searches() {
   const searches = useStore(s => s.searches);
   const [busy, setBusy] = React.useState(false);
-  const [form, setForm] = React.useState({url: '', name: '', category: 'all', interval: '60', enabled: true});
+  const [form, setForm] = React.useState({url: '', name: '', category: 'all', interval: '60', enabled: true, mode: 'fast'});
   const [open, setOpen] = React.useState(false);
 
   async function action(type: string, config: Record<string, unknown>, success: string) {
@@ -45,8 +45,8 @@ export function Searches() {
     event.preventDefault();
     const interval = Number(form.interval);
     if (!Number.isInteger(interval) || interval < 15) { toast('Tarama aralığı en az 15 dakika olmalı.', true); return; }
-    const result = await action('ILAN_SEARCH_SAVE', {searchUrl: form.url.trim(), name: form.name.trim(), category: form.category, intervalMinutes: interval, enabled: form.enabled, revealPhone: true, delayMs: 4000}, 'Arama düzenli takibe kaydedildi.');
-    if (result) { setOpen(false); setForm({url: '', name: '', category: 'all', interval: '60', enabled: true}); }
+    const result = await action('ILAN_SEARCH_SAVE', {searchUrl: form.url.trim(), name: form.name.trim(), category: form.category, intervalMinutes: interval, enabled: form.enabled, revealPhone: true, delayMs: 4000, mode: form.mode}, 'Arama düzenli takibe kaydedildi.');
+    if (result) { setOpen(false); setForm({url: '', name: '', category: 'all', interval: '60', enabled: true, mode: 'fast'}); }
   }
   const onUrl = (url: string) => {
     const parsed = collectUrl(url.trim()), fixed = parsed ? Sites().get(parsed.source)?.category : undefined;
@@ -68,6 +68,7 @@ export function Searches() {
                 <option value="all">Tüm kategoriler</option>{(['arsa', 'arac', 'konut', 'isyeri', 'diger'] as Category[]).map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}
               </NativeSelect></Label>
               <Label>Tarama aralığı (dakika)<Input type="number" min={15} max={43200} value={form.interval} onChange={e => setForm(f => ({...f, interval: e.target.value}))} /><Hint>En az 15 dakika</Hint></Label>
+              <Label>Tarama hızı<NativeSelect value={form.mode} onChange={e => setForm(f => ({...f, mode: e.target.value}))} data-testid="saved-mode"><option value="fast">Hızlı (liste sayfasından)</option><option value="full">Tam (detay + telefon)</option></NativeSelect></Label>
               <label className="flex items-center gap-3 self-end pb-2 text-sm"><Switch checked={form.enabled} onCheckedChange={v => setForm(f => ({...f, enabled: v}))} label="Düzenli takip açık" />Düzenli takip açık</label>
               <div className="flex gap-2 md:col-span-2"><Button type="submit" disabled={busy}>Aramayı kaydet</Button><Button variant="ghost" onClick={() => setOpen(false)}>Vazgeç</Button></div>
             </form>
@@ -83,7 +84,7 @@ export function Searches() {
                 <CardHeader className="flex-row items-start justify-between gap-3">
                   <div className="min-w-0">
                     <CardTitle className="flex items-center gap-2"><span className={cn('size-2 shrink-0 rounded-full', search.enabled ? 'bg-success' : 'bg-muted-foreground/40')} /><span className="truncate">{search.name || 'İzlenen arama'}</span></CardTitle>
-                    <CardDescription className="mt-1 flex flex-wrap items-center gap-2">{source && <SourceBadge source={source} />}{search.category === 'all' ? 'Tüm kategoriler' : CATEGORY_LABELS[search.category as Category] || 'Diğer'} · {search.intervalMinutes} dakikada bir</CardDescription>
+                    <CardDescription className="mt-1 flex flex-wrap items-center gap-2">{source && <SourceBadge source={source} />}{search.category === 'all' ? 'Tüm kategoriler' : CATEGORY_LABELS[search.category as Category] || 'Diğer'} · {search.intervalMinutes} dakikada bir · {search.mode === 'fast' ? 'Hızlı' : 'Tam'}</CardDescription>
                   </div>
                   <Badge variant={failed ? 'danger' : search.enabled ? 'success' : 'muted'}>{STATUS[search.lastStatus || ''] || 'İlk tarama bekleniyor'}</Badge>
                 </CardHeader>
@@ -97,6 +98,7 @@ export function Searches() {
                   <div className="flex flex-wrap gap-2 border-t pt-3">
                     <Button size="sm" disabled={busy} onClick={() => run(search)} data-testid="search-run"><Play />Şimdi tara</Button>
                     <Button size="sm" variant="outline" disabled={busy} onClick={() => action('ILAN_SEARCH_TOGGLE', {id: search.id, enabled: !search.enabled}, search.enabled ? 'Düzenli takip kapatıldı.' : 'Düzenli takip açıldı.')}><Power />{search.enabled ? 'Takibi durdur' : 'Takibi aç'}</Button>
+                    <Button size="sm" variant="outline" disabled={busy} data-testid="search-mode" onClick={() => action('ILAN_SEARCH_SAVE', {searchUrl: search.searchUrl, name: search.name, category: search.category, intervalMinutes: search.intervalMinutes, enabled: search.enabled, revealPhone: search.revealPhone !== false, delayMs: search.delayMs || 4000, listId: search.listId || '', mode: search.mode === 'fast' ? 'full' : 'fast'}, search.mode === 'fast' ? 'Arama tam moda alındı.' : 'Arama hızlı moda alındı.')}>{search.mode === 'fast' ? <ScanSearch /> : <Zap />}{search.mode === 'fast' ? 'Tam moda geç' : 'Hızlı moda geç'}</Button>
                     <Button size="sm" variant="ghost" className="text-destructive" disabled={busy} onClick={() => remove(search)}><Trash2 />Takipten çıkar</Button>
                     {url && <a href={url} target="_blank" rel="noopener noreferrer" className="ml-auto inline-flex items-center gap-1 text-xs text-primary hover:underline">Arama sayfası<ExternalLink className="size-3" /></a>}
                   </div>

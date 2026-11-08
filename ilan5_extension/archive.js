@@ -98,7 +98,7 @@
     if(!globalThis.chrome?.storage?.local)return null;
     const keys=['ilan5.searches.v1','ilan5.monitor.v1',Core.SAFETY_KEY,'ilan5.alerts.v1'];
     const stored=await chrome.storage.local.get(keys),monitor=stored['ilan5.monitor.v1']||{};
-    const searches=(stored['ilan5.searches.v1']?.items||[]).map(s=>({searchUrl:s.searchUrl,name:s.name,category:s.category,intervalMinutes:s.intervalMinutes,delayMs:s.delayMs,revealPhone:s.revealPhone,enabled:s.enabled,listId:s.listId||''}));
+    const searches=(stored['ilan5.searches.v1']?.items||[]).map(s=>({searchUrl:s.searchUrl,name:s.name,category:s.category,intervalMinutes:s.intervalMinutes,delayMs:s.delayMs,revealPhone:s.revealPhone,enabled:s.enabled,listId:s.listId||'',mode:s.mode}));
     return {searches,safety:stored[Core.SAFETY_KEY]||null,alerts:stored['ilan5.alerts.v1']||null,
       monitor:{enabled:monitor.enabled!==false,intervalMinutes:monitor.intervalMinutes||360,confirmationMinutes:monitor.confirmationMinutes||15},templates:DB.getMessageTemplates?await DB.getMessageTemplates():[]};
   }

@@ -3,7 +3,7 @@ import {
   flexRender, getCoreRowModel, getPaginationRowModel, getSortedRowModel, useReactTable,
   type ColumnDef, type RowSelectionState, type SortingState, type VisibilityState,
 } from '@tanstack/react-table';
-import {ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Columns3, Download, FileSpreadsheet, FolderCog, ListPlus, Search, SlidersHorizontal, Tag, Trash2, Undo2, X, Inbox, Upload, DownloadCloud} from 'lucide-react';
+import {ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Columns3, Download, FileSpreadsheet, FolderCog, ListPlus, Search, SlidersHorizontal, Tag, Trash2, Undo2, X, Inbox, Upload, DownloadCloud, PhoneCall, Copy} from 'lucide-react';
 import {AnimatePresence, motion} from 'motion/react';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
@@ -16,7 +16,7 @@ import {Tooltip} from '@/components/ui/tooltip';
 import {toast} from '@/components/ui/toast';
 import {confirmDialog} from '@/components/ui/confirm';
 import {AvailabilityBadge, EmptyState, PageHeader, QualityBadge, SourceBadge} from '@/components/common';
-import {CATEGORY_LABELS, Core, DB, Sites, formatPhone, formatShortDate, isDeleted, money, type ListingRecord} from '@/lib/ext';
+import {CATEGORY_LABELS, Core, DB, Sites, formatPhone, formatShortDate, isDeleted, money, runtime, type ListingRecord} from '@/lib/ext';
 import {allLists, createList, exportRecords, listName, refresh, useStore, type ListInfo} from '@/lib/store';
 import {navigate, openDetail, resetFilters, setFilters, useUi, type ListingFilters} from '@/lib/ui';
 import {ListManageDialog} from './list-manage';
@@ -29,6 +29,7 @@ export function useFilteredRecords(filters: ListingFilters) {
   const records = useStore(s => s.records);
   const stats = useStore(s => s.stats);
   const sellers = useStore(s => s.sellers);
+  const dupes = useStore(s => s.dupes);
   return React.useMemo(() => {
     const min = filters.minPrice === '' ? null : Number(filters.minPrice), max = filters.maxPrice === '' ? null : Number(filters.maxPrice);
     const currencyRequired = (min !== null || max !== null) && filters.currency === 'all';
@@ -39,8 +40,10 @@ export function useFilteredRecords(filters: ListingFilters) {
     if (filters.insight === 'opportunity') rows = rows.filter(r => stats.get(r.id)?.opportunity);
     if (filters.insight === 'multi') rows = rows.filter(r => sellerCount(r) >= 3);
     if (filters.insight === 'single') rows = rows.filter(r => sellerCount(r) === 1);
+    if (filters.insight === 'listonly') rows = rows.filter(r => r.detailStatus === 'list');
+    if (filters.insight === 'duplicate') rows = rows.filter(r => dupes.has(r.id));
     return {base, rows, currencyRequired, min, max};
-  }, [records, stats, sellers, filters]);
+  }, [records, stats, sellers, dupes, filters]);
 }
 
 function SortHeader({label, column}: {label: string; column: any}) {
@@ -62,6 +65,7 @@ export function Listings() {
   const filters = useUi(s => s.filters);
   const stats = useStore(s => s.stats);
   const sellers = useStore(s => s.sellers);
+  const dupes = useStore(s => s.dupes);
   const records = useStore(s => s.records);
   useStore(s => s.lists);
   const {base, rows, currencyRequired, min, max} = useFilteredRecords(filters);
@@ -92,6 +96,8 @@ export function Listings() {
             <SourceBadge source={r.source} /><span className="tabular-nums">{String(r.listingId || r.id).replace(/^[a-z]+:/, '')}</span>
             {r.crm?.status && <Badge variant="info">{Core().CRM_STATUSES[r.crm.status as keyof ReturnType<typeof Core>['CRM_STATUSES']]}</Badge>}
             {r.messagedAt && <Badge variant="muted">Mesaj gönderildi</Badge>}
+            {r.detailStatus === 'list' && <Tooltip content="Liste sayfasından kaydedildi; telefon ve açıklama için “Detayı tamamla”."><span tabIndex={0}><Badge variant="muted" data-testid="badge-listonly">Liste kaydı</Badge></span></Tooltip>}
+            {dupes.has(r.id) && <Tooltip content={`Aynı mülk başka ilanlarda da görünüyor: ${[...new Set((dupes.get(r.id) || []).map(id => Sites().name(id.split(':')[0])))].join(', ')}`}><span tabIndex={0}><Badge variant="info" data-testid="badge-duplicate"><Copy className="size-3" />{(dupes.get(r.id) || []).length + 1} ilanda</Badge></span></Tooltip>}
           </div>
           <AvailabilityBadge record={r} />
         </div>
@@ -138,7 +144,7 @@ export function Listings() {
       cell: ({row: {original: r}}) => <span className="text-xs whitespace-nowrap text-muted-foreground">{formatShortDate(r.capturedAt)}</span>},
     {id: 'open', enableSorting: false, enableHiding: false, header: () => <span className="sr-only">Aç</span>,
       cell: ({row: {original: r}}) => <Button variant="ghost" size="icon-sm" onClick={() => openDetail(r.id)} aria-label={`${r.title || 'İlan'} ayrıntılarını aç`}><ChevronRight /></Button>},
-  ], [stats, sellers, filters.category]);
+  ], [stats, sellers, dupes, filters.category]);
 
   const table = useReactTable({
     data: rows, columns, getRowId: r => r.id,
@@ -152,6 +158,18 @@ export function Listings() {
   const filterActive = filters.excludeList !== 'none' || filters.crm !== 'all' || filters.insight !== 'all' || Boolean(filters.query) || filters.source !== 'all' || filters.currency !== 'all' || filters.city !== 'all' || min !== null || max !== null || filters.quality !== 'all' || filters.availability !== 'all';
   const moreActive = filters.excludeList !== 'none' || filters.crm !== 'all' || filters.insight !== 'all' || filters.currency !== 'all' || min !== null || max !== null || filters.quality !== 'all' || filters.availability !== 'all';
   const columnLabels: Record<string, string> = {price: 'Fiyat', ppa: 'm² fiyatı', location: 'Konum', spec: 'Alan / kategori', phone: 'Telefon', seller: 'Satıcı', quality: 'Veri durumu', capturedAt: 'Eklenme'};
+
+  async function completeDetails() {
+    const targets = selectedRecords.filter(r => r.url && !isDeleted(r));
+    if (!targets.length) return;
+    if (targets.length > 300 && !await confirmDialog({title: `${targets.length.toLocaleString('tr-TR')} ilanın detayı açılsın mı?`, description: 'Her ilan için ayrı sayfa açılır; günlük ilan ve telefon limitlerine tabidir ve uzun sürer.', confirmLabel: 'Başlat'})) return;
+    try {
+      const result = await runtime('ILAN_COMPLETE_DETAILS', {urls: targets.map(r => r.url), category: 'all'});
+      const started = (result.started || []) as {site: string; count: number}[], busy = (result.busy || []) as string[];
+      toast(`Detay tamamlama başladı: ${started.map(s => `${Sites().name(s.site)} ${s.count}`).join(', ')}${busy.length ? `. Meşgul site atlandı: ${busy.map(s => Sites().name(s)).join(', ')}` : ''}`);
+      setSelection({}); await refresh();
+    } catch (error) { toast((error as Error).message, true); }
+  }
 
   async function bulk(action: 'trash' | 'restore' | 'crm' | 'list', value = '') {
     if (!selectedIds.length) return;
@@ -243,7 +261,7 @@ export function Listings() {
               <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} transition={{duration: 0.2}} className="overflow-hidden">
                 <div className="grid grid-cols-2 gap-3 pt-1 md:grid-cols-4 xl:grid-cols-8">
                   <Label>Öne çıkanlar<NativeSelect value={filters.insight} onChange={e => setFilters({insight: e.target.value})} data-testid="filter-insight">
-                    <option value="all">Hepsi</option><option value="opportunity">Fırsat (m² fiyatı %20+ altında)</option><option value="multi">Çok ilanlı satıcı (3+)</option><option value="single">Tek ilanlı satıcı</option>
+                    <option value="all">Hepsi</option><option value="opportunity">Fırsat (m² fiyatı %20+ altında)</option><option value="multi">Çok ilanlı satıcı (3+)</option><option value="single">Tek ilanlı satıcı</option><option value="listonly">Detayı açılmamış (liste kaydı)</option><option value="duplicate">Birden çok ilanda görünen mülk</option>
                   </NativeSelect></Label>
                   <Label>Takip durumu<NativeSelect value={filters.crm} onChange={e => setFilters({crm: e.target.value})} data-testid="filter-crm">
                     <option value="all">Tüm durumlar</option><option value="none">Durum girilmemiş</option>
@@ -297,6 +315,7 @@ export function Listings() {
                     <DropdownMenuSeparator /><DropdownMenuItem onClick={() => bulk('crm', '')}>Durumu kaldır</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                <Button size="sm" variant="outline" onClick={completeDetails} data-testid="bulk-complete" title="Seçili ilanların detay sayfasını açar ve telefonu alır (günlük limitler içinde)"><PhoneCall />Detayı ve telefonu tamamla</Button>
                 <Button size="sm" variant="outline" onClick={() => exportRecords('exportXlsx', selectedRecords)}><FileSpreadsheet />Seçilenleri Excel'e aktar</Button>
                 {filters.category === 'trash'
                   ? <Button size="sm" variant="outline" onClick={() => bulk('restore')}><Undo2 />Arşive geri al</Button>

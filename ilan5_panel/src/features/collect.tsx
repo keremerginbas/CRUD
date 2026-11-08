@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {Link2, ListOrdered, Pause, Play, Square, Save, Rocket, CircleCheck, CircleAlert, ScrollText} from 'lucide-react';
+import {Link2, ListOrdered, Pause, Play, Square, Save, Rocket, CircleCheck, CircleAlert, ScrollText, Zap, ScanSearch} from 'lucide-react';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
@@ -110,6 +110,7 @@ export function Collect() {
   const [trackName, setTrackName] = React.useState('');
   const [interval, setIntervalValue] = React.useState('60');
   const [revealPhone, setRevealPhone] = React.useState(true);
+  const [speed, setSpeed] = React.useState<'fast' | 'full'>('fast');
   const [busy, setBusy] = React.useState(false);
   const check = validate(mode, mode === 'links' ? directUrls : searchUrl);
   // Each site has its own crawler: only a job on the chosen site blocks a new start.
@@ -151,11 +152,11 @@ export function Collect() {
     if (!Number.isInteger(max) || max < 0) { toast('İlan sınırı 0 veya pozitif tam sayı olmalı.', true); return; }
     if (track && (!Number.isInteger(minutes) || minutes < 15)) { toast('Düzenli tarama aralığı en az 15 dakika olmalı.', true); return; }
     const target = await chooseList('', trackName.trim()); if (!target) return; showList(target.listId);
-    const config = {listId: target.listId, searchUrl: searchUrl.trim(), category, maxListings: max, maxPages: 0, delayMs: delaySeconds * 1000, revealPhone};
+    const config = {listId: target.listId, searchUrl: searchUrl.trim(), category, maxListings: max, maxPages: 0, delayMs: delaySeconds * 1000, revealPhone, mode: speed};
     if (!track) { await jobAction('ILAN_START', config); return; }
     setBusy(true); let saved = false;
     try {
-      const result = await runtime('ILAN_SEARCH_SAVE', {listId: config.listId, searchUrl: config.searchUrl, name: trackName.trim(), category, intervalMinutes: minutes, enabled: true, revealPhone, delayMs: config.delayMs});
+      const result = await runtime('ILAN_SEARCH_SAVE', {listId: config.listId, searchUrl: config.searchUrl, name: trackName.trim(), category, intervalMinutes: minutes, enabled: true, revealPhone, delayMs: config.delayMs, mode: speed});
       saved = true; if (Array.isArray(result.searches)) setSearches(result.searches);
       if (!result.search?.id) throw new Error('Kaydedilen aramanın kimliği alınamadı.');
       const run = await runtime('ILAN_SEARCH_RUN', {id: result.search.id, maxListings: max, maxPages: 0});
@@ -205,6 +206,17 @@ export function Collect() {
               {mode === 'search' && <Label>En fazla ilan<Input type="number" min={0} step={1} value={maxListings} onChange={e => setMaxListings(e.target.value)} /><Hint>0 = sınır yok</Hint></Label>}
               <Label>Bekleme (saniye)<Input type="number" min={3} max={3600} value={delay} onChange={e => setDelay(e.target.value)} /><Hint>İlanlar arasında, en az 3</Hint></Label>
             </div>
+            {mode === 'search' && (
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tarama hızı" data-testid="speed">
+                {([['fast', 'Hızlı (liste)', 'İlanlar sonuç sayfasından kaydedilir: başlık, fiyat, konum, m². Sayfa başına ~50 ilan. Telefon ve açıklama için sonradan “Detayı tamamla”.'], ['full', 'Tam (detay + telefon)', 'Her ilanın detay sayfası açılır, telefon düğmesine basılır. Yavaştır; günlük ilan ve telefon limitlerine tabidir.']] as const).map(([value, title, text]) => (
+                  <button key={value} type="button" role="radio" aria-checked={speed === value} onClick={() => setSpeed(value)} data-testid={'speed-' + value}
+                    className={cn('rounded-lg border p-3 text-left transition-colors', speed === value ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50')}>
+                    <span className="flex items-center gap-2 text-sm font-medium">{value === 'fast' ? <Zap className="size-4 text-primary" /> : <ScanSearch className="size-4" />}{title}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{text}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             {mode === 'search' && (
               <div className="flex flex-col gap-3 rounded-lg border p-4">
                 <label className="flex cursor-pointer items-center justify-between gap-3">

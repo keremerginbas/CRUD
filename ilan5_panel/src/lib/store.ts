@@ -15,7 +15,7 @@ export interface Job {
 }
 export interface SavedSearch {
   id: string; name: string; searchUrl: string; category: string; intervalMinutes: number; enabled: boolean; hasBaseline?: boolean;
-  lastStatus?: string; lastMessage?: string; lastRunAt?: string; nextRunAt?: string; listId?: string; revealPhone?: boolean; delayMs?: number;
+  lastStatus?: string; lastMessage?: string; lastRunAt?: string; nextRunAt?: string; listId?: string; revealPhone?: boolean; delayMs?: number; mode?: 'fast' | 'full';
 }
 export interface MonitorState {
   enabled?: boolean; intervalMinutes?: number; confirmationMinutes?: number; status?: string; phase?: string; message?: string;
@@ -25,23 +25,23 @@ export interface TelegramState {
   configured?: boolean; chatId?: string; chatTitle?: string; botUsername?: string; verified?: boolean; lastError?: string; counts?: Record<string, number>;
 }
 export interface SafetyState {
-  safety: {separateWindow?: boolean; skipKnown?: boolean; reuseKnownPhone?: boolean; dailyLimit?: number; phoneDailyLimit?: number};
+  safety: {separateWindow?: boolean; skipKnown?: boolean; reuseKnownPhone?: boolean; dailyLimit?: number; phoneDailyLimit?: number; listDailyLimit?: number};
   alerts: {priceDrop?: boolean; minDropPercent?: number; newListing?: boolean; health?: boolean; summary?: boolean; summaryTime?: string};
-  todayCount: number; todaySites: Record<string, {pages?: number; phones?: number}>;
+  todayCount: number; todaySites: Record<string, {pages?: number; phones?: number; lists?: number}>;
 }
 export interface MessageItem {id: string; status: string; title?: string; listingId?: string; sellerName?: string; message?: string; lastError?: string; updatedAt?: string; createdAt?: string}
 export interface MarketQuery {timeframe: '24h' | '7d' | 'all'; searchId: string}
 
 export interface State {
   ready: boolean; extension: boolean; version: string;
-  records: ListingRecord[]; stats: Map<string, MarketStat>; sellers: Map<string, number>; lists: ListMeta[];
+  records: ListingRecord[]; stats: Map<string, MarketStat>; sellers: Map<string, number>; dupes: Map<string, string[]>; lists: ListMeta[];
   job: Job | null; jobs: Job[]; monitor: MonitorState | null; telegram: TelegramState | null; searches: SavedSearch[];
   events: MarketEvent[]; marketQuery: MarketQuery; safety: SafetyState | null;
   backup: {auto: boolean; lastAt: string | null}; messages: {queue: MessageItem[]; templates: {id: string; name: string; body: string}[]};
 }
 
 let state: State = {
-  ready: false, extension: false, version: '', records: [], stats: new Map(), sellers: new Map(), lists: [],
+  ready: false, extension: false, version: '', records: [], stats: new Map(), sellers: new Map(), dupes: new Map(), lists: [],
   job: null, jobs: [], monitor: null, telegram: null, searches: [], events: [], marketQuery: {timeframe: '24h', searchId: 'all'},
   safety: null, backup: {auto: true, lastAt: null}, messages: {queue: [], templates: []},
 };
@@ -62,7 +62,7 @@ export async function refresh() {
     const stamp = (await storageGet<number>(ARCHIVE_STAMP)) || 0;
     const records = await DB().getAll();
     loadedStamp = stamp;
-    set({records, stats: Core().marketStats(records), sellers: Core().sellerCounts(records)});
+    set({records, stats: Core().marketStats(records), sellers: Core().sellerCounts(records), dupes: duplicateMap(records)});
   } catch (error) { toast(`Arşiv okunamadı: ${(error as Error).message}`, true); }
   finally { loading = false; if (refreshAgain) { refreshAgain = false; autoRefresh(); } }
 }
@@ -171,7 +171,7 @@ async function collectSettings(): Promise<BackupSettings | null> {
   if (!hasExtension()) return null;
   const keys = ['ilan5.searches.v1', 'ilan5.monitor.v1', Core().SAFETY_KEY, 'ilan5.alerts.v1'];
   const stored = await storageGetMany(keys), monitor = stored['ilan5.monitor.v1'] || {};
-  const searches = (stored['ilan5.searches.v1']?.items || []).map((s: SavedSearch) => ({searchUrl: s.searchUrl, name: s.name, category: s.category, intervalMinutes: s.intervalMinutes, delayMs: s.delayMs, revealPhone: s.revealPhone, enabled: s.enabled, listId: s.listId || ''}));
+  const searches = (stored['ilan5.searches.v1']?.items || []).map((s: SavedSearch) => ({searchUrl: s.searchUrl, name: s.name, category: s.category, intervalMinutes: s.intervalMinutes, delayMs: s.delayMs, revealPhone: s.revealPhone, enabled: s.enabled, listId: s.listId || '', mode: s.mode}));
   return {searches, safety: stored[Core().SAFETY_KEY] || null, alerts: stored['ilan5.alerts.v1'] || null,
     monitor: {enabled: monitor.enabled !== false, intervalMinutes: monitor.intervalMinutes || 360, confirmationMinutes: monitor.confirmationMinutes || 15}, templates: await DB().getMessageTemplates()};
 }
@@ -264,4 +264,13 @@ export async function start() {
   setInterval(() => { if (!document.hidden) { syncMonitoring(); syncSearches(); refreshMarket(); syncMessages(); } }, 15000);
   setInterval(() => { if (!document.hidden) autoRefresh(); }, 6000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && staleWhileHidden) { staleWhileHidden = false; autoRefresh(); } });
+}
+
+/** Record id -> ids of the other listings that look like the same property (any site). */
+export function duplicateMap(records: ListingRecord[]): Map<string, string[]> {
+  const result = new Map<string, string[]>();
+  try {
+    for (const group of Core().duplicateGroups(records).groups) for (const id of group) result.set(id, group.filter(other => other !== id));
+  } catch { /* older core without duplicate detection */ }
+  return result;
 }

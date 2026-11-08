@@ -24,6 +24,8 @@ export function priorities(input: {records: ListingRecord[]; stats: Map<string, 
   }
   const untouched = active.filter(r => stats.get(r.id)?.opportunity && !r.crm?.status && !r.messagedAt && (r.phones || []).length);
   if (untouched.length) list.push({id: 'untouched', level: 'medium', label: 'Ulaşılmamış fırsat', title: `${untouched.length.toLocaleString('tr-TR')} fırsat ilanına henüz ulaşılmadı`, detail: 'Telefonu kayıtlı, bölge medyanının en az %20 altında.', action: {kind: 'listings', filters: {insight: 'opportunity', crm: 'none'}}});
+  const listOnlyDeals = active.filter(r => r.detailStatus === 'list' && stats.get(r.id)?.opportunity).length;
+  if (listOnlyDeals) list.push({id: 'listonly', level: 'medium', label: 'Detay bekliyor', title: `${listOnlyDeals.toLocaleString('tr-TR')} fırsat ilanı yalnız liste sayfasından kaydedildi`, detail: 'Seçip “Detayı ve telefonu tamamla” ile telefonunu alın.', action: {kind: 'listings', filters: {insight: 'opportunity'}}});
   const review = active.filter(isReview).length;
   if (review) list.push({id: 'review', level: 'low', label: 'İnceleme', title: `${review.toLocaleString('tr-TR')} ilanın kategorisi doğrulanmalı`, action: {kind: 'listings', filters: {category: 'review'}}});
   const limit = Number(safety?.safety.phoneDailyLimit ?? 0);
