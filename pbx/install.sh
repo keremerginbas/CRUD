@@ -54,8 +54,14 @@ rm -f /etc/asterisk/pjsip_netgsm.conf /etc/asterisk/pjsip_netgsm_acl.conf
 chown -R asterisk:asterisk /etc/asterisk /var/lib/asterisk /var/log/asterisk /var/spool/asterisk
 
 echo "== Servis"
+# Santral bilerek kapatıldıysa (systemctl disable) güncelleme onu açmaz; açmak için START=1
+WAS="$(systemctl is-enabled asterisk 2>/dev/null || true)"
 install -m 644 "$REPO"/asterisk/asterisk.service /etc/systemd/system/asterisk.service
 systemctl daemon-reload
+if [[ "$WAS" == "disabled" && "${START:-0}" != "1" ]]; then
+  echo "== Santral kapalı olduğu için kapalı bırakıldı. Açmak için: START=1 $0"
+  exit 0
+fi
 systemctl enable -q asterisk
 systemctl restart asterisk
 sleep 4

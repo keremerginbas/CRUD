@@ -26,15 +26,26 @@ Panel ══ wss://santral.xresoftware.com.tr/ws (Hestia) ══▶ Asterisk :80
 - Ses: DTLS-SRTP, ICE; `rtp.conf` iç adresi 81.214.28.155 olarak bildirir (UDP 10000–10200 modemde açık olmalı).
 
 ## Güvenlik
-- Santrale hiçbir telefon kayıt olamaz; tek SIP bağlantısı operatör trunk'ıdır.
+- Masa telefonu santrale kayıt olamaz; SIP bağlantıları operatör trunk'ları ve panelin tarayıcı telefonudur.
 - SIP yalnızca iç ağdan ve operatörün adreslerinden kabul edilir (`pjsip.conf` → `[acl]`).
 - Dialplan yalnızca `0[2-5]XXXXXXXXX` biçimindeki Türkiye numaralarını arar; yurt dışı kapalı.
 - ARI (8088) ve uygulama (3000) modemde dışarı açılmaz.
 
+## Birden fazla operatör
+
+Netgsm, Verimor, Türk Telekom aynı anda bağlanabilir; her bağlantının bir adı vardır
+(`pbx/trunk.sh <ad>`, ayarlar `/etc/asterisk/xre.d/` altında). Her hat panelde (Ekip → Hatlar) bir bağlantıya
+bağlanır; o hattan yapılan aramalar o bağlantıdan, o hattın numarasıyla çıkar. Plan, operatöre sorulacaklar ve
+adım adım kurulum: [docs/maskeleme.md](../docs/maskeleme.md).
+
+- `pbx/doctor.sh`: sağlık kontrolü (bağlantılar, uygulama, güvenlik)
+- `pbx/cli-test.sh <hat> <kendi telefonunuz> [bağlantı]`: müşterinin göreceği numarayı kendi telefonunuzda görün
+- `pbx/test/e2e.sh`: geliştirme makinesinde gerçek Asterisk ile uçtan uca test
+
 ## Adımlar (Proxmox kabuğunda)
 1. Konteyner + kurulum: CT 150 açılır, depo klonlanır, `pbx/install.sh` çalışır (derleme 10-20 dk).
 2. Bağlantı: `pct exec 150 -- cat /opt/santral/pbx/connect.sh | bash`
-3. Trunk: `pct enter 150` → `/opt/santral/pbx/trunk.sh`. Kullanıcı adı/şifreyle kayıt ya da IP doğrulama
+3. Trunk: `pct enter 150` → `/opt/santral/pbx/trunk.sh [ad]`. Kullanıcı adı/şifreyle kayıt ya da IP doğrulama
    desteklenir. Satışçı hatları Bitrix'te kaldığı için Bitrix/Vapi'nin kullandığı Netgsm hesabı kullanılmaz;
    444 ve 0312 hatları için Türk Telekom'dan (ya da numaralar taşınırsa Netgsm'den) ayrı trunk alınır.
 4. Modem: UDP 5060 ve UDP 10000-10200 → 192.168.1.247.
