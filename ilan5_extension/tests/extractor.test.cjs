@@ -279,7 +279,7 @@ async function check(name,fn){ await fn(); passed++; console.log('PASS',name); }
     const r=x.discoverList();assert.equal(r.links.length,5);
     const byId=Object.fromEntries(Array.from(r.rows).map(row=>[row.url.match(/(\d+)\/detay/)[1],row]));
     assert.equal(byId['810001'].price,2450000);assert.equal(byId['810001'].currency,'TRY');
-    assert.equal(byId['810002'],undefined,'no price shown → no row price, area 1.000 is never taken');
+    assert.equal(byId['810002'].price,undefined,'no price shown → no row price');assert.equal(byId['810002'].area,undefined,'an unlabelled 1.000 is never taken as m²');assert.equal(byId['810002'].title,'Arsa 810002');
     assert.equal(byId['810003'].currency,'EUR');
     assert.equal(byId['810004'],undefined,'a row with two listings is ambiguous');
     w.close();
@@ -314,7 +314,40 @@ async function check(name,fn){ await fn(); passed++; console.log('PASS',name); }
   await check('Emlakjet list: ₺ price per card; "5.896/m²" unit price is never taken',async()=>{
     const card=(id,price)=>`<article class="listing-card"><a href="/ilan/arsa-${id}"><img></a><h3><a href="/ilan/arsa-${id}">Arsa</a></h3><p>Ankara, Mamak</p><p>335 m² · 5.896/m² · 16.10.2026</p><p class="price">${price}</p><button>Ara</button></article>`;
     const {w,x}=dom(`<main><h1>Ankara Satılık Arsa</h1>${card(19990109,'1.975.000 ₺')}${card(19990110,'')}</main>`,'https://www.emlakjet.com/satilik-arsa/ankara');
-    const r=x.discoverList();assert.equal(r.links.length,2);const rows=Array.from(r.rows);assert.equal(rows.length,1);assert.equal(rows[0].price,1975000);w.close();
+    const r=x.discoverList();assert.equal(r.links.length,2);const rows=Array.from(r.rows);assert.equal(rows.length,2);assert.equal(rows[0].price,1975000);assert.equal(rows[1].price,undefined);assert.equal(rows[0].area,335,'335 m² is the area; 5.896/m² is a unit price');w.close();
+  });
+  await check('fast list: Sahibinden table rows give title, price, m², zoning, date and district (city from the search address)',async()=>{
+    const row=(id,title,m2,price,date,place)=>`<tr class="searchResultsItem"><td><a href="/ilan/emlak-arsa-satilik-${id}/detay"><img src="https://img.example/${id}.jpg"></a></td><td class="searchResultsTitleValue"><a class="classifiedTitle" href="/ilan/emlak-arsa-satilik-${id}/detay">${title}</a></td><td>${m2}</td><td>Konut</td><td class="searchResultsPriceValue">${price}</td><td class="searchResultsDateValue">${date}</td><td class="searchResultsLocationValue">${place}</td></tr>`;
+    const {w,x}=dom(`<main><table id="searchResultsTable"><thead><tr><th></th><th>İlan Başlığı</th><th>m² (Brüt)</th><th>İmar Durumu</th><th>Fiyat</th><th>İlan Tarihi</th><th>İl / İlçe</th></tr></thead><tbody>${row(820001,'Gölbaşı köşe parsel','1.250','3.500.000 TL','21 Ekim 2026','Gölbaşı<br>Karşıyaka Mh.')}${row(820002,'Mamak arsa','500','<del>2.100.000 TL</del> 1.900.000 TL','16.10.2026','Mamak<br>Kutludüğün Mh.')}</tbody></table></main>`,'https://www.sahibinden.com/satilik-arsa/ankara?pagingSize=50');
+    const rows=Array.from(x.discoverList().rows);assert.equal(rows.length,2);
+    const [a,b]=rows;
+    assert.equal(a.title,'Gölbaşı köşe parsel');assert.equal(a.price,3500000);assert.equal(a.currency,'TRY');assert.equal(a.area,1250);
+    assert.deepEqual({...a.location},{city:'Ankara',district:'Gölbaşı',neighborhood:'Karşıyaka Mh.'});assert.equal(a.listedAt,'2026-10-21');
+    assert.equal(a.rawDetails['İmar Durumu'],'Konut');assert.equal(a.images[0],'https://img.example/820001.jpg');
+    assert.equal(b.price,1900000,'struck-through old price ignored');assert.equal(b.listedAt,'2026-10-16');assert.equal(b.area,500);
+    w.close();
+  });
+  await check('fast list: arabam.com table rows give model, year, km, colour, price, date and city / district',async()=>{
+    const {w,x}=dom(`<main><table><thead><tr><th></th><th>Model</th><th>İlan Başlığı</th><th>Yıl</th><th>Kilometre</th><th>Renk</th><th>Fiyat</th><th>Tarih</th><th>İl / İlçe</th></tr></thead><tbody><tr class="listing-list-item"><td><a href="/ilan/sahibinden-satilik-fiat-egea/sahibinden-fiat-egea/44985286"><img src="https://img.example/a.jpg"></a></td><td class="listing-modelname"><h2>Fiat Egea 1.3 Multijet Easy</h2></td><td><a href="/ilan/sahibinden-satilik-fiat-egea/sahibinden-fiat-egea/44985286">Sahibinden Fiat Egea 1.3 MultiJet Easy Manuel 2022 Model</a></td><td>2022</td><td>125.500 KM</td><td>Beyaz</td><td><span class="listing-price">810.000 TL</span></td><td>21 Ekim 2026</td><td>İstanbul<br>Küçükçekmece</td></tr></tbody></table></main>`,'https://www.arabam.com/ikinci-el/otomobil-sahibinden');
+    const [r]=Array.from(x.discoverList().rows);
+    assert.equal(r.title,'Fiat Egea 1.3 Multijet Easy');assert.equal(r.price,810000);assert.equal(r.rawDetails['Yıl'],'2022');assert.equal(r.rawDetails['Kilometre'],'125.500 KM');assert.equal(r.rawDetails['Renk'],'Beyaz');
+    assert.deepEqual({...r.location},{city:'İstanbul',district:'Küçükçekmece',neighborhood:''});assert.equal(r.listedAt,'2026-10-21');assert.equal(r.area,undefined);
+    w.close();
+  });
+  await check('fast list: Hepsiemlak and Emlakjet cards give price, m² (not the unit price), location and date',async()=>{
+    let {w,x}=dom(`<main><ul><li class="listing-item"><a class="listingView__card-link" href="/ankara-golbasi-bezirhane-satilik/tarla/0-47475589"><img src="https://img.example/h.jpg"></a><div class="list-view-price">32.000.000 TL</div><h3>Ankara Gölbaşı’nda Nadir Fırsat</h3><p>Satılık Tarla · 22.231 m² · 1.439 TL / m²</p><address>Ankara / Gölbaşı / Bezirhane Mah.</address><time class="list-view-date">18/10/2026</time><button>Telefonu Göster</button></li></ul></main>`,'https://www.hepsiemlak.com/ankara-satilik-sahibinden/arsa');
+    let [r]=Array.from(x.discoverList().rows);
+    assert.equal(r.title,'Ankara Gölbaşı’nda Nadir Fırsat');assert.equal(r.price,32000000);assert.equal(r.area,22231);
+    assert.deepEqual({...r.location},{city:'Ankara',district:'Gölbaşı',neighborhood:'Bezirhane Mah.'});assert.equal(r.listedAt,'2026-10-18');w.close();
+    ({w,x}=dom(`<main><article class="listing-card"><a href="/ilan/2-kat-konut-imarli-kose-parsel-19990109"><img src="https://img.example/e.jpg"></a><h3><a href="/ilan/2-kat-konut-imarli-kose-parsel-19990109">2 Kat Konut İmarlı Köşe Parsel</a></h3><p class="location">Ankara, Mamak</p><p>335 m² · 5.896/m² · 16.10.2026</p><p class="price">1.975.000 ₺</p><button>Ara</button></article></main>`,'https://www.emlakjet.com/satilik-arsa/ankara'));
+    [r]=Array.from(x.discoverList().rows);
+    assert.equal(r.title,'2 Kat Konut İmarlı Köşe Parsel');assert.equal(r.price,1975000);assert.equal(r.area,335);
+    assert.deepEqual({...r.location},{city:'Ankara',district:'Mamak',neighborhood:''});assert.equal(r.listedAt,'2026-10-16');w.close();
+  });
+  await check('fast list: schema.org JSON-LD fills a price the card does not show',async()=>{
+    const ld={'@context':'https://schema.org','@type':'ItemList',itemListElement:[{'@type':'ListItem',item:{'@type':'Product',name:'Urla zeytinlik',url:'https://www.emlakjet.com/ilan/urla-zeytinlik-19990222',offers:{'@type':'Offer',price:'4500000',priceCurrency:'TRY'}}}]};
+    const {w,x}=dom(`<main><article class="card"><h3><a href="/ilan/urla-zeytinlik-19990222">Urla zeytinlik</a></h3></article></main><script type="application/ld+json">${JSON.stringify(ld)}</script>`,'https://www.emlakjet.com/satilik-arsa/izmir');
+    const [r]=Array.from(x.discoverList().rows);assert.equal(r.price,4500000);assert.equal(r.currency,'TRY');assert.equal(r.location.city,'İzmir');w.close();
   });
   console.log(`${passed} extraction scenarios passed.`);
 })().catch(error=>{console.error(error);process.exitCode=1;});

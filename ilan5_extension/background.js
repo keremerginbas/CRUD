@@ -93,6 +93,9 @@
     return next.url.href;
   }
 
+  // Short, stable fingerprint of a page's listing ids (repeated-page detection without storing every id).
+  function hashIds(ids) { let h = 2166136261; for (const c of ids.join('|')) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + ':' + ids.length; }
+
   function categoryGate(record, targetCategory) {
     const classification = record.classification || {};
     if (classification.status !== 'verified' || !CATEGORIES.has(classification.category) || classification.category === 'belirsiz') {
@@ -298,15 +301,17 @@
         job.visitedPages.push(visitedKey);
         job.pages = job.visitedPages.length;
       }
-      const known = new Set([...job.listingQueue.map(item => item.id), ...(job.unchangedIds || [])]);
+      const known = new Set([...job.listingQueue.map(item => item.id), ...(job.unchangedIds || []), ...(job.recentIds || [])]);
       const pageRefs = new Map();
       for (const value of response.links || []) {
         try { const ref = listingRef(typeof value === 'string' ? value : value.url, job.source); pageRefs.set(ref.id, ref); } catch (_) { /* non-listing links */ }
       }
-      const rowPrices = new Map();
+      const rowsById = new Map(), rowPrices = new Map();
       for (const row of response.rows || []) {
-        try { if (Number.isFinite(row.price)) rowPrices.set(listingRef(row.url, job.source).id, row); } catch (_) { /* foreign row */ }
+        try { const id = listingRef(row.url, job.source).id; rowsById.set(id, row); if (Number.isFinite(row.price)) rowPrices.set(id, row); } catch (_) { /* foreign row */ }
       }
+      const fast = job.mode === 'fast', listedNow = [], fastRows = [];
+      const seenTotal = () => job.listingQueue.length + (job.counts.unchanged || 0) + (job.counts.listed || 0) + listedNow.length;
       const settings = core.safetySettings ? await core.safetySettings(api) : {};
       const archived = await knownRecords([...pageRefs.keys()]);
       const unchangedNow = [];
@@ -316,6 +321,13 @@
       let added = 0;
       for (const ref of pageRefs.values()) {
         if (known.has(ref.id)) { job.pageDuplicates += 1; continue; }
+        // Fast mode: a row that shows a title or price is archived straight from the list page.
+        const row = fast ? rowsById.get(ref.id) : null;
+        if (row && (row.title || Number.isFinite(row.price))) {
+          if (job.maxListings && seenTotal() >= job.maxListings) { job.limited = true; continue; }
+          known.add(ref.id); listedNow.push(ref.id); fastRows.push({...row, url: ref.url});
+          continue;
+        }
         const old = archived.get(ref.id);
         if (settings.skipKnown !== false && unchangedOnList(old, rowPrices.get(ref.id))) { known.add(ref.id); unchangedNow.push(ref.id); continue; }
         if (job.maxListings && job.listingQueue.length >= job.maxListings) { job.limited = true; continue; }
@@ -326,26 +338,38 @@
       }
       if (unchangedNow.length) {
         try { await db.markSeen(unchangedNow, {searchId: job.searchId, listId: job.listId, observedAt: iso()}); } catch (_) { /* Membership refresh is best effort. */ }
-        job.unchangedIds = [...(job.unchangedIds || []), ...unchangedNow];
+        job.unchangedIds = [...(job.unchangedIds || []), ...unchangedNow].slice(-5000);
         job.pageDuplicates += unchangedNow.length;
         bumpCounter('unchanged', unchangedNow.length);
       }
+      if (fastRows.length) {
+        await saveListRows(fastRows);
+        job.recentIds = [...(job.recentIds || []), ...listedNow].slice(-5000);
+        job.pageDuplicates += listedNow.length;
+      }
+      if (fast && pageRefs.size >= 5 && !listedNow.length && !(job.health?.alerted?.list)) {
+        job.health = job.health || {streaks: {}, alerted: {}}; job.health.alerted.list = true;
+        const message = 'Liste satırlarından ilan bilgisi okunamadı; bu sayfanın ilanları detay sayfasından okunacak. Site sayfa yapısını değiştirmiş olabilir.';
+        event('UYARI: ' + message);
+        if (options.onHealthAlert) Promise.resolve().then(() => options.onHealthAlert('list', message, clone(job))).catch(() => {});
+      }
       job.pageEndIndex = job.listingQueue.length;
-      job.counts.discovered = job.listingQueue.length + (job.unchangedIds || []).length;
+      job.counts.discovered = job.listingQueue.length + (job.counts.unchanged || 0) + (job.counts.listed || 0);
       const pagination = response.pagination || {};
       job.paginationStrategy = pagination.strategy || (response.nextUrl ? 'next-link' : 'terminal-check');
       if (Number.isSafeInteger(pagination.expectedTotal) && pagination.expectedTotal >= 0) job.expectedTotal = pagination.expectedTotal;
       const currentPage = Number.isSafeInteger(pagination.currentPage) && pagination.currentPage > 0 ? pagination.currentPage : job.pages;
-      const size = Number(pagination.pageSize || siteUrl(job.searchUrl).url.searchParams.get('pagingSize'));
+      const sizeParam = root.IlanSites?.get?.(job.source)?.pageSize?.param || 'pagingSize';
+      const size = Number(pagination.pageSize || siteUrl(job.searchUrl).url.searchParams.get(sizeParam));
       const lastPage = Number.isSafeInteger(pagination.lastPage) && pagination.lastPage > 0 ? pagination.lastPage : (job.expectedTotal != null && size > 0 ? Math.max(1, Math.ceil(job.expectedTotal / size)) : null);
       job.pageProgress = {currentPage, totalPages: lastPage || job.pageProgress?.totalPages || null, pageFound: job.pageFound, pageProcessed: job.pageDuplicates,
         totalProcessed: job.counts.processed, totalExpected: job.expectedTotal, stage: 'details'};
       job.phase = 'details'; job.pendingNextListUrl = null; job.legacyBacklog = false;
-      const signature = [...pageRefs.keys()].sort().join('|');
-      const repeatedPage = !!signature && (job.pageSignatures.includes(signature) || (added + unchangedNow.length === 0 && pageRefs.size > 0));
-      if (signature) job.pageSignatures.push(signature);
-      event(`Liste sayfası ${currentPage}: ${job.pageFound} ilan, ${added} detayı açılacak${unchangedNow.length ? `, ${unchangedNow.length} değişmemiş ilan atlandı` : ''}. Önce bu sayfanın detayları işlenecek.`);
-      if (job.maxListings && job.listingQueue.length >= job.maxListings && response.nextUrl) job.limited = true;
+      const signature = pageRefs.size ? hashIds([...pageRefs.keys()].sort()) : '';
+      const repeatedPage = !!signature && (job.pageSignatures.includes(signature) || (added + unchangedNow.length + listedNow.length === 0 && pageRefs.size > 0));
+      if (signature) job.pageSignatures = [...job.pageSignatures, signature].slice(-2000);
+      event(`Liste sayfası ${currentPage}: ${job.pageFound} ilan${listedNow.length ? `, ${listedNow.length} ilan listeden kaydedildi` : ''}, ${added} detayı açılacak${unchangedNow.length ? `, ${unchangedNow.length} değişmemiş ilan atlandı` : ''}.`);
+      if (job.maxListings && (fast ? job.listingQueue.length + (job.counts.unchanged || 0) + (job.counts.listed || 0) : job.listingQueue.length) >= job.maxListings && response.nextUrl) job.limited = true;
       if (job.maxPages && job.pages >= job.maxPages && response.nextUrl) job.limited = true;
       if (repeatedPage) finishCollection('Liste içeriği önceki sayfayı tekrarlıyor; sayfalama durduruldu.', false);
       else if (!pageRefs.size && response.nextUrl) finishCollection('Liste sayfasında doğrulanmış ilan bağlantısı bulunamadı.', false);
@@ -360,6 +384,25 @@
         finishCollection(pagination.reason || (pagination.complete ? 'Son liste sayfasına ulaşıldı.' : 'Sonraki sayfa doğrulanamadı.'), pagination.complete === true);
       }
       await afterCurrent();
+    }
+    // Saves list-page rows as listings (detail not yet read). Category rules are the same as for details.
+    async function saveListRows(rows) {
+      const records = [];
+      for (const row of rows) {
+        const record = await normalizedRecord({...row, detailStatus: 'list'}, job.category, job.searchUrl);
+        const gate = categoryGate(record, job.category);
+        bumpCounter('processed');
+        if (gate === 'skip') { bumpCounter('skipped'); continue; }
+        bumpCounter(gate === 'review' ? 'review' : 'saved');
+        records.push(record);
+      }
+      bumpCounter('listed', rows.length);
+      if (!records.length) return;
+      try {
+        const result = await db.upsertMany(records, {origin: 'crawl', partial: true, searchId: job.searchId, listId: job.listId || '', runId: job.id, baseline: job.baseline, observedAt: iso()});
+        for (const name of ['newListings', 'priceIncreases', 'priceDecreases']) { const count = result?.[name]; if (Number.isSafeInteger(count) && count > 0) bumpCounter(name, count); }
+        if (options.onMarketEvents && result?.events?.length) { try { await options.onMarketEvents(clone(result.events), clone(job)); } catch (_) { /* Notifications never block the crawl. */ } }
+      } catch (error) { addFailure(job.current?.url || job.searchUrl, 'Liste kayıtları yazılamadı: ' + (error.message || error)); }
     }
     async function normalizedRecord(raw, targetCategory, sourceSearchUrl) {
       const result = core.normalizeRecord(raw, {targetCategory, sourceSearchUrl});
@@ -386,7 +429,7 @@
       if (!raw || typeof raw !== 'object') throw new Error('İlan alanları okunamadı.');
       // The phone button was not pressed because the archive already holds the number.
       if (queued?.knownPhones?.length && !(raw.phones || []).length) raw = {...raw, phones: queued.knownPhones};
-      const record = await normalizedRecord({...raw, url: raw.url || ref.url}, job.category, job.searchUrl);
+      const record = await normalizedRecord({...raw, url: raw.url || ref.url, detailStatus: 'full'}, job.category, job.searchUrl);
       const actual = listingRef(record.url, job.source);
       if (actual.id !== ref.id) throw new Error('Açılan ilan ile beklenen ilan numarası uyuşmuyor.');
       checkHealth(record);
@@ -572,6 +615,14 @@
       if (job.phase === 'collect') next = {kind: 'list', url: job.nextListUrl};
       else if (job.detailIndex < job.pageEndIndex) next = {kind: 'detail', url: job.listingQueue[job.detailIndex].url};
       else { await complete(); return; }
+      if (next.kind === 'list' && core.takeListSlot) {
+        const slot = await core.takeListSlot(api, clock(), job.source);
+        if (!slot.allowed) {
+          job.nextDueAt = slot.resumeAt; job.waitingUntil = new Date(slot.resumeAt).toISOString();
+          event(`Günlük liste sayfası limiti doldu (${slot.limit} sayfa). Tarama ${new Date(slot.resumeAt).toLocaleString('tr-TR')} itibarıyla kendiliğinden devam edecek.`);
+          await persist(); await schedule(); return;
+        }
+      }
       if (next.kind === 'detail' && core.takeDailySlot) {
         const slot = await core.takeDailySlot(api, clock(), job.source);
         if (!slot.allowed) {
@@ -625,8 +676,12 @@
       const delayMs = Number(message.delayMs || 4000);
       if (!Number.isFinite(delayMs) || delayMs < 3000 || delayMs > 3600000) throw new Error('Bekleme süresi 3–3600 saniye arasında olmalı.');
       const oldTab = job && job.workTabId;
+      const mode = message.mode === 'fast' ? 'fast' : 'full';
+      // Fast mode asks for the largest result page the site offers (fewer page loads for the same listings).
+      const pageSize = root.IlanSites?.get?.(parsed.source)?.pageSize;
+      if (mode === 'fast' && pageSize && !parsed.url.searchParams.has(pageSize.param)) parsed.url.searchParams.set(pageSize.param, String(pageSize.value));
       job = {
-        version: 2, traversalVersion: 3, id: 'job-' + clock(), searchUrl: parsed.url.href, source: parsed.source,
+        version: 2, traversalVersion: 3, id: 'job-' + clock(), mode, searchUrl: parsed.url.href, source: parsed.source,
         searchId: String(message.searchId || ''), listId: String(message.listId || '').slice(0, 100), baseline: message.baseline !== false,
         category, maxListings: positive(message.maxListings, 'İlan sınırı'), maxPages: positive(message.maxPages, 'Sayfa sınırı'),
         delayMs, revealPhone: message.revealPhone !== false, status: 'running', phase: 'collect',
@@ -638,7 +693,7 @@
         expectedTotal: null, listComplete: false, listIncomplete: false, limited: false,
         counts: {discovered: 0, processed: 0, saved: 0, skipped: 0, review: 0, errors: 0, newListings: 0, priceIncreases: 0, priceDecreases: 0}, failures: [], logs: []
       };
-      event('Tarama başladı. Her sayfanın ilan detayları tamamlanınca sonraki sayfaya geçilecek.');
+      event(mode === 'fast' ? 'Hızlı tarama başladı: ilanlar liste sayfalarından kaydedilecek; okunamayan satırlar için detay sayfası açılacak.' : 'Tarama başladı. Her sayfanın ilan detayları tamamlanınca sonraki sayfaya geçilecek.');
       await persist();
       await tick();
       return {ok: true, job: clone(job)};

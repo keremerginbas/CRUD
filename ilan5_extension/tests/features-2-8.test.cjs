@@ -44,8 +44,8 @@ test('daily budget allows up to the limit, then waits until next local 00:05 and
 });
 
 test('safety defaults: separate window on, 400 a day; invalid limits fall back', () => {
-  assert.deepEqual(core.normalizeSafety(undefined), {separateWindow: true, skipKnown: true, reuseKnownPhone: true, dailyLimit: 400, phoneDailyLimit: 150});
-  assert.deepEqual(core.normalizeSafety({separateWindow: false, dailyLimit: 0, skipKnown: false}), {separateWindow: false, skipKnown: false, reuseKnownPhone: true, dailyLimit: 0, phoneDailyLimit: 150});
+  assert.deepEqual(core.normalizeSafety(undefined), {separateWindow: true, skipKnown: true, reuseKnownPhone: true, dailyLimit: 400, phoneDailyLimit: 150, listDailyLimit: 600});
+  assert.deepEqual(core.normalizeSafety({separateWindow: false, dailyLimit: 0, skipKnown: false}), {separateWindow: false, skipKnown: false, reuseKnownPhone: true, dailyLimit: 0, phoneDailyLimit: 150, listDailyLimit: 600});
   assert.equal(core.normalizeSafety({dailyLimit: -3}).dailyLimit, 400);
   assert.equal(core.normalizeSafety({dailyLimit: 'abc'}).dailyLimit, 400);
 });
@@ -208,7 +208,7 @@ test('safety config round-trips through the background message handler', async (
   const alerts = Alerts.createAlerts({storage}, () => null);
   let result = await alerts.handle({type: 'ILAN_SAFETY_CONFIG', safety: {dailyLimit: 150, separateWindow: false}});
   assert.equal(result.ok, true);
-  assert.deepEqual(result.safety, {separateWindow: false, skipKnown: true, reuseKnownPhone: true, dailyLimit: 150, phoneDailyLimit: 150});
+  assert.deepEqual(result.safety, {separateWindow: false, skipKnown: true, reuseKnownPhone: true, dailyLimit: 150, phoneDailyLimit: 150, listDailyLimit: 600});
   result = await alerts.handle({type: 'ILAN_SAFETY_STATUS'});
   assert.equal(result.safety.dailyLimit, 150);
   assert.equal(result.todayCount, 0);

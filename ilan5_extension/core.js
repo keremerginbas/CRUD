@@ -165,6 +165,7 @@
       history:(Array.isArray(raw.history)?raw.history:[]).slice(-10).filter(h=>h&&typeof h==='object').map(h=>({at:clean(h.at),price:parseNumber(h.price),currency:clean(h.currency),category:categoryValue(h.category),phones:phonesFrom(h.phones)})),
       sourceSearchUrl:safeUrl(options.sourceSearchUrl||raw.sourceSearchUrl||raw.search_url),collectionCategory:options.targetCategory||raw.collectionCategory||null,
       lists:unique((Array.isArray(raw.lists)?raw.lists:[]).map(id=>clean(id).slice(0,100))),
+      detailStatus:raw.detailStatus==='list'?'list':'full',listedAt:clean(raw.listedAt).slice(0,40),
       messagedAt:raw.messagedAt&&Number.isFinite(Date.parse(raw.messagedAt))?new Date(raw.messagedAt).toISOString():null,
       crm:normalizeCrm(raw.crm?.status||raw.crm?.note?raw.crm:{status:get(raw,'Takip Durumu'),note:get(raw,'Not')})};
   }
@@ -190,9 +191,9 @@
   function formatMoney(price,currency='TRY'){if(price===null||price===undefined||price==='')return 'Belirtilmemiş';try{return new Intl.NumberFormat('tr-TR',{style:'currency',currency,maximumFractionDigits:0}).format(price);}catch{return new Intl.NumberFormat('tr-TR').format(price)+' '+currency;}}
   // Account-protection settings: a separate minimized work window and a daily page budget.
   // These limit our own traffic; they do not hide the extension or bypass site checks.
-  const SAFETY_KEY='ilan5.safety.v1',DAILY_KEY='ilan5.daily.v1',SAFETY_DEFAULTS={separateWindow:true,dailyLimit:400,phoneDailyLimit:150,skipKnown:true,reuseKnownPhone:true};
+  const SAFETY_KEY='ilan5.safety.v1',DAILY_KEY='ilan5.daily.v1',SAFETY_DEFAULTS={separateWindow:true,dailyLimit:400,phoneDailyLimit:150,listDailyLimit:600,skipKnown:true,reuseKnownPhone:true};
   function normalizeSafety(value){const raw=plain(value),limit=(key)=>{const n=Number(raw[key]);return raw[key]!==undefined&&Number.isSafeInteger(n)&&n>=0&&n<=100000?n:SAFETY_DEFAULTS[key];};
-    return {separateWindow:raw.separateWindow!==false,skipKnown:raw.skipKnown!==false,reuseKnownPhone:raw.reuseKnownPhone!==false,dailyLimit:limit('dailyLimit'),phoneDailyLimit:limit('phoneDailyLimit')};}
+    return {separateWindow:raw.separateWindow!==false,skipKnown:raw.skipKnown!==false,reuseKnownPhone:raw.reuseKnownPhone!==false,dailyLimit:limit('dailyLimit'),phoneDailyLimit:limit('phoneDailyLimit'),listDailyLimit:limit('listDailyLimit')};}
   async function safetySettings(api){try{return normalizeSafety((await api.storage.local.get(SAFETY_KEY))?.[SAFETY_KEY]);}catch(_){return {...SAFETY_DEFAULTS};}}
   async function openWorkTab(api){
     const settings=await safetySettings(api);
@@ -215,7 +216,7 @@
   async function takeDailySlot(api,now=Date.now(),site=''){
     const settings=await safetySettings(api),record=await dailyRecord(api,now);
     if(settings.dailyLimit&&record.count>=settings.dailyLimit)return {allowed:false,limit:settings.dailyLimit,count:record.count,resumeAt:nextMorning(now)};
-    record.count++;if(site){const s=plain(record.sites[site]);record.sites[site]={pages:(Number(s.pages)||0)+1,phones:Number(s.phones)||0};}
+    record.count++;if(site){const s=plain(record.sites[site]);record.sites[site]={...s,pages:(Number(s.pages)||0)+1,phones:Number(s.phones)||0};}
     await saveDaily(api,record);
     return {allowed:true,limit:settings.dailyLimit,count:record.count};
   }
@@ -223,9 +224,16 @@
   async function takePhoneSlot(api,now=Date.now(),site=''){
     const settings=await safetySettings(api),record=await dailyRecord(api,now),s=plain(record.sites[site]),used=Number(s.phones)||0;
     if(settings.phoneDailyLimit&&used>=settings.phoneDailyLimit)return {allowed:false,limit:settings.phoneDailyLimit,count:used};
-    record.sites[site]={pages:Number(s.pages)||0,phones:used+1};await saveDaily(api,record);
+    record.sites[site]={...s,pages:Number(s.pages)||0,phones:used+1};await saveDaily(api,record);
     return {allowed:true,limit:settings.phoneDailyLimit,count:used+1};
   }
-  root.IlanCore=Object.freeze({CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,takePhoneSlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
+  // Result-list pages are budgeted per site (fast mode reads ~50 listings per page).
+  async function takeListSlot(api,now=Date.now(),site=''){
+    const settings=await safetySettings(api),record=await dailyRecord(api,now),s=plain(record.sites[site]),used=Number(s.lists)||0;
+    if(settings.listDailyLimit&&used>=settings.listDailyLimit)return {allowed:false,limit:settings.listDailyLimit,count:used,resumeAt:nextMorning(now)};
+    record.sites[site]={...s,pages:Number(s.pages)||0,phones:Number(s.phones)||0,lists:used+1};await saveDaily(api,record);
+    return {allowed:true,limit:settings.listDailyLimit,count:used+1};
+  }
+  root.IlanCore=Object.freeze({CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,takePhoneSlot,takeListSlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanCore;
 })(globalThis);

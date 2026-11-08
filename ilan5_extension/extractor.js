@@ -726,19 +726,109 @@
     copy.querySelectorAll(STRUCK).forEach(node => node.replaceWith(' '));
     return withoutUnitPrice(clean(copy.textContent));
   }
+  const MONTHS = {ocak: 1, subat: 2, mart: 3, nisan: 4, mayis: 5, haziran: 6, temmuz: 7, agustos: 8, eylul: 9, ekim: 10, kasim: 11, aralik: 12};
+  /** "21 Ekim 2026", "16.10.2026", "18/10/2026", "Bugün", "Dün" → YYYY-MM-DD, else ''. */
+  function parseListDate(value) {
+    const v = fold(value), pad = n => String(n).padStart(2, '0'), day = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    let m = v.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{4})/);
+    if (m && Number(m[2]) <= 12) return `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+    m = v.match(/(\d{1,2})\s+(ocak|subat|mart|nisan|mayis|haziran|temmuz|agustos|eylul|ekim|kasim|aralik)\s*(\d{4})?/);
+    if (m) return `${m[3] || new Date().getFullYear()}-${pad(MONTHS[m[2]])}-${pad(m[1])}`;
+    if (/\bbugun\b/.test(v)) return day(new Date());
+    if (/\bdun\b/.test(v)) return day(new Date(Date.now() - 86400000));
+    return '';
+  }
+  /** Column names of the table a result row belongs to (Sahibinden, arabam.com). */
+  function tableHeaders(row) {
+    const table = row.closest('table');
+    if (!table) return null;
+    const head = table.querySelector('thead tr') || [...table.querySelectorAll('tr')].find(tr => tr.querySelector('th'));
+    return head ? [...head.children].map(cell => clean(cell.textContent)) : null;
+  }
+  /** "Ankara / Mamak / Karşıyaka", "Ankara, Mamak", "İstanbul\nKüçükçekmece", "Mamak\nKarşıyaka" (+ city from the search). */
+  function splitLocation(value, searchCity) {
+    const parts = clean(value).split(/\s*(?:\/|,|\n|›|>|\|)\s*/).map(clean).filter(p => p && p.length < 60 && !/^\d/.test(p));
+    if (!parts.length) return {city: searchCity || '', district: '', neighborhood: ''};
+    const city = globalThis.IlanSites?.province(parts[0]);
+    if (city) return {city, district: parts[1] || '', neighborhood: parts[2] || ''};
+    // No province first: the row shows district (and neighborhood); the search names the city.
+    return {city: searchCity || '', district: parts[0] || '', neighborhood: parts[1] || ''};
+  }
+  /** schema.org JSON-LD in the page (ItemList / Product / Offer), indexed by canonical listing URL. */
+  function jsonLdListings() {
+    const found = new Map();
+    const visit = node => {
+      if (!node || typeof node !== 'object') return;
+      if (Array.isArray(node)) { node.forEach(visit); return; }
+      const url = typeof node.url === 'string' ? canonicalListing(node.url) : '';
+      if (url && !found.has(url)) {
+        const offer = Array.isArray(node.offers) ? node.offers[0] : node.offers || {};
+        const image = Array.isArray(node.image) ? node.image[0] : node.image;
+        found.set(url, {title: clean(node.name || ''), price: offer?.price !== undefined ? parseNumber(String(offer.price)) : null, currency: clean(offer?.priceCurrency || '').toUpperCase(), image: typeof image === 'string' ? image : image?.url || ''});
+      }
+      for (const value of Object.values(node)) if (value && typeof value === 'object') visit(value);
+    };
+    for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+      try { visit(JSON.parse(script.textContent)); } catch { /* malformed block */ }
+    }
+    return found;
+  }
+  /** The largest box around a result link that still holds only that one listing (card, li or tr). */
+  function resultRow(anchor, root) {
+    let row = null;
+    for (let node = anchor.parentElement; node && node !== root && node !== document.body; node = node.parentElement) {
+      const listings = new Set([...node.querySelectorAll('a[href]')].map(el => canonicalListing(el.href)).filter(Boolean));
+      if (listings.size !== 1) break;
+      row = node;
+      if (/^(TR|LI|ARTICLE)$/.test(node.tagName)) break; // a table row or list item is always one result
+    }
+    return row;
+  }
+  // Everything a search-result row shows: enough to archive a listing without opening it.
   function listRows(root) {
-    const rows = new Map();
+    const rows = new Map(), hints = site()?.list || {}, searchCity = globalThis.IlanSites?.provinceFromUrl(location.href) || '', ld = jsonLdListings();
+    const first = (row, selector) => { if (!selector) return ''; try { return [...row.querySelectorAll(selector)].map(text).find(Boolean) || ''; } catch { return ''; } };
     for (const anchor of all('a[href]', root)) {
       const url = canonicalListing(anchor.href);
       if (!url || rows.has(url)) continue;
-      const row = anchor.closest('tr,li,article,[class*="listing-item" i],[class*="searchResultsItem" i],[class*="list-item" i],[class*="card" i]');
-      if (!row || row === root || unique([...row.querySelectorAll('a[href]')].map(el => canonicalListing(el.href))).length !== 1) continue;
+      const row = resultRow(anchor, root);
+      if (!row) continue;
+      const out = {url, rawDetails: {}};
+      // Table rows: map each cell to its column name.
+      const headers = row.tagName === 'TR' ? tableHeaders(row) : null;
+      if (headers) {
+        [...row.children].forEach((cell, i) => {
+          const name = headers[i], value = clean(cell.innerText || cell.textContent);
+          if (name && value && value.length < 200 && !/^(fotoğraf|resim)$/i.test(name)) out.rawDetails[name] = value;
+        });
+      }
+      const column = (...names) => { for (const [k, v] of Object.entries(out.rawDetails)) if (names.some(n => fold(k).includes(n))) return v; return ''; };
+      // Price: current price only (no struck-through old price, no unit price per m²).
       const candidates = [...row.querySelectorAll('[class*="price" i],[class*="Price"]')]
         .filter(el => !/unit|per-square|m2|square/i.test(el.className) && !el.closest(STRUCK)).map(currentPriceText).filter(v => v && v.length < 60);
       candidates.push(...(withoutUnitPrice(currentPriceText(row)).match(/\d[\d., ]*\s*(?:TL|₺|EUR|USD|€|\$|GBP|£)/g) || []));
       const raw = candidates.find(v => currencyOf(v));
       const price = raw ? parseNumber(raw) : null;
-      if (price !== null && price > 0) rows.set(url, {url, price, currency: currencyOf(raw)});
+      if (price !== null && price > 0) { out.price = price; out.currency = currencyOf(raw); out.originalPrice = raw; }
+      const linkTitle = all('a[href]', row).filter(a => canonicalListing(a.href) === url).map(text).sort((a, b) => b.length - a.length)[0] || '';
+      out.title = clean(first(row, hints.title) || column('ilan basligi', 'baslik') || (linkTitle.length > 8 ? linkTitle : '') || first(row, 'h2,h3,h4'));
+      const place = first(row, hints.location) || column('il / ilce', 'il/ilce', 'konum', 'semt');
+      if (place) out.location = splitLocation(place, searchCity);
+      else if (searchCity) out.location = {city: searchCity, district: '', neighborhood: ''};
+      const areaText = first(row, hints.area) || column('m²', 'm2', 'metrekare') || (withoutUnitPrice(text(row)).match(/(\d[\d.,]*)\s*m[²2](?![\w/])/) || [])[0] || '';
+      const area = areaText ? parseNumber(areaText) : null;
+      if (area && area > 0) out.area = area;
+      const listed = parseListDate(first(row, hints.date) || column('tarih') || (text(row).match(/\d{1,2}[./]\d{1,2}[./]\d{4}|\d{1,2}\s+(?:Ocak|Şubat|Mart|Nisan|Mayıs|Haziran|Temmuz|Ağustos|Eylül|Ekim|Kasım|Aralık)\s+\d{4}/) || [])[0] || '');
+      if (listed) out.listedAt = listed;
+      const image = [...row.querySelectorAll('img')].map(img => img.currentSrc || img.getAttribute('data-src') || img.src).find(src => /^https?:\/\//i.test(src || ''));
+      if (image) out.images = [image];
+      const extra = ld.get(url);
+      if (extra) {
+        if (!out.title && extra.title) out.title = extra.title;
+        if (out.price === undefined && extra.price) { out.price = extra.price; out.currency = extra.currency || 'TRY'; }
+        if (!out.images && extra.image) out.images = [extra.image];
+      }
+      if (out.title || out.price !== undefined) rows.set(url, out);
     }
     return [...rows.values()];
   }

@@ -55,10 +55,21 @@
     if(retained.length)result.quality={...result.quality,status:result.quality.status==='review'?'review':'missing',warnings:[...new Set([...(result.quality.warnings||[]),'Yeni taramada alınamayan alanlarda son arşiv değerleri korundu: '+[...new Set(retained)].join(', ')+'.'])]};
     return result;
   }
+  // A list-page row refreshes an already archived listing: price, title and area follow the list,
+  // everything read from the detail page (phones, seller, description, classification) is kept.
+  function partialMerge(old,row){
+    const location={...(old.location||{})};for(const key of ['city','district','neighborhood'])if(!location[key]&&row.location?.[key])location[key]=row.location[key];
+    const rawDetails={...(row.rawDetails||{}),...(old.rawDetails||{})};
+    const merged={...old,location,rawDetails,images:old.images?.length?old.images:row.images,
+      title:row.title||old.title,area:row.area??old.area,listedAt:old.listedAt||row.listedAt||''};
+    if(row.price!==null&&row.price!==undefined){merged.price=row.price;merged.currency=row.currency;merged.originalPrice=row.originalPrice;}
+    if(old.detailStatus!=='list')return merged;
+    return {...row,...merged,detailStatus:'list',classification:row.classification,category:row.category,archiveStatus:old.deletedAt?old.archiveStatus:row.archiveStatus,quality:row.quality};
+  }
   async function upsertMany(records,options={}){
     if(!Array.isArray(records)||records.length>50000)throw Error('Bir işlemde en fazla 50.000 kayıt aktarılabilir.');
     const normalized=[...new Map(records.map(record=>{const r=core().normalizeRecord(record);if(!r.title&&!r.url&&!r.listingId)throw Error('İlan başlığı veya kaynağı olmayan kayıt aktarılamaz.');return [r.id,r];})).values()];
-    const crawl=options.origin==='crawl',searchId=core().clean(options.searchId).slice(0,250),listId=core().clean(options.listId).slice(0,100),at=date(options.observedAt)||now(),runId=core().clean(options.runId)||at;
+    const crawl=options.origin==='crawl',partial=crawl&&options.partial===true,searchId=core().clean(options.searchId).slice(0,250),listId=core().clean(options.listId).slice(0,100),at=date(options.observedAt)||now(),runId=core().clean(options.runId)||at;
     const db=await open();
     return new Promise((resolve,reject)=>{
       const tx=db.transaction(['records','events'],'readwrite'),store=tx.objectStore('records'),events=tx.objectStore('events');
@@ -67,7 +78,12 @@
         const request=store.get(record.id);
         request.onsuccess=()=>{
           const old=request.result;let result=record;
-          if(old){
+          if(old&&partial){
+            counts.updated++;
+            result=partialMerge(old,record);
+            if(old.manualCategory){result.manualCategory=old.manualCategory;result.category=old.category;result.classification=old.classification;result.archiveStatus=old.archiveStatus;}
+            if(old.price!==result.price||old.currency!==result.currency)result.history=[...(old.history||[]),{at:old.updatedAt,price:old.price,currency:old.currency,category:old.category,phones:old.phones}].slice(-10);
+          }else if(old){
             counts.updated++;
             if(old.manualCategory&&!record.manualCategory)result=core().normalizeRecord({...record,manualCategory:old.manualCategory,manualCategorizedAt:old.manualCategorizedAt});
             if(crawl)result=preserveKnown(result,old);
