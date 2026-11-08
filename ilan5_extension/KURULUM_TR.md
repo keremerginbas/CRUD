@@ -1,4 +1,4 @@
-# İlan5 3.1.0 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
+# İlan5 3.2.0 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,33 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.1.0** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.2.0** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 3.2.0 hızlı ve düzenli toplu tarama
+
+**Dört site aynı anda.** Her sitenin kendi tarama işi, kendi tarama sekmesi ve kendi sırası vardır. Sahibinden taranırken Emlakjet, Hepsiemlak ve arabam.com da taranabilir. Aynı sitede ikinci bir tarama, öncekinin bitmesini bekler. Duraklat / Devam / Durdur düğmeleri her sitenin kartında ayrıdır.
+
+**Tarama hızı: Hızlı veya Tam.**
+- **Hızlı (liste, varsayılan):** İlanlar arama sonuç sayfasından kaydedilir: başlık, fiyat, konum, m², ilan tarihi, küçük fotoğraf. İlanın detay sayfası açılmaz. Sahibinden ve arabam.com'da sayfa başına 50 ilan istenir. Bir liste sayfası birkaç saniyede okunur; bu yüzden aynı sürede 20–50 kat daha fazla ilan toplanır. Telefon, satıcı adı ve açıklama bu modda gelmez.
+- **Tam (detay + telefon):** Eskisi gibi her ilanın detay sayfası açılır, “Telefonu Göster”e basılır. Yavaştır; günlük ilan ve telefon limitleri geçerlidir.
+- Hızlı modda bir satır okunamazsa (site sayfa yapısı farklıysa) o ilanın detay sayfası açılır. Bir sayfada hiçbir satır okunamazsa Telegram'a ve tarama günlüğüne uyarı düşer.
+
+**Detayı ve telefonu tamamla.** İlanlar tablosunda “Liste kaydı” etiketli ilanları seçip **Detayı ve telefonu tamamla** deyin (ilan ayrıntısında da aynı düğme var). Seçilen ilanlar sitelerine göre ayrılır; her site için detay sayfaları sırayla açılır, telefon alınır. Önerilen kullanım: önce hızlı modla geniş tarayın, sonra **Öne çıkanlar → Fırsat** veya **Detayı açılmamış** filtresiyle ilgilendiklerinizi seçip tamamlayın. Genel bakıştaki öncelikli işlerde “Detay bekliyor” uyarısı, telefonu olmayan fırsat ilanlarını gösterir.
+
+**Günde 20–30 bin ilan için önerilen kurulum.**
+1. **Kayıtlı aramalar → İzlenecek arama ekle.** Bağlantı kutusuna her satıra bir arama yapıştırın (ör. her il için ayrı arama, dört siteden). **Tarama hızı: Hızlı**, aralık 60–180 dakika. Tek seferde onlarca arama eklenir.
+2. Her site kendi aramalarını sırayla, siteler birbirinden bağımsız ve aynı anda tarar.
+3. **Ayarlar → Liste sayfası / site** (varsayılan 600): Hızlı modda bir sayfa ~50 ilan getirir; 600 sayfa × 4 site, kâğıt üzerinde günde 100 bin ilana kadar yer bırakır. Gerçek sayı sitenin hızına, aramalardaki ilan sayısına ve bilgisayarın açık kalmasına bağlıdır. Limit dolunca tarama ertesi gün 00:05'te kendiliğinden sürer.
+4. İlk tur başlangıç kaydıdır; sonraki turlarda yalnız **yeni ilanlar ve fiyat değişimleri** işaretlenir ve Telegram'a gider.
+5. Genel bakıştaki site kartları bugün eklenen yeni ilan, okunan liste sayfası, açılan detay ve telefon sayısını gösterir.
+
+**Aynı mülk başka sitede.** Aynı il/ilçe, aynı m² ve aynı fiyat (ya da aynı telefon ve aynı m²) taşıyan ilanlar eşleştirilir. Tabloda “2 ilanda” gibi bir etiket görünür, ilan ayrıntısında **Aynı mülk başka ilanlarda** bölümü diğer ilanları listeler. **Öne çıkanlar → Birden çok ilanda görünen mülk** filtresiyle hepsini görebilirsiniz. Bu bir tahmindir; m² veya fiyatı eksik ilanlar eşleştirilmez.
+
+**Değişmeyenler ve güvenlik.** Eklenti sitelerin doğrulama ekranını, giriş ekranını veya bot korumasını aşmaya çalışmaz; böyle bir ekran çıkarsa o sitenin taraması durur ve sizi bekler. Hızlı mod sayfa sayısını azalttığı için sitelere giden istek sayısı ilan başına çok daha düşüktür. Taramayı ayrı bir Chrome profilinde, siteye giriş yapmadan yapmanız önerilir.
 
 ## 3.1.0 yeni panel: İlan5 Komuta Merkezi
 

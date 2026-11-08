@@ -179,6 +179,17 @@ vm.runInContext(`
   assert.ok(stopAll.jobs.every(j => j.status === 'stopped'));
   assert.equal(storage['ilan5.job.v2'], undefined, 'legacy single-job key is no longer written');
 
+  // Detail completion splits list-only listings per site and starts one link job per site.
+  const completion = await context.testRuntime('ILAN_COMPLETE_DETAILS', {urls: [
+    'https://www.emlakjet.com/ilan/satilik-arsa-19990109', 'https://www.arabam.com/ilan/sahibinden-satilik-renault/clio/44985286',
+    'https://www.emlakjet.com/ilan/satilik-arsa-19990110', 'not a link']});
+  assert.deepEqual([...completion.started.map(s => s.site + ':' + s.count)].sort(), ['arabam:1', 'emlakjet:2']);
+  status = await context.testRuntime('ILAN_STATUS');
+  assert.equal(status.jobs.find(j => j.source === 'emlakjet').mode, 'links');
+  const busySite = await context.testRuntime('ILAN_COMPLETE_DETAILS', {urls: ['https://www.emlakjet.com/ilan/satilik-arsa-19990111']}).catch(error => ({error: error.message}));
+  assert.match(String(busySite.error), /zaten çalışan bir tarama/);
+  await context.testRuntime('ILAN_STOP');
+
   sender = {id: 'test-extension', url: 'chrome-extension://test-extension/popup.html'};
   assert.equal((await context.testRuntime('ILAN_STATUS')).ok, true);
   assert.equal((await context.testRuntime('ILAN_MONITOR_STATUS')).ok, true);

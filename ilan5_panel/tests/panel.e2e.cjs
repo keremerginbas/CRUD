@@ -20,7 +20,7 @@ function mockChrome() {
   window.sent = [];
   window.store = store;
   window.chrome = {
-    runtime: {id: 'test', getURL: s => s, getManifest: () => ({version: '3.1.0'}), onMessage: {addListener() {}},
+    runtime: {id: 'test', getURL: s => s, getManifest: () => ({version: '3.2.0'}), onMessage: {addListener() {}},
       async sendMessage(m) {
         window.sent.push(m);
         if (m.type === 'ILAN_SAFETY_CONFIG') safety = {...safety, ...m.safety};
@@ -100,7 +100,7 @@ async function seed(page) {
   assert.match(await page.locator('[data-testid="priorities"]').innerText(), /Görüşülecek|Fiyat %/);
   assert.match(await page.locator('[role="img"][aria-label^="Veri skoru"]').getAttribute('aria-label'), /Veri skoru \d+ \/ 100/);
   assert.match(await page.locator('[data-testid="bell"]').getAttribute('aria-label'), /Öncelikli işler: \d+/);
-  assert.equal(await page.locator('[data-testid="version"]').innerText(), 'Sürüm 3.1.0');
+  assert.equal(await page.locator('[data-testid="version"]').innerText(), 'Sürüm 3.2.0');
   assert.ok(await page.evaluate(() => document.documentElement.classList.contains('dark')), 'dark by default');
   await page.screenshot({path: path.join(out, 'dashboard-dark.png'), fullPage: true});
 
@@ -188,6 +188,16 @@ async function seed(page) {
   await page.locator('[data-testid="list-choice-ok"]').click();
   await page.waitForTimeout(300);
   assert.equal((await page.evaluate(() => window.sent.find(m => m.type === 'ILAN_SEARCH_RUN'))).listId, 'list-old');
+
+  // Bulk add: one saved search per line, fast mode by default
+  await page.getByRole('button', {name: 'İzlenecek arama ekle'}).click();
+  await page.locator('[data-testid="saved-url"]').fill('https://www.emlakjet.com/satilik-arsa/konya\nhttps://www.arabam.com/ikinci-el/otomobil/renault\nhttps://www.emlakjet.com/satilik-arsa/konya');
+  await page.getByRole('button', {name: 'Aramayı kaydet'}).click();
+  await page.waitForTimeout(400);
+  const saves = await page.evaluate(() => window.sent.filter(m => m.type === 'ILAN_SEARCH_SAVE'));
+  assert.equal(saves.length, 2, 'duplicate lines are merged');
+  assert.ok(saves.every(m => m.mode === 'fast'));
+  assert.ok(['all', 'arac'].includes(saves[1].category), 'arabam search never targets land');
 
   // Settings: phone limit is saved through the worker
   await page.getByRole('button', {name: 'Ayarlar ve yedek'}).click();

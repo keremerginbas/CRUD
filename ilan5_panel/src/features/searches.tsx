@@ -3,7 +3,7 @@ import {Play, Power, Trash2, ExternalLink, Plus, BookmarkX, Zap, ScanSearch} fro
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
-import {Input, Label, NativeSelect, Hint} from '@/components/ui/input';
+import {Input, Label, NativeSelect, Hint, Textarea} from '@/components/ui/input';
 import {Switch} from '@/components/ui/switch';
 import {toast} from '@/components/ui/toast';
 import {confirmDialog} from '@/components/ui/confirm';
@@ -45,11 +45,33 @@ export function Searches() {
     event.preventDefault();
     const interval = Number(form.interval);
     if (!Number.isInteger(interval) || interval < 15) { toast('Tarama aralığı en az 15 dakika olmalı.', true); return; }
+    const urls = [...new Set(form.url.split(/\r?\n/).map(v => v.trim()).filter(Boolean))];
+    if (urls.length > 1) { await saveMany(urls, interval); return; }
     const result = await action('ILAN_SEARCH_SAVE', {searchUrl: form.url.trim(), name: form.name.trim(), category: form.category, intervalMinutes: interval, enabled: form.enabled, revealPhone: true, delayMs: 4000, mode: form.mode}, 'Arama düzenli takibe kaydedildi.');
     if (result) { setOpen(false); setForm({url: '', name: '', category: 'all', interval: '60', enabled: true, mode: 'fast'}); }
   }
+  // Many searches at once (e.g. one per province or per site). Each site's searches run one after another.
+  async function saveMany(urls: string[], interval: number) {
+    if (busy) return; setBusy(true);
+    let saved = 0; const failed: string[] = [];
+    try {
+      for (const [index, url] of urls.entries()) {
+        const parsed = collectUrl(url), fixed = parsed ? Sites().get(parsed.source)?.category : undefined;
+        const category = fixed && !['all', fixed].includes(form.category) ? fixed : form.category;
+        try {
+          const result = await runtime('ILAN_SEARCH_SAVE', {searchUrl: url, name: form.name.trim() ? `${form.name.trim()} ${index + 1}` : '', category, intervalMinutes: interval, enabled: form.enabled, revealPhone: true, delayMs: 4000, mode: form.mode});
+          if (Array.isArray(result.searches)) setSearches(result.searches);
+          saved++;
+        } catch (error) { failed.push(`${index + 1}. satır: ${(error as Error).message}`); }
+      }
+      toast(`${saved} arama düzenli takibe kaydedildi.${failed.length ? ` Kaydedilemeyen: ${failed.slice(0, 3).join(' · ')}${failed.length > 3 ? ` (+${failed.length - 3})` : ''}` : ''}`, failed.length > 0 && !saved);
+      if (saved) { setOpen(false); setForm({url: '', name: '', category: 'all', interval: '60', enabled: true, mode: 'fast'}); }
+      await syncSearches();
+    } finally { setBusy(false); }
+  }
+  const lineCount = form.url.split(/\r?\n/).map(v => v.trim()).filter(Boolean).length;
   const onUrl = (url: string) => {
-    const parsed = collectUrl(url.trim()), fixed = parsed ? Sites().get(parsed.source)?.category : undefined;
+    const parsed = collectUrl(url.split(/\r?\n/)[0].trim()), fixed = parsed ? Sites().get(parsed.source)?.category : undefined;
     setForm(f => ({...f, url, category: fixed && !['all', fixed].includes(f.category) ? fixed : f.category}));
   };
 
@@ -62,7 +84,8 @@ export function Searches() {
           <CardHeader><CardTitle>Yeni kayıtlı arama</CardTitle><CardDescription>İlk eksiksiz tarama başlangıç kaydını oluşturur; sonraki turlarda yeni ilanlar ve fiyat değişimleri işaretlenir.</CardDescription></CardHeader>
           <CardContent>
             <form onSubmit={save} className="grid gap-4 md:grid-cols-2">
-              <Label className="md:col-span-2">Arama sonuçları bağlantısı<Input type="url" required value={form.url} onChange={e => onUrl(e.target.value)} placeholder="https://www.sahibinden.com/…" data-testid="saved-url" /></Label>
+              <Label className="md:col-span-2">Arama sonuçları bağlantısı (birden fazla için her satıra bir tane)<Textarea required rows={lineCount > 1 ? 6 : 2} value={form.url} onChange={e => onUrl(e.target.value)} placeholder={'https://www.sahibinden.com/satilik-arsa/ankara\nhttps://www.emlakjet.com/satilik-arsa/konya'} data-testid="saved-url" />
+                <Hint>{lineCount > 1 ? `${lineCount} arama birlikte kaydedilecek. Her site kendi aramalarını sırayla tarar; siteler aynı anda çalışır.` : 'Birden fazla il veya site için bağlantıları alt alta yapıştırabilirsiniz.'}</Hint></Label>
               <Label>Arama adı<Input value={form.name} maxLength={120} onChange={e => setForm(f => ({...f, name: e.target.value}))} placeholder="Örn. Ankara müstakil arsalar" /></Label>
               <Label>Toplanacak kategori<NativeSelect value={form.category} onChange={e => setForm(f => ({...f, category: e.target.value}))} data-testid="saved-category">
                 <option value="all">Tüm kategoriler</option>{(['arsa', 'arac', 'konut', 'isyeri', 'diger'] as Category[]).map(c => <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>)}

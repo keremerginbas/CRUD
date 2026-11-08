@@ -1,3 +1,18 @@
+# İlan5 3.2.0 — Doğrulama notları
+
+8 Kasım 2026 (3.2.0): `npm test` ile 20 test dosyasının tamamı geçti (yeni: `fast-mode`, `partial-merge`, `duplicates`). Panel derlendi, `ilan5_panel/tests/panel.e2e.cjs` Chromium'da geçti; derlenmiş pakette `eval`/`new Function` yok.
+
+Denenenler (sentetik sayfa ve sahte tarayıcı API'siyle):
+- Site başına ayrı tarama işi: Hepsiemlak ve Emlakjet aynı anda çalışır; aynı sitede ikinci tarama reddedilir; tek siteyi duraklatmak diğerini etkilemez; eski tek iş kaydı yeni yapıya taşınır.
+- Hızlı mod: 4 liste sayfası × 50 ilan yalnız 4 sayfa ziyaretiyle kaydedilir (detay açılmaz), sayfa başına tek toplu yazma; satırı okunamayan ilanlar için yalnız o detay sayfaları açılır; “En fazla ilan” sınırı uyulur; arabam.com'da `take=50`, Sahibinden'de `pagingSize=50` eklenir, tam modda adres değişmez; liste sayfası günlük bütçesi dolunca iş ertesi sabaha kadar bekler; bütçe site başına ayrı sayılır.
+- Liste satırı okuma: Sahibinden ve arabam.com tablo satırları (başlık sütunlarına göre), Hepsiemlak/Emlakjet kartları, JSON-LD listeleri; fiyat, para birimi, konum (il tanıma), m², ilan tarihi, küçük fotoğraf.
+- Kısmi birleştirme: liste satırı detaylı kaydın telefonunu, satıcısını, açıklamasını ve özelliklerini silmez; fiyatı günceller, fiyat değişince geçmişe yazar ve fiyat hareketi üretir; değişmeyen satır geçmiş satırı eklemez; sonra açılan detay kaydı tamamlar.
+- Detay tamamlama komutu: bağlantılar sitelere ayrılır, site başına bir iş başlar; meşgul site bildirilir.
+- Aynı mülk eşleştirme: il/ilçe/m²/fiyat veya telefon/m² ile; silinmiş, m²'siz, fiyatsız ilan eşleşmez.
+- Panel: hızlı mod varsayılan; liste kaydı filtresi ve etiketi; toplu “Detayı ve telefonu tamamla”; aynı mülk filtresi, etiketi ve ayrıntıdaki liste; kayıtlı aramalara çok satırlı toplu ekleme (yinelenen satır birleşir, hızlı mod gönderilir).
+
+Doğrulanamayanlar: Bu ortamdan sahibinden.com, hepsiemlak.com, emlakjet.com ve arabam.com'a erişilemedi. Liste satırı seçicileri sitelerin herkese açık sayfa yapısı ve açık kaynak örneklere göre yazıldı, gerçek sayfada denenmedi. Kurulumdan sonra küçük bir hızlı tarama (En fazla ilan: 50) ile alanları siteyle karşılaştırın; sayfada hiç satır okunamazsa eklenti uyarı verir ve o ilanları detay sayfasından okur. Günlük 20–30 bin rakamı tasarım hesabıdır (liste sayfası başına ~50 ilan); gerçek hız siteye ve bilgisayarın açık kalmasına bağlıdır.
+
 # İlan5 3.1.0 — Doğrulama notları
 
 22 Ekim 2026 (3.1.0): Yeni panel React 19 + Vite + Tailwind CSS v4 + shadcn/ui tarzı bileşenler (Base UI, class-variance-authority, tailwind-merge) + TanStack Table + Recharts + Motion + Lucide ile yazıldı; kaynak `ilan5_panel/`, derlenmiş çıktı `ilan5_extension/panel/`. Tarama motoru, veritabanı, Telegram ve site kuralları değişmedi; `npm test` ile 17 test dosyasının tamamı geçti. Derlenmiş pakette `eval`/`new Function` yok, uzaktan script yüklenmiyor (Chrome eklenti CSP'si). `ilan5_panel/tests/panel.e2e.cjs` derlenmiş paneli Chromium'da 60 ilanlık örnek arşivle uçtan uca dener: Komuta Merkezi kartları, grafikler, öncelikli işler ve zil; KPI'dan filtreli ilan listesine geçiş; fiyata göre sıralama; çoklu seçim ve yeni listeye toplu ekleme; CSV sütunları; ayrıntı çekmecesi, fiyat geçmişi grafiği ve takip notu; arabam bağlantısında kategorinin Araç olması; kayıtlı aramada liste sorusu; telefon limiti ayarı; diğer ekranlar; açık tema; 1440/1024/768/390 px'te yatay taşma olmaması; konsolda hata olmaması. Gerçek Chrome profiline kurulu eklentide canlı deneme yapılmadı.
