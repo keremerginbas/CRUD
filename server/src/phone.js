@@ -11,7 +11,8 @@ export function normalizePhone(raw) {
 }
 
 // Santraldeki operatör bağlantısı (trunk) adı: pbx/trunk.sh ile aynı kural; dialplan'a güvenle yazılabilir
-export const TRUNK_NAME_RE = /^[a-z][a-z0-9_]{1,19}$/;
+// u<sayı> (tarayıcı telefonu kullanıcıları) ve xre_ santralde ayrılmış adlardır
+export const TRUNK_NAME_RE = /^(?!u\d+$)(?!xre_)[a-z][a-z0-9_]{1,19}$/;
 
 // Santral API'leri genelde 0 ile başlayan yerel biçim ister: 05XXXXXXXXX
 export function toLocalFormat(phone) {

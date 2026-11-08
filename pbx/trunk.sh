@@ -16,12 +16,17 @@ CONF="${XRE_CONF:-/etc/asterisk}"
 D="$CONF/xre.d"
 ast() { asterisk ${ASTERISK_OPTS:-} -rx "$1"; }
 
+gvar() { ast "dialplan show globals" 2>/dev/null | sed -n "s/^ *$1=//p" | head -1; }
 if [[ "${1:-}" == "--sil" ]]; then
   NAME="${2:-}"
-  [[ -f "$D/pjsip-$NAME.conf" ]] || { echo "Böyle bir bağlantı yok: $NAME"; exit 1; }
+  [[ "$NAME" =~ ^[a-z][a-z0-9_]{1,19}$ && -f "$D/pjsip-$NAME.conf" ]] || { echo "Böyle bir bağlantı yok: $NAME"; exit 1; }
+  if [[ "$NAME" == "$(gvar TRUNK)" || "$NAME" == "$(gvar AGENT_TRUNK)" ]]; then
+    echo "$NAME varsayılan ya da danışman bağlantısı; önce connect.sh ile başka bağlantıyı varsayılan yapın (TRUNK=<ad>)."; exit 1
+  fi
   rm -f "$D/pjsip-$NAME.conf" "$D/acl-$NAME.conf" "$D/globals-$NAME.conf"
   ast 'dialplan reload' >/dev/null; ast 'module reload res_pjsip.so' >/dev/null
   echo "== $NAME kaldırıldı. Bu bağlantıya bağlı hatlar panelde (Ekip → Hatlar) başka bağlantıya alınmalı."
+  echo "   (Eski ayar değerleri tamamen silinsin diye uygun bir zamanda: systemctl restart asterisk)"
   exit 0
 fi
 
@@ -46,6 +51,18 @@ read -rp "Operatörün SIP sunucusu ($HINT; port farklıysa sunucu:port): " HOST
 HOSTNAME_ONLY="${HOST%%:*}"
 read -rp "Doğrulama yöntemi: 1) kullanıcı adı/şifre  2) IP doğrulama [1]: " MODE
 MODE="${MODE:-1}"
+[[ "$MODE" == "1" || "$MODE" == "2" ]] || { echo "Yöntem 1 ya da 2 olmalı"; exit 1; }
+# IP doğrulamada gelen arama sadece gönderen adresten tanınır: aynı sunucuda ikinci bir IP bağlantısı
+# aramaları karıştırır (şifreli kayıtta sorun yok, operatör kayıt etiketiyle gönderir)
+if [[ "$MODE" == "2" ]]; then
+  for f in "$D"/pjsip-*.conf; do
+    [[ "$f" == "$D/pjsip-$NAME.conf" ]] && continue
+    if grep -qx "match=$HOSTNAME_ONLY" "$f" && ! grep -q "type=registration" "$f"; then
+      echo "Bu sunucu zaten IP doğrulamalı başka bir bağlantıda: $(basename "$f" .conf | sed 's/^pjsip-//')."
+      echo "Aynı operatörde ikinci hesap için kullanıcı adı/şifre yöntemini seçin."; exit 1
+    fi
+  done
+fi
 read -rp "Operatörün bildirdiği ek SIP IP adresleri (boşlukla ayırın, yoksa Enter): " EXTRA
 for ip in $EXTRA; do [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "Geçersiz IP: $ip"; exit 1; }; done
 read -rp "Bu bağlantının ana numarası (ör. 8503465993; operatör aranan numarayı iletmezse kullanılır): " DID

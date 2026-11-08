@@ -12,10 +12,13 @@ LINE="${LINE//[^0-9]/}"; PHONE="${PHONE//[^0-9]/}"
 [[ "${PHONE:0:1}" == "0" ]] || PHONE="0$PHONE"
 [[ "$PHONE" =~ ^0[2-5][0-9]{9}$ ]] || { echo "Telefon 0 ile başlayan 11 haneli Türkiye numarası olmalı"; exit 1; }
 [[ -z "$TRK" || "$TRK" =~ ^[a-z][a-z0-9_]{1,19}$ ]] || { echo "Geçersiz bağlantı adı"; exit 1; }
-SOUNDS="$(ast 'dialplan show globals' | sed -n 's/^ *SOUNDS=//p' | head -1)"
+GLOBALS="$(ast 'dialplan show globals' 2>/dev/null)" || { echo "Santral çalışmıyor (systemctl status asterisk)"; exit 1; }
+SOUNDS="$(sed -n 's/^ *SOUNDS=//p' <<<"$GLOBALS" | head -1)"
+[[ -n "$TRK" ]] || TRK="$(sed -n 's/^ *TRUNK=//p' <<<"$GLOBALS" | head -1)"
+ast "pjsip show endpoint $TRK" 2>/dev/null | grep -q "Endpoint:  *$TRK " || { echo "Santralde '$TRK' bağlantısı yok"; exit 1; }
 APP="Wait 10"; [[ -f "$SOUNDS/xre-danismaniniz-ariyor.wav" ]] && APP="Playback custom/xre-danismaniniz-ariyor"
-echo "== $PHONE aranıyor: hat $LINE, bağlantı ${TRK:-varsayılan}. Açınca anons duyacaksınız; ekrandaki numaraya bakın."
-ast "channel originate Local/$LINE-${TRK:-x}-$PHONE@xre-cli-test application $APP" >/dev/null
+echo "== $PHONE aranıyor: hat $LINE, bağlantı $TRK. Açınca anons duyacaksınız; ekrandaki numaraya bakın."
+ast "channel originate Local/$LINE-$TRK-$PHONE@xre-cli-test application $APP" >/dev/null
 sleep "${XRE_WAIT:-3}"
 ast 'core show channels concise' | grep -q "xre-cli-test" && echo "== Arama sürüyor" || {
   echo "== Arama kurulamadı. Son satırlar:"; grep -E "xre-cli-test|Arama sonucu" "${XRE_LOG:-/var/log/asterisk/messages.log}" 2>/dev/null | tail -5; }

@@ -22,7 +22,8 @@ for legacy in trunk agent; do
   [[ -s "$CONF/pjsip_$legacy.conf" ]] && grep -q "type=endpoint" "$CONF/pjsip_$legacy.conf" && NAMES="$NAMES $legacy" \
     && warn "$legacy eski biçimde kayıtlı; pbx/trunk.sh $legacy ile yeniden yazın (biçim/kanal ayarı için)"
 done
-[[ -n "${NAMES// /}" ]] || bad "Hiç operatör bağlantısı yok: pbx/trunk.sh"
+NAMES="$(tr ' ' '\n' <<<"$NAMES" | awk 'NF && !seen[$0]++')"
+[[ -n "$NAMES" ]] || bad "Hiç operatör bağlantısı yok: pbx/trunk.sh"
 for n in $NAMES; do
   EP="$(ast "pjsip show endpoint $n")"
   if ! grep -q "Endpoint:  *$n " <<<"$EP"; then bad "$n: santralde yüklenmemiş (dosya hatalı?)"; continue; fi

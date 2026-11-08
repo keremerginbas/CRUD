@@ -55,7 +55,9 @@ start() {
 mkinst pbx
 E="$W/pbx/etc"
 cp "$REPO"/pbx/asterisk/*.conf "$E/"
-for f in pjsip_trunk.conf pjsip_trunk_acl.conf pjsip_agent.conf pjsip_agent_acl.conf xre_trunk.conf; do : > "$E/$f"; done
+for f in pjsip_trunk.conf pjsip_trunk_acl.conf pjsip_agent.conf pjsip_agent_acl.conf; do : > "$E/$f"; done
+# Eski kurulumdan kalan değer (CLI_ tanımsız bağlantılar için PAI sunucusu)
+printf 'TRUNK_DID=\nTRUNK_HOST=eski.sunucu\n' > "$E/xre_trunk.conf"
 mkdir -p "$E/xre.d"
 for f in pjsip acl globals; do echo "; boş" > "$E/xre.d/$f-00-bos.conf"; done
 # Testte operatörler 127.0.0.x'te: bu adresler iç ağ sayılsın (dış IP'ye çevrilmesin)
@@ -84,8 +86,15 @@ export XRE_CONF="$E" ASTERISK_OPTS="-C $E/asterisk.conf" XRE_WAIT=1
 #               operatör  sunucu          yöntem ek-IP  numara      kanal biçim  kullanıcı   şifre
 printf '%s\n' 1 127.0.0.2:5070 2 "" 8503465993 1 10 | "$REPO/pbx/trunk.sh" netgsm >/dev/null
 printf '%s\n' 3 127.0.0.3:5070 2 "" 3122191672 4 0 | "$REPO/pbx/trunk.sh" tt >/dev/null
-printf '%s\n' 2 127.0.0.5:5070 1 "" 8501112233 2 90 8501112233 verisifre | "$REPO/pbx/trunk.sh" verimor >/dev/null
+printf '%s\n' 2 127.0.0.5:5070 1 "" 8501112233 2 90 vm1 verisifre | "$REPO/pbx/trunk.sh" verimor >/dev/null
+# Aynı operatör sunucusunda ikinci hesap (Netgsm'de 119 ve 114 gibi)
+printf '%s\n' 2 127.0.0.5:5070 1 "" 8501112244 1 90 vm2 verisifre2 | "$REPO/pbx/trunk.sh" verimor2 >/dev/null
 if printf '%s\n' 1 '127.0.0.2;x' | "$REPO/pbx/trunk.sh" kotu >/dev/null 2>&1; then echo "HATA: geçersiz sunucu kabul edildi"; exit 1; fi
+if printf '%s\n' 3 127.0.0.3:5070 2 "" 3122190000 1 0 | "$REPO/pbx/trunk.sh" tt2 >/dev/null 2>&1; then echo "HATA: aynı sunucuda ikinci IP bağlantısı kabul edildi"; exit 1; fi
+[[ ! -f "$E/xre.d/pjsip-tt2.conf" ]] || { echo "HATA: reddedilen bağlantının dosyası kaldı"; exit 1; }
+# Eski biçimde (globals'ı olmayan) bir bağlantı: sadece giden arama için, TT sunucusunda
+sed -e 's/\btt\b/eski/g; s/\btt-/eski-/g' "$E/xre.d/pjsip-tt.conf" | sed '/^\[eski-identify\]/,$d' > "$E/xre.d/pjsip-eski.conf"
+A 'module reload res_pjsip.so' >/dev/null
 
 # ---------- Operatör (sahte) ----------
 mkinst op
@@ -128,20 +137,37 @@ type=identify
 endpoint=pbx
 match=127.0.0.1
 ; Verimor gibi şifreyle kayıt olan hesap
-[8501112233]
+[vm1]
 type=endpoint
 context=op-in
 disallow=all
 allow=alaw,ulaw
-auth=8501112233
-aors=8501112233
+auth=vm1
+aors=vm1
 direct_media=no
-[8501112233]
+[vm1]
 type=auth
 auth_type=userpass
-username=8501112233
+username=vm1
 password=verisifre
-[8501112233]
+[vm1]
+type=aor
+max_contacts=1
+remove_existing=yes
+[vm2]
+type=endpoint
+context=op-in
+disallow=all
+allow=alaw,ulaw
+auth=vm2
+aors=vm2
+direct_media=no
+[vm2]
+type=auth
+auth_type=userpass
+username=vm2
+password=verisifre2
+[vm2]
 type=aor
 max_contacts=1
 remove_existing=yes
@@ -195,6 +221,7 @@ db.exec(\`INSERT INTO numbers (did, type, user_id, label, trunk) VALUES
   ('+903122191672', 'personal', 1, 'Kaan 0312', NULL),
   ('+905337435628', 'personal', 2, 'Merve 5628', 'netgsm'),
   ('+908501112233', 'personal', 3, 'Ahmet 850', 'verimor'),
+  ('+908501112244', 'listing', 3, 'Ahmet ilan 850', NULL),
   ('4442453', 'hunt', NULL, '444', NULL)\`);
 db.exec(\"INSERT INTO contacts (name, phone, owner_id) VALUES ('MUSTAFA', '+905464962638', 1)\");
 " --input-type=module)
@@ -214,9 +241,12 @@ expect() { # açıklama, beklenen satır parçası (E2E-IN ya da E2E-RESULT); ar
   for _ in $(seq 20); do grep -qF -- "$2" "$LOG" && break; sleep 0.5; done
   if grep -qF -- "$2" "$LOG"; then echo "  ✓ $1"; else echo "  ✗ $1"; echo "      beklenen: $2"; FAIL=1; fi
 }
+expect_pbx() { # aynısı, santralin logunda
+  local o="$LOG"; LOG="$W/pbx/log/messages.log"; expect "$@"; LOG="$o"
+}
 sql() { (cd "$REPO/server" && node -e "const {DatabaseSync}=require('node:sqlite');const r=new DatabaseSync(process.argv[1]).prepare(process.argv[2]).all();console.log(r.map(x=>Object.values(x).join('|')).join('\n'))" "$DB_PATH" "$1"); }
 
-for _ in $(seq 20); do A 'pjsip show registrations' | grep -q 'Registered' && break; sleep 0.5; done
+for _ in $(seq 30); do [[ "$(A 'pjsip show registrations' | grep -c Registered)" -ge 2 ]] && break; sleep 0.5; done
 echo "== Kayıt (şifreli bağlantı)"
 if A 'pjsip show registrations' | grep -q 'verimor-reg.*Registered'; then echo "  ✓ verimor operatöre kayıtlı"; else echo "  ✗ verimor kayıt olmadı"; A 'pjsip show registrations'; FAIL=1; fi
 
@@ -234,6 +264,13 @@ echo "== Gelen: + ile gelen numara da tanınır"
 call +903122191672-topbx_tt-05464962638
 expect "+90 ile gelen arama danışmana gider" "E2E-RESULT +903122191672-topbx_tt-05464962638 ANSWER"
 
+echo "== Gelen: aynı operatör sunucusundaki iki hesap ayrı tanınır (kayıt üzerinden)"
+for _ in $(seq 20); do [[ "$(A 'pjsip show registrations' | grep -c Registered)" -ge 2 ]] && break; sleep 0.5; done
+call 8501112244-vm2-05551112233
+call 8501112233-vm1-05551112234
+expect_pbx "ikinci hesaba gelen arama ikinci bağlantıda" "Gelen arama: 05551112233 -> 8501112244 (bağlantı: verimor2)"
+expect_pbx "birinci hesaba gelen arama birinci bağlantıda" "Gelen arama: 05551112234 -> 8501112233 (bağlantı: verimor)"
+
 echo "== Gelen: bizim olmayan numara → açılmadan meşgul"
 call 05330000000-topbx_netgsm-05464962638 3
 expect "santral açmadı (BUSY)" "E2E-RESULT 05330000000-topbx_netgsm-05464962638 BUSY"
@@ -249,12 +286,26 @@ expect "müşteri Netgsm'den aranır, 5628 görünür" "E2E-IN to=05551234567 fr
 
 echo "== Giden (panel): Ahmet → hattı Verimor'da (şifreli bağlantı, 90'lı biçim)"
 call 05551234568-asu3-u3
-expect "müşteri Verimor'dan aranır, operatöre 850 numarası bildirilir" "E2E-IN to=05551234568 from=8501112233 pai=<sip:908501112233@127.0.0.5> via=127.0.0.5:5070"
+expect "müşteri Verimor'dan aranır, operatöre 850 numarası bildirilir" "E2E-IN to=05551234568 from=vm1 pai=<sip:908501112233@127.0.0.5> via=127.0.0.5:5070"
 
 echo "== Giden: hattın bağlantısı santralde yoksa varsayılan bağlantı"
 sql "UPDATE numbers SET trunk='silinmis' WHERE did='+905337435628'" >/dev/null
 call 05551234569-asu2-u2
 expect "varsayılan (Netgsm) kullanılır" "E2E-IN to=05551234569 from=5337435628 pai=<sip:5337435628@127.0.0.2> via=127.0.0.2:5070"
+
+echo "== Giden: hattın bağlantısı bir tarayıcı kullanıcısı olamaz"
+sql "UPDATE numbers SET trunk='u1' WHERE did='+905337435628'" >/dev/null
+call 05551234570-asu2-u2
+expect "varsayılan (Netgsm) kullanılır, Kaan'ın tarayıcısı çalmaz" "E2E-IN to=05551234570 from=5337435628 pai=<sip:5337435628@127.0.0.2> via=127.0.0.2:5070"
+
+echo "== Giden: eski biçimde kalmış bağlantı eski arayan numara biçimini korur"
+sql "UPDATE numbers SET trunk='eski' WHERE did='+905337435628'" >/dev/null
+call 05551234571-asu2-u2
+expect "arayan 0'lı, PAI 10 hane (eski davranış)" "E2E-IN to=05551234571 from=05337435628 pai=<sip:5337435628@eski.sunucu> via=127.0.0.3:5070"
+
+echo "== Araç: bağlantı silme"
+if "$REPO/pbx/trunk.sh" --sil netgsm >/dev/null 2>&1; then echo "  ✗ varsayılan bağlantı silindi"; FAIL=1; else echo "  ✓ varsayılan bağlantı silinemez"; fi
+if "$REPO/pbx/trunk.sh" --sil 00-bos >/dev/null 2>&1; then echo "  ✗ geçersiz ad silindi"; FAIL=1; else echo "  ✓ geçersiz ad reddedildi"; fi
 
 echo "== Giden: yurt dışı numara aranamaz"
 call 00441234567890-asu1-u1 3
@@ -272,8 +323,8 @@ for want in "netgsm: erişilebilir (1 kanal, biçim 10, numara 8503465993)" "tt:
   grep -qF "$want" "$W/doctor.txt" && echo "  ✓ doctor: $want" || { echo "  ✗ doctor çıktısında yok: $want"; FAIL=1; }
 done
 A 'pjsip send unregister verimor-reg' >/dev/null; sleep 1
-B 'pjsip show aor 8501112233' >/dev/null
-printf '%s\n' 2 127.0.0.5:5070 1 "" 8501112233 2 90 8501112233 yanlissifre | "$REPO/pbx/trunk.sh" verimor >/dev/null
+B 'pjsip show aor vm1' >/dev/null
+printf '%s\n' 2 127.0.0.5:5070 1 "" 8501112233 2 90 vm1 yanlissifre | "$REPO/pbx/trunk.sh" verimor >/dev/null
 sleep 2
 if XRE_LOG="$W/pbx/log/messages.log" "$REPO/pbx/doctor.sh" > "$W/doctor2.txt" 2>&1; then echo "  ✗ yanlış şifre fark edilmedi"; FAIL=1
 else grep -q "verimor: operatöre kayıt olamadı" "$W/doctor2.txt" && echo "  ✓ yanlış şifre fark edildi" || { echo "  ✗ yanlış şifre mesajı yok:"; sed 's/^/      /' "$W/doctor2.txt"; FAIL=1; }; fi
@@ -283,11 +334,11 @@ sleep 2
 ROWS="$(sql "SELECT direction, dialed_number, status FROM calls ORDER BY id")"
 echo "$ROWS" | sed 's/^/    /'
 N="$(echo "$ROWS" | grep -c 'completed' || true)"
-[[ "$N" -ge 7 ]] && echo "  ✓ $N görüşme tamamlandı olarak kaydedildi" || { echo "  ✗ tamamlanan görüşme sayısı: $N"; FAIL=1; }
+[[ "$N" -ge 11 ]] && echo "  ✓ $N görüşme tamamlandı olarak kaydedildi" || { echo "  ✗ tamamlanan görüşme sayısı: $N"; FAIL=1; }
 # Bizim ayarlarımızdan kaynaklanan uyarılar (dialplan sözdizimi, PJSIP ayarı, fonksiyon hataları) testi bozar
 if grep -E "ERROR|WARNING" "$W/pbx/log/messages.log" \
   | grep -E "pbx_config|config\.c|res_pjsip/|res_sorcery_config|chan_pjsip|func_|app_dial|pbx\.c" \
-  | grep -vE "Unable to load config file|Declined modules|silinmis" > "$W/warn.txt"; then
+  | grep -vE "Unable to load config file|Declined modules|Hattın bağlantısı santralde yok|endpoint .silinmis." > "$W/warn.txt"; then
   echo "== Santral ayar uyarıları:"; sed 's/^/    /' "$W/warn.txt" | tail -20; FAIL=1
 fi
 [[ "$FAIL" == "0" ]] && echo "== TÜMÜ GEÇTİ" || { echo "== BAŞARISIZ (KEEP=1 ile tekrar çalıştırıp $W altındaki logları inceleyin)"; exit 1; }

@@ -282,6 +282,10 @@ test('yönetici ekip ve hatları yönetir, danışman yönetemez', async () => {
     // Operatör bağlantısı: geçerli ad ya da boş (varsayılan)
     assert.equal((await call('PUT', `/api/numbers/${did}`, { trunk: 'tt' }, { token: adminToken })).body.trunk, 'tt');
     assert.equal((await call('PUT', `/api/numbers/${did}`, { trunk: 'x y' }, { token: adminToken })).status, 400);
+    // Tarayıcı telefonu kullanıcıları (u<id>) ve xre_ ayrılmış adlar bağlantı olamaz
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { trunk: 'u3' }, { token: adminToken })).status, 400);
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { trunk: 'xre_x' }, { token: adminToken })).status, 400);
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { trunk: 'u3x' }, { token: adminToken })).body.trunk, 'u3x');
     const cleared = await call('PUT', `/api/numbers/${did}`, { trunk: '' }, { token: adminToken });
     assert.deepEqual([cleared.body.trunk, cleared.body.user_id], [null, created.body.user.id]);
     await call('PUT', `/api/numbers/${did}`, { user_id: 1, label: 'İlan 638' }, { token: adminToken });

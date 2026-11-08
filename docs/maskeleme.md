@@ -136,7 +136,11 @@ Panelde **Ekip → Hatlar**'da 0312 hatlarının "Operatör bağlantısı" kutus
 aramayı bekleyin; bağlantı otomatik öğrenilir. TT'yi varsayılan yapmak için:
 `pct exec 150 -- cat /opt/santral/pbx/connect.sh | TRUNK=tt bash` (makine: root@pve).
 
-Bir bağlantıyı kaldırmak için: `/opt/santral/pbx/trunk.sh --sil tt`
+Bir bağlantıyı kaldırmak için: `/opt/santral/pbx/trunk.sh --sil tt` (varsayılan ve danışman bağlantısı silinemez).
+
+Aynı operatörde ikinci hesap (ör. Netgsm 119 ve 114) **kullanıcı adı/şifre** ile bağlanmalı. Gelen arama,
+operatörün kayıt etiketinden doğru hesaba eşleşir. Aynı sunucuda iki IP doğrulamalı bağlantıyı `trunk.sh`
+kabul etmez, çünkü gelen aramalar karışır.
 
 ## Sorun giderme
 
