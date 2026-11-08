@@ -2,7 +2,7 @@
    classic panel: the archive is re-read only when its change stamp moves. */
 import {useSyncExternalStore} from 'react';
 import {
-  Core, DB, Transfer, chromeApi, hasExtension, runtime, storageGet, storageGetMany, storageSet, isDeleted,
+  Core, DB, Sites, Transfer, chromeApi, hasExtension, runtime, storageGet, storageGetMany, storageSet, isDeleted,
   type ListingRecord, type MarketEvent, type MarketStat, type ListMeta, type BackupSettings,
 } from './ext';
 import {toast} from '@/components/ui/toast';
@@ -35,14 +35,14 @@ export interface MarketQuery {timeframe: '24h' | '7d' | 'all'; searchId: string}
 export interface State {
   ready: boolean; extension: boolean; version: string;
   records: ListingRecord[]; stats: Map<string, MarketStat>; sellers: Map<string, number>; lists: ListMeta[];
-  job: Job | null; monitor: MonitorState | null; telegram: TelegramState | null; searches: SavedSearch[];
+  job: Job | null; jobs: Job[]; monitor: MonitorState | null; telegram: TelegramState | null; searches: SavedSearch[];
   events: MarketEvent[]; marketQuery: MarketQuery; safety: SafetyState | null;
   backup: {auto: boolean; lastAt: string | null}; messages: {queue: MessageItem[]; templates: {id: string; name: string; body: string}[]};
 }
 
 let state: State = {
   ready: false, extension: false, version: '', records: [], stats: new Map(), sellers: new Map(), lists: [],
-  job: null, monitor: null, telegram: null, searches: [], events: [], marketQuery: {timeframe: '24h', searchId: 'all'},
+  job: null, jobs: [], monitor: null, telegram: null, searches: [], events: [], marketQuery: {timeframe: '24h', searchId: 'all'},
   safety: null, backup: {auto: true, lastAt: null}, messages: {queue: [], templates: []},
 };
 const listeners = new Set<() => void>();
@@ -107,7 +107,17 @@ export async function mergeListMeta(incoming?: ListMeta[]) {
 }
 
 /* ---------- background state ---------- */
-export async function syncJob() { set({job: (await storageGet<Job>('ilan5.job.v2')) || null}); }
+/* One crawler job per site (ilan5.job.<site>). `job` is the most relevant one for single-job views. */
+const ACTIVE_JOB = ['running', 'blocked', 'paused', 'starting'];
+function withJobs(jobs: Job[]) {
+  const sorted = jobs.slice().sort((a, b) => Number(ACTIVE_JOB.includes(b.status)) - Number(ACTIVE_JOB.includes(a.status)) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
+  return {jobs: sorted, job: sorted[0] || null};
+}
+export async function syncJob() {
+  const keys = (Sites()?.SITES || []).map(site => 'ilan5.job.' + site.id);
+  const stored = await Promise.all(keys.map(key => storageGet<Job>(key)));
+  set(withJobs(stored.filter(Boolean) as Job[]));
+}
 export async function syncMonitoring() {
   if (!hasExtension()) return;
   const [monitor, telegram] = await Promise.allSettled([runtime('ILAN_MONITOR_STATUS'), runtime('ILAN_TELEGRAM_STATUS')]);
@@ -129,7 +139,7 @@ export async function syncMessages() {
   if (!hasExtension()) return;
   try { const r = await runtime('ILAN_MESSAGE_STATUS', {status: 'all'}); set({messages: {queue: r.queue || [], templates: r.templates || []}}); } catch (error) { toast((error as Error).message, true); }
 }
-export function setJob(job: Job | null) { set({job}); }
+export function setJob(job: Job | null) { if (!job) return; set(withJobs([...state.jobs.filter(j => j.source !== job.source), job])); }
 export function setMonitor(monitor: MonitorState) { set({monitor}); }
 export function setTelegram(telegram: TelegramState) { set({telegram}); }
 export function setSearches(searches: SavedSearch[]) { set({searches}); }
@@ -237,7 +247,7 @@ export async function start() {
   const chrome = chromeApi();
   chrome?.storage?.onChanged?.addListener((changes: Record<string, {newValue?: any}>, area: string) => {
     if (area !== 'local') return;
-    if (changes['ilan5.job.v2']) set({job: changes['ilan5.job.v2'].newValue || null});
+    if (Object.keys(changes).some(key => key.startsWith('ilan5.job.'))) syncJob();
     if (changes['ilan5.monitor.v1']) syncMonitoring();
     if (Object.keys(changes).some(key => key.startsWith('ilan5.telegram'))) syncMonitoring();
     if (Object.keys(changes).some(key => key.includes('search'))) syncSearches();

@@ -99,7 +99,7 @@ function JobPanel({job, busy, onAction}: {job: Job; busy: boolean; onAction: (ty
 }
 
 export function Collect() {
-  const job = useStore(s => s.job);
+  const jobs = useStore(s => s.jobs);
   const [mode, setMode] = React.useState<'search' | 'links'>('search');
   const [searchUrl, setSearchUrl] = React.useState('');
   const [directUrls, setDirectUrls] = React.useState('');
@@ -112,8 +112,11 @@ export function Collect() {
   const [revealPhone, setRevealPhone] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const check = validate(mode, mode === 'links' ? directUrls : searchUrl);
-  const status = job?.status || 'idle';
+  // Each site has its own crawler: only a job on the chosen site blocks a new start.
+  const siteJob = jobs.find(j => j.source === check.source);
+  const status = siteJob?.status || 'idle';
   const jobBlocks = ['starting', 'running', 'collecting', 'stopping', 'paused', 'blocked'].includes(status);
+  const visibleJobs = jobs.filter(j => ACTIVE.includes(j.status) || ['paused', 'blocked'].includes(j.status) || Date.now() - Date.parse(j.updatedAt || '') < 86400000);
   const lines = directUrls.split(/\r?\n/).map(v => v.trim()).filter(Boolean), unique = new Set(lines).size;
 
   // arabam.com only lists vehicles: a land-only target would skip every listing.
@@ -166,7 +169,8 @@ export function Collect() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow="Veri çekme" title="Yeni tarama" description={`${Sites().namesText()} arama sonuçlarından veya tek tek ilan bağlantılarından ilan toplayın.`} />
-      {job && <JobPanel job={job} busy={busy} onAction={type => jobAction(type)} />}
+      {visibleJobs.length > 1 && <p className="-mb-2 text-sm text-muted-foreground">{visibleJobs.filter(j => j.status === 'running').length} site aynı anda taranıyor. Her sitenin kendi tarama penceresi ve sırası var.</p>}
+      {visibleJobs.map(job => <JobPanel key={job.source || job.id} job={job} busy={busy} onAction={type => jobAction(type, {source: job.source})} />)}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <form onSubmit={start}>
         <Card>
@@ -218,8 +222,8 @@ export function Collect() {
             <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
               <label className="flex cursor-pointer items-center gap-2 text-sm"><Switch checked={revealPhone} onCheckedChange={setRevealPhone} label="Telefonu Göster düğmesine bas" />“Telefonu Göster” düğmesine bas</label>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" disabled={busy || ACTIVE.includes(status)} onClick={() => jobAction('ILAN_CAPTURE_TAB', {category, revealPhone, listId: ''})} title="Başka bir sekmede açık olan son etkin ilan sayfasını kaydeder"><Save />Açık ilandan kaydet</Button>
-                <Button type="submit" disabled={busy || !check.valid || jobBlocks} data-testid="start-collect"><Rocket />{mode === 'links' ? 'İlanları getir' : 'Taramayı başlat'}</Button>
+                <Button variant="outline" disabled={busy} onClick={() => jobAction('ILAN_CAPTURE_TAB', {category, revealPhone, listId: ''})} title="Başka bir sekmede açık olan son etkin ilan sayfasını kaydeder"><Save />Açık ilandan kaydet</Button>
+                <Button type="submit" disabled={busy || !check.valid || jobBlocks} title={jobBlocks ? `${Sites().name(check.source)} için süren bir tarama var` : undefined} data-testid="start-collect"><Rocket />{mode === 'links' ? 'İlanları getir' : 'Taramayı başlat'}</Button>
               </div>
             </div>
           </CardContent>

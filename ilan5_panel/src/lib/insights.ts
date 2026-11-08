@@ -7,12 +7,12 @@ export type Priority = {
   action: {kind: 'detail'; id: string} | {kind: 'listings'; filters: Record<string, string>} | {kind: 'view'; view: 'collect' | 'settings' | 'market'};
 };
 
-export function priorities(input: {records: ListingRecord[]; stats: Map<string, MarketStat>; events: MarketEvent[]; job: Job | null; safety: SafetyState | null}): Priority[] {
-  const {records, stats, events, job, safety} = input;
+export function priorities(input: {records: ListingRecord[]; stats: Map<string, MarketStat>; events: MarketEvent[]; job?: Job | null; jobs?: Job[]; safety: SafetyState | null}): Priority[] {
+  const {records, stats, events, safety} = input, jobs = input.jobs || (input.job ? [input.job] : []);
   const active = records.filter(r => !isDeleted(r));
   const list: Priority[] = [];
-  if (job && ['blocked', 'paused'].includes(job.status)) {
-    list.push({id: 'job', level: 'high', label: job.status === 'blocked' ? 'Tarama bekliyor' : 'Tarama duraklatıldı', title: job.status === 'blocked' ? 'Doğrulama veya giriş ekranı çıktı; tarama penceresini kontrol edin.' : 'Kalan sıra korunuyor; devam ettirebilirsiniz.', detail: Sites().name(job.source || ''), action: {kind: 'view', view: 'collect'}});
+  for (const job of jobs.filter(j => ['blocked', 'paused'].includes(j.status))) {
+    list.push({id: 'job:' + (job.source || job.id), level: 'high', label: job.status === 'blocked' ? 'Tarama bekliyor' : 'Tarama duraklatıldı', title: job.status === 'blocked' ? 'Doğrulama veya giriş ekranı çıktı; tarama penceresini kontrol edin.' : 'Kalan sıra korunuyor; devam ettirebilirsiniz.', detail: Sites().name(job.source || ''), action: {kind: 'view', view: 'collect'}});
   }
   for (const r of active.filter(r => r.crm?.status === 'meeting').slice(0, 3)) {
     list.push({id: 'meet:' + r.id, level: 'high', label: 'Görüşülecek', title: r.title || 'Başlıksız ilan', detail: r.crm?.note ? r.crm.note.slice(0, 90) : r.sellerName || undefined, action: {kind: 'detail', id: r.id}});

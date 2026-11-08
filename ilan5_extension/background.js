@@ -3,9 +3,9 @@
 'use strict';
 
 (function (root) {
-  const JOB_KEY = 'ilan5.job.v2';
-  const STEP_ALARM = 'ilan5.step.v2';
-  const WATCH_ALARM = 'ilan5.watch.v2';
+  const DEFAULT_JOB_KEY = 'ilan5.job.v2';
+  const DEFAULT_STEP_ALARM = 'ilan5.step.v2';
+  const DEFAULT_WATCH_ALARM = 'ilan5.watch.v2';
   const CATEGORIES = new Set(['arsa', 'arac', 'konut', 'isyeri', 'diger', 'belirsiz']);
   // Page size is a search invariant. Only the page position may change.
   const PAGE_PARAMS = new Set(['page', 'p', 'sayfa', 'pagingOffset']);
@@ -106,6 +106,8 @@
   }
 
   function createEngine(api, core, db, options = {}) {
+    // One engine per site in the service worker: each keeps its own job, work tab and alarms.
+    const JOB_KEY = options.jobKey || DEFAULT_JOB_KEY, STEP_ALARM = options.stepAlarm || DEFAULT_STEP_ALARM, WATCH_ALARM = options.watchAlarm || DEFAULT_WATCH_ALARM;
     const clock = options.now || Date.now;
     let job;
     let chain = Promise.resolve();
@@ -786,7 +788,7 @@
     return {handle, onUpdated, onRemoved, recover, onAlarm: alarm => [STEP_ALARM, WATCH_ALARM].includes(alarm.name) ? serial(tick) : Promise.resolve()};
   }
 
-  const exported = {createEngine, siteUrl, listingRef, nextPageUrl, pageKey, sameNavigationTarget, categoryGate, JOB_KEY, STEP_ALARM, WATCH_ALARM};
+  const exported = {createEngine, siteUrl, listingRef, nextPageUrl, pageKey, sameNavigationTarget, categoryGate, JOB_KEY: DEFAULT_JOB_KEY, STEP_ALARM: DEFAULT_STEP_ALARM, WATCH_ALARM: DEFAULT_WATCH_ALARM, siteJobKey: site => 'ilan5.job.' + site};
   if (typeof module !== 'undefined' && module.exports) module.exports = exported;
   root.IlanBackground = exported;
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
@@ -797,19 +799,34 @@
       importScripts('telegram.js', 'monitoring.js', 'searches.js', 'alerts.js');
     }
     const alerts = root.IlanAlerts.createAlerts(chrome, () => telegram);
-    const engine = createEngine(chrome, root.IlanCore, root.IlanDB, {
-      onWake: task => dispatch(async () => { await task(); await syncSearchJob(); }),
+    // One crawler per site, each with its own job, work tab, alarms and event lane, so the
+    // four sites run side by side and a slow page on one site never holds up another.
+    const siteIds = root.IlanSites.ids, siteJobKey = exported.siteJobKey;
+    const engines = Object.fromEntries(siteIds.map(site => [site, createEngine(chrome, root.IlanCore, root.IlanDB, {
+      jobKey: siteJobKey(site), stepAlarm: 'ilan5.step.' + site, watchAlarm: 'ilan5.watch.' + site,
+      onWake: task => dispatch(async () => { await task(); syncSearchJob(); }, site),
       onMarketEvents: events => alerts.marketEvents(events),
       onHealthAlert: (field, message, job) => alerts.health(field, message, job)
-    });
+    })]));
+    const allEngines = () => siteIds.map(site => engines[site]);
+    const getJobs = async () => (await Promise.all(siteIds.map(async site => (await chrome.storage.local.get(siteJobKey(site)))[siteJobKey(site)]))).filter(Boolean);
+    const latestJob = jobs => jobs.slice().sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))[0] || null;
+    // 3.1 kept a single job under ilan5.job.v2; hand it to its site's engine once.
+    async function migrateLegacyJob() {
+      const legacy = (await chrome.storage.local.get(DEFAULT_JOB_KEY))[DEFAULT_JOB_KEY];
+      if (!legacy) return;
+      const site = siteIds.includes(legacy.source) ? legacy.source : siteIds[0];
+      if (!(await chrome.storage.local.get(siteJobKey(site)))[siteJobKey(site)]) await chrome.storage.local.set({[siteJobKey(site)]: legacy});
+      await chrome.storage.local.remove?.(DEFAULT_JOB_KEY);
+      for (const name of [DEFAULT_STEP_ALARM, DEFAULT_WATCH_ALARM]) await chrome.alarms.clear(name);
+    }
     const telegram = root.IlanTelegram.createClient(chrome, root.IlanDB, root.IlanPrivateConfig?.telegram || {});
-    const monitor = root.IlanMonitor.createEngine(chrome, root.IlanCore, root.IlanDB, telegram, {isCrawlerBusy: async () => {
-      const running = (await chrome.storage.local.get(JOB_KEY))[JOB_KEY];
-      return running?.status === 'running';
-    }});
-    const getCurrentJob=async()=>((await chrome.storage.local.get(JOB_KEY))[JOB_KEY]||null);
-    const searches=root.IlanSearches.createScheduler(chrome,root.IlanCore,{getJob:getCurrentJob,canStart:async()=>true,startSearch:message=>engine.handle(message)});
-    const syncSearchJob=async()=>searches.reconcileJob(await getCurrentJob());
+    // Link checks visit Sahibinden/Hepsiemlak pages: they wait while either site is being crawled.
+    const monitor = root.IlanMonitor.createEngine(chrome, root.IlanCore, root.IlanDB, telegram, {isCrawlerBusy: async () =>
+      (await getJobs()).some(job => job.status === 'running' && ['sahibinden', 'hepsiemlak'].includes(job.source))});
+    const sourceOfSearch = url => { try { return siteUrl(url).source; } catch (_) { return siteIds[0]; } };
+    const searches=root.IlanSearches.createScheduler(chrome,root.IlanCore,{getJobs,canStart:async()=>true,startSearch:message=>engines[sourceOfSearch(message.searchUrl)].handle(message)});
+    const syncSearchJob=()=>dispatch(()=>searches.reconcileJob(),'control');
     async function prepareMessageItem(item) {
       if (!item?.url) throw new Error('Hazırlanacak mesaj kaydında ilan bağlantısı yok.');
       let tab = null;
@@ -863,16 +880,40 @@
     }
     // A shared event queue makes tab navigation decisions atomic across both
     // engines. Pause/stop still reach each engine immediately to cancel late reads.
-    let eventQueue = Promise.resolve();
+    // Event lanes: one per site crawler, plus 'control' (commands, scheduler) and 'monitor'.
+    const lanes = new Map();
     const trustedStorage = chrome.storage.local.setAccessLevel ? chrome.storage.local.setAccessLevel({accessLevel: 'TRUSTED_CONTEXTS'}) : Promise.resolve();
-    const dispatch = task => {const next = eventQueue.then(() => trustedStorage).then(task);eventQueue = next.catch(() => {});return next;};
+    const dispatch = (task, lane = 'control') => {const next = (lanes.get(lane) || Promise.resolve()).then(() => trustedStorage).then(task);lanes.set(lane, next.catch(() => {}));return next;};
+    function sourceOfCommand(message) {
+      try {
+        if (message.type === 'ILAN_START') return siteUrl(message.searchUrl).source;
+        if (message.type === 'ILAN_START_LINKS') { const first = (Array.isArray(message.urls) ? message.urls : String(message.urls || '').split(/\r?\n/)).map(v => String(v).trim()).find(Boolean); return siteUrl(first).source; }
+      } catch (_) { /* The engine reports the address problem. */ }
+      return siteIds.includes(message.source) ? message.source : '';
+    }
+    async function crawlerCommand(message) {
+      const source = sourceOfCommand(message);
+      if (['ILAN_START', 'ILAN_START_LINKS'].includes(message.type)) return engines[source || siteIds[0]].handle(message);
+      if (message.type === 'ILAN_CAPTURE_TAB') return engines[siteIds[0]].handle(message);
+      if (message.type === 'ILAN_STATUS') { const jobs = await getJobs(); return {ok: true, job: latestJob(jobs), jobs}; }
+      // Pause/resume/stop one site, or every site that has a job in a matching state.
+      const wanted = {ILAN_PAUSE: ['running'], ILAN_RESUME: ['paused', 'blocked', 'stopped'], ILAN_STOP: ['starting', 'running', 'collecting', 'paused', 'blocked', 'error']}[message.type];
+      if (!wanted) return {ok: false, error: 'Bilinmeyen komut.'};
+      const targets = source ? [source] : (await getJobs()).filter(job => wanted.includes(job.status)).map(job => job.source).filter(site => siteIds.includes(site));
+      if (!targets.length) return {ok: false, error: message.type === 'ILAN_RESUME' ? 'Devam ettirilecek duraklatılmış iş yok.' : 'Çalışan iş yok.'};
+      const results = [];
+      for (const site of targets) results.push(await engines[site].handle(message));
+      const failedResult = results.find(r => !r.ok);
+      if (failedResult && results.length === 1) return failedResult;
+      return {ok: true, job: results.find(r => r.job)?.job || null, jobs: await getJobs()};
+    }
     async function route(message) {
       if (message.type.startsWith('ILAN_TELEGRAM_')) return telegram.handle(message);
       if (message.type.startsWith('ILAN_ALERTS_') || message.type.startsWith('ILAN_SAFETY_')) return alerts.handle(message);
       if (message.type.startsWith('ILAN_MONITOR_')) return monitor.handle(message);
       if (message.type.startsWith('ILAN_SEARCH_')) return searches.handle(message);
       if (message.type.startsWith('ILAN_MESSAGE_')) return handleMessaging(message);
-      const result=await engine.handle(message);if(result.ok&&message.type!=='ILAN_STATUS')await syncSearchJob();return result;
+      const result=await crawlerCommand(message);if(result.ok&&message.type!=='ILAN_STATUS')syncSearchJob();return result;
     }
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (!/^ILAN_(START|START_LINKS|PAUSE|RESUME|STOP|STATUS|CAPTURE_TAB|ALERTS_(STATUS|CONFIG|SUMMARY_NOW)|SAFETY_(STATUS|CONFIG)|MONITOR_(STATUS|CONFIG|RUN|PAUSE|RESUME)|TELEGRAM_(STATUS|CONFIG|VERIFY|TEST|RETRY)|SEARCH_(STATUS|SAVE|RUN|TOGGLE|REMOVE)|MESSAGE_(STATUS|TEMPLATE|QUEUE|PREPARE_NEXT|MARK_SENT|SKIP|DELETE|CLEAR))$/.test(message && message.type || '')) return false;
@@ -883,16 +924,33 @@
         sendResponse({ok: false, error: 'Geçersiz gönderen.'}); return false;
       }
       const interrupt = ['ILAN_PAUSE','ILAN_STOP','ILAN_MONITOR_PAUSE'].includes(message.type) || message.type==='ILAN_MONITOR_CONFIG'&&message.enabled===false;
-      const operation = interrupt ? Promise.resolve(trustedStorage).then(()=>route(message)) : dispatch(()=>route(message));
+      const source = sourceOfCommand(message);
+      const lane = message.type.startsWith('ILAN_MONITOR_') ? 'monitor' : ['ILAN_START', 'ILAN_START_LINKS'].includes(message.type) && source ? source : 'control';
+      const operation = interrupt ? Promise.resolve(trustedStorage).then(()=>route(message)) : dispatch(()=>route(message), lane);
       operation.then(sendResponse, error => sendResponse({ok: false, error: String(error?.message || error || 'İşlem tamamlanamadı; arşiv veya takip durumunu kontrol edin.')}));
       return true;
     });
     const failed = () => console.warn('İlan5 arka plan işlemi tamamlanamadı; takip ekranını kontrol edin.');
-    chrome.alarms.onAlarm.addListener(alarm => { dispatch(async()=>{await engine.onAlarm(alarm);await syncSearchJob();await searches.onAlarm(alarm);await monitor.onAlarm(alarm);await telegram.onAlarm(alarm);await alerts.onAlarm(alarm);}).catch(failed); });
-    chrome.storage.onChanged?.addListener?.((changes, area) => { if(area==='local'&&changes['ilan5.archive.updated']) dispatch(()=>monitor.handle({type:'ILAN_MONITOR_NEW_RECORDS'})).catch(failed); });
-    chrome.tabs.onUpdated.addListener((id, change, tab) => { dispatch(async()=>{await engine.onUpdated(id,change,tab);await syncSearchJob();await monitor.onUpdated(id,change,tab);}).catch(failed); });
-    chrome.tabs.onRemoved.addListener(id => { dispatch(async()=>{await engine.onRemoved(id);await syncSearchJob();await monitor.onRemoved(id);}).catch(failed); });
-    const recover = () => dispatch(async()=>{await alerts.scheduleSummary().catch(()=>{});await telegram.recover();await engine.recover();await searches.recover();await monitor.recover();}).catch(failed);
+    chrome.alarms.onAlarm.addListener(alarm => {
+      const site = siteIds.find(id => alarm.name === 'ilan5.step.' + id || alarm.name === 'ilan5.watch.' + id);
+      if (site) { dispatch(async()=>{await engines[site].onAlarm(alarm);syncSearchJob();}, site).catch(failed); return; }
+      dispatch(async()=>{await searches.onAlarm(alarm);await telegram.onAlarm(alarm);await alerts.onAlarm(alarm);}, 'control').catch(failed);
+      dispatch(()=>monitor.onAlarm(alarm), 'monitor').catch(failed);
+    });
+    chrome.storage.onChanged?.addListener?.((changes, area) => { if(area==='local'&&changes['ilan5.archive.updated']) dispatch(()=>monitor.handle({type:'ILAN_MONITOR_NEW_RECORDS'}), 'monitor').catch(failed); });
+    chrome.tabs.onUpdated.addListener((id, change, tab) => {
+      for (const site of siteIds) dispatch(async()=>{await engines[site].onUpdated(id,change,tab);}, site).catch(failed);
+      dispatch(()=>monitor.onUpdated(id,change,tab), 'monitor').catch(failed);
+      if (change.status === 'complete') syncSearchJob();
+    });
+    chrome.tabs.onRemoved.addListener(id => {
+      for (const site of siteIds) dispatch(()=>engines[site].onRemoved(id), site).catch(failed);
+      dispatch(()=>monitor.onRemoved(id), 'monitor').catch(failed);
+      syncSearchJob();
+    });
+    const recover = () => dispatch(async()=>{await migrateLegacyJob();await alerts.scheduleSummary().catch(()=>{});await telegram.recover();
+      await Promise.all(siteIds.map(site => dispatch(() => engines[site].recover(), site)));
+      await searches.recover();dispatch(()=>monitor.recover(), 'monitor').catch(failed);}, 'control').catch(failed);
     chrome.runtime.onStartup.addListener(recover);
     chrome.runtime.onInstalled.addListener(recover);
     // A service worker may restart without onStartup (idle termination/update).

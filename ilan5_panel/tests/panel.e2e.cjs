@@ -11,7 +11,7 @@ const out = process.env.QA_OUTPUT || path.join(__dirname, 'artifacts');
 
 function mockChrome() {
   const store = {'ilan5.backup.v1': {auto: false}, 'ilan5.lists': [{id: 'list-old', name: 'Ankara Ekim', createdAt: '2026-10-01T00:00:00Z'}],
-    'ilan5.job.v2': {id: 'j', status: 'running', source: 'arabam', updatedAt: new Date().toISOString(), message: 'Sayfa 2: ilan 14/50 açılıyor.', counts: {discovered: 100, processed: 63, saved: 40, unchanged: 18}, listingQueue: Array(100).fill(0), detailIndex: 63,
+    'ilan5.job.arabam': {id: 'j', status: 'running', source: 'arabam', updatedAt: new Date().toISOString(), message: 'Sayfa 2: ilan 14/50 açılıyor.', counts: {discovered: 100, processed: 63, saved: 40, unchanged: 18}, listingQueue: Array(100).fill(0), detailIndex: 63,
       pageProgress: {currentPage: 2, totalPages: 5, pageFound: 50, pageProcessed: 13, totalProcessed: 63, totalExpected: 250, stage: 'details'}, logs: [{at: new Date().toISOString(), message: 'İlan 44985286: kaydedildi.'}]}};
   const listeners = [];
   let safety = {separateWindow: true, dailyLimit: 400, phoneDailyLimit: 150, skipKnown: true, reuseKnownPhone: true};

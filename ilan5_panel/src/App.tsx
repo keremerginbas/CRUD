@@ -94,10 +94,10 @@ function Topbar() {
   const records = useStore(s => s.records);
   const stats = useStore(s => s.stats);
   const events = useStore(s => s.events);
-  const job = useStore(s => s.job);
+  const jobs = useStore(s => s.jobs);
   const safety = useStore(s => s.safety);
   const [query, setQuery] = React.useState('');
-  const items = React.useMemo(() => priorities({records, stats, events, job, safety}), [records, stats, events, job, safety]);
+  const items = React.useMemo(() => priorities({records, stats, events, jobs, safety}), [records, stats, events, jobs, safety]);
   return (
     <div className="mb-6 flex items-center gap-3">
       <form className="relative max-w-md flex-1" onSubmit={e => { e.preventDefault(); showListings({query: query.trim()}); }} role="search">

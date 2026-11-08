@@ -43,19 +43,24 @@
       if(JSON.stringify(item)===before)return false;
       await persist();return true;
     }
-    async function reconcileJob(job){return serial(async()=>{await load();await settle(job);await schedule();return list();});}
-    async function availability(){
-      const job=await callbacks.getJob?.();
+    // With one engine per site (getJobs), a search waits only for its own site's crawler.
+    const siteOf=item=>{try{return (root.IlanSites||require('./sites.js')).sourceFor(item.searchUrl);}catch(_){return '';}};
+    async function allJobs(){return callbacks.getJobs?(await callbacks.getJobs()).filter(Boolean):[await callbacks.getJob?.()].filter(Boolean);}
+    async function jobFor(item){const jobs=await allJobs();return callbacks.getJobs?jobs.find(job=>job.source===siteOf(item))||null:jobs[0]||null;}
+    async function settleAll(){let changed=false;for(const job of await allJobs())changed=(await settle(job))||changed;return changed;}
+    async function reconcileJob(job){return serial(async()=>{await load();if(job)await settle(job);else await settleAll();await schedule();return list();});}
+    async function availability(item){
+      const job=await jobFor(item);
       if(job&&['running','paused','blocked'].includes(job.status))return {ready:false,reason:'Mevcut ilan taraması tamamlanmalı veya durdurulmalı.'};
       if(callbacks.canStart&&!(await callbacks.canStart()))return {ready:false,reason:'Bağlantı takibi çalışıyor; arama taraması sırada bekliyor.'};
       return {ready:true};
     }
     async function start(item,manual=false,limits={}){
-      const current=await callbacks.getJob?.();
+      const current=await jobFor(item);
       if(current?.searchId===item.id&&current.status==='running'){await settle(current);return true;}
       const maxListings=manual?Number(limits.maxListings||0):0,maxPages=manual?Number(limits.maxPages||0):0;
       if(!Number.isSafeInteger(maxListings)||maxListings<0||!Number.isSafeInteger(maxPages)||maxPages<0)throw Error('Tarama sınırları sıfır veya pozitif tam sayı olmalı.');
-      const available=await availability();
+      const available=await availability(item);
       if(!available.ready){item.lastStatus='waiting';item.lastMessage=available.reason;if(item.enabled)item.nextRunAt=new Date(now()+MINUTE).toISOString();await persist();await schedule(MINUTE);if(manual)throw Error(available.reason);return false;}
       // The durable intent is written first; a worker restart can recover a
       // completed engine start from the job's searchId without double starting.
@@ -64,18 +69,21 @@
       if(!result?.ok){item.lastStatus='error';item.lastMessage=result?.error||'Arama başlatılamadı.';item.nextRunAt=item.enabled?new Date(now()+Math.min(item.intervalMinutes,15)*MINUTE).toISOString():null;await persist();await schedule();if(manual)throw Error(item.lastMessage);return false;}
       item.activeJobId=result.job.id;item.lastStatus=result.job.status;item.lastMessage=result.job.message||'';item.lastCounts=copy(result.job.counts||{});item.pageProgress=result.job.pageProgress||null;await persist();await settle(result.job);await schedule();return true;
     }
-    async function tick(){await load();const job=await callbacks.getJob?.();await settle(job);
-      const due=state.items.filter(s=>s.enabled&&s.nextRunAt&&Date.parse(s.nextRunAt)<=now()).sort((a,b)=>Date.parse(a.nextRunAt)-Date.parse(b.nextRunAt))[0];
-      if(due)await start(due);else await schedule();
+    async function tick(){await load();await settleAll();
+      const due=state.items.filter(s=>s.enabled&&s.nextRunAt&&Date.parse(s.nextRunAt)<=now()).sort((a,b)=>Date.parse(a.nextRunAt)-Date.parse(b.nextRunAt));
+      if(!due.length){await schedule();return;}
+      // One engine per site: start the earliest due search of every site in the same tick.
+      if(callbacks.getJobs){const started=new Set();for(const item of due){const site=siteOf(item);if(started.has(site))continue;started.add(site);await start(item);}}
+      else await start(due[0]);
     }
-    async function recover(){return serial(async()=>{await load();const job=await callbacks.getJob?.();await settle(job);
+    async function recover(){return serial(async()=>{await load();await settleAll();const jobs=await allJobs();
       let changed=false;
-      for(const item of state.items)if((item.activeJobId||item.lastStatus==='starting')&&(job?.searchId!==item.id||item.activeJobId&&job?.id!==item.activeJobId)){item.activeJobId=null;item.lastStatus='interrupted';item.lastMessage='Önceki tur tamamlanmadı; başlangıç karşılaştırması değiştirilmedi.';item.nextRunAt=item.enabled?iso():null;changed=true;}
+      for(const item of state.items){const job=callbacks.getJobs?jobs.find(j=>j.searchId===item.id)||null:jobs[0]||null;if((item.activeJobId||item.lastStatus==='starting')&&(job?.searchId!==item.id||item.activeJobId&&job?.id!==item.activeJobId)){item.activeJobId=null;item.lastStatus='interrupted';item.lastMessage='Önceki tur tamamlanmadı; başlangıç karşılaştırması değiştirilmedi.';item.nextRunAt=item.enabled?iso():null;changed=true;}}
       if(changed)await persist();await tick();});}
     async function handle(message){return serial(async()=>{await load();try{
       let selected;
       switch(message.type){
-        case 'ILAN_SEARCH_STATUS':await settle(await callbacks.getJob?.());break;
+        case 'ILAN_SEARCH_STATUS':await settleAll();break;
         case 'ILAN_SEARCH_SAVE':{
           const url=searchUrl(message.searchUrl),category=message.category||'all';if(category!=='all'&&!['arsa','arac','konut','isyeri','diger'].includes(category))throw Error('Geçerli bir kategori seçin.');
           const interval=Number(message.intervalMinutes??60),delay=Number(message.delayMs??4000);
@@ -91,7 +99,7 @@
         case 'ILAN_SEARCH_RUN':selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');if(typeof message.listId==='string'){selected.listId=core.clean(message.listId).slice(0,100);await persist();}await start(selected,true,message);break;
         case 'ILAN_SEARCH_TOGGLE':selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');selected.enabled=message.enabled===true;selected.nextRunAt=selected.enabled&&!selected.activeJobId?iso():null;await persist();await schedule();break;
         case 'ILAN_SEARCH_REMOVE':{
-          selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');const job=await callbacks.getJob?.();if(job?.searchId===selected.id&&['running','paused','blocked'].includes(job.status))throw Error('Bu aramayı kaldırmadan önce çalışan taramayı durdurun.');state.items=state.items.filter(s=>s.id!==selected.id);await persist();await schedule();break;}
+          selected=state.items.find(s=>s.id===message.id);if(!selected)throw Error('Kayıtlı arama bulunamadı.');const job=(await allJobs()).find(j=>j.searchId===selected.id);if(job?.searchId===selected.id&&['running','paused','blocked'].includes(job.status))throw Error('Bu aramayı kaldırmadan önce çalışan taramayı durdurun.');state.items=state.items.filter(s=>s.id!==selected.id);await persist();await schedule();break;}
         default:throw Error('Bilinmeyen arama takip komutu.');
       }
       return {ok:true,searches:list(),...(selected?{search:copy(selected)}:{})};
