@@ -205,6 +205,11 @@ exten => _[+0-9].,1,Set(CALLERID(num)=${CUT(EXTEN,-,3)})
  same => n,Log(NOTICE,E2E-RESULT ${EXTEN} ${DIALSTATUS})
 EOF
 start op
+# Santral bağlantıları operatör açılmadan denedi ve "ulaşılamaz" saydı: şimdi yeniden denesin
+for t in netgsm tt verimor verimor2; do A "pjsip qualify $t" >/dev/null; done
+for _ in $(seq 30); do
+  [[ "$(A 'pjsip show contacts' | grep -E ' (netgsm|tt|verimor|verimor2)/' | grep -c Avail)" -ge 4 ]] && break; sleep 0.5
+done
 
 # ---------- Uygulama ----------
 export DB_PATH="$W/app.db"
