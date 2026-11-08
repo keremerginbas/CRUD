@@ -12,6 +12,12 @@
 - **Harita pinleri** logo biçiminde damla ikonlar: seçili nokta kırmızı, kayıtlı mavi, favori altın yıldızlı; not baloncuğu yenilendi.
 - **XRE Software logosu** header ve sekme simgesinde; arka planı şeffaf SVG (`public/logo-mark.svg`).
 
+## Yeni görünüm: derin uzay teması ve 3D Dünya girişi
+- Panel tek, koyu bir temaya geçti: derin lacivert zemin (`#04060f`), nane yeşili vurgu (`#5df0a8`), cam (glassmorphism) kartlar, hap biçimli düğmeler, Inter yazı tipi. Harita ve tüm işlevler aynı.
+- Giriş ekranı: arkada gündüz/gece şehir ışıkları, okyanus parıltısı, kenar ışığı, atmosfer halesi, bulut kabukları ve yıldızlarla dönen 3D Dünya; Türkiye illerinde altın sinyal halkaları. Giriş yapınca Dünya Türkiye'ye döner ve yakınlaşır, ardından panel açılır.
+- 3D sahne (three.js r143) ayrı bir parçada ve yalnızca giriş ekranında yüklenir; panele geçince serbest bırakılır. WebGL yoksa düz arka plana düşer; "hareketi azalt" ayarında animasyonlar kapanır.
+- Dokular `public/earth/`: NASA Blue Marble / Black Marble türevleri (kamu malı), three-globe paketinden (MIT), web için küçültüldü (toplam ~1 MB).
+
 ## Kayıttan parsel sınırı
 - Soldaki **Kayıtlar** listesinden veya haritadaki pinden bir kayıt seçildiğinde o noktanın **parseli kırmızı sınırla** çizilir.
 - Kayıt sırasında nokta, daha önce sorgulanmış (yerel arşivdeki) bir parselin içindeyse kayda otomatik bağlanır. Eski kayıtlarda da nokta arşivdeki bir parselin içindeyse sınır bulunur; değilse o parselin ada/parselini bir kez sorgulamanız yeterlidir.

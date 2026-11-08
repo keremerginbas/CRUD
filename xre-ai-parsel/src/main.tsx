@@ -245,7 +245,7 @@ function App(){
  const visibleMarkers=stored.filter(m=>(m.favorite&&showFavorites)||(!m.favorite&&showPins));
 
  return <MotionConfig reducedMotion="user"><div className="flex h-dvh flex-col bg-background text-foreground max-lg:h-auto max-lg:min-h-dvh">
-  <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-3 bg-brand px-4 text-white shadow-md">
+  <header className="relative z-20 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-[radial-gradient(120%_200%_at_0%_0%,rgba(93,240,168,.08),transparent_45%),rgba(4,6,15,.92)] px-4 text-white backdrop-blur-xl">
    <div className="flex items-center gap-2.5">
     <img src="logo-mark.svg" alt="" className="h-10 w-auto drop-shadow-[0_0_6px_rgba(56,181,254,.35)]"/>
     <div className="leading-none">
@@ -262,7 +262,7 @@ function App(){
   </header>
 
   <main className="grid min-h-0 flex-1 grid-cols-[380px_minmax(0,1fr)] max-lg:flex max-lg:flex-col-reverse">
-   <aside className="flex min-h-0 flex-col border-r border-border bg-card max-lg:border-r-0 max-lg:border-t">
+   <aside className="flex min-h-0 flex-col border-r border-border bg-[radial-gradient(130%_60%_at_50%_-10%,rgba(93,240,168,.07),transparent_60%),var(--bg-2)] max-lg:border-r-0 max-lg:border-t">
     <Tabs value={tab} onValueChange={v=>setTab(String(v))} className="flex min-h-0 flex-1 flex-col">
      <TabsList className="shrink-0 px-2">
       <TabsTab value="query"><Search size={15}/>İdari Sorgu</TabsTab>
@@ -286,7 +286,7 @@ function App(){
        {crumbs.length>0&&<nav aria-label="Seçili bölge" className="flex flex-wrap items-center gap-1 text-xs font-medium text-muted-foreground">
         {crumbs.map((c,i)=><React.Fragment key={c}>{i>0&&<ChevronRight size={12}/>}<span className={i===crumbs.length-1?'text-parcel':''}>{c}</span></React.Fragment>)}
        </nav>}
-       <div role="status" className="rounded-lg border-l-4 border-primary bg-primary/5 px-3 py-2.5 text-xs leading-relaxed text-foreground/80">
+       <div role="status" className="glass rounded-2xl border-l-2 border-l-primary px-3.5 py-3 text-xs leading-relaxed text-foreground/80">
         {message}{boundaryNote&&<span className="mt-1 block text-amber-700 dark:text-amber-400">Sınır: {boundaryNote}</span>}
         {regionsError&&<span className="mt-1 block text-parcel">API ve Python terminalini kontrol edin.</span>}
        </div>
@@ -355,15 +355,15 @@ function App(){
      density={density?.points??[]} densityMode={densityMode} densityKey={density?`${density.district}-${density.year}`:''}
      onPick={(lat,lng)=>{setPin({lat,lng,note:''});setNote('');setShowSelectionPin(true)}}/>
     <div className="absolute top-2.5 right-2.5 z-[1000] flex max-w-[calc(100%-4.5rem)] flex-wrap items-center justify-end gap-1.5">
-     {parcelGeometry&&<Button variant="danger" size="sm" className="bg-card shadow-md" onClick={()=>setFocus({data:parcelGeometry,key:parcelKey+'-'+Date.now(),maxZoom:20})}><LocateFixed size={14}/>Parsel</Button>}
-     <div className="flex items-center gap-3 rounded-lg border border-border bg-card/95 px-3 py-1.5 text-xs font-medium shadow-md backdrop-blur">
+     {parcelGeometry&&<Button variant="danger" size="sm" className="bg-[rgba(12,18,38,.7)] backdrop-blur shadow-[0_10px_30px_-10px_rgba(0,0,0,.7)]" onClick={()=>setFocus({data:parcelGeometry,key:parcelKey+'-'+Date.now(),maxZoom:20})}><LocateFixed size={14}/>Parsel</Button>}
+     <div className="glass flex items-center gap-3 rounded-full px-3.5 py-1.5 text-xs font-medium shadow-[0_10px_30px_-10px_rgba(0,0,0,.7)]">
       <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" className="accent-primary" checked={showFavorites} onChange={e=>setShowFavorites(e.target.checked)}/>Favoriler</label>
       <label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" className="accent-primary" checked={showPins} onChange={e=>setShowPins(e.target.checked)}/>Pinler</label>
       {satellite&&<label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" className="accent-primary" checked={labels} onChange={e=>setLabels(e.target.checked)}/><Tag size={12}/>Etiket</label>}
      </div>
-     <label className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-semibold shadow-md hover:bg-muted">
+     <label className="glass inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3.5 text-xs font-semibold shadow-[0_10px_30px_-10px_rgba(0,0,0,.7)] hover:bg-white/[.09]">
       <FileUp size={14}/>GeoJSON<input type="file" accept=".geojson,.json,application/geo+json" className="hidden" onChange={e=>{const f=e.target.files?.[0];if(f)void importGeoJSON(f);e.target.value=''}}/></label>
-     <Button variant="outline" size="sm" className="shadow-md" onClick={()=>setSatellite(v=>!v)}><Layers size={14}/>{satellite?'Sokak':'Uydu'}</Button>
+     <Button variant="outline" size="sm" className="bg-[rgba(12,18,38,.7)] shadow-[0_10px_30px_-10px_rgba(0,0,0,.7)]" onClick={()=>setSatellite(v=>!v)}><Layers size={14}/>{satellite?'Sokak':'Uydu'}</Button>
     </div>
     {density&&densityMode==='heat'&&density.points.length>0&&<DensityLegend max={Math.max(...density.points.map(p=>p.count))}/>}
     {health?.database&&<span className="pointer-events-none absolute right-2 bottom-6 z-[1000] hidden items-center gap-1 rounded bg-card/80 px-1.5 py-0.5 text-[10px] text-muted-foreground md:flex"><Database size={10}/>{health.database}</span>}
