@@ -23,9 +23,10 @@ const PLAN_RANK: Record<PlanId, number> = { basic: 0, pro: 1, proplus: 2 };
 export const isPlan = (v: unknown): v is PlanId => PLAN_IDS.includes(v as PlanId);
 
 /** Paket gerektiren özellikler ve açıldıkları en düşük paket. */
-export type Feature = "live" | "perf" | "campaigns" | "translate" | "transcribe" | "qualify" | "agent" | "reports";
+export type Feature = "live" | "perf" | "campaigns" | "alerts" | "translate" | "transcribe" | "qualify" | "agent" | "reports";
 export const FEATURE_PLAN: Record<Feature, PlanId> = {
   live: "pro",
+  alerts: "pro",
   perf: "pro",
   campaigns: "pro",
   translate: "proplus",
@@ -350,11 +351,38 @@ export async function runBillingReminders(store: Store, now = Date.now()) {
   }
 }
 
+/**
+ * Kurulumdan 24 saat sonra hâlâ numara bağlanmamışsa portal yöneticilerine bir kez
+ * Bitrix bildirimi gider (14 günden eski kurulumlar rahatsız edilmez).
+ */
+export async function runOnboardingReminders(store: Store, now = Date.now()) {
+  for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {
+    const portal = row.payload;
+    if (!portal.active || portal.onboardingNotified || freeDomains().includes(portal.domain)) continue;
+    const age = now - Date.parse(portal.installedAt || "");
+    if (!(age >= DAY && age < 14 * DAY)) continue;
+    if (Object.values(portal.lines || {}).some((l) => l.license?.trialStart || l.license?.paidUntil || l.status === "connected")) continue;
+    const fresh = (await portalById(store, portal.id)) || portal;
+    await savePortal(store, { ...fresh, onboardingNotified: new Date(now).toISOString() });
+    const message =
+      portal.lang === "en"
+        ? "WhatsApp by XRE: your setup is not finished yet. Connecting a WhatsApp number takes about 2 minutes: open the app → Connections → Add number, then scan the QR code with your phone. Your 3-day free trial starts when the number connects."
+        : "WhatsApp by XRE: kurulumunuz henüz tamamlanmadı. WhatsApp numaranızı bağlamak yaklaşık 2 dakika sürer: uygulamayı açın → Bağlantılar → Numara ekle, ardından QR kodu telefonunuzla okutun. 3 günlük ücretsiz deneme numara bağlandığında başlar.";
+    for (const userId of (portal.adminIds || []).slice(0, 5))
+      await b24Call(store, fresh, "im.notify.system.add", { USER_ID: Number(userId), MESSAGE: message }).catch((e) =>
+        console.warn(`Kurulum hatırlatması gönderilemedi (${portal.domain}):`, (e as Error).message),
+      );
+  }
+}
+
 let reminderTimer: NodeJS.Timeout | null = null;
 export function startBillingReminders(store: Store) {
   if (reminderTimer) return;
   void seedTrialRecords(store).catch((e) => console.warn("Deneme kayıtları:", (e as Error).message));
-  const tick = () => void runBillingReminders(store).catch((e) => console.warn("Lisans hatırlatmaları:", (e as Error).message));
+  const tick = () => {
+    void runBillingReminders(store).catch((e) => console.warn("Lisans hatırlatmaları:", (e as Error).message));
+    void runOnboardingReminders(store).catch((e) => console.warn("Kurulum hatırlatmaları:", (e as Error).message));
+  };
   reminderTimer = setInterval(tick, 60 * 60_000);
   reminderTimer.unref?.();
   setTimeout(tick, 60_000).unref?.();
@@ -576,6 +604,8 @@ export function registerBillingAdminRoutes(app: Express, store: Store) {
         active: p.active,
         installedAt: p.installedAt,
         plan: portalPlan(p, pricing.trialDays).plan,
+        /** Hiç numara bağlanmadı (deneme de başlamadı) */
+        setup: !Object.values(p.lines || {}).some((l) => l.license?.trialStart || l.license?.paidUntil || l.status === "connected"),
         billing: (p as B24Portal & { billing?: BillingInfo }).billing || null,
         lines: licenses(p, pricing).map((l) => ({ ...l, connected: p.lines[l.line]?.status === "connected" })),
       })),

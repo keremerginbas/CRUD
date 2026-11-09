@@ -72,6 +72,36 @@ export interface B24Portal {
   lang?: Lang;
   /** Uygulamayı kuran / açan Bitrix yöneticileri; lisans hatırlatmaları bunlara gider. */
   adminIds?: string[];
+  /** Sohbet ekranındaki hazır cevaplar (/kısayol) */
+  quickReplies?: QuickReply[];
+  /** "Kurulum yarım kaldı" hatırlatmasının gönderildiği zaman */
+  onboardingNotified?: string;
+}
+export interface QuickReply {
+  key: string;
+  text: string;
+}
+export const QUICK_MAX = 100;
+/** Panelden gelen hazır cevapları temizler: kısayol harf/rakam, metin en fazla 1000 karakter. */
+export function cleanQuickReplies(items: unknown): QuickReply[] {
+  const seen = new Set<string>();
+  const out: QuickReply[] = [];
+  for (const item of Array.isArray(items) ? items : []) {
+    const key = String((item as any)?.key || "")
+      .trim()
+      .replace(/^\//, "")
+      .replace(/[Iİ]/g, "i")
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^0-9a-zçğıöşü_-]/g, "")
+      .slice(0, 24);
+    const text = String((item as any)?.text || "").replace(/\r/g, "").trim().slice(0, 1000);
+    if (!key || !text || seen.has(key)) continue;
+    seen.add(key);
+    out.push({ key, text });
+    if (out.length >= QUICK_MAX) break;
+  }
+  return out;
 }
 export interface B24Settings {
   translate?: boolean;
@@ -80,6 +110,16 @@ export interface B24Settings {
   slaMinutes?: number;
   /** Bitrix Açık Kanal otomatik mesajları (karşılama, değerlendirme, kapanış) müşteriye gitsin mi? */
   botMessages?: boolean;
+  /** Bekleyen sohbet alarmı (Pro) */
+  alerts?: boolean;
+  /** Bu kadar dakika cevapsız kalan sohbet numaranın personeline bildirilir */
+  alertAgentMin?: number;
+  /** Bu kadar dakika cevapsız kalan sohbet yöneticilere bildirilir */
+  alertManagerMin?: number;
+  /** Yönetici uyarısı Telegram'a da gitsin (Raporlar'da bağlanan bot ve sohbetler) */
+  alertTelegram?: boolean;
+  /** Yalnız mesai saatlerinde (AI Asistan sekmesindeki saatler) uyar */
+  alertWorkHours?: boolean;
 }
 export function portalSettings(portal: B24Portal): Required<B24Settings> {
   return {
@@ -88,8 +128,14 @@ export function portalSettings(portal: B24Portal): Required<B24Settings> {
     qualify: portal.settings?.qualify !== false,
     slaMinutes: Math.max(1, Math.min(1440, Number(portal.settings?.slaMinutes) || 15)),
     botMessages: portal.settings?.botMessages === true,
+    alerts: portal.settings?.alerts === true,
+    alertAgentMin: clampMin(portal.settings?.alertAgentMin, 15),
+    alertManagerMin: clampMin(portal.settings?.alertManagerMin, 30),
+    alertTelegram: portal.settings?.alertTelegram !== false,
+    alertWorkHours: portal.settings?.alertWorkHours !== false,
   };
 }
+const clampMin = (v: unknown, fallback: number) => Math.max(1, Math.min(1440, Math.round(Number(v) || fallback)));
 
 /** Ayarlar, paketin açmadığı AI özellikleri kapalı olarak. */
 export async function activeSettings(store: Store, portal: B24Portal): Promise<Required<B24Settings>> {
@@ -151,6 +197,8 @@ export interface B24Chat {
   agentState?: "human" | "handoff";
   humanAt?: number;
   aiReplies?: number;
+  /** Bekleyen sohbet alarmı: hangi bekleme için hangi kademe gönderildi */
+  alert?: { since: number; level: number };
 }
 const chatId = (memberId: string, line: string, phone: string) => `${memberId}:${line}:${phone}`;
 export async function loadChat(store: Store, memberId: string, line: string, phone: string, name = ""): Promise<B24Chat> {
@@ -784,6 +832,8 @@ export function setLidResolveDelay(ms: number) {
   lidResolveDelay = ms;
 }
 
+/** Performansta telefondan verilen cevapların temsilci kimliği */
+export const PHONE_AGENT = "phone";
 let phoneEchoDelay = 4000;
 /** Testler için: kendi gönderimimizin yankısını beklerken kullanılan süre. */
 export function setPhoneEchoDelay(ms: number) {
@@ -811,6 +861,7 @@ export async function recordPhoneMessage(store: Store, portal: B24Portal, line: 
   const at = tsMs(data?.messageTimestamp) || Date.now();
   const chat = await loadChat(store, portal.id, line, target.phone);
   if (!chat.createdAt) chat.createdAt = at;
+  const waited = chat.waitingSince ? Math.max(0, Math.round((Date.now() - chat.waitingSince) / 1000)) : null;
   // Telefondan yeni birine yazıldı: kişinin WhatsApp adını getir.
   if (!chat.name && !target.isGroup && instance)
     chat.name = (await contactNames(instance, [jidOf(target.phone)]).catch(() => new Map<string, string>())).get(jidOf(target.phone)) || "";
@@ -822,6 +873,23 @@ export async function recordPhoneMessage(store: Store, portal: B24Portal, line: 
   chat.humanAt = Date.now();
   if (label) chat.history.push({ from: "temsilci", text: label, at });
   await saveChat(store, chat);
+  // Performans: telefondan verilen cevaplar "Telefondan" temsilcisi olarak sayılır.
+  await bumpStat(store, portal.id, (s) => {
+    const ls = lineStat(s, line);
+    ls.outbound += 1;
+    if (waited !== null) {
+      ls.responses = (ls.responses || 0) + 1;
+      ls.responseSec = (ls.responseSec || 0) + waited;
+      ls.samples = [...(ls.samples || []), waited].slice(-500);
+    }
+    const a = agentStat(s, PHONE_AGENT);
+    a.replies += 1;
+    if (waited !== null) {
+      a.responses += 1;
+      a.responseSec += waited;
+      a.maxSec = Math.max(a.maxSec, waited);
+    }
+  });
   await mergeThread(store, chat, [
     {
       dir: "out",
@@ -1898,9 +1966,21 @@ function registerPanelRoutes(
         roles: current.roles || [],
         users: users.map((u) => ({ ...u, roleId: current.assignments?.[u.id] || "" })),
         settings: portalSettings(current),
+        quickReplies: current.quickReplies || [],
         plan: portalPlan(current, pricing.trialDays),
         aiConfigured: aiConfigured(),
       };
+    }),
+  );
+
+  app.post(
+    "/b24/panel/quick/save",
+    json,
+    panel(async (portal, body) => {
+      const next = await fresh(portal);
+      next.quickReplies = cleanQuickReplies(body.items);
+      await savePortal(store, next);
+      return { quickReplies: next.quickReplies };
     }),
   );
 
@@ -1915,7 +1995,13 @@ function registerPanelRoutes(
         qualify: body.qualify !== false,
         slaMinutes: Math.max(1, Math.min(1440, Math.round(Number(body.slaMinutes) || 15))),
         botMessages: body.botMessages === true,
+        alerts: body.alerts === true,
+        alertAgentMin: clampMin(body.alertAgentMin, 15),
+        alertManagerMin: clampMin(body.alertManagerMin, 30),
+        alertTelegram: body.alertTelegram !== false,
+        alertWorkHours: body.alertWorkHours !== false,
       };
+      if (next.settings.alerts) await requireFeature(store, next, "alerts");
       const changed = portalSettings(next).botMessages !== portalSettings(portal).botMessages;
       await savePortal(store, next);
       const warnings = changed ? await applyLineAutoMessages(store, next) : [];

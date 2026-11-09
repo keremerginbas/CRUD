@@ -33,6 +33,7 @@ button,input,select{font:inherit;color:inherit}
 .notice.bad{border-color:var(--danger);background:var(--danger-soft)}
 .notice p{margin:0;flex:1;min-width:220px}.notice b{font-weight:700}
 .notice-wrap{padding:0 28px}
+.notice[hidden]{display:none}
 .tabs button[aria-selected=true]{background:var(--ink);color:var(--paper)}
 main{padding:20px 28px 40px;max-width:1560px;margin:0 auto}
 /* Hat panosu: her numara bir hücre */
@@ -180,6 +181,18 @@ h3.section{font-size:15px;margin:22px 0 8px}
 .switch input:checked+span{background:var(--accent)}.switch input:checked+span::after{transform:translateX(18px)}
 .switch input:focus-visible+span{outline:2px solid var(--accent);outline-offset:2px}
 .num{width:90px;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper)}
+.setup{background:var(--surface);border:1px solid var(--accent);border-radius:var(--r-l,14px);padding:20px 22px;margin-bottom:16px}
+.setup h2{margin:0 0 4px;font-size:18px}.setup>p{margin:0 0 14px;color:var(--ink-2)}
+.setup ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.setup li{display:grid;grid-template-columns:34px 1fr auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-m);background:var(--paper)}
+.setup li .n{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-weight:700;border:2px solid var(--line);color:var(--ink-2)}
+.setup li.cur{border-color:var(--accent)}.setup li.cur .n{border-color:var(--accent);color:var(--accent)}
+.setup li.done{opacity:.7}.setup li.done .n{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.setup li b{display:block}.setup li span{font-size:13px;color:var(--ink-2)}
+.qrow{grid-template-columns:160px 1fr auto;align-items:start}
+.qrow input,.qrow textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper);color:inherit;font:inherit}
+.qrow textarea{min-height:58px;resize:vertical}
+@media (max-width:640px){.setup li{grid-template-columns:30px 1fr}.setup li .btn{grid-column:2}.qrow{grid-template-columns:1fr}}
 .callout{background:var(--warn-soft);color:var(--warn);border-radius:var(--r-m);padding:12px 16px;margin-bottom:14px;font-weight:600}
 .tabs{flex-wrap:wrap}
 .chatframe{display:block;width:100%;height:calc(100vh - 120px);min-height:520px;border:1px solid var(--line);border-radius:var(--r-m);background:var(--surface)}
@@ -268,7 +281,7 @@ const PLAN_NAMES={basic:"Basic",pro:"Pro",proplus:"Pro+"};
 const TAB_FEATURE={live:"live",perf:"perf",campaigns:"campaigns",agent:"agent",reports:"reports"};
 const FEATURE_PLAN={live:"pro",perf:"pro",campaigns:"pro",translate:"proplus",transcribe:"proplus",qualify:"proplus",agent:"proplus",reports:"proplus"};
 const PLAN_RANK={basic:0,pro:1,proplus:2};
-const PLAN_FEATURES=[["Numara bağlama ve Bitrix’ten yazışma","basic"],["Görsel, video, ses kaydı ve belge","basic"],["Sohbet ekranı ve CRM kart sekmesi","basic"],["Roller ve personel atama","basic"],["Canlı izleme ve performans analizi","pro"],["Meta hesabıyla toplu kampanya","pro"],["Otomatik çeviri ve sesli mesajı yazıya dökme","proplus"],["7/24 AI asistan","proplus"],["AI ile sohbet analizi ve lead puanı","proplus"],["Yöneticiye günlük AI rapor","proplus"]];
+const PLAN_FEATURES=[["Numara bağlama ve Bitrix’ten yazışma","basic"],["Görsel, video, ses kaydı ve belge","basic"],["Sohbet ekranı ve CRM kart sekmesi","basic"],["Roller ve personel atama","basic"],["Canlı izleme ve performans analizi","pro"],["Bekleyen sohbet alarmı (Bitrix ve Telegram)","pro"],["Meta hesabıyla toplu kampanya","pro"],["Otomatik çeviri ve sesli mesajı yazıya dökme","proplus"],["7/24 AI asistan","proplus"],["AI ile sohbet analizi ve lead puanı","proplus"],["Yöneticiye günlük AI rapor","proplus"]];
 function allowed(f){return !S.plan||!S.plan.features||S.plan.features[f]!==false;}
 function planCards(sel,prices,cur,onPick){
   return '<div class="plans" role="group" aria-label="Paket">'+["basic","pro","proplus"].map(id=>'<button type="button" class="plan'+(id==="proplus"?" rec":"")+'" data-plan="'+id+'" aria-pressed="'+(id===sel)+'">'+(id==="proplus"?'<span class="rectag">'+esc("Önerilen")+'</span>':'')+(S.plan&&S.plan.source==="paid"&&S.plan.plan===id?'<span class="now">'+esc("Mevcut paket")+'</span>':'')+'<h4>'+PLAN_NAMES[id]+'</h4>'+(prices?'<b>'+money(prices[id],cur)+' <small>'+esc("numara başına / ay")+'</small></b>':'')
@@ -296,6 +309,19 @@ function upsell(f){
   $("#goBill").onclick=()=>{buyPlan=need;document.querySelector('[data-tab=billing]').click();};
   $("#main").querySelectorAll("[data-plan]").forEach(b=>b.onclick=()=>{buyPlan=b.dataset.plan;document.querySelector('[data-tab=billing]').click();});
 }
+function setupCard(){
+  const total=S.connections.length,ok=S.connections.filter(c=>c.status==="connected").length,msg=S.connections.some(c=>c.chats>0||c.lastMessageAt>0);
+  if(total&&ok&&msg)return "";
+  const step=!total?1:!ok?2:3;
+  const li=(n,title,text,btn,act)=>'<li class="'+(n<step?"done":n===step?"cur":"")+'"><span class="n">'+(n<step?"✓":n)+'</span><div><b>'+title+'</b><span>'+text+'</span></div>'+(n===step?'<button class="btn primary" data-setup="'+act+'">'+btn+'</button>':'')+'</li>';
+  return '<section class="setup" aria-label="Kurulum"><h2>Kuruluma hoş geldiniz</h2><p>3 adımda hazırsınız. 3 günlük ücretsiz deneme numaranız bağlandığında başlar ve tüm özellikler açık olur.</p><ol>'
+    +li(1,"Numara ekleyin","Bağlantıya bir ad verin (ör. Satış). Bitrix’te bu numara için bir Açık Kanal açılır.","Numara ekle","add")
+    +li(2,"QR kodu okutun","Telefonda WhatsApp → Ayarlar → Bağlı cihazlar → Cihaz bağla deyin ve ekrandaki kodu okutun.","QR kodu göster","qr")
+    +li(3,"İlk mesajı görün","Numaranıza bir WhatsApp mesajı gönderin. Mesaj Bitrix Açık Kanalına ve Sohbetler sekmesine düşer; son sohbetleriniz de birkaç dakikada gelir.","Sohbetleri aç","chats")
+    +'</ol></section>';
+}
+function bindSetup(m){m.querySelectorAll("[data-setup]").forEach(b=>b.onclick=()=>{const a=b.dataset.setup;
+  if(a==="add")connForm();else if(a==="qr"){const c=S.connections.find(x=>x.status!=="connected");if(c)qr(c.line);}else document.querySelector('[data-tab=chats]').click();});}
 function render(){
   const m=$("#main");
   {const f=TAB_FEATURE[tab];if(f&&!allowed(f)){upsell(f);return;}}
@@ -303,16 +329,17 @@ function render(){
     const ok=S.connections.filter(c=>c.status==="connected").length,total=S.connections.length;
     const q=filter.toLowerCase();
     const list=S.connections.filter(c=>!q||(c.name+" "+c.phone+" "+c.profileName).toLowerCase().includes(q));
-    m.innerHTML=(total?'<section class="board" aria-label="Hat durumu"><div><div class="count">'+ok+' <small>/ '+total+'</small></div><div class="caption">numara bağlı</div></div><div class="cells">'+S.connections.map(c=>'<button class="cell'+(c.status==="connected"?" ok":"")+'" title="'+esc(c.name+(c.phone?" · "+phone(c.phone):" · bağlı değil"))+'" aria-label="'+esc(c.name)+'" data-qr="'+esc(c.line)+'"></button>').join("")+'</div><button class="btn primary" id="add">Numara ekle</button></section>':'')
+    m.innerHTML=setupCard()+(total?'<section class="board" aria-label="Hat durumu"><div><div class="count">'+ok+' <small>/ '+total+'</small></div><div class="caption">numara bağlı</div></div><div class="cells">'+S.connections.map(c=>'<button class="cell'+(c.status==="connected"?" ok":"")+'" title="'+esc(c.name+(c.phone?" · "+phone(c.phone):" · bağlı değil"))+'" aria-label="'+esc(c.name)+'" data-qr="'+esc(c.line)+'"></button>').join("")+'</div><button class="btn primary" id="add">Numara ekle</button></section>':'')
       +(total?'<div class="bar"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><input class="search" id="search" placeholder="Ad veya numara ara" value="'+esc(filter)+'"><div class="view" role="group" aria-label="Görünüm"><button data-view="cards" aria-pressed="'+(view==="cards")+'">Kart</button><button data-view="list" aria-pressed="'+(view==="list")+'">Liste</button></div></div><span class="hint">Her numara Bitrix\\'te ayrı bir Açık Kanal\\'dır. Sohbetleri yalnız o numaraya yetkili personel alır.</span></div>'
       +(view==="cards"?'<div class="cards">'+list.map(card).join("")+'</div>'+(list.length?'':'<div class="list"><div class="empty">Aramayla eşleşen numara yok.</div></div>')
       :'<div class="list" role="table"><div class="row head" role="row"><span>Bağlantı</span><span>Numara</span><span>Durum</span><span>Erişen roller</span><span></span></div>'
       +list.map(c=>'<div class="row" role="row"><div><div class="name">'+esc(c.name)+'</div><div class="sub">Açık Kanal #'+esc(c.line)+'</div></div><div><div class="phone">'+(c.phone?esc(phone(c.phone)):'<span class="sub">Henüz okutulmadı</span>')+'</div>'+(c.profileName?'<div class="sub">'+esc(c.profileName)+'</div>':'')+'</div><div><span class="status '+(c.status==="connected"?"ok":"off")+'">'+(c.status==="connected"?"Bağlı":"Bağlı değil")+'</span></div><div>'+chips(rolesFor(c.line).map(r=>r.name),"Rol yok")+'</div><div class="acts"><button class="btn'+(c.status==="connected"?"":" primary")+'" data-qr="'+esc(c.line)+'">'+(c.status==="connected"?"Yeniden bağla":"QR okut")+'</button><button class="btn ghost" data-edit="'+esc(c.line)+'" aria-label="'+esc(c.name)+' ayarları">Ayarlar</button></div></div>').join("")
       +(list.length?'':'<div class="empty">Aramayla eşleşen numara yok.</div>')+'</div>')
-      :'<div class="list"><div class="empty"><strong>İlk WhatsApp numaranızı bağlayın</strong>Numara eklediğinizde Bitrix\\'te onun için bir Açık Kanal açılır ve QR kodu gösterilir.<br><button class="btn primary" id="add">Numara ekle</button></div></div>');
+      :'');
     m.querySelectorAll("[data-view]").forEach(b=>b.onclick=()=>{view=b.dataset.view;try{localStorage.setItem("xre-wa-view",view);}catch{}render();});
     m.querySelectorAll("[data-buy]").forEach(b=>b.onclick=()=>{buySel=new Set([b.dataset.buy]);document.querySelector('[data-tab=billing]').click();});
-    $("#add").onclick=()=>connForm();
+    {const a=$("#add");if(a)a.onclick=()=>connForm();}
+    bindSetup(m);
     const s=$("#search");if(s){s.oninput=()=>{filter=s.value;const pos=s.selectionStart;render();const n=$("#search");n.focus();n.setSelectionRange(pos,pos);};}
     m.querySelectorAll("[data-qr]").forEach(b=>b.onclick=()=>qr(b.dataset.qr));
     m.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>connForm(S.connections.find(c=>c.line===b.dataset.edit)));
@@ -338,7 +365,7 @@ function render(){
   if(tab==="billing"){billing();return;}
   if(tab==="settings"){
     const st=S.settings||{translate:true,transcribe:true,qualify:true,slaMinutes:15};
-    const sw=(id,on,f)=>{const lock=f&&!allowed(f);return (lock?'<span class="planbadge" title="'+esc("Pro+ paketinde")+'">Pro+</span>':'')+'<label class="switch"><input type="checkbox" id="'+id+'"'+(on&&!lock?" checked":"")+(lock?" disabled":"")+'><span></span></label>';};
+    const sw=(id,on,f)=>{const lock=f&&!allowed(f);return (lock?'<span class="planbadge">'+esc(PLAN_NAMES[FEATURE_PLAN[f]])+'</span>':'')+'<label class="switch"><input type="checkbox" id="'+id+'"'+(on&&!lock?" checked":"")+(lock?" disabled":"")+'><span></span></label>';};
     m.innerHTML=(S.aiConfigured?'':'<div class="callout">Yapay zekâ özellikleri için sunucuda OpenAI anahtarı tanımlı olmalı. Anahtar girilene kadar çeviri, ses ve nitelendirme çalışmaz.</div>')
       +'<div class="list">'
       +'<div class="setting"><div><strong>Otomatik çeviri</strong><p>Türkçe olmayan mesajlar Türkçe çevirisi ve orijinaliyle gösterilir. Cevabınız müşterinin dilinde gider. Çevirmeden göndermek için mesajı ! ile başlatın.</p></div>'+sw("s-tr",st.translate,"translate")+'</div>'
@@ -346,8 +373,25 @@ function render(){
       +'<div class="setting"><div><strong>Müşteri nitelendirme</strong><p>Birkaç mesajda bir sohbetten bütçe, bölge, oda sayısı ve amaç çıkarılır; puan ve özet Bitrix lead kartının zaman akışına yazılır.</p></div>'+sw("s-q",st.qualify,"qualify")+'</div>'
       +'<div class="setting"><div><strong>Bitrix otomatik mesajları</strong><p>Açık Kanal karşılama, sohbet değerlendirme ve kapanış mesajları müşteriye WhatsApp’tan gitsin. Kapalıyken müşteri yalnız sizin ve AI asistanın yazdıklarını görür.</p></div>'+sw("s-bot",st.botMessages)+'</div>'
       +'<div class="setting"><div><strong>Cevap süresi hedefi</strong><p>Bu süreden uzun bekleyen sohbetler Performans sekmesinde geciken olarak işaretlenir.</p></div><div><input class="num" type="number" min="1" max="1440" id="s-sla" value="'+st.slaMinutes+'"> dk</div></div>'
-      +'</div><div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="s-save">Ayarları kaydet</button></div>';
-    $("#s-save").onclick=async()=>{try{const keep=(id,k)=>$(id).disabled?st[k]!==false:$(id).checked;const r=await api("settings/save",{botMessages:$("#s-bot").checked,translate:keep("#s-tr","translate"),transcribe:keep("#s-tx","transcribe"),qualify:keep("#s-q","qualify"),slaMinutes:Number($("#s-sla").value)});S.settings=r.settings;if((r.warnings||[]).length)warn(r.warnings);else toast("Ayarlar kaydedildi.");}catch(e){toast(e.message,true);}};
+      +'</div><h3 class="section">Bekleyen sohbet alarmı</h3><div class="list">'
+      +'<div class="setting"><div><strong>Alarmı aç</strong><p>Müşteri yazdıktan sonra cevap verilmezse önce numaranın personeline, süre uzarsa yöneticilere bildirim gider. Her bekleme için bir kez uyarılır.</p></div>'+sw("s-al",st.alerts,"alerts")+'</div>'
+      +'<div class="setting"><div><strong>Personele uyarı</strong><p>Bu kadar dakika cevapsız kalan sohbet, rolü o numarayı kapsayan personele Bitrix bildirimiyle iletilir. Rol tanımlı değilse yalnız yöneticiler uyarılır.</p></div><div><input class="num" type="number" min="1" max="1440" id="s-a1" value="'+(st.alertAgentMin||15)+'"> dk</div></div>'
+      +'<div class="setting"><div><strong>Yöneticiye uyarı</strong><p>Bu süreyi aşan sohbetler uygulamayı kuran Bitrix yöneticilerine bildirilir.</p></div><div><input class="num" type="number" min="1" max="1440" id="s-a2" value="'+(st.alertManagerMin||30)+'"> dk</div></div>'
+      +'<div class="setting"><div><strong>Telegram’a da gönder</strong><p>Yönetici uyarısı Raporlar sekmesinde bağladığınız Telegram sohbetlerine de gider.</p></div>'+sw("s-atg",st.alertTelegram!==false)+'</div>'
+      +'<div class="setting"><div><strong>Yalnız mesai saatlerinde</strong><p>AI Asistan sekmesindeki çalışma saatleri dışında uyarı gönderilmez.</p></div>'+sw("s-awh",st.alertWorkHours!==false)+'</div>'
+      +'</div><div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="s-save">Ayarları kaydet</button></div>'
+      +'<h3 class="section">Hazır cevaplar</h3><p class="sub">Personel sohbet ekranında ⚡ düğmesiyle ya da mesaj kutusuna / ve kısayolu yazarak bu metinleri ekler (ör. /iban).</p>'
+      +'<div class="list" id="qlist"></div><div class="bar" style="margin-top:14px;justify-content:space-between"><button class="btn" id="q-add">Cevap ekle</button><button class="btn primary" id="q-save">Hazır cevapları kaydet</button></div>';
+    let quick=(S.quickReplies||[]).map(r=>({...r}));
+    const qrow=(r,i)=>'<div class="setting qrow"><input data-qk="'+i+'" maxlength="24" placeholder="kısayol" value="'+esc(r.key)+'" aria-label="Kısayol"><textarea data-qt="'+i+'" maxlength="1000" placeholder="Mesaj metni" aria-label="Mesaj metni">'+esc(r.text)+'</textarea><button class="btn ghost" data-qd="'+i+'">Sil</button></div>';
+    const qdraw=()=>{$("#qlist").innerHTML=quick.length?quick.map(qrow).join(""):'<div class="empty">Henüz hazır cevap yok. Sık yazdığınız mesajları (IBAN, konum, fiyat listesi, çalışma saatleri) ekleyin.</div>';
+      $("#qlist").querySelectorAll("[data-qk]").forEach(e=>e.oninput=()=>{quick[+e.dataset.qk].key=e.value;});
+      $("#qlist").querySelectorAll("[data-qt]").forEach(e=>e.oninput=()=>{quick[+e.dataset.qt].text=e.value;});
+      $("#qlist").querySelectorAll("[data-qd]").forEach(b=>b.onclick=()=>{quick.splice(+b.dataset.qd,1);qdraw();});};
+    qdraw();
+    $("#q-add").onclick=()=>{quick.push({key:"",text:""});qdraw();const ins=$("#qlist").querySelectorAll("[data-qk]");ins[ins.length-1].focus();};
+    $("#q-save").onclick=async()=>{try{const r=await api("quick/save",{items:quick});S.quickReplies=r.quickReplies;quick=r.quickReplies.map(x=>({...x}));qdraw();toast(("{n} hazır cevap kaydedildi.").replace("{n}",r.quickReplies.length));}catch(e){toast(e.message,true);}};
+    $("#s-save").onclick=async()=>{try{const keep=(id,k)=>$(id).disabled?st[k]!==false:$(id).checked;const r=await api("settings/save",{botMessages:$("#s-bot").checked,translate:keep("#s-tr","translate"),transcribe:keep("#s-tx","transcribe"),qualify:keep("#s-q","qualify"),slaMinutes:Number($("#s-sla").value),alerts:!$("#s-al").disabled&&$("#s-al").checked,alertAgentMin:Number($("#s-a1").value),alertManagerMin:Number($("#s-a2").value),alertTelegram:$("#s-atg").checked,alertWorkHours:$("#s-awh").checked});S.settings=r.settings;if((r.warnings||[]).length)warn(r.warnings);else toast("Ayarlar kaydedildi.");}catch(e){toast(e.message,true);}};
     return;
   }
   if(tab==="roles"){
@@ -361,7 +405,7 @@ function render(){
 }
 let perfDays=7,perfLine="";
 const dur=sec=>sec==null?"—":sec<60?sec+" sn":sec<3600?Math.round(sec/60)+" dk":(sec/3600).toFixed(1).replace(".",",")+" sa";
-const userName=id=>{const u=S.users.find(x=>x.id===String(id));return u?u.name:(id==="0"?"Bilinmeyen":"Kullanıcı #"+id);};
+const userName=id=>{if(id==="phone")return "📱 Telefondan (WhatsApp uygulaması)";const u=S.users.find(x=>x.id===String(id));return u?u.name:(id==="0"?"Bilinmeyen":"Kullanıcı #"+id);};
 const lineName=l=>{const c=S.connections.find(x=>x.line===String(l));return c?c.name:"Silinmiş bağlantı (#"+l+")";};
 const nice=v=>{if(v<=4)return 4;const p=Math.pow(10,Math.floor(Math.log10(v)));const n=v/p;return (n<=1?1:n<=2?2:n<=5?5:10)*p;};
 const fmtDay=d=>{const [y,m,dd]=d.split("-");return dd+"."+m;};

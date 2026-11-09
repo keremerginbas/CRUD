@@ -46,8 +46,8 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 > **Pricing**
 > - Installing the app is free. Every connected number gets a **3-day free trial**.
 > - After the trial, each number requires a license. Choose a plan for your account (prices per number per month):
->   - **Basic, 15 USD:** connect numbers and chat from Bitrix24, media, chat screen and CRM card tab, roles and staff.
->   - **Pro, 25 USD:** everything in Basic + live monitor, performance analytics and bulk campaigns with your own Meta (WhatsApp Cloud API) account.
+>   - **Basic, 15 USD:** connect numbers and chat from Bitrix24, media, chat screen with quick replies and new-message alerts, CRM card tab, roles and staff.
+>   - **Pro, 25 USD:** everything in Basic + live monitor, performance analytics, unanswered-chat alerts to staff and managers (Bitrix24 and Telegram) and bulk campaigns with your own Meta (WhatsApp Cloud API) account.
 >   - **Pro+, 35 USD:** everything in Pro + automatic translation, voice transcription, 24/7 AI assistant, AI lead qualification and daily, weekly and monthly AI manager reports.
 > - 10% off for 3 months, 20% off for 6 months, 35% off for 12 months. All features are available during the trial. Prices are shown on the Billing tab before payment.
 > - Payment is made by bank transfer from the Billing tab or with a license code. Meta charges its own message fees for campaigns to your Meta account.

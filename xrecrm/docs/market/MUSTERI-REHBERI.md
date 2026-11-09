@@ -31,6 +31,10 @@ Arka planda olanlar:
 2. **Personel:** Her çalışana bir rol verir. Çalışanlar, numaralarının Açık Kanal sırasına otomatik eklenir.
 3. **Ayarlar:** Çeviri, sesli mesajı yazıya dökme ve AI değerlendirmeyi açar ya da kapatır.
 4. İsteğe bağlı olarak **AI Asistan**, **Raporlar** ve **Kampanyalar** ayarlanır.
+5. **Ayarlar → Hazır cevaplar:** IBAN, konum, çalışma saatleri gibi sık yazılan mesajlar eklenir; personel sohbet ekranında ⚡ düğmesiyle ya da `/iban` yazarak kullanır.
+6. **Ayarlar → Bekleyen sohbet alarmı (Pro):** Cevapsız kalan sohbetler önce numaranın personeline, süre uzarsa yöneticilere (Bitrix bildirimi ve isteğe bağlı Telegram) bildirilir.
+
+Numara bağlanmadan bırakılan kurulumlarda panel açılışta 3 adımlık kurulum kartını gösterir; 24 saat sonra yöneticiye bir kez Bitrix hatırlatması gider.
 
 Bundan sonra WhatsApp mesajları Bitrix24 Açık Kanallarına ve CRM'e düşer. Ekip cevabı Bitrix'ten verir, cevap müşteriye WhatsApp'tan gider.
 

@@ -12,7 +12,8 @@ import { dueReports, DEFAULT_REPORTS, setTelegramFetch } from "../server/b24-liv
 import { panelHtml } from "../server/b24-panel-html";
 import { localizeMessage } from "../server/b24-i18n";
 import { normalizeRecipient, setCampaignGap, setMetaFetch } from "../server/b24-campaigns";
-import { getPricing, licenseForConnect, revenueMetrics, runBillingReminders, setOwnerNotifyFetch, DEFAULT_PRICING } from "../server/b24-billing";
+import { runWaitAlerts } from "../server/b24-alerts";
+import { getPricing, licenseForConnect, revenueMetrics, runBillingReminders, runOnboardingReminders, setOwnerNotifyFetch, DEFAULT_PRICING } from "../server/b24-billing";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -230,6 +231,90 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await syncConnectorWebhooks(store);
     const hookSet = evo.find((c) => c.url === `/webhook/set/${instance}`);
     expect(hookSet?.body.webhook.events).toEqual(expect.arrayContaining(["MESSAGES_UPSERT", "MESSAGES_SET", "CHATS_SET"]));
+  });
+
+  it("bekleyen sohbet alarmı personele ve yöneticiye bir kez gider; hazır cevaplar sohbet ekranına gelir; telefondan cevap performansa girer", async () => {
+    setPhoneEchoDelay(0);
+    const { store, base, bx } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const t = home.match(/const T="([^"]+)"/)?.[1];
+    const panel = async (path: string, body: Record<string, unknown> = {}) => {
+      const r = await fetch(`${base}/b24/panel/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, t }) });
+      return { status: r.status, body: await r.json() };
+    };
+    // Kurulum kartı: numara bağlı ama henüz mesaj yok → 3. adım
+    expect(home).toContain("Kuruluma hoş geldiniz");
+
+    const saved = await panel("settings/save", { alerts: true, alertAgentMin: 10, alertManagerMin: 30, alertTelegram: false, alertWorkHours: false });
+    expect(saved.body.settings).toMatchObject({ alerts: true, alertAgentMin: 10, alertManagerMin: 30, alertWorkHours: false });
+    const sales = await panel("role/save", { name: "Satış", lines: ["3"] });
+    await panel("user/role", { userId: "3", roleId: sales.body.role.id });
+
+    const now = Date.now();
+    const chat = (phone: string, minutes: number, name: string) => ({
+      id: `${MEMBER}:3:${phone}`, memberId: MEMBER, line: "3", phone, name, inbound: 1, outbound: 0, sinceQualify: 0,
+      history: [{ from: "müşteri", text: "Fiyat nedir?", at: now - minutes * 60_000 }], waitingSince: now - minutes * 60_000, lastInboundAt: now - minutes * 60_000,
+    });
+    await store.put("b24-chat", `${MEMBER}:3:905550000001`, chat("905550000001", 15, "Ayşe"), "b24-connector");
+    await store.put("b24-chat", `${MEMBER}:3:905550000002`, chat("905550000002", 45, "Mehmet"), "b24-connector");
+    await store.put("b24-chat", `${MEMBER}:3:905550000003`, chat("905550000003", 3, "Yeni"), "b24-connector");
+    bx.length = 0;
+    await runWaitAlerts(store, now);
+    const notes = () => bx.filter((c) => c.method === "im.notify.system.add").map((c) => ({ to: c.body.USER_ID, msg: String(c.body.MESSAGE) }));
+    // Personel (Merve, rolü numarayı kapsıyor): 10 dakikayı geçen ama 30'u geçmeyen sohbet
+    expect(notes().find((n) => n.to === 3)?.msg).toContain("Ayşe");
+    expect(notes().find((n) => n.to === 3)?.msg).not.toContain("Yeni");
+    // Yönetici: 30 dakikayı geçen sohbet
+    expect(notes().find((n) => n.to === 1)?.msg).toMatch(/Mehmet.*45 dk/s);
+    // Aynı bekleme için tekrar uyarı gitmez
+    bx.length = 0;
+    await runWaitAlerts(store, now + 60_000);
+    expect(notes()).toEqual([]);
+    // Kapalıyken hiç uyarı gitmez
+    await panel("settings/save", { alerts: false });
+    bx.length = 0;
+    await runWaitAlerts(store, now + 40 * 60_000);
+    expect(notes()).toEqual([]);
+
+    // Hazır cevaplar: temizlenir, sohbet ekranına gelir
+    const q = await panel("quick/save", { items: [{ key: "/IBAN", text: "TR00 0000" }, { key: "konum bilgisi", text: "Kadıköy" }, { key: "iban", text: "tekrar" }, { key: "", text: "boş" }] });
+    expect(q.body.quickReplies).toEqual([{ key: "iban", text: "TR00 0000" }, { key: "konum-bilgisi", text: "Kadıköy" }]);
+    const chatUrl = JSON.parse(home.match(/CHAT_URL=("[^"]*")/)![1]);
+    const view = await (await fetch(new URL(chatUrl, base).toString())).text();
+    const ct = JSON.parse(view.match(/window\.XRE_CHAT=(\{.*?\});<\/script>/)![1]).t;
+    const threads = await (await fetch(`${base}/b24/chat/threads`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct }) })).json();
+    expect(threads.quick).toEqual(q.body.quickReplies);
+    expect(threads.portalLines).toBe(1);
+
+    // Telefondan verilen cevap performansta "phone" temsilcisi olarak sayılır
+    await fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ event: "messages.upsert", instance: instanceName(MEMBER, "3"), data: { key: { id: "PH1", remoteJid: "905550000001@s.whatsapp.net", fromMe: true }, message: { conversation: "Merhaba Ayşe Hanım" } } }),
+    });
+    await new Promise((r) => setTimeout(r, 120));
+    const stats = await panel("stats", { days: 1 });
+    expect(stats.body.agents.find((a: any) => a.id === "phone")).toMatchObject({ replies: 1 });
+    expect(stats.body.waiting.some((w: any) => w.phone === "905550000001")).toBe(false);
+  });
+
+  it("numara bağlanmamış kurulum: 24 saat sonra yöneticiye bir kez hatırlatma gider", async () => {
+    const { store, base, bx } = await setup();
+    await install(base);
+    await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }));
+    const now = Date.now();
+    bx.length = 0;
+    await runOnboardingReminders(store, now);
+    expect(bx.some((c) => c.method === "im.notify.system.add")).toBe(false); // henüz 24 saat olmadı
+    await runOnboardingReminders(store, now + 25 * 3_600_000);
+    const sent = bx.filter((c) => c.method === "im.notify.system.add");
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body).toMatchObject({ USER_ID: 1 });
+    expect(String(sent[0].body.MESSAGE)).toContain("kurulumunuz henüz tamamlanmadı");
+    await runOnboardingReminders(store, now + 30 * 3_600_000);
+    expect(bx.filter((c) => c.method === "im.notify.system.add")).toHaveLength(1);
   });
 
   it("deneme numara başına bir kez: yeni kanal ya da başka portal yeni deneme vermez, ödenmiş lisans yeni kanala taşınır", async () => {

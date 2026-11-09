@@ -70,6 +70,21 @@ async function telegram(token: string, method: string, body?: Record<string, unk
   if (!data?.ok) throw Object.assign(new Error(`Telegram: ${data?.description || `HTTP ${(res as globalThis.Response).status}`}`), { statusCode: 400, code: data?.error_code });
   return data.result;
 }
+/** Raporlar'da bağlanan Telegram sohbetlerine düz metin gönderir. */
+export async function sendTelegramText(cfg: TelegramTarget | undefined, text: string): Promise<number> {
+  if (!cfg?.chats.length) return 0;
+  const token = decryptValue(cfg.token);
+  let sent = 0;
+  for (const chat of cfg.chats) {
+    try {
+      await telegram(token, "sendMessage", { chat_id: chat.id, text });
+      sent++;
+    } catch (error) {
+      console.warn(`Telegram uyarısı gönderilemedi (${chat.title || chat.id}):`, (error as Error).message);
+    }
+  }
+  return sent;
+}
 /** Panele giden Telegram durumu: anahtar asla dönmez. */
 export const publicTelegram = (t?: TelegramTarget) => (t ? { connected: true, bot: t.bot, chats: t.chats } : { connected: false, bot: "", chats: [] as { id: string; title: string }[] });
 const publicSettings = (cfg: ReportSettings) => ({ ...cfg, telegram: publicTelegram(cfg.telegram) });

@@ -311,7 +311,7 @@ export function registerChatRoutes(app: Express, store: Store) {
         connected: ctx.portal.lines[line].status === "connected",
         status: ctx.portal.lines[line].status,
       }));
-      return { threads: chats, total: all.length, lines, admin: ctx.viewer.admin };
+      return { threads: chats, total: all.length, lines, admin: ctx.viewer.admin, quick: ctx.portal.quickReplies || [], portalLines: Object.keys(ctx.portal.lines).length };
     }),
   );
 
@@ -534,6 +534,12 @@ const TEXT = {
     warnLines: "Bağlantısı kopan numara: ", mic: "Mikrofona erişilemedi. Tarayıcı izni verin ya da ekranı yeni sekmede açın.",
     tooBig: "Dosya 16 MB sınırını aşıyor.", uploading: "Gönderiliyor…", newTab: "Yeni sekmede aç", caption: "Açıklama (isteğe bağlı)",
     viaPhone: "Telefondan", more: "Daha fazla göster", shown: "gösterilen", noMatch: "Aramaya uyan sohbet yok.",
+    noLines: "Henüz WhatsApp numarası bağlı değil. Uygulamanın Bağlantılar sekmesinden yeni bir numara ekleyip QR kodu telefonunuzla okutun; 2 dakika sürer. Bağlandıktan sonra son sohbetleriniz buraya gelir.",
+    noLinesUser: "Yöneticiniz henüz bir WhatsApp numarası bağlamadı.",
+    noConnected: "Numaralarınızın WhatsApp bağlantısı yok. Bağlantılar sekmesinden QR kodu okutun.",
+    quick: "Hazır cevaplar", quickEmpty: "Henüz hazır cevap yok. Yönetici, uygulamanın Ayarlar sekmesinden ekleyebilir.", quickHint: "Mesaj kutusuna / yazarak da seçebilirsiniz.",
+    bellOn: "Yeni mesaj bildirimleri açık", bellOff: "Yeni mesajlarda sesli ve masaüstü bildirim almak için tıklayın", bellBlocked: "Tarayıcı masaüstü bildirimine izin vermedi; yeni mesajlarda yalnız ses çalınacak.",
+    newMsg: "Yeni WhatsApp mesajı", unread: "okunmamış",
   },
   en: {
     chats: "Chats", search: "Search name or number", all: "All", waiting: "Awaiting reply", allLines: "All numbers",
@@ -556,6 +562,12 @@ const TEXT = {
     warnLines: "Disconnected numbers: ", mic: "Microphone is not available. Allow access in the browser or open the screen in a new tab.",
     tooBig: "The file exceeds the 16 MB limit.", uploading: "Sending…", newTab: "Open in new tab", caption: "Caption (optional)",
     viaPhone: "From phone", more: "Show more", shown: "shown", noMatch: "No chats match your search.",
+    noLines: "No WhatsApp number is connected yet. On the app's Connections tab, click Add number and scan the QR code with your phone; it takes 2 minutes. Your recent chats appear here once connected.",
+    noLinesUser: "Your administrator has not connected a WhatsApp number yet.",
+    noConnected: "Your numbers are not connected to WhatsApp. Scan the QR code on the Connections tab.",
+    quick: "Quick replies", quickEmpty: "No quick replies yet. An administrator can add them on the app's Settings tab.", quickHint: "You can also type / in the message box.",
+    bellOn: "New message notifications are on", bellOff: "Click to get sound and desktop notifications for new messages", bellBlocked: "The browser blocked desktop notifications; only a sound will play for new messages.",
+    newMsg: "New WhatsApp message", unread: "unread",
   },
 };
 
@@ -577,6 +589,15 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 .chips button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
 .list{flex:1;overflow:auto;border:0;border-radius:0}
 .list .more{display:block;margin:10px auto 14px;font-size:12.5px}
+.item.unread .nm{font-weight:750}.item.unread .ls{color:var(--ink);font-weight:550}
+.udot{display:block;width:10px;height:10px;border-radius:50%;background:var(--accent);margin-top:7px}
+.bell{border:1px solid var(--line);background:var(--surface);border-radius:var(--r-s);padding:5px 8px;cursor:pointer;font-size:14px;line-height:1}
+.bell[aria-pressed="true"]{background:var(--accent-soft,#e6f6f4);border-color:var(--accent)}
+.qmenu{max-height:260px;overflow:auto;min-width:320px}
+.qmenu button{display:block;width:100%;text-align:left;border:0;background:none;padding:7px 9px;border-radius:6px;cursor:pointer;color:inherit;font:inherit}
+.qmenu button:hover,.qmenu button.on{background:var(--paper)}
+.qmenu b{font-size:12.5px;color:var(--accent)}.qmenu span{display:block;font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
+.qmenu p{margin:6px 9px;font-size:12px;color:var(--ink-3,#8a96a3)}
 .item{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 14px;border:0;border-top:1px solid var(--line-2);border-left:3px solid transparent;cursor:pointer;width:100%;text-align:left;background:none;color:inherit;font:inherit}
 .item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .item:hover{background:var(--paper)}.item[aria-current=true]{background:var(--accent-soft);border-left-color:var(--accent)}
@@ -630,7 +651,7 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 </style></head><body>
 <div class="app${ctx.mode === "card" ? " card" : ""}" id="app">
   <aside class="side">
-    <header><h1 id="ttl"></h1><button class="btn primary" id="newBtn"></button></header>
+    <header><h1 id="ttl"></h1><span style="display:flex;gap:6px"><button type="button" class="bell" id="bell" aria-pressed="false">🔔</button><button class="btn primary" id="newBtn"></button></span></header>
     <div class="tools"><input id="q" type="search"><select id="lineFilter"></select><div class="chips" id="chips"></div></div>
     <div class="warn" id="warn" hidden></div>
     <div class="list" id="list" role="list"></div>
@@ -652,7 +673,22 @@ window.xreFit=function(){try{var h=Math.max(760,((window.screen&&screen.availHei
 const CHAT_JS = String.raw`
 (function(){
 var C=window.XRE_CHAT,X=C.txt,$=function(s){return document.querySelector(s)};
-var S={threads:[],lines:[],cur:null,filter:"all",line:"",q:"",count:"",limit:500,total:0};
+var S={threads:[],lines:[],cur:null,filter:"all",line:"",q:"",count:"",limit:500,total:0,quick:[],prev:null};
+// Okunmamışlar bu tarayıcıda tutulur; ilk kullanımda eski sohbetler okunmuş sayılır.
+var SEEN={},BASE=Date.now(),TITLE=document.title;
+try{SEEN=JSON.parse(localStorage.getItem("xre-seen")||"{}")||{};BASE=Number(localStorage.getItem("xre-seen-base"))||Date.now();localStorage.setItem("xre-seen-base",String(BASE))}catch(e){}
+function ck(t){return t.line+"|"+t.phone}
+function markSeen(t,at){var k=ck(t);SEEN[k]=Math.max(SEEN[k]||0,at||Date.now());try{var keys=Object.keys(SEEN);if(keys.length>3000)keys.sort(function(a,b){return SEEN[a]-SEEN[b]}).slice(0,keys.length-3000).forEach(function(x){delete SEEN[x]});localStorage.setItem("xre-seen",JSON.stringify(SEEN))}catch(e){}}
+function isCur(t){return S.cur&&S.cur.line===t.line&&S.cur.phone===t.phone}
+function isUnread(t){return t.lastFrom==="müşteri"&&t.lastAt>(SEEN[ck(t)]||BASE)&&!(isCur(t)&&!document.hidden)}
+// Bildirim: ses (ilk tıklamadan sonra) ve izin verildiyse masaüstü bildirimi
+var AC=null;function unlockAudio(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==="suspended")AC.resume()}catch(e){}}
+document.addEventListener("click",unlockAudio,{once:true});
+function beep(){try{if(!AC)return;[0,0.18].forEach(function(d){var o=AC.createOscillator(),g=AC.createGain();o.frequency.value=d?1175:880;g.gain.setValueAtTime(0.0001,AC.currentTime+d);g.gain.exponentialRampToValueAtTime(0.18,AC.currentTime+d+0.02);g.gain.exponentialRampToValueAtTime(0.0001,AC.currentTime+d+0.16);o.connect(g);g.connect(AC.destination);o.start(AC.currentTime+d);o.stop(AC.currentTime+d+0.17)})}catch(e){}}
+function canNotify(){try{return "Notification" in window&&Notification.permission==="granted"}catch(e){return false}}
+function bellState(){var b=$("#bell");if(!b)return;var on=canNotify()||!!AC;b.setAttribute("aria-pressed",String(canNotify()));b.textContent=canNotify()?"🔔":"🔕";b.title=canNotify()?X.bellOn:X.bellOff}
+function onArrivals(list){if(!list.length||C.mode==="card")return;beep();
+  if(canNotify()&&(document.hidden||!list.every(isCur))){var t=list[0];try{var n=new Notification((t.name||phone(t.phone))+(list.length>1?" +"+(list.length-1):""),{body:t.lastText||X.newMsg,tag:"xre-wa",renotify:true});n.onclick=function(){try{window.focus()}catch(e){}open(t);n.close()}}catch(e){}}}
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function phone(p){p=String(p||"");if(/@lid$/.test(p))return X.hidden;return p?"+"+p.replace(/^(\d{2})(\d{3})(\d{3})(\d{2})(\d{2})$/,"$1 $2 $3 $4 $5"):""}
 var loc=C.lang==="tr"?"tr-TR":"en-US";
@@ -666,6 +702,9 @@ function mediaUrl(m){return "/b24/chat/media/"+encodeURIComponent(m.media.id)+"?
 
 $("#ttl").textContent=C.mode==="card"?(C.title||X.chats):X.chats;
 $("#newBtn").textContent=X.newChat;$("#q").placeholder=X.search;
+if(C.mode==="card")$("#bell").hidden=true;
+$("#bell").onclick=function(){unlockAudio();try{if("Notification" in window&&Notification.permission==="default")Notification.requestPermission().then(function(p){bellState();if(p!=="granted")toast(X.bellBlocked)});else if(!canNotify())toast(X.bellBlocked);else toast(X.bellOn)}catch(e){toast(X.bellBlocked)}bellState()};
+bellState();
 $("#chips").innerHTML='<button data-f="all" aria-pressed="true">'+esc(X.all)+'</button><button data-f="waiting" aria-pressed="false">'+esc(X.waiting)+'</button>';
 $("#chips").onclick=function(e){var f=e.target.getAttribute("data-f");if(!f)return;S.filter=f;[].forEach.call($("#chips").children,function(b){b.setAttribute("aria-pressed",String(b.getAttribute("data-f")===f))});renderList()};
 var qt;$("#q").oninput=function(e){S.q=e.target.value.toLocaleLowerCase(C.lang==="tr"?"tr-TR":"en-US");renderList();clearTimeout(qt);qt=setTimeout(function(){S.limit=500;loadThreads()},350)};
@@ -685,24 +724,34 @@ function renderNew(){
 function visible(){return S.threads.filter(function(t){
   if(S.filter==="waiting"&&!t.waiting)return false;if(S.line&&t.line!==S.line)return false;
   if(S.q&&(t.name+" "+t.phone+" "+t.lastText).toLowerCase().indexOf(S.q.replace(/\s/g,""))<0&&(t.name+" "+t.lastText).toLowerCase().indexOf(S.q)<0)return false;return true})}
+function emptyText(){
+  if(!S.lines.length)return C.admin||!S.portalLines?(C.admin?X.noLines:X.noLinesUser):X.noAccess;
+  if(S.q)return X.noMatch;
+  if(!S.lines.some(function(l){return l.connected}))return X.noConnected;
+  return X.empty}
+function unreadTitle(){var n=S.threads.filter(isUnread).length;document.title=(n?"("+n+") ":"")+TITLE}
 function renderList(){
   var v=visible();
-  $("#list").innerHTML=v.length?v.map(function(t){var cur=S.cur&&S.cur.line===t.line&&S.cur.phone===t.phone;
-    return '<button class="item" role="listitem" data-l="'+esc(t.line)+'" data-p="'+esc(t.phone)+'" aria-current="'+cur+'"><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><span style="min-width:0"><span class="nm">'+esc(t.name||phone(t.phone))+'</span><span class="ls">'+esc(t.lastText)+'</span>'
-      +(t.waiting?'<span class="tag">'+esc(X.waitingTag)+'</span> ':'')+(S.lines.length>1?'<span class="tag ln">'+esc(t.lineName)+'</span>':'')+'</span><time>'+esc(when(t.lastAt))+'</time></button>'}).join("")
-    :'<div class="blank">'+esc(!S.lines.length?X.noAccess:S.q?X.noMatch:X.empty)+'</div>';
+  $("#list").innerHTML=v.length?v.map(function(t){var cur=S.cur&&S.cur.line===t.line&&S.cur.phone===t.phone,un=isUnread(t);
+    return '<button class="item'+(un?" unread":"")+'" role="listitem" data-l="'+esc(t.line)+'" data-p="'+esc(t.phone)+'" aria-current="'+cur+'"><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><span style="min-width:0"><span class="nm">'+esc(t.name||phone(t.phone))+'</span><span class="ls">'+esc(t.lastText)+'</span>'
+      +(t.waiting?'<span class="tag">'+esc(X.waitingTag)+'</span> ':'')+(S.lines.length>1?'<span class="tag ln">'+esc(t.lineName)+'</span>':'')+'</span><span style="display:flex;flex-direction:column;align-items:flex-end"><time>'+esc(when(t.lastAt))+'</time>'+(un?'<span class="udot" role="img" aria-label="'+esc(X.unread)+'"></span>':'')+'</span></button>'}).join("")
+    :'<div class="blank">'+esc(emptyText())+'</div>';
   if(v.length&&S.total>S.threads.length)$("#list").insertAdjacentHTML("beforeend",'<button type="button" class="btn ghost more" id="more">'+esc(X.more)+' · '+S.threads.length+' / '+S.total+'</button>');
   if($("#more"))$("#more").onclick=function(){S.limit+=500;this.disabled=true;loadThreads()};
   [].forEach.call(document.querySelectorAll(".item"),function(b){b.onclick=function(){var t=S.threads.find(function(x){return x.line===b.getAttribute("data-l")&&x.phone===b.getAttribute("data-p")});if(t)open(t)}});
 }
 function loadThreads(){var req=C.mode==="card"?{phones:C.phones}:{q:S.q,limit:S.limit};return api("threads",req).then(function(d){
-  S.threads=d.threads;S.total=d.total||d.threads.length;C.admin=d.admin;var first=!S.lines.length;S.lines=d.lines;
+  var arrived=[];if(S.prev){d.threads.forEach(function(t){if(t.lastFrom==="müşteri"&&t.lastAt>(S.prev[ck(t)]||0)&&t.lastAt>(SEEN[ck(t)]||BASE))arrived.push(t)})}
+  S.prev={};d.threads.forEach(function(t){S.prev[ck(t)]=t.lastAt});
+  S.threads=d.threads;S.total=d.total||d.threads.length;S.quick=d.quick||[];S.portalLines=d.portalLines||0;
+  d.threads.forEach(function(t){if(isCur(t)&&!document.hidden)markSeen(t,t.lastAt)});
+  onArrivals(arrived);C.admin=d.admin;var first=!S.lines.length;S.lines=d.lines;
   if(first){$("#lineFilter").innerHTML='<option value="">'+esc(X.allLines)+'</option>'+S.lines.map(function(l){return '<option value="'+esc(l.line)+'">'+esc(l.name)+(l.connected?"":" ("+esc(X.notConnected)+")")+'</option>'}).join("");$("#lineFilter").hidden=S.lines.length<2;
     if(!S.lines.some(function(l){return l.connected}))$("#newBtn").hidden=true;
     if(C.mode==="card"){if(S.threads.length)open(S.threads[0]);else blankCard()}}
   var down=S.lines.filter(function(l){return l.status==="disconnected"||l.status==="connecting"});
   $("#warn").hidden=!down.length;$("#warn").textContent=down.length?"⚠ "+X.warnLines+down.map(function(l){return l.name}).join(", "):"";
-  renderList();lineState()}).catch(function(e){$("#list").innerHTML='<div class="blank">'+esc(e.message)+'</div>'})}
+  renderList();unreadTitle();lineState()}).catch(function(e){$("#list").innerHTML='<div class="blank">'+esc(e.message)+'</div>'})}
 function curLine(){return S.cur&&S.lines.find(function(l){return l.line===S.cur.line})}
 function lineState(){var l=curLine(),st=$("#lst"),cmp=$("#cmp");if(!l||!st||!cmp)return;
   var ok=l.status==="connected",k=ok?"ok":l.status==="connecting"?"wait":"bad";
@@ -716,20 +765,27 @@ function blankCard(){
 }
 
 function open(t){
-  S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count="";$("#app").classList.add("open");renderList();
+  S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count="";markSeen(t,t.lastAt);setTimeout(unreadTitle,0);$("#app").classList.add("open");renderList();
   $("#pane").innerHTML='<header><button class="btn ghost backbtn" id="back">← '+esc(X.back)+'</button><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><div class="who"><b id="hn">'+esc(t.name||phone(t.phone))+'</b><span>'+esc(phone(t.phone))+(t.lineName?" · "+esc(t.lineName):"")+'</span></div><span class="st" id="lst"></span>'+(/@lid$/.test(t.phone)?'<button type="button" class="btn ghost" id="bLink">🔗 '+esc(X.link)+'</button>':'')+'</header>'
     +(/@lid$/.test(t.phone)?'<form class="linkbar" id="linkBar" hidden><span>'+esc(X.linkAsk)+'</span><input id="linkNum" inputmode="tel" placeholder="0506 123 45 67"><button class="btn primary" id="linkGo">'+esc(X.link)+'</button></form>':'')+'<div class="msgs" id="msgs" aria-live="polite"><div class="blank">'+esc(X.load)+'</div></div>'
     +'<form class="composer" id="cmp"><div class="offmsg" id="offmsg" hidden></div>'
     +'<div class="tools2" style="position:relative"><button type="button" class="ic" id="bAttach" title="'+esc(X.attach)+'" aria-label="'+esc(X.attach)+'">📎</button><input type="file" id="file" hidden accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">'
     +'<button type="button" class="ic" id="bRec" title="'+esc(X.record)+'" aria-label="'+esc(X.record)+'">🎤</button>'
     +'<button type="button" class="ic" id="bMeet">📹 '+esc(X.meeting)+'</button><div class="menu" id="meetMenu" hidden></div>'
-    +'<button type="button" class="ic" id="bCall">📞 '+esc(X.call)+'</button><div class="menu" id="callMenu" hidden></div></div>'
+    +'<button type="button" class="ic" id="bCall">📞 '+esc(X.call)+'</button><div class="menu" id="callMenu" hidden></div>'
+    +'<button type="button" class="ic" id="bQuick" title="'+esc(X.quickHint)+'">⚡ '+esc(X.quick)+'</button><div class="menu qmenu" id="quickMenu" hidden></div></div>'
     +'<div class="rec" id="recBar" hidden><span class="dot" aria-hidden="true"></span><b>'+esc(X.recording)+'</b> <span id="recT">0:00</span><button type="button" class="btn primary" id="recSend">'+esc(X.stop)+'</button><button type="button" class="btn ghost" id="recCancel">'+esc(X.cancel)+'</button></div>'
     +'<div class="row1" id="row1"><textarea id="txt" rows="1" placeholder="'+esc(X.placeholder)+'"></textarea><button class="btn primary" id="sendBtn">'+esc(X.send)+'</button></div><small>'+esc(X.hint)+'</small></form>';
   $("#back").onclick=function(){$("#app").classList.remove("open")};
   if($("#bLink")){$("#bLink").onclick=function(){var b=$("#linkBar");b.hidden=!b.hidden;if(!b.hidden)$("#linkNum").focus()};$("#linkBar").onsubmit=function(e){e.preventDefault();var v=$("#linkNum").value.trim();if(!v){$("#linkNum").focus();return}$("#linkGo").disabled=true;api("link",{line:t.line,phone:t.phone,target:v}).then(function(r){toast(X.linked);loadThreads().then(function(){var n=S.threads.find(function(x){return x.line===r.line&&x.phone===r.phone});if(n)open(n)})}).catch(function(e){$("#linkGo").disabled=false;toast(e.message,true)})}};
-  var ta=$("#txt");ta.oninput=function(){ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px"};
-  ta.onkeydown=function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
+  var ta=$("#txt");ta.oninput=function(){ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px";var m=/^\/(\S*)$/.exec(ta.value);if(m)quickMenu(m[1]);else if(QM.slash)hideQuick()};
+  ta.onkeydown=function(e){
+    if(!$("#quickMenu").hidden&&QM.items.length){
+      if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();QM.sel=(QM.sel+(e.key==="ArrowDown"?1:QM.items.length-1))%QM.items.length;drawQuick();return}
+      if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();pickQuick(QM.items[QM.sel]);return}
+      if(e.key==="Escape"){hideQuick();return}}
+    if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
+  $("#bQuick").onclick=function(e){e.stopPropagation();if($("#quickMenu").hidden){QM.slash=false;quickMenu("")}else hideQuick()};
   $("#cmp").onsubmit=function(e){e.preventDefault();send()};
   $("#bAttach").onclick=function(){$("#file").click()};
   $("#file").onchange=function(e){var f=e.target.files[0];e.target.value="";if(f)upload(f,f.name,false,$("#txt").value.trim())};
@@ -779,6 +835,17 @@ function meetForm(cur){
   $("#meetSave").onclick=function(e){e.stopPropagation();var v=$("#meetIn").value.trim();
     api("meet",{url:v}).then(function(d){meetUrl=d.url;m.hidden=true;toast(X.saved);if(d.url)insertMeet(d.url)}).catch(function(err){toast(err.message,true)})}}
 function insertMeet(url){var ta=$("#txt");ta.value=(ta.value?ta.value+"\n":"")+X.meetingText+url;ta.focus();ta.oninput();window.open(url,"_blank","noopener")}
+var QM={items:[],sel:0,slash:false};
+function quickMenu(q){var m=$("#quickMenu");if(!m)return;q=String(q||"").toLowerCase();QM.slash=/^\//.test($("#txt").value);
+  QM.items=S.quick.filter(function(r){return !q||r.key.indexOf(q)===0||r.key.indexOf(q)>0||r.text.toLowerCase().indexOf(q)>=0}).slice(0,30);QM.sel=0;
+  if(QM.slash&&!QM.items.length&&q){hideQuick();return}
+  drawQuick();m.hidden=false}
+function drawQuick(){var m=$("#quickMenu");
+  m.innerHTML=S.quick.length?QM.items.map(function(r,i){return '<button type="button" data-qi="'+i+'" class="'+(i===QM.sel?"on":"")+'"><b>/'+esc(r.key)+'</b><span>'+esc(r.text)+'</span></button>'}).join("")+'<p>'+esc(X.quickHint)+'</p>':'<p>'+esc(X.quickEmpty)+'</p>';
+  [].forEach.call(m.querySelectorAll("[data-qi]"),function(b){b.onmousedown=function(e){e.preventDefault();pickQuick(QM.items[Number(b.getAttribute("data-qi"))])}})}
+function hideQuick(){var m=$("#quickMenu");if(m)m.hidden=true;QM.slash=false}
+function pickQuick(r){if(!r)return;var ta=$("#txt");ta.value=QM.slash||!ta.value.trim()?r.text:ta.value.replace(/\s*$/,"")+"\n"+r.text;hideQuick();ta.focus();ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px"}
+document.addEventListener("click",function(e){var m=$("#quickMenu");if(m&&!m.hidden&&!m.contains(e.target)&&e.target.id!=="bQuick")hideQuick()});
 function bubble(m){
   var media="";
   if(m.media&&m.media.id){var u=mediaUrl(m),ty=m.media.type;
