@@ -611,8 +611,13 @@ async function resolveChatTarget(store: Store, portal: B24Portal, line: string, 
       const found = findJid(key, "@s.whatsapp.net", own) || findJid({ ...data, key: undefined }, "@s.whatsapp.net", own);
       if (found) remoteJid = found;
     }
-    if (remoteJid.endsWith("@s.whatsapp.net")) await saveLidPhone(store, portal.id, line, lid, normalizePhone(remoteJid.split("@")[0]));
-    else {
+    if (remoteJid.endsWith("@s.whatsapp.net")) {
+      const pn = normalizePhone(remoteJid.split("@")[0]);
+      await saveLidPhone(store, portal.id, line, lid, pn);
+      // Daha önce gizli kimlikle açılmış sohbet (ör. geçmişten) varsa numaralı sohbetle birleşir.
+      const hidden = (await store.get<B24Chat>(CHAT_KIND, chatId(portal.id, line, lid), SYSTEM_OWNER))?.payload;
+      if (hidden && pn) await mergeLidChat(store, hidden, pn);
+    } else {
       const known = (await lidPhone(store, portal.id, line, lid)) || (opts.guess ? await guessLidPhone(store, portal.id, line, lid) : "");
       if (known) remoteJid = `${known}@s.whatsapp.net`;
       else if (opts.warn)

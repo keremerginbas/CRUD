@@ -169,6 +169,17 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(byPhone("905301110005")).toMatchObject({ name: "Selin" });
     expect(list.threads.some((x: any) => x.phone.endsWith("@g.us") || x.phone.includes("broadcast") || x.phone.endsWith("@lid"))).toBe(false);
     expect(byPhone("905301110006")).toMatchObject({ name: "Can Demir", lastText: "Numarasız geçmiş" });
+
+    // Geçmişte numarasız kalan gizli sohbet, kişi yeniden yazınca (numarasıyla) birleşir
+    await post({ event: "messages.set", data: [{ key: { id: "H6", remoteJid: "999888777666@lid", fromMe: false }, pushName: "Deniz", messageTimestamp: 1760000500, message: { conversation: "Eski gizli" } }] });
+    await wait();
+    expect((await api("threads")).threads.some((x: any) => x.phone === "999888777666@lid")).toBe(true);
+    await post({ event: "messages.upsert", data: { key: { id: "L6", remoteJid: "999888777666@lid", remoteJidAlt: "905301110007@s.whatsapp.net", fromMe: false }, pushName: "Deniz", message: { conversation: "Yeni mesaj" } } });
+    await wait();
+    list = await api("threads");
+    expect(list.threads.some((x: any) => x.phone === "999888777666@lid")).toBe(false);
+    expect((await api("messages", { line: "3", phone: "905301110007" })).messages.map((m: any) => m.text)).toEqual(["Eski gizli", "Yeni mesaj"]);
+    bx.length = 0;
     const old = await api("messages", { line: "3", phone: "905301110002" });
     expect(old.messages.map((m: any) => [m.dir, m.text, m.via || ""])).toEqual([
       ["in", "Eski soru", ""],
@@ -199,7 +210,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
       await store.put("b24-chat", `${MEMBER}:3:9053900000${String(i).padStart(2, "0")}`, { id: `${MEMBER}:3:9053900000${String(i).padStart(2, "0")}`, memberId: portal.id, line: "3", phone: `9053900000${String(i).padStart(2, "0")}`, name: "", inbound: 1, outbound: 0, sinceQualify: 0, history: [] }, "b24-connector");
     const page = await api("threads", { limit: 50 });
     expect(page.threads).toHaveLength(50);
-    expect(page.total).toBe(65);
+    expect(page.total).toBe(66);
 
     // Var olan numaraların webhook ayarına geçmiş olayları eklenir
     await syncConnectorWebhooks(store);
