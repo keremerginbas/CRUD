@@ -97,14 +97,9 @@ export function runPriority(p: Priority) {
 
 export function Dashboard() {
   const records = useStore(s => s.records);
-  const addedToday = React.useMemo(() => {
-    const start = new Date(); start.setHours(0, 0, 0, 0); const map = new Map<string, number>();
-    for (const r of records) if (!isDeleted(r) && Date.parse(r.firstSeenAt || r.capturedAt || '') >= start.getTime()) map.set(r.source, (map.get(r.source) || 0) + 1);
-    return map;
-  }, [records]);
   const stats = useStore(s => s.stats);
   const safety = useStore(s => s.safety);
-  const jobs = useStore(s => s.jobs);
+  const job = useStore(s => s.job);
   const monitor = useStore(s => s.monitor);
   const [days, setDays] = React.useState(30);
   const [scope, setScope] = React.useState('all');
@@ -182,12 +177,13 @@ export function Dashboard() {
   const order: Record<string, number> = {meeting: 0, interested: 1, called: 2, new: 3};
   const flow = [...active.filter(r => r.crm?.status && r.crm.status in order).sort((a, b) => order[a.crm!.status] - order[b.crm!.status]),
     ...opps.filter(r => !r.crm?.status).sort((a, b) => Number(stats.get(a.id)?.ratio) - Number(stats.get(b.id)?.ratio))].slice(0, 6);
-  const prio = priorities({records: active, stats, events: windowEvents, jobs, safety});
+  const prio = priorities({records: active, stats, events: windowEvents, job, safety});
 
   const availability = (kind: string) => active.filter(r => kind === 'unknown' ? ['unknown', 'blocked', 'error'].includes(availabilityOf(r)) : availabilityOf(r) === kind).length;
   async function runMonitor() {
     try { const r = await runtime('ILAN_MONITOR_RUN'); if (r.monitor) setMonitor(r.monitor); toast('Kontrol isteği sıraya alındı; ilan taraması sürüyorsa tamamlanınca başlayacak.'); } catch (error) { toast((error as Error).message, true); }
   }
+  const jobRunning = job && ['running', 'paused', 'blocked'].includes(job.status);
   const chip = 'h-8 rounded-full border-border bg-card/60 pl-3 text-xs backdrop-blur';
 
   return (
@@ -330,16 +326,16 @@ export function Dashboard() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel title="Siteler" description={`Bugün toplam ${num([...addedToday.values()].reduce((a, b) => a + b, 0))} yeni ilan · hızlı modda liste sayfası başına ~50 ilan`}>
+        <Panel title="Siteler" description="Bugünkü kullanım ve son tarama">
           <div className="grid grid-cols-2 gap-3" data-testid="site-cards">
             {Sites().SITES.map(site => {
-              const today = safety?.todaySites?.[site.id] || {}, limit = Number(safety?.safety.phoneDailyLimit ?? 150), siteJob = jobs.find(j => j.source === site.id), running = siteJob && ['running', 'paused', 'blocked'].includes(siteJob.status);
+              const today = safety?.todaySites?.[site.id] || {}, limit = Number(safety?.safety.phoneDailyLimit ?? 150), running = jobRunning && job!.source === site.id;
               return (
                 <button key={site.id} type="button" onClick={() => showListings({source: site.id})} className="relative flex flex-col gap-1.5 overflow-hidden rounded-xl border bg-card/40 p-3 text-left transition-colors hover:border-primary/40" data-site={site.id}>
                   <span className="absolute inset-x-0 top-0 h-0.5" style={{background: siteColor(site.id)}} />
-                  <span className="flex items-center justify-between text-sm font-semibold">{site.name}{running && <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] text-success">{siteJob!.status === 'running' ? 'Taranıyor' : 'Bekliyor'}</span>}</span>
+                  <span className="flex items-center justify-between text-sm font-semibold">{site.name}{running && <span className="rounded-full bg-success/15 px-2 py-0.5 text-[10px] text-success">{job!.status === 'running' ? 'Taranıyor' : 'Bekliyor'}</span>}</span>
                   <span className="text-2xl font-semibold tabular-nums">{num(records.filter(r => !isDeleted(r) && r.source === site.id).length)}</span>
-                  <span className="text-[11px] text-muted-foreground" data-testid="site-today">Bugün +{num(addedToday.get(site.id) || 0)} yeni · {num(today.lists)} liste sf. · {num(today.pages)} detay · {num(today.phones)}{limit ? `/${num(limit)}` : ''} tel.</span>
+                  <span className="text-[11px] text-muted-foreground">Bugün {num(today.pages)} ilan · {num(today.phones)}{limit ? `/${num(limit)}` : ''} telefon</span>
                   {limit > 0 && <Progress value={Math.min(100, Math.round(Number(today.phones || 0) / limit * 100))} label={`${site.name} telefon limiti`} />}
                 </button>
               );

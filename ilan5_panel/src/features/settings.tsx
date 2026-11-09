@@ -39,13 +39,12 @@ export function SafetySettings({compact = false}: {compact?: boolean}) {
   const s = safety?.safety || {};
   const [daily, setDaily] = React.useState('');
   const [phone, setPhone] = React.useState('');
-  const [lists, setLists] = React.useState('');
-  React.useEffect(() => { setDaily(String(s.dailyLimit ?? 400)); setPhone(String(s.phoneDailyLimit ?? 150)); setLists(String(s.listDailyLimit ?? 600)); }, [s.dailyLimit, s.phoneDailyLimit, s.listDailyLimit]);
+  React.useEffect(() => { setDaily(String(s.dailyLimit ?? 400)); setPhone(String(s.phoneDailyLimit ?? 150)); }, [s.dailyLimit, s.phoneDailyLimit]);
   async function save(patch: Record<string, unknown>) {
     try { applySafetyResult(await runtime('ILAN_SAFETY_CONFIG', {safety: {...s, ...patch}})); toast('Güvenli tarama ayarı kaydedildi.'); }
     catch (error) { toast((error as Error).message, true); }
   }
-  function saveLimit(key: 'dailyLimit' | 'phoneDailyLimit' | 'listDailyLimit', value: string) {
+  function saveLimit(key: 'dailyLimit' | 'phoneDailyLimit', value: string) {
     const n = Number(value);
     if (!Number.isInteger(n) || n < 0) { toast('Günlük limitler 0 veya pozitif tam sayı olmalı.', true); return; }
     if (n !== Number(s[key])) save({[key]: n});
@@ -60,12 +59,11 @@ export function SafetySettings({compact = false}: {compact?: boolean}) {
         <SwitchField label="Ayrı, küçültülmüş pencerede tara" description={compact ? undefined : 'Normal tarayıcınızda sekme görmezsiniz. Sayfalar geç yüklenirse kapatın.'} checked={s.separateWindow !== false} onCheckedChange={v => save({separateWindow: v})} />
         <SwitchField label="Değişmeyen ilanlara tekrar girme" description={compact ? undefined : 'Fiyatı aynı, bu aramada görülmüş ve son 7 günde okunmuş ilanın detayı açılmaz.'} checked={s.skipKnown !== false} onCheckedChange={v => save({skipKnown: v})} />
         <SwitchField label="Kayıtlı telefonu yeniden kullan" description={compact ? undefined : 'Telefonu arşivde olan ilanda “Telefonu Göster”e basılmaz.'} checked={s.reuseKnownPhone !== false} onCheckedChange={v => save({reuseKnownPhone: v})} />
-        <div className="grid grid-cols-3 gap-3 border-t pt-3">
+        <div className="grid grid-cols-2 gap-3 border-t pt-3">
           <Label>Günlük ilan limiti<Input type="number" min={0} value={daily} onChange={e => setDaily(e.target.value)} onBlur={() => saveLimit('dailyLimit', daily)} onKeyDown={e => { if (e.key === 'Enter') saveLimit('dailyLimit', daily); }} data-testid="safety-daily" /></Label>
           <Label>Telefon limiti / site<Input type="number" min={0} value={phone} onChange={e => setPhone(e.target.value)} onBlur={() => saveLimit('phoneDailyLimit', phone)} onKeyDown={e => { if (e.key === 'Enter') saveLimit('phoneDailyLimit', phone); }} data-testid="safety-phone" /></Label>
-          <Label>Liste sayfası / site<Input type="number" min={0} value={lists} onChange={e => setLists(e.target.value)} onBlur={() => saveLimit('listDailyLimit', lists)} onKeyDown={e => { if (e.key === 'Enter') saveLimit('listDailyLimit', lists); }} data-testid="safety-lists" /></Label>
         </div>
-        <Hint>Bugün {num(safety?.todayCount)}{s.dailyLimit ? ` / ${num(s.dailyLimit)}` : ''} ilan detayı açıldı · 0 = sınırsız. Telefon limiti dolunca ilanlar o gün telefonsuz kaydedilir. Hızlı modda bir liste sayfası ~50 ilan getirir: 600 sayfa × 4 site ≈ günde 100 bine kadar ilan kapasitesi.</Hint>
+        <Hint>Bugün {num(safety?.todayCount)}{s.dailyLimit ? ` / ${num(s.dailyLimit)}` : ''} ilan açıldı · 0 = sınırsız. Telefon limiti dolunca ilanlar o gün telefonsuz kaydedilir.</Hint>
       </CardContent>
     </Card>
   );

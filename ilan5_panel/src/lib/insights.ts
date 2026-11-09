@@ -7,12 +7,12 @@ export type Priority = {
   action: {kind: 'detail'; id: string} | {kind: 'listings'; filters: Record<string, string>} | {kind: 'view'; view: 'collect' | 'settings' | 'market'};
 };
 
-export function priorities(input: {records: ListingRecord[]; stats: Map<string, MarketStat>; events: MarketEvent[]; job?: Job | null; jobs?: Job[]; safety: SafetyState | null}): Priority[] {
-  const {records, stats, events, safety} = input, jobs = input.jobs || (input.job ? [input.job] : []);
+export function priorities(input: {records: ListingRecord[]; stats: Map<string, MarketStat>; events: MarketEvent[]; job: Job | null; safety: SafetyState | null}): Priority[] {
+  const {records, stats, events, job, safety} = input;
   const active = records.filter(r => !isDeleted(r));
   const list: Priority[] = [];
-  for (const job of jobs.filter(j => ['blocked', 'paused'].includes(j.status))) {
-    list.push({id: 'job:' + (job.source || job.id), level: 'high', label: job.status === 'blocked' ? 'Tarama bekliyor' : 'Tarama duraklatıldı', title: job.status === 'blocked' ? 'Doğrulama veya giriş ekranı çıktı; tarama penceresini kontrol edin.' : 'Kalan sıra korunuyor; devam ettirebilirsiniz.', detail: Sites().name(job.source || ''), action: {kind: 'view', view: 'collect'}});
+  if (job && ['blocked', 'paused'].includes(job.status)) {
+    list.push({id: 'job', level: 'high', label: job.status === 'blocked' ? 'Tarama bekliyor' : 'Tarama duraklatıldı', title: job.status === 'blocked' ? 'Doğrulama veya giriş ekranı çıktı; tarama penceresini kontrol edin.' : 'Kalan sıra korunuyor; devam ettirebilirsiniz.', detail: Sites().name(job.source || ''), action: {kind: 'view', view: 'collect'}});
   }
   for (const r of active.filter(r => r.crm?.status === 'meeting').slice(0, 3)) {
     list.push({id: 'meet:' + r.id, level: 'high', label: 'Görüşülecek', title: r.title || 'Başlıksız ilan', detail: r.crm?.note ? r.crm.note.slice(0, 90) : r.sellerName || undefined, action: {kind: 'detail', id: r.id}});
@@ -24,8 +24,6 @@ export function priorities(input: {records: ListingRecord[]; stats: Map<string, 
   }
   const untouched = active.filter(r => stats.get(r.id)?.opportunity && !r.crm?.status && !r.messagedAt && (r.phones || []).length);
   if (untouched.length) list.push({id: 'untouched', level: 'medium', label: 'Ulaşılmamış fırsat', title: `${untouched.length.toLocaleString('tr-TR')} fırsat ilanına henüz ulaşılmadı`, detail: 'Telefonu kayıtlı, bölge medyanının en az %20 altında.', action: {kind: 'listings', filters: {insight: 'opportunity', crm: 'none'}}});
-  const listOnlyDeals = active.filter(r => r.detailStatus === 'list' && stats.get(r.id)?.opportunity).length;
-  if (listOnlyDeals) list.push({id: 'listonly', level: 'medium', label: 'Detay bekliyor', title: `${listOnlyDeals.toLocaleString('tr-TR')} fırsat ilanı yalnız liste sayfasından kaydedildi`, detail: 'Seçip “Detayı ve telefonu tamamla” ile telefonunu alın.', action: {kind: 'listings', filters: {insight: 'opportunity'}}});
   const review = active.filter(isReview).length;
   if (review) list.push({id: 'review', level: 'low', label: 'İnceleme', title: `${review.toLocaleString('tr-TR')} ilanın kategorisi doğrulanmalı`, action: {kind: 'listings', filters: {category: 'review'}}});
   const limit = Number(safety?.safety.phoneDailyLimit ?? 0);

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {Link2, ListOrdered, Pause, Play, Square, Save, Rocket, CircleCheck, CircleAlert, ScrollText, Zap, ScanSearch} from 'lucide-react';
+import {Link2, ListOrdered, Pause, Play, Square, Save, Rocket, CircleCheck, CircleAlert, ScrollText} from 'lucide-react';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
@@ -99,7 +99,7 @@ function JobPanel({job, busy, onAction}: {job: Job; busy: boolean; onAction: (ty
 }
 
 export function Collect() {
-  const jobs = useStore(s => s.jobs);
+  const job = useStore(s => s.job);
   const [mode, setMode] = React.useState<'search' | 'links'>('search');
   const [searchUrl, setSearchUrl] = React.useState('');
   const [directUrls, setDirectUrls] = React.useState('');
@@ -110,14 +110,10 @@ export function Collect() {
   const [trackName, setTrackName] = React.useState('');
   const [interval, setIntervalValue] = React.useState('60');
   const [revealPhone, setRevealPhone] = React.useState(true);
-  const [speed, setSpeed] = React.useState<'fast' | 'full'>('fast');
   const [busy, setBusy] = React.useState(false);
   const check = validate(mode, mode === 'links' ? directUrls : searchUrl);
-  // Each site has its own crawler: only a job on the chosen site blocks a new start.
-  const siteJob = jobs.find(j => j.source === check.source);
-  const status = siteJob?.status || 'idle';
+  const status = job?.status || 'idle';
   const jobBlocks = ['starting', 'running', 'collecting', 'stopping', 'paused', 'blocked'].includes(status);
-  const visibleJobs = jobs.filter(j => ACTIVE.includes(j.status) || ['paused', 'blocked'].includes(j.status) || Date.now() - Date.parse(j.updatedAt || '') < 86400000);
   const lines = directUrls.split(/\r?\n/).map(v => v.trim()).filter(Boolean), unique = new Set(lines).size;
 
   // arabam.com only lists vehicles: a land-only target would skip every listing.
@@ -152,11 +148,11 @@ export function Collect() {
     if (!Number.isInteger(max) || max < 0) { toast('İlan sınırı 0 veya pozitif tam sayı olmalı.', true); return; }
     if (track && (!Number.isInteger(minutes) || minutes < 15)) { toast('Düzenli tarama aralığı en az 15 dakika olmalı.', true); return; }
     const target = await chooseList('', trackName.trim()); if (!target) return; showList(target.listId);
-    const config = {listId: target.listId, searchUrl: searchUrl.trim(), category, maxListings: max, maxPages: 0, delayMs: delaySeconds * 1000, revealPhone, mode: speed};
+    const config = {listId: target.listId, searchUrl: searchUrl.trim(), category, maxListings: max, maxPages: 0, delayMs: delaySeconds * 1000, revealPhone};
     if (!track) { await jobAction('ILAN_START', config); return; }
     setBusy(true); let saved = false;
     try {
-      const result = await runtime('ILAN_SEARCH_SAVE', {listId: config.listId, searchUrl: config.searchUrl, name: trackName.trim(), category, intervalMinutes: minutes, enabled: true, revealPhone, delayMs: config.delayMs, mode: speed});
+      const result = await runtime('ILAN_SEARCH_SAVE', {listId: config.listId, searchUrl: config.searchUrl, name: trackName.trim(), category, intervalMinutes: minutes, enabled: true, revealPhone, delayMs: config.delayMs});
       saved = true; if (Array.isArray(result.searches)) setSearches(result.searches);
       if (!result.search?.id) throw new Error('Kaydedilen aramanın kimliği alınamadı.');
       const run = await runtime('ILAN_SEARCH_RUN', {id: result.search.id, maxListings: max, maxPages: 0});
@@ -170,8 +166,7 @@ export function Collect() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow="Veri çekme" title="Yeni tarama" description={`${Sites().namesText()} arama sonuçlarından veya tek tek ilan bağlantılarından ilan toplayın.`} />
-      {visibleJobs.length > 1 && <p className="-mb-2 text-sm text-muted-foreground">{visibleJobs.filter(j => j.status === 'running').length} site aynı anda taranıyor. Her sitenin kendi tarama penceresi ve sırası var.</p>}
-      {visibleJobs.map(job => <JobPanel key={job.source || job.id} job={job} busy={busy} onAction={type => jobAction(type, {source: job.source})} />)}
+      {job && <JobPanel job={job} busy={busy} onAction={type => jobAction(type)} />}
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <form onSubmit={start}>
         <Card>
@@ -207,17 +202,6 @@ export function Collect() {
               <Label>Bekleme (saniye)<Input type="number" min={3} max={3600} value={delay} onChange={e => setDelay(e.target.value)} /><Hint>İlanlar arasında, en az 3</Hint></Label>
             </div>
             {mode === 'search' && (
-              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tarama hızı" data-testid="speed">
-                {([['fast', 'Hızlı (liste)', 'Yeni ilanların detayı ve telefonu günlük telefon limiti kadar alınır (site başına varsayılan 150). Limitten sonrakiler sonuç sayfasından hızlıca kaydedilir: başlık, fiyat, konum, m²; ad soyad ve telefon için sonra “Detayı ve telefonu tamamla”.'], ['full', 'Tam (detay + telefon)', 'Her ilanın detay sayfası açılır, telefon düğmesine basılır. Yavaştır; günlük ilan ve telefon limitlerine tabidir.']] as const).map(([value, title, text]) => (
-                  <button key={value} type="button" role="radio" aria-checked={speed === value} onClick={() => setSpeed(value)} data-testid={'speed-' + value}
-                    className={cn('rounded-lg border p-3 text-left transition-colors', speed === value ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50')}>
-                    <span className="flex items-center gap-2 text-sm font-medium">{value === 'fast' ? <Zap className="size-4 text-primary" /> : <ScanSearch className="size-4" />}{title}</span>
-                    <span className="mt-1 block text-xs text-muted-foreground">{text}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-            {mode === 'search' && (
               <div className="flex flex-col gap-3 rounded-lg border p-4">
                 <label className="flex cursor-pointer items-center justify-between gap-3">
                   <span><span className="text-sm font-medium">Bu aramayı düzenli takip et</span><span className="block text-xs text-muted-foreground">İlan sınırı yalnız bu deneme turuna uygulanır; düzenli tarama tüm sayfaları kapsar.</span></span>
@@ -234,8 +218,8 @@ export function Collect() {
             <div className="flex flex-col gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between">
               <label className="flex cursor-pointer items-center gap-2 text-sm"><Switch checked={revealPhone} onCheckedChange={setRevealPhone} label="Telefonu Göster düğmesine bas" />“Telefonu Göster” düğmesine bas</label>
               <div className="flex flex-wrap gap-2">
-                <Button variant="outline" disabled={busy} onClick={() => jobAction('ILAN_CAPTURE_TAB', {category, revealPhone, listId: ''})} title="Başka bir sekmede açık olan son etkin ilan sayfasını kaydeder"><Save />Açık ilandan kaydet</Button>
-                <Button type="submit" disabled={busy || !check.valid || jobBlocks} title={jobBlocks ? `${Sites().name(check.source)} için süren bir tarama var` : undefined} data-testid="start-collect"><Rocket />{mode === 'links' ? 'İlanları getir' : 'Taramayı başlat'}</Button>
+                <Button variant="outline" disabled={busy || ACTIVE.includes(status)} onClick={() => jobAction('ILAN_CAPTURE_TAB', {category, revealPhone, listId: ''})} title="Başka bir sekmede açık olan son etkin ilan sayfasını kaydeder"><Save />Açık ilandan kaydet</Button>
+                <Button type="submit" disabled={busy || !check.valid || jobBlocks} data-testid="start-collect"><Rocket />{mode === 'links' ? 'İlanları getir' : 'Taramayı başlat'}</Button>
               </div>
             </div>
           </CardContent>

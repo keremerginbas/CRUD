@@ -11,7 +11,7 @@ const out = process.env.QA_OUTPUT || path.join(__dirname, 'artifacts');
 
 function mockChrome() {
   const store = {'ilan5.backup.v1': {auto: false}, 'ilan5.lists': [{id: 'list-old', name: 'Ankara Ekim', createdAt: '2026-10-01T00:00:00Z'}],
-    'ilan5.job.arabam': {id: 'j', status: 'running', source: 'arabam', updatedAt: new Date().toISOString(), message: 'Sayfa 2: ilan 14/50 açılıyor.', counts: {discovered: 100, processed: 63, saved: 40, unchanged: 18}, listingQueue: Array(100).fill(0), detailIndex: 63,
+    'ilan5.job.v2': {id: 'j', status: 'running', source: 'arabam', updatedAt: new Date().toISOString(), message: 'Sayfa 2: ilan 14/50 açılıyor.', counts: {discovered: 100, processed: 63, saved: 40, unchanged: 18}, listingQueue: Array(100).fill(0), detailIndex: 63,
       pageProgress: {currentPage: 2, totalPages: 5, pageFound: 50, pageProcessed: 13, totalProcessed: 63, totalExpected: 250, stage: 'details'}, logs: [{at: new Date().toISOString(), message: 'İlan 44985286: kaydedildi.'}]}};
   const listeners = [];
   let safety = {separateWindow: true, dailyLimit: 400, phoneDailyLimit: 150, skipKnown: true, reuseKnownPhone: true};
@@ -20,7 +20,7 @@ function mockChrome() {
   window.sent = [];
   window.store = store;
   window.chrome = {
-    runtime: {id: 'test', getURL: s => s, getManifest: () => ({version: '3.2.1'}), onMessage: {addListener() {}},
+    runtime: {id: 'test', getURL: s => s, getManifest: () => ({version: '3.1.0'}), onMessage: {addListener() {}},
       async sendMessage(m) {
         window.sent.push(m);
         if (m.type === 'ILAN_SAFETY_CONFIG') safety = {...safety, ...m.safety};
@@ -58,10 +58,6 @@ async function seed(page) {
         crm: {status: crm[i % 7], note: crm[i % 7] === 'meeting' ? 'Cuma 14:00 yerinde görüşme' : ''}, lists: i < 10 ? ['list-old'] : [],
         history: i === 1 ? [{at: new Date(now - 9 * day).toISOString(), price: 3600000, currency: 'TRY'}, {at: new Date(now - 4 * day).toISOString(), price: 3300000, currency: 'TRY'}] : []}));
     }
-    // Fast-mode list rows (no phone yet) and the same plot listed on two sites.
-    for (let i = 0; i < 3; i++) rows.push(C.normalizeRecord({url: `https://www.emlakjet.com/ilan/arsa-hizli-${7100000 + i}`, title: `Hızlı liste kaydı ${i}`, price: 1500000 + i, area: 800, location: {city: 'Ankara', district: 'Polatlı'}, detailStatus: 'list'}));
-    rows.push(C.normalizeRecord({url: 'https://www.sahibinden.com/ilan/emlak-arsa-satilik-ikiz-1999999999/detay', title: 'İkiz parsel sahibinden', price: 2750000, area: 1250, location: {city: 'Konya', district: 'Meram'}}));
-    rows.push(C.normalizeRecord({url: 'https://www.hepsiemlak.com/konya-meram-satilik/tarla/12-99999999', title: 'İkiz parsel hepsiemlak', price: 2750000, area: 1250, location: {city: 'Konya', district: 'Meram'}}));
     await window.IlanDB.upsertMany(rows);
     await window.IlanDB.importEvents([1, 5, 9].map((i, k) => ({id: 'e' + i, type: 'price_down', recordId: rows[i].id, listingId: rows[i].listingId, title: rows[i].title, url: rows[i].url, category: rows[i].category, source: rows[i].source, searchIds: ['s1'], at: new Date(now - k * day).toISOString(), oldPrice: rows[i].price + 300000, newPrice: rows[i].price, currency: 'TRY'})));
   });
@@ -100,7 +96,7 @@ async function seed(page) {
   assert.match(await page.locator('[data-testid="priorities"]').innerText(), /Görüşülecek|Fiyat %/);
   assert.match(await page.locator('[role="img"][aria-label^="Veri skoru"]').getAttribute('aria-label'), /Veri skoru \d+ \/ 100/);
   assert.match(await page.locator('[data-testid="bell"]').getAttribute('aria-label'), /Öncelikli işler: \d+/);
-  assert.equal(await page.locator('[data-testid="version"]').innerText(), 'Sürüm 3.2.1');
+  assert.equal(await page.locator('[data-testid="version"]').innerText(), 'Sürüm 3.1.0');
   assert.ok(await page.evaluate(() => document.documentElement.classList.contains('dark')), 'dark by default');
   await page.screenshot({path: path.join(out, 'dashboard-dark.png'), fullPage: true});
 
@@ -134,29 +130,6 @@ async function seed(page) {
   const csv = fs.readFileSync(await (await download).path(), 'utf8');
   assert.match(csv, /"Listeler";"m² Fiyatı";"Takip Durumu";"Not"/);
 
-  // Fast-mode records: list-only filter, badge and the "complete details" bulk action
-  await page.keyboard.press('Escape');
-  await page.locator('[data-testid="more-filters"]').click();
-  await page.locator('[data-testid="filter-insight"]').selectOption('listonly');
-  await page.waitForTimeout(300);
-  assert.equal(await page.locator('[data-record]').count(), 3);
-  assert.equal(await page.locator('[data-testid="badge-listonly"]').count(), 3);
-  await page.locator('[data-record]').nth(0).getByRole('checkbox').click();
-  await page.locator('[data-testid="bulk-complete"]').click();
-  await page.waitForTimeout(300);
-  const complete = await page.evaluate(() => window.sent.find(m => m.type === 'ILAN_COMPLETE_DETAILS'));
-  assert.equal(complete.urls.length, 1); assert.match(complete.urls[0], /emlakjet\.com\/ilan\/arsa-hizli-/);
-  await page.locator('[data-testid="filter-insight"]').selectOption('duplicate');
-  await page.waitForTimeout(300);
-  assert.equal(await page.locator('[data-record]').count(), 2, 'same plot on two sites');
-  assert.equal(await page.locator('[data-testid="badge-duplicate"]').count(), 2);
-  await page.getByRole('button', {name: 'İkiz parsel sahibinden', exact: true}).click();
-  await page.waitForSelector('[data-testid="detail-duplicates"]');
-  assert.match(await page.locator('[data-testid="detail-duplicates"]').innerText(), /İkiz parsel hepsiemlak/);
-  await page.keyboard.press('Escape');
-  await page.locator('[data-testid="filter-insight"]').selectOption('all');
-  await page.waitForTimeout(200);
-
   // Detail sheet: price history and CRM
   await page.locator('[data-testid="filter-query"]').fill('köşe parsel 1');
   await page.waitForTimeout(300);
@@ -177,7 +150,6 @@ async function seed(page) {
   await page.locator('[data-testid="search-url"]').fill('https://www.arabam.com/ikinci-el/otomobil-sahibinden');
   await page.waitForTimeout(200);
   assert.equal(await page.locator('[data-testid="collect-category"]').inputValue(), 'arac');
-  assert.equal(await page.locator('[data-testid="speed-fast"]').getAttribute('aria-checked'), 'true', 'fast mode is the default');
   assert.match(await page.locator('[data-testid="collect-ready"]').innerText(), /arabam\.com · Tarama hazır/);
   await page.screenshot({path: path.join(out, 'collect-dark.png'), fullPage: true});
 
@@ -188,16 +160,6 @@ async function seed(page) {
   await page.locator('[data-testid="list-choice-ok"]').click();
   await page.waitForTimeout(300);
   assert.equal((await page.evaluate(() => window.sent.find(m => m.type === 'ILAN_SEARCH_RUN'))).listId, 'list-old');
-
-  // Bulk add: one saved search per line, fast mode by default
-  await page.getByRole('button', {name: 'İzlenecek arama ekle'}).click();
-  await page.locator('[data-testid="saved-url"]').fill('https://www.emlakjet.com/satilik-arsa/konya\nhttps://www.arabam.com/ikinci-el/otomobil/renault\nhttps://www.emlakjet.com/satilik-arsa/konya');
-  await page.getByRole('button', {name: 'Aramayı kaydet'}).click();
-  await page.waitForTimeout(400);
-  const saves = await page.evaluate(() => window.sent.filter(m => m.type === 'ILAN_SEARCH_SAVE'));
-  assert.equal(saves.length, 2, 'duplicate lines are merged');
-  assert.ok(saves.every(m => m.mode === 'fast'));
-  assert.ok(['all', 'arac'].includes(saves[1].category), 'arabam search never targets land');
 
   // Settings: phone limit is saved through the worker
   await page.getByRole('button', {name: 'Ayarlar ve yedek'}).click();

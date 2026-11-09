@@ -34,7 +34,7 @@ Edge kullanmak isterseniz aynı adımlar `edge://extensions` adresiyle geçerlid
 2. Sağ üstten **Geliştirici modu**nu açın.
 3. **Paketlenmemiş öğe yükle** → `C:\Ilan5\ilan5_extension` klasörünü seçin.
 4. Eklentiler (yapboz) simgesi → İlan5'in yanındaki raptiye ile araç çubuğuna sabitleyin.
-5. İlan5 simgesi → **Veri çekme ekranını aç**. Sol altta **Sürüm 3.2.1** yazmalıdır.
+5. İlan5 simgesi → **Veri çekme ekranını aç**. Sol altta **Sürüm 3.1.0** yazmalıdır.
 
 Chrome açılışta “Geliştirici modu uzantılarını devre dışı bırakın” uyarısı gösterebilir. **Kapat** (×) deyin; **Devre dışı bırak**'a basmayın.
 
@@ -60,11 +60,10 @@ Chrome açılışta “Geliştirici modu uzantılarını devre dışı bırakın
 
 ## H. İlk deneme
 
-1. Veri çekme formunda **Tam (detay + telefon)** hızını seçin, **En fazla ilan: 2**, **Bu aramayı düzenli takip et: kapalı** ile bir arama deneyin.
+1. Veri çekme formunda **En fazla ilan: 2**, **Bu aramayı düzenli takip et: kapalı** ile bir arama deneyin.
 2. Gelen iki ilanın fiyat, telefon ve satıcı bilgisini Sahibinden'deki ilanla karşılaştırın.
 3. Telefon boş geliyorsa ilan numarayı yalnız üye girişiyle gösteriyor olabilir. Bu, girişsiz tarama profilinin bilinen sınırıdır.
-4. Sonra **Hızlı (liste)** hızında **En fazla ilan: 50** ile deneyin: tarama penceresinde detay sayfası açılmadan 50 ilanın tabloya “Liste kaydı” olarak geldiğini görmelisiniz. Fiyat ve konumları siteyle karşılaştırın.
-5. Her şey doğruysa **Kayıtlı aramalar → İzlenecek arama ekle** ile aramalarınızı (her satıra bir tane) hızlı modda ekleyin. Dört site aynı anda taranır.
+4. Sonra **En fazla ilan: 0** ile asıl taramayı başlatın.
 
 ## Sık karşılaşılan durumlar
 

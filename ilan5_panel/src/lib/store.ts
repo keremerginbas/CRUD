@@ -2,7 +2,7 @@
    classic panel: the archive is re-read only when its change stamp moves. */
 import {useSyncExternalStore} from 'react';
 import {
-  Core, DB, Sites, Transfer, chromeApi, hasExtension, runtime, storageGet, storageGetMany, storageSet, isDeleted,
+  Core, DB, Transfer, chromeApi, hasExtension, runtime, storageGet, storageGetMany, storageSet, isDeleted,
   type ListingRecord, type MarketEvent, type MarketStat, type ListMeta, type BackupSettings,
 } from './ext';
 import {toast} from '@/components/ui/toast';
@@ -15,7 +15,7 @@ export interface Job {
 }
 export interface SavedSearch {
   id: string; name: string; searchUrl: string; category: string; intervalMinutes: number; enabled: boolean; hasBaseline?: boolean;
-  lastStatus?: string; lastMessage?: string; lastRunAt?: string; nextRunAt?: string; listId?: string; revealPhone?: boolean; delayMs?: number; mode?: 'fast' | 'full';
+  lastStatus?: string; lastMessage?: string; lastRunAt?: string; nextRunAt?: string; listId?: string; revealPhone?: boolean; delayMs?: number;
 }
 export interface MonitorState {
   enabled?: boolean; intervalMinutes?: number; confirmationMinutes?: number; status?: string; phase?: string; message?: string;
@@ -25,24 +25,24 @@ export interface TelegramState {
   configured?: boolean; chatId?: string; chatTitle?: string; botUsername?: string; verified?: boolean; lastError?: string; counts?: Record<string, number>;
 }
 export interface SafetyState {
-  safety: {separateWindow?: boolean; skipKnown?: boolean; reuseKnownPhone?: boolean; dailyLimit?: number; phoneDailyLimit?: number; listDailyLimit?: number};
+  safety: {separateWindow?: boolean; skipKnown?: boolean; reuseKnownPhone?: boolean; dailyLimit?: number; phoneDailyLimit?: number};
   alerts: {priceDrop?: boolean; minDropPercent?: number; newListing?: boolean; health?: boolean; summary?: boolean; summaryTime?: string};
-  todayCount: number; todaySites: Record<string, {pages?: number; phones?: number; lists?: number}>;
+  todayCount: number; todaySites: Record<string, {pages?: number; phones?: number}>;
 }
 export interface MessageItem {id: string; status: string; title?: string; listingId?: string; sellerName?: string; message?: string; lastError?: string; updatedAt?: string; createdAt?: string}
 export interface MarketQuery {timeframe: '24h' | '7d' | 'all'; searchId: string}
 
 export interface State {
   ready: boolean; extension: boolean; version: string;
-  records: ListingRecord[]; stats: Map<string, MarketStat>; sellers: Map<string, number>; dupes: Map<string, string[]>; lists: ListMeta[];
-  job: Job | null; jobs: Job[]; monitor: MonitorState | null; telegram: TelegramState | null; searches: SavedSearch[];
+  records: ListingRecord[]; stats: Map<string, MarketStat>; sellers: Map<string, number>; lists: ListMeta[];
+  job: Job | null; monitor: MonitorState | null; telegram: TelegramState | null; searches: SavedSearch[];
   events: MarketEvent[]; marketQuery: MarketQuery; safety: SafetyState | null;
   backup: {auto: boolean; lastAt: string | null}; messages: {queue: MessageItem[]; templates: {id: string; name: string; body: string}[]};
 }
 
 let state: State = {
-  ready: false, extension: false, version: '', records: [], stats: new Map(), sellers: new Map(), dupes: new Map(), lists: [],
-  job: null, jobs: [], monitor: null, telegram: null, searches: [], events: [], marketQuery: {timeframe: '24h', searchId: 'all'},
+  ready: false, extension: false, version: '', records: [], stats: new Map(), sellers: new Map(), lists: [],
+  job: null, monitor: null, telegram: null, searches: [], events: [], marketQuery: {timeframe: '24h', searchId: 'all'},
   safety: null, backup: {auto: true, lastAt: null}, messages: {queue: [], templates: []},
 };
 const listeners = new Set<() => void>();
@@ -62,7 +62,7 @@ export async function refresh() {
     const stamp = (await storageGet<number>(ARCHIVE_STAMP)) || 0;
     const records = await DB().getAll();
     loadedStamp = stamp;
-    set({records, stats: Core().marketStats(records), sellers: Core().sellerCounts(records), dupes: duplicateMap(records)});
+    set({records, stats: Core().marketStats(records), sellers: Core().sellerCounts(records)});
   } catch (error) { toast(`Arşiv okunamadı: ${(error as Error).message}`, true); }
   finally { loading = false; if (refreshAgain) { refreshAgain = false; autoRefresh(); } }
 }
@@ -107,17 +107,7 @@ export async function mergeListMeta(incoming?: ListMeta[]) {
 }
 
 /* ---------- background state ---------- */
-/* One crawler job per site (ilan5.job.<site>). `job` is the most relevant one for single-job views. */
-const ACTIVE_JOB = ['running', 'blocked', 'paused', 'starting'];
-function withJobs(jobs: Job[]) {
-  const sorted = jobs.slice().sort((a, b) => Number(ACTIVE_JOB.includes(b.status)) - Number(ACTIVE_JOB.includes(a.status)) || String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')));
-  return {jobs: sorted, job: sorted[0] || null};
-}
-export async function syncJob() {
-  const keys = (Sites()?.SITES || []).map(site => 'ilan5.job.' + site.id);
-  const stored = await Promise.all(keys.map(key => storageGet<Job>(key)));
-  set(withJobs(stored.filter(Boolean) as Job[]));
-}
+export async function syncJob() { set({job: (await storageGet<Job>('ilan5.job.v2')) || null}); }
 export async function syncMonitoring() {
   if (!hasExtension()) return;
   const [monitor, telegram] = await Promise.allSettled([runtime('ILAN_MONITOR_STATUS'), runtime('ILAN_TELEGRAM_STATUS')]);
@@ -139,7 +129,7 @@ export async function syncMessages() {
   if (!hasExtension()) return;
   try { const r = await runtime('ILAN_MESSAGE_STATUS', {status: 'all'}); set({messages: {queue: r.queue || [], templates: r.templates || []}}); } catch (error) { toast((error as Error).message, true); }
 }
-export function setJob(job: Job | null) { if (!job) return; set(withJobs([...state.jobs.filter(j => j.source !== job.source), job])); }
+export function setJob(job: Job | null) { set({job}); }
 export function setMonitor(monitor: MonitorState) { set({monitor}); }
 export function setTelegram(telegram: TelegramState) { set({telegram}); }
 export function setSearches(searches: SavedSearch[]) { set({searches}); }
@@ -171,7 +161,7 @@ async function collectSettings(): Promise<BackupSettings | null> {
   if (!hasExtension()) return null;
   const keys = ['ilan5.searches.v1', 'ilan5.monitor.v1', Core().SAFETY_KEY, 'ilan5.alerts.v1'];
   const stored = await storageGetMany(keys), monitor = stored['ilan5.monitor.v1'] || {};
-  const searches = (stored['ilan5.searches.v1']?.items || []).map((s: SavedSearch) => ({searchUrl: s.searchUrl, name: s.name, category: s.category, intervalMinutes: s.intervalMinutes, delayMs: s.delayMs, revealPhone: s.revealPhone, enabled: s.enabled, listId: s.listId || '', mode: s.mode}));
+  const searches = (stored['ilan5.searches.v1']?.items || []).map((s: SavedSearch) => ({searchUrl: s.searchUrl, name: s.name, category: s.category, intervalMinutes: s.intervalMinutes, delayMs: s.delayMs, revealPhone: s.revealPhone, enabled: s.enabled, listId: s.listId || ''}));
   return {searches, safety: stored[Core().SAFETY_KEY] || null, alerts: stored['ilan5.alerts.v1'] || null,
     monitor: {enabled: monitor.enabled !== false, intervalMinutes: monitor.intervalMinutes || 360, confirmationMinutes: monitor.confirmationMinutes || 15}, templates: await DB().getMessageTemplates()};
 }
@@ -247,7 +237,7 @@ export async function start() {
   const chrome = chromeApi();
   chrome?.storage?.onChanged?.addListener((changes: Record<string, {newValue?: any}>, area: string) => {
     if (area !== 'local') return;
-    if (Object.keys(changes).some(key => key.startsWith('ilan5.job.'))) syncJob();
+    if (changes['ilan5.job.v2']) set({job: changes['ilan5.job.v2'].newValue || null});
     if (changes['ilan5.monitor.v1']) syncMonitoring();
     if (Object.keys(changes).some(key => key.startsWith('ilan5.telegram'))) syncMonitoring();
     if (Object.keys(changes).some(key => key.includes('search'))) syncSearches();
@@ -264,13 +254,4 @@ export async function start() {
   setInterval(() => { if (!document.hidden) { syncMonitoring(); syncSearches(); refreshMarket(); syncMessages(); } }, 15000);
   setInterval(() => { if (!document.hidden) autoRefresh(); }, 6000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden && staleWhileHidden) { staleWhileHidden = false; autoRefresh(); } });
-}
-
-/** Record id -> ids of the other listings that look like the same property (any site). */
-export function duplicateMap(records: ListingRecord[]): Map<string, string[]> {
-  const result = new Map<string, string[]>();
-  try {
-    for (const group of Core().duplicateGroups(records).groups) for (const id of group) result.set(id, group.filter(other => other !== id));
-  } catch { /* older core without duplicate detection */ }
-  return result;
 }

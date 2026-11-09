@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {ExternalLink, MapPin, Phone, Trash2, Undo2, Map as MapIcon, Landmark, TriangleAlert, PhoneCall, Copy} from 'lucide-react';
+import {ExternalLink, MapPin, Phone, Trash2, Undo2, Map as MapIcon, Landmark, TriangleAlert} from 'lucide-react';
 import {CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis} from 'recharts';
 import {Dialog, SheetContent, DialogTitle} from '@/components/ui/dialog';
 import {Button, buttonVariants} from '@/components/ui/button';
@@ -7,13 +7,12 @@ import {Badge} from '@/components/ui/badge';
 import {NativeSelect, Textarea} from '@/components/ui/input';
 import {toast} from '@/components/ui/toast';
 import {AvailabilityBadge, Field, QualityBadge, SourceBadge} from '@/components/common';
-
 import {
-  CATEGORY_LABELS, Core, DB, NOTIFICATION_LABELS, availabilityOf, formatDate, formatPhone, isDeleted, isReview, locationText, money, safeUrl, runtime,
+  CATEGORY_LABELS, Core, DB, NOTIFICATION_LABELS, availabilityOf, formatDate, formatPhone, isDeleted, isReview, locationText, money, safeUrl,
   type Category, type ListingRecord,
 } from '@/lib/ext';
 import {listName, refresh, useStore} from '@/lib/store';
-import {closeDetail, openDetail, useUi} from '@/lib/ui';
+import {closeDetail, useUi} from '@/lib/ui';
 import {cn} from '@/lib/utils';
 
 function Block({title, children, className}: {title: string; children: React.ReactNode; className?: string}) {
@@ -81,7 +80,6 @@ export function DetailSheet() {
   const records = useStore(s => s.records);
   const stats = useStore(s => s.stats);
   const sellers = useStore(s => s.sellers);
-  const dupes = useStore(s => s.dupes);
   const record = id ? records.find(r => r.id === id) : undefined;
   const [category, setCategory] = React.useState<Category>('arsa');
   React.useEffect(() => { if (record) setCategory(record.category === 'belirsiz' ? 'arsa' : record.category); }, [record?.id, record?.category]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -95,11 +93,7 @@ export function DetailSheet() {
         const place = [r.location?.neighborhood, r.location?.district, r.location?.city].filter(Boolean).join(', ');
         const pick = (...keys: string[]) => { for (const key of keys) for (const [k, v] of Object.entries(r.rawDetails || {})) if (k.toLocaleLowerCase('tr-TR').replace(/\s/g, '') === key.toLocaleLowerCase('tr-TR').replace(/\s/g, '') && v) return String(v); return ''; };
         const adaParsel = pick('Ada/Parsel No', 'Ada / Parsel', 'Ada/Parsel') || [pick('Ada No'), pick('Parsel No')].filter(Boolean).join(' / ');
-        const url = safeUrl(r.url), twins = (dupes.get(r.id) || []).map(other => records.find(x => x.id === other)).filter(Boolean) as ListingRecord[];
-        async function completeDetail() {
-          try { await runtime('ILAN_COMPLETE_DETAILS', {urls: [r.url], category: 'all'}); toast('İlanın detay sayfası sıraya alındı; telefon ve açıklama birazdan eklenecek.'); }
-          catch (error) { toast((error as Error).message, true); }
-        }
+        const url = safeUrl(r.url);
         async function saveCategory() {
           try { await DB().setCategory(r.id, category); await refresh(); toast('Kategori güncellendi. Kayıt ilgili arşive taşındı.'); } catch (error) { toast((error as Error).message, true); }
         }
@@ -119,7 +113,6 @@ export function DetailSheet() {
             <p className="mt-1.5 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="size-3.5" />{locationText(r) || 'Konum belirtilmemiş'}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {url && <a href={url} target="_blank" rel="noopener noreferrer" className={buttonVariants({size: 'sm'})}><ExternalLink />Kaynak ilanı aç</a>}
-              {r.detailStatus === 'list' && !isDeleted(r) && <Button size="sm" variant="outline" onClick={completeDetail} data-testid="detail-complete"><PhoneCall />Detayı ve telefonu tamamla</Button>}
               <Button size="sm" variant="outline" onClick={toggleDeleted}>{isDeleted(r) ? <><Undo2 />Arşive geri al</> : <><Trash2 />Çöp kutusuna taşı</>}</Button>
             </div>
             {(isReview(r) || warnings.length > 0) && (
@@ -141,18 +134,6 @@ export function DetailSheet() {
                   {sellerTotal > 1 && <p className="text-xs text-muted-foreground">Bu satıcının arşivde {sellerTotal} ilanı var (aynı telefon).</p>}
                 </div>
               </Block>
-              {twins.length > 0 && (
-                <Block title="Aynı mülk başka ilanlarda">
-                  <p className="mb-2 text-xs text-muted-foreground">Konum, alan ve fiyatı (veya telefonu ve alanı) aynı olan ilanlar. Aynı mülkün farklı sitelerde ya da yeniden yayınlanmış hâli olabilir.</p>
-                  <ul className="flex flex-col gap-1.5" data-testid="detail-duplicates">
-                    {twins.map(t => (
-                      <li key={t.id} className="flex items-center gap-2 text-sm"><Copy className="size-3.5 text-muted-foreground" /><SourceBadge source={t.source} />
-                        <button type="button" className="truncate text-left hover:text-primary hover:underline" onClick={() => openDetail(t.id)}>{t.title || t.listingId}</button>
-                        <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">{money(t)}</span></li>
-                    ))}
-                  </ul>
-                </Block>
-              )}
               <CrmBlock record={r} />
               <Block title="Yayın durumu ve bildirim">
                 <AvailabilityBadge record={r} />
@@ -198,7 +179,7 @@ export function DetailSheet() {
                   <Button variant="outline" onClick={saveCategory}>Kategoriyi doğrula</Button>
                 </div>
               </Block>
-              <p className="border-t pt-4 text-xs text-muted-foreground">{r.detailStatus === 'list' ? 'Liste sayfasından kaydedildi (detay açılmadı)' : 'Detay sayfasından kaydedildi'} · Kaydedilme: {formatDate(r.capturedAt)} · Arşiv güncellemesi: {formatDate(r.updatedAt)}</p>
+              <p className="border-t pt-4 text-xs text-muted-foreground">Kaydedilme: {formatDate(r.capturedAt)} · Arşiv güncellemesi: {formatDate(r.updatedAt)}</p>
             </div>
           </SheetContent>
         );

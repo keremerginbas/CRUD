@@ -162,34 +162,6 @@ vm.runInContext(`
   assert.equal(telegramCalls.filter(call => call.method === 'sendMessage').length, 1);
   assert.equal(String(telegramCalls.find(call => call.method === 'sendMessage').body.chat_id), TEST_CHAT);
 
-  // 3.2: one crawler per site. Two sites run side by side; commands can target one site.
-  for (const site of ['sahibinden', 'hepsiemlak', 'emlakjet', 'arabam']) await context.testRuntime('ILAN_STOP', {source: site}).catch(() => {});
-  const [hepsi, jet] = await Promise.all([
-    context.testRuntime('ILAN_START', {...formPayload, searchUrl: 'https://www.hepsiemlak.com/ankara-satilik/arsa'}),
-    context.testRuntime('ILAN_START', {...formPayload, searchUrl: 'https://www.emlakjet.com/satilik-arsa/ankara', category: 'arsa'})]);
-  assert.equal(hepsi.job.source, 'hepsiemlak'); assert.equal(jet.job.source, 'emlakjet');
-  assert.equal(hepsi.job.status, 'running'); assert.equal(jet.job.status, 'running');
-  await assert.rejects(context.testRuntime('ILAN_START', {...formPayload, searchUrl: 'https://www.emlakjet.com/satilik-konut/ankara'}), /Mevcut işi önce durdurun/, 'a second crawl on the same site is refused');
-  let status = await context.testRuntime('ILAN_STATUS');
-  assert.deepEqual([...status.jobs.filter(j => j.status === 'running').map(j => j.source)].sort(), ['emlakjet', 'hepsiemlak']);
-  assert.equal((await context.testRuntime('ILAN_PAUSE', {source: 'emlakjet'})).job.status, 'paused');
-  status = await context.testRuntime('ILAN_STATUS');
-  assert.equal(status.jobs.find(j => j.source === 'hepsiemlak').status, 'running', 'pausing one site leaves the other running');
-  const stopAll = await context.testRuntime('ILAN_STOP');
-  assert.ok(stopAll.jobs.every(j => j.status === 'stopped'));
-  assert.equal(storage['ilan5.job.v2'], undefined, 'legacy single-job key is no longer written');
-
-  // Detail completion splits list-only listings per site and starts one link job per site.
-  const completion = await context.testRuntime('ILAN_COMPLETE_DETAILS', {urls: [
-    'https://www.emlakjet.com/ilan/satilik-arsa-19990109', 'https://www.arabam.com/ilan/sahibinden-satilik-renault/clio/44985286',
-    'https://www.emlakjet.com/ilan/satilik-arsa-19990110', 'not a link']});
-  assert.deepEqual([...completion.started.map(s => s.site + ':' + s.count)].sort(), ['arabam:1', 'emlakjet:2']);
-  status = await context.testRuntime('ILAN_STATUS');
-  assert.equal(status.jobs.find(j => j.source === 'emlakjet').mode, 'links');
-  const busySite = await context.testRuntime('ILAN_COMPLETE_DETAILS', {urls: ['https://www.emlakjet.com/ilan/satilik-arsa-19990111']}).catch(error => ({error: error.message}));
-  assert.match(String(busySite.error), /zaten çalışan bir tarama/);
-  await context.testRuntime('ILAN_STOP');
-
   sender = {id: 'test-extension', url: 'chrome-extension://test-extension/popup.html'};
   assert.equal((await context.testRuntime('ILAN_STATUS')).ok, true);
   assert.equal((await context.testRuntime('ILAN_MONITOR_STATUS')).ok, true);

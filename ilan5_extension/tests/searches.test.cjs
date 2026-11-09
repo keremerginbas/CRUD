@@ -100,26 +100,3 @@ test('thrown start failure is visible and rescheduled without requiring worker r
   const response=await h.scheduler.handle({type:'ILAN_SEARCH_RUN',id:saved.search.id});assert.equal(response.ok,false);
   const [item]=await h.items();assert.equal(item.lastStatus,'error');assert.ok(item.nextRunAt);
 });
-
-test('with one engine per site, due searches of different sites start in the same tick; a busy site waits alone', async () => {
-  const state = {}, alarms = new Map(), starts = [], jobs = [];
-  let now = Date.parse('2026-11-08T09:00:00Z');
-  const api = {storage: {local: {get: async key => ({[key]: clone(state[key])}), set: async data => Object.assign(state, clone(data))}},
-    alarms: {create: async (name, value) => alarms.set(name, clone(value)), clear: async name => alarms.delete(name)}};
-  const scheduler = Search.createScheduler(api, core, {getJobs: async () => clone(jobs), canStart: async () => true,
-    startSearch: async payload => { starts.push(clone(payload)); const job = {id: 'job-' + starts.length, status: 'running', source: core.sourceFor(payload.searchUrl), searchId: payload.searchId}; jobs.push(job); return {ok: true, job: clone(job)}; }}, {now: () => now});
-  const save = url => scheduler.handle({type: 'ILAN_SEARCH_SAVE', searchUrl: url, category: 'all', intervalMinutes: 60, enabled: true});
-  jobs.push({id: 'busy', status: 'running', source: 'arabam', searchId: 'manual'});
-  await save('https://www.sahibinden.com/satilik-arsa/ankara');
-  await save('https://www.emlakjet.com/satilik-arsa/ankara');
-  await save('https://www.arabam.com/ikinci-el/otomobil-sahibinden');
-  await save('https://www.sahibinden.com/satilik-arsa/izmir');
-  now += 1000;
-  await scheduler.onAlarm({name: Search.ALARM});
-  const sites = starts.map(s => core.sourceFor(s.searchUrl)).sort();
-  assert.deepEqual(sites, ['emlakjet', 'sahibinden'], 'one search per idle site; arabam waits for its running crawl');
-  const items = (await scheduler.handle({type: 'ILAN_SEARCH_STATUS'})).searches;
-  const arabam = items.find(i => i.searchUrl.includes('arabam'));
-  assert.equal(arabam.lastStatus, 'waiting');
-  assert.equal(items.filter(i => i.searchUrl.includes('sahibinden') && i.lastStatus === 'running').length, 1, 'the second Sahibinden search waits for the first');
-});

@@ -35,8 +35,6 @@ export interface ListingRecord {
   lists?: string[];
   crm?: {status: CrmStatus; note: string; updatedAt?: string};
   messagedAt?: string | null;
-  detailStatus?: 'list' | 'full';
-  listedAt?: string;
 }
 export interface Monitoring {
   status?: 'active' | 'suspected' | 'removed' | 'unknown' | 'blocked' | 'error';
@@ -60,7 +58,6 @@ interface CoreApi {
   formatMoney(price: number | null, currency?: string): string;
   marketStats(records: ListingRecord[]): Map<string, MarketStat>;
   sellerCounts(records: ListingRecord[]): Map<string, number>;
-  duplicateGroups(records: ListingRecord[]): {groups: string[][]; byId: Map<string, number>};
   sellerListingCount(record: ListingRecord, counts: Map<string, number>): number;
   pricePerArea(record: ListingRecord): number | null;
 }
