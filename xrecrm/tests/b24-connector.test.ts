@@ -12,7 +12,7 @@ import { dueReports, DEFAULT_REPORTS, setTelegramFetch } from "../server/b24-liv
 import { panelHtml } from "../server/b24-panel-html";
 import { localizeMessage } from "../server/b24-i18n";
 import { normalizeRecipient, setCampaignGap, setMetaFetch } from "../server/b24-campaigns";
-import { getPricing, revenueMetrics, runBillingReminders, setOwnerNotifyFetch, DEFAULT_PRICING } from "../server/b24-billing";
+import { getPricing, licenseForConnect, revenueMetrics, runBillingReminders, setOwnerNotifyFetch, DEFAULT_PRICING } from "../server/b24-billing";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -195,6 +195,32 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await syncConnectorWebhooks(store);
     const hookSet = evo.find((c) => c.url === `/webhook/set/${instance}`);
     expect(hookSet?.body.webhook.events).toEqual(expect.arrayContaining(["MESSAGES_UPSERT", "MESSAGES_SET", "CHATS_SET"]));
+  });
+
+  it("deneme numara başına bir kez: yeni kanal ya da başka portal yeni deneme vermez, ödenmiş lisans yeni kanala taşınır", async () => {
+    const store = createMemoryStore();
+    const now = Date.now();
+    const day = 86_400_000;
+    const portal = (lines: Record<string, any>, id = "p1") => ({ id, domain: `${id}.bitrix24.com`, active: true, lines }) as any;
+    // İlk bağlantı: deneme başlar ve numaraya yazılır
+    const first = await licenseForConnect(store, portal({ "1": { instance: "a" } }), "1", "905551110000", now);
+    expect(first).toMatchObject({ trialDays: 3 });
+    // Aynı numara başka kanalda / başka portalda: aynı deneme başlangıcı devralınır
+    const again = await licenseForConnect(store, portal({ "2": { instance: "b" } }, "p2"), "2", "+90 555 111 00 00", now + 5 * day);
+    expect(again!.trialStart).toBe(first!.trialStart);
+    // Farklı numara yeni deneme alır
+    expect((await licenseForConnect(store, portal({ "3": { instance: "c" } }), "3", "905552220000", now + 5 * day))!.trialStart).not.toBe(first!.trialStart);
+    // Kayıttan önce başlamış eski deneme de bulunur
+    const oldStart = new Date(now - 20 * day).toISOString();
+    await store.put("b24-portal", "p9", portal({ "7": { instance: "x", phone: "905553330000", license: { trialStart: oldStart } } }, "p9"), "b24-connector");
+    expect((await licenseForConnect(store, portal({ "8": { instance: "y" } }), "8", "905553330000", now))!.trialStart).toBe(oldStart);
+    // Aynı portalda ödenmiş lisans yeni kanala taşınır
+    const paidUntil = new Date(now + 30 * day).toISOString();
+    const moved = await licenseForConnect(store, portal({ "4": { instance: "d", phone: "905554440000", license: { trialStart: oldStart, paidUntil, plan: "pro" } }, "5": { instance: "e" } }), "5", "905554440000", now);
+    expect(moved).toMatchObject({ paidUntil, plan: "pro" });
+    // Kanalın kendi lisansı varsa dokunulmaz
+    const own = { trialStart: oldStart, trialDays: 3 };
+    expect(await licenseForConnect(store, portal({ "6": { instance: "f", license: own } }), "6", "905551110000", now)).toBe(own);
   });
 
   it("deneme süresi varsayılan 3 gün; eski 7 günlük kayıt yeni varsayılana döner, yönetimden seçilen korunur", async () => {

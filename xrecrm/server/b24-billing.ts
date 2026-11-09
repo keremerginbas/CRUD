@@ -196,6 +196,65 @@ export function withTrialStarted(line: B24Line | undefined, trialDays: number): 
   return { ...(line?.license || {}), trialStart: new Date().toISOString(), trialDays };
 }
 
+// --- Deneme numara başına bir kez -----------------------------------------------
+// Deneme kanala değil WhatsApp numarasına bağlıdır: yeni kanal açmak, uygulamayı
+// kaldırıp yeniden kurmak ya da başka portalda okutmak yeni deneme vermez.
+export const TRIAL_KIND = "b24-trial";
+interface TrialRecord {
+  phone: string;
+  trialStart: string;
+  trialDays?: number;
+  memberId: string;
+  line: string;
+}
+const trialPhone = (phone: unknown) => String(phone || "").replace(/\D/g, "");
+
+/** Numara bağlanırken o kanalın lisansı: varsa korunur, yoksa numaranın denemesi devralınır ya da başlar. */
+export async function licenseForConnect(store: Store, portal: B24Portal, line: string, phone: string, now = Date.now()): Promise<B24Line["license"]> {
+  const known = portal.lines[line];
+  if (known?.license?.trialStart || known?.license?.paidUntil) return known.license;
+  const { trialDays } = await getPricing(store);
+  const digits = trialPhone(phone);
+  if (digits.length < 8) return withTrialStarted(known, trialDays);
+  // Aynı portalda bu numaranın ödenmiş lisansı varsa yeni kanala taşınır.
+  const paidTwin = Object.entries(portal.lines || {}).find(
+    ([id, l]) => id !== line && trialPhone(l.phone) === digits && l.license?.paidUntil && Date.parse(l.license.paidUntil) > now,
+  )?.[1];
+  if (paidTwin?.license) return { ...(known?.license || {}), ...paidTwin.license, notified: undefined };
+  let record = (await store.get<TrialRecord>(TRIAL_KIND, digits, SYSTEM_OWNER))?.payload;
+  if (!record) {
+    // Bu kayıttan önce başlamış denemeler: tüm portallarda aynı numarayı ara.
+    for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {
+      for (const [id, l] of Object.entries(row.payload.lines || {})) {
+        if (row.payload.id === portal.id && id === line) continue;
+        if (trialPhone(l.phone) !== digits || !l.license?.trialStart) continue;
+        if (!record || Date.parse(l.license.trialStart) < Date.parse(record.trialStart))
+          record = { phone: digits, trialStart: l.license.trialStart, trialDays: l.license.trialDays, memberId: row.payload.id, line: id };
+      }
+    }
+  }
+  if (record) {
+    await store.put(TRIAL_KIND, digits, record, SYSTEM_OWNER);
+    return { ...(known?.license || {}), trialStart: record.trialStart, ...(record.trialDays ? { trialDays: record.trialDays } : {}) };
+  }
+  const license = withTrialStarted(known, trialDays)!;
+  await store.put(TRIAL_KIND, digits, { phone: digits, trialStart: license.trialStart!, trialDays, memberId: portal.id, line }, SYSTEM_OWNER);
+  return license;
+}
+
+/** Var olan denemeleri numara kaydına yazar (kaldırılan portallarda numara bilgisi silindiği için). */
+export async function seedTrialRecords(store: Store) {
+  for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {
+    for (const [id, l] of Object.entries(row.payload.lines || {})) {
+      const digits = trialPhone(l.phone);
+      if (digits.length < 8 || !l.license?.trialStart) continue;
+      const found = (await store.get<TrialRecord>(TRIAL_KIND, digits, SYSTEM_OWNER))?.payload;
+      if (found && Date.parse(found.trialStart) <= Date.parse(l.license.trialStart)) continue;
+      await store.put(TRIAL_KIND, digits, { phone: digits, trialStart: l.license.trialStart, trialDays: l.license.trialDays, memberId: row.payload.id, line: id }, SYSTEM_OWNER);
+    }
+  }
+}
+
 /** Seçilen numaralara ay ekler: mevcut lisans, deneme bitişi veya bugünden hangisi ileriyse oradan. */
 export function extendLines(portal: B24Portal, lines: string[], months: number, trialDays: number, plan: PlanId = "proplus"): B24Portal {
   const now = Date.now();
@@ -294,6 +353,7 @@ export async function runBillingReminders(store: Store, now = Date.now()) {
 let reminderTimer: NodeJS.Timeout | null = null;
 export function startBillingReminders(store: Store) {
   if (reminderTimer) return;
+  void seedTrialRecords(store).catch((e) => console.warn("Deneme kayıtları:", (e as Error).message));
   const tick = () => void runBillingReminders(store).catch((e) => console.warn("Lisans hatırlatmaları:", (e as Error).message));
   reminderTimer = setInterval(tick, 60 * 60_000);
   reminderTimer.unref?.();

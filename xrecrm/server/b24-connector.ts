@@ -17,7 +17,7 @@ import { alreadySent, appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, c
 import { logRestCall } from "./b24-restlog.js";
 import { registerLegalRoutes } from "./b24-legal.js";
 import { adminHtml } from "./b24-admin-html.js";
-import { getPricing, licenseState, lineUsable, notifyOwner, planOf, portalPlan, registerBillingPanelRoutes, requireFeature, withTrialStarted } from "./b24-billing.js";
+import { getPricing, licenseForConnect, licenseState, lineUsable, notifyOwner, planOf, portalPlan, registerBillingPanelRoutes, requireFeature } from "./b24-billing.js";
 import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
 export { panelHtml };
 import type { Store } from "./db.js";
@@ -794,7 +794,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
           phone: phone || previous?.phone,
           profileName: open && data?.profileName ? String(data.profileName).slice(0, 120) : previous?.profileName,
           connectedAt: open ? (previous?.status === "connected" && previous?.connectedAt) || new Date().toISOString() : previous?.connectedAt,
-          license: open ? withTrialStarted(previous, (await getPricing(store)).trialDays) : previous?.license,
+          license: open ? await licenseForConnect(store, portal, map.line, phone || previous?.phone || "") : previous?.license,
           status: open ? "connected" : state || "disconnected",
           updatedAt: new Date().toISOString(),
         },
@@ -1120,7 +1120,7 @@ async function connectionStatus(store: Store, portal: B24Portal, line: string) {
       ...portal,
       lines: {
         ...portal.lines,
-        [line]: { ...known, instance, phone: owner.phone || known?.phone, profileName: owner.profileName || known?.profileName, connectedAt: known?.connectedAt || new Date().toISOString(), license: withTrialStarted(known, (await getPricing(store)).trialDays), status: "connected", updatedAt: new Date().toISOString() },
+        [line]: { ...known, instance, phone: owner.phone || known?.phone, profileName: owner.profileName || known?.profileName, connectedAt: known?.connectedAt || new Date().toISOString(), license: await licenseForConnect(store, portal, line, owner.phone || known?.phone || ""), status: "connected", updatedAt: new Date().toISOString() },
       },
     };
     await savePortal(store, next);
