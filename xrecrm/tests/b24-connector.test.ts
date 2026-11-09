@@ -5,7 +5,7 @@ import path from "node:path";
 import http from "node:http";
 import { createApp } from "../server/app";
 import { createMemoryStore } from "../server/db";
-import { CONNECTOR_ID, checkLineHealth, instanceName, portalById, setB24Fetch, setPhoneEchoDelay, settingsTicket, syncConnectorWebhooks } from "../server/b24-connector";
+import { CONNECTOR_ID, checkLineHealth, instanceName, portalById, setB24Fetch, setLidResolveDelay, setPhoneEchoDelay, settingsTicket, syncConnectorWebhooks } from "../server/b24-connector";
 import { setAiFetch } from "../server/b24-ai";
 import { inWorkingHours, setAgentMergeDelay, DEFAULT_AGENT } from "../server/b24-agent";
 import { dueReports, DEFAULT_REPORTS, setTelegramFetch } from "../server/b24-live";
@@ -56,8 +56,9 @@ async function setup(opts: { evoState?: string } = {}) {
       res.writeHead(200, { "content-type": "application/json" });
       if (req.url?.startsWith("/instance/connectionState")) return res.end(JSON.stringify({ instance: { state: opts.evoState || "close" } }));
       if (req.url?.startsWith("/chat/whatsappNumbers")) {
-        const n = JSON.parse(raw || "{}").numbers?.[0];
-        return res.end(JSON.stringify([{ exists: true, jid: `${n}@s.whatsapp.net`, number: n, ...(n === "905559990000" ? { lid: "777000111222@lid" } : {}) }]));
+        const lids: Record<string, string> = { "905559990000": "777000111222@lid", "905301110006": "444555666777@lid" };
+        const numbers: string[] = JSON.parse(raw || "{}").numbers || [];
+        return res.end(JSON.stringify(numbers.map((n) => ({ exists: true, jid: `${n}@s.whatsapp.net`, number: n, ...(lids[n] ? { lid: lids[n] } : {}) }))));
       }
       if (req.url?.startsWith("/chat/getBase64FromMediaMessage")) return res.end(JSON.stringify({ base64: Buffer.from("OggS-ses").toString("base64") }));
       if (req.url?.startsWith("/instance/fetchInstances"))
@@ -121,6 +122,7 @@ async function install(base: string) {
 describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
   it("bağlanınca WhatsApp geçmişini içe aktarır, telefondan yazılanları gösterir, listede tüm sohbetlerde arar", async () => {
     setPhoneEchoDelay(0);
+    setLidResolveDelay(0);
     const { store, base, bx, evo } = await setup({ evoState: "open" });
     await install(base);
     await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
@@ -132,13 +134,20 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     // Bağlantı anında WhatsApp sohbet listesini ve son mesajları gönderir
     await post({
       event: "chats.set",
-      data: [{ remoteJid: "905301110001@s.whatsapp.net", name: "Zeynep Kaya" }, { remoteJid: "120363000@g.us", name: "Aile grubu" }, { remoteJid: "status@broadcast" }],
+      data: [
+        { remoteJid: "905301110001@s.whatsapp.net", name: "Zeynep Kaya" },
+        { remoteJid: "905301110006@s.whatsapp.net", name: "Can Demir" },
+        { remoteJid: "120363000@g.us", name: "Aile grubu" },
+        { remoteJid: "status@broadcast" },
+      ],
     });
     const history = [
       { key: { id: "H1", remoteJid: "905301110002@s.whatsapp.net", fromMe: false }, pushName: "Mehmet", messageTimestamp: 1760000000, message: { conversation: "Eski soru" } },
       { key: { id: "H2", remoteJid: "905301110002@s.whatsapp.net", fromMe: true }, pushName: "Firma", messageTimestamp: 1760000100, message: { conversation: "Eski cevap" } },
       { key: { id: "H3", remoteJid: "905301110002@s.whatsapp.net", fromMe: false }, messageTimestamp: 1760000200, message: { imageMessage: { mimetype: "image/jpeg" } } },
       { key: { id: "H4", remoteJid: "555000111@lid", remoteJidAlt: "905301110005@s.whatsapp.net", fromMe: false }, pushName: "Selin", messageTimestamp: 1760000300, message: { conversation: "Gizli kimlikle" } },
+      // Numarası verilmeyen gizli kimlik: bilinen numaralar sorulunca Can Demir'in sohbetiyle birleşir
+      { key: { id: "H5", remoteJid: "444555666777@lid", fromMe: false }, pushName: "Can", messageTimestamp: 1760000400, message: { conversation: "Numarasız geçmiş" } },
     ];
     await post({ event: "messages.set", data: history });
     await post({ event: "messages.set", data: { messages: history } }); // tekrar gelirse çoğalmaz
@@ -158,7 +167,8 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(byPhone("905301110001")).toMatchObject({ name: "Zeynep Kaya" });
     expect(byPhone("905301110002")).toMatchObject({ name: "Mehmet", lastText: "📷 Görsel", lastAt: 1760000200000 });
     expect(byPhone("905301110005")).toMatchObject({ name: "Selin" });
-    expect(list.threads.some((x: any) => x.phone.endsWith("@g.us") || x.phone.includes("broadcast"))).toBe(false);
+    expect(list.threads.some((x: any) => x.phone.endsWith("@g.us") || x.phone.includes("broadcast") || x.phone.endsWith("@lid"))).toBe(false);
+    expect(byPhone("905301110006")).toMatchObject({ name: "Can Demir", lastText: "Numarasız geçmiş" });
     const old = await api("messages", { line: "3", phone: "905301110002" });
     expect(old.messages.map((m: any) => [m.dir, m.text, m.via || ""])).toEqual([
       ["in", "Eski soru", ""],
@@ -189,7 +199,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
       await store.put("b24-chat", `${MEMBER}:3:9053900000${String(i).padStart(2, "0")}`, { id: `${MEMBER}:3:9053900000${String(i).padStart(2, "0")}`, memberId: portal.id, line: "3", phone: `9053900000${String(i).padStart(2, "0")}`, name: "", inbound: 1, outbound: 0, sinceQualify: 0, history: [] }, "b24-connector");
     const page = await api("threads", { limit: 50 });
     expect(page.threads).toHaveLength(50);
-    expect(page.total).toBe(64);
+    expect(page.total).toBe(65);
 
     // Var olan numaraların webhook ayarına geçmiş olayları eklenir
     await syncConnectorWebhooks(store);

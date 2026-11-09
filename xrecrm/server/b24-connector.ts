@@ -13,7 +13,7 @@ import { onCustomerMessage, registerAgentPanelRoutes, type AgentConfig } from ".
 import { registerLivePanelRoutes, type ReportSettings } from "./b24-live.js";
 import { CAMPAIGN_KIND, registerCampaignRoutes } from "./b24-campaigns.js";
 import { langOf, localizeMessage, normLang, pick, type Lang } from "./b24-i18n.js";
-import { alreadySent, appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, mergeThread, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
+import { alreadySent, appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, mergeLidChat, mergeThread, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
 import { logRestCall } from "./b24-restlog.js";
 import { registerLegalRoutes } from "./b24-legal.js";
 import { adminHtml } from "./b24-admin-html.js";
@@ -523,9 +523,63 @@ export async function learnLid(store: Store, portal: B24Portal, line: string, ph
   try {
     const res = await evolution(`/chat/whatsappNumbers/${encodeURIComponent(instance)}`, { method: "POST", body: JSON.stringify({ numbers: [phone] }) });
     const lid = findJid(res, "@lid");
-    if (lid) await saveLidPhone(store, portal.id, line, `${lid.split("@")[0].replace(/\D/g, "")}@lid`, phone);
+    if (lid) {
+      const lidId = `${lid.split("@")[0].replace(/\D/g, "")}@lid`;
+      await saveLidPhone(store, portal.id, line, lidId, phone);
+      // Bu kişiyle daha önce gizli kimlikle açılmış sohbet varsa birleştir.
+      const hidden = (await store.get<B24Chat>(CHAT_KIND, chatId(portal.id, line, lidId), SYSTEM_OWNER))?.payload;
+      if (hidden) await mergeLidChat(store, hidden, phone);
+    }
   } catch {
     lidLookups.delete(cacheKey);
+  }
+}
+
+/**
+ * Gizli kimlikli (…@lid) sohbetleri gerçek numaraya bağlar. WhatsApp gizli kimliğin
+ * numarasını vermez ama numaranın gizli kimliğini verir: portalda bilinen tüm
+ * numaralar toplu sorulur, eşleşen sohbetler numaralı sohbetle birleştirilir.
+ */
+const lidChecked = new Set<string>();
+export async function resolveLidChats(store: Store, portal: B24Portal, line: string) {
+  const instance = portal.lines[line]?.instance;
+  const chats = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((c) => c.memberId === portal.id);
+  const hidden = chats.filter((c) => c.line === line && c.phone.endsWith("@lid"));
+  if (!hidden.length || !instance || portal.lines[line]?.status !== "connected") return { matched: 0, left: hidden.length };
+  const own = portal.lines[line]?.phone || "";
+  const candidates = [...new Set(chats.map((c) => c.phone).filter((p) => /^\d{8,15}$/.test(p) && p !== own && !lidChecked.has(`${portal.id}:${line}:${p}`)))];
+  for (let i = 0; i < candidates.length; i += 50) {
+    const chunk = candidates.slice(i, i + 50);
+    try {
+      const res = await evolution(`/chat/whatsappNumbers/${encodeURIComponent(instance)}`, { method: "POST", body: JSON.stringify({ numbers: chunk }) });
+      for (const item of Array.isArray(res) ? res : []) {
+        const lid = findJid(item, "@lid");
+        const pn = findJid(item, "@s.whatsapp.net");
+        const phone = normalizePhone(pn ? pn.split("@")[0] : String(item?.number || ""));
+        if (lid && phone && chunk.includes(phone)) await saveLidPhone(store, portal.id, line, `${lid.split("@")[0].replace(/\D/g, "")}@lid`, phone);
+      }
+      for (const p of chunk) lidChecked.add(`${portal.id}:${line}:${p}`);
+    } catch (error) {
+      console.warn("Gizli numaralar sorgulanamadı:", (error as Error).message);
+      break;
+    }
+  }
+  let matched = 0;
+  for (const chat of hidden) {
+    const phone = await lidPhone(store, portal.id, line, chat.phone);
+    if (!phone) continue;
+    await mergeLidChat(store, chat, phone);
+    matched += 1;
+  }
+  if (matched || hidden.length) console.info(`WhatsApp by XRE: ${portal.domain} hat ${line}: ${matched} gizli numaralı sohbet numarayla eşleşti, ${hidden.length - matched} eşleşmedi.`);
+  return { matched, left: hidden.length - matched };
+}
+
+/** Açılışta: önceden kalmış gizli numaralı sohbetleri eşleştirmeyi dener. */
+async function resolveAllLidChats(store: Store) {
+  for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {
+    if (!row.payload.active) continue;
+    for (const line of Object.keys(row.payload.lines || {})) await resolveLidChats(store, row.payload, line).catch(() => undefined);
   }
 }
 
@@ -679,6 +733,13 @@ export async function importHistory(store: Store, portal: B24Portal, line: strin
   return count;
 }
 
+const lidTimers = new Map<string, NodeJS.Timeout>();
+let lidResolveDelay = 30_000;
+/** Testler için: geçmiş aktarımı bittikten sonra gizli numara eşleştirmesinin bekleme süresi. */
+export function setLidResolveDelay(ms: number) {
+  lidResolveDelay = ms;
+}
+
 let phoneEchoDelay = 4000;
 /** Testler için: kendi gönderimimizin yankısını beklerken kullanılan süre. */
 export function setPhoneEchoDelay(ms: number) {
@@ -776,6 +837,12 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   // Bağlantı anındaki WhatsApp geçmişi: sohbet listesine ve yazışmalara eklenir.
   if (event === "messages.set" || event === "chats.set") {
     await queued(instance, () => importHistory(store, portal!, map.line, event, data));
+    // Geçmişte gizli kimlikle gelen sohbetleri numaralarıyla birleştir (son gruptan sonra bir kez).
+    clearTimeout(lidTimers.get(instance));
+    lidTimers.set(
+      instance,
+      setTimeout(() => void queued(instance, async () => resolveLidChats(store, (await portalById(store, portal!.id)) || portal!, map.line)).catch(() => undefined), lidResolveDelay),
+    );
     return;
   }
 
@@ -1166,7 +1233,13 @@ export async function refreshLines(store: Store, portal: B24Portal, lines: strin
 let healthTimer: NodeJS.Timeout | null = null;
 export function startLineHealthMonitor(store: Store) {
   if (healthTimer) return;
-  setTimeout(() => void syncConnectorWebhooks(store).catch((e) => console.warn("Webhook ayarı güncellenemedi:", (e as Error).message)), 20_000).unref?.();
+  setTimeout(
+    () =>
+      void syncConnectorWebhooks(store)
+        .then(() => resolveAllLidChats(store))
+        .catch((e) => console.warn("Webhook ayarı güncellenemedi:", (e as Error).message)),
+    20_000,
+  ).unref?.();
   healthTimer = setInterval(() => {
     void (async () => {
       for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {

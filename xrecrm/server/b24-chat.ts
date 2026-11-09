@@ -89,6 +89,27 @@ export async function mergeThread(store: Store, chat: Pick<B24Chat, "id" | "memb
   return fresh;
 }
 
+/** Gizli kimlikli (…@lid) sohbeti gerçek numaralı sohbetle birleştirir ve gizli kaydı siler. */
+export async function mergeLidChat(store: Store, lidChat: B24Chat, target: string): Promise<B24Chat> {
+  await saveLidPhone(store, lidChat.memberId, lidChat.line, lidChat.phone, target);
+  const main = await loadChat(store, lidChat.memberId, lidChat.line, target, lidChat.name);
+  main.name = main.name || lidChat.name;
+  main.history = [...main.history, ...lidChat.history].sort((a, b) => a.at - b.at);
+  main.inbound += lidChat.inbound;
+  main.outbound += lidChat.outbound;
+  main.lang = main.lang || lidChat.lang;
+  main.lastInboundAt = Math.max(main.lastInboundAt || 0, lidChat.lastInboundAt || 0) || undefined;
+  main.lastOutboundAt = Math.max(main.lastOutboundAt || 0, lidChat.lastOutboundAt || 0) || undefined;
+  main.waitingSince = lidChat.waitingSince ?? main.waitingSince;
+  main.createdAt = Math.min(main.createdAt || Date.now(), lidChat.createdAt || Date.now());
+  await saveChat(store, main);
+  const lidThread = (await store.get<Thread>(THREAD_KIND, lidChat.id, SYSTEM_OWNER))?.payload;
+  if (lidThread?.messages.length) await mergeThread(store, main, lidThread.messages);
+  await store.delete(THREAD_KIND, lidChat.id, SYSTEM_OWNER).catch(() => undefined);
+  await store.delete(CHAT_KIND, lidChat.id, SYSTEM_OWNER).catch(() => undefined);
+  return main;
+}
+
 /** Son 2 dakikada bu mesaj zaten sistemden (Bitrix, sohbet ekranı, AI) gönderildi mi? */
 export async function alreadySent(store: Store, chatKey: string, waId: string, text: string, now = Date.now()) {
   const thread = (await store.get<Thread>(THREAD_KIND, chatKey, SYSTEM_OWNER))?.payload;
@@ -303,26 +324,7 @@ export function registerChatRoutes(app: Express, store: Store) {
       if (!lidChat.phone.endsWith("@lid")) fail(400, "Bu sohbet zaten bir numaraya bağlı.");
       const target = toWa(body.target);
       if (!target || target.endsWith("@lid")) fail(400, "Geçerli bir telefon numarası girin.");
-      await saveLidPhone(store, ctx.portal.id, lidChat.line, lidChat.phone, target);
-      const main = await loadChat(store, ctx.portal.id, lidChat.line, target, lidChat.name);
-      main.name = main.name || lidChat.name;
-      main.history = [...main.history, ...lidChat.history].sort((a, b) => a.at - b.at);
-      main.inbound += lidChat.inbound;
-      main.outbound += lidChat.outbound;
-      main.lang = main.lang || lidChat.lang;
-      main.lastInboundAt = Math.max(main.lastInboundAt || 0, lidChat.lastInboundAt || 0) || undefined;
-      main.lastOutboundAt = Math.max(main.lastOutboundAt || 0, lidChat.lastOutboundAt || 0) || undefined;
-      main.waitingSince = lidChat.waitingSince ?? main.waitingSince;
-      main.createdAt = Math.min(main.createdAt || Date.now(), lidChat.createdAt || Date.now());
-      await saveChat(store, main);
-      const lidThread = (await store.get<Thread>(THREAD_KIND, lidChat.id, SYSTEM_OWNER))?.payload;
-      if (lidThread?.messages.length) {
-        const mainThread = (await store.get<Thread>(THREAD_KIND, main.id, SYSTEM_OWNER))?.payload || { id: main.id, memberId: main.memberId, line: main.line, phone: main.phone, messages: [] };
-        mainThread.messages = [...mainThread.messages, ...lidThread.messages].sort((a, b) => a.at - b.at).slice(-THREAD_MAX);
-        await store.put(THREAD_KIND, main.id, mainThread, SYSTEM_OWNER);
-      }
-      await store.delete(THREAD_KIND, lidChat.id, SYSTEM_OWNER).catch(() => undefined);
-      await store.delete(CHAT_KIND, lidChat.id, SYSTEM_OWNER).catch(() => undefined);
+      const main = await mergeLidChat(store, lidChat, target);
       return { line: main.line, phone: main.phone, name: main.name };
     }),
   );

@@ -237,7 +237,7 @@ export async function licenseForConnect(store: Store, portal: B24Portal, line: s
     await store.put(TRIAL_KIND, digits, record, SYSTEM_OWNER);
     return { ...(known?.license || {}), trialStart: record.trialStart, ...(record.trialDays ? { trialDays: record.trialDays } : {}) };
   }
-  const license = withTrialStarted(known, trialDays)!;
+  const license: NonNullable<B24Line["license"]> = { ...(known?.license || {}), trialStart: new Date(now).toISOString(), trialDays };
   await store.put(TRIAL_KIND, digits, { phone: digits, trialStart: license.trialStart!, trialDays, memberId: portal.id, line }, SYSTEM_OWNER);
   return license;
 }
