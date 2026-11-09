@@ -31,7 +31,7 @@ Arka planda olanlar:
 2. **Personel:** Her çalışana bir rol verir. Çalışanlar, numaralarının Açık Kanal sırasına otomatik eklenir.
 3. **Ayarlar:** Çeviri, sesli mesajı yazıya dökme ve AI değerlendirmeyi açar ya da kapatır.
 4. İsteğe bağlı olarak **AI Asistan**, **Raporlar** ve **Kampanyalar** ayarlanır.
-5. **Ayarlar → Hazır cevaplar:** IBAN, konum, çalışma saatleri gibi sık yazılan mesajlar eklenir; personel sohbet ekranında ⚡ düğmesiyle ya da `/iban` yazarak kullanır.
+5. **Hazır cevaplar:** Yönetici, Ayarlar → Ortak hazır cevaplar bölümünden herkesin göreceği cevapları ekler (IBAN, adres, çalışma saatleri). Her personel kendi fiyat listesini ve kişisel cevaplarını sohbet ekranındaki ⚡ Hazır cevaplar → Hazır cevaplarımı düzenle bölümünden ekler; bunları yalnız kendisi görür. Cevaplara görsel, video ya da PDF eklenebilir. Kullanım: ⚡ menüsü ya da mesaj kutusuna `/fiyat` yazmak.
 6. **Ayarlar → Bekleyen sohbet alarmı (Pro):** Cevapsız kalan sohbetler önce numaranın personeline, süre uzarsa yöneticilere (Bitrix bildirimi ve isteğe bağlı Telegram) bildirilir.
 
 Numara bağlanmadan bırakılan kurulumlarda panel açılışta 3 adımlık kurulum kartını gösterir; 24 saat sonra yöneticiye bir kez Bitrix hatırlatması gider.

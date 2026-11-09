@@ -11,7 +11,7 @@ import { lineUsable } from "./b24-billing.js";
 import { translateTo } from "./b24-ai.js";
 import { langOf, normLang, pick, type Lang } from "./b24-i18n.js";
 import { PANEL_STYLE } from "./b24-panel-html.js";
-import { MAX_MEDIA_BYTES, readMedia, saveMedia, sendEvolutionMedia } from "./whatsapp-media.js";
+import { MAX_MEDIA_BYTES, deleteMedia, readMedia, saveMedia, sendEvolutionMedia } from "./whatsapp-media.js";
 import { normalizePhone } from "./security.js";
 import {
   CHAT_KIND,
@@ -34,7 +34,14 @@ import {
   savePortal,
   settingsTicket,
   quickOwner,
+  quickUserKey,
+  quickUserOwner,
+  QUICK_USER_KIND,
+  cleanQuickReplies,
+  userQuickReplies,
   sendQuickMedia,
+  type QuickReply,
+  type UserQuickReplies,
   type B24Chat,
   type B24Portal,
 } from "./b24-connector.js";
@@ -262,6 +269,20 @@ export function registerChatRoutes(app: Express, store: Store) {
       }
     };
 
+  // Personelin gördüğü hazır cevaplar: kendi cevapları önce, aynı kısayollu ortak cevap gizlenir.
+  const quickFor = async (ctx: Ctx) => {
+    const mine = await userQuickReplies(store, ctx.portal.id, ctx.viewer.userId);
+    const keys = new Set(mine.map((r) => r.key));
+    const shared = (ctx.portal.quickReplies || []).filter((r) => !keys.has(r.key));
+    return { quick: [...mine.map((r) => ({ ...r, mine: true })), ...shared], quickMine: mine, quickShared: ctx.portal.quickReplies || [] };
+  };
+  const findQuick = async (ctx: Ctx, key: string) => {
+    const mine = (await userQuickReplies(store, ctx.portal.id, ctx.viewer.userId)).find((r) => r.key === key);
+    if (mine) return { reply: mine, owner: quickUserOwner(ctx.portal.id, ctx.viewer.userId) };
+    const shared = (ctx.portal.quickReplies || []).find((r) => r.key === key);
+    return shared ? { reply: shared, owner: quickOwner(ctx.portal.id) } : null;
+  };
+
   const chatFor = async (ctx: Ctx, body: any) => {
     const line = String(body.line || "").replace(/\D/g, "");
     const phone = toWa(body.phone);
@@ -313,7 +334,7 @@ export function registerChatRoutes(app: Express, store: Store) {
         connected: ctx.portal.lines[line].status === "connected",
         status: ctx.portal.lines[line].status,
       }));
-      return { threads: chats, total: all.length, lines, admin: ctx.viewer.admin, quick: ctx.portal.quickReplies || [], portalLines: Object.keys(ctx.portal.lines).length };
+      return { threads: chats, total: all.length, lines, admin: ctx.viewer.admin, ...(await quickFor(ctx)), portalLines: Object.keys(ctx.portal.lines).length };
     }),
   );
 
@@ -455,15 +476,55 @@ export function registerChatRoutes(app: Express, store: Store) {
     }),
   );
 
+  // Kişisel hazır cevaplar: personel kendi listesini sohbet ekranından yönetir.
+  app.post(
+    "/b24/chat/quick/save",
+    express.json({ limit: "256kb" }),
+    withViewer(async (ctx, body) => {
+      const owner = quickUserOwner(ctx.portal.id, ctx.viewer.userId);
+      const items: QuickReply[] = [];
+      for (const r of cleanQuickReplies(body.items)) {
+        if (r.media && !(await readMedia(store, owner, r.media.id))) {
+          if (!r.text) continue;
+          delete r.media;
+        }
+        items.push(r);
+      }
+      const record: UserQuickReplies = { memberId: ctx.portal.id, userId: ctx.viewer.userId, items };
+      await store.put(QUICK_USER_KIND, quickUserKey(ctx.portal.id, ctx.viewer.userId), record, SYSTEM_OWNER);
+      const used = new Set(items.map((r) => r.media?.id).filter(Boolean));
+      await deleteMedia(store, owner, (m) => !used.has(m.id) && Date.now() - Date.parse(m.createdAt) > 60 * 60_000);
+      return quickFor(ctx);
+    }),
+  );
+  app.post(
+    "/b24/chat/quick/upload",
+    express.raw({ type: () => true, limit: MAX_MEDIA_BYTES + 1024 }),
+    withViewer(async (ctx, _body, req) => {
+      const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+      if (!buffer.length) fail(400, "Dosya boş.");
+      if (buffer.length > MAX_MEDIA_BYTES) fail(413, "Dosya 16 MB sınırını aşıyor.");
+      let name = "";
+      try {
+        name = decodeURIComponent(String(req.get("x-file-name") || "")).slice(0, 120);
+      } catch {
+        name = "";
+      }
+      const record = await saveMedia(store, quickUserOwner(ctx.portal.id, ctx.viewer.userId), buffer, String(req.get("content-type") || "application/octet-stream"), name);
+      return { media: { id: record.id, name: record.fileName, mime: record.mime, type: record.mediaType } };
+    }),
+  );
+
   // Dosyalı hazır cevabı gönderir (dosya + isteğe bağlı açıklama).
   app.post(
     "/b24/chat/send-quick",
     json,
     withViewer(async (ctx, body) => {
       const chat = await chatFor(ctx, body);
-      const reply = (ctx.portal.quickReplies || []).find((r) => r.key === String(body.key || ""));
+      const found = await findQuick(ctx, String(body.key || ""));
+      const reply = found?.reply;
       if (!reply?.media) fail(404, "Hazır cevap bulunamadı.");
-      const stored = await readMedia(store, quickOwner(ctx.portal.id), reply!.media!.id);
+      const stored = await readMedia(store, found!.owner, reply!.media!.id);
       if (!stored) fail(410, "Hazır cevabın dosyası bulunamadı. Yönetici dosyayı yeniden eklemeli.");
       ctx.portal = await refreshLines(store, ctx.portal, [chat.line], 30_000);
       const info = ctx.portal.lines[chat.line];
@@ -495,8 +556,9 @@ export function registerChatRoutes(app: Express, store: Store) {
     "/b24/chat/quick-media/:id",
     withViewer(async (ctx, _body, req, res) => {
       const id = String(req.params.id || "");
-      if (!(ctx.portal.quickReplies || []).some((r) => r.media?.id === id)) fail(404, "Dosya bulunamadı.");
-      const media = await readMedia(store, quickOwner(ctx.portal.id), id);
+      const mine = (await userQuickReplies(store, ctx.portal.id, ctx.viewer.userId)).some((r) => r.media?.id === id);
+      if (!mine && !(ctx.portal.quickReplies || []).some((r) => r.media?.id === id)) fail(404, "Dosya bulunamadı.");
+      const media = await readMedia(store, mine ? quickUserOwner(ctx.portal.id, ctx.viewer.userId) : quickOwner(ctx.portal.id), id);
       if (!media) fail(404, "Dosya bulunamadı.");
       sendQuickMedia(res, media!);
       return undefined;
@@ -587,9 +649,12 @@ const TEXT = {
     noLines: "Henüz WhatsApp numarası bağlı değil. Uygulamanın Bağlantılar sekmesinden yeni bir numara ekleyip QR kodu telefonunuzla okutun; 2 dakika sürer. Bağlandıktan sonra son sohbetleriniz buraya gelir.",
     noLinesUser: "Yöneticiniz henüz bir WhatsApp numarası bağlamadı.",
     noConnected: "Numaralarınızın WhatsApp bağlantısı yok. Bağlantılar sekmesinden QR kodu okutun.",
-    quick: "Hazır cevaplar", quickEmpty: "Henüz hazır cevap yok. Yönetici, uygulamanın Ayarlar sekmesinden ekleyebilir.", quickHint: "Mesaj kutusuna / yazarak da seçebilirsiniz.",
+    quick: "Hazır cevaplar", quickEmpty: "Henüz hazır cevap yok. Kendi cevaplarınızı aşağıdan ekleyebilirsiniz.", quickHint: "Mesaj kutusuna / yazarak da seçebilirsiniz.",
     bellOn: "Yeni mesaj bildirimleri açık", bellOff: "Yeni mesajlarda sesli ve masaüstü bildirim almak için tıklayın", bellBlocked: "Tarayıcı masaüstü bildirimine izin vermedi; yeni mesajlarda yalnız ses çalınacak.",
     newMsg: "Yeni WhatsApp mesajı", unread: "okunmamış", qattRemove: "Dosyayı kaldır",
+    quickEdit: "Hazır cevaplarımı düzenle", quickMineTitle: "Hazır cevaplarım", quickMineHint: "Bu cevapları yalnız siz görürsünüz. Mesaj kutusuna / ve kısayolu yazarak ya da ⚡ menüsünden kullanın. Aynı kısayolla ortak bir cevap varsa sizinki geçerli olur.",
+    quickShared: "ortak", quickSharedTitle: "Ortak cevaplar (yönetici tanımlar)", quickAdd: "Cevap ekle", quickSave: "Kaydet", quickSaved: "Hazır cevaplarınız kaydedildi.",
+    quickKey: "kısayol (ör. fiyat)", quickText: "Mesaj metni (dosyayla birlikte açıklama olarak gider)", quickFile: "Görsel / dosya ekle", quickFileHint: "Görsel, video veya PDF · en fazla 16 MB", quickDel: "Sil", quickNone: "Henüz kişisel hazır cevabınız yok. Fiyat listeniz, kartvizitiniz veya sık yazdığınız mesajları ekleyin.", close: "Kapat", uploaded: "Dosya eklendi. Kaydetmeyi unutmayın.",
   },
   en: {
     chats: "Chats", search: "Search name or number", all: "All", waiting: "Awaiting reply", allLines: "All numbers",
@@ -615,9 +680,12 @@ const TEXT = {
     noLines: "No WhatsApp number is connected yet. On the app's Connections tab, click Add number and scan the QR code with your phone; it takes 2 minutes. Your recent chats appear here once connected.",
     noLinesUser: "Your administrator has not connected a WhatsApp number yet.",
     noConnected: "Your numbers are not connected to WhatsApp. Scan the QR code on the Connections tab.",
-    quick: "Quick replies", quickEmpty: "No quick replies yet. An administrator can add them on the app's Settings tab.", quickHint: "You can also type / in the message box.",
+    quick: "Quick replies", quickEmpty: "No quick replies yet. You can add your own below.", quickHint: "You can also type / in the message box.",
     bellOn: "New message notifications are on", bellOff: "Click to get sound and desktop notifications for new messages", bellBlocked: "The browser blocked desktop notifications; only a sound will play for new messages.",
     newMsg: "New WhatsApp message", unread: "unread", qattRemove: "Remove file",
+    quickEdit: "Edit my quick replies", quickMineTitle: "My quick replies", quickMineHint: "Only you see these replies. Type / and the shortcut in the message box or use the ⚡ menu. If a shared reply has the same shortcut, yours is used.",
+    quickShared: "shared", quickSharedTitle: "Shared replies (set by an administrator)", quickAdd: "Add reply", quickSave: "Save", quickSaved: "Your quick replies were saved.",
+    quickKey: "shortcut (e.g. prices)", quickText: "Message text (sent as the caption with a file)", quickFile: "Add image / file", quickFileHint: "Image, video or PDF · up to 16 MB", quickDel: "Delete", quickNone: "You have no personal quick replies yet. Add your price list, business card or messages you send often.", close: "Close", uploaded: "File added. Don’t forget to save.",
   },
 };
 
@@ -653,6 +721,23 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 .qatt{display:flex;align-items:center;gap:10px;padding:6px 8px;margin-bottom:6px;border:1px dashed var(--accent);border-radius:var(--r-s);background:var(--paper);font-size:13px}
 .qatt b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .qatt button{border:0;background:none;cursor:pointer;font-size:15px;color:var(--ink-2)}
+.qmenu .qtag{display:inline;font-weight:500;color:var(--ink-3,#8a96a3);font-size:11px;margin-left:4px}
+.qmenu .qedit-btn{border-top:1px solid var(--line);border-radius:0;margin-top:4px;padding-top:9px;color:var(--accent);font-weight:600;font-size:12.5px}
+.qedit{position:fixed;inset:0;background:rgba(10,20,30,.45);display:flex;align-items:flex-start;justify-content:center;padding:28px 14px;z-index:50;overflow:auto}
+.qedit[hidden]{display:none}
+.qbox{background:var(--surface);border-radius:var(--r-l,14px);box-shadow:var(--shadow);width:min(760px,100%);padding:18px 20px}
+.qbox header{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:0;border:0;background:none}
+.qbox h2{margin:0;font-size:17px}.qbox>p{margin:6px 0 14px;font-size:13px;color:var(--ink-2)}
+.qbox h3{margin:18px 0 8px;font-size:13px;color:var(--ink-2)}
+.qer{display:grid;grid-template-columns:140px 1fr 150px auto;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line-2,var(--line))}
+.qer input,.qer textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper);color:inherit;font:inherit;font-size:13px}
+.qer textarea{min-height:56px;resize:vertical}
+.qer .qf{display:flex;flex-direction:column;gap:5px;font-size:11.5px;color:var(--ink-2)}
+.qer .qf img{width:84px;height:62px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.qer .qf .nm{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qshared{font-size:13px;color:var(--ink-2)}.qshared div{padding:5px 0;border-top:1px solid var(--line-2,var(--line))}.qshared b{color:var(--accent)}
+.qebar{display:flex;justify-content:space-between;margin-top:14px;gap:8px}
+@media (max-width:640px){.qer{grid-template-columns:1fr}}
 .item{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 14px;border:0;border-top:1px solid var(--line-2);border-left:3px solid transparent;cursor:pointer;width:100%;text-align:left;background:none;color:inherit;font:inherit}
 .item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .item:hover{background:var(--paper)}.item[aria-current=true]{background:var(--accent-soft);border-left-color:var(--accent)}
@@ -715,6 +800,7 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
   <section class="pane" id="pane"><div class="blank" id="blank"></div></section>
 </div>
 <div class="toast" id="toast" role="status"></div>
+<div class="qedit" id="qedit" hidden role="dialog" aria-modal="true" aria-labelledby="qeTitle"><div class="qbox"><header><h2 id="qeTitle"></h2><button type="button" class="btn ghost" id="qeClose"></button></header><p id="qeHint"></p><div id="qeList"></div><div class="qebar"><button type="button" class="btn" id="qeAdd"></button><button type="button" class="btn primary" id="qeSave"></button></div><div id="qeShared"></div></div></div>
 <script>
 // Bitrix, CRM kart sekmesini kısa sabit bir çerçevede açar; ekrana göre büyütülür.
 window.xreFit=function(){try{var h=Math.max(760,((window.screen&&screen.availHeight)||900)-170);BX24.resizeWindow(document.documentElement.scrollWidth||document.body.offsetWidth,h)}catch(e){}};
@@ -798,7 +884,7 @@ function renderList(){
 function loadThreads(){var req=C.mode==="card"?{phones:C.phones}:{q:S.q,limit:S.limit};return api("threads",req).then(function(d){
   var arrived=[];if(S.prev){d.threads.forEach(function(t){if(t.lastFrom==="müşteri"&&t.lastAt>(S.prev[ck(t)]||0)&&t.lastAt>(SEEN[ck(t)]||BASE))arrived.push(t)})}
   S.prev={};d.threads.forEach(function(t){S.prev[ck(t)]=t.lastAt});
-  S.threads=d.threads;S.total=d.total||d.threads.length;S.quick=d.quick||[];S.portalLines=d.portalLines||0;
+  S.threads=d.threads;S.total=d.total||d.threads.length;S.quick=d.quick||[];S.quickMine=d.quickMine||[];S.quickShared=d.quickShared||[];S.portalLines=d.portalLines||0;
   d.threads.forEach(function(t){if(isCur(t)&&!document.hidden)markSeen(t,t.lastAt)});
   onArrivals(arrived);C.admin=d.admin;var first=!S.lines.length;S.lines=d.lines;
   if(first){$("#lineFilter").innerHTML='<option value="">'+esc(X.allLines)+'</option>'+S.lines.map(function(l){return '<option value="'+esc(l.line)+'">'+esc(l.name)+(l.connected?"":" ("+esc(X.notConnected)+")")+'</option>'}).join("");$("#lineFilter").hidden=S.lines.length<2;
@@ -896,8 +982,38 @@ function quickMenu(q){var m=$("#quickMenu");if(!m)return;q=String(q||"").toLower
   if(QM.slash&&!QM.items.length&&q){hideQuick();return}
   drawQuick();m.hidden=false}
 function drawQuick(){var m=$("#quickMenu");
-  m.innerHTML=S.quick.length?QM.items.map(function(r,i){return '<button type="button" data-qi="'+i+'" class="'+(i===QM.sel?"on":"")+'"><div class="qm"><div style="min-width:0"><b>/'+esc(r.key)+(r.media?' 📎':'')+'</b><span>'+esc(r.text||(r.media&&r.media.name)||"")+'</span></div>'+(r.media&&r.media.type==="image"?'<img src="'+esc(quickUrl(r))+'" alt="" loading="lazy">':'')+'</div></button>'}).join("")+'<p>'+esc(X.quickHint)+'</p>':'<p>'+esc(X.quickEmpty)+'</p>';
+  m.innerHTML=S.quick.length?QM.items.map(function(r,i){return '<button type="button" data-qi="'+i+'" class="'+(i===QM.sel?"on":"")+'"><div class="qm"><div style="min-width:0"><b>/'+esc(r.key)+(r.media?' 📎':'')+(r.mine?'':'<span class="qtag">· '+esc(X.quickShared)+'</span>')+'</b><span>'+esc(r.text||(r.media&&r.media.name)||"")+'</span></div>'+(r.media&&r.media.type==="image"?'<img src="'+esc(quickUrl(r))+'" alt="" loading="lazy">':'')+'</div></button>'}).join("")+'<p>'+esc(X.quickHint)+'</p>'+editBtn():'<p>'+esc(X.quickEmpty)+'</p>'+editBtn();
+  var eb=m.querySelector("[data-qedit]");if(eb)eb.onmousedown=function(e){e.preventDefault();hideQuick();openQuickEditor()};
   [].forEach.call(m.querySelectorAll("[data-qi]"),function(b){b.onmousedown=function(e){e.preventDefault();pickQuick(QM.items[Number(b.getAttribute("data-qi"))])}})}
+function editBtn(){return '<button type="button" class="qedit-btn" data-qedit="1">✏️ '+esc(X.quickEdit)+'</button>'}
+// Kişisel hazır cevap düzenleyici
+var QE=[];
+function openQuickEditor(){QE=(S.quickMine||[]).map(function(r){return {key:r.key,text:r.text,media:r.media}});
+  $("#qeTitle").textContent=X.quickMineTitle;$("#qeHint").textContent=X.quickMineHint;$("#qeClose").textContent=X.close;$("#qeAdd").textContent="+ "+X.quickAdd;$("#qeSave").textContent=X.quickSave;
+  $("#qeShared").innerHTML=(S.quickShared||[]).length?'<h3>'+esc(X.quickSharedTitle)+'</h3><div class="qshared">'+S.quickShared.map(function(r){return '<div><b>/'+esc(r.key)+'</b> '+(r.media?'📎 ':'')+esc(r.text||(r.media&&r.media.name)||"")+'</div>'}).join("")+'</div>':"";
+  drawQE();$("#qedit").hidden=false;if(!QE.length)addQE()}
+function drawQE(){var L=$("#qeList");
+  L.innerHTML=QE.length?QE.map(function(r,i){return '<div class="qer"><input data-ek="'+i+'" maxlength="24" placeholder="'+esc(X.quickKey)+'" value="'+esc(r.key)+'"><textarea data-et="'+i+'" maxlength="1000" placeholder="'+esc(X.quickText)+'">'+esc(r.text)+'</textarea><div class="qf">'
+    +(r.media?(r.media.type==="image"?'<img src="'+esc(quickUrl(r))+'" alt="">':'<span>📎</span>')+'<span class="nm" title="'+esc(r.media.name)+'">'+esc(r.media.name)+'</span><button type="button" class="btn ghost" data-erm="'+i+'">'+esc(X.qattRemove)+'</button>'
+      :'<button type="button" class="btn" data-eup="'+i+'">🖼 '+esc(X.quickFile)+'</button><span>'+esc(X.quickFileHint)+'</span>')
+    +'<input type="file" data-efile="'+i+'" hidden accept="image/*,video/*,application/pdf"></div><button type="button" class="btn ghost" data-edel="'+i+'">'+esc(X.quickDel)+'</button></div>'}).join(""):'<p class="qshared">'+esc(X.quickNone)+'</p>';
+  [].forEach.call(L.querySelectorAll("[data-ek]"),function(e){e.oninput=function(){QE[+e.getAttribute("data-ek")].key=e.value}});
+  [].forEach.call(L.querySelectorAll("[data-et]"),function(e){e.oninput=function(){QE[+e.getAttribute("data-et")].text=e.value}});
+  [].forEach.call(L.querySelectorAll("[data-edel]"),function(b){b.onclick=function(){QE.splice(+b.getAttribute("data-edel"),1);drawQE()}});
+  [].forEach.call(L.querySelectorAll("[data-erm]"),function(b){b.onclick=function(){delete QE[+b.getAttribute("data-erm")].media;drawQE()}});
+  [].forEach.call(L.querySelectorAll("[data-eup]"),function(b){b.onclick=function(){L.querySelector('[data-efile="'+b.getAttribute("data-eup")+'"]').click()}});
+  [].forEach.call(L.querySelectorAll("[data-efile]"),function(inp){inp.onchange=function(){var f=inp.files[0],i=+inp.getAttribute("data-efile");if(!f)return;
+    if(f.size>16*1024*1024){toast(X.tooBig,true);return}
+    var b=L.querySelector('[data-eup="'+i+'"]');if(b){b.disabled=true;b.textContent=X.uploading}
+    fetch("/b24/chat/quick/upload",{method:"POST",headers:{"x-xre-ticket":C.t,"content-type":f.type||"application/octet-stream","x-file-name":encodeURIComponent(f.name)},body:f})
+      .then(function(r){return r.json().catch(function(){return {}}).then(function(j){if(!r.ok)throw new Error(j.message||X.error);return j})})
+      .then(function(j){QE[i].media=j.media;S.quickMine=S.quickMine||[];drawQE();toast(X.uploaded)}).catch(function(e){toast(e.message,true);drawQE()})}})}
+function addQE(){QE.push({key:"",text:""});drawQE();var ins=$("#qeList").querySelectorAll("[data-ek]");if(ins.length)ins[ins.length-1].focus()}
+$("#qeAdd").onclick=addQE;
+$("#qeClose").onclick=function(){$("#qedit").hidden=true};
+$("#qedit").onclick=function(e){if(e.target.id==="qedit")$("#qedit").hidden=true};
+$("#qeSave").onclick=function(){var btn=$("#qeSave");btn.disabled=true;
+  api("quick/save",{items:QE.filter(function(r){return (r.key||"").trim()&&((r.text||"").trim()||r.media)})}).then(function(d){S.quick=d.quick;S.quickMine=d.quickMine;S.quickShared=d.quickShared;$("#qedit").hidden=true;toast(X.quickSaved)}).catch(function(e){toast(e.message,true)}).then(function(){btn.disabled=false})};
 function hideQuick(){var m=$("#quickMenu");if(m)m.hidden=true;QM.slash=false}
 function quickUrl(r){return "/b24/chat/quick-media/"+encodeURIComponent(r.media.id)+"?t="+encodeURIComponent(C.t)}
 function pickQuick(r){if(!r)return;var ta=$("#txt");ta.value=QM.slash||!ta.value.trim()?r.text:ta.value.replace(/\s*$/,"")+"\n"+r.text;hideQuick();if(r.media){S.qatt=r;drawAtt()}ta.focus();ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px"}

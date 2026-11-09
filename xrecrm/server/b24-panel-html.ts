@@ -383,7 +383,7 @@ function render(){
       +'<div class="setting"><div><strong>Telegram’a da gönder</strong><p>Yönetici uyarısı Raporlar sekmesinde bağladığınız Telegram sohbetlerine de gider.</p></div>'+sw("s-atg",st.alertTelegram!==false)+'</div>'
       +'<div class="setting"><div><strong>Yalnız mesai saatlerinde</strong><p>AI Asistan sekmesindeki çalışma saatleri dışında uyarı gönderilmez.</p></div>'+sw("s-awh",st.alertWorkHours!==false)+'</div>'
       +'</div><div class="bar" style="margin-top:14px;justify-content:flex-end"><button class="btn primary" id="s-save">Ayarları kaydet</button></div>'
-      +'<h3 class="section">Hazır cevaplar</h3><p class="sub">Personel sohbet ekranında ⚡ düğmesiyle ya da mesaj kutusuna / ve kısayolu yazarak bu metinleri ekler (ör. /iban).</p>'
+      +'<h3 class="section">Ortak hazır cevaplar</h3><p class="sub">Buradaki cevaplar tüm personelin sohbet ekranında görünür (IBAN, adres, çalışma saatleri gibi). Her personel kendi fiyat listesini ve kişisel cevaplarını sohbet ekranındaki ⚡ Hazır cevaplar → Hazır cevaplarımı düzenle bölümünden ekler; onları yalnız kendisi görür.</p>'
       +'<div class="list" id="qlist"></div><div class="bar" style="margin-top:14px;justify-content:space-between"><button class="btn" id="q-add">Cevap ekle</button><button class="btn primary" id="q-save">Hazır cevapları kaydet</button></div>';
     let quick=(S.quickReplies||[]).map(r=>({...r}));
     const qurl=m=>"/b24/panel/quick/media/"+encodeURIComponent(m.id)+"?t="+encodeURIComponent(T);

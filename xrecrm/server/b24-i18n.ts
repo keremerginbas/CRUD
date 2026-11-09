@@ -12,6 +12,8 @@ export const langOf = (portal: { lang?: string } | null | undefined): Lang => (p
 export const pick = (lang: Lang, tr: string, en: string) => (lang === "tr" ? tr : en);
 
 export const PANEL_EN: Record<string, string> = {
+  "Ortak hazır cevaplar": "Shared quick replies",
+  "Buradaki cevaplar tüm personelin sohbet ekranında görünür (IBAN, adres, çalışma saatleri gibi). Her personel kendi fiyat listesini ve kişisel cevaplarını sohbet ekranındaki ⚡ Hazır cevaplar → Hazır cevaplarımı düzenle bölümünden ekler; onları yalnız kendisi görür.": "These replies appear on every staff member’s chat screen (bank details, address, opening hours). Each staff member adds their own price list and personal replies in the chat screen via ⚡ Quick replies → Edit my quick replies; only they see those.",
   "Dosyayı kaldır": "Remove file",
   "🖼 Görsel / dosya ekle": "🖼 Add image / file",
   "Görsel, video veya PDF · en fazla 16 MB": "Image, video or PDF · up to 16 MB",

@@ -315,6 +315,32 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const thread = await (await fetch(`${base}/b24/chat/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "905550000002" }) })).json();
     expect(thread.messages.at(-1)).toMatchObject({ dir: "out", text: "Buyrun fiyat listemiz", media: { type: "image" } });
 
+    // Kişisel hazır cevaplar: personel kendi listesini yönetir, yalnız kendisi görür
+    const ticketOf = async (auth: string) => {
+      const html = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: auth }))).text();
+      return JSON.parse(html.match(/window\.XRE_CHAT=(\{.*?\});<\/script>/)![1]).t as string;
+    };
+    const merve = await ticketOf("merve-auth");
+    const kaan = await ticketOf("user-auth");
+    const chatApi = async (tk: string, path: string, body: Record<string, unknown> = {}) =>
+      (await fetch(`${base}/b24/chat/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: tk, ...body }) })).json();
+    const myFile = await (await fetch(`${base}/b24/chat/quick/upload`, { method: "POST", headers: { "x-xre-ticket": merve, "content-type": "image/png", "x-file-name": "merve-fiyat.png" }, body: png })).json();
+    const mine = await chatApi(merve, "quick/save", { items: [{ key: "fiyat", text: "Merve'nin fiyat listesi", media: myFile.media }, { key: "kartvizit", text: "Merve Y. · 0530 000 00 00" }] });
+    expect(mine.quickMine.map((r: any) => r.key)).toEqual(["fiyat", "kartvizit"]);
+    // Aynı kısayollu ortak cevap gizlenir, kişisel olan geçerli olur
+    expect(mine.quick.filter((r: any) => r.key === "fiyat")).toEqual([expect.objectContaining({ mine: true, text: "Merve'nin fiyat listesi" })]);
+    expect(mine.quick.map((r: any) => r.key)).toEqual(["fiyat", "kartvizit", "iban", "konum-bilgisi"]);
+    // Başka personel görmez; dosyasına erişemez
+    const other = await chatApi(kaan, "threads");
+    expect(other.quickMine).toEqual([]);
+    expect(other.quick.find((r: any) => r.key === "fiyat")).toMatchObject({ text: "Güncel fiyat listemiz" });
+    expect((await fetch(`${base}/b24/chat/quick-media/${myFile.media.id}?t=${encodeURIComponent(kaan)}`)).status).toBe(404);
+    expect((await fetch(`${base}/b24/chat/quick-media/${myFile.media.id}?t=${encodeURIComponent(merve)}`)).status).toBe(200);
+    // Merve /fiyat gönderince kendi dosyası gider
+    evo.length = 0;
+    expect(await chatApi(merve, "send-quick", { line: "3", phone: "905550000002", key: "fiyat", text: "Fiyatlarım" })).toEqual({ ok: true });
+    expect(evo.find((c) => c.url.startsWith("/message/sendMedia"))?.body).toMatchObject({ caption: "Fiyatlarım", fileName: "merve-fiyat.png" });
+
     // Telefondan verilen cevap performansta "phone" temsilcisi olarak sayılır
     await fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {
       method: "POST",

@@ -87,6 +87,18 @@ export interface QuickReply {
 }
 /** Hazır cevap dosyalarının sahibi: sohbet medyası gibi süre dolunca silinmez. */
 export const quickOwner = (memberId: string) => `b24q:${memberId}`;
+/** Personelin kişisel hazır cevapları (yalnız kendisi görür) ve dosyalarının sahibi */
+export const QUICK_USER_KIND = "b24-quick";
+export const quickUserKey = (memberId: string, userId: string) => `${memberId}:${userId}`;
+export const quickUserOwner = (memberId: string, userId: string) => `b24qu:${memberId}:${userId}`;
+export interface UserQuickReplies {
+  memberId: string;
+  userId: string;
+  items: QuickReply[];
+}
+export async function userQuickReplies(store: Store, memberId: string, userId: string): Promise<QuickReply[]> {
+  return (await store.get<UserQuickReplies>(QUICK_USER_KIND, quickUserKey(memberId, userId), SYSTEM_OWNER))?.payload?.items || [];
+}
 export const QUICK_MAX = 100;
 /** Hazır cevap dosyasını güvenli başlıklarla döndürür. */
 export function sendQuickMedia(res: Response, media: { record: { mime: string; fileName: string }; buffer: Buffer }) {
@@ -1576,7 +1588,9 @@ export async function uninstallPortal(store: Store, portal: B24Portal) {
     Object.entries(portal.lines).map(([id, l]) => [id, { ...l, status: "disconnected", phone: undefined, profileName: undefined, updatedAt: new Date().toISOString() }]),
   );
   await savePortal(store, { ...portal, active: false, accessToken: "", refreshToken: "", applicationToken: undefined, lines });
-  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report", THREAD_KIND, CAMPAIGN_KIND, LID_KIND]) {
+  for (const row of await store.list<UserQuickReplies>(QUICK_USER_KIND, SYSTEM_OWNER))
+    if (row.payload?.memberId === portal.id) await deleteMedia(store, quickUserOwner(portal.id, row.payload.userId));
+  for (const kind of [CHAT_KIND, STAT_KIND, "b24-report", THREAD_KIND, CAMPAIGN_KIND, LID_KIND, QUICK_USER_KIND]) {
     for (const row of await store.list<{ memberId?: string }>(kind, SYSTEM_OWNER))
       if (row.payload?.memberId === portal.id) await store.delete(kind, row.id, SYSTEM_OWNER);
   }
