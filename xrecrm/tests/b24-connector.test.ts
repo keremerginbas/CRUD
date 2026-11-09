@@ -60,6 +60,14 @@ async function setup(opts: { evoState?: string } = {}) {
         const numbers: string[] = JSON.parse(raw || "{}").numbers || [];
         return res.end(JSON.stringify(numbers.map((n) => ({ exists: true, jid: `${n}@s.whatsapp.net`, number: n, ...(lids[n] ? { lid: lids[n] } : {}) }))));
       }
+      if (req.url?.startsWith("/chat/findContacts")) {
+        const all = [
+          { remoteJid: "222333444555@lid", pushName: "Ayten Hanım" },
+          { remoteJid: "905301110003@s.whatsapp.net", pushName: "905301110003" },
+        ];
+        const want = JSON.parse(raw || "{}").where?.remoteJid;
+        return res.end(JSON.stringify(want ? all.filter((c) => c.remoteJid === want) : all));
+      }
       if (req.url?.startsWith("/chat/getBase64FromMediaMessage")) return res.end(JSON.stringify({ base64: Buffer.from("OggS-ses").toString("base64") }));
       if (req.url?.startsWith("/instance/fetchInstances"))
         return res.end(JSON.stringify([{ name: instanceName(MEMBER, "3"), ownerJid: "905321110000@s.whatsapp.net", profileName: "Müşteri AŞ" }]));
@@ -188,11 +196,17 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     ]);
 
     // İşletme telefondan yazar: sohbet listede en üste çıkar, mesaj "telefondan" görünür
-    await post({ event: "messages.upsert", data: { key: { id: "P1", remoteJid: "905301110003@s.whatsapp.net", fromMe: true }, messageTimestamp: Math.floor(Date.now() / 1000), message: { conversation: "Telefondan yazdım" } } });
+    await post({ event: "messages.upsert", data: { key: { id: "P1", remoteJid: "905301110003@s.whatsapp.net", fromMe: true }, message: { conversation: "Telefondan yazdım" } } });
     await wait();
     list = await api("threads");
     expect(list.threads[0]).toMatchObject({ phone: "905301110003", lastText: "Telefondan yazdım" });
     expect((await api("messages", { line: "3", phone: "905301110003" })).messages).toMatchObject([{ dir: "out", text: "Telefondan yazdım", via: "phone" }]);
+    // Ad bilinmiyorsa numara ad olarak yazılmaz
+    expect(list.threads[0].name).toBe("");
+    // Telefondan gizli kimlikli birine yazılınca WhatsApp adı kişi listesinden gelir
+    await post({ event: "messages.upsert", data: { key: { id: "P2", remoteJid: "222333444555@lid", fromMe: true }, message: { conversation: "Merhaba Ayten Hanım" } } });
+    await wait();
+    expect((await api("threads")).threads.find((x: any) => x.phone === "222333444555@lid")).toMatchObject({ name: "Ayten Hanım", lastText: "Merhaba Ayten Hanım" });
 
     // Sistemden gönderilen mesajın yankısı ikinci kez yazılmaz
     await api("send", { line: "3", phone: "905301110003", text: "Sistemden gönderdim" });
@@ -210,7 +224,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
       await store.put("b24-chat", `${MEMBER}:3:9053900000${String(i).padStart(2, "0")}`, { id: `${MEMBER}:3:9053900000${String(i).padStart(2, "0")}`, memberId: portal.id, line: "3", phone: `9053900000${String(i).padStart(2, "0")}`, name: "", inbound: 1, outbound: 0, sinceQualify: 0, history: [] }, "b24-connector");
     const page = await api("threads", { limit: 50 });
     expect(page.threads).toHaveLength(50);
-    expect(page.total).toBe(66);
+    expect(page.total).toBe(67);
 
     // Var olan numaraların webhook ayarına geçmiş olayları eklenir
     await syncConnectorWebhooks(store);

@@ -575,11 +575,50 @@ export async function resolveLidChats(store: Store, portal: B24Portal, line: str
   return { matched, left: hidden.length - matched };
 }
 
+const jidOf = (phone: string) => (phone.includes("@") ? phone : `${phone}@s.whatsapp.net`);
+/** WhatsApp sunucusunun kişi listesinden adlar (gizli kimlikli kişiler dahil). */
+async function contactNames(instance: string, jids?: string[]): Promise<Map<string, string>> {
+  const names = new Map<string, string>();
+  const res = await evolution(`/chat/findContacts/${encodeURIComponent(instance)}`, {
+    method: "POST",
+    body: JSON.stringify(jids?.length === 1 ? { where: { remoteJid: jids[0] } } : { where: {} }),
+  });
+  for (const c of Array.isArray(res) ? res : []) {
+    const jid = String(c?.remoteJid || c?.id || "");
+    const name = String(c?.pushName || c?.name || c?.verifiedName || "").trim().slice(0, 120);
+    // Ad yoksa Evolution numarayı ad olarak yazar; onu kullanma.
+    if (jid && name && name !== jid.split("@")[0]) names.set(jid, name);
+  }
+  return names;
+}
+/** Adı boş sohbetlere WhatsApp adını yazar. */
+export async function fillChatNames(store: Store, portal: B24Portal, line: string) {
+  const instance = portal.lines[line]?.instance;
+  if (!instance) return 0;
+  const nameless = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((c) => c.memberId === portal.id && c.line === line && !c.name && !c.phone.endsWith("@g.us"));
+  if (!nameless.length) return 0;
+  const names = await contactNames(instance, nameless.length === 1 ? [jidOf(nameless[0].phone)] : undefined).catch(() => new Map<string, string>());
+  let filled = 0;
+  for (const chat of nameless) {
+    const name = names.get(jidOf(chat.phone));
+    if (!name) continue;
+    const fresh = await loadChat(store, portal.id, line, chat.phone);
+    if (fresh.name) continue;
+    await saveChat(store, { ...fresh, name });
+    filled += 1;
+  }
+  if (filled) console.info(`WhatsApp by XRE: ${portal.domain} hat ${line}: ${filled} sohbete WhatsApp adı yazıldı.`);
+  return filled;
+}
+
 /** Açılışta: önceden kalmış gizli numaralı sohbetleri eşleştirmeyi dener. */
 async function resolveAllLidChats(store: Store) {
   for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {
     if (!row.payload.active) continue;
-    for (const line of Object.keys(row.payload.lines || {})) await resolveLidChats(store, row.payload, line).catch(() => undefined);
+    for (const line of Object.keys(row.payload.lines || {})) {
+      await resolveLidChats(store, row.payload, line).catch(() => undefined);
+      await fillChatNames(store, row.payload, line).catch(() => undefined);
+    }
   }
 }
 
@@ -772,6 +811,9 @@ export async function recordPhoneMessage(store: Store, portal: B24Portal, line: 
   const at = tsMs(data?.messageTimestamp) || Date.now();
   const chat = await loadChat(store, portal.id, line, target.phone);
   if (!chat.createdAt) chat.createdAt = at;
+  // Telefondan yeni birine yazıldı: kişinin WhatsApp adını getir.
+  if (!chat.name && !target.isGroup && instance)
+    chat.name = (await contactNames(instance, [jidOf(target.phone)]).catch(() => new Map<string, string>())).get(jidOf(target.phone)) || "";
   chat.outbound += 1;
   chat.lastOutboundAt = Math.max(chat.lastOutboundAt || 0, at);
   chat.waitingSince = null;
@@ -846,7 +888,15 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     clearTimeout(lidTimers.get(instance));
     lidTimers.set(
       instance,
-      setTimeout(() => void queued(instance, async () => resolveLidChats(store, (await portalById(store, portal!.id)) || portal!, map.line)).catch(() => undefined), lidResolveDelay),
+      setTimeout(
+        () =>
+          void queued(instance, async () => {
+            const fresh = (await portalById(store, portal!.id)) || portal!;
+            await resolveLidChats(store, fresh, map.line);
+            await fillChatNames(store, fresh, map.line);
+          }).catch(() => undefined),
+        lidResolveDelay,
+      ),
     );
     return;
   }
