@@ -1433,7 +1433,8 @@ export function createApp(
 
   app.post(
     "/api/webhooks/evolution",
-    express.json({ limit: "2mb" }),
+    // Bağlantı anındaki sohbet geçmişi tek olayda büyük gelebilir.
+    express.json({ limit: "64mb" }),
     async (req, res) => {
       if (!process.env.EVOLUTION_WEBHOOK_SECRET)
         return res

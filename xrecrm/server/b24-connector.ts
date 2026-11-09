@@ -13,7 +13,7 @@ import { onCustomerMessage, registerAgentPanelRoutes, type AgentConfig } from ".
 import { registerLivePanelRoutes, type ReportSettings } from "./b24-live.js";
 import { CAMPAIGN_KIND, registerCampaignRoutes } from "./b24-campaigns.js";
 import { langOf, localizeMessage, normLang, pick, type Lang } from "./b24-i18n.js";
-import { appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
+import { alreadySent, appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, mergeThread, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
 import { logRestCall } from "./b24-restlog.js";
 import { registerLegalRoutes } from "./b24-legal.js";
 import { adminHtml } from "./b24-admin-html.js";
@@ -21,7 +21,7 @@ import { getPricing, licenseState, lineUsable, notifyOwner, planOf, portalPlan, 
 import { aiConfigured, detectAndTranslate, languageName, qualificationComment, qualifyConversation, transcribe, translateTo, type Qualification } from "./b24-ai.js";
 export { panelHtml };
 import type { Store } from "./db.js";
-import { evolutionBase, evolutionWebhookConfig, getEvolutionQr, jidPhone } from "./integrations.js";
+import { evolutionBase, evolutionWebhookConfig, getEvolutionQr, HISTORY_EVENTS, jidPhone, setEvolutionWebhook } from "./integrations.js";
 import { envConfigured, fetchWithTimeout, normalizePhone, readJsonResponse } from "./security.js";
 import {
   captureEvolutionMedia,
@@ -31,6 +31,7 @@ import {
   saveMedia,
   sendEvolutionMedia,
   unwrapWaMessage,
+  waContentKey,
   waMessageText,
 } from "./whatsapp-media.js";
 
@@ -257,6 +258,8 @@ export const lineOptions = (l?: B24Line): Required<B24LineOptions> => ({
 export interface B24License {
   /** Deneme, numara ilk bağlandığında başlar. */
   trialStart?: string;
+  /** Deneme başladığında geçerli olan süre (gün); eski kayıtlarda yoktur. */
+  trialDays?: number;
   paidUntil?: string;
   /** Ödenen paket; eski lisanslarda yoktur ve Pro+ sayılır. */
   plan?: "basic" | "pro" | "proplus";
@@ -536,6 +539,206 @@ function withPhoneJid(jid: string, ...alts: unknown[]): string {
   return jid;
 }
 
+type ChatTarget = { phone: string; isGroup: boolean; isLid: boolean; remoteJid: string };
+/**
+ * Mesajın ait olduğu sohbet: gerçek numara, grup ya da (numara bilinmiyorsa) gizli kimlik.
+ * Durum mesajları, kanallar ve (kapalıysa) gruplar için null döner.
+ */
+async function resolveChatTarget(store: Store, portal: B24Portal, line: string, key: any, data: any, opts: { guess: boolean; warn: boolean }): Promise<ChatTarget | null> {
+  const own = portal.lines[line]?.phone ? [`${portal.lines[line].phone}@s.whatsapp.net`] : [];
+  // WhatsApp bazı sohbetlerde numara yerine gizli kimlik (…@lid) kullanır; gerçek
+  // numara varsa ayrı alanda gelir (remoteJidAlt / senderPn).
+  const rawJid = String(key?.remoteJid || "");
+  let remoteJid = withPhoneJid(rawJid, key?.remoteJidAlt, key?.senderPn, key?.senderPN, data?.senderPn, data?.senderPN, data?.remoteJidAlt);
+  if (rawJid.endsWith("@lid")) {
+    const lid = `${rawJid.split("@")[0].replace(/\D/g, "")}@lid`;
+    if (!remoteJid.endsWith("@s.whatsapp.net")) {
+      // Alan adı sürüme göre değişiyor: numarayı anahtar ve veri alanlarında ara (kendi hattımız hariç).
+      const found = findJid(key, "@s.whatsapp.net", own) || findJid({ ...data, key: undefined }, "@s.whatsapp.net", own);
+      if (found) remoteJid = found;
+    }
+    if (remoteJid.endsWith("@s.whatsapp.net")) await saveLidPhone(store, portal.id, line, lid, normalizePhone(remoteJid.split("@")[0]));
+    else {
+      const known = (await lidPhone(store, portal.id, line, lid)) || (opts.guess ? await guessLidPhone(store, portal.id, line, lid) : "");
+      if (known) remoteJid = `${known}@s.whatsapp.net`;
+      else if (opts.warn)
+        console.warn(`WhatsApp by XRE: gizli numara eşleşmedi (${portal.domain} hat ${line}); alanlar: key[${Object.keys(key || {}).join(",")}] data[${Object.keys(data || {}).join(",")}]`);
+    }
+  }
+  const isGroup = remoteJid.endsWith("@g.us");
+  const isLid = remoteJid.endsWith("@lid");
+  if (!remoteJid.endsWith("@s.whatsapp.net") && !isLid && !(isGroup && lineOptions(portal.lines[line]).groups)) return null; // durumlar ve (kapalıysa) gruplar aktarılmaz
+  const phone = isGroup ? `${remoteJid.split("@")[0]}@g.us` : isLid ? `${remoteJid.split("@")[0].replace(/\D/g, "")}@lid` : normalizePhone(remoteJid.split("@")[0]);
+  if (!phone || phone === "@lid" || (!isGroup && !isLid && own.includes(`${phone}@s.whatsapp.net`))) return null;
+  return { phone, isGroup, isLid, remoteJid };
+}
+
+/** Metni olmayan medya mesajları için kısa etiket. */
+function mediaLabel(message: any, lang: Lang): string {
+  const key = waContentKey(message);
+  const doc = message?.documentMessage || message?.documentWithCaptionMessage?.message?.documentMessage;
+  if (key === "imageMessage") return pick(lang, "📷 Görsel", "📷 Image");
+  if (key === "videoMessage" || key === "ptvMessage") return pick(lang, "🎥 Video", "🎥 Video");
+  if (key === "audioMessage") return pick(lang, "🎤 Sesli mesaj", "🎤 Voice message");
+  if (key === "stickerMessage") return pick(lang, "🏷 Çıkartma", "🏷 Sticker");
+  if (doc) return `📄 ${doc.fileName || pick(lang, "Belge", "Document")}`;
+  return "";
+}
+
+const tsMs = (v: any) => {
+  const n = Number(typeof v === "object" && v ? (v.low ?? v.toString?.()) : v);
+  return Number.isFinite(n) && n > 0 ? (n < 1e12 ? n * 1000 : n) : 0;
+};
+
+/** Aynı numaranın geçmiş olaylarını sırayla işler (paralel yazımlar birbirini ezmesin). */
+const historyQueues = new Map<string, Promise<unknown>>();
+function queued<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const next = (historyQueues.get(key) || Promise.resolve()).catch(() => undefined).then(fn);
+  historyQueues.set(key, next);
+  void next.finally(() => historyQueues.get(key) === next && historyQueues.delete(key)).catch(() => undefined);
+  return next;
+}
+
+const HISTORY_CHAT_MAX = 3000;
+/**
+ * Numara bağlanınca WhatsApp son sohbetleri ve mesajları gönderir (chats.set / messages.set).
+ * Bunlar sohbet ekranına geçmiş olarak yazılır; Bitrix'e yeni mesaj olarak gönderilmez.
+ */
+export async function importHistory(store: Store, portal: B24Portal, line: string, event: string, data: any) {
+  const lang = langOf(portal);
+  if (event === "chats.set") {
+    const list: any[] = Array.isArray(data) ? data : Array.isArray(data?.chats) ? data.chats : [];
+    const known = new Map(
+      (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER)).map((r) => r.payload).filter((c) => c.memberId === portal.id && c.line === line).map((c) => [c.id, c]),
+    );
+    let added = 0;
+    for (const item of list) {
+      const target = await resolveChatTarget(store, portal, line, { remoteJid: String(item?.remoteJid || item?.id || "") }, item, { guess: false, warn: false });
+      if (!target || target.isLid) continue;
+      const id = chatId(portal.id, line, target.phone);
+      const name = String(item?.name || item?.pushName || "").slice(0, 120);
+      const found = known.get(id);
+      if (found) {
+        if (name && !found.name) await saveChat(store, { ...found, name });
+        continue;
+      }
+      if (known.size + added >= HISTORY_CHAT_MAX) break;
+      await saveChat(store, { id, memberId: portal.id, line, phone: target.phone, name, inbound: 0, outbound: 0, sinceQualify: 0, history: [], createdAt: Date.now() });
+      added += 1;
+    }
+    if (added) console.info(`WhatsApp by XRE: ${portal.domain} hat ${line} için ${added} sohbet içe aktarıldı.`);
+    return added;
+  }
+  const list: any[] = Array.isArray(data) ? data : Array.isArray(data?.messages) ? data.messages : [];
+  const byChat = new Map<string, { target: ChatTarget; name: string; msgs: ThreadMessage[] }>();
+  for (const m of list) {
+    const key = m?.key || {};
+    const message = unwrapWaMessage(m?.message || {});
+    if (!m?.message || message.protocolMessage || message.reactionMessage || isWaSystemMessage(message)) continue;
+    const at = tsMs(m.messageTimestamp);
+    if (!at) continue;
+    const target = await resolveChatTarget(store, portal, line, key, m, { guess: false, warn: false });
+    if (!target) continue;
+    const text = waMessageText(message) || mediaLabel(message, lang);
+    if (!text) continue;
+    const group = byChat.get(target.phone) || { target, name: "", msgs: [] };
+    const participant = withPhoneJid(String(key.participant || m?.participant || ""), key.participantAlt, key.participantPn);
+    const sender = target.isGroup && !key.fromMe && participant.endsWith("@s.whatsapp.net") ? normalizePhone(jidPhone(participant)) : "";
+    group.msgs.push({
+      dir: key.fromMe ? "out" : "in",
+      text,
+      at,
+      waId: String(key.id || ""),
+      ...(key.fromMe ? { via: "phone" as const } : {}),
+      ...(sender ? { sender: `+${sender}`, senderName: String(m?.pushName || "").slice(0, 120) } : {}),
+    });
+    if (!key.fromMe && !target.isGroup && m?.pushName) group.name = String(m.pushName).slice(0, 120);
+    byChat.set(target.phone, group);
+  }
+  let count = 0;
+  for (const { target, name, msgs } of byChat.values()) {
+    const chat = await loadChat(store, portal.id, line, target.phone, name);
+    const fresh = await mergeThread(store, chat, msgs);
+    if (!fresh.length) continue;
+    count += fresh.length;
+    if (name && !chat.name && !target.isGroup) chat.name = name;
+    for (const m of fresh) {
+      if (m.dir === "in") {
+        chat.inbound += 1;
+        chat.lastInboundAt = Math.max(chat.lastInboundAt || 0, m.at);
+      } else {
+        chat.outbound += 1;
+        chat.lastOutboundAt = Math.max(chat.lastOutboundAt || 0, m.at);
+      }
+    }
+    chat.createdAt = Math.min(chat.createdAt || Date.now(), ...fresh.map((m) => m.at));
+    chat.history = [...chat.history, ...fresh.map((m) => ({ from: m.dir === "in" ? ("müşteri" as const) : ("temsilci" as const), text: m.text, at: m.at }))].sort((a, b) => a.at - b.at);
+    await saveChat(store, chat);
+  }
+  if (count) console.info(`WhatsApp by XRE: ${portal.domain} hat ${line} için ${count} geçmiş mesaj içe aktarıldı (${byChat.size} sohbet).`);
+  return count;
+}
+
+let phoneEchoDelay = 4000;
+/** Testler için: kendi gönderimimizin yankısını beklerken kullanılan süre. */
+export function setPhoneEchoDelay(ms: number) {
+  phoneEchoDelay = ms;
+}
+/**
+ * İşletmenin WhatsApp uygulamasından (telefon, WhatsApp Web) yazdığı mesajı sohbet
+ * geçmişine ekler. Sistemden gönderdiğimiz mesajların yankısı ayıklanır.
+ */
+export async function recordPhoneMessage(store: Store, portal: B24Portal, line: string, instance: string, key: any, data: any) {
+  const message = unwrapWaMessage(data?.message || {});
+  if (!data?.message || message.protocolMessage || message.reactionMessage || isWaSystemMessage(message)) return;
+  const target = await resolveChatTarget(store, portal, line, key, data, { guess: false, warn: false });
+  if (!target) return;
+  const lang = langOf(portal);
+  const text = waMessageText(message) || "";
+  const waId = String(key?.id || "");
+  // Bizim gönderimimiz kaydını yazana kadar bekle; sonra yankı mı diye bak.
+  if (phoneEchoDelay) await new Promise((r) => setTimeout(r, phoneEchoDelay));
+  const id = chatId(portal.id, line, target.phone);
+  if (await alreadySent(store, id, waId, text)) return;
+  const media = await captureEvolutionMedia(store, `b24:${portal.id}`, instance, data).catch(() => ({}) as Awaited<ReturnType<typeof captureEvolutionMedia>>);
+  const label = text || mediaLabel(message, lang);
+  if (!label && !media.mediaId) return;
+  const at = tsMs(data?.messageTimestamp) || Date.now();
+  const chat = await loadChat(store, portal.id, line, target.phone);
+  if (!chat.createdAt) chat.createdAt = at;
+  chat.outbound += 1;
+  chat.lastOutboundAt = Math.max(chat.lastOutboundAt || 0, at);
+  chat.waitingSince = null;
+  // İşletme telefondan cevap verdi: AI asistan bu sohbette bir süre susar.
+  chat.agentState = "human";
+  chat.humanAt = Date.now();
+  if (label) chat.history.push({ from: "temsilci", text: label, at });
+  await saveChat(store, chat);
+  await mergeThread(store, chat, [
+    {
+      dir: "out",
+      text: label,
+      via: "phone",
+      at,
+      waId,
+      ...(media.mediaId ? { media: { id: media.mediaId, name: media.fileName || "", type: media.mediaType || "", mime: media.mime || "" } } : {}),
+    },
+  ]);
+}
+
+/** Var olan numaraların webhook ayarına geçmiş olaylarını ekler (sunucu başına bir kez). */
+let webhooksSynced = false;
+export async function syncConnectorWebhooks(store: Store) {
+  if (webhooksSynced) return;
+  webhooksSynced = true;
+  for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {
+    if (!row.payload.active) continue;
+    for (const l of Object.values(row.payload.lines || {})) {
+      if (l.instance) await setEvolutionWebhook(l.instance, HISTORY_EVENTS).catch(() => false);
+    }
+  }
+}
+
 /** Müşteri adına Bitrix sohbetine kısa bir not (arama, silme, düzenleme). */
 export async function sendClientMessage(
   store: Store,
@@ -570,6 +773,12 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   const event = String(body?.event || "").toLowerCase().replace(/_/g, ".");
   const data = body?.data || {};
 
+  // Bağlantı anındaki WhatsApp geçmişi: sohbet listesine ve yazışmalara eklenir.
+  if (event === "messages.set" || event === "chats.set") {
+    await queued(instance, () => importHistory(store, portal!, map.line, event, data));
+    return;
+  }
+
   if (event === "connection.update" || (!data?.key && (data?.state || data?.instance?.state))) {
     const state = String(data?.state || data?.instance?.state || "").toLowerCase();
     const open = ["open", "connected"].includes(state);
@@ -585,7 +794,7 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
           phone: phone || previous?.phone,
           profileName: open && data?.profileName ? String(data.profileName).slice(0, 120) : previous?.profileName,
           connectedAt: open ? (previous?.status === "connected" && previous?.connectedAt) || new Date().toISOString() : previous?.connectedAt,
-          license: open ? withTrialStarted(previous) : previous?.license,
+          license: open ? withTrialStarted(previous, (await getPricing(store)).trialDays) : previous?.license,
           status: open ? "connected" : state || "disconnected",
           updatedAt: new Date().toISOString(),
         },
@@ -628,35 +837,17 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
     const lidJid = findJid(key, "@lid") || findJid(data, "@lid");
     const pnJid = findJid(key, "@s.whatsapp.net", own) || findJid(data, "@s.whatsapp.net", own);
     if (lidJid && pnJid) await saveLidPhone(store, portal.id, map.line, `${lidJid.split("@")[0].replace(/\D/g, "")}@lid`, normalizePhone(pnJid.split("@")[0]));
+    // Telefondan / WhatsApp Web'den yazılan mesaj sohbet ekranında da görünsün.
+    if (event.startsWith("messages.upsert"))
+      await queued(`${instance}:out`, () => recordPhoneMessage(store, portal!, map.line, instance, key, data)).catch((e) => console.warn("Telefondan yazılan mesaj kaydedilemedi:", (e as Error).message));
     return;
   }
-  // WhatsApp bazı sohbetlerde numara yerine gizli kimlik (…@lid) kullanır; gerçek
-  // numara varsa ayrı alanda gelir (remoteJidAlt / senderPn). Yoksa sohbet gizli
-  // kimlikle açılır ve cevaplar da o kimliğe gönderilir.
-  const rawJid = String(key.remoteJid || "");
-  let remoteJid = withPhoneJid(rawJid, key.remoteJidAlt, key.senderPn, key.senderPN, data?.senderPn, data?.senderPN, data?.remoteJidAlt);
-  if (rawJid.endsWith("@lid")) {
-    const lid = `${rawJid.split("@")[0].replace(/\D/g, "")}@lid`;
-    if (!remoteJid.endsWith("@s.whatsapp.net")) {
-      // Alan adı sürüme göre değişiyor: numarayı anahtar ve veri alanlarında ara (kendi hattımız hariç).
-      const own = portal.lines[map.line]?.phone ? [`${portal.lines[map.line].phone}@s.whatsapp.net`] : [];
-      const found = findJid(key, "@s.whatsapp.net", own) || findJid({ ...data, key: undefined }, "@s.whatsapp.net", own);
-      if (found) remoteJid = found;
-    }
-    if (remoteJid.endsWith("@s.whatsapp.net")) await saveLidPhone(store, portal.id, map.line, lid, normalizePhone(remoteJid.split("@")[0]));
-    else {
-      const known = (await lidPhone(store, portal.id, map.line, lid)) || (await guessLidPhone(store, portal.id, map.line, lid));
-      if (known) remoteJid = `${known}@s.whatsapp.net`;
-      else console.warn(`WhatsApp by XRE: gizli numara eşleşmedi (${portal.domain} hat ${map.line}); alanlar: key[${Object.keys(key).join(",")}] data[${Object.keys(data || {}).join(",")}]`);
-    }
-  }
-  const isGroup = remoteJid.endsWith("@g.us");
-  const isLid = remoteJid.endsWith("@lid");
-  if (!remoteJid.endsWith("@s.whatsapp.net") && !isLid && !(isGroup && options.groups)) return; // durumlar ve (kapalıysa) gruplar aktarılmaz
+  // Numara gizliyse (…@lid) ve eşleşme yoksa sohbet gizli kimlikle açılır; cevaplar da o kimliğe gider.
+  const target = await resolveChatTarget(store, portal, map.line, key, data, { guess: true, warn: true });
+  if (!target) return;
+  const { isGroup, isLid, phone } = target;
   const participant = withPhoneJid(String(key.participant || data?.participant || ""), key.participantAlt, key.participantPn);
   const sender = isGroup && !participant.endsWith("@lid") ? normalizePhone(jidPhone(participant)) : "";
-  const phone = isGroup ? `${remoteJid.split("@")[0]}@g.us` : isLid ? `${remoteJid.split("@")[0].replace(/\D/g, "")}@lid` : normalizePhone(remoteJid.split("@")[0]);
-  if (!phone || phone === "@lid") return;
   const rawMessage = data?.message || {};
   // Silinen ve düzenlenen mesajlar
   const protocol = rawMessage.protocolMessage;
@@ -911,7 +1102,7 @@ async function connectionQr(store: Store, portal: B24Portal, line: string) {
   await store.put(INSTANCE_KIND, instance, { id: instance, memberId: portal.id, line }, SYSTEM_OWNER);
   if (!evolutionWebhookConfig())
     throw Object.assign(new Error("WhatsApp sunucusunun webhook adresi tanımlı değil."), { statusCode: 503 });
-  const qr = await getEvolutionQr(instance);
+  const qr = await getEvolutionQr(instance, HISTORY_EVENTS);
   const image = typeof qr === "string" ? qr : qr?.base64 || qr?.qr || qr?.qrcode?.base64 || "";
   return { qr: image ? (String(image).startsWith("data:") ? image : `data:image/png;base64,${image}`) : "", message: image ? "" : "QR henüz hazır değil." };
 }
@@ -929,7 +1120,7 @@ async function connectionStatus(store: Store, portal: B24Portal, line: string) {
       ...portal,
       lines: {
         ...portal.lines,
-        [line]: { ...known, instance, phone: owner.phone || known?.phone, profileName: owner.profileName || known?.profileName, connectedAt: known?.connectedAt || new Date().toISOString(), license: withTrialStarted(known), status: "connected", updatedAt: new Date().toISOString() },
+        [line]: { ...known, instance, phone: owner.phone || known?.phone, profileName: owner.profileName || known?.profileName, connectedAt: known?.connectedAt || new Date().toISOString(), license: withTrialStarted(known, (await getPricing(store)).trialDays), status: "connected", updatedAt: new Date().toISOString() },
       },
     };
     await savePortal(store, next);
@@ -975,6 +1166,7 @@ export async function refreshLines(store: Store, portal: B24Portal, lines: strin
 let healthTimer: NodeJS.Timeout | null = null;
 export function startLineHealthMonitor(store: Store) {
   if (healthTimer) return;
+  setTimeout(() => void syncConnectorWebhooks(store).catch((e) => console.warn("Webhook ayarı güncellenemedi:", (e as Error).message)), 20_000).unref?.();
   healthTimer = setInterval(() => {
     void (async () => {
       for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {

@@ -150,7 +150,10 @@ export async function evolutionInstances(): Promise<EvolutionInstanceInfo[]> {
  * Evolution'ın gelen mesajları CRM'e iletmesi için webhook ayarı.
  * Tek adres (byEvents kapalı), gizli anahtar hem başlıkta hem adreste gönderilir.
  */
-export function evolutionWebhookConfig() {
+/** Bağlantı anında WhatsApp'ın gönderdiği sohbet geçmişi olayları. */
+export const HISTORY_EVENTS = ["MESSAGES_SET", "CHATS_SET"];
+
+export function evolutionWebhookConfig(extraEvents: string[] = []) {
   const base =
     process.env.EVOLUTION_WEBHOOK_URL?.trim() ||
     (process.env.PUBLIC_ORIGIN?.trim()
@@ -165,11 +168,23 @@ export function evolutionWebhookConfig() {
     byEvents: false,
     base64: true,
     headers: { authorization: `Bearer ${secret}` },
-    events: ["CONNECTION_UPDATE", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "QRCODE_UPDATED", "CALL"],
+    events: ["CONNECTION_UPDATE", "MESSAGES_UPSERT", "MESSAGES_UPDATE", "QRCODE_UPDATED", "CALL", ...extraEvents],
   };
 }
 
-export async function getEvolutionQr(instance: string): Promise<any> {
+/** Var olan bir oturumun webhook ayarını günceller (yeni olay türleri için). */
+export async function setEvolutionWebhook(instance: string, extraEvents: string[] = []) {
+  const webhook = evolutionWebhookConfig(extraEvents);
+  if (!webhook || !envConfigured("EVOLUTION_API_URL", "EVOLUTION_API_KEY")) return false;
+  const response = await fetchWithTimeout(`${evolutionBase()}/webhook/set/${encodeURIComponent(instance)}`, {
+    method: "POST",
+    headers: { apikey: process.env.EVOLUTION_API_KEY!, "content-type": "application/json" },
+    body: JSON.stringify({ webhook: { enabled: true, ...webhook } }),
+  });
+  return response.ok;
+}
+
+export async function getEvolutionQr(instance: string, extraEvents: string[] = []): Promise<any> {
   if (!envConfigured("EVOLUTION_API_URL", "EVOLUTION_API_KEY"))
     throw Object.assign(
       new Error("Evolution API yapılandırılmamış. QR üretilemez."),
@@ -187,7 +202,7 @@ export async function getEvolutionQr(instance: string): Promise<any> {
     "content-type": "application/json",
   };
   let response: Response;
-  const webhook = evolutionWebhookConfig();
+  const webhook = evolutionWebhookConfig(extraEvents);
   if (!existing) {
     response = await fetchWithTimeout(`${evolutionBase()}/instance/create`, {
       method: "POST",

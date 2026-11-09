@@ -56,7 +56,7 @@ Portallar sekmesi firma firma listelenir. Firmaya tıklayınca numaraları açı
 
 ## Lisans ve ödeme
 
-- **Model:** Her WhatsApp numarası ayrı lisans. Numara ilk kez bağlandığında ücretsiz deneme başlar (varsayılan 7 gün).
+- **Model:** Her WhatsApp numarası ayrı lisans. Numara ilk kez bağlandığında ücretsiz deneme başlar (varsayılan 3 gün; 9 Kasım 2026 öncesi başlamış denemeler 7 gün sürer).
 - **Süre dolunca:** O numaranın mesajları Bitrix'e aktarılmaz ve Bitrix'ten gönderilmez. WhatsApp oturumu açık kalır, lisans uzatılınca kaldığı yerden devam eder. Kartta "Lisans al" butonu çıkar.
 - **Müşteri tarafı** (paneldeki **Ödeme** sekmesi):
   - Dönem seçer: 1, 3, 6 veya 12 ay; uzun dönemde indirim uygulanır.

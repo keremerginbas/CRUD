@@ -44,7 +44,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 > - The interface is available in English and Turkish.
 >
 > **Pricing**
-> - Installing the app is free. Every connected number gets a **7-day free trial**.
+> - Installing the app is free. Every connected number gets a **3-day free trial**.
 > - After the trial, each number requires a license. Choose a plan for your account (prices per number per month):
 >   - **Basic, 15 USD:** connect numbers and chat from Bitrix24, media, chat screen and CRM card tab, roles and staff.
 >   - **Pro, 25 USD:** everything in Basic + live monitor, performance analytics and bulk campaigns with your own Meta (WhatsApp Cloud API) account.

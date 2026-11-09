@@ -21,7 +21,9 @@ Arka planda olanlar:
 1. Uygulamada **Bağlantılar → Numara ekle**'ye basar ve bir ad yazar (ör. "Satış").
 2. Bitrix'te bu numara için bir Açık Kanal açılır ve ekranda QR kodu çıkar.
 3. Telefonda WhatsApp → **Ayarlar → Bağlı cihazlar → Cihaz bağla** ile QR'ı okutur.
-4. Kart yeşile döner. **7 günlük ücretsiz deneme bu anda başlar.** Denemede tüm Pro+ özellikleri açıktır.
+4. Kart yeşile döner. **3 günlük ücretsiz deneme bu anda başlar.** Denemede tüm Pro+ özellikleri açıktır.
+5. Bağlantıdan sonraki birkaç dakika içinde WhatsApp'taki son sohbetler ve mesajlar uygulamanın **Sohbetler** ekranına aktarılır. Bunlar Bitrix'e yeni mesaj olarak düşmez; Açık Kanallara yalnız bağlantıdan sonra gelen mesajlar girer.
+6. İşletme telefondan ya da WhatsApp Web'den yazmaya devam edebilir; bu mesajlar da sohbet ekranında "📱 Telefondan" etiketiyle görünür.
 
 ## 3. Ekibi ayarlama (müşteri, 5 dakika)
 
@@ -35,7 +37,7 @@ Bundan sonra WhatsApp mesajları Bitrix24 Açık Kanallarına ve CRM'e düşer. 
 ## 4. Deneme biterken
 
 - Panelin üstünde sürekli "Ücretsiz deneme: X gün kaldı → Paket seç" bandı görünür.
-- Bitişe 2 gün kala portal yöneticilerine Bitrix bildirimi gider.
+- Bitişe 2 gün kala portal yöneticilerine Bitrix bildirimi gider (3 günlük denemede ilk günün sonunda).
 - Deneme biterse o numaranın mesajları durur ve panelde kırmızı "Lisansı uzat" bandı çıkar. WhatsApp oturumu açık kalır; ödeme yapılınca mesajlar kaldığı yerden devam eder.
 
 ## 5. Ödeme

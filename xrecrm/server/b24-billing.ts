@@ -45,15 +45,20 @@ export interface Pricing {
   discounts: Record<string, number>;
   trialDays: number;
   bank: { holder: string; bankName: string; iban: string; note: string };
+  /** Kayıt sürümü: 2 = deneme süresi yönetimden bilerek seçildi */
+  rev?: number;
 }
 export const DEFAULT_PRICING: Pricing = {
   currency: "USD",
   monthly: 35,
   plans: { basic: 15, pro: 25, proplus: 35 },
   discounts: { "1": 0, "3": 10, "6": 20, "12": 35 },
-  trialDays: 7,
+  trialDays: 3,
   bank: { holder: "", bankName: "", iban: "", note: "Açıklamaya ödeme referans kodunu yazın." },
 };
+/** Deneme 3 güne inmeden önce başlamış denemeler 7 gün sürer (geriye dönük kısaltılmaz). */
+export const LEGACY_TRIAL_DAYS = 7;
+const trialLength = (line: B24Line | undefined, trialDays: number) => line?.license?.trialDays ?? Math.max(trialDays, LEGACY_TRIAL_DAYS);
 export const PERIODS = [1, 3, 6, 12] as const;
 
 export interface PaymentRequest {
@@ -99,6 +104,8 @@ export async function getPricing(store: Store): Promise<Pricing> {
   return {
     ...DEFAULT_PRICING,
     ...(saved || {}),
+    // Eski varsayılan (7 gün) kayıtlı kaldıysa yeni varsayılan geçerli olur.
+    ...(saved && !saved.rev && saved.trialDays === LEGACY_TRIAL_DAYS ? { trialDays: DEFAULT_PRICING.trialDays } : {}),
     plans: { ...DEFAULT_PRICING.plans, ...(saved?.plans || {}) },
     bank: { ...DEFAULT_PRICING.bank, ...(saved?.bank || {}) },
     discounts: { ...DEFAULT_PRICING.discounts, ...(saved?.discounts || {}) },
@@ -127,7 +134,7 @@ export interface LicenseState {
 export function licenseState(portal: B24Portal, line: B24Line | undefined, trialDays: number, now = Date.now()): LicenseState {
   if (freeDomains().includes(portal.domain)) return { status: "free", until: null, daysLeft: null };
   const paid = line?.license?.paidUntil ? Date.parse(line.license.paidUntil) : 0;
-  const trialEnd = line?.license?.trialStart ? Date.parse(line.license.trialStart) + trialDays * DAY : 0;
+  const trialEnd = line?.license?.trialStart ? Date.parse(line.license.trialStart) + trialLength(line, trialDays) * DAY : 0;
   const days = (t: number) => Math.max(0, Math.ceil((t - now) / DAY));
   if (paid > now) return { status: "active", until: new Date(paid).toISOString(), daysLeft: days(paid) };
   if (trialEnd > now) return { status: "trial", until: new Date(trialEnd).toISOString(), daysLeft: days(trialEnd) };
@@ -184,9 +191,9 @@ export async function lineUsable(store: Store, portal: B24Portal, line: string):
 }
 
 /** Bağlantı ilk kez kurulduğunda denemeyi başlatır. */
-export function withTrialStarted(line: B24Line | undefined): B24Line["license"] {
+export function withTrialStarted(line: B24Line | undefined, trialDays: number): B24Line["license"] {
   if (line?.license?.trialStart) return line.license;
-  return { ...(line?.license || {}), trialStart: new Date().toISOString() };
+  return { ...(line?.license || {}), trialStart: new Date().toISOString(), trialDays };
 }
 
 /** Seçilen numaralara ay ekler: mevcut lisans, deneme bitişi veya bugünden hangisi ileriyse oradan. */
@@ -197,7 +204,7 @@ export function extendLines(portal: B24Portal, lines: string[], months: number, 
     const line = next.lines[id];
     if (!line) continue;
     const paid = line.license?.paidUntil ? Date.parse(line.license.paidUntil) : 0;
-    const trialEnd = line.license?.trialStart ? Date.parse(line.license.trialStart) + trialDays * DAY : 0;
+    const trialEnd = line.license?.trialStart ? Date.parse(line.license.trialStart) + trialLength(line, trialDays) * DAY : 0;
     const base = new Date(Math.max(now, paid, trialEnd));
     base.setMonth(base.getMonth() + months);
     next.lines[id] = { ...line, license: { ...(line.license || {}), trialStart: line.license?.trialStart || new Date(now).toISOString(), paidUntil: base.toISOString(), plan } };
@@ -538,6 +545,7 @@ export function registerBillingAdminRoutes(app: Express, store: Store) {
         monthly: plans.proplus,
         plans,
         trialDays: num(b.trialDays, 0, 90, current.trialDays),
+        rev: 2,
         discounts: Object.fromEntries(PERIODS.map((m) => [String(m), num(b.discounts?.[String(m)], 0, 90, current.discounts[String(m)] || 0)])),
         bank: {
           holder: String(b.bank?.holder ?? current.bank.holder).slice(0, 120),

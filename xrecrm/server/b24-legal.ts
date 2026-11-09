@@ -12,7 +12,7 @@ import { PANEL_STYLE } from "./b24-panel-html.js";
 import { REPORT_TTL_DAYS, MEDIA_KEEP_DAYS } from "./b24-live.js";
 import { type Lang } from "./b24-i18n.js";
 
-export const LEGAL_UPDATED = "2026-10-19";
+export const LEGAL_UPDATED = "2026-11-09";
 const env = (k: string) => process.env[k]?.trim() || "";
 const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -98,7 +98,7 @@ function privacyEn() {
   return `<p>This policy explains how <b>${esc(v.name)}</b> processes data when you use the <b>WhatsApp by XRE</b> application for Bitrix24. For the personal data of your contacts and employees, you (the Bitrix24 account owner) are the data controller and we act as your data processor.</p>
 <h2>1. Data we process</h2><ul>
 <li><b>Bitrix24 account data:</b> account domain and member ID, OAuth access and refresh tokens issued by Bitrix24, user IDs and names of employees (to assign roles and show statistics).</li>
-<li><b>WhatsApp messages:</b> messages, voice notes and files exchanged on connected numbers pass through our servers to be delivered between WhatsApp and Bitrix24. We keep the last 40 messages of each chat to provide translation, qualification, the AI assistant, statistics and reports.</li>
+<li><b>WhatsApp messages:</b> messages, voice notes and files exchanged on connected numbers pass through our servers to be delivered between WhatsApp and Bitrix24. We keep up to the last 400 messages of each chat for the in-app chat screen and CRM card tab, and use them for translation, qualification, the AI assistant, statistics and reports. When a number is linked, the recent chats and messages WhatsApp sends to linked devices are copied to the chat screen; they are not posted to Bitrix24 as new messages.</li>
 <li><b>Media files:</b> stored temporarily so Bitrix24 can download them, and deleted automatically after ${MEDIA_KEEP_DAYS} days.</li>
 <li><b>Statistics and reports:</b> message counts, response times and report contents. Report links stop working after ${REPORT_TTL_DAYS} days.</li>
 <li><b>Technical logs:</b> Bitrix24 REST API requests and responses (without tokens, long texts shortened) are kept for 7 days for troubleshooting, as required by Bitrix24 Market.</li>
@@ -118,7 +118,7 @@ function privacyTr() {
   return `<p>Bu politika, Bitrix24 için <b>WhatsApp by XRE</b> uygulamasını kullandığınızda <b>${esc(v.name)}</b> tarafından hangi verilerin nasıl işlendiğini açıklar. Kişilerinizin ve çalışanlarınızın kişisel verileri için veri sorumlusu sizsiniz (Bitrix24 hesap sahibi); biz veri işleyen olarak hareket ederiz.</p>
 <h2>1. İşlediğimiz veriler</h2><ul>
 <li><b>Bitrix24 hesap verileri:</b> hesap alan adı ve kimliği, Bitrix24’ün verdiği OAuth erişim ve yenileme belirteçleri, çalışanların kullanıcı kimlikleri ve adları (rol atama ve istatistik için).</li>
-<li><b>WhatsApp mesajları:</b> bağlı numaralardaki mesajlar, sesli mesajlar ve dosyalar WhatsApp ile Bitrix24 arasında iletilmek üzere sunucularımızdan geçer. Çeviri, nitelendirme, AI asistan, istatistik ve rapor için her sohbetin son 40 mesajı saklanır.</li>
+<li><b>WhatsApp mesajları:</b> bağlı numaralardaki mesajlar, sesli mesajlar ve dosyalar WhatsApp ile Bitrix24 arasında iletilmek üzere sunucularımızdan geçer. Uygulama içi sohbet ekranı ve CRM kart sekmesi için her sohbetin en fazla son 400 mesajı saklanır; çeviri, nitelendirme, AI asistan, istatistik ve raporlar bu kayıtları kullanır. Numara bağlandığında WhatsApp'ın bağlı cihazlara gönderdiği son sohbetler ve mesajlar sohbet ekranına kopyalanır; bunlar Bitrix24'e yeni mesaj olarak gönderilmez.</li>
 <li><b>Medya dosyaları:</b> Bitrix24’ün indirebilmesi için geçici olarak saklanır ve ${MEDIA_KEEP_DAYS} gün sonra otomatik silinir.</li>
 <li><b>İstatistik ve raporlar:</b> mesaj sayıları, cevap süreleri ve rapor içerikleri. Rapor bağlantıları ${REPORT_TTL_DAYS} gün sonra açılmaz.</li>
 <li><b>Teknik kayıtlar:</b> Bitrix24 REST API istek ve cevapları (belirteçler hariç, uzun metinler kısaltılarak) sorun gidermek için 7 gün saklanır; bu Bitrix24 Market kuralıdır.</li>

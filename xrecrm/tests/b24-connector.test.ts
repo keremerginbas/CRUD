@@ -5,14 +5,14 @@ import path from "node:path";
 import http from "node:http";
 import { createApp } from "../server/app";
 import { createMemoryStore } from "../server/db";
-import { CONNECTOR_ID, checkLineHealth, instanceName, portalById, setB24Fetch, settingsTicket } from "../server/b24-connector";
+import { CONNECTOR_ID, checkLineHealth, instanceName, portalById, setB24Fetch, setPhoneEchoDelay, settingsTicket, syncConnectorWebhooks } from "../server/b24-connector";
 import { setAiFetch } from "../server/b24-ai";
 import { inWorkingHours, setAgentMergeDelay, DEFAULT_AGENT } from "../server/b24-agent";
 import { dueReports, DEFAULT_REPORTS, setTelegramFetch } from "../server/b24-live";
 import { panelHtml } from "../server/b24-panel-html";
 import { localizeMessage } from "../server/b24-i18n";
 import { normalizeRecipient, setCampaignGap, setMetaFetch } from "../server/b24-campaigns";
-import { revenueMetrics, runBillingReminders, setOwnerNotifyFetch, DEFAULT_PRICING } from "../server/b24-billing";
+import { getPricing, revenueMetrics, runBillingReminders, setOwnerNotifyFetch, DEFAULT_PRICING } from "../server/b24-billing";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -119,6 +119,93 @@ async function install(base: string) {
 }
 
 describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
+  it("bağlanınca WhatsApp geçmişini içe aktarır, telefondan yazılanları gösterir, listede tüm sohbetlerde arar", async () => {
+    setPhoneEchoDelay(0);
+    const { store, base, bx, evo } = await setup({ evoState: "open" });
+    await install(base);
+    await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
+    const instance = instanceName(MEMBER, "3");
+    const post = (body: Record<string, unknown>) =>
+      fetch(`${base}/api/webhooks/evolution?token=hook-secret`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ instance, ...body }) });
+    const wait = (ms = 120) => new Promise((r) => setTimeout(r, ms));
+
+    // Bağlantı anında WhatsApp sohbet listesini ve son mesajları gönderir
+    await post({
+      event: "chats.set",
+      data: [{ remoteJid: "905301110001@s.whatsapp.net", name: "Zeynep Kaya" }, { remoteJid: "120363000@g.us", name: "Aile grubu" }, { remoteJid: "status@broadcast" }],
+    });
+    const history = [
+      { key: { id: "H1", remoteJid: "905301110002@s.whatsapp.net", fromMe: false }, pushName: "Mehmet", messageTimestamp: 1760000000, message: { conversation: "Eski soru" } },
+      { key: { id: "H2", remoteJid: "905301110002@s.whatsapp.net", fromMe: true }, pushName: "Firma", messageTimestamp: 1760000100, message: { conversation: "Eski cevap" } },
+      { key: { id: "H3", remoteJid: "905301110002@s.whatsapp.net", fromMe: false }, messageTimestamp: 1760000200, message: { imageMessage: { mimetype: "image/jpeg" } } },
+      { key: { id: "H4", remoteJid: "555000111@lid", remoteJidAlt: "905301110005@s.whatsapp.net", fromMe: false }, pushName: "Selin", messageTimestamp: 1760000300, message: { conversation: "Gizli kimlikle" } },
+    ];
+    await post({ event: "messages.set", data: history });
+    await post({ event: "messages.set", data: { messages: history } }); // tekrar gelirse çoğalmaz
+    await wait();
+    // Geçmiş Bitrix'e yeni mesaj olarak gönderilmez
+    expect(bx.find((c) => c.method === "imconnector.send.messages")).toBeUndefined();
+
+    const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
+    const chatUrl = JSON.parse(home.match(/CHAT_URL=("[^"]*")/)![1]);
+    const view = await (await fetch(new URL(chatUrl, base).toString())).text();
+    const ct = JSON.parse(view.match(/window\.XRE_CHAT=(\{.*?\});<\/script>/)![1]).t;
+    const api = async (path: string, body: Record<string, unknown> = {}) =>
+      (await fetch(`${base}/b24/chat/${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, ...body }) })).json();
+
+    let list = await api("threads");
+    const byPhone = (p: string) => list.threads.find((x: any) => x.phone === p);
+    expect(byPhone("905301110001")).toMatchObject({ name: "Zeynep Kaya" });
+    expect(byPhone("905301110002")).toMatchObject({ name: "Mehmet", lastText: "📷 Görsel", lastAt: 1760000200000 });
+    expect(byPhone("905301110005")).toMatchObject({ name: "Selin" });
+    expect(list.threads.some((x: any) => x.phone.endsWith("@g.us") || x.phone.includes("broadcast"))).toBe(false);
+    const old = await api("messages", { line: "3", phone: "905301110002" });
+    expect(old.messages.map((m: any) => [m.dir, m.text, m.via || ""])).toEqual([
+      ["in", "Eski soru", ""],
+      ["out", "Eski cevap", "phone"],
+      ["in", "📷 Görsel", ""],
+    ]);
+
+    // İşletme telefondan yazar: sohbet listede en üste çıkar, mesaj "telefondan" görünür
+    await post({ event: "messages.upsert", data: { key: { id: "P1", remoteJid: "905301110003@s.whatsapp.net", fromMe: true }, messageTimestamp: Math.floor(Date.now() / 1000), message: { conversation: "Telefondan yazdım" } } });
+    await wait();
+    list = await api("threads");
+    expect(list.threads[0]).toMatchObject({ phone: "905301110003", lastText: "Telefondan yazdım" });
+    expect((await api("messages", { line: "3", phone: "905301110003" })).messages).toMatchObject([{ dir: "out", text: "Telefondan yazdım", via: "phone" }]);
+
+    // Sistemden gönderilen mesajın yankısı ikinci kez yazılmaz
+    await api("send", { line: "3", phone: "905301110003", text: "Sistemden gönderdim" });
+    const sentId = evo.filter((c) => c.url === `/message/sendText/${instance}`).length ? (await api("messages", { line: "3", phone: "905301110003" })).messages.at(-1).waId : "";
+    await post({ event: "messages.upsert", data: { key: { id: sentId, remoteJid: "905301110003@s.whatsapp.net", fromMe: true }, message: { conversation: "Sistemden gönderdim" } } });
+    await post({ event: "messages.upsert", data: { key: { id: "ECHO-2", remoteJid: "905301110003@s.whatsapp.net", fromMe: true }, message: { conversation: "Sistemden gönderdim" } } });
+    await wait();
+    expect((await api("messages", { line: "3", phone: "905301110003" })).messages.map((m: any) => m.text)).toEqual(["Telefondan yazdım", "Sistemden gönderdim"]);
+
+    // Arama tüm sohbetlerde yapılır; liste sayfalanır
+    expect((await api("threads", { q: "zeynep" })).threads.map((x: any) => x.phone)).toEqual(["905301110001"]);
+    expect((await api("threads", { q: "0530 111 00 05" })).threads.map((x: any) => x.phone)).toEqual(["905301110005"]);
+    const portal = (await portalById(store, MEMBER))!;
+    for (let i = 0; i < 60; i += 1)
+      await store.put("b24-chat", `${MEMBER}:3:9053900000${String(i).padStart(2, "0")}`, { id: `${MEMBER}:3:9053900000${String(i).padStart(2, "0")}`, memberId: portal.id, line: "3", phone: `9053900000${String(i).padStart(2, "0")}`, name: "", inbound: 1, outbound: 0, sinceQualify: 0, history: [] }, "b24-connector");
+    const page = await api("threads", { limit: 50 });
+    expect(page.threads).toHaveLength(50);
+    expect(page.total).toBe(64);
+
+    // Var olan numaraların webhook ayarına geçmiş olayları eklenir
+    await syncConnectorWebhooks(store);
+    const hookSet = evo.find((c) => c.url === `/webhook/set/${instance}`);
+    expect(hookSet?.body.webhook.events).toEqual(expect.arrayContaining(["MESSAGES_UPSERT", "MESSAGES_SET", "CHATS_SET"]));
+  });
+
+  it("deneme süresi varsayılan 3 gün; eski 7 günlük kayıt yeni varsayılana döner, yönetimden seçilen korunur", async () => {
+    expect(DEFAULT_PRICING.trialDays).toBe(3);
+    const store = createMemoryStore();
+    await store.put("b24-pricing", "default", { ...DEFAULT_PRICING, trialDays: 7, rev: undefined }, "b24-connector");
+    expect((await getPricing(store)).trialDays).toBe(3);
+    await store.put("b24-pricing", "default", { ...DEFAULT_PRICING, trialDays: 7, rev: 2 }, "b24-connector");
+    expect((await getPricing(store)).trialDays).toBe(7);
+  });
+
   it("kurulumda bağlayıcıyı kaydeder ve olaylara abone olur", async () => {
     const { base, bx } = await setup();
     const res = await install(base);
@@ -474,12 +561,23 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
       return { status: r.status, body: await r.json() };
     };
     let billing = await panel("billing/state");
-    expect(billing.body.licenses[0]).toMatchObject({ line: "3", status: "trial", daysLeft: 7 });
+    // Yeni denemeler 3 gün sürer; süre deneme başladığında kayda yazılır
+    expect(billing.body.licenses[0]).toMatchObject({ line: "3", status: "trial", daysLeft: 3 });
+    expect((await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload.lines["3"].license.trialDays).toBe(3);
     expect(billing.body.periods.find((p: any) => p.months === 12)).toMatchObject({ discount: 35, perLine: 273 });
     // Deneme süresinde portal Pro+ sayılır
     expect(billing.body.plan).toMatchObject({ plan: "proplus", source: "trial" });
     expect(billing.body.plans.map((p: any) => [p.id, p.monthly])).toEqual([["basic", 15], ["pro", 25], ["proplus", 35]]);
     expect((await panel("live")).status).toBe(200);
+
+    // 3 güne inmeden önce başlamış deneme 7 gün sürer; yeni deneme 3 günde biter
+    const legacy = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+    legacy.lines["3"].license = { trialStart: new Date(Date.now() - 5 * 86_400_000).toISOString() };
+    await store.put("b24-portal", MEMBER, legacy, "b24-connector");
+    expect((await panel("billing/state")).body.licenses[0]).toMatchObject({ status: "trial", daysLeft: 2 });
+    legacy.lines["3"].license = { trialStart: new Date(Date.now() - 5 * 86_400_000).toISOString(), trialDays: 3 };
+    await store.put("b24-portal", MEMBER, legacy, "b24-connector");
+    expect((await panel("billing/state")).body.licenses[0].status).toBe("expired");
 
     // Deneme biter
     const portal = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;

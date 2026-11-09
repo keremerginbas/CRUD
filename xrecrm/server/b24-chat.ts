@@ -51,7 +51,8 @@ export interface ThreadMessage {
   original?: string;
   /** Giden: Bitrix kullanıcı kimliği ya da "ai" */
   by?: string;
-  via?: "bitrix" | "xre" | "ai";
+  /** phone: işletmenin kendi telefonundan (WhatsApp uygulaması) yazdığı mesaj */
+  via?: "bitrix" | "xre" | "ai" | "phone";
   at: number;
   waId?: string;
   sender?: string;
@@ -71,6 +72,32 @@ export async function appendThread(store: Store, chat: Pick<B24Chat, "id" | "mem
   const thread: Thread = found || { id: chat.id, memberId: chat.memberId, line: chat.line, phone: chat.phone, messages: [] };
   thread.messages = [...thread.messages, msg].slice(-THREAD_MAX);
   await store.put(THREAD_KIND, chat.id, thread, SYSTEM_OWNER);
+}
+
+/**
+ * Toplu mesaj ekler (ör. bağlantı anındaki WhatsApp geçmişi): aynı WhatsApp kimliğine
+ * sahip mesajlar bir kez yazılır, sıra zamana göre korunur. Eklenen mesajları döndürür.
+ */
+export async function mergeThread(store: Store, chat: Pick<B24Chat, "id" | "memberId" | "line" | "phone">, msgs: ThreadMessage[]): Promise<ThreadMessage[]> {
+  const found = (await store.get<Thread>(THREAD_KIND, chat.id, SYSTEM_OWNER))?.payload;
+  const thread: Thread = found || { id: chat.id, memberId: chat.memberId, line: chat.line, phone: chat.phone, messages: [] };
+  const seen = new Set(thread.messages.map((m) => m.waId).filter(Boolean));
+  const fresh = msgs.filter((m) => !m.waId || !seen.has(m.waId));
+  if (!fresh.length) return [];
+  thread.messages = [...thread.messages, ...fresh].sort((a, b) => a.at - b.at).slice(-THREAD_MAX);
+  await store.put(THREAD_KIND, chat.id, thread, SYSTEM_OWNER);
+  return fresh;
+}
+
+/** Son 2 dakikada bu mesaj zaten sistemden (Bitrix, sohbet ekranı, AI) gönderildi mi? */
+export async function alreadySent(store: Store, chatKey: string, waId: string, text: string, now = Date.now()) {
+  const thread = (await store.get<Thread>(THREAD_KIND, chatKey, SYSTEM_OWNER))?.payload;
+  const t = text.trim();
+  return Boolean(
+    thread?.messages.some(
+      (m) => m.dir === "out" && ((waId && m.waId === waId) || (t && Math.abs(now - m.at) < 120_000 && (m.text.trim() === t || (m.original || "").trim() === t))),
+    ),
+  );
 }
 
 async function threadMessages(store: Store, chat: B24Chat): Promise<ThreadMessage[]> {
@@ -227,7 +254,11 @@ export function registerChatRoutes(app: Express, store: Store) {
       // Ekran açıkken bağlantı durumu en fazla 1 dakika eski olsun.
       ctx.portal = await refreshLines(store, ctx.portal, ctx.lines, 60_000);
       const only = Array.isArray(body.phones) ? new Set(body.phones.map(toWa).filter(Boolean)) : null;
-      const chats = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER))
+      // Arama tüm sohbetlerde yapılır; liste en yeni sohbetten başlayarak sayfa sayfa gelir.
+      const q = String(body.q || "").trim().toLocaleLowerCase("tr").slice(0, 80);
+      const qDigits = q.replace(/\D/g, "");
+      const limit = Math.min(5000, Math.max(50, Math.floor(Number(body.limit) || 500)));
+      const all = (await store.list<B24Chat>(CHAT_KIND, SYSTEM_OWNER))
         .map((r) => r.payload)
         .filter((c) => c.memberId === ctx.portal.id && ctx.lines.includes(c.line) && (!only || only.has(c.phone)))
         .map((c) => {
@@ -244,8 +275,14 @@ export function registerChatRoutes(app: Express, store: Store) {
             lang: c.lang || "",
           };
         })
-        .sort((a, b) => b.lastAt - a.lastAt)
-        .slice(0, 300);
+        .filter(
+          (t) =>
+            !q ||
+            `${t.name} ${t.lastText}`.toLocaleLowerCase("tr").includes(q) ||
+            (qDigits.length >= 3 && t.phone.includes(qDigits.replace(/^0/, ""))),
+        )
+        .sort((a, b) => b.lastAt - a.lastAt || a.name.localeCompare(b.name, "tr"));
+      const chats = all.slice(0, limit);
       const lines = ctx.lines.map((line) => ({
         line,
         name: lineName(ctx.portal, line),
@@ -253,7 +290,7 @@ export function registerChatRoutes(app: Express, store: Store) {
         connected: ctx.portal.lines[line].status === "connected",
         status: ctx.portal.lines[line].status,
       }));
-      return { threads: chats, lines, admin: ctx.viewer.admin };
+      return { threads: chats, total: all.length, lines, admin: ctx.viewer.admin };
     }),
   );
 
@@ -494,6 +531,7 @@ const TEXT = {
     offUser: "Bu numaranın WhatsApp bağlantısı kopmuş. Yöneticinizden numarayı yeniden bağlamasını isteyin.",
     warnLines: "Bağlantısı kopan numara: ", mic: "Mikrofona erişilemedi. Tarayıcı izni verin ya da ekranı yeni sekmede açın.",
     tooBig: "Dosya 16 MB sınırını aşıyor.", uploading: "Gönderiliyor…", newTab: "Yeni sekmede aç", caption: "Açıklama (isteğe bağlı)",
+    viaPhone: "Telefondan", more: "Daha fazla göster", shown: "gösterilen", noMatch: "Aramaya uyan sohbet yok.",
   },
   en: {
     chats: "Chats", search: "Search name or number", all: "All", waiting: "Awaiting reply", allLines: "All numbers",
@@ -515,6 +553,7 @@ const TEXT = {
     offUser: "This number's WhatsApp connection is lost. Ask your administrator to reconnect it.",
     warnLines: "Disconnected numbers: ", mic: "Microphone is not available. Allow access in the browser or open the screen in a new tab.",
     tooBig: "The file exceeds the 16 MB limit.", uploading: "Sending…", newTab: "Open in new tab", caption: "Caption (optional)",
+    viaPhone: "From phone", more: "Show more", shown: "shown", noMatch: "No chats match your search.",
   },
 };
 
@@ -535,6 +574,7 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 .chips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px;font-size:12.5px;cursor:pointer;color:var(--ink-2)}
 .chips button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent);border-color:transparent;font-weight:600}
 .list{flex:1;overflow:auto;border:0;border-radius:0}
+.list .more{display:block;margin:10px auto 14px;font-size:12.5px}
 .item{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 14px;border:0;border-top:1px solid var(--line-2);border-left:3px solid transparent;cursor:pointer;width:100%;text-align:left;background:none;color:inherit;font:inherit}
 .item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .item:hover{background:var(--paper)}.item[aria-current=true]{background:var(--accent-soft);border-left-color:var(--accent)}
@@ -610,7 +650,7 @@ window.xreFit=function(){try{var h=Math.max(760,((window.screen&&screen.availHei
 const CHAT_JS = String.raw`
 (function(){
 var C=window.XRE_CHAT,X=C.txt,$=function(s){return document.querySelector(s)};
-var S={threads:[],lines:[],cur:null,filter:"all",line:"",q:"",count:-1};
+var S={threads:[],lines:[],cur:null,filter:"all",line:"",q:"",count:"",limit:500,total:0};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function phone(p){p=String(p||"");if(/@lid$/.test(p))return X.hidden;return p?"+"+p.replace(/^(\d{2})(\d{3})(\d{3})(\d{2})(\d{2})$/,"$1 $2 $3 $4 $5"):""}
 var loc=C.lang==="tr"?"tr-TR":"en-US";
@@ -626,7 +666,7 @@ $("#ttl").textContent=C.mode==="card"?(C.title||X.chats):X.chats;
 $("#newBtn").textContent=X.newChat;$("#q").placeholder=X.search;
 $("#chips").innerHTML='<button data-f="all" aria-pressed="true">'+esc(X.all)+'</button><button data-f="waiting" aria-pressed="false">'+esc(X.waiting)+'</button>';
 $("#chips").onclick=function(e){var f=e.target.getAttribute("data-f");if(!f)return;S.filter=f;[].forEach.call($("#chips").children,function(b){b.setAttribute("aria-pressed",String(b.getAttribute("data-f")===f))});renderList()};
-$("#q").oninput=function(e){S.q=e.target.value.toLowerCase();renderList()};
+var qt;$("#q").oninput=function(e){S.q=e.target.value.toLocaleLowerCase(C.lang==="tr"?"tr-TR":"en-US");renderList();clearTimeout(qt);qt=setTimeout(function(){S.limit=500;loadThreads()},350)};
 $("#lineFilter").onchange=function(e){S.line=e.target.value;renderList()};
 $("#newBtn").onclick=function(){var f=$("#newForm");f.hidden=!f.hidden;if(!f.hidden)renderNew()};
 
@@ -648,11 +688,13 @@ function renderList(){
   $("#list").innerHTML=v.length?v.map(function(t){var cur=S.cur&&S.cur.line===t.line&&S.cur.phone===t.phone;
     return '<button class="item" role="listitem" data-l="'+esc(t.line)+'" data-p="'+esc(t.phone)+'" aria-current="'+cur+'"><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><span style="min-width:0"><span class="nm">'+esc(t.name||phone(t.phone))+'</span><span class="ls">'+esc(t.lastText)+'</span>'
       +(t.waiting?'<span class="tag">'+esc(X.waitingTag)+'</span> ':'')+(S.lines.length>1?'<span class="tag ln">'+esc(t.lineName)+'</span>':'')+'</span><time>'+esc(when(t.lastAt))+'</time></button>'}).join("")
-    :'<div class="blank">'+esc(S.lines.length?X.empty:X.noAccess)+'</div>';
+    :'<div class="blank">'+esc(!S.lines.length?X.noAccess:S.q?X.noMatch:X.empty)+'</div>';
+  if(v.length&&S.total>S.threads.length)$("#list").insertAdjacentHTML("beforeend",'<button type="button" class="btn ghost more" id="more">'+esc(X.more)+' · '+S.threads.length+' / '+S.total+'</button>');
+  if($("#more"))$("#more").onclick=function(){S.limit+=500;this.disabled=true;loadThreads()};
   [].forEach.call(document.querySelectorAll(".item"),function(b){b.onclick=function(){var t=S.threads.find(function(x){return x.line===b.getAttribute("data-l")&&x.phone===b.getAttribute("data-p")});if(t)open(t)}});
 }
-function loadThreads(){return api("threads",C.mode==="card"?{phones:C.phones}:{}).then(function(d){
-  S.threads=d.threads;C.admin=d.admin;var first=!S.lines.length;S.lines=d.lines;
+function loadThreads(){var req=C.mode==="card"?{phones:C.phones}:{q:S.q,limit:S.limit};return api("threads",req).then(function(d){
+  S.threads=d.threads;S.total=d.total||d.threads.length;C.admin=d.admin;var first=!S.lines.length;S.lines=d.lines;
   if(first){$("#lineFilter").innerHTML='<option value="">'+esc(X.allLines)+'</option>'+S.lines.map(function(l){return '<option value="'+esc(l.line)+'">'+esc(l.name)+(l.connected?"":" ("+esc(X.notConnected)+")")+'</option>'}).join("");$("#lineFilter").hidden=S.lines.length<2;
     if(!S.lines.some(function(l){return l.connected}))$("#newBtn").hidden=true;
     if(C.mode==="card"){if(S.threads.length)open(S.threads[0]);else blankCard()}}
@@ -672,7 +714,7 @@ function blankCard(){
 }
 
 function open(t){
-  S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count=-1;$("#app").classList.add("open");renderList();
+  S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count="";$("#app").classList.add("open");renderList();
   $("#pane").innerHTML='<header><button class="btn ghost backbtn" id="back">← '+esc(X.back)+'</button><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><div class="who"><b id="hn">'+esc(t.name||phone(t.phone))+'</b><span>'+esc(phone(t.phone))+(t.lineName?" · "+esc(t.lineName):"")+'</span></div><span class="st" id="lst"></span>'+(/@lid$/.test(t.phone)?'<button type="button" class="btn ghost" id="bLink">🔗 '+esc(X.link)+'</button>':'')+'</header>'
     +(/@lid$/.test(t.phone)?'<form class="linkbar" id="linkBar" hidden><span>'+esc(X.linkAsk)+'</span><input id="linkNum" inputmode="tel" placeholder="0506 123 45 67"><button class="btn primary" id="linkGo">'+esc(X.link)+'</button></form>':'')+'<div class="msgs" id="msgs" aria-live="polite"><div class="blank">'+esc(X.load)+'</div></div>'
     +'<form class="composer" id="cmp"><div class="offmsg" id="offmsg" hidden></div>'
@@ -739,12 +781,12 @@ function bubble(m){
   var media="";
   if(m.media&&m.media.id){var u=mediaUrl(m),ty=m.media.type;
     media=ty==="image"?'<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" alt="" loading="lazy" onerror="this.replaceWith(document.createTextNode(\'['+esc(X.expired)+']\'))"></a>':ty==="audio"?'<audio controls preload="none" src="'+esc(u)+'"></audio>':ty==="video"?'<video controls preload="none" src="'+esc(u)+'"></video>':'<a href="'+esc(u)+'" target="_blank" rel="noopener">📎 '+esc(m.media.name||X.file)+'</a><br>'}
-  var by=m.dir==="out"?(m.by==="ai"?"🤖 "+X.ai:(m.byName||"")):(m.senderName||m.sender||"");
+  var by=m.dir==="out"?(m.by==="ai"?"🤖 "+X.ai:m.via==="phone"?"📱 "+X.viaPhone:(m.byName||"")):(m.senderName||m.sender||"");
   var body=m.dir==="out"&&m.original?esc(m.original)+'<span class="tr"><i>'+esc(X.sentAs)+':</i> '+esc(m.text)+'</span>':esc(m.text)+(m.translation?'<span class="tr"><i>'+esc(X.translated)+':</i> '+esc(m.translation)+'</span>':'');
   return '<div class="b '+m.dir+'">'+media+body+'<span class="meta">'+(by?esc(by)+" · ":"")+esc(hm(m.at))+'</span></div>'}
 function loadMessages(scroll){if(!S.cur)return Promise.resolve();var cur=S.cur;
   return api("messages",{line:cur.line,phone:cur.phone}).then(function(d){if(S.cur!==cur)return;if(d.name&&!cur.name){cur.name=d.name;$("#hn").textContent=d.name}
-    if(d.messages.length===S.count)return;S.count=d.messages.length;var box=$("#msgs"),atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<60,last="";
+    var lm=d.messages[d.messages.length-1],sig=d.messages.length+":"+(lm?lm.at+":"+(lm.waId||""):"");if(sig===S.count)return;S.count=sig;var box=$("#msgs"),atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<60,last="";
     box.innerHTML=d.messages.length?d.messages.map(function(m){var dd=dayOf(m.at),h=dd!==last?'<div class="day">'+esc(dd)+'</div>':"";last=dd;return h+bubble(m)}).join(""):'<div class="blank">'+esc(C.mode==="card"?X.cardStart:X.empty)+'</div>';
     if(scroll||atEnd)box.scrollTop=box.scrollHeight}).catch(function(e){toast(e.message,true)})}
 function send(){var ta=$("#txt"),text=ta.value.trim();if(!text||!S.cur)return;var btn=$("#sendBtn");btn.disabled=true;
