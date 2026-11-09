@@ -208,7 +208,7 @@ export function Collect() {
             </div>
             {mode === 'search' && (
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Tarama hızı" data-testid="speed">
-                {([['fast', 'Hızlı (liste)', 'İlanlar sonuç sayfasından kaydedilir: başlık, fiyat, konum, m². Sayfa başına ~50 ilan. Telefon ve açıklama için sonradan “Detayı tamamla”.'], ['full', 'Tam (detay + telefon)', 'Her ilanın detay sayfası açılır, telefon düğmesine basılır. Yavaştır; günlük ilan ve telefon limitlerine tabidir.']] as const).map(([value, title, text]) => (
+                {([['fast', 'Hızlı (liste)', 'Yeni ilanların detayı ve telefonu günlük telefon limiti kadar alınır (site başına varsayılan 150). Limitten sonrakiler sonuç sayfasından hızlıca kaydedilir: başlık, fiyat, konum, m²; ad soyad ve telefon için sonra “Detayı ve telefonu tamamla”.'], ['full', 'Tam (detay + telefon)', 'Her ilanın detay sayfası açılır, telefon düğmesine basılır. Yavaştır; günlük ilan ve telefon limitlerine tabidir.']] as const).map(([value, title, text]) => (
                   <button key={value} type="button" role="radio" aria-checked={speed === value} onClick={() => setSpeed(value)} data-testid={'speed-' + value}
                     className={cn('rounded-lg border p-3 text-left transition-colors', speed === value ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50')}>
                     <span className="flex items-center gap-2 text-sm font-medium">{value === 'fast' ? <Zap className="size-4 text-primary" /> : <ScanSearch className="size-4" />}{title}</span>

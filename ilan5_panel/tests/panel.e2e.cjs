@@ -20,7 +20,7 @@ function mockChrome() {
   window.sent = [];
   window.store = store;
   window.chrome = {
-    runtime: {id: 'test', getURL: s => s, getManifest: () => ({version: '3.2.0'}), onMessage: {addListener() {}},
+    runtime: {id: 'test', getURL: s => s, getManifest: () => ({version: '3.2.1'}), onMessage: {addListener() {}},
       async sendMessage(m) {
         window.sent.push(m);
         if (m.type === 'ILAN_SAFETY_CONFIG') safety = {...safety, ...m.safety};
@@ -100,7 +100,7 @@ async function seed(page) {
   assert.match(await page.locator('[data-testid="priorities"]').innerText(), /Görüşülecek|Fiyat %/);
   assert.match(await page.locator('[role="img"][aria-label^="Veri skoru"]').getAttribute('aria-label'), /Veri skoru \d+ \/ 100/);
   assert.match(await page.locator('[data-testid="bell"]').getAttribute('aria-label'), /Öncelikli işler: \d+/);
-  assert.equal(await page.locator('[data-testid="version"]').innerText(), 'Sürüm 3.2.0');
+  assert.equal(await page.locator('[data-testid="version"]').innerText(), 'Sürüm 3.2.1');
   assert.ok(await page.evaluate(() => document.documentElement.classList.contains('dark')), 'dark by default');
   await page.screenshot({path: path.join(out, 'dashboard-dark.png'), fullPage: true});
 

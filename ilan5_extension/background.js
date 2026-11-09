@@ -322,7 +322,11 @@
       for (const ref of pageRefs.values()) {
         if (known.has(ref.id)) { job.pageDuplicates += 1; continue; }
         // Fast mode: a row that shows a title or price is archived straight from the list page.
-        const row = fast ? rowsById.get(ref.id) : null;
+        // New (or list-only) listings still get their detail page and phone while today's phone budget lasts.
+        const prior = archived.get(ref.id);
+        const wantsDetail = fast && job.revealPhone && (job.detailBudget || 0) > 0 && (!prior || prior.detailStatus === 'list');
+        if (wantsDetail) job.detailBudget -= 1;
+        const row = fast && !wantsDetail ? rowsById.get(ref.id) : null;
         if (row && (row.title || Number.isFinite(row.price))) {
           if (job.maxListings && seenTotal() >= job.maxListings) { job.limited = true; continue; }
           known.add(ref.id); listedNow.push(ref.id); fastRows.push({...row, url: ref.url});
@@ -403,6 +407,16 @@
         for (const name of ['newListings', 'priceIncreases', 'priceDecreases']) { const count = result?.[name]; if (Number.isSafeInteger(count) && count > 0) bumpCounter(name, count); }
         if (options.onMarketEvents && result?.events?.length) { try { await options.onMarketEvents(clone(result.events), clone(job)); } catch (_) { /* Notifications never block the crawl. */ } }
       } catch (error) { addFailure(job.current?.url || job.searchUrl, 'Liste kayıtları yazılamadı: ' + (error.message || error)); }
+    }
+    // How many detail pages (with a phone press) today's limits still allow for this site.
+    async function detailBudget(site) {
+      if (!core.safetySettings || !core.DAILY_KEY) return 0;
+      const settings = await core.safetySettings(api);
+      let daily = null; try { daily = (await api.storage.local.get(core.DAILY_KEY))?.[core.DAILY_KEY]; } catch (_) { daily = null; }
+      const today = core.dayKey ? core.dayKey(clock()) : '', fresh = daily?.day === today;
+      const phonesLeft = settings.phoneDailyLimit ? settings.phoneDailyLimit - (fresh ? Number(daily.sites?.[site]?.phones) || 0 : 0) : 1000;
+      const pagesLeft = settings.dailyLimit ? settings.dailyLimit - (fresh ? Number(daily.count) || 0 : 0) : 1000;
+      return Math.max(0, Math.min(phonesLeft, pagesLeft));
     }
     async function normalizedRecord(raw, targetCategory, sourceSearchUrl) {
       const result = core.normalizeRecord(raw, {targetCategory, sourceSearchUrl});
@@ -693,7 +707,8 @@
         expectedTotal: null, listComplete: false, listIncomplete: false, limited: false,
         counts: {discovered: 0, processed: 0, saved: 0, skipped: 0, review: 0, errors: 0, newListings: 0, priceIncreases: 0, priceDecreases: 0}, failures: [], logs: []
       };
-      event(mode === 'fast' ? 'Hızlı tarama başladı: ilanlar liste sayfalarından kaydedilecek; okunamayan satırlar için detay sayfası açılacak.' : 'Tarama başladı. Her sayfanın ilan detayları tamamlanınca sonraki sayfaya geçilecek.');
+      if (mode === 'fast' && job.revealPhone) job.detailBudget = await detailBudget(job.source);
+      event(mode === 'fast' ? `Hızlı tarama başladı. Yeni ilanlardan ${job.revealPhone ? job.detailBudget : 0} tanesinin detayı ve telefonu bugün alınacak (günlük telefon limiti); kalanlar liste sayfasından kaydedilecek.` : 'Tarama başladı. Her sayfanın ilan detayları tamamlanınca sonraki sayfaya geçilecek.');
       await persist();
       await tick();
       return {ok: true, job: clone(job)};

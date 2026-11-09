@@ -1,3 +1,7 @@
+# İlan5 3.2.1 — Doğrulama notları
+
+9 Kasım 2026 (3.2.1): Kullanıcı bildirimi: hızlı modda 1000 ilan çok hızlı geldi ama ad soyad ve telefon yoktu (hızlı modun 3.2.0'daki tasarımı buydu). Düzeltme: hızlı modda yeni veya yalnız listeden kaydedilmiş ilanlar, o günün kalan telefon ve detay limiti kadar detay sayfasından (telefonla) okunur; kalanlar listeden kaydedilir. `fast-mode` testine eklendi (limit 3 → ilk 3 ilan detaydan, 17 ilan listeden; telefon kapalıysa yalnız liste). `npm test` 20/20, panel e2e geçti.
+
 # İlan5 3.2.0 — Doğrulama notları
 
 8 Kasım 2026 (3.2.0): `npm test` ile 20 test dosyasının tamamı geçti (yeni: `fast-mode`, `partial-merge`, `duplicates`). Panel derlendi, `ilan5_panel/tests/panel.e2e.cjs` Chromium'da geçti; derlenmiş pakette `eval`/`new Function` yok.

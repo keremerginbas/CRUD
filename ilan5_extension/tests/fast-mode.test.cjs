@@ -88,6 +88,17 @@ async function test(name, fn) { await fn(); count++; console.log('PASS ' + name)
     assert.equal(f.navigations.length, 2); assert.equal(f.state().status, 'running'); assert.equal(f.state().nextDueAt, 99999999999);
     assert.match(f.state().message, /liste sayfası limiti/);
   });
+  await test('fast mode opens details (phone) for new listings within today phone budget', async () => {
+    const real = require('../core.js');
+    const f = fixture(null, {core: {DAILY_KEY: real.DAILY_KEY, dayKey: real.dayKey, safetySettings: async () => ({phoneDailyLimit: 3, dailyLimit: 400})}});
+    f.respond(fastPages(2, 10)); await f.start({mode: 'fast'}); await f.finish();
+    assert.equal(f.state().status, 'completed');
+    assert.deepEqual(f.navigations.filter(u => u.includes('/ilan/')), [listing(1), listing(2), listing(3)]);
+    assert.equal(f.saved.size, 20); assert.equal(f.saved.get(ref(2).id).detailStatus, 'full'); assert.equal(f.saved.get(ref(4).id).detailStatus, 'list');
+    const g = fixture(null, {core: {DAILY_KEY: real.DAILY_KEY, dayKey: real.dayKey, safetySettings: async () => ({phoneDailyLimit: 3, dailyLimit: 400})}});
+    g.respond(fastPages(1, 10)); await g.start({mode: 'fast', revealPhone: false}); await g.finish();
+    assert.equal(g.navigations.length, 1, 'no phone wanted: list only');
+  });
   await test('core list budget counts per site and stops at the limit', async () => {
     const core = require('../core.js'); const store = {[core.SAFETY_KEY]: {listDailyLimit: 2}};
     const api = {storage: {local: {get: async key => ({[key]: structuredClone(store[key])}), set: async data => Object.assign(store, structuredClone(data))}}};

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "İlan5 — Çok Siteli İlan Arşivi",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "description": "Sahibinden, Hepsiemlak, Emlakjet ve arabam.com ilanlarını tek panelde toplayın, takip edin ve satıcılara ulaşın.",
   "minimum_chrome_version": "120",
   "permissions": [

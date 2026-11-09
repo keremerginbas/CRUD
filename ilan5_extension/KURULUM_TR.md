@@ -1,4 +1,4 @@
-# İlan5 3.2.0 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
+# İlan5 3.2.1 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,17 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.2.0** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.2.1** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 3.2.1 hızlı modda telefon
+
+Hızlı modda artık **yeni ilanların detay sayfası ve telefonu, günlük telefon limiti kadar** alınır (Ayarlar → Telefon limiti / site, varsayılan 150). Limit dolduktan sonraki ilanlar liste sayfasından kaydedilir; bunlarda ilan no, başlık, fiyat, konum ve m² vardır, ad soyad ve telefon yoktur. Ertesi gün aynı arama tekrar tarandığında, telefonu henüz alınmamış bu ilanlar yeni gün limitinden öncelikle tamamlanır. İsterseniz tablodan seçip **Detayı ve telefonu tamamla** da diyebilirsiniz.
+
+Neden hepsinin telefonu hemen alınmıyor: Telefon için her ilanın sayfası ayrı açılıp “Telefonu Göster”e basılmalı. Günde binlerce basış hesabınızı/IP'nizi doğrulama ekranına düşürür. Limiti kendi sorumluluğunuzda Ayarlar'dan yükseltebilirsiniz; “Günlük ilan limiti” (detay sayfası, varsayılan 400, tüm siteler toplamı) da aynı anda sınırlar.
 
 ## 3.2.0 hızlı ve düzenli toplu tarama
 
