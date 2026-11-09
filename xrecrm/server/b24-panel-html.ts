@@ -189,7 +189,10 @@ h3.section{font-size:15px;margin:22px 0 8px}
 .setup li.cur{border-color:var(--accent)}.setup li.cur .n{border-color:var(--accent);color:var(--accent)}
 .setup li.done{opacity:.7}.setup li.done .n{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .setup li b{display:block}.setup li span{font-size:13px;color:var(--ink-2)}
-.qrow{grid-template-columns:160px 1fr auto;align-items:start}
+.qrow{grid-template-columns:150px 1fr 190px auto;align-items:start}
+.qmedia{display:flex;flex-direction:column;gap:6px;align-items:flex-start;font-size:12.5px;color:var(--ink-2)}
+.qmedia img{width:96px;height:72px;object-fit:cover;border-radius:var(--r-s);border:1px solid var(--line)}
+.qmedia .fname{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qrow input,.qrow textarea{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--paper);color:inherit;font:inherit}
 .qrow textarea{min-height:58px;resize:vertical}
 @media (max-width:640px){.setup li{grid-template-columns:30px 1fr}.setup li .btn{grid-column:2}.qrow{grid-template-columns:1fr}}
@@ -383,11 +386,22 @@ function render(){
       +'<h3 class="section">Hazır cevaplar</h3><p class="sub">Personel sohbet ekranında ⚡ düğmesiyle ya da mesaj kutusuna / ve kısayolu yazarak bu metinleri ekler (ör. /iban).</p>'
       +'<div class="list" id="qlist"></div><div class="bar" style="margin-top:14px;justify-content:space-between"><button class="btn" id="q-add">Cevap ekle</button><button class="btn primary" id="q-save">Hazır cevapları kaydet</button></div>';
     let quick=(S.quickReplies||[]).map(r=>({...r}));
-    const qrow=(r,i)=>'<div class="setting qrow"><input data-qk="'+i+'" maxlength="24" placeholder="kısayol" value="'+esc(r.key)+'" aria-label="Kısayol"><textarea data-qt="'+i+'" maxlength="1000" placeholder="Mesaj metni" aria-label="Mesaj metni">'+esc(r.text)+'</textarea><button class="btn ghost" data-qd="'+i+'">Sil</button></div>';
+    const qurl=m=>"/b24/panel/quick/media/"+encodeURIComponent(m.id)+"?t="+encodeURIComponent(T);
+    const qmed=(r,i)=>'<div class="qmedia">'+(r.media?(r.media.type==="image"?'<img src="'+esc(qurl(r.media))+'" alt="">':'<span>📎</span>')+'<span class="fname" title="'+esc(r.media.name)+'">'+esc(r.media.name)+'</span><button class="btn ghost" data-qm="'+i+'">Dosyayı kaldır</button>'
+      :'<button class="btn" data-qu="'+i+'">🖼 Görsel / dosya ekle</button><span>Görsel, video veya PDF · en fazla 16 MB</span>')+'<input type="file" data-qf="'+i+'" hidden accept="image/*,video/*,application/pdf"></div>';
+    const qrow=(r,i)=>'<div class="setting qrow"><input data-qk="'+i+'" maxlength="24" placeholder="kısayol" value="'+esc(r.key)+'" aria-label="Kısayol"><textarea data-qt="'+i+'" maxlength="1000" placeholder="Mesaj metni (görselle birlikte açıklama olarak gider)" aria-label="Mesaj metni">'+esc(r.text)+'</textarea>'+qmed(r,i)+'<button class="btn ghost" data-qd="'+i+'">Sil</button></div>';
     const qdraw=()=>{$("#qlist").innerHTML=quick.length?quick.map(qrow).join(""):'<div class="empty">Henüz hazır cevap yok. Sık yazdığınız mesajları (IBAN, konum, fiyat listesi, çalışma saatleri) ekleyin.</div>';
       $("#qlist").querySelectorAll("[data-qk]").forEach(e=>e.oninput=()=>{quick[+e.dataset.qk].key=e.value;});
       $("#qlist").querySelectorAll("[data-qt]").forEach(e=>e.oninput=()=>{quick[+e.dataset.qt].text=e.value;});
-      $("#qlist").querySelectorAll("[data-qd]").forEach(b=>b.onclick=()=>{quick.splice(+b.dataset.qd,1);qdraw();});};
+      $("#qlist").querySelectorAll("[data-qd]").forEach(b=>b.onclick=()=>{quick.splice(+b.dataset.qd,1);qdraw();});
+      $("#qlist").querySelectorAll("[data-qm]").forEach(b=>b.onclick=()=>{delete quick[+b.dataset.qm].media;qdraw();});
+      $("#qlist").querySelectorAll("[data-qu]").forEach(b=>b.onclick=()=>$('#qlist [data-qf="'+b.dataset.qu+'"]').click());
+      $("#qlist").querySelectorAll("[data-qf]").forEach(inp=>inp.onchange=async()=>{const f=inp.files[0];if(!f)return;
+        if(f.size>16*1024*1024){toast("Dosya 16 MB sınırını aşıyor.",true);return;}
+        const b=$('#qlist [data-qu="'+inp.dataset.qf+'"]');if(b){b.disabled=true;b.textContent="Yükleniyor…";}
+        try{const r=await fetch("/b24/panel/quick/upload",{method:"POST",headers:{"x-xre-ticket":T,"content-type":f.type||"application/octet-stream","x-file-name":encodeURIComponent(f.name)},body:f});const j=await r.json().catch(()=>({}));
+          if(!r.ok)throw new Error(j.message||"Dosya yüklenemedi.");quick[+inp.dataset.qf].media=j.media;qdraw();toast("Dosya eklendi. Kaydetmeyi unutmayın.");}
+        catch(e){toast(e.message,true);qdraw();}});};
     qdraw();
     $("#q-add").onclick=()=>{quick.push({key:"",text:""});qdraw();const ins=$("#qlist").querySelectorAll("[data-qk]");ins[ins.length-1].focus();};
     $("#q-save").onclick=async()=>{try{const r=await api("quick/save",{items:quick});S.quickReplies=r.quickReplies;quick=r.quickReplies.map(x=>({...x}));qdraw();toast(("{n} hazır cevap kaydedildi.").replace("{n}",r.quickReplies.length));}catch(e){toast(e.message,true);}};

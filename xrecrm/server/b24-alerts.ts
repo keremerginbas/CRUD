@@ -22,6 +22,10 @@ import {
 } from "./b24-connector.js";
 import { pick, type Lang } from "./b24-i18n.js";
 import { sendTelegramText } from "./b24-live.js";
+import { needsReply } from "./b24-reply.js";
+
+/** Bundan uzun süredir bekleyen sohbetler için uyarı gönderilmez (eski / unutulmuş sohbetler). */
+export const ALERT_MAX_AGE_MS = 24 * 60 * 60_000;
 
 type Waiting = { chat: B24Chat; minutes: number; level: 1 | 2 };
 
@@ -35,6 +39,8 @@ const lastText = (chat: B24Chat) => {
 const lineOf = (w: Waiting, portal: B24Portal, lang: Lang) =>
   `• ${who(w.chat, lang)} (${lineLabel(portal, w.chat.line)}) — ${pick(lang, `${w.minutes} dk`, `${w.minutes} min`)}${lastText(w.chat) ? `: “${lastText(w.chat)}”` : ""}`;
 
+const more = (n: number, lang: Lang) => (n > 0 ? [pick(lang, `… ve ${n} sohbet daha. Uygulamanın Sohbetler sekmesinde "Yanıt bekleyen" filtresiyle görebilirsiniz.`, `… and ${n} more. See the "Awaiting reply" filter on the app's Chats tab.`)] : []);
+
 /** Bu portalda şimdi hangi sohbetler için hangi kademe uyarısı gitmeli? */
 export function dueAlerts(portal: B24Portal, chats: B24Chat[], now = Date.now()): Waiting[] {
   const s = portalSettings(portal);
@@ -46,11 +52,15 @@ export function dueAlerts(portal: B24Portal, chats: B24Chat[], now = Date.now())
   for (const chat of chats) {
     if (chat.memberId !== portal.id || !chat.waitingSince || chat.phone.endsWith("@g.us") || !portal.lines[chat.line]) continue;
     const waited = now - chat.waitingSince;
+    if (waited > ALERT_MAX_AGE_MS || chat.waitingSince < s.alertsSince) continue;
+    // Son müşteri mesajı tepki / teşekkür gibi cevap gerektirmeyen bir mesajsa uyarma.
+    const last = [...chat.history].reverse().find((h) => h.from === "müşteri");
+    if (last && !needsReply(last.text, /^\[(medya|media)\]$/i.test(last.text))) continue;
     const sent = chat.alert?.since === chat.waitingSince ? chat.alert.level : 0;
     const level = waited >= managerMs ? 2 : waited >= agentMs ? 1 : 0;
     if (level > sent) out.push({ chat, minutes: Math.round(waited / 60_000), level: level as 1 | 2 });
   }
-  return out;
+  return out.sort((a, b) => b.minutes - a.minutes);
 }
 
 async function notify(store: Store, portal: B24Portal, userIds: string[], message: string) {
@@ -85,7 +95,7 @@ export async function runWaitAlerts(store: Store, now = Date.now()) {
         for (const u of users) if (roleAllows(roleOf(fresh, u.id), w.chat.line)) byUser.set(u.id, [...(byUser.get(u.id) || []), w]);
       for (const [userId, list] of byUser) {
         const head = pick(lang, `⏰ WhatsApp by XRE: ${list.length} sohbet cevap bekliyor.`, `⏰ WhatsApp by XRE: ${list.length} chat(s) are waiting for a reply.`);
-        await notify(store, fresh, [userId], [head, ...list.slice(0, 10).map((w) => lineOf(w, fresh, lang))].join("\n"));
+        await notify(store, fresh, [userId], [head, ...list.slice(0, 10).map((w) => lineOf(w, fresh, lang)), ...more(list.length - 10, lang)].join("\n"));
       }
     }
 
@@ -97,7 +107,7 @@ export async function runWaitAlerts(store: Store, now = Date.now()) {
         `🚨 WhatsApp by XRE: ${managerLevel.length} sohbet ${portalSettings(fresh).alertManagerMin} dakikadan uzun süredir cevapsız.`,
         `🚨 WhatsApp by XRE: ${managerLevel.length} chat(s) have had no reply for more than ${portalSettings(fresh).alertManagerMin} minutes.`,
       );
-      const text = [head, ...managerLevel.slice(0, 15).map((w) => lineOf(w, fresh, lang))].join("\n");
+      const text = [head, ...managerLevel.slice(0, 15).map((w) => lineOf(w, fresh, lang)), ...more(managerLevel.length - 15, lang)].join("\n");
       await notify(store, fresh, fresh.adminIds || [], text);
       if (portalSettings(fresh).alertTelegram) await sendTelegramText(fresh.reports?.telegram, text);
     }

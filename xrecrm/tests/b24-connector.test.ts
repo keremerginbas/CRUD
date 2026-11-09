@@ -235,7 +235,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
 
   it("bekleyen sohbet alarmı personele ve yöneticiye bir kez gider; hazır cevaplar sohbet ekranına gelir; telefondan cevap performansa girer", async () => {
     setPhoneEchoDelay(0);
-    const { store, base, bx } = await setup({ evoState: "open" });
+    const { store, base, bx, evo } = await setup({ evoState: "open" });
     await install(base);
     await fetch(`${base}/b24/api/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: settingsTicket(MEMBER, "3") }) });
     const home = await (await fetch(`${base}/b24/app`, formPost({ LANG: "tr", member_id: MEMBER, DOMAIN, AUTH_ID: "admin-auth" }))).text();
@@ -260,6 +260,16 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     await store.put("b24-chat", `${MEMBER}:3:905550000001`, chat("905550000001", 15, "Ayşe"), "b24-connector");
     await store.put("b24-chat", `${MEMBER}:3:905550000002`, chat("905550000002", 45, "Mehmet"), "b24-connector");
     await store.put("b24-chat", `${MEMBER}:3:905550000003`, chat("905550000003", 3, "Yeni"), "b24-connector");
+    // Cevap gerektirmeyen son mesajlar (tepki, teşekkür) ve 24 saatten eski bekleyişler uyarılmaz
+    await store.put("b24-chat", `${MEMBER}:3:905550000004`, { ...chat("905550000004", 50, "Tepkici"), history: [{ from: "müşteri", text: "Tepki: 👍", at: now - 50 * 60_000 }] }, "b24-connector");
+    await store.put("b24-chat", `${MEMBER}:3:905550000005`, { ...chat("905550000005", 50, "Teşekkürcü"), history: [{ from: "müşteri", text: "Teşekkür ederim, iyi akşamlar 🙏", at: now - 50 * 60_000 }] }, "b24-connector");
+    await store.put("b24-chat", `${MEMBER}:3:905550000006`, chat("905550000006", 26 * 60, "Eski"), "b24-connector");
+    // Alarm açılmadan önce başlamış bekleyişler için uyarı gitmez
+    bx.length = 0;
+    await runWaitAlerts(store, now);
+    expect(bx.filter((c) => c.method === "im.notify.system.add")).toEqual([]);
+    const p0 = (await store.get<any>("b24-portal", MEMBER, "b24-connector"))!.payload;
+    await store.put("b24-portal", MEMBER, { ...p0, settings: { ...p0.settings, alertsSince: now - 48 * 3_600_000 } }, "b24-connector");
     bx.length = 0;
     await runWaitAlerts(store, now);
     const notes = () => bx.filter((c) => c.method === "im.notify.system.add").map((c) => ({ to: c.body.USER_ID, msg: String(c.body.MESSAGE) }));
@@ -268,6 +278,7 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(notes().find((n) => n.to === 3)?.msg).not.toContain("Yeni");
     // Yönetici: 30 dakikayı geçen sohbet
     expect(notes().find((n) => n.to === 1)?.msg).toMatch(/Mehmet.*45 dk/s);
+    expect(notes().map((n) => n.msg).join("\n")).not.toMatch(/Tepkici|Teşekkürcü|Eski/);
     // Aynı bekleme için tekrar uyarı gitmez
     bx.length = 0;
     await runWaitAlerts(store, now + 60_000);
@@ -287,6 +298,22 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     const threads = await (await fetch(`${base}/b24/chat/threads`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct }) })).json();
     expect(threads.quick).toEqual(q.body.quickReplies);
     expect(threads.portalLines).toBe(1);
+
+    // Hazır cevaba görsel eklenir, sohbet ekranından görselle birlikte gönderilir
+    const png = Buffer.from("89504e470d0a1a0a0000000d49484452", "hex");
+    expect((await fetch(`${base}/b24/panel/quick/upload`, { method: "POST", headers: { "x-xre-ticket": "sahte", "content-type": "image/png" }, body: png })).status).toBe(401);
+    const up = await (await fetch(`${base}/b24/panel/quick/upload`, { method: "POST", headers: { "x-xre-ticket": t!, "content-type": "image/png", "x-file-name": encodeURIComponent("fiyat listesi.png") }, body: png })).json();
+    expect(up.media).toMatchObject({ name: "fiyat listesi.png", type: "image", mime: "image/png" });
+    const q2 = await panel("quick/save", { items: [...q.body.quickReplies, { key: "fiyat", text: "Güncel fiyat listemiz", media: up.media }, { key: "sahte", text: "", media: { id: "med_" + "0".repeat(24), name: "x" } }] });
+    expect(q2.body.quickReplies.map((r: any) => r.key)).toEqual(["iban", "konum-bilgisi", "fiyat"]);
+    expect((await fetch(`${base}/b24/panel/quick/media/${up.media.id}?t=${encodeURIComponent(t!)}`)).headers.get("content-type")).toBe("image/png");
+    expect((await fetch(`${base}/b24/chat/quick-media/${up.media.id}?t=${encodeURIComponent(ct)}`)).status).toBe(200);
+    const sentQuick = await (await fetch(`${base}/b24/chat/send-quick`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "905550000002", key: "fiyat", text: "Buyrun fiyat listemiz" }) })).json();
+    expect(sentQuick).toEqual({ ok: true });
+    const mediaCall = evo.filter((c) => c.url.startsWith("/message/sendMedia")).at(-1);
+    expect(mediaCall?.body).toMatchObject({ number: "905550000002", mediatype: "image", caption: "Buyrun fiyat listemiz" });
+    const thread = await (await fetch(`${base}/b24/chat/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "905550000002" }) })).json();
+    expect(thread.messages.at(-1)).toMatchObject({ dir: "out", text: "Buyrun fiyat listemiz", media: { type: "image" } });
 
     // Telefondan verilen cevap performansta "phone" temsilcisi olarak sayılır
     await fetch(`${base}/api/webhooks/evolution?token=hook-secret`, {

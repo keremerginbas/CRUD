@@ -15,6 +15,7 @@ import { CAMPAIGN_KIND, registerCampaignRoutes } from "./b24-campaigns.js";
 import { langOf, localizeMessage, normLang, pick, type Lang } from "./b24-i18n.js";
 import { alreadySent, appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, mergeLidChat, mergeThread, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
 import { logRestCall } from "./b24-restlog.js";
+import { needsReply } from "./b24-reply.js";
 import { registerLegalRoutes } from "./b24-legal.js";
 import { adminHtml } from "./b24-admin-html.js";
 import { getPricing, licenseForConnect, licenseState, lineUsable, notifyOwner, planOf, portalPlan, registerBillingPanelRoutes, requireFeature } from "./b24-billing.js";
@@ -27,6 +28,7 @@ import {
   captureEvolutionMedia,
   deleteMedia,
   isWaSystemMessage,
+  MAX_MEDIA_BYTES,
   readMedia,
   saveMedia,
   sendEvolutionMedia,
@@ -80,8 +82,22 @@ export interface B24Portal {
 export interface QuickReply {
   key: string;
   text: string;
+  /** Cevapla birlikte gönderilen görsel / video / belge */
+  media?: { id: string; name: string; mime: string; type: string };
 }
+/** Hazır cevap dosyalarının sahibi: sohbet medyası gibi süre dolunca silinmez. */
+export const quickOwner = (memberId: string) => `b24q:${memberId}`;
 export const QUICK_MAX = 100;
+/** Hazır cevap dosyasını güvenli başlıklarla döndürür. */
+export function sendQuickMedia(res: Response, media: { record: { mime: string; fileName: string }; buffer: Buffer }) {
+  const inline = /^(image\/(png|jpeg|gif|webp)|video\/(mp4|webm|3gpp))/.test(media.record.mime);
+  res.setHeader("content-type", inline ? media.record.mime : "application/octet-stream");
+  res.setHeader("content-disposition", `${inline ? "inline" : "attachment"}; filename="${encodeURIComponent(media.record.fileName)}"`);
+  res.setHeader("x-content-type-options", "nosniff");
+  res.setHeader("content-security-policy", "sandbox; default-src 'none'");
+  res.setHeader("cache-control", "private, max-age=3600");
+  res.send(media.buffer);
+}
 /** Panelden gelen hazır cevapları temizler: kısayol harf/rakam, metin en fazla 1000 karakter. */
 export function cleanQuickReplies(items: unknown): QuickReply[] {
   const seen = new Set<string>();
@@ -96,9 +112,11 @@ export function cleanQuickReplies(items: unknown): QuickReply[] {
       .replace(/[^0-9a-zçğıöşü_-]/g, "")
       .slice(0, 24);
     const text = String((item as any)?.text || "").replace(/\r/g, "").trim().slice(0, 1000);
-    if (!key || !text || seen.has(key)) continue;
+    const m = (item as any)?.media;
+    const media = m && /^med_[a-f0-9]{24}$/.test(String(m.id || "")) ? { id: String(m.id), name: String(m.name || "").slice(0, 120), mime: String(m.mime || "").slice(0, 100), type: String(m.type || "").slice(0, 20) } : undefined;
+    if (!key || (!text && !media) || seen.has(key)) continue;
     seen.add(key);
-    out.push({ key, text });
+    out.push({ key, text, ...(media ? { media } : {}) });
     if (out.length >= QUICK_MAX) break;
   }
   return out;
@@ -120,6 +138,8 @@ export interface B24Settings {
   alertTelegram?: boolean;
   /** Yalnız mesai saatlerinde (AI Asistan sekmesindeki saatler) uyar */
   alertWorkHours?: boolean;
+  /** Alarmın açıldığı an: öncesinde başlamış bekleyişler için uyarı gitmez */
+  alertsSince?: number;
 }
 export function portalSettings(portal: B24Portal): Required<B24Settings> {
   return {
@@ -133,6 +153,7 @@ export function portalSettings(portal: B24Portal): Required<B24Settings> {
     alertManagerMin: clampMin(portal.settings?.alertManagerMin, 30),
     alertTelegram: portal.settings?.alertTelegram !== false,
     alertWorkHours: portal.settings?.alertWorkHours !== false,
+    alertsSince: Number(portal.settings?.alertsSince) || 0,
   };
 }
 const clampMin = (v: unknown, fallback: number) => Math.max(1, Math.min(1440, Math.round(Number(v) || fallback)));
@@ -1100,7 +1121,8 @@ export async function handleConnectorEvolution(store: Store, body: any, base = o
   chat.inbound += 1;
   chat.sinceQualify += 1;
   chat.lastInboundAt = now;
-  if (!chat.waitingSince) chat.waitingSince = now;
+  // Tepki, yalnız emoji ya da "teşekkürler / tamam" gibi kapanış mesajı sohbeti bekletmez.
+  if (!chat.waitingSince && needsReply(text, Boolean(media.mediaId || media.mediaType))) chat.waitingSince = now;
   if (local) chat.history.push({ from: "müşteri", text: local, at: now });
   await saveChat(store, chat);
   await appendThread(store, chat, {
@@ -1559,6 +1581,7 @@ export async function uninstallPortal(store: Store, portal: B24Portal) {
       if (row.payload?.memberId === portal.id) await store.delete(kind, row.id, SYSTEM_OWNER);
   }
   await deleteMedia(store, `b24:${portal.id}`);
+  await deleteMedia(store, quickOwner(portal.id));
 }
 
 // --- Rotalar -----------------------------------------------------------------
@@ -1975,14 +1998,53 @@ function registerPanelRoutes(
 
   app.post(
     "/b24/panel/quick/save",
-    json,
+    express.json({ limit: "256kb" }),
     panel(async (portal, body) => {
       const next = await fresh(portal);
-      next.quickReplies = cleanQuickReplies(body.items);
+      const owner = quickOwner(portal.id);
+      // Yalnız bu portala yüklenmiş dosyalar kabul edilir; kullanılmayanlar silinir.
+      const items = [];
+      for (const r of cleanQuickReplies(body.items)) {
+        if (r.media && !(await readMedia(store, owner, r.media.id))) {
+          if (!r.text) continue;
+          delete r.media;
+        }
+        items.push(r);
+      }
+      next.quickReplies = items;
       await savePortal(store, next);
+      const used = new Set(items.map((r) => r.media?.id).filter(Boolean));
+      await deleteMedia(store, owner, (m) => !used.has(m.id) && Date.now() - Date.parse(m.createdAt) > 60 * 60_000);
       return { quickReplies: next.quickReplies };
     }),
   );
+  // Hazır cevaba dosya yükleme (ham gövde; bilet başlıkta)
+  app.post("/b24/panel/quick/upload", express.raw({ type: () => true, limit: MAX_MEDIA_BYTES + 1024 }), async (req, res) => {
+    const ticket = readTicket(req.get("x-xre-ticket"));
+    if (!ticket || ticket.line !== "all") return res.status(401).json({ error: "TICKET" });
+    const portal = await portalById(store, ticket.memberId);
+    if (!portal?.active) return res.status(404).json({ error: "NOT_INSTALLED" });
+    const buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const lang = langOf(portal);
+    if (!buffer.length) return res.status(400).json({ error: "EMPTY", message: localizeMessage("Dosya boş.", lang) });
+    if (buffer.length > MAX_MEDIA_BYTES) return res.status(413).json({ error: "TOO_BIG", message: localizeMessage("Dosya 16 MB sınırını aşıyor.", lang) });
+    let name = "";
+    try {
+      name = decodeURIComponent(String(req.get("x-file-name") || "")).slice(0, 120);
+    } catch {
+      name = "";
+    }
+    const record = await saveMedia(store, quickOwner(portal.id), buffer, String(req.get("content-type") || "application/octet-stream"), name);
+    res.json({ media: { id: record.id, name: record.fileName, mime: record.mime, type: record.mediaType } });
+  });
+  // Hazır cevap dosyasının önizlemesi (panel)
+  app.get("/b24/panel/quick/media/:id", async (req, res) => {
+    const ticket = readTicket(req.query.t);
+    if (!ticket || ticket.line !== "all") return res.status(401).end();
+    const media = await readMedia(store, quickOwner(ticket.memberId), String(req.params.id || ""));
+    if (!media) return res.status(404).end();
+    sendQuickMedia(res, media);
+  });
 
   app.post(
     "/b24/panel/settings/save",
@@ -2000,6 +2062,8 @@ function registerPanelRoutes(
         alertManagerMin: clampMin(body.alertManagerMin, 30),
         alertTelegram: body.alertTelegram !== false,
         alertWorkHours: body.alertWorkHours !== false,
+        // Alarm yeni açıldıysa eski bekleyişler uyarı göndermez.
+        alertsSince: body.alerts === true ? (portalSettings(next).alerts ? portalSettings(next).alertsSince || Date.now() : Date.now()) : 0,
       };
       if (next.settings.alerts) await requireFeature(store, next, "alerts");
       const changed = portalSettings(next).botMessages !== portalSettings(portal).botMessages;

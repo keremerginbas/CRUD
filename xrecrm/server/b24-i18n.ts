@@ -12,6 +12,13 @@ export const langOf = (portal: { lang?: string } | null | undefined): Lang => (p
 export const pick = (lang: Lang, tr: string, en: string) => (lang === "tr" ? tr : en);
 
 export const PANEL_EN: Record<string, string> = {
+  "Dosyayı kaldır": "Remove file",
+  "🖼 Görsel / dosya ekle": "🖼 Add image / file",
+  "Görsel, video veya PDF · en fazla 16 MB": "Image, video or PDF · up to 16 MB",
+  "Mesaj metni (görselle birlikte açıklama olarak gider)": "Message text (sent as the caption with a file)",
+  "Dosya 16 MB sınırını aşıyor.": "The file exceeds the 16 MB limit.",
+  "Dosya yüklenemedi.": "The file could not be uploaded.",
+  "Dosya eklendi. Kaydetmeyi unutmayın.": "File added. Don’t forget to save.",
   "Kurulum": "Setup",
   "Kuruluma hoş geldiniz": "Welcome! Let’s get you set up",
   "3 adımda hazırsınız. 3 günlük ücretsiz deneme numaranız bağlandığında başlar ve tüm özellikler açık olur.": "You are 3 steps away. Your 3-day free trial starts when your number connects, with every feature unlocked.",
@@ -581,6 +588,11 @@ export function localizeHtml(html: string, lang: Lang, dict: Record<string, stri
 // ---- Sunucu mesajları (hata/uyarı) ----
 
 const MESSAGES_EN: Record<string, string> = {
+  "Hazır cevap bulunamadı.": "Quick reply not found.",
+  "Hazır cevabın dosyası bulunamadı. Yönetici dosyayı yeniden eklemeli.": "The quick reply's file was not found. An administrator should add it again.",
+  "Dosya boş.": "The file is empty.",
+  "Dosya bulunamadı.": "File not found.",
+  "Dosya 16 MB sınırını aşıyor.": "The file exceeds the 16 MB limit.",
   "Telegram bu sohbeti bulamadı. Botun gruba ekli olduğundan emin olun.": "Telegram could not find this chat. Make sure the bot is a member of the group.",
   "Önce Telegram botunu bağlayın.": "Connect the Telegram bot first.",
   "Geçerli bir bot anahtarı girin (BotFather'ın verdiği 123456:ABC… biçiminde).": "Enter a valid bot token (in the 123456:ABC… format given by BotFather).",

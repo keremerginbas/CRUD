@@ -33,6 +33,8 @@ import {
   roleOf,
   savePortal,
   settingsTicket,
+  quickOwner,
+  sendQuickMedia,
   type B24Chat,
   type B24Portal,
 } from "./b24-connector.js";
@@ -453,6 +455,54 @@ export function registerChatRoutes(app: Express, store: Store) {
     }),
   );
 
+  // Dosyalı hazır cevabı gönderir (dosya + isteğe bağlı açıklama).
+  app.post(
+    "/b24/chat/send-quick",
+    json,
+    withViewer(async (ctx, body) => {
+      const chat = await chatFor(ctx, body);
+      const reply = (ctx.portal.quickReplies || []).find((r) => r.key === String(body.key || ""));
+      if (!reply?.media) fail(404, "Hazır cevap bulunamadı.");
+      const stored = await readMedia(store, quickOwner(ctx.portal.id), reply!.media!.id);
+      if (!stored) fail(410, "Hazır cevabın dosyası bulunamadı. Yönetici dosyayı yeniden eklemeli.");
+      ctx.portal = await refreshLines(store, ctx.portal, [chat.line], 30_000);
+      const info = ctx.portal.lines[chat.line];
+      if (info.status !== "connected" || !info.instance) fail(409, "Bu numaranın WhatsApp bağlantısı kopmuş.");
+      if (!(await lineUsable(store, ctx.portal, chat.line))) fail(402, "Bu numaranın lisans süresi doldu.");
+      const caption = String(body.text ?? reply!.text ?? "").replace(/\r/g, "").trim().slice(0, 1000);
+      // Yazışmada gösterilebilsin diye sohbet medyasına kopyalanır (sohbet medyası gibi süresi dolunca silinir).
+      const record = await saveMedia(store, `b24:${ctx.portal.id}`, stored!.buffer, stored!.record.mime, stored!.record.fileName);
+      let result: any;
+      try {
+        result = await sendEvolutionMedia(info.instance, chat.phone, record, stored!.buffer, caption);
+      } catch (error) {
+        await refreshLines(store, ctx.portal, [chat.line], 0).catch(() => undefined);
+        fail(502, `Dosya gönderilemedi: ${(error as Error).message}`);
+      }
+      await recordOutbound(store, ctx.portal, chat.line, chat, {
+        agent: ctx.viewer.userId,
+        text: caption,
+        local: caption || `[${record.mediaType === "image" ? "Görsel" : record.mediaType === "video" ? "Video" : "Dosya"}]`,
+        via: "xre",
+        waId: String(result?.key?.id || ""),
+        media: { id: record.id, name: record.fileName, type: record.mediaType, mime: record.mime },
+      });
+      return { ok: true };
+    }),
+  );
+  // Hazır cevap dosyasının önizlemesi (sohbet ekranı)
+  app.get(
+    "/b24/chat/quick-media/:id",
+    withViewer(async (ctx, _body, req, res) => {
+      const id = String(req.params.id || "");
+      if (!(ctx.portal.quickReplies || []).some((r) => r.media?.id === id)) fail(404, "Dosya bulunamadı.");
+      const media = await readMedia(store, quickOwner(ctx.portal.id), id);
+      if (!media) fail(404, "Dosya bulunamadı.");
+      sendQuickMedia(res, media!);
+      return undefined;
+    }),
+  );
+
   // Yazışmadaki medya: yalnız o sohbete erişimi olan kullanıcıya.
   app.get(
     "/b24/chat/media/:id",
@@ -539,7 +589,7 @@ const TEXT = {
     noConnected: "Numaralarınızın WhatsApp bağlantısı yok. Bağlantılar sekmesinden QR kodu okutun.",
     quick: "Hazır cevaplar", quickEmpty: "Henüz hazır cevap yok. Yönetici, uygulamanın Ayarlar sekmesinden ekleyebilir.", quickHint: "Mesaj kutusuna / yazarak da seçebilirsiniz.",
     bellOn: "Yeni mesaj bildirimleri açık", bellOff: "Yeni mesajlarda sesli ve masaüstü bildirim almak için tıklayın", bellBlocked: "Tarayıcı masaüstü bildirimine izin vermedi; yeni mesajlarda yalnız ses çalınacak.",
-    newMsg: "Yeni WhatsApp mesajı", unread: "okunmamış",
+    newMsg: "Yeni WhatsApp mesajı", unread: "okunmamış", qattRemove: "Dosyayı kaldır",
   },
   en: {
     chats: "Chats", search: "Search name or number", all: "All", waiting: "Awaiting reply", allLines: "All numbers",
@@ -567,7 +617,7 @@ const TEXT = {
     noConnected: "Your numbers are not connected to WhatsApp. Scan the QR code on the Connections tab.",
     quick: "Quick replies", quickEmpty: "No quick replies yet. An administrator can add them on the app's Settings tab.", quickHint: "You can also type / in the message box.",
     bellOn: "New message notifications are on", bellOff: "Click to get sound and desktop notifications for new messages", bellBlocked: "The browser blocked desktop notifications; only a sound will play for new messages.",
-    newMsg: "New WhatsApp message", unread: "unread",
+    newMsg: "New WhatsApp message", unread: "unread", qattRemove: "Remove file",
   },
 };
 
@@ -598,6 +648,11 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 .qmenu button:hover,.qmenu button.on{background:var(--paper)}
 .qmenu b{font-size:12.5px;color:var(--accent)}.qmenu span{display:block;font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:420px}
 .qmenu p{margin:6px 9px;font-size:12px;color:var(--ink-3,#8a96a3)}
+.qmenu .qm{display:grid;grid-template-columns:1fr 44px;gap:8px;align-items:center}
+.qmenu img,.qatt img{width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--line)}
+.qatt{display:flex;align-items:center;gap:10px;padding:6px 8px;margin-bottom:6px;border:1px dashed var(--accent);border-radius:var(--r-s);background:var(--paper);font-size:13px}
+.qatt b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.qatt button{border:0;background:none;cursor:pointer;font-size:15px;color:var(--ink-2)}
 .item{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:10px;align-items:start;padding:10px 14px;border:0;border-top:1px solid var(--line-2);border-left:3px solid transparent;cursor:pointer;width:100%;text-align:left;background:none;color:inherit;font:inherit}
 .item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .item:hover{background:var(--paper)}.item[aria-current=true]{background:var(--accent-soft);border-left-color:var(--accent)}
@@ -765,7 +820,7 @@ function blankCard(){
 }
 
 function open(t){
-  S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count="";markSeen(t,t.lastAt);setTimeout(unreadTitle,0);$("#app").classList.add("open");renderList();
+  S.cur={line:t.line,phone:t.phone,name:t.name,lineName:t.lineName};S.count="";S.qatt=null;markSeen(t,t.lastAt);setTimeout(unreadTitle,0);$("#app").classList.add("open");renderList();
   $("#pane").innerHTML='<header><button class="btn ghost backbtn" id="back">← '+esc(X.back)+'</button><span class="avatar" aria-hidden="true">'+esc(initials(t.name||t.phone))+'</span><div class="who"><b id="hn">'+esc(t.name||phone(t.phone))+'</b><span>'+esc(phone(t.phone))+(t.lineName?" · "+esc(t.lineName):"")+'</span></div><span class="st" id="lst"></span>'+(/@lid$/.test(t.phone)?'<button type="button" class="btn ghost" id="bLink">🔗 '+esc(X.link)+'</button>':'')+'</header>'
     +(/@lid$/.test(t.phone)?'<form class="linkbar" id="linkBar" hidden><span>'+esc(X.linkAsk)+'</span><input id="linkNum" inputmode="tel" placeholder="0506 123 45 67"><button class="btn primary" id="linkGo">'+esc(X.link)+'</button></form>':'')+'<div class="msgs" id="msgs" aria-live="polite"><div class="blank">'+esc(X.load)+'</div></div>'
     +'<form class="composer" id="cmp"><div class="offmsg" id="offmsg" hidden></div>'
@@ -775,7 +830,7 @@ function open(t){
     +'<button type="button" class="ic" id="bCall">📞 '+esc(X.call)+'</button><div class="menu" id="callMenu" hidden></div>'
     +'<button type="button" class="ic" id="bQuick" title="'+esc(X.quickHint)+'">⚡ '+esc(X.quick)+'</button><div class="menu qmenu" id="quickMenu" hidden></div></div>'
     +'<div class="rec" id="recBar" hidden><span class="dot" aria-hidden="true"></span><b>'+esc(X.recording)+'</b> <span id="recT">0:00</span><button type="button" class="btn primary" id="recSend">'+esc(X.stop)+'</button><button type="button" class="btn ghost" id="recCancel">'+esc(X.cancel)+'</button></div>'
-    +'<div class="row1" id="row1"><textarea id="txt" rows="1" placeholder="'+esc(X.placeholder)+'"></textarea><button class="btn primary" id="sendBtn">'+esc(X.send)+'</button></div><small>'+esc(X.hint)+'</small></form>';
+    +'<div class="qatt" id="qatt" hidden></div><div class="row1" id="row1"><textarea id="txt" rows="1" placeholder="'+esc(X.placeholder)+'"></textarea><button class="btn primary" id="sendBtn">'+esc(X.send)+'</button></div><small>'+esc(X.hint)+'</small></form>';
   $("#back").onclick=function(){$("#app").classList.remove("open")};
   if($("#bLink")){$("#bLink").onclick=function(){var b=$("#linkBar");b.hidden=!b.hidden;if(!b.hidden)$("#linkNum").focus()};$("#linkBar").onsubmit=function(e){e.preventDefault();var v=$("#linkNum").value.trim();if(!v){$("#linkNum").focus();return}$("#linkGo").disabled=true;api("link",{line:t.line,phone:t.phone,target:v}).then(function(r){toast(X.linked);loadThreads().then(function(){var n=S.threads.find(function(x){return x.line===r.line&&x.phone===r.phone});if(n)open(n)})}).catch(function(e){$("#linkGo").disabled=false;toast(e.message,true)})}};
   var ta=$("#txt");ta.oninput=function(){ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px";var m=/^\/(\S*)$/.exec(ta.value);if(m)quickMenu(m[1]);else if(QM.slash)hideQuick()};
@@ -841,10 +896,14 @@ function quickMenu(q){var m=$("#quickMenu");if(!m)return;q=String(q||"").toLower
   if(QM.slash&&!QM.items.length&&q){hideQuick();return}
   drawQuick();m.hidden=false}
 function drawQuick(){var m=$("#quickMenu");
-  m.innerHTML=S.quick.length?QM.items.map(function(r,i){return '<button type="button" data-qi="'+i+'" class="'+(i===QM.sel?"on":"")+'"><b>/'+esc(r.key)+'</b><span>'+esc(r.text)+'</span></button>'}).join("")+'<p>'+esc(X.quickHint)+'</p>':'<p>'+esc(X.quickEmpty)+'</p>';
+  m.innerHTML=S.quick.length?QM.items.map(function(r,i){return '<button type="button" data-qi="'+i+'" class="'+(i===QM.sel?"on":"")+'"><div class="qm"><div style="min-width:0"><b>/'+esc(r.key)+(r.media?' 📎':'')+'</b><span>'+esc(r.text||(r.media&&r.media.name)||"")+'</span></div>'+(r.media&&r.media.type==="image"?'<img src="'+esc(quickUrl(r))+'" alt="" loading="lazy">':'')+'</div></button>'}).join("")+'<p>'+esc(X.quickHint)+'</p>':'<p>'+esc(X.quickEmpty)+'</p>';
   [].forEach.call(m.querySelectorAll("[data-qi]"),function(b){b.onmousedown=function(e){e.preventDefault();pickQuick(QM.items[Number(b.getAttribute("data-qi"))])}})}
 function hideQuick(){var m=$("#quickMenu");if(m)m.hidden=true;QM.slash=false}
-function pickQuick(r){if(!r)return;var ta=$("#txt");ta.value=QM.slash||!ta.value.trim()?r.text:ta.value.replace(/\s*$/,"")+"\n"+r.text;hideQuick();ta.focus();ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px"}
+function quickUrl(r){return "/b24/chat/quick-media/"+encodeURIComponent(r.media.id)+"?t="+encodeURIComponent(C.t)}
+function pickQuick(r){if(!r)return;var ta=$("#txt");ta.value=QM.slash||!ta.value.trim()?r.text:ta.value.replace(/\s*$/,"")+"\n"+r.text;hideQuick();if(r.media){S.qatt=r;drawAtt()}ta.focus();ta.style.height="auto";ta.style.height=Math.min(160,ta.scrollHeight)+"px"}
+function drawAtt(){var a=$("#qatt");if(!a)return;var r=S.qatt;a.hidden=!r;if(!r){a.innerHTML="";return}
+  a.innerHTML=(r.media.type==="image"?'<img src="'+esc(quickUrl(r))+'" alt="">':'<span aria-hidden="true">📎</span>')+'<b>'+esc(r.media.name||r.key)+'</b><button type="button" id="qattX" title="'+esc(X.qattRemove)+'" aria-label="'+esc(X.qattRemove)+'">✕</button>';
+  $("#qattX").onclick=function(){S.qatt=null;drawAtt()}}
 document.addEventListener("click",function(e){var m=$("#quickMenu");if(m&&!m.hidden&&!m.contains(e.target)&&e.target.id!=="bQuick")hideQuick()});
 function bubble(m){
   var media="";
@@ -858,8 +917,8 @@ function loadMessages(scroll){if(!S.cur)return Promise.resolve();var cur=S.cur;
     var lm=d.messages[d.messages.length-1],sig=d.messages.length+":"+(lm?lm.at+":"+(lm.waId||""):"");if(sig===S.count)return;S.count=sig;var box=$("#msgs"),atEnd=box.scrollHeight-box.scrollTop-box.clientHeight<60,last="";
     box.innerHTML=d.messages.length?d.messages.map(function(m){var dd=dayOf(m.at),h=dd!==last?'<div class="day">'+esc(dd)+'</div>':"";last=dd;return h+bubble(m)}).join(""):'<div class="blank">'+esc(C.mode==="card"?X.cardStart:X.empty)+'</div>';
     if(scroll||atEnd)box.scrollTop=box.scrollHeight}).catch(function(e){toast(e.message,true)})}
-function send(){var ta=$("#txt"),text=ta.value.trim();if(!text||!S.cur)return;var btn=$("#sendBtn");btn.disabled=true;
-  api("send",{line:S.cur.line,phone:S.cur.phone,text:text}).then(function(){ta.value="";ta.style.height="auto";return loadMessages(true).then(loadThreads)}).catch(function(e){toast(e.message,true)}).then(function(){btn.disabled=false;ta.focus()})}
+function send(){var ta=$("#txt"),text=ta.value.trim(),att=S.qatt;if((!text&&!att)||!S.cur)return;var btn=$("#sendBtn");btn.disabled=true;
+  (att?api("send-quick",{line:S.cur.line,phone:S.cur.phone,key:att.key,text:text}).then(function(r){S.qatt=null;drawAtt();return r}):api("send",{line:S.cur.line,phone:S.cur.phone,text:text})).then(function(){ta.value="";ta.style.height="auto";return loadMessages(true).then(loadThreads)}).catch(function(e){toast(e.message,true)}).then(function(){btn.disabled=false;ta.focus()})}
 
 loadThreads();
 setInterval(function(){if(document.hidden)return;loadThreads();loadMessages(false)},5000);
