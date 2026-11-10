@@ -10,6 +10,7 @@ import { setAiFetch } from "../server/b24-ai";
 import { inWorkingHours, setAgentMergeDelay, DEFAULT_AGENT } from "../server/b24-agent";
 import { dueReports, DEFAULT_REPORTS, setTelegramFetch } from "../server/b24-live";
 import { panelHtml } from "../server/b24-panel-html";
+import { setLocationFetch } from "../server/b24-chat";
 import { localizeMessage } from "../server/b24-i18n";
 import { normalizeRecipient, setCampaignGap, setMetaFetch } from "../server/b24-campaigns";
 import { runWaitAlerts } from "../server/b24-alerts";
@@ -314,6 +315,21 @@ describe("Bitrix24 Açık Kanal bağlayıcısı", () => {
     expect(mediaCall?.body).toMatchObject({ number: "905550000002", mediatype: "image", caption: "Buyrun fiyat listemiz" });
     const thread = await (await fetch(`${base}/b24/chat/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "905550000002" }) })).json();
     expect(thread.messages.at(-1)).toMatchObject({ dir: "out", text: "Buyrun fiyat listemiz", media: { type: "image" } });
+
+    // Konum: Google Maps bağlantısı, koordinat ve kısa bağlantı WhatsApp konum mesajı olarak gider
+    const loc = (body: Record<string, unknown>) =>
+      fetch(`${base}/b24/chat/location`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "905550000002", ...body }) });
+    evo.length = 0;
+    expect(await (await loc({ link: "https://www.google.com/maps/place/Moda+Sahili/@40.98,29.02,17z/data=!3d40.98213!4d29.02591" })).json()).toMatchObject({ ok: true, lat: 40.98213, lng: 29.02591, name: "Moda Sahili" });
+    expect(evo.find((c) => c.url.startsWith("/message/sendLocation"))?.body).toEqual({ number: "905550000002", name: "Moda Sahili", address: "", latitude: 40.98213, longitude: 29.02591 });
+    expect(await (await loc({ link: "41,0082 28,9784", name: "Ofisimiz" })).json()).toMatchObject({ lat: 41.0082, lng: 28.9784, name: "Ofisimiz" });
+    setLocationFetch((async (url: string) => new Response(null, { status: 302, headers: { location: url.includes("goo.gl") ? "https://www.google.com/maps?q=40.5,29.5" : "" } })) as any);
+    expect(await (await loc({ link: "https://maps.app.goo.gl/abc123" })).json()).toMatchObject({ lat: 40.5, lng: 29.5 });
+    setLocationFetch(null);
+    expect((await loc({ link: "https://kotu.example.com/x" })).status).toBe(400);
+    expect((await loc({ link: "merhaba" })).status).toBe(400);
+    const locThread = await (await fetch(`${base}/b24/chat/messages`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ t: ct, line: "3", phone: "905550000002" }) })).json();
+    expect(locThread.messages.at(-1).text).toBe("📍 Konum\nhttps://maps.google.com/?q=40.5,29.5");
 
     // Kişisel hazır cevaplar: personel kendi listesini yönetir, yalnız kendisi görür
     const ticketOf = async (auth: string) => {

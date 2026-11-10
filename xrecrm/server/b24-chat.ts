@@ -137,6 +137,75 @@ async function threadMessages(store: Store, chat: B24Chat): Promise<ThreadMessag
   return chat.history.map((h) => ({ dir: h.from === "müşteri" ? "in" : "out", text: h.text, at: h.at, by: h.from === "asistan" ? "ai" : undefined }));
 }
 
+// ---------- Konum ----------
+
+export const validCoords = (lat: number, lng: number) => Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180 && !(lat === 0 && lng === 0);
+
+/** Google Maps bağlantısından ya da "enlem, boylam" metninden konum çıkarır. */
+export function parseLocation(input: string): { lat: number; lng: number; name: string } | null {
+  let text = String(input || "").trim();
+  try {
+    text = decodeURIComponent(text);
+  } catch {
+    /* olduğu gibi */
+  }
+  // "41,0082 28,9784" (virgüllü ondalık) yazımı da kabul edilir.
+  const comma = /^(-?\d{1,3}),(\d+)\s*[ ;]\s*(-?\d{1,3}),(\d+)$/.exec(text);
+  if (comma) text = `${comma[1]}.${comma[2]}, ${comma[3]}.${comma[4]}`;
+  const num = "(-?\\d{1,3}(?:\\.\\d+)?)";
+  const patterns = [
+    new RegExp(`!3d${num}!4d${num}`),
+    new RegExp(`@${num},${num}`),
+    new RegExp(`[?&](?:q|query|ll|destination|daddr|center|sll)=(?:loc:)?${num}\\s*,\\s*\\+?${num}`),
+    new RegExp(`^${num}\\s*[,; ]\\s*${num}$`),
+  ];
+  for (const re of patterns) {
+    const m = re.exec(text);
+    if (!m) continue;
+    const lat = Number(m[1]);
+    const lng = Number(m[2]);
+    if (!validCoords(lat, lng)) continue;
+    const place = /\/maps\/place\/([^/@?]+)/.exec(text);
+    const name = place ? place[1].replace(/\+/g, " ").trim().slice(0, 100) : "";
+    return { lat, lng, name: /^-?\d/.test(name) ? "" : name };
+  }
+  return null;
+}
+
+const MAPS_HOSTS = /^(maps\.app\.goo\.gl|goo\.gl|g\.co|maps\.google\.[a-z.]+|www\.google\.[a-z.]+|google\.[a-z.]+)$/i;
+let locationFetch: typeof fetch = (...args) => fetch(...args);
+/** Testler için kısa bağlantı çözümlemesini yönlendirir. */
+export function setLocationFetch(fn: typeof fetch | null) {
+  locationFetch = fn || ((...args) => fetch(...args));
+}
+/** Kısa Google Maps bağlantılarını (maps.app.goo.gl) yönlendirmeyi izleyerek çözer. */
+export async function resolveLocation(input: string): Promise<{ lat: number; lng: number; name: string } | null> {
+  const direct = parseLocation(input);
+  if (direct) return direct;
+  let url = String(input || "").trim();
+  for (let hop = 0; hop < 4; hop += 1) {
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return null;
+    }
+    if (parsed.protocol !== "https:" || !MAPS_HOSTS.test(parsed.hostname)) return null;
+    const res = await locationFetch(parsed.toString(), { redirect: "manual", signal: AbortSignal.timeout(8000) }).catch(() => null);
+    if (!res) return null;
+    const next = res.headers.get("location");
+    if (next) {
+      const found = parseLocation(next);
+      if (found) return found;
+      url = new URL(next, parsed).toString();
+      continue;
+    }
+    const body = await res.text().catch(() => "");
+    return parseLocation(body.match(/https:\/\/www\.google\.[a-z.]+\/maps[^"'\s<>]+/)?.[0] || "");
+  }
+  return null;
+}
+
 // ---------- Erişim ----------
 
 export interface Viewer {
@@ -413,6 +482,39 @@ export function registerChatRoutes(app: Express, store: Store) {
     }),
   );
 
+  // Konum gönderimi: tarayıcı konumu, Google Maps bağlantısı ya da koordinat → WhatsApp konum mesajı.
+  app.post(
+    "/b24/chat/location",
+    json,
+    withViewer(async (ctx, body) => {
+      const chat = await chatFor(ctx, body);
+      let loc = Number.isFinite(Number(body.lat)) && Number.isFinite(Number(body.lng)) && String(body.lat ?? "") !== "" ? { lat: Number(body.lat), lng: Number(body.lng), name: "" } : null;
+      if (!loc && body.link) loc = await resolveLocation(String(body.link));
+      if (!loc || !validCoords(loc.lat, loc.lng)) fail(400, "Konum anlaşılamadı. Google Maps bağlantısı ya da 41.0082, 28.9784 biçiminde koordinat girin.");
+      const name = String(body.name || loc!.name || "").trim().slice(0, 100);
+      const address = String(body.address || "").trim().slice(0, 200);
+      ctx.portal = await refreshLines(store, ctx.portal, [chat.line], 30_000);
+      const info = ctx.portal.lines[chat.line];
+      if (info.status !== "connected" || !info.instance) fail(409, "Bu numaranın WhatsApp bağlantısı kopmuş.");
+      if (!(await lineUsable(store, ctx.portal, chat.line))) fail(402, "Bu numaranın lisans süresi doldu.");
+      const lat = Math.round(loc!.lat * 1e6) / 1e6;
+      const lng = Math.round(loc!.lng * 1e6) / 1e6;
+      let result: any;
+      try {
+        result = await evolution(`/message/sendLocation/${encodeURIComponent(info.instance)}`, {
+          method: "POST",
+          body: JSON.stringify({ number: chat.phone, name: name || pick(langOf(ctx.portal), "Konum", "Location"), address, latitude: lat, longitude: lng }),
+        });
+      } catch (error) {
+        await refreshLines(store, ctx.portal, [chat.line], 0).catch(() => undefined);
+        fail(502, `Konum gönderilemedi: ${(error as Error).message}`);
+      }
+      const text = `📍 ${name || pick(langOf(ctx.portal), "Konum", "Location")}${address ? ` · ${address}` : ""}\nhttps://maps.google.com/?q=${lat},${lng}`;
+      await recordOutbound(store, ctx.portal, chat.line, chat, { agent: ctx.viewer.userId, text, via: "xre", waId: String(result?.key?.id || "") });
+      return { ok: true, lat, lng, name };
+    }),
+  );
+
   // Kişisel Google Meet odası: her temsilci kendi sabit bağlantısını bir kez kaydeder.
   // Görüşme kayıtları Google'ın kendi düzeniyle oda sahibinin Drive'ına düşer.
   app.post(
@@ -652,6 +754,10 @@ const TEXT = {
     quick: "Hazır cevaplar", quickEmpty: "Henüz hazır cevap yok. Kendi cevaplarınızı aşağıdan ekleyebilirsiniz.", quickHint: "Mesaj kutusuna / yazarak da seçebilirsiniz.",
     bellOn: "Yeni mesaj bildirimleri açık", bellOff: "Yeni mesajlarda sesli ve masaüstü bildirim almak için tıklayın", bellBlocked: "Tarayıcı masaüstü bildirimine izin vermedi; yeni mesajlarda yalnız ses çalınacak.",
     newMsg: "Yeni WhatsApp mesajı", unread: "okunmamış", qattRemove: "Dosyayı kaldır",
+    location: "Konum", locHere: "Şu anki konumumu kullan", locInput: "Google Maps bağlantısı veya 41.0082, 28.9784", locName: "Yer adı (isteğe bağlı), ör. Ofisimiz", locSend: "Konumu gönder",
+    locNote: "Müşteriye harita kartı olarak gider; dokununca yol tarifi açılır. Canlı (sürekli güncellenen) konum yalnız telefondaki WhatsApp uygulamasından paylaşılabilir.",
+    locWait: "Konum alınıyor…", locGot: "Konumunuz alındı; göndermek için Konumu gönder'e basın.", locSent: "Konum gönderildi.",
+    locDenied: "Tarayıcı konum izni vermedi ya da Bitrix bu ekranda konuma izin vermiyor. Ekranı yeni sekmede açın ya da Google Maps bağlantısı yapıştırın.",
     quickEdit: "Hazır cevaplarımı düzenle", quickMineTitle: "Hazır cevaplarım", quickMineHint: "Bu cevapları yalnız siz görürsünüz. Mesaj kutusuna / ve kısayolu yazarak ya da ⚡ menüsünden kullanın. Aynı kısayolla ortak bir cevap varsa sizinki geçerli olur.",
     quickShared: "ortak", quickSharedTitle: "Ortak cevaplar (yönetici tanımlar)", quickAdd: "Cevap ekle", quickSave: "Kaydet", quickSaved: "Hazır cevaplarınız kaydedildi.",
     quickKey: "kısayol (ör. fiyat)", quickText: "Mesaj metni (dosyayla birlikte açıklama olarak gider)", quickFile: "Görsel / dosya ekle", quickFileHint: "Görsel, video veya PDF · en fazla 16 MB", quickDel: "Sil", quickNone: "Henüz kişisel hazır cevabınız yok. Fiyat listeniz, kartvizitiniz veya sık yazdığınız mesajları ekleyin.", close: "Kapat", uploaded: "Dosya eklendi. Kaydetmeyi unutmayın.",
@@ -683,6 +789,10 @@ const TEXT = {
     quick: "Quick replies", quickEmpty: "No quick replies yet. You can add your own below.", quickHint: "You can also type / in the message box.",
     bellOn: "New message notifications are on", bellOff: "Click to get sound and desktop notifications for new messages", bellBlocked: "The browser blocked desktop notifications; only a sound will play for new messages.",
     newMsg: "New WhatsApp message", unread: "unread", qattRemove: "Remove file",
+    location: "Location", locHere: "Use my current location", locInput: "Google Maps link or 41.0082, 28.9784", locName: "Place name (optional), e.g. Our office", locSend: "Send location",
+    locNote: "The customer gets a map card that opens directions. Live (continuously updated) location can only be shared from the WhatsApp app on the phone.",
+    locWait: "Getting your location…", locGot: "Location found; press Send location to share it.", locSent: "Location sent.",
+    locDenied: "The browser did not allow location access, or Bitrix24 blocks it on this screen. Open the screen in a new tab or paste a Google Maps link.",
     quickEdit: "Edit my quick replies", quickMineTitle: "My quick replies", quickMineHint: "Only you see these replies. Type / and the shortcut in the message box or use the ⚡ menu. If a shared reply has the same shortcut, yours is used.",
     quickShared: "shared", quickSharedTitle: "Shared replies (set by an administrator)", quickAdd: "Add reply", quickSave: "Save", quickSaved: "Your quick replies were saved.",
     quickKey: "shortcut (e.g. prices)", quickText: "Message text (sent as the caption with a file)", quickFile: "Add image / file", quickFileHint: "Image, video or PDF · up to 16 MB", quickDel: "Delete", quickNone: "You have no personal quick replies yet. Add your price list, business card or messages you send often.", close: "Close", uploaded: "File added. Don’t forget to save.",
@@ -721,6 +831,10 @@ html,body{height:100%}body{overflow:hidden}[hidden]{display:none!important}
 .qatt{display:flex;align-items:center;gap:10px;padding:6px 8px;margin-bottom:6px;border:1px dashed var(--accent);border-radius:var(--r-s);background:var(--paper);font-size:13px}
 .qatt b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .qatt button{border:0;background:none;cursor:pointer;font-size:15px;color:var(--ink-2)}
+.locmenu{min-width:340px;max-width:420px}.locmenu .lf{display:grid;gap:6px;padding:6px 6px 2px}
+.locmenu input{padding:7px 9px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:inherit;font:inherit}
+.locmenu>button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 9px;border-radius:6px;cursor:pointer;color:inherit;font:inherit}
+.locmenu>button:hover{background:var(--paper)}.locmenu p{margin:6px 8px 4px;font-size:12px;color:var(--ink-3,#8a96a3)}
 .qmenu .qtag{display:inline;font-weight:500;color:var(--ink-3,#8a96a3);font-size:11px;margin-left:4px}
 .qmenu .qedit-btn{border-top:1px solid var(--line);border-radius:0;margin-top:4px;padding-top:9px;color:var(--accent);font-weight:600;font-size:12.5px}
 .qedit{position:fixed;inset:0;background:rgba(10,20,30,.45);display:flex;align-items:flex-start;justify-content:center;padding:28px 14px;z-index:50;overflow:auto}
@@ -913,6 +1027,7 @@ function open(t){
     +'<div class="tools2" style="position:relative"><button type="button" class="ic" id="bAttach" title="'+esc(X.attach)+'" aria-label="'+esc(X.attach)+'">📎</button><input type="file" id="file" hidden accept="image/*,video/*,audio/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip,.rar">'
     +'<button type="button" class="ic" id="bRec" title="'+esc(X.record)+'" aria-label="'+esc(X.record)+'">🎤</button>'
     +'<button type="button" class="ic" id="bMeet">📹 '+esc(X.meeting)+'</button><div class="menu" id="meetMenu" hidden></div>'
+    +'<button type="button" class="ic" id="bLoc">📍 '+esc(X.location)+'</button><div class="menu locmenu" id="locMenu" hidden></div>'
     +'<button type="button" class="ic" id="bCall">📞 '+esc(X.call)+'</button><div class="menu" id="callMenu" hidden></div>'
     +'<button type="button" class="ic" id="bQuick" title="'+esc(X.quickHint)+'">⚡ '+esc(X.quick)+'</button><div class="menu qmenu" id="quickMenu" hidden></div></div>'
     +'<div class="rec" id="recBar" hidden><span class="dot" aria-hidden="true"></span><b>'+esc(X.recording)+'</b> <span id="recT">0:00</span><button type="button" class="btn primary" id="recSend">'+esc(X.stop)+'</button><button type="button" class="btn ghost" id="recCancel">'+esc(X.cancel)+'</button></div>'
@@ -926,6 +1041,14 @@ function open(t){
       if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();pickQuick(QM.items[QM.sel]);return}
       if(e.key==="Escape"){hideQuick();return}}
     if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}};
+  $("#bLoc").onclick=function(e){e.stopPropagation();var m=$("#locMenu");if(!m.hidden){m.hidden=true;return}
+    m.innerHTML='<button type="button" id="locHere">📡 '+esc(X.locHere)+'</button><div class="lf"><input id="locIn" placeholder="'+esc(X.locInput)+'"><input id="locName" maxlength="100" placeholder="'+esc(X.locName)+'"><button type="button" class="btn primary" id="locGo">'+esc(X.locSend)+'</button></div><p>'+esc(X.locNote)+'</p>';
+    m.hidden=false;$("#locIn").focus();
+    m.onclick=function(ev){ev.stopPropagation()};
+    $("#locHere").onclick=function(){if(!navigator.geolocation){toast(X.locDenied,true);return}toast(X.locWait);
+      navigator.geolocation.getCurrentPosition(function(p){$("#locIn").value=p.coords.latitude.toFixed(6)+", "+p.coords.longitude.toFixed(6);toast(X.locGot)},function(){toast(X.locDenied,true)},{enableHighAccuracy:true,timeout:12000,maximumAge:60000})};
+    $("#locGo").onclick=function(){var v=$("#locIn").value.trim();if(!v){$("#locIn").focus();return}var b=$("#locGo");b.disabled=true;
+      api("location",{line:S.cur.line,phone:S.cur.phone,link:v,name:$("#locName").value.trim()}).then(function(){m.hidden=true;toast(X.locSent);return loadMessages(true).then(loadThreads)}).catch(function(err){toast(err.message,true)}).then(function(){b.disabled=false})}};
   $("#bQuick").onclick=function(e){e.stopPropagation();if($("#quickMenu").hidden){QM.slash=false;quickMenu("")}else hideQuick()};
   $("#cmp").onsubmit=function(e){e.preventDefault();send()};
   $("#bAttach").onclick=function(){$("#file").click()};
@@ -939,7 +1062,7 @@ function open(t){
     $("#cWaApp").onclick=function(){m.hidden=true;var p=S.cur.phone,left=false,onBlur=function(){left=true};
       window.addEventListener("blur",onBlur);location.href="whatsapp://send?phone="+p;
       setTimeout(function(){window.removeEventListener("blur",onBlur);if(!left)window.open("https://wa.me/"+p,"_blank","noopener")},1500)}};
-  document.addEventListener("click",function(e){var m=$("#callMenu");if(m)m.hidden=true;var mm=$("#meetMenu");if(mm&&!mm.contains(e.target))mm.hidden=true});
+  document.addEventListener("click",function(e){var m=$("#callMenu");if(m)m.hidden=true;var mm=$("#meetMenu");if(mm&&!mm.contains(e.target))mm.hidden=true;var lm=$("#locMenu");if(lm&&!lm.contains(e.target))lm.hidden=true});
   lineState();ta.focus();loadMessages(true);
 }
 function upload(blob,name,voice,caption){

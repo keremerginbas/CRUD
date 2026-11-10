@@ -590,6 +590,7 @@ export function localizeHtml(html: string, lang: Lang, dict: Record<string, stri
 // ---- Sunucu mesajları (hata/uyarı) ----
 
 const MESSAGES_EN: Record<string, string> = {
+  "Konum anlaşılamadı. Google Maps bağlantısı ya da 41.0082, 28.9784 biçiminde koordinat girin.": "Could not read the location. Enter a Google Maps link or coordinates like 41.0082, 28.9784.",
   "Hazır cevap bulunamadı.": "Quick reply not found.",
   "Hazır cevabın dosyası bulunamadı. Yönetici dosyayı yeniden eklemeli.": "The quick reply's file was not found. An administrator should add it again.",
   "Dosya boş.": "The file is empty.",
@@ -633,6 +634,7 @@ const MESSAGE_PATTERNS_EN: [RegExp, string][] = [
   [/^(.*): hiçbir personelin rolü bu numarayı içermiyor; kuyruk değiştirilmedi\.$/, "$1: no staff role includes this number; the queue was not changed."],
   [/^Bitrix (\S+): uygulamanın bu işlem için izni yok \((.*)\)\. Uygulama ayarlarında izni ekleyip uygulamayı yeniden açın\.$/, "Bitrix24 $1: the app has no permission for this ($2). Add the permission in the app settings and reopen the app."],
   [/^Telegram'a ulaşılamadı: (.*)$/, "Could not reach Telegram: $1"],
+  [/^Konum gönderilemedi: (.*)$/, "The location could not be sent: $1"],
   [/^Bitrix (\S+): (.*)$/, "Bitrix24 $1: $2"],
   [/^Bu kod en fazla (\d+) numara için geçerli\.$/, "This code is valid for at most $1 numbers."],
   [/^Yapay zekâ servisi HTTP (\d+)$/, "AI service HTTP $1"],
