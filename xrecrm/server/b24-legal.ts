@@ -16,6 +16,10 @@ export const LEGAL_UPDATED = "2026-11-09";
 const env = (k: string) => process.env[k]?.trim() || "";
 const esc = (v: string) => v.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
+/** Uygulamanın herkese açık Bitrix24 Market sayfası (B24_MARKET_URL ile değiştirilebilir). */
+const MARKET_URL_TR = "https://www.bitrix24.com.tr/apps/app/XREREALESTATE.xre_connect/";
+const MARKET_URL_EN = "https://www.bitrix24.com/apps/app/XREREALESTATE.xre_connect/";
+
 export function vendorInfo() {
   return {
     name: env("B24_VENDOR_NAME") || "XRE Software",
@@ -136,7 +140,7 @@ function privacyTr() {
 function supportBody(lang: Lang) {
   const v = vendorInfo();
   const en = lang === "en";
-  return `<div class="card">${contactLines(lang)}<br>${en ? "Support hours" : "Destek saatleri"}: ${esc(v.hours)}<br>${en ? "We reply to every request within 1 business day." : "Her talebe 1 iş günü içinde dönüş yaparız."}</div>
+  return `<div class="card">${contactLines(lang)}<br>${en ? "Support hours" : "Destek saatleri"}: ${esc(!en && !env("B24_SUPPORT_HOURS") ? "Pazartesi–Cuma, 09:00–18:00 (UTC+3)" : v.hours)}<br>${en ? "We reply to every request within 1 business day." : "Her talebe 1 iş günü içinde dönüş yaparız."}</div>
 <h2>${en ? "Getting started" : "Başlangıç"}</h2><ol>
 <li>${en ? "Open <b>WhatsApp by XRE</b> from the left menu of Bitrix24 (administrator account)." : "Bitrix24 sol menüsünden <b>WhatsApp by XRE</b>’ı açın (yönetici hesabı)."}</li>
 <li>${en ? "On the <b>Connections</b> tab click <b>Add number</b>, give it a name and scan the QR code with WhatsApp (Settings → Linked devices → Link a device)." : "<b>Bağlantılar</b> sekmesinde <b>Numara ekle</b>’ye tıklayın, ad verin ve QR kodu WhatsApp’tan okutun (Ayarlar → Bağlı cihazlar → Cihaz bağla)."}</li>
@@ -186,6 +190,17 @@ export function registerLegalRoutes(app: Express) {
     const video = fs.existsSync(path.resolve(process.env.XRE_DATA_DIR || "data", "b24-video", `${lang}.mp4`))
       ? `<h2>${lang === "en" ? "Video guide" : "Video rehber"}</h2><video controls preload="metadata" style="width:100%;border-radius:10px" src="/b24/video/${lang}.mp4"></video>`
       : "";
-    shell(res, lang, lang === "en" ? "Support" : "Destek", video + supportBody(lang), "/b24/support");
+    // Destek sayfasına e-postadan ya da asistandan gelen ziyaretçi tek tıkla kuruluma gider.
+    const market = env("B24_MARKET_URL") || (lang === "en" ? MARKET_URL_EN : MARKET_URL_TR);
+    const cta = `<div class="card" style="display:flex;gap:16px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div><b>${
+      lang === "en" ? "Install WhatsApp by XRE" : "WhatsApp by XRE’yi kurun"
+    }</b><br>${
+      lang === "en"
+        ? "Free to install. A 3-day trial starts when you connect your first number."
+        : "Kurulum ücretsizdir. İlk numaranızı bağladığınızda 3 günlük deneme başlar."
+    }</div><a href="${esc(market)}" target="_blank" rel="noopener" style="display:inline-block;padding:11px 18px;border-radius:10px;background:var(--accent);color:var(--accent-ink,#fff);font-weight:600;text-decoration:none;white-space:nowrap">${
+      lang === "en" ? "Open in Bitrix24 Market" : "Bitrix24 Market’te aç"
+    }</a></div>`;
+    shell(res, lang, lang === "en" ? "Support" : "Destek", cta + video + supportBody(lang), "/b24/support");
   });
 }
