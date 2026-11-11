@@ -91,30 +91,37 @@ test('artı düğmesiyle yükseltme yalnızca kitabın satırını değiştirir 
   await page.close();
 });
 
-test('adet kutusuna büyük sayı yazılınca sitenin düzelttiği değer ve uyarısı okunur', async () => {
-  const page = await open(`<h1>Sepetim</h1>
-    <div class="row"><span>${TITLE}</span><input type="text" inputmode="numeric" name="quantityBox" value="1"><a href="#" id="upd">Güncelle</a><span class="msg" role="alert"></span></div>
-    <script>
-      const input = document.querySelector('input'); let typed = '1';
-      input.addEventListener('input', () => { typed = input.value; });
-      document.getElementById('upd').addEventListener('click', (e) => { e.preventDefault(); if (Number(typed) > 7) { input.value = '7'; document.querySelector('.msg').textContent = 'Bu satıcının bu üründen yalnızca 7 adedi mevcut.'; } });
-    </script>`);
-  assert.strictEqual((await cart(page, 'raise', TITLE, IDS, 999)).acted, 'input');
-  const s = await cart(page, 'inspect', TITLE, IDS);
-  assert.strictEqual(s.qty, 7);
-  assert.deepStrictEqual(s.messages, ['Bu satıcının bu üründen yalnızca 7 adedi mevcut.']);
+// Gerçek kullanımda görülen hata: adet kutusuna 999 yazıldı ve kitap sepetten çıkarılamadı.
+// Bu yüzden adet kutusuna hiçbir koşulda sayı yazılmaz; yalnızca artı düğmesiyle birer birer çıkılır.
+
+test('hem adet kutusu hem artı düğmesi varsa artı düğmesi kullanılır, kutuya yazılmaz', async () => {
+  const page = await open(`<h1>Sepetim</h1><ul><li><a href="#">${TITLE}</a>
+    <button aria-label="Adedi azalt" onclick="q.value = Number(q.value) - 1">−</button><input id="q" inputmode="numeric" value="1"><button aria-label="Adedi artır" onclick="q.value = Number(q.value) + 1">+</button>
+    <button aria-label="Ürünü sil">x</button></li></ul><script>const q = document.getElementById('q');</script>`);
+  const before = await cart(page, 'inspect', TITLE, IDS);
+  assert.strictEqual(before.control, 'stepper');
+  assert.strictEqual(before.supported, true);
+  assert.strictEqual((await cart(page, 'raise', TITLE, IDS)).acted, 'click');
+  assert.strictEqual(await page.evaluate(() => q.value), '2');
   await page.close();
 });
 
-test('açılır listede "10+" seçeneği varsa önce o seçilir', async () => {
+test('yalnızca adet kutusu olan sepette yükseltme yapılmaz', async () => {
+  const page = await open(`<h1>Sepetim</h1><div class="row"><span>${TITLE}</span><input type="text" inputmode="numeric" name="quantityBox" value="1"><a href="#">Güncelle</a><button aria-label="Ürünü sil">x</button></div>`);
+  const s = await cart(page, 'inspect', TITLE, IDS);
+  assert.strictEqual(s.control, 'input');
+  assert.strictEqual(s.supported, false);
+  assert.strictEqual((await cart(page, 'raise', TITLE, IDS)).acted, 'none');
+  assert.strictEqual(await page.evaluate(() => document.querySelector('input').value), '1');
+  await page.close();
+});
+
+test('açılır listede "10+" seçeneği seçilmez; en yüksek sabit seçenek seçilir', async () => {
   const page = await open(`<h1>Sepetim</h1><div class="sc-list-item" data-asin="6259756186" data-quantity="1"><span>Kitap</span>
     <select name="quantity">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<option value="${n}">${n}</option>`).join('')}<option value="10">10+</option></select></div>
     <script>document.querySelector('select').addEventListener('change', (e) => { window.chosen = e.target.value; });</script>`);
-  const before = await cart(page, 'inspect', TITLE, IDS);
-  assert.strictEqual(before.control, 'select');
-  assert.strictEqual(before.selectOpen, true);
-  assert.strictEqual((await cart(page, 'raise', TITLE, IDS, 999)).acted, 'select-open');
-  assert.strictEqual(await page.evaluate(() => window.chosen), '10');
+  assert.strictEqual((await cart(page, 'raise', TITLE, IDS)).acted, 'select-max');
+  assert.strictEqual(await page.evaluate(() => window.chosen), '9');
   await page.close();
 });
 

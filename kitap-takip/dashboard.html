@@ -59,18 +59,18 @@
 
     <section aria-labelledby="h-cart">
       <h2 id="h-cart">Sepet sınırıyla stok ölçümü</h2>
-      <p class="lede">Hepsiburada ve Amazon stok adedini göstermez. Bu ölçüm kitabı sepetinize ekler, adedi sitenin izin verdiği yere kadar yükseltir, sonucu kaydeder ve kitabı sepetten çıkarır.</p>
-      <div class="actions">
+      <p class="lede">Amazon'da satıcının sınırı ürün sayfasındaki adet seçiciden okunur; sepete dokunulmaz. Hepsiburada'da ölçüm kapalı: sepet sayfasının yapısı doğrulanmadan çalıştırılmaz.</p>
+      <div id="cart-controls" class="actions" hidden>
         <label class="check"><input type="checkbox" id="cart-probe"> Günde bir kez ölç</label>
         <button id="cart-now" type="button" disabled>Şimdi ölç</button>
       </div>
+      <div class="actions"><button id="cart-inspect" type="button">Sepet sayfasını incele</button></div>
       <ul class="notes">
-        <li>Satın alma ya da ödeme düğmelerine basılmaz; sepetinizdeki diğer ürünlere dokunulmaz.</li>
-        <li>Kitap zaten sepetinizdeyse ölçüm yapılmaz.</li>
-        <li>Bulunan sayı satıcının stoku ya da sipariş başına sınırı olabilir.</li>
-        <li>Ölçüm, satıcının istatistiğinde sepete ekleme olarak görünür.</li>
-        <li>Kitap sepetten çıkarılamazsa ilgili satırda ve Telegram'da uyarı görürsünüz.</li>
+        <li>İnceleme hiçbir düğmeye basmaz; Hepsiburada ve Amazon sepet sayfalarını açıp yapısını tanı kaydına yazar.</li>
+        <li>Kitap sepetinizdeyken yapılırsa en yararlı sonucu verir. Ardından <strong>Tanı dosyası indir</strong> ile dosyayı paylaşın.</li>
+        <li>Tanı dosyasına sepet sayfasının görünen yazısı da girer; sepetinizdeki diğer ürünlerin adları buna dahildir.</li>
       </ul>
+      <p class="hint" id="cart-status" role="status"></p>
     </section>
 
     <section aria-labelledby="h-tg">

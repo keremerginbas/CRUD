@@ -21,7 +21,7 @@ async function load() {
   return {
     targets: s.targets || DEFAULT_TARGETS,
     snapshots: s.snapshots || [],
-    settings: { intervalHours: 12, cartProbe: false, ...(s.settings || {}) },
+    settings: { intervalHours: 12, cartProbe: false, cartProbeHosts: [], ...(s.settings || {}) },
     book: s.book || DEFAULT_BOOK,
     scanState: s.scanState || { running: false },
     telegram: s.telegram || null,
@@ -32,7 +32,7 @@ function stockCell(s) {
   if (!s) return '–';
   const parts = [];
   const real = L.realQty(s);
-  const fromCart = s.stockQtySource === 'sepet sınırı';
+  const fromCart = s.stockQtySource === 'sepet sınırı' || s.stockQtySource === 'adet seçici';
   if (real != null) {
     parts.push(el('strong', {}, `${real} adet`), el('small', {}, `Kaynak: ${s.stockQtySource}`));
     if (fromCart) parts.push(el('small', {}, 'Satıcının stoku ya da sipariş sınırı.'));
@@ -59,13 +59,15 @@ function renderNow(state) {
     const good = last && L.UNREADABLE.has(last.status)
       ? state.snapshots.filter((x) => x.targetId === t.id && !L.UNREADABLE.has(x.status)).sort((a, b) => b.ts - a.ts)[0]
       : null;
-    const s = good ? { ...good, note: `Son tarama okunamadı (${L.STATUS_LABEL[last.status]}); veriler ${fmtTime(good.ts)} tarihli.` } : last;
+    const why = last && last.note && last.status === 'error' ? `: ${last.note}` : '';
+    const s = good ? { ...good, note: `Son tarama okunamadı (${L.STATUS_LABEL[last.status]}${why}); veriler ${fmtTime(good.ts)} tarihli.` } : last;
     const interest = [];
     if (s && s.rating != null) interest.push(`${s.rating} puan`);
     if (s && s.reviewCount != null) interest.push(`${s.reviewCount} yorum`);
     if (s && s.rank != null) interest.push(`${s.rank.toLocaleString('tr-TR')}. sıra`);
     if (s && s.sellers != null) interest.push(`${s.sellers} satıcı`);
-    if (s && s.counts) for (const [k, v] of Object.entries(s.counts)) interest.push(`${v} ${k}`);
+    // Yorum sayısı zaten yazıldıysa sayfadan toplanan aynı sayaç yinelenmez.
+    if (s && s.counts) for (const [k, v] of Object.entries(s.counts)) if (!(s.reviewCount != null && (k === 'yorum' || k === 'değerlendirme'))) interest.push(`${v} ${k}`);
     // Sitenin yazdığı ilgi cümleleri; satın alma sayacı kendi sütununda gösterildiği için burada yinelenmez.
     const extra = s && s.signals ? s.signals.filter((x) => !/satın alınmıştır/i.test(x)) : [];
     const others = s && s.sellerList ? s.sellerList.filter((x) => x.name !== s.seller) : [];
@@ -166,6 +168,8 @@ function renderTelegram(state) {
 }
 
 function renderCart(state) {
+  // Ölçüm denetimleri yalnızca ölçüme izin verilen bir site varsa görünür.
+  $('cart-controls').hidden = state.settings.cartProbeHosts.length === 0;
   $('cart-probe').checked = !!state.settings.cartProbe;
   $('cart-now').disabled = !state.settings.cartProbe || !!state.scanState.running;
 }
@@ -217,6 +221,16 @@ $('cart-probe').addEventListener('change', async (e) => {
 });
 // Yalnızca sepet ölçümü yapılabilen siteleri, bugün ölçülmüş olsalar da yeniden ölçer.
 $('cart-now').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'scan', cartOnly: true, forceCart: true }));
+
+$('cart-inspect').addEventListener('click', async () => {
+  $('cart-inspect').disabled = true;
+  $('cart-status').textContent = 'Sepet sayfaları inceleniyor…';
+  const res = await chrome.runtime.sendMessage({ type: 'cart-inspect' }).catch(() => null);
+  $('cart-inspect').disabled = false;
+  $('cart-status').textContent = res && res.ok
+    ? `${res.count} sepet sayfası incelendi. Şimdi "Tanı dosyası indir" ile dosyayı paylaşabilirsiniz.`
+    : 'Sepet sayfaları incelenemedi.';
+});
 
 $('tg-form').addEventListener('submit', async (e) => {
   e.preventDefault();

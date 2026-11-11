@@ -13,8 +13,10 @@ const DEFAULT_TARGETS = [
   { id: '1000kitap', name: '1000Kitap', url: 'https://1000kitap.com/kitap/ozgur-un-salincagi--542304' },
 ];
 
-// Sepet sınırıyla stok ölçümünün yapılabildiği siteler ve sepet sayfalarının adresi.
-const CART_URLS = {
-  'www.hepsiburada.com': 'https://checkout.hepsiburada.com/sepetim',
-  'www.amazon.com.tr': 'https://www.amazon.com.tr/gp/cart/view.html',
+// Sepeti olan pazaryerleri. cart: sepet sayfasının adresi (inceleme için).
+// probe: sepet sınırı ölçümü bu sitede yapılabilir mi? Amazon'da sınır ürün sayfasındaki adet
+// seçiciden okunduğu için sepete hiç dokunulmaz.
+const CART_SITES = {
+  'www.hepsiburada.com': { cart: 'https://checkout.hepsiburada.com/sepetim', probe: true },
+  'www.amazon.com.tr': { cart: 'https://www.amazon.com.tr/gp/cart/view.html', probe: false },
 };

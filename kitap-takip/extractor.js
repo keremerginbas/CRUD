@@ -224,6 +224,32 @@
     return names;
   }
 
+  // Yazıdaki ilk ürün fiyatı; kargo / teslimat ücreti olarak yazılan tutarlar atlanır.
+  function firstPrice(text) {
+    let prevEnd = 0;
+    for (const m of text.matchAll(new RegExp(PRICE_RE.source, 'g'))) {
+      const end = m.index + m[0].length;
+      // Etiket tutarın hemen önünde ya da ardında olur; bir önceki tutarın etiketi bu tutara sayılmaz.
+      const label = `${text.slice(Math.max(prevEnd, m.index - 22), m.index)} | ${text.slice(end, end + 14)}`;
+      prevEnd = end;
+      if (/(kargo|teslimat|gönderim)/i.test(label)) continue;
+      return m;
+    }
+    return null;
+  }
+
+  // Amazon ürün sayfasında fiyatın yazdığı bilinen alanlar, öncelik sırasıyla.
+  const AMAZON_PRICE_SELECTORS = [
+    '#corePrice_feature_div .a-price .a-offscreen', '#corePriceDisplay_desktop_feature_div .a-price .a-offscreen', '#apex_desktop .a-price .a-offscreen',
+    '#price_inside_buybox', '#newBuyBoxPrice', '#price', '#tmm-grid-swatch-PAPERBACK .slot-price', '#tmmSwatches .swatchElement.selected .a-color-price',
+  ];
+  const isAmazon = () => !!document.querySelector('#add-to-cart-button, #productTitle');
+  function amazonPrices() {
+    const out = {};
+    for (const sel of AMAZON_PRICE_SELECTORS) { const el = document.querySelector(sel); if (el && squash(el.textContent)) out[sel] = squash(el.textContent).slice(0, 40); }
+    return out;
+  }
+
   function quantityLimit(area) {
     const input = area.querySelector('input[type="number"][max]') || document.querySelector('input[type="number"][max]');
     if (input && Number.isFinite(Number(input.max)) && Number(input.max) > 0) return Number(input.max);
@@ -259,6 +285,8 @@
       controls: [...document.querySelectorAll('select, input[type="number"]')].slice(0, 12).map((el) => ({ tag: el.tagName, id: el.id, name: el.name, max: el.max || null, options: el.options ? el.options.length : null })),
       buttons: [...new Set([...area.querySelectorAll('button, [role="button"], input[type="submit"]')].map((b) => squash(b.value || b.textContent)).filter((t) => t && t.length < 40))].slice(0, 25),
       state: mined.found.slice(0, 30).map((f) => `${f.path} = ${f.value}`),
+      sellers: mined.sellers.slice(0, 10),
+      amazon: isAmazon() ? { prices: amazonPrices(), quantityOptions: (document.querySelector('select#quantity') || { options: [] }).options.length } : undefined,
       stateRoots: mined.roots,
     };
   }
@@ -291,7 +319,8 @@
       if (spec.length) out.listPrice = Math.max(...spec);
     } else {
       const meta = document.querySelector('meta[property="product:price:amount"], meta[property="og:price:amount"]');
-      const m = areaText.match(PRICE_RE);
+      const amazon = isAmazon() ? Object.values(amazonPrices()).map((t) => t.match(PRICE_RE)).find(Boolean) : null;
+      const m = amazon || firstPrice(areaText);
       if (meta) {
         out.price = parseNum(meta.content);
         const cur = document.querySelector('meta[property="product:price:currency"], meta[property="og:price:currency"]');
@@ -338,9 +367,14 @@
       out.stockQtySource = `sayfa verisi (${best.key})`;
       out.stockQtyPlaceholder = best.value >= 9999;
     } else if (emb) { out.stockQty = emb.value; out.stockQtySource = `gömülü veri (${emb.key})`; out.stockQtyPlaceholder = emb.placeholder; }
-    const realQty = out.stockQty != null && !out.stockQtyPlaceholder ? out.stockQty : null;
     const limit = quantityLimit(area);
     if (limit != null) out.maxOrderQty = limit;
+    // Amazon'da adet seçici en çok 30'a kadar gider; daha azsa satıcının stoku (ya da sipariş sınırı) o kadardır.
+    if (out.stockQty == null && limit != null && limit < 30 && isAmazon() && document.querySelector('select#quantity')) {
+      out.stockQty = limit;
+      out.stockQtySource = 'adet seçici';
+    }
+    const realQty = out.stockQty != null && !out.stockQtyPlaceholder ? out.stockQty : null;
 
     // Durumu gerçek stok bilgisine göre netleştir.
     if (out.status === 'no_buy_button' && realQty === 0) out.status = 'out_of_stock';
@@ -369,7 +403,8 @@
     if (sellerList.length) out.sellerList = sellerList.slice(0, 8);
     const others = body.match(/(\d+)\s+diğer\s+satıcı/i) || body.match(/Diğer\s+Satıcılar\s*\(\s*(\d+)\s*\)/i);
     const total = body.match(/Yeni\s*\((\d+)\)\s*(?:başlangıç|teklif)/i) || body.match(/(\d+)\s+satıcı/i);
-    const sellerCount = Math.max((agg && Number(agg.offerCount)) || 0, sellerList.length, others ? Number(others[1]) + 1 : 0, total ? Number(total[1]) : 0);
+    const listed = sellerList.length + (seller && sellerList.length && !sellerList.some((x) => x.name === seller) ? 1 : 0);
+    const sellerCount = Math.max((agg && Number(agg.offerCount)) || 0, listed, others ? Number(others[1]) + 1 : 0, total ? Number(total[1]) : 0);
     if (sellerCount > 0) out.sellers = sellerCount;
 
     // Sitenin kendi yazdığı satış sayacı ve ilgi cümleleri

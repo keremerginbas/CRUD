@@ -14,7 +14,6 @@
   const DELETE_LABEL_RE = /^(sil|kaldır|ürünü sil|ürünü kaldır|sepetten (sil|çıkar|kaldır))$/i;
   const DELETE_ATTR_RE = /(\bsil\b|kaldır|delete|remove|trash)/i;
   const CONFIRM_RE = /^(sil|evet|onayla|kaldır|tamam|ürünü sil)$/i;
-  const UPDATE_RE = /^(güncelle|uygula|update)$/i;
   const LIMIT_MSG_RE = /(en fazla|yalnızca|sadece|stok|limit|sınır|mevcut)/i;
   const CLICKABLE = 'button, a, [role="button"], input[type="submit"], input[type="button"]';
 
@@ -130,8 +129,11 @@
   }
 
   // Satır bulunamadığında okuyucuyu siteye göre ayarlamak için sepet sayfasının özeti.
-  function cartDiag() {
+  function cartDiag(title, ids) {
+    const line = title ? findLine(title, ids) : null;
     return {
+      // Kitabın satırının yapısı: düğme ve alan adlarını görmek için (yalnızca bu satır).
+      lineHtml: line ? line.outerHTML.replace(/\s+/g, ' ').slice(0, 2500) : null,
       url: location.href,
       title: squash(document.title),
       text: squash(document.body ? document.body.innerText : '').slice(0, 1500),
@@ -148,15 +150,17 @@
     const line = findLine(title, ids);
     if (!line) return { page, found: false, groups };
     const c = controls(line);
-    const nums = c.select ? [...c.select.options].map((o) => parseInt(squash(o.textContent), 10)).filter(Number.isFinite) : [];
+    const nums = c.select ? [...c.select.options].map((o) => squash(o.textContent)).filter((t) => /^\d+$/.test(t)).map(Number) : [];
+    // Desteklenen düzenler: artı düğmesi ya da sabit seçenekli açılır liste. Adet kutusuna yazılmaz.
+    const control = c.plus ? 'stepper' : nums.length >= 2 ? 'select' : c.input ? 'input' : null;
     return {
       page, found: true, groups,
       qty: readQty(line, c),
-      control: c.input ? 'input' : c.select ? 'select' : c.plus ? 'stepper' : null,
+      control,
+      supported: control === 'stepper' || control === 'select',
       selectMax: nums.length ? Math.max(...nums) : null,
-      selectOpen: c.select ? [...c.select.options].some((o) => /\d\s*\+$/.test(squash(o.textContent))) : false,
       plusDisabled: c.plus ? isDisabled(c.plus) : null,
-      canRemove: !!(c.del || c.minus || c.input),
+      canRemove: !!(c.del || c.minus),
       messages: messages(line),
     };
   }
@@ -167,30 +171,21 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  // Adedi yükseltmek için tek bir adım atar; arka plan, sonuç değişmeyene kadar yineler.
-  function raise(title, ids, big) {
+  // Adedi bir adım yükseltir; arka plan, site izin vermeyene kadar yineler. Adet kutusuna sayı
+  // yazılmaz: site büyük bir sayıyı kabul ederse ve kitap sepetten çıkarılamazsa sepette o kadar
+  // kitap kalır. Artı düğmesiyle en kötü durumda sepette kalan adet küçük ve sınırlıdır.
+  function raise(title, ids) {
     const line = findLine(title, ids);
     if (!line) return { acted: 'none' };
     const c = controls(line);
-    if (c.input) {
-      typeInto(c.input, big);
-      for (const type of ['keydown', 'keyup']) c.input.dispatchEvent(new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
-      c.input.dispatchEvent(new Event('blur', { bubbles: true }));
-      const update = [...line.querySelectorAll(CLICKABLE)].find((el) => visible(el) && UPDATE_RE.test(labelOf(el)));
-      if (update) safeClick(update);
-      return { acted: 'input' };
-    }
+    if (c.plus) return { acted: !isDisabled(c.plus) && safeClick(c.plus) ? 'click' : 'none' };
     if (c.select) {
-      const options = [...c.select.options];
-      const open = options.find((o) => /\d\s*\+$/.test(squash(o.textContent)));
-      const highest = options.filter((o) => /^\d+$/.test(squash(o.textContent))).sort((a, b) => Number(squash(b.textContent)) - Number(squash(a.textContent)))[0];
-      const pick = open || highest;
-      if (!pick || c.select.value === pick.value) return { acted: 'none' };
-      c.select.value = pick.value;
+      const highest = [...c.select.options].filter((o) => /^\d+$/.test(squash(o.textContent))).sort((x, y) => Number(squash(y.textContent)) - Number(squash(x.textContent)))[0];
+      if (!highest || c.select.value === highest.value) return { acted: 'none' };
+      c.select.value = highest.value;
       c.select.dispatchEvent(new Event('change', { bubbles: true }));
-      return { acted: open ? 'select-open' : 'select-max' };
+      return { acted: 'select-max' };
     }
-    if (c.plus && !isDisabled(c.plus)) return { acted: safeClick(c.plus) ? 'click' : 'none' };
     return { acted: 'none' };
   }
 

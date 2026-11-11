@@ -54,29 +54,28 @@ Dışarıdan toplanan işaretler tahmindir. Kesin sayıların iki kaynağı vard
 
 ## Sepet sınırıyla stok ölçümü
 
-Hepsiburada ve Amazon stok adedini göstermez. Bu ölçüm, bir alıcının elle yapabileceği şeyi yapar:
-kitabı sepete ekler, adedi sitenin izin verdiği yere kadar yükseltir, ulaştığı sayıyı kaydeder ve
-kitabı sepetten çıkarır. Varsayılan olarak kapalıdır.
+Hepsiburada ve Amazon stok adedini göstermez; satıcının elindeki adet, bir siparişe en çok kaç adet
+eklenebildiğinden anlaşılır.
 
-1. Panelde **Sepet sınırıyla stok ölçümü** bölümünde **Günde bir kez ölç** kutusunu işaretleyin.
-2. İlk denemeyi **Şimdi ölç** ile yapın ve sonucu Hepsiburada ile Amazon satırlarında görün.
+- **Amazon:** Sepete dokunulmaz. Ürün sayfasındaki adet seçici en çok 30'a kadar gider; daha az
+  seçenek varsa satıcının stoku (ya da sipariş sınırı) o kadardır ve panel bunu "adet seçici"
+  kaynağıyla gösterir.
+- **Hepsiburada:** Ölçüm kapalıdır. İlk sürüm kitabı sepete ekleyip adet kutusuna büyük bir sayı
+  yazıyordu ve gerçek sepette kitabı geri çıkaramadı. Ölçüm artık adet kutusuna hiçbir şey yazmaz,
+  yalnızca artı düğmesiyle en fazla 30'a kadar çıkar ve kitabı çıkarmanın yolunu görmeden adede
+  dokunmaz; ancak Hepsiburada'nın sepet sayfası doğrulanana kadar hiçbir sitede çalıştırılmaz.
 
-Kurallar:
+Hepsiburada ölçümünü açabilmek için sepet sayfasının yapısı gerekir:
 
-- Yalnızca "Sepete ekle", adet artır/azalt ve sil düğmelerine basılır. Satın alma ya da ödeme
-  düğmelerine hiçbir koşulda basılmaz.
-- Yalnızca ölçümün kendi eklediği satıra dokunulur. Kitap zaten sepetinizdeyse ya da eklenen satır
-  kesin olarak ayırt edilemiyorsa hiçbir şeye dokunulmaz.
-- Kitap sepetten çıkarılamazsa sepet sekmesi açık kalır; panelde ve Telegram'da uyarı görürsünüz.
-- Bulunan sayı satıcının stoku ya da sipariş başına sınırı olabilir; panel bunu "sepet sınırı" olarak
-  gösterir. Sınıra ulaşılamazsa "en az N adet" yazar.
-- Ölçüm, satıcının istatistiğinde sepete ekleme olarak görünür. Sitelerin kullanım koşulları
-  otomatik sepet işlemlerine izin vermeyebilir; açıp açmamak sizin kararınızdır.
+1. Kitap Hepsiburada sepetinizdeyken panelde **Sepet sayfasını incele**ye basın. İnceleme hiçbir
+   düğmeye basmaz; yalnızca sayfayı okur.
+2. **Tanı dosyası indir** ile inen dosyayı paylaşın. Dosyaya sepet sayfasının görünen yazısı da
+   girer (sepetinizdeki diğer ürünlerin adları dahil); göndermeden önce açıp bakabilirsiniz.
 
-Ölçüm ve satıcı okuması gerçek Hepsiburada ve Amazon sayfalarında denenemedi (bu siteler geliştirme
-ortamından açılmıyor); yaygın sepet düzenlerini canlandıran örnek sayfalarla sınandı. İlk
-çalıştırmada bir satırda "ölçüm yapılamadı" notu görürseniz **Tanı dosyası indir**e basıp dosyayı
-paylaşın; dosyada sepet sayfasının düğme ve alan adları da yer alır.
+Ölçüm çalıştığında uyduğu kurallar: satın alma ya da ödeme düğmelerine basılmaz; yalnızca ölçümün
+kendi eklediği satıra dokunulur; kitap zaten sepetteyse ya da satır kesin olarak ayırt edilemiyorsa
+hiçbir şeye dokunulmaz; kitap sepetten çıkarılamazsa sepet sekmesi açık kalır ve panelde ile
+Telegram'da uyarı görünür.
 
 ## Telegram bildirimleri
 

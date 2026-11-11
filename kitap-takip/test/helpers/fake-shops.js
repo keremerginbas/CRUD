@@ -6,13 +6,13 @@ const HOSTS = ['www.hepsiburada.com', 'checkout.hepsiburada.com', 'www.amazon.co
 
 function createShops() {
   const s = {};
-  const reset = () => Object.assign(s, { hbOurs: 0, hbOther: 2, hbStock: 4, hbRemoveWorks: true, hbAddWorks: true, hbViewed: false, amzQty: 0, amzStock: 7, amzMessage: '', boughtNow: false, log: [] });
+  const reset = () => Object.assign(s, { hbOurs: 0, hbOther: 2, hbStock: 4, hbRemoveWorks: true, hbAddWorks: true, hbViewed: false, hbLayout: 'stepper', hbTyped: [], amzQty: 0, amzStock: 7, amzMessage: '', boughtNow: false, log: [] });
   reset();
 
   const page = (res, title, body) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body>${body}</body></html>`); };
   const json = (res, obj) => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(obj)); };
   const redirect = (res, to) => { res.writeHead(303, { Location: to }); res.end(); };
-  const hbState = (message = '') => ({ ours: s.hbOurs, other: s.hbOther, stock: s.hbStock, message });
+  const hbState = (message = '') => ({ ours: s.hbOurs, other: s.hbOther, stock: s.hbStock, layout: s.hbLayout, message });
 
   const hbProduct = () => `
     <script type="application/ld+json">${JSON.stringify({ '@type': 'Product', name: TITLE, gtin13: '9786259756189', offers: { '@type': 'Offer', price: '120.00', priceCurrency: 'TRY', availability: 'https://schema.org/InStock', seller: { '@type': 'Organization', name: 'A Kitap' } } })}</script>
@@ -33,12 +33,17 @@ function createShops() {
         for (const [key, name, qty, max] of [['other', 'Başka Bir Kitap', st.other, 99], ['ours', 'Bilim ve Sanat Yayınları ${TITLE.replace(/'/g, "\\'")} - Başak Çalışkan Kabiloğlu', st.ours, st.stock]]) {
           if (qty <= 0) continue;
           const li = document.createElement('li');
-          li.innerHTML = '<a href="#"></a> <button class="minus" aria-label="Adedi azalt">−</button><span class="qty"></span><button class="plus" aria-label="Adedi artır">+</button> <button class="del" aria-label="Ürünü sil">x</button>';
+          // Adet bir kutuda yazar; "stepper" düzeninde yanında artı/eksi düğmeleri de vardır.
+          const buttons = st.layout === 'stepper';
+          li.innerHTML = '<a href="#"></a> ' + (buttons ? '<button class="minus" aria-label="Adedi azalt">−</button>' : '') + '<input class="qty" inputmode="numeric">' + (buttons ? '<button class="plus" aria-label="Adedi artır">+</button>' : '') + ' <button class="del" aria-label="Ürünü sil">x</button>';
           li.querySelector('a').textContent = name;
-          li.querySelector('.qty').textContent = qty;
-          li.querySelector('.plus').disabled = qty >= max;
-          li.querySelector('.plus').onclick = async () => render(await api('/api/qty', { key, delta: 1 }));
-          li.querySelector('.minus').onclick = async () => render(await api('/api/qty', { key, delta: -1 }));
+          li.querySelector('.qty').value = qty;
+          li.querySelector('.qty').oninput = (e) => api('/api/typed', { key, value: e.target.value });
+          if (buttons) {
+            li.querySelector('.plus').disabled = qty >= max;
+            li.querySelector('.plus').onclick = async () => render(await api('/api/qty', { key, delta: 1 }));
+            li.querySelector('.minus').onclick = async () => render(await api('/api/qty', { key, delta: -1 }));
+          }
           li.querySelector('.del').onclick = () => { pending = key; document.getElementById('dlg').hidden = false; };
           list.append(li);
         }
@@ -87,6 +92,7 @@ function createShops() {
       const body = raw ? JSON.parse(raw) : {};
       if (route === 'GET /sepetim') page(res, 'Sepetim - Hepsiburada', hbCart());
       else if (route === 'POST /api/cart') json(res, hbState());
+      else if (route === 'POST /api/typed') { s.hbTyped.push(body.value); json(res, hbState()); }
       else if (route === 'POST /api/qty') {
         let message = '';
         if (body.key === 'ours') {

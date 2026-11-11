@@ -232,6 +232,46 @@ test('Amazon düzeni: satıcı adı, teklif sayısı ve adet seçicinin üst sı
   assert.strictEqual(out.maxOrderQty, 5);
 });
 
+// Gerçek Amazon sayfasında görülenler: fiyat 21,00 TL okundu (yanlış), adet seçici 23 seçenekliydi.
+const amazonPage = (options, extra = '') => `
+  <div id="centerCol"><h1 id="title"><span id="productTitle">Özgür'ün Salıncağı</span></h1>
+    <div id="olp_feature_div">Yeni (4) başlangıç fiyatı: 21,00 TL teslimat</div>
+    <div id="corePriceDisplay_desktop_feature_div"><span class="a-price"><span class="a-offscreen">150,00TL</span><span aria-hidden="true">150,00TL</span></span></div></div>
+  <div id="rightCol"><div id="availability"><span>Stokta var</span></div>
+    <select id="quantity" name="quantity">${Array.from({ length: options }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('')}</select>
+    <input type="submit" id="add-to-cart-button" value="Sepete Ekle">${extra}</div>`;
+
+test('Amazon: fiyat, ürünün fiyat alanından okunur; sayfadaki ilk tutardan değil', async () => {
+  const out = await run(amazonPage(23));
+  assert.strictEqual(out.price, 150);
+});
+
+test('Amazon: adet seçici 30 seçenekten azsa en yüksek değer stok tahmini olarak kaydedilir', async () => {
+  const out = await run(amazonPage(23));
+  assert.strictEqual(out.stockQty, 23);
+  assert.strictEqual(out.stockQtySource, 'adet seçici');
+  assert.strictEqual(out.maxOrderQty, 23);
+});
+
+test('Amazon: adet seçici 30 seçenekliyse stok yazılmaz (sınır 30, stok daha fazla olabilir)', async () => {
+  const out = await run(amazonPage(30));
+  assert.strictEqual(out.stockQty, undefined);
+  assert.strictEqual(out.maxOrderQty, 30);
+});
+
+test('kargo ücreti olarak yazılan tutar fiyat sanılmaz', async () => {
+  const out = await run('<main><h1>Kitap</h1><p>Kargo: 21,00 TL</p><p>150,00 TL</p><button>Sepete ekle</button></main>');
+  assert.strictEqual(out.price, 150);
+});
+
+test('öne çıkan satıcı listede yoksa satıcı sayısına eklenir', async () => {
+  const out = await runAt('https://ornek.test/kitap-adi-pm-HBC0000A6M7ZP', `<script>window.__INITIAL_STATE__ = { product: { sku: "HBC0000A6M7ZP",
+      otherListings: [{ merchantName: "ANA KİTAPEVİ" }, { merchantName: "Kitapbulan İthal Kitap" }, { merchantName: "bkmkitap" }] } };</script>
+    <main><h1>Kitap</h1><p>Satıcı: <a href="#">Bilim ve Sanat Yayınları</a></p><p>158,81 TL</p><button>Sepete ekle</button></main>`, extractFn);
+  assert.strictEqual(out.seller, 'Bilim ve Sanat Yayınları');
+  assert.strictEqual(out.sellers, 4);
+});
+
 test('"Satıcı: X" yazısından satıcı adı okunur; yanındaki puan ada karışmaz', async () => {
   const out = await run('<main><h1>Kitap</h1><p>Satıcı: <a href="/magaza/bilgi">Bilgi Kitabevi</a> <span>9,6</span></p><p>120,00 TL</p><button>Sepete ekle</button></main>');
   assert.strictEqual(out.seller, 'Bilgi Kitabevi');

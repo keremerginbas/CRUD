@@ -10,7 +10,9 @@ async function getState() {
   return {
     targets: s.targets || DEFAULT_TARGETS,
     snapshots: s.snapshots || [],
-    settings: { intervalHours: 12, cartProbe: false, ...(s.settings || {}) },
+    // cartProbeHosts: sepet ölçümünün çalışmasına izin verilen siteler. Bir sitenin sepet düzeni
+    // gerçek sayfada doğrulanana kadar bu liste boştur.
+    settings: { intervalHours: 12, cartProbe: false, cartProbeHosts: [], ...(s.settings || {}) },
     book: s.book || DEFAULT_BOOK,
   };
 }
@@ -76,8 +78,9 @@ async function followSearch(tabId, book) {
 // --- Sepet sınırıyla stok ölçümü ---
 // Kitabı sepete ekler, adedi site izin vermeyene kadar yükseltir, sonucu okur ve kitabı sepetten
 // çıkarır. Sayfa tarafındaki adımlar cartprobe.js içindedir; satın alma düğmelerine basılmaz.
-const CART_BIG = 999; // adet kutusuna yazılan sayı
-const CART_MAX_STEPS = 40; // artı düğmesine en fazla basış
+// Adet yalnızca artı düğmesiyle, birer birer ve en fazla bu kadar yükseltilir. Adet kutusuna sayı
+// yazılmaz: ilk sürüm 999 yazıyordu ve gerçek bir sepette kitabı geri çıkaramadı.
+const CART_MAX_STEPS = 30;
 
 async function cartCall(tabId, fn, args = []) {
   try {
@@ -135,7 +138,7 @@ async function emptyCartLine(tabId, cartUrl, look, book, ids, linesBefore) {
 }
 
 async function probeCart(tabId, target, book) {
-  const cartUrl = CART_URLS[new URL(target.url).hostname];
+  const cartUrl = CART_SITES[new URL(target.url).hostname].cart;
   const ids = [book.isbn, ...KitapTakipLib.urlIds(target.url)];
   const look = () => cartCall(tabId, 'inspect', [book.title, ids]);
 
@@ -162,39 +165,69 @@ async function probeCart(tabId, target, book) {
     // Satır kesin olarak ayırt edilemedi: sepette hiçbir şeye dokunma. Satır sayısı değişmediyse
     // kitap eklenmemiştir; değiştiyse sepette kalmış olabilir ve kullanıcı uyarılır.
     const unchanged = s.page === 'cart' && s.groups === linesBefore;
-    const diag = await cartCall(tabId, 'diag');
+    const diag = await cartCall(tabId, 'diag', [book.title, ids]);
     return { ok: false, reason: s.page === 'cart' ? 'not_in_cart' : s.page || 'error', diag, ...(unchanged ? {} : { cleaned: false }) };
   }
 
   let result = { ok: false, reason: 'error' };
-  try {
-    // 4) Adedi, site izin vermeyene kadar yükselt.
-    const notes = [...(s.messages || [])];
-    let capped = false;
-    for (let i = 0; ; i++) {
-      if (i >= CART_MAX_STEPS) { capped = true; break; }
-      const before = s.qty;
-      const step = await cartCall(tabId, 'raise', [book.title, ids, CART_BIG]);
-      if (!step.acted || step.acted === 'none') break;
-      await settle(tabId, 1000);
-      await waitLoaded(tabId, 20000);
-      const changed = (x) => isOurs(x) && (step.acted === 'select-open' ? x.control === 'input' : x.qty !== before);
-      const next = await lookUntil(tabId, look, changed, step.acted === 'click' ? 2000 : 6000);
-      if (!isOurs(next)) break;
-      notes.push(...(next.messages || []));
-      s = next;
-      if (step.acted === 'select-open') continue; // adet kutusu açıldı; sıradaki adım sayıyı yazar
-      if (step.acted === 'click' && s.qty > before && !s.plusDisabled) continue;
-      break;
+  if (!s.supported || !s.canRemove) {
+    // Bu sepet düzeninde adet güvenle yükseltilemiyor ya da kitabı çıkarmanın yolu görünmüyor:
+    // adede dokunmadan kitabı sepetten çıkar.
+    result = { ok: false, reason: 'unsupported' };
+  } else {
+    try {
+      // 4) Adedi, site izin vermeyene kadar birer birer yükselt.
+      const notes = [...(s.messages || [])];
+      let steps = 0;
+      for (; steps < CART_MAX_STEPS; steps++) {
+        const before = s.qty;
+        const step = await cartCall(tabId, 'raise', [book.title, ids]);
+        if (!step.acted || step.acted === 'none') break;
+        await settle(tabId, 1000);
+        await waitLoaded(tabId, 20000);
+        const next = await lookUntil(tabId, look, (x) => isOurs(x) && x.qty !== before, step.acted === 'click' ? 2000 : 6000);
+        if (!isOurs(next)) break;
+        notes.push(...(next.messages || []));
+        s = next;
+        if (!(step.acted === 'click' && s.qty > before && !s.plusDisabled)) break;
+      }
+      result = { ok: true, limit: s.qty, capped: steps >= CART_MAX_STEPS, note: notes.find(Boolean) || null };
+    } catch (e) {
+      result = { ok: false, reason: 'error' };
     }
-    if (s.qty != null && s.qty >= CART_BIG) capped = true;
-    result = { ok: true, limit: s.qty, capped, note: notes.find(Boolean) || null };
-  } catch (e) {
-    result = { ok: false, reason: 'error' };
   }
   // 5) Ölçüm yarıda kalsa bile kitabı sepetten çıkar.
   const cleaned = await emptyCartLine(tabId, cartUrl, look, book, ids, linesBefore).catch(() => false);
+  if (!cleaned) result.diag = await cartCall(tabId, 'diag', [book.title, ids]);
   return { ...result, cleaned };
+}
+
+// Sepet sayfalarını yalnızca okur (hiçbir düğmeye basmaz) ve yapılarını tanı kaydına yazar.
+async function inspectCarts() {
+  const { targets, book } = await getState();
+  const store = (await chrome.storage.local.get('diag')).diag || {};
+  let count = 0;
+  for (const t of targets) {
+    let cartUrl;
+    try { cartUrl = (CART_SITES[new URL(t.url).hostname] || {}).cart; } catch (e) { cartUrl = null; }
+    if (!cartUrl) continue;
+    let tab;
+    try {
+      tab = await chrome.tabs.create({ url: cartUrl, active: false });
+      await waitLoaded(tab.id, 30000);
+      await settle(tab.id, 3000);
+      const ids = [book.isbn, ...KitapTakipLib.urlIds(t.url)];
+      const line = await cartCall(tab.id, 'inspect', [book.title, ids]);
+      const diag = await cartCall(tab.id, 'diag', [book.title, ids]);
+      store[t.id] = { ...(store[t.id] || {}), cart: { ts: Date.now(), ...diag, line } };
+      count++;
+    } catch (e) {
+      store[t.id] = { ...(store[t.id] || {}), cart: { ts: Date.now(), error: String(e && e.message ? e.message : e).slice(0, 200) } };
+    }
+    if (tab) await chrome.tabs.remove(tab.id).catch(() => {});
+  }
+  await chrome.storage.local.set({ diag: store });
+  return count;
 }
 
 async function scanTarget(target, book, opts = {}) {
@@ -221,9 +254,11 @@ async function scanTarget(target, book, opts = {}) {
         data = { status: 'not_listed', note: 'Bu sitede ISBN ile arandı, kitap bulunamadı.' };
       }
     }
-    // Sepet sınırıyla stok ölçümü: yalnızca açıkça açıldıysa, bilinen sitelerde ve günde bir kez.
-    if (data && CART_URLS[new URL(url).hostname] && ['in_stock', 'on_order'].includes(data.status)) {
-      const { snapshots, settings } = await getState();
+    // Sepet sınırıyla stok ölçümü: yalnızca açıkça açıldıysa, izin verilen sitelerde ve günde bir kez.
+    const host = new URL(url).hostname;
+    const { snapshots, settings } = await getState();
+    const site = CART_SITES[host];
+    if (data && site && site.probe && settings.cartProbeHosts.includes(host) && ['in_stock', 'on_order'].includes(data.status)) {
       if (settings.cartProbe && (opts.forceCart || KitapTakipLib.cartProbeDue(snapshots, target.id, Date.now()))) {
         const { diag: cartDiag, ...res } = await probeCart(tab.id, { ...target, url }, book).catch(() => ({ ok: false, reason: 'error' }));
         data = KitapTakipLib.applyCartResult(data, res, Date.now());
@@ -268,7 +303,7 @@ async function scan(opts = {}) {
   running = true;
   try {
     const { targets, book } = await getState();
-    const canProbe = (t) => { try { return !!CART_URLS[new URL(t.url).hostname]; } catch (e) { return false; } };
+    const canProbe = (t) => { try { return !!(CART_SITES[new URL(t.url).hostname] || {}).probe; } catch (e) { return false; } };
     const list = targets.filter((t) => (!opts.onlyId || t.id === opts.onlyId) && (!opts.cartOnly || canProbe(t)));
     const events = [];
     const blocked = [];
@@ -283,7 +318,8 @@ async function scan(opts = {}) {
       if (snapshot.cartWarning) warnings.push(`${t.name}: ${snapshot.cartWarning}`);
       // Tanı kaydı: her site için yalnızca son taramanınki saklanır.
       const store = (await chrome.storage.local.get('diag')).diag || {};
-      store[t.id] = { ts: snapshot.ts, status: snapshot.status, ...(diag || { url: snapshot.url, note: snapshot.note }) };
+      const keptCart = store[t.id] && store[t.id].cart ? { cart: store[t.id].cart } : {}; // sepet incelemesi tarama ile silinmesin
+      store[t.id] = { ...keptCart, ts: snapshot.ts, status: snapshot.status, ...(diag || { url: snapshot.url, note: snapshot.note }) };
       await chrome.storage.local.set({ snapshots, diag: store });
     }
     await notify(targets, book, events, blocked, warnings).catch(() => {}); // bildirim hatası taramayı bozmasın
@@ -307,4 +343,5 @@ chrome.action.onClicked.addListener(() => chrome.tabs.create({ url: chrome.runti
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg.type === 'scan') { scan({ onlyId: msg.targetId, cartOnly: !!msg.cartOnly, forceCart: !!msg.forceCart }); reply({ ok: true }); }
   if (msg.type === 'reschedule') { schedule().then(() => reply({ ok: true })); return true; }
+  if (msg.type === 'cart-inspect') { inspectCarts().then((count) => reply({ ok: true, count }), () => reply({ ok: false, count: 0 })); return true; }
 });

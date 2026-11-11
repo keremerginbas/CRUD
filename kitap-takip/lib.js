@@ -149,6 +149,7 @@
     blocked: 'Sepet sayfası doğrulama istedi; ölçüm yapılamadı.',
     no_add_button: 'Ürün sayfasında "Sepete ekle" düğmesi bulunamadı; ölçüm yapılamadı.',
     not_in_cart: 'Kitap sepete eklenemedi ya da sepette bulunamadı; ölçüm yapılamadı.',
+    unsupported: 'Bu sitenin sepetinde ölçüm güvenle yapılamıyor (adet yalnızca yazılarak değişiyor ya da silme düğmesi bulunamadı); ölçüm yapılmadı.',
     error: 'Ölçüm sırasında beklenmeyen bir hata oldu.',
   };
   const CART_WARNING = 'Ölçümden sonra kitap sepetinizden çıkarılamadı; sepetinizi kontrol edin.';
