@@ -21,7 +21,7 @@ async function load() {
   return {
     targets: s.targets || DEFAULT_TARGETS,
     snapshots: s.snapshots || [],
-    settings: { intervalHours: 12, cartProbe: false, cartProbeHosts: [], ...(s.settings || {}) },
+    settings: { intervalHours: 12, cartProbe: false, ...(s.settings || {}) },
     book: s.book || DEFAULT_BOOK,
     scanState: s.scanState || { running: false },
     telegram: s.telegram || null,
@@ -168,10 +168,12 @@ function renderTelegram(state) {
 }
 
 function renderCart(state) {
-  // Ölçüm denetimleri yalnızca ölçüme izin verilen bir site varsa görünür.
-  $('cart-controls').hidden = state.settings.cartProbeHosts.length === 0;
-  $('cart-probe').checked = !!state.settings.cartProbe;
-  $('cart-now').disabled = !state.settings.cartProbe || !!state.scanState.running;
+  // Ölçüm denetimleri, takip edilen sayfalar arasında ölçülebilen bir site varsa görünür.
+  const measurable = state.targets.some((t) => { try { return !!(CART_SITES[new URL(t.url).hostname] || {}).probe; } catch (e) { return false; } });
+  const agreed = state.settings.cartProbe === CART_PROBE_REV; // önceki ölçüm sürümüne verilen onay sayılmaz
+  $('cart-controls').hidden = !measurable;
+  $('cart-probe').checked = agreed;
+  $('cart-now').disabled = !agreed || !!state.scanState.running;
 }
 
 function renderScanState(state) {
@@ -217,7 +219,7 @@ $('csv').addEventListener('click', async () => {
 });
 $('cart-probe').addEventListener('change', async (e) => {
   const state = await load();
-  await chrome.storage.local.set({ settings: { ...state.settings, cartProbe: e.target.checked } });
+  await chrome.storage.local.set({ settings: { ...state.settings, cartProbe: e.target.checked ? CART_PROBE_REV : false } });
 });
 // Yalnızca sepet ölçümü yapılabilen siteleri, bugün ölçülmüş olsalar da yeniden ölçer.
 $('cart-now').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'scan', cartOnly: true, forceCart: true }));

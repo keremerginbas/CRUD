@@ -20,3 +20,7 @@ const CART_SITES = {
   'www.hepsiburada.com': { cart: 'https://checkout.hepsiburada.com/sepetim', probe: true },
   'www.amazon.com.tr': { cart: 'https://www.amazon.com.tr/gp/cart/view.html', probe: false },
 };
+
+// Sepet ölçümünün sürümü. Ölçüm, kullanıcı bu sürüm için kutuyu işaretlediyse çalışır; ölçümün
+// sepette yaptığı işlemler değiştiğinde sayı artar ve önceki onay geçersiz olur.
+const CART_PROBE_REV = 2;

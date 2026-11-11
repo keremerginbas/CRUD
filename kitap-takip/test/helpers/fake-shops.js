@@ -6,7 +6,7 @@ const HOSTS = ['www.hepsiburada.com', 'checkout.hepsiburada.com', 'www.amazon.co
 
 function createShops() {
   const s = {};
-  const reset = () => Object.assign(s, { hbOurs: 0, hbOther: 2, hbStock: 4, hbRemoveWorks: true, hbAddWorks: true, hbViewed: false, hbLayout: 'stepper', hbTyped: [], amzQty: 0, amzStock: 7, amzMessage: '', boughtNow: false, log: [] });
+  const reset = () => Object.assign(s, { hbOurs: 0, hbOther: 2, hbStock: 4, hbRemoveWorks: true, hbLowerWorks: true, hbAddWorks: true, hbViewed: false, hbLayout: 'stepper', hbTyped: [], hbMaxSeen: 0, deletedAll: false, subscribed: false, amzQty: 0, amzStock: 7, amzMessage: '', boughtNow: false, log: [] });
   reset();
 
   const page = (res, title, body) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body>${body}</body></html>`); };
@@ -19,37 +19,46 @@ function createShops() {
     <main><div><h1>${TITLE}</h1><p>Satıcı: <a href="#">A Kitap</a></p><p>120,00 TL</p></div>
     <div><button onclick="fetch('/api/buy-now', { method: 'POST' })">Hemen al</button><button onclick="fetch('/api/add', { method: 'POST' })">Sepete ekle</button></div></main>`;
 
+  // Sepet sayfası, gerçek Hepsiburada sepetinin yapısını izler: li[data-sku] satırları; adet kutusunun
+  // solunda (adet 1 iken "Sepetten Çıkar", daha fazlayken adsız azaltma) ve sağında ("Ürünü Arttır")
+  // simge düğmeler; çıkarma için onay penceresi; sayfada ayrıca toplu silme, alışverişi tamamlama ve
+  // üyelik teklifi düğmeleri.
   const hbCart = () => `
-    <h1>Sepetim</h1><ul id="list"></ul><div id="toast" role="alert"></div>
+    <div><h1>Sepetim</h1><button type="button" onclick="fetch('/api/delete-all', { method: 'POST' })">Ürünleri sil</button></div>
+    <ul class="item_list_1NnvG" id="list"></ul><div id="toast" role="alert"></div>
     ${s.hbViewed ? `<aside><h2>Son gezdikleriniz</h2><div><a href="#">${TITLE}</a> <button>Sepete ekle</button></div></aside>` : ''}
-    <div id="dlg" role="dialog" hidden><p>Ürünü sepetten silmek istiyor musunuz?</p><button id="no">Vazgeç</button><button id="yes">Sil</button></div>
-    <button onclick="fetch('/api/buy-now', { method: 'POST' })">Alışverişi tamamla</button>
+    <div id="dlg" class="co-modal" role="dialog" hidden><p>Ürünü sepetinizden çıkarmak istediğinize emin misiniz?</p><button id="no">Vazgeç</button><button id="fav">Sil ve favorilere ekle</button><button id="yes">Sepetten çıkar</button></div>
+    <div class="oneclick_tp_1CWe3" role="dialog"><p>Premium'a geç, kargo bedava ve %3 Hepsipara avantajları ile tasarruf et.</p><button onclick="fetch('/api/subscribe', { method: 'POST' })">Onayla</button></div>
+    <div class="cta_3vBFp"><button id="continue_step_btn" onclick="fetch('/api/buy-now', { method: 'POST' })">Alışverişi tamamla</button></div>
     <script>
       let pending = null;
+      const ICON = '<svg width="12" height="12" fill="none"><path d="M0 0h12v12H0z"></path></svg>';
       const api = async (path, body) => (await fetch(path, { method: 'POST', body: JSON.stringify(body || {}) })).json();
       function render(st) {
         const list = document.getElementById('list');
         list.innerHTML = '';
-        for (const [key, name, qty, max] of [['other', 'Başka Bir Kitap', st.other, 99], ['ours', 'Bilim ve Sanat Yayınları ${TITLE.replace(/'/g, "\\'")} - Başak Çalışkan Kabiloğlu', st.ours, st.stock]]) {
+        for (const [key, sku, name, qty] of [['other', 'HBCV00000OTHER1', 'Başka Bir Kitap', st.other], ['ours', 'HBCV0000A6M7ZQ', 'Bilim ve Sanat Yayınları ${TITLE.replace(/'/g, "\\'")} Başak Çalışkan Kabiloğlu', st.ours]]) {
           if (qty <= 0) continue;
           const li = document.createElement('li');
-          // Adet bir kutuda yazar; "stepper" düzeninde yanında artı/eksi düğmeleri de vardır.
-          const buttons = st.layout === 'stepper';
-          li.innerHTML = '<a href="#"></a> ' + (buttons ? '<button class="minus" aria-label="Adedi azalt">−</button>' : '') + '<input class="qty" inputmode="numeric">' + (buttons ? '<button class="plus" aria-label="Adedi artır">+</button>' : '') + ' <button class="del" aria-label="Ürünü sil">x</button>';
+          li.className = 'basket_items_3C53o'; li.dataset.sku = sku; li.dataset.listingid = 'l-' + key;
+          const stepper = st.layout === 'stepper';
+          const left = qty === 1 || !stepper ? '<button type="button" aria-label="Sepetten Çıkar" class="co-clickable delete_button_1lHhf">' + ICON + '</button>' : '<button type="button" class="co-clickable">' + ICON + '</button>';
+          li.innerHTML = '<div class="product_box_3WUDZ"><div class="product_area_VUdcT"><div class="product_details_1sAZ1"><div class="product_properties_dAsFN"><a href="#"></a></div>'
+            + '<div class="product_price_box_1vvtm"><div class="product_counter_1EztL"><div class="product_quantities_1LpFc">' + left + '<input type="number" name="quantity">'
+            + (stepper ? '<button type="button" class="co-clickable" aria-label="Ürünü Arttır">' + ICON + '</button>' : '') + '</div></div><div class="pricebox_right_wrapper_TzkAv">158,81 TL</div></div></div></div></div>';
           li.querySelector('a').textContent = name;
-          li.querySelector('.qty').value = qty;
-          li.querySelector('.qty').oninput = (e) => api('/api/typed', { key, value: e.target.value });
-          if (buttons) {
-            li.querySelector('.plus').disabled = qty >= max;
-            li.querySelector('.plus').onclick = async () => render(await api('/api/qty', { key, delta: 1 }));
-            li.querySelector('.minus').onclick = async () => render(await api('/api/qty', { key, delta: -1 }));
-          }
-          li.querySelector('.del').onclick = () => { pending = key; document.getElementById('dlg').hidden = false; };
+          const box = li.querySelector('.product_quantities_1LpFc');
+          const input = box.querySelector('input');
+          input.value = qty;
+          input.oninput = () => api('/api/typed', { key, value: input.value });
+          box.firstElementChild.onclick = async () => { if (qty > 1 && stepper) render(await api('/api/qty', { key, delta: -1 })); else { pending = key; document.getElementById('dlg').hidden = false; } };
+          if (stepper) box.lastElementChild.onclick = async () => render(await api('/api/qty', { key, delta: 1 }));
           list.append(li);
         }
         document.getElementById('toast').textContent = st.message || '';
       }
       document.getElementById('no').onclick = () => { document.getElementById('dlg').hidden = true; };
+      document.getElementById('fav').onclick = () => fetch('/api/subscribe', { method: 'POST' });
       document.getElementById('yes').onclick = async () => { document.getElementById('dlg').hidden = true; render(await api('/api/remove', { key: pending })); };
       api('/api/cart').then(render);
     </script>`;
@@ -82,6 +91,8 @@ function createShops() {
     const route = `${req.method} ${url.pathname}`;
     s.log.push(`${host} ${route}`);
     if (route === 'POST /api/buy-now' || route === 'POST /buy-now') { s.boughtNow = true; json(res, {}); return true; }
+    if (route === 'POST /api/delete-all') { s.deletedAll = true; json(res, {}); return true; }
+    if (route === 'POST /api/subscribe') { s.subscribed = true; json(res, {}); return true; }
 
     if (host === 'www.hepsiburada.com') {
       // Sepete ekleme denemesinden sonra kitap, sepet sayfasındaki "son gezdikleriniz" şeridinde de görünür.
@@ -98,7 +109,8 @@ function createShops() {
         if (body.key === 'ours') {
           const next = s.hbOurs + body.delta;
           if (next > s.hbStock) message = `Bu üründen en fazla ${s.hbStock} adet alabilirsiniz`;
-          else if (next >= 1 || s.hbRemoveWorks) s.hbOurs = Math.max(0, next);
+          else if (body.delta > 0 || (s.hbLowerWorks && next >= 1)) s.hbOurs = next;
+          s.hbMaxSeen = Math.max(s.hbMaxSeen, s.hbOurs);
         } else s.hbOther = Math.max(0, s.hbOther + body.delta);
         json(res, hbState(message));
       } else if (route === 'POST /api/remove') {

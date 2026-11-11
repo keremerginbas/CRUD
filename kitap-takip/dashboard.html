@@ -59,17 +59,20 @@
 
     <section aria-labelledby="h-cart">
       <h2 id="h-cart">Sepet sınırıyla stok ölçümü</h2>
-      <p class="lede">Amazon'da satıcının sınırı ürün sayfasındaki adet seçiciden okunur; sepete dokunulmaz. Hepsiburada'da ölçüm kapalı: sepet sayfasının yapısı doğrulanmadan çalıştırılmaz.</p>
+      <p class="lede">Hepsiburada stok adedini göstermez. Bu ölçüm kitabı sepetinize ekler, adedi artı düğmesiyle sitenin izin verdiği yere kadar yükseltir, sonucu kaydeder ve kitabı sepetten çıkarır. Amazon'da sepete dokunulmaz; sınır ürün sayfasındaki adet seçiciden okunur.</p>
       <div id="cart-controls" class="actions" hidden>
         <label class="check"><input type="checkbox" id="cart-probe"> Günde bir kez ölç</label>
         <button id="cart-now" type="button" disabled>Şimdi ölç</button>
       </div>
-      <div class="actions"><button id="cart-inspect" type="button">Sepet sayfasını incele</button></div>
       <ul class="notes">
-        <li>İnceleme hiçbir düğmeye basmaz; Hepsiburada ve Amazon sepet sayfalarını açıp yapısını tanı kaydına yazar.</li>
-        <li>Kitap sepetinizdeyken yapılırsa en yararlı sonucu verir. Ardından <strong>Tanı dosyası indir</strong> ile dosyayı paylaşın.</li>
-        <li>Tanı dosyasına sepet sayfasının görünen yazısı da girer; sepetinizdeki diğer ürünlerin adları buna dahildir.</li>
+        <li>Satın alma, ödeme, üyelik ya da "Ürünleri sil" düğmelerine basılmaz; adet kutusuna hiçbir şey yazılmaz; sepetinizdeki diğer ürünlere dokunulmaz.</li>
+        <li>Adet en fazla 30'a kadar yükseltilir. İlk artıştan sonra geri azaltılabildiği denenir; azaltılamıyorsa ölçüm durur ve sepette en fazla 2 adet kalır.</li>
+        <li>Kitap zaten sepetinizdeyse ölçüm yapılmaz.</li>
+        <li>Kitap sepetten çıkarılamazsa sepet sekmesi açık kalır; ilgili satırda ve Telegram'da uyarı görürsünüz.</li>
+        <li>Bulunan sayı satıcının stoku ya da sipariş başına sınırı olabilir. Ölçüm, satıcının istatistiğinde sepete ekleme olarak görünür.</li>
       </ul>
+      <div class="actions"><button id="cart-inspect" type="button">Sepet sayfasını incele</button></div>
+      <p class="hint">İnceleme hiçbir düğmeye basmaz; sepet sayfalarının yapısını tanı kaydına yazar. Bir ölçüm yapılamazsa bunu çalıştırıp tanı dosyasını paylaşın; dosyaya sepetinizdeki diğer ürünlerin adları da girer.</p>
       <p class="hint" id="cart-status" role="status"></p>
     </section>
 

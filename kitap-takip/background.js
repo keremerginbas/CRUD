@@ -10,9 +10,8 @@ async function getState() {
   return {
     targets: s.targets || DEFAULT_TARGETS,
     snapshots: s.snapshots || [],
-    // cartProbeHosts: sepet ölçümünün çalışmasına izin verilen siteler. Bir sitenin sepet düzeni
-    // gerçek sayfada doğrulanana kadar bu liste boştur.
-    settings: { intervalHours: 12, cartProbe: false, cartProbeHosts: [], ...(s.settings || {}) },
+    // cartProbe: sepet ölçümü için verilen onayın sürümü (CART_PROBE_REV) ya da false.
+    settings: { intervalHours: 12, cartProbe: false, ...(s.settings || {}) },
     book: s.book || DEFAULT_BOOK,
   };
 }
@@ -176,9 +175,12 @@ async function probeCart(tabId, target, book) {
     result = { ok: false, reason: 'unsupported' };
   } else {
     try {
-      // 4) Adedi, site izin vermeyene kadar birer birer yükselt.
+      // 4) Adedi birer birer yükselt. İlk artıştan sonra, daha ileri gitmeden önce geri alınabildiği
+      // kanıtlanır: adet bir azaltılır. Azaltılamıyorsa ölçüm orada durur; sepette en fazla 2 adet kalır.
       const notes = [...(s.messages || [])];
       let steps = 0;
+      let canLower = false;
+      let stuck = false;
       for (; steps < CART_MAX_STEPS; steps++) {
         const before = s.qty;
         const step = await cartCall(tabId, 'raise', [book.title, ids]);
@@ -189,9 +191,19 @@ async function probeCart(tabId, target, book) {
         if (!isOurs(next)) break;
         notes.push(...(next.messages || []));
         s = next;
-        if (!(step.acted === 'click' && s.qty > before && !s.plusDisabled)) break;
+        if (!(step.acted === 'click' && s.qty > before)) break;
+        if (!canLower) {
+          const down = await cartCall(tabId, 'lower', [book.title, ids]);
+          await settle(tabId, 1000);
+          const back = await lookUntil(tabId, look, (x) => isOurs(x) && x.qty === before, 3000);
+          if (!(down.acted === 'click' && isOurs(back) && back.qty === before)) { stuck = true; break; }
+          canLower = true;
+          s = back;
+          continue;
+        }
+        if (s.plusDisabled) break;
       }
-      result = { ok: true, limit: s.qty, capped: steps >= CART_MAX_STEPS, note: notes.find(Boolean) || null };
+      result = stuck ? { ok: false, reason: 'unsupported' } : { ok: true, limit: s.qty, capped: steps >= CART_MAX_STEPS, note: notes.find(Boolean) || null };
     } catch (e) {
       result = { ok: false, reason: 'error' };
     }
@@ -258,13 +270,14 @@ async function scanTarget(target, book, opts = {}) {
     const host = new URL(url).hostname;
     const { snapshots, settings } = await getState();
     const site = CART_SITES[host];
-    if (data && site && site.probe && settings.cartProbeHosts.includes(host) && ['in_stock', 'on_order'].includes(data.status)) {
-      if (settings.cartProbe && (opts.forceCart || KitapTakipLib.cartProbeDue(snapshots, target.id, Date.now()))) {
+    const agreed = settings.cartProbe === CART_PROBE_REV; // onay bu ölçüm sürümü için verilmiş olmalı
+    if (data && site && site.probe && ['in_stock', 'on_order'].includes(data.status)) {
+      if (agreed && (opts.forceCart || KitapTakipLib.cartProbeDue(snapshots, target.id, Date.now()))) {
         const { diag: cartDiag, ...res } = await probeCart(tab.id, { ...target, url }, book).catch(() => ({ ok: false, reason: 'error' }));
         data = KitapTakipLib.applyCartResult(data, res, Date.now());
         if (cartDiag) data.diag = { ...(data.diag || {}), cart: cartDiag };
         keepOpen = res.cleaned === false; // kitap sepette kaldıysa kullanıcı görebilsin
-      } else if (settings.cartProbe) {
+      } else if (agreed) {
         data = KitapTakipLib.carryCartLimit(data, snapshots, target.id, Date.now());
       }
     }

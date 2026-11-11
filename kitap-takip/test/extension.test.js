@@ -155,7 +155,9 @@ test('site doğrulama isterse bildirim gider, aynı gün ikinci kez gitmez', asy
 const HB = { id: 'hepsiburada', name: 'Hepsiburada', url: 'https://www.hepsiburada.com/ornek-kitap-pm-HBC0000A6M7ZP' };
 const AMZ = { id: 'amazon', name: 'Amazon', url: 'https://www.amazon.com.tr/dp/6259756186' };
 const cartActivity = () => shops.state.log.filter((l) => /sepetim|\/api\/(add|qty|remove|cart|typed)|\/cart\/|\/gp\/cart/.test(l));
-const PROBE_HB = { cartProbe: true, cartProbeHosts: ['www.hepsiburada.com'] }; // ölçüm yalnızca açıkça seçilen sitelerde çalışır
+const PROBE_HB = { cartProbe: 2 }; // kullanıcının geçerli ölçüm sürümü (2) için verdiği onay
+const untouched = () => ({ boughtNow: shops.state.boughtNow, deletedAll: shops.state.deletedAll, subscribed: shops.state.subscribed, typed: shops.state.hbTyped });
+const UNTOUCHED = { boughtNow: false, deletedAll: false, subscribed: false, typed: [] };
 const closeTabs = async (re) => { for (const p of ctx.pages()) if (re.test(p.url())) await p.close(); };
 
 test('ölçüm kapalıyken sepete hiç dokunulmaz; satıcı adı yine okunur', async () => {
@@ -177,12 +179,12 @@ test('artı/eksi düğmeli sepette stok sınırı bulunur, kitap sepetten çıka
   assert.strictEqual(snap.cartWarning, undefined);
   assert.strictEqual(shops.state.hbOurs, 0, 'kitap sepette kalmamalı');
   assert.strictEqual(shops.state.hbOther, 2, 'kullanıcının diğer ürünü değişmemeli');
-  assert.strictEqual(shops.state.boughtNow, false);
+  assert.deepStrictEqual(untouched(), UNTOUCHED, 'satın alma, toplu silme, üyelik düğmelerine ve adet kutusuna dokunulmamalı');
   assert.deepStrictEqual(ctx.pages().filter((p) => /hepsiburada/.test(p.url())).map((p) => p.url()), []);
 });
 
 test('Amazon düzeninde sepete dokunulmaz; sınır ürün sayfasındaki adet seçiciden okunur', async () => {
-  await reset({ targets: [AMZ], settings: { cartProbe: true, cartProbeHosts: ['www.amazon.com.tr'] } });
+  await reset({ targets: [AMZ], settings: PROBE_HB });
   const snap = await scanAndWait();
   assert.strictEqual(snap.seller, 'Kitapsan');
   assert.strictEqual(snap.stockQty, 7);
@@ -191,11 +193,23 @@ test('Amazon düzeninde sepete dokunulmaz; sınır ürün sayfasındaki adet se�
   assert.strictEqual(shops.state.amzQty, 0);
 });
 
-test('ölçüm açık olsa da site seçilmemişse sepete dokunulmaz', async () => {
+test('önceki ölçüm sürümü için verilmiş onay yeni ölçümü çalıştırmaz', async () => {
   await reset({ targets: [HB], settings: { cartProbe: true } });
   const snap = await scanAndWait();
   assert.strictEqual(snap.cartLimit, undefined);
   assert.deepStrictEqual(cartActivity(), []);
+});
+
+test('adet azaltılamıyorsa ölçüm 2 adette durur ve uyarır; daha fazla eklenmez', async () => {
+  await reset({ targets: [HB], settings: PROBE_HB });
+  shops.state.hbLowerWorks = false;
+  const snap = await scanAndWait();
+  assert.strictEqual(shops.state.hbMaxSeen, 2, 'sepetteki adet hiçbir an 2\'yi geçmemeli');
+  assert.strictEqual(snap.cartLimit, undefined);
+  assert.match(snap.cartNote, /güvenle yapılamıyor/);
+  assert.match(snap.cartWarning, /sepetinizden çıkarılamadı/);
+  assert.deepStrictEqual(untouched(), UNTOUCHED);
+  await closeTabs(/hepsiburada/);
 });
 
 test('ölçüm adet kutusuna hiçbir şey yazmaz', async () => {
@@ -225,7 +239,7 @@ test('"Sepet sayfasını incele" hiçbir düğmeye basmadan sepetin yapısını 
   const { diag } = await read(['diag']);
   assert.strictEqual(diag.hepsiburada.cart.line.found, true);
   assert.strictEqual(diag.hepsiburada.cart.line.qty, 1);
-  assert.match(diag.hepsiburada.cart.lineHtml, /Adedi artır/);
+  assert.match(diag.hepsiburada.cart.lineHtml, /Ürünü Arttır/);
   assert.ok(!shops.state.log.some((l) => /\/api\/(add|qty|remove|typed)$/.test(l)), shops.state.log.join(' | '));
   assert.strictEqual(shops.state.hbOurs, 1);
 });
@@ -273,10 +287,10 @@ test('kitap sepete eklenemediyse ve adı sepet sayfasında başka yerde geçiyor
 });
 
 test('panelden ölçüm açılır; "Şimdi ölç" yalnızca sepetli siteleri, bugün ölçülmüş olsa da yeniden ölçer', async () => {
-  await reset({ targets: [HB, TARGET], settings: { cartProbeHosts: ['www.hepsiburada.com'] } });
+  await reset({ targets: [HB, TARGET] });
   assert.strictEqual(await dash.locator('#cart-now').isDisabled(), true);
   await dash.check('#cart-probe');
-  assert.strictEqual((await read(['settings'])).settings.cartProbe, true);
+  assert.strictEqual((await read(['settings'])).settings.cartProbe, 2);
   await scanAndWait(() => dash.click('#cart-now'));
   shops.state.log.length = 0;
   await scanAndWait(() => dash.click('#cart-now'));

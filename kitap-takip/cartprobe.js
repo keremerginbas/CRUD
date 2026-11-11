@@ -2,18 +2,24 @@
 // en yüksek adet, satıcının stoku (ya da sipariş sınırı) hakkında bilgi verir.
 //
 // Güvenlik kuralları:
-// - Yalnızca "Sepete ekle", adet artır/azalt ve sil düğmelerine basılır; satın alma ya da ödeme
-//   düğmelerine hiçbir koşulda basılmaz.
+// - Yalnızca "Sepete ekle", adet artır/azalt ve sepetten çıkar düğmelerine basılır; satın alma,
+//   ödeme, üyelik ya da "bütün ürünleri sil" düğmelerine hiçbir koşulda basılmaz.
+// - Adet kutusuna hiçbir şey yazılmaz; adet yalnızca düğmelerle, birer birer değişir.
 // - Sepette yalnızca bu kitabın satırına dokunulur.
+// - Onay pencerelerinde yalnızca ürünü sepetten çıkarmayı soran pencere onaylanır.
 (() => {
   const ADD_RE = /^sepete (ekle|at)$/i;
-  const DANGER_RE = /(satın al|şimdi al|hemen al|alışverişi tamamla|sipariş|ödeme|ödemeye|checkout|buy now|tek tıkla)/i;
+  const DANGER_RE = /(satın al|şimdi al|hemen al|alışverişi tamamla|sipariş|ödeme|ödemeye|checkout|buy now|tek tıkla|one ?click|premium|üye ol|abone|ürünleri sil|tümünü sil|hepsini sil|sepeti (boşalt|temizle))/i;
   const BLOCK_RE = /(just a moment|bir dakika lütfen|attention required|güvenlik doğrulaması|güvenlik kontrolünü tamamlayın|you have been blocked|robot olmadığınızı|captcha)/i;
   const PLUS_RE = /(art[ıi]r|arttır|increase|increment|\bplus\b)/i;
   const MINUS_RE = /(azalt|eksilt|decrease|decrement|\bminus\b)/i;
-  const DELETE_LABEL_RE = /^(sil|kaldır|ürünü sil|ürünü kaldır|sepetten (sil|çıkar|kaldır))$/i;
-  const DELETE_ATTR_RE = /(\bsil\b|kaldır|delete|remove|trash)/i;
-  const CONFIRM_RE = /^(sil|evet|onayla|kaldır|tamam|ürünü sil)$/i;
+  const DELETE_LABEL_RE = /^(sil|kaldır|çıkar|ürünü (sil|kaldır|çıkar)|sepetten (sil|çıkar|kaldır))$/i;
+  const DELETE_ATTR_RE = /(\bsil\b|kaldır|çıkar|delete|remove|trash)/i;
+  // Onay penceresi: yalnızca ürünü çıkarmayı soran, başka bir işe (üyelik, ödeme) değinmeyen pencere.
+  const REMOVAL_TEXT_RE = /(sepet\S*\s+(sil|çıkar|kaldır)|silmek|çıkarmak|kaldırmak|silinsin|silinecek)/i;
+  const UNSAFE_DIALOG_RE = /(premium|üyelik|abonelik|ödeme|satın al|sipariş|taksit|çerez)/i;
+  const DECLINE_RE = /(vazgeç|iptal|hayır|favori|liste|kapat)/i;
+  const REMOVE_VERB_RE = /(^|[\s,])(sil|kaldır|çıkar)$/i;
   const LIMIT_MSG_RE = /(en fazla|yalnızca|sadece|stok|limit|sınır|mevcut)/i;
   const CLICKABLE = 'button, a, [role="button"], input[type="submit"], input[type="button"]';
 
@@ -24,8 +30,9 @@
   const textOf = (el) => squash(el.tagName === 'INPUT' ? el.value : el.textContent);
   const attrsOf = (el) => ['aria-label', 'title', 'data-a-selector', 'data-action', 'data-test-id', 'data-testid', 'name', 'id'].map((a) => el.getAttribute(a) || '').concat(String(el.className || '')).join(' ');
   const labelOf = (el) => textOf(el) || squash(el.getAttribute('aria-label')) || squash(el.getAttribute('title'));
+  const isQtyInput = (i) => visible(i) && !['hidden', 'checkbox', 'radio', 'submit', 'button', 'search', 'password', 'email'].includes(i.type) && /^\d{1,4}$/.test(i.value || '');
 
-  // Tıklamadan önce son denetim: satın alma / ödeme düğmesine asla basılmaz.
+  // Tıklamadan önce son denetim: satın alma, ödeme, üyelik ya da toplu silme düğmesine asla basılmaz.
   function safeClick(el) {
     if (DANGER_RE.test(`${textOf(el)} ${attrsOf(el)}`)) return false;
     el.click();
@@ -46,20 +53,34 @@
     return safeClick(button) ? { ok: true, label: labelOf(button) } : { ok: false, reason: 'no_add_button' };
   }
 
-  // Bir kutunun içindeki adet denetimleri ve silme düğmesi.
+  // Adet kutusunun hemen solundaki ve sağındaki, yalnızca simge taşıyan düğmeler. Düğmelerin adı
+  // siteden siteye ve adede göre değişir (adet 1 iken soldaki "sepetten çıkar" olur); konumu değişmez.
+  function neighbours(input) {
+    if (!input || !input.parentElement) return {};
+    const sibs = [...input.parentElement.children];
+    const at = sibs.indexOf(input);
+    const iconButton = (el) => (el && el.matches(CLICKABLE) && visible(el) && textOf(el) === '' && el.querySelector('svg, img, i') ? el : null);
+    const left = iconButton(sibs[at - 1]);
+    const right = iconButton(sibs[at + 1]);
+    return left && right ? { left, right } : {};
+  }
+
+  // Bir satırın adet denetimleri ve sepetten çıkarma düğmesi.
   function controls(root) {
-    const input = [...root.querySelectorAll('input')].find((i) => visible(i) && !['hidden', 'checkbox', 'radio', 'submit', 'button', 'search', 'password', 'email'].includes(i.type) && /^\d{1,4}$/.test(i.value || '')) || null;
+    const input = [...root.querySelectorAll('input')].find(isQtyInput) || null;
     const select = [...root.querySelectorAll('select')].find((sel) => visible(sel) && [...sel.options].filter((o) => /^\d+\s*\+?$/.test(squash(o.textContent))).length >= 2) || null;
     const clickables = [...root.querySelectorAll(CLICKABLE)].filter(visible);
-    const plus = clickables.find((el) => textOf(el) === '+' || PLUS_RE.test(attrsOf(el)) || PLUS_RE.test(textOf(el))) || null;
-    const minus = clickables.find((el) => ['-', '−', '–'].includes(textOf(el)) || MINUS_RE.test(attrsOf(el)) || MINUS_RE.test(textOf(el))) || null;
-    const del = clickables.find((el) => el !== plus && el !== minus && (DELETE_LABEL_RE.test(textOf(el)) || DELETE_ATTR_RE.test(attrsOf(el)))) || null;
+    const { left, right } = neighbours(input);
+    const plus = clickables.find((el) => textOf(el) === '+' || PLUS_RE.test(attrsOf(el)) || PLUS_RE.test(textOf(el))) || right || null;
+    const namedMinus = clickables.find((el) => ['-', '−', '–'].includes(textOf(el)) || MINUS_RE.test(attrsOf(el)) || MINUS_RE.test(textOf(el))) || null;
+    const del = clickables.find((el) => el !== plus && el !== namedMinus && (DELETE_LABEL_RE.test(textOf(el)) || DELETE_ATTR_RE.test(attrsOf(el)))) || null;
+    const minus = namedMinus || (left && left !== del ? left : null);
     return { input, select, plus, minus, del };
   }
 
   // Kutu birden çok sepet satırını kapsıyorsa (birden çok adet denetimi) satır sayılmaz.
   function controlGroups(root) {
-    const inputs = [...root.querySelectorAll('input')].filter((i) => visible(i) && /^\d{1,4}$/.test(i.value || '') && !['hidden', 'checkbox', 'radio'].includes(i.type)).length;
+    const inputs = [...root.querySelectorAll('input')].filter(isQtyInput).length;
     const selects = [...root.querySelectorAll('select')].filter(visible).length;
     const pluses = [...root.querySelectorAll(CLICKABLE)].filter((el) => visible(el) && (textOf(el) === '+' || PLUS_RE.test(attrsOf(el)))).length;
     return Math.max(inputs, selects, pluses);
@@ -79,6 +100,9 @@
     const hits = [...document.querySelectorAll('a, span, p, h2, h3, h4, h5, div, li, td, strong, b')]
       .filter((el) => visible(el) && norm(el.textContent).includes(want) && ![...el.children].some((c) => norm(c.textContent).includes(want)));
     for (const hit of hits) {
+      // Site satırı açıkça işaretlediyse (ürün kodu taşıyan liste öğesi) doğrudan o alınır.
+      const row = hit.closest('li[data-sku], [data-listingid]');
+      if (row && controlGroups(row) === 1) return row;
       let el = hit;
       for (let i = 0; i < 8 && el.parentElement && el.parentElement !== document.documentElement; i++) {
         el = el.parentElement;
@@ -128,7 +152,7 @@
     return 'cart';
   }
 
-  // Satır bulunamadığında okuyucuyu siteye göre ayarlamak için sepet sayfasının özeti.
+  // Okuyucuyu siteye göre ayarlamak için sepet sayfasının özeti.
   function cartDiag(title, ids) {
     const line = title ? findLine(title, ids) : null;
     return {
@@ -139,6 +163,7 @@
       text: squash(document.body ? document.body.innerText : '').slice(0, 1500),
       controls: [...document.querySelectorAll('select, input')].filter(visible).slice(0, 15).map((el) => ({ tag: el.tagName, type: el.type || null, name: el.name || null, value: String(el.value || '').slice(0, 20) })),
       buttons: [...new Set([...document.querySelectorAll(CLICKABLE)].filter(visible).map((el) => `${labelOf(el)} [${squash(attrsOf(el)).slice(0, 60)}]`))].slice(0, 40),
+      dialogs: [...document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open], [class*="modal" i]')].filter(visible).slice(0, 3).map((d) => squash(d.textContent).slice(0, 300)),
     };
   }
 
@@ -165,15 +190,7 @@
     };
   }
 
-  function typeInto(input, value) {
-    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, String(value));
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-
-  // Adedi bir adım yükseltir; arka plan, site izin vermeyene kadar yineler. Adet kutusuna sayı
-  // yazılmaz: site büyük bir sayıyı kabul ederse ve kitap sepetten çıkarılamazsa sepette o kadar
-  // kitap kalır. Artı düğmesiyle en kötü durumda sepette kalan adet küçük ve sınırlıdır.
+  // Adedi bir adım yükseltir; arka plan, site izin vermeyene kadar yineler.
   function raise(title, ids) {
     const line = findLine(title, ids);
     if (!line) return { acted: 'none' };
@@ -189,27 +206,39 @@
     return { acted: 'none' };
   }
 
-  // Kitabı sepetten çıkarmak için tek bir adım atar. mode 'minus' ise silme düğmesi atlanır
-  // (silme düğmesi işe yaramadığında adedi eksi düğmesiyle sıfırlamak için).
+  // Adedi bir azaltır. Adet 1 iken hiçbir şey yapmaz: o anda aynı düğme ürünü sepetten çıkarır.
+  function lower(title, ids) {
+    const line = findLine(title, ids);
+    if (!line) return { acted: 'none' };
+    const c = controls(line);
+    const qty = readQty(line, c);
+    if (!(qty > 1) || !c.minus || isDisabled(c.minus)) return { acted: 'none' };
+    return { acted: safeClick(c.minus) ? 'click' : 'none' };
+  }
+
+  // Kitabı sepetten çıkarmak için tek bir adım atar: çıkarma düğmesi varsa ona, yoksa azaltma
+  // düğmesine basar. mode 'minus' ise çıkarma düğmesi atlanır.
   function remove(title, ids, mode) {
     const line = findLine(title, ids);
     if (!line) return { acted: 'none' };
     const c = controls(line);
     if (mode !== 'minus' && c.del && safeClick(c.del)) return { acted: 'delete' };
     if (c.minus && !isDisabled(c.minus) && safeClick(c.minus)) return { acted: 'minus' };
-    if (c.input) { typeInto(c.input, 0); c.input.dispatchEvent(new Event('blur', { bubbles: true })); return { acted: 'zero' }; }
     return { acted: 'none' };
   }
 
-  // Silme onayı isteyen pencere açıldıysa onaylar.
+  // Ürünü sepetten çıkarmayı soran pencere açıldıysa onaylar; başka hiçbir pencereye dokunmaz.
   function confirm() {
-    const dialogs = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open], [class*="modal" i], [class*="popup" i], [class*="dialog" i]')].filter(visible);
+    const dialogs = [...document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog[open], [class*="modal" i], [class*="popup" i], [class*="dialog" i], [class*="sheet" i]')].filter(visible);
     for (const d of dialogs) {
-      const yes = [...d.querySelectorAll(CLICKABLE)].find((el) => visible(el) && CONFIRM_RE.test(labelOf(el)));
+      const text = squash(d.textContent);
+      if (text.length > 600 || !REMOVAL_TEXT_RE.test(text) || UNSAFE_DIALOG_RE.test(text)) continue;
+      const buttons = [...d.querySelectorAll(CLICKABLE)].filter((el) => visible(el) && !DECLINE_RE.test(labelOf(el)));
+      const yes = buttons.find((el) => REMOVE_VERB_RE.test(labelOf(el))) || buttons.find((el) => /^(evet|onayla|tamam)$/i.test(labelOf(el)));
       if (yes && safeClick(yes)) return { acted: true };
     }
     return { acted: false };
   }
 
-  globalThis.__kitapTakipCart = { addToCart, inspect, raise, remove, confirm, diag: cartDiag };
+  globalThis.__kitapTakipCart = { addToCart, inspect, raise, lower, remove, confirm, diag: cartDiag };
 })();

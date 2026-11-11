@@ -60,22 +60,35 @@ eklenebildiğinden anlaşılır.
 - **Amazon:** Sepete dokunulmaz. Ürün sayfasındaki adet seçici en çok 30'a kadar gider; daha az
   seçenek varsa satıcının stoku (ya da sipariş sınırı) o kadardır ve panel bunu "adet seçici"
   kaynağıyla gösterir.
-- **Hepsiburada:** Ölçüm kapalıdır. İlk sürüm kitabı sepete ekleyip adet kutusuna büyük bir sayı
-  yazıyordu ve gerçek sepette kitabı geri çıkaramadı. Ölçüm artık adet kutusuna hiçbir şey yazmaz,
-  yalnızca artı düğmesiyle en fazla 30'a kadar çıkar ve kitabı çıkarmanın yolunu görmeden adede
-  dokunmaz; ancak Hepsiburada'nın sepet sayfası doğrulanana kadar hiçbir sitede çalıştırılmaz.
+- **Hepsiburada:** İsteğe bağlı ölçüm. Kitabı sepete ekler, adedi "Ürünü Arttır" düğmesiyle sitenin
+  izin verdiği yere kadar yükseltir, ulaştığı sayıyı kaydeder ve kitabı sepetten çıkarır. Varsayılan
+  olarak kapalıdır; günde en fazla bir kez çalışır.
 
-Hepsiburada ölçümünü açabilmek için sepet sayfasının yapısı gerekir:
+Açmak için panelde **Sepet sınırıyla stok ölçümü** bölümünde **Günde bir kez ölç** kutusunu
+işaretleyin; ilk denemeyi **Şimdi ölç** ile yapıp izleyin.
 
-1. Kitap Hepsiburada sepetinizdeyken panelde **Sepet sayfasını incele**ye basın. İnceleme hiçbir
-   düğmeye basmaz; yalnızca sayfayı okur.
-2. **Tanı dosyası indir** ile inen dosyayı paylaşın. Dosyaya sepet sayfasının görünen yazısı da
-   girer (sepetinizdeki diğer ürünlerin adları dahil); göndermeden önce açıp bakabilirsiniz.
+Ölçümün uyduğu kurallar:
 
-Ölçüm çalıştığında uyduğu kurallar: satın alma ya da ödeme düğmelerine basılmaz; yalnızca ölçümün
-kendi eklediği satıra dokunulur; kitap zaten sepetteyse ya da satır kesin olarak ayırt edilemiyorsa
-hiçbir şeye dokunulmaz; kitap sepetten çıkarılamazsa sepet sekmesi açık kalır ve panelde ile
-Telegram'da uyarı görünür.
+- Yalnızca "Sepete ekle", adet artır/azalt ve "Sepetten Çıkar" düğmelerine basılır. Satın alma,
+  ödeme, üyelik ya da "Ürünleri sil" düğmelerine hiçbir koşulda basılmaz.
+- Adet kutusuna hiçbir şey yazılmaz. İlk sürüm kutuya 999 yazıyordu ve gerçek sepette kitabı geri
+  çıkaramadı; ölçüm artık yalnızca düğmelerle, birer birer ve en fazla 30'a kadar ilerler.
+- İlk artıştan sonra, daha ileri gitmeden önce adedin geri azaltılabildiği denenir. Azaltılamıyorsa
+  ölçüm durur; sepette en fazla 2 adet kalır.
+- Yalnızca ölçümün kendi eklediği satıra dokunulur. Kitap zaten sepetinizdeyse ya da eklenen satır
+  kesin olarak ayırt edilemiyorsa hiçbir şeye dokunulmaz.
+- Onay pencerelerinde yalnızca ürünü sepetten çıkarmayı soran pencere onaylanır.
+- Kitap sepetten çıkarılamazsa sepet sekmesi açık kalır; panelde ve Telegram'da uyarı görürsünüz.
+- Bulunan sayı satıcının stoku ya da sipariş başına sınırı olabilir; sınıra ulaşılamazsa panel
+  "en az N adet" yazar. Ölçüm, satıcının istatistiğinde sepete ekleme olarak görünür. Sitelerin
+  kullanım koşulları otomatik sepet işlemlerine izin vermeyebilir; açıp açmamak sizin kararınızdır.
+
+Ölçüm, Hepsiburada sepetinin gerçek sayfa yapısına (satır, adet kutusu, "Sepetten Çıkar" ve
+"Ürünü Arttır" düğmeleri) göre yazıldı ve bu yapının kopyası üzerinde sınandı. Gerçek sitede henüz
+baştan sona çalıştırılmadı: adet 1'den büyükken sol düğmenin ve çıkarma onayının nasıl göründüğü
+bilinmiyor; ölçüm bu ikisinde düğmelerin adına değil konumuna ve pencerenin metnine bakar. Bir
+ölçüm yapılamazsa **Sepet sayfasını incele**ye (hiçbir düğmeye basmaz) ve ardından **Tanı dosyası
+indir**e basıp dosyayı paylaşın; dosyaya sepetinizdeki diğer ürünlerin adları da girer.
 
 ## Telegram bildirimleri
 
