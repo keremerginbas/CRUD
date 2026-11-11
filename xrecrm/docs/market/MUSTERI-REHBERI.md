@@ -62,5 +62,5 @@ Başka bir yolla tahsilat yaptıysanız `/b24/admin` → **Lisans kodları**'nda
 ## Destek
 
 - E-posta: xre.software@xre.com.tr
-- Telefon / WhatsApp: +90 505 035 29 40
+- Telefon / WhatsApp: +90 533 743 74 26
 - Yardım sayfası: https://whatsapp.xresoftware.com.tr/b24/support
