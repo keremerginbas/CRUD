@@ -1,0 +1,1787 @@
+/* ==========================================================================
+   XRE CRM — suite pages  (design/suite.css)
+   --------------------------------------------------------------------------
+   Area: /contacts  /companies  /team  (pages/Directory.tsx)
+         /tasks     list + kanban      (pages/Work.tsx, also its editors, which
+                                        open from the CRM drawer as well)
+         /feed                         (pages/Feed.tsx)
+   Legacy: suite-pages.css (lazy chunk, so it loads AFTER this file — every
+   rule here is therefore written as `html .app-shell …` to out-rank it) and
+   night-polish.css (pins a few sx- colours with !important; the flags below
+   exist only to answer those).
+   Values come from design/tokens.css; shared primitives (buttons, fields,
+   badges, base table, modal shell) come from design/base.css.
+
+   Contents
+     1. Section tabs with counts          8. Task board (kanban)
+     2. View switch (Liste / Kanban)      9. Create / edit dialogs
+     3. Toolbar: search + filters        10. Feed: layout, composer, cards
+     4. Table surface + rows             11. Feed: sidebar
+     5. Cells: person, contact, owner,   12. Info strip
+        linked deals, row action         13. Calendar pieces (shared classes)
+     6. Task list rows                   14. Narrow layouts
+     7. Status / priority badges         15. Reduced motion
+   ========================================================================== */
+
+html .app-shell {
+  /* local knobs */
+  --sx-row-h: 56px; /* every table row: one or two text lines */
+  --sx-pad: var(--ds-space-4); /* inline padding shared by toolbar, th, td */
+
+  /* ------------------------------------------------------------------------
+     1. Section tabs with counts (Kişiler / Şirketler / Ekip)
+     Underline tabs in every theme — night-polish turned the active one into
+     a filled chip, which read as a button next to the page actions.
+     ------------------------------------------------------------------------ */
+  & .sx-tabs:not(.sx-view-tabs) {
+    gap: var(--ds-space-1);
+    margin: 0 0 var(--ds-space-4);
+    padding: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  & .sx-tabs:not(.sx-view-tabs) button {
+    flex: 0 0 auto;
+    gap: var(--ds-space-2);
+    min-height: 40px;
+    padding: 0 var(--ds-space-3);
+    font-size: var(--ds-text-base);
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  & .sx-tabs:not(.sx-view-tabs) button.active {
+    border-color: transparent transparent var(--xre-accent) !important;
+    background: transparent !important;
+    color: var(--ds-accent-text) !important;
+  }
+  & .sx-tabs:not(.sx-view-tabs) button > span {
+    display: inline-grid;
+    place-items: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    line-height: 1;
+  }
+  & .sx-tabs:not(.sx-view-tabs) button.active > span {
+    background: var(--xre-accent-soft) !important;
+    color: var(--ds-accent-text) !important;
+  }
+  /* night-polish removes every shadow from the active tab, focus ring included;
+     the strip scrolls sideways, so its ring is drawn inside the tab */
+  & .sx-tabs:not(.sx-view-tabs) button:focus-visible {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--xre-accent) 72%, transparent) !important;
+  }
+  & .sx-view-tabs button:focus-visible {
+    box-shadow: var(--ds-focus-ring) !important;
+  }
+
+  /* ------------------------------------------------------------------------
+     2. View switch (Liste / Kanban) — a segmented control, same construction
+     as the CRM view tabs: inset track, raised thumb.
+     ------------------------------------------------------------------------ */
+  & .sx-tabs.sx-view-tabs {
+    display: inline-flex;
+    gap: 2px;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 0 var(--ds-space-3);
+    padding: 3px;
+    border: 1px solid var(--xre-border);
+    border-radius: 10px;
+    background: var(--ds-track);
+  }
+  & .sx-view-tabs button {
+    gap: 6px;
+    min-height: var(--ds-control-h-sm);
+    margin: 0;
+    padding: 0 var(--ds-space-3);
+    border: 0;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  & .sx-view-tabs button > svg {
+    flex: 0 0 auto;
+    opacity: 0.8;
+  }
+  & .sx-view-tabs button:hover {
+    background: var(--ds-hover);
+    color: var(--xre-text);
+  }
+  & .sx-view-tabs button.active {
+    background: var(--ds-thumb) !important;
+    color: var(--ds-accent-text) !important;
+    box-shadow: var(--ds-shadow-sm) !important;
+  }
+  & .sx-view-tabs button.active > svg {
+    opacity: 1;
+  }
+
+  /* ------------------------------------------------------------------------
+     3. Toolbar: search + filters + result count
+     When a list follows directly, toolbar and list are ONE surface with a
+     hairline between them (same idea as the CRM filter bar).
+     ------------------------------------------------------------------------ */
+  & .sx-toolbar {
+    flex-wrap: wrap;
+    gap: var(--ds-space-2) var(--ds-space-3);
+    min-height: 0;
+    margin: 0 0 var(--ds-space-3);
+    padding: 10px var(--sx-pad);
+    overflow: visible; /* focus halo of the search field */
+    /* the toolbar re-flows by ITS width (14b), not the viewport's: the same
+       bar is ~700px wide on a tablet and beside an open sidebar on a laptop */
+    container: sx-toolbar / inline-size;
+  }
+  & .sx-toolbar:has(+ :is(.panel, .sx-info-strip)) {
+    margin-bottom: 0;
+    border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+    box-shadow: none;
+  }
+  & .sx-toolbar + .panel,
+  & .sx-toolbar + .sx-info-strip + .panel {
+    border-top: 0;
+    border-radius: 0 0 var(--ds-radius-lg) var(--ds-radius-lg);
+  }
+
+  & .sx-search {
+    flex: 1 1 200px;
+    gap: var(--ds-space-2);
+    min-width: 0;
+    max-width: 440px;
+    min-height: var(--ds-control-h);
+    padding: 0 var(--ds-space-3);
+    border: 1px solid var(--ds-border-strong);
+    border-radius: var(--ds-radius-md);
+    background: var(--xre-surface-raised);
+    color: var(--xre-text-faint);
+    cursor: text;
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      box-shadow var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-search:hover {
+    border-color: var(--ds-border-hover);
+  }
+  & .sx-search:focus-within {
+    border-color: var(--xre-accent);
+    box-shadow: var(--ds-focus-ring-field);
+  }
+  & .sx-search > svg {
+    flex: 0 0 auto;
+  }
+  & .sx-search input {
+    min-width: 0;
+    height: calc(var(--ds-control-h) - 2px);
+    padding: 0;
+    border: 0;
+    font-size: var(--ds-text-base);
+    line-height: 1.4;
+    text-overflow: ellipsis;
+  }
+
+  & .sx-filter-label {
+    gap: var(--ds-space-2);
+    font-weight: 550;
+  }
+  & .sx-filter-label select {
+    min-width: 120px;
+    max-width: 220px;
+    font-weight: 400;
+  }
+
+  /* "Gecikenler": a checkbox that reads as a toggle chip */
+  & .sx-check-filter {
+    gap: var(--ds-space-2);
+    min-height: var(--ds-control-h);
+    padding: 0 var(--ds-space-3);
+    border: 1px solid var(--ds-border-strong);
+    border-radius: var(--ds-radius-md);
+    background: var(--xre-surface-raised);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    cursor: pointer;
+    user-select: none;
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-check-filter:hover {
+    border-color: var(--ds-border-hover);
+    color: var(--xre-text);
+  }
+  & .sx-check-filter:has(input:checked) {
+    border-color: var(--ds-danger-border);
+    background: var(--ds-danger-soft);
+    color: var(--ds-danger);
+  }
+  & .sx-check-filter:has(input:focus-visible) {
+    box-shadow: var(--ds-focus-ring);
+  }
+  & .sx-check-filter input {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    outline: none;
+  }
+  & .sx-check-filter:has(input:checked) input {
+    accent-color: var(--ds-danger);
+  }
+
+  & .sx-toolbar-count {
+    margin-left: auto;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+  }
+
+  & .sx-muted {
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-sm);
+  }
+
+  /* ------------------------------------------------------------------------
+     4. Table surface + rows
+     One row height for every list, hairlines only, no zebra. The panel is a
+     size container so the table can turn into cards when IT gets narrow
+     (sidebar open on a tablet, split screen…), not only on phones.
+     ------------------------------------------------------------------------ */
+  & :is(.sx-table-panel, .sx-task-list) {
+    container: sx-list / inline-size;
+  }
+  & .sx-table-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  & .sx-table {
+    min-width: 780px;
+  }
+  /* nothing matched: the empty state stands alone, without a header row */
+  & .sx-table-scroll:has(tbody:empty) {
+    display: none;
+  }
+  & .sx-table th {
+    padding: 9px var(--sx-pad);
+    border: 0;
+    border-bottom: 1px solid var(--xre-border);
+    letter-spacing: var(--ds-tracking-caps);
+  }
+  & .sx-table td {
+    height: var(--sx-row-h);
+    padding: var(--ds-space-2) var(--sx-pad);
+    border-bottom: 1px solid var(--ds-divider);
+    vertical-align: middle;
+  }
+  & .sx-table tbody tr:last-child td {
+    border-bottom: 0;
+  }
+  & .sx-table thead tr {
+    cursor: default;
+  }
+  & .sx-table tbody tr:hover {
+    background: var(--ds-hover);
+  }
+  & .sx-table tbody tr:active {
+    background: var(--ds-pressed);
+  }
+  /* the trailing action column hugs its button */
+  & .sx-table :is(th, td):last-child {
+    width: 1%;
+    padding-left: 0;
+    text-align: right;
+  }
+  & .sx-table .badge {
+    vertical-align: middle;
+  }
+
+  /* ------------------------------------------------------------------------
+     5. Cells
+     ------------------------------------------------------------------------ */
+  /* person / company: avatar + name + one supporting line */
+  & .sx-person {
+    gap: var(--ds-space-3);
+    min-width: 180px;
+  }
+  & .sx-person > .avatar,
+  & .sx-person > .sx-company-avatar {
+    flex: 0 0 auto;
+  }
+  & .sx-person > span:last-child {
+    gap: 1px;
+    min-width: 0;
+  }
+  & .sx-person strong {
+    overflow: hidden;
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 600;
+    line-height: 1.35;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .sx-person small {
+    overflow: hidden;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-sm);
+    line-height: 1.4;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .sx-company-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--ds-radius-md);
+    background: var(--xre-accent-soft);
+    color: var(--ds-accent-text);
+  }
+
+  /* e-mail / phone / address lines */
+  & .sx-contact-line {
+    gap: 6px;
+    max-width: 280px;
+    overflow: hidden;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: 20px;
+    text-overflow: ellipsis;
+  }
+  & .sx-contact-line svg {
+    flex: 0 0 auto;
+    color: var(--xre-text-faint);
+  }
+
+  /* owner: small avatar + name */
+  & .sx-owner {
+    gap: var(--ds-space-2);
+    font-size: var(--ds-text-base);
+  }
+  & .sx-owner .avatar {
+    flex: 0 0 auto;
+    width: 24px !important; /* inline size is 22–23px: too tight for 11px initials */
+    height: 24px !important;
+  }
+
+  /* links inside rows */
+  & :is(.sx-link-button, .sx-email-link) {
+    padding: 0;
+    border-radius: 4px;
+    color: var(--ds-accent-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    text-underline-offset: 2px;
+  }
+  & .sx-email-link {
+    font-size: var(--ds-text-base);
+    font-weight: 400;
+  }
+
+  /* linked deals: count caption + one link per deal */
+  & .sx-table .b24-multi-deal-links {
+    gap: 1px;
+    min-width: 152px;
+    max-width: 280px;
+  }
+  & .sx-table .b24-multi-deal-links > span {
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    font-weight: 550;
+    line-height: var(--ds-leading-xs);
+    font-variant-numeric: tabular-nums;
+  }
+  & .sx-table .b24-multi-deal-links > button {
+    display: inline-flex;
+    align-items: baseline;
+    justify-content: flex-start;
+    gap: var(--ds-space-1);
+    max-width: 100%;
+    font-size: var(--ds-text-sm);
+    line-height: 1.45;
+    text-align: left;
+    white-space: normal;
+  }
+  & .sx-table .b24-multi-deal-links > button > span {
+    flex: 0 0 auto;
+    opacity: 0.7;
+    transition: transform var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-table .b24-multi-deal-links > button:hover > span {
+    opacity: 1;
+    transform: translate(1px, -1px);
+  }
+
+  /* row action (edit) and other quiet icon buttons of the suite */
+  & .sx-icon-button {
+    flex: 0 0 auto;
+    width: var(--ds-control-h-sm);
+    height: var(--ds-control-h-sm);
+    border-radius: var(--ds-radius-md);
+    color: var(--xre-text-faint);
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & tr:hover .sx-icon-button,
+  & .sx-task-card:hover .sx-icon-button {
+    color: var(--xre-text-soft);
+  }
+  & .sx-icon-button:hover {
+    background: var(--ds-hover);
+    color: var(--xre-text);
+  }
+  & .sx-icon-button:active {
+    background: var(--ds-pressed);
+  }
+  & .sx-icon-button:disabled {
+    background: transparent;
+    color: var(--xre-text-faint);
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* ------------------------------------------------------------------------
+     6. Task list rows
+     ------------------------------------------------------------------------ */
+  & .sx-task-list .sx-table tbody tr {
+    cursor: default; /* the row itself is not a target here; its controls are */
+  }
+  & .sx-list-task {
+    align-items: center;
+    gap: var(--ds-space-3);
+    min-width: 240px;
+  }
+  & .sx-list-task > span {
+    gap: 1px;
+  }
+
+  /* done toggle: the button IS the checkbox; the lucide square is redundant */
+  & .sx-check-button {
+    position: relative;
+    width: 20px;
+    height: 20px;
+    border: 1.5px solid var(--ds-border-hover) !important;
+    border-radius: var(--ds-radius-sm);
+    background: transparent !important;
+    color: var(--ds-on-accent);
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      border-color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-check-button::before {
+    /* 32px hit area (40px on touch) around the 20px box */
+    content: "";
+    position: absolute;
+    inset: calc((20px - var(--ds-control-h-sm)) / 2 - 1.5px);
+  }
+  & .sx-check-button > svg {
+    width: 14px;
+    height: 14px;
+    stroke-width: 3;
+  }
+  & .sx-check-button > .lucide-square {
+    opacity: 0;
+  }
+  & .sx-check-button:hover {
+    border-color: var(--xre-accent) !important;
+    background: var(--ds-selected) !important;
+  }
+  & .sx-check-button:has(.lucide-check) {
+    border-color: var(--ds-accent-solid) !important;
+    background: var(--ds-accent-solid) !important;
+    color: var(--ds-on-accent);
+  }
+  & .sx-check-button:has(.lucide-check):hover {
+    border-color: var(--ds-accent-solid-hover) !important;
+    background: var(--ds-accent-solid-hover) !important;
+  }
+
+  & .sx-task-title {
+    padding: 0;
+    border-radius: 4px;
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 600;
+    line-height: 1.35;
+    transition: color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-task-title:hover {
+    color: var(--ds-accent-text) !important;
+  }
+  /* finished work steps back */
+  & tr:has(.sx-check-button .lucide-check) .sx-task-title {
+    color: var(--xre-text-faint) !important;
+    font-weight: 500;
+    text-decoration: line-through;
+    text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  }
+  & .sx-linked-lead {
+    gap: var(--ds-space-1);
+    padding: 0;
+    width: fit-content;
+    max-width: 100%;
+    border-radius: 4px;
+    color: var(--ds-accent-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    line-height: 1.4;
+    text-underline-offset: 2px;
+  }
+
+  /* overdue: a danger rail + danger date; the row keeps its normal surface */
+  & .sx-table tbody tr.is-overdue > td {
+    border-color: var(--ds-divider) !important;
+    background: color-mix(in srgb, var(--ds-danger) 5%, transparent) !important;
+  }
+  & .sx-table tbody tr.is-overdue > td:first-child {
+    box-shadow: inset 3px 0 0 var(--ds-danger);
+  }
+  & .sx-overdue {
+    color: var(--ds-danger) !important;
+    font-weight: 600;
+  }
+  /* due date column */
+  & .sx-task-list .sx-table td:nth-child(4) {
+    white-space: nowrap;
+  }
+
+  /* ------------------------------------------------------------------------
+     7. Status badges
+     Tone already comes from base.css (.badge.green / blue / amber / red →
+     status tokens). A status gets a leading dot so it is told apart from a
+     plain tag (priority, industry) without relying on colour alone.
+     ------------------------------------------------------------------------ */
+  & .sx-task-list td:nth-child(2) > .badge,
+  & .sx-table-panel td:nth-child(5) > .badge {
+    gap: 6px;
+    padding-left: 7px;
+  }
+  & .sx-task-list td:nth-child(2) > .badge::before,
+  & .sx-table-panel td:nth-child(5) > .badge::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  /* "to do" is not started yet: hollow dot */
+  & .sx-task-list td:nth-child(2) > .badge.gray::before {
+    background: transparent;
+    box-shadow: inset 0 0 0 1.5px currentColor;
+  }
+
+  /* ------------------------------------------------------------------------
+     8. Task board (kanban) — follows the CRM board: columns are inset wells,
+     cards are raised surfaces. The board scrolls sideways inside itself when
+     three columns no longer fit.
+     ------------------------------------------------------------------------ */
+  & .sx-kanban-board {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--ds-space-3);
+    margin-inline: calc(-1 * var(--shell-gutter, 16px));
+    padding: 2px var(--shell-gutter, 16px) var(--ds-space-3);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: var(--shell-gutter, 16px);
+  }
+  & .sx-kanban-column {
+    flex: 1 0 272px;
+    min-width: 0;
+    max-width: 520px;
+    min-height: 0;
+    padding: 0;
+    border: 1px solid var(--xre-border);
+    border-radius: var(--ds-radius-lg);
+    background: var(--ds-track);
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      box-shadow var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-kanban-column.drag-over {
+    border-color: var(--xre-accent);
+    background: var(--ds-track);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--xre-accent) 24%, transparent);
+  }
+  & .sx-kanban-column > header {
+    gap: var(--ds-space-2);
+    min-height: 44px;
+    padding: 0 var(--ds-space-3) 0 14px;
+    border-bottom: 1px solid var(--xre-border);
+  }
+  & .sx-kanban-column > header h3 {
+    overflow: hidden;
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 650;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .sx-kanban-column > header b {
+    display: inline-grid;
+    place-items: center;
+    min-width: 22px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: var(--ds-radius-pill);
+    background: var(--xre-surface);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-xs);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+  & .sx-status-dot {
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    color: var(--xre-text-faint);
+    background: currentColor;
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent);
+  }
+  & .sx-status-dot.todo {
+    color: var(--xre-text-faint);
+    background: currentColor;
+  }
+  & .sx-status-dot.progress {
+    color: var(--ds-info);
+    background: currentColor;
+  }
+  & .sx-status-dot.done {
+    color: var(--ds-success);
+    background: currentColor;
+  }
+  & .sx-kanban-items {
+    gap: var(--ds-space-2);
+    min-height: 96px; /* an empty column stays a usable drop target */
+    padding: var(--ds-space-2);
+  }
+
+  /* card */
+  & .sx-task-card {
+    padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-2) 14px;
+    border: 1px solid var(--xre-border);
+    border-radius: 10px;
+    background: var(--xre-surface);
+    box-shadow: var(--ds-shadow-sm);
+    color: var(--xre-text);
+    cursor: grab;
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      box-shadow var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-task-card:hover {
+    border-color: var(--ds-border-hover);
+    box-shadow: var(--ds-shadow-md);
+  }
+  & .sx-task-card:active {
+    cursor: grabbing;
+  }
+  & .sx-task-card.overdue {
+    border-left: 1px solid var(--xre-border);
+    box-shadow:
+      inset 3px 0 0 var(--ds-danger),
+      var(--ds-shadow-sm);
+  }
+  & .sx-task-card.overdue:hover {
+    border-color: var(--ds-border-hover);
+    box-shadow:
+      inset 3px 0 0 var(--ds-danger),
+      var(--ds-shadow-md);
+  }
+  & .sx-task-card-head {
+    min-height: 24px;
+    margin: 0 -6px 6px 0;
+  }
+  & .sx-task-card-head .sx-icon-button {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--ds-radius-sm);
+  }
+  & .sx-task-card .sx-task-title {
+    width: 100%;
+    overflow-wrap: anywhere;
+  }
+  & .sx-task-card p {
+    display: -webkit-box;
+    margin: var(--ds-space-1) 0 0;
+    overflow: hidden;
+    color: var(--xre-text-soft) !important;
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+  & .sx-task-meta {
+    flex-flow: row wrap;
+    align-items: center;
+    gap: 6px var(--ds-space-3);
+    margin-top: 10px;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: 1.3;
+    font-variant-numeric: tabular-nums;
+  }
+  & .sx-task-meta span {
+    gap: 6px;
+    min-height: 22px;
+  }
+  & .sx-task-meta svg {
+    flex: 0 0 auto;
+    color: var(--xre-text-faint);
+  }
+  & .sx-task-meta .sx-overdue svg {
+    color: currentColor;
+  }
+  & .sx-task-meta .avatar {
+    flex: 0 0 auto;
+    width: 22px !important;
+    height: 22px !important;
+  }
+  & .sx-task-card > .sx-linked-lead {
+    margin-top: var(--ds-space-2);
+  }
+  & .sx-task-footer {
+    gap: var(--ds-space-2);
+    margin-top: 10px;
+    padding-top: 6px;
+    border-top: 1px solid var(--ds-divider);
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+  }
+  & .sx-task-footer span {
+    gap: 2px;
+    margin-left: -4px;
+    user-select: none;
+  }
+  /* quiet inline select: moves the card without dragging */
+  & .sx-task-footer select {
+    appearance: none;
+    -webkit-appearance: none;
+    max-width: 150px;
+    min-height: 28px;
+    margin-right: -6px;
+    padding: 0 22px 0 var(--ds-space-2);
+    border: 1px solid transparent;
+    border-color: transparent !important;
+    border-radius: var(--ds-radius-sm);
+    background-color: transparent !important;
+    background-image:
+      linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+      right 11px center,
+      right 7px center;
+    background-size:
+      4px 4px,
+      4px 4px;
+    background-repeat: no-repeat;
+    color: var(--xre-text-soft) !important;
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-task-footer select:hover {
+    background-color: var(--ds-hover) !important;
+    color: var(--xre-text) !important;
+  }
+  & .sx-task-footer select:focus-visible {
+    border-color: var(--xre-accent) !important;
+    box-shadow: var(--ds-focus-ring-field);
+    outline: none;
+  }
+  /* drop zone of an empty column: the one legitimate dashed border */
+  & .sx-drop-hint {
+    min-height: 80px;
+    border: 1px dashed var(--ds-border-strong);
+    border-radius: var(--ds-radius-md);
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-sm);
+  }
+  & .sx-kanban-column.drag-over .sx-drop-hint {
+    border-color: var(--xre-accent);
+    background: var(--ds-selected);
+    color: var(--ds-accent-text);
+  }
+
+  /* ------------------------------------------------------------------------
+     9. Create / edit dialogs (contact, company, member, task, activity)
+     Header and shell come from base.css; this is the form inside.
+     ------------------------------------------------------------------------ */
+  & .sx-modal-form {
+    padding: var(--ds-space-5) var(--ds-space-6) 0;
+  }
+  & .sx-form-grid {
+    gap: var(--ds-space-4);
+  }
+  & .sx-field {
+    min-width: 0;
+  }
+  & .sx-field :is(input, select, textarea) {
+    width: 100%;
+    font-weight: 400;
+  }
+  & .sx-field textarea {
+    min-height: 84px;
+    resize: vertical;
+  }
+  /* footer: stays in view while a long form scrolls */
+  & .sx-modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
+    flex-wrap: wrap;
+    gap: var(--ds-space-2) var(--ds-space-4);
+    margin: var(--ds-space-5) calc(-1 * var(--ds-space-6)) 0;
+    padding: var(--ds-space-3) var(--ds-space-6);
+    border-top: 1px solid var(--xre-border);
+    border-radius: 0 0 var(--ds-radius-xl) var(--ds-radius-xl);
+    background: var(--ds-surface-subtle);
+  }
+  & .sx-modal-footer .sx-muted {
+    flex: 1 1 200px;
+    line-height: var(--ds-leading-sm);
+  }
+  & .sx-actions {
+    gap: var(--ds-space-2);
+    margin-left: auto;
+  }
+
+  /* checklist editor */
+  & .sx-checklist {
+    gap: var(--ds-space-1);
+    padding: var(--ds-space-2);
+    border: 1px solid var(--xre-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-surface-subtle);
+  }
+  & .sx-checklist:not(:has(.sx-check-row)) {
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+  & .sx-check-row {
+    gap: var(--ds-space-2);
+  }
+  & .sx-check-row input[type="checkbox"],
+  & .sx-checkbox input {
+    flex: 0 0 auto;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+  }
+  & .sx-check-row input[type="checkbox"] {
+    margin-inline: var(--ds-space-1);
+  }
+  & .sx-check-row input:not([type="checkbox"]) {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: var(--ds-control-h-sm);
+    font-size: var(--ds-text-base);
+  }
+  & .sx-check-row:has(input[type="checkbox"]:checked) input:not([type="checkbox"]) {
+    color: var(--xre-text-faint);
+    text-decoration: line-through;
+  }
+  /* "add" affordance: dashed, as wide as the list */
+  & .sx-add-row {
+    justify-content: center;
+    gap: 6px;
+    min-height: var(--ds-control-h-sm);
+    padding: 0 var(--ds-space-3);
+    border: 1px dashed var(--ds-border-strong);
+    border-radius: var(--ds-radius-md);
+    color: var(--ds-accent-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      border-color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-add-row:hover {
+    border-color: var(--ds-accent-border);
+    background: var(--ds-selected);
+  }
+  & .sx-checklist:has(.sx-check-row) .sx-add-row {
+    margin-top: var(--ds-space-1);
+  }
+  & .sx-checkbox {
+    gap: var(--ds-space-2);
+    min-height: var(--ds-control-h-sm);
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 400;
+    cursor: pointer;
+  }
+
+  /* ------------------------------------------------------------------------
+     10. Feed: layout, composer, cards
+     The stream keeps a readable measure instead of stretching with the page.
+     ------------------------------------------------------------------------ */
+  /* header: the member count is the only item on the right. As a default
+     11px badge it sat lost on the subtitle line; it becomes a quiet stat pill
+     with the height of a small control, on the line where the other pages
+     keep their action buttons (pill + no hover: it is not a button). */
+  & .page-heading:has(+ .sx-feed-layout) .heading-actions > .badge {
+    gap: var(--ds-space-2);
+    min-height: 32px;
+    padding: 0 var(--ds-space-3) 0 10px;
+    border: 1px solid var(--xre-border);
+    border-radius: var(--ds-radius-pill);
+    background: var(--xre-surface);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  /* its "•" glyph, drawn as a real dot */
+  & .page-heading:has(+ .sx-feed-layout) .heading-actions > .badge > span[aria-hidden] {
+    flex: 0 0 auto;
+    width: 6px;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--xre-accent);
+    color: transparent;
+    font-size: 0;
+  }
+
+  & .sx-feed-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+    gap: var(--ds-space-5);
+    max-width: 1320px;
+  }
+  & .sx-feed-layout > main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-space-3);
+    min-width: 0;
+  }
+
+  & .sx-composer {
+    margin: 0;
+    padding: var(--ds-space-4) var(--ds-space-5);
+    overflow: visible;
+  }
+  & .sx-composer-top {
+    gap: var(--ds-space-3);
+    margin-bottom: var(--ds-space-3);
+  }
+  & .sx-composer-top div {
+    gap: 1px;
+    min-width: 0;
+  }
+  & .sx-composer-top strong,
+  & .sx-feed-head strong {
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  & .sx-composer-top span:not(.avatar) {
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-sm);
+    line-height: 1.4;
+  }
+  & .sx-composer textarea {
+    display: block;
+    width: 100%;
+    min-height: 88px;
+    padding: 10px var(--ds-space-3);
+    resize: vertical;
+  }
+  & .sx-composer-footer {
+    align-items: flex-end;
+    gap: var(--ds-space-3);
+    margin-top: var(--ds-space-3);
+  }
+  & .sx-feed-lead {
+    max-width: 320px;
+    min-width: 0;
+  }
+
+  & .sx-feed-card {
+    margin: 0;
+    padding: var(--ds-space-4) var(--ds-space-5) var(--ds-space-2);
+    border: 1px solid var(--xre-border);
+    border-radius: var(--ds-radius-lg);
+    background: var(--xre-surface);
+    box-shadow: var(--ds-shadow-sm);
+  }
+  & .sx-feed-head {
+    gap: var(--ds-space-3);
+  }
+  & .sx-feed-head > div {
+    gap: 1px;
+    min-width: 0;
+  }
+  & .sx-feed-head time,
+  & .sx-comment time {
+    color: var(--xre-text-faint) !important;
+    font-size: var(--ds-text-sm);
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+  }
+  & .sx-feed-text {
+    max-width: 76ch;
+    padding: var(--ds-space-3) 0;
+    color: var(--xre-text) !important;
+    font-size: var(--ds-text-base);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+  }
+  /* linked CRM deal: a chip, not a full-width bar */
+  & .sx-feed-lead-link {
+    display: inline-flex;
+    gap: var(--ds-space-2);
+    width: auto;
+    max-width: 100%;
+    min-height: var(--ds-control-h-sm);
+    margin: 0 0 var(--ds-space-3);
+    padding: 0 10px 0 var(--ds-space-1);
+    border: 1px solid var(--xre-border);
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-surface-subtle);
+    color: var(--xre-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      border-color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-feed-lead-link > span:nth-child(2) {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .sx-feed-lead-link > span:last-child {
+    color: var(--ds-accent-text);
+  }
+  & .sx-feed-lead-link:hover {
+    border-color: var(--ds-border-hover);
+    background: var(--ds-surface-hover);
+  }
+  & .sx-feed-actions {
+    gap: var(--ds-space-1);
+    padding-top: var(--ds-space-2);
+    border-top: 1px solid var(--ds-divider);
+  }
+  /* optical alignment: the first icon lines up with the text above */
+  & .sx-feed-actions button:first-child {
+    margin-left: -10px;
+  }
+  & .sx-feed-actions button {
+    gap: 6px;
+    min-height: var(--ds-control-h-sm);
+    padding: 0 10px;
+    border-radius: var(--ds-radius-sm);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .sx-feed-actions button:hover {
+    background: var(--ds-hover);
+    color: var(--xre-text);
+  }
+  & .sx-feed-actions button:active {
+    background: var(--ds-pressed);
+  }
+  & .sx-feed-actions button.selected {
+    background: var(--xre-accent-soft);
+    color: var(--ds-accent-text);
+  }
+  & .sx-feed-actions button[aria-pressed="true"] > svg {
+    fill: color-mix(in srgb, currentColor 22%, transparent);
+  }
+
+  & .sx-comments {
+    margin: var(--ds-space-2) 0 var(--ds-space-2);
+    padding-top: var(--ds-space-3);
+    border-top: 1px solid var(--ds-divider);
+  }
+  & .sx-comment-list {
+    gap: var(--ds-space-2);
+  }
+  & .sx-comment {
+    gap: var(--ds-space-2);
+  }
+  & .sx-comment > .avatar {
+    flex: 0 0 auto;
+    width: 28px !important;
+    height: 28px !important;
+  }
+  & .sx-comment > div {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: var(--ds-space-2) var(--ds-space-3);
+    border-radius: 4px var(--ds-radius-lg) var(--ds-radius-lg) var(--ds-radius-lg);
+    background: var(--xre-surface-muted);
+  }
+  & .sx-comment strong {
+    color: var(--xre-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+  }
+  & .sx-comment p {
+    margin: 2px 0;
+    color: var(--xre-text) !important;
+    font-size: var(--ds-text-base);
+    line-height: var(--ds-leading-base);
+    overflow-wrap: anywhere;
+  }
+  & .sx-comment time {
+    font-size: var(--ds-text-xs);
+  }
+  & .sx-comment-composer {
+    align-items: center;
+    gap: var(--ds-space-2);
+    margin-top: var(--ds-space-3);
+  }
+  & .sx-comment-composer input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  & .sx-comment-composer .sx-icon-button {
+    width: var(--ds-control-h);
+    height: var(--ds-control-h);
+    background: var(--ds-accent-solid);
+    color: var(--ds-on-accent);
+  }
+  & .sx-comment-composer .sx-icon-button:hover {
+    background: var(--ds-accent-solid-hover);
+    color: var(--ds-on-accent);
+  }
+  & .sx-comment-composer .sx-icon-button:disabled {
+    background: var(--xre-surface-muted);
+    color: var(--xre-text-faint);
+    opacity: 1;
+  }
+
+  /* ------------------------------------------------------------------------
+     11. Feed: sidebar (recent activity + planning note)
+     ------------------------------------------------------------------------ */
+  & .sx-feed-sidebar {
+    gap: var(--ds-space-3);
+    min-width: 0;
+  }
+  & .sx-feed-sidebar > .panel {
+    padding: var(--ds-space-4);
+  }
+  & .sx-section-heading {
+    align-items: center;
+    gap: var(--ds-space-3);
+    margin-bottom: var(--ds-space-4);
+  }
+  & .sx-section-heading > svg {
+    flex: 0 0 auto;
+    color: var(--xre-text-faint);
+  }
+  & .sx-eyebrow {
+    margin-bottom: 2px;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    font-weight: 600;
+    line-height: var(--ds-leading-xs);
+    letter-spacing: 0.08em;
+  }
+  & .sx-section-heading h2 {
+    color: var(--xre-text);
+    font-size: var(--ds-text-md);
+    font-weight: 650;
+    line-height: var(--ds-leading-md);
+    letter-spacing: -0.01em;
+  }
+  /* a light timeline: icon chips joined by a hairline */
+  & .sx-event-list {
+    gap: 0;
+  }
+  & .sx-event-item {
+    position: relative;
+    gap: var(--ds-space-3);
+    padding-bottom: var(--ds-space-4);
+  }
+  & .sx-event-item:last-child {
+    padding-bottom: 0;
+  }
+  & .sx-event-item:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: 32px;
+    bottom: 4px;
+    left: 13.5px;
+    width: 1px;
+    background: var(--xre-border);
+  }
+  & .sx-event-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: var(--ds-radius-md);
+    background: var(--xre-accent-soft);
+    color: var(--ds-accent-text);
+  }
+  & .sx-event-item > div {
+    gap: 1px;
+    padding-top: 1px;
+  }
+  & .sx-event-item strong {
+    color: var(--xre-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  & .sx-event-item span:not(.sx-event-icon) {
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: 1.4;
+  }
+  & .sx-event-item time {
+    margin-top: 2px;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+  }
+  & .sx-side-empty {
+    padding: var(--ds-space-2) 0;
+  }
+  /* planning note: informational callout */
+  & .sx-feed-sidebar > .sx-feed-note {
+    gap: var(--ds-space-3);
+    border-color: var(--ds-info-border);
+    background: var(--ds-info-soft);
+    box-shadow: none;
+  }
+  & .sx-feed-note > svg {
+    margin-top: 1px;
+    color: var(--ds-info);
+  }
+  & .sx-feed-note strong {
+    color: var(--xre-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+  }
+  & .sx-feed-note p {
+    margin-top: 2px;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+  }
+
+  /* ------------------------------------------------------------------------
+     12. Info strip (/team) — informational banner; between toolbar and table
+     it becomes a row of the same surface.
+     ------------------------------------------------------------------------ */
+  & .sx-info-strip {
+    align-items: flex-start;
+    gap: 10px;
+    margin: 0 0 var(--ds-space-3);
+    padding: 10px var(--sx-pad);
+    border: 1px solid var(--ds-info-border) !important;
+    border-radius: var(--ds-radius-md);
+    background: var(--ds-info-soft) !important;
+    color: var(--xre-text-soft) !important;
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+  }
+  & .sx-info-strip > svg {
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: var(--ds-info) !important;
+  }
+  & .sx-info-strip strong {
+    color: var(--xre-text) !important;
+    font-weight: 600;
+  }
+  & .sx-toolbar + .sx-info-strip:has(+ .sx-table-panel) {
+    margin: 0;
+    border-color: var(--xre-border) !important;
+    border-top-color: var(--ds-divider) !important;
+    border-radius: 0;
+  }
+
+  /* ------------------------------------------------------------------------
+     13. Calendar pieces (sx-calendar-* / sx-day-*) — the month view of
+     Work.tsx shares this stylesheet; it only needs to stay on-theme.
+     ------------------------------------------------------------------------ */
+  & .sx-calendar-head,
+  & .sx-calendar-weekdays,
+  & .sx-day-head {
+    border-color: var(--xre-border);
+  }
+  & .sx-calendar-head h2,
+  & .sx-day-head h2 {
+    color: var(--xre-text);
+    font-size: var(--ds-text-md);
+    font-weight: 650;
+  }
+  & .sx-calendar-weekdays {
+    background: var(--ds-surface-subtle);
+  }
+  & .sx-calendar-weekdays span {
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    font-weight: 600;
+  }
+  & :is(.sx-calendar-day, .sx-calendar-empty) {
+    border-color: var(--ds-divider);
+    background: var(--xre-surface);
+    color: var(--xre-text);
+  }
+  & .sx-calendar-day:hover {
+    background: var(--ds-surface-hover);
+  }
+  & .sx-calendar-day.selected {
+    background: var(--xre-accent-soft);
+    box-shadow: inset 0 0 0 2px var(--xre-accent);
+  }
+  & .sx-calendar-day strong {
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  & .sx-calendar-day.today strong {
+    background: var(--ds-accent-solid);
+    color: var(--ds-on-accent);
+  }
+  & .sx-calendar-event {
+    border-radius: 4px;
+    background: var(--ds-info-soft);
+    color: var(--ds-info);
+    font-size: var(--ds-text-xs);
+  }
+  & .sx-calendar-event.call {
+    background: var(--ds-success-soft);
+    color: var(--ds-success);
+  }
+  & .sx-calendar-event.task {
+    background: var(--ds-warn-soft);
+    color: var(--ds-warn);
+  }
+  & .sx-calendar-legend {
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+  }
+  & .sx-calendar-legend i {
+    background: var(--ds-info);
+  }
+  & .sx-calendar-legend i.call {
+    background: var(--ds-success);
+  }
+  & .sx-calendar-legend i.task {
+    background: var(--ds-warn);
+  }
+  & .sx-day-item {
+    border-color: var(--ds-divider);
+  }
+  & .sx-day-item.meeting {
+    border-left-color: var(--ds-info);
+  }
+  & .sx-day-item.call {
+    border-left-color: var(--ds-success);
+  }
+  & .sx-day-item.task {
+    border-left-color: var(--ds-warn);
+  }
+  & .sx-day-item-body strong {
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+  }
+  & .sx-day-item-body > span,
+  & .sx-day-item-body p {
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+  }
+  & .sx-day-item.completed strong,
+  & .sx-day-item.completed .sx-day-item-body > span {
+    color: var(--xre-text-faint);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   14. Narrow layouts
+   -------------------------------------------------------------------------- */
+
+/* 14a. Tables → cards when the LIST is narrower than the table needs.
+   The header row is taken out of view (still announced); each row becomes a
+   card: record on top with its action, details underneath. Directory cards
+   tile two-up while there is room; task rows stay a single list. */
+@container sx-list (max-width: 920px) {
+  html .app-shell .sx-table-scroll {
+    overflow: hidden;
+  }
+  html .app-shell .sx-table {
+    display: block;
+    min-width: 0;
+  }
+  html .app-shell .sx-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  html .app-shell .sx-table tbody {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+    margin: 0 -1px -1px 0; /* the outer hairlines fall outside the panel */
+  }
+  html .app-shell .sx-table tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    align-items: center;
+    gap: 6px var(--ds-space-3);
+    min-width: 0;
+    padding: var(--ds-space-3) var(--ds-space-2) var(--ds-space-3) var(--ds-space-4);
+    border: solid var(--ds-divider);
+    border-width: 0 1px 1px 0;
+  }
+  html .app-shell .sx-table td {
+    display: block;
+    flex: 1 1 100%;
+    order: 2;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+  }
+  /* indent the details under the name (avatar 34px + 12px gap) */
+  html .app-shell .sx-table-panel .sx-table td:not(:first-child, :last-child) {
+    padding-left: 46px;
+    padding-right: var(--ds-space-2);
+  }
+  /* first line: record + action (32px + gap); everything else wraps below */
+  html .app-shell .sx-table td:first-child {
+    flex: 1 1 calc(100% - 48px);
+    order: 0;
+  }
+  html .app-shell .sx-table td:last-child {
+    flex: 0 0 auto;
+    order: 1;
+    width: auto;
+    align-self: flex-start;
+  }
+  html .app-shell .sx-table td:empty {
+    display: none;
+  }
+  html .app-shell :is(.sx-person, .sx-list-task) {
+    min-width: 0;
+  }
+  html .app-shell .sx-person strong,
+  html .app-shell .sx-person small {
+    white-space: normal;
+  }
+  html .app-shell .sx-contact-line,
+  html .app-shell .sx-table .b24-multi-deal-links {
+    min-width: 0;
+    max-width: 100%;
+  }
+  html .app-shell .sx-table .b24-multi-deal-links {
+    flex-flow: row wrap;
+    align-items: baseline;
+    gap: 2px var(--ds-space-2);
+  }
+
+  /* task rows: one list; status · priority · owner · due wrap on lines that
+     stay indented under the title (checkbox 20px + 12px gap) */
+  html .app-shell .sx-task-list .sx-table tbody {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html .app-shell .sx-task-list .sx-table tbody tr {
+    gap: var(--ds-space-2) var(--ds-space-3);
+    padding-left: calc(var(--ds-space-4) + 32px);
+  }
+  html .app-shell .sx-task-list .sx-table td:first-child {
+    flex-basis: calc(100% - 16px);
+    margin-left: -32px;
+  }
+  html .app-shell .sx-task-list .sx-table td:not(:first-child, :last-child) {
+    flex: 0 1 auto;
+  }
+  html .app-shell .sx-task-list .sx-table td:nth-child(5) {
+    order: 2; /* priority joins the status badge */
+  }
+  html .app-shell .sx-task-list .sx-table td:nth-child(n + 3):nth-child(-n + 4) {
+    order: 4; /* owner, due date */
+  }
+  html .app-shell .sx-task-list .sx-list-task {
+    align-items: flex-start;
+  }
+  html .app-shell .sx-task-list .sx-check-button {
+    margin-top: 1px;
+  }
+  /* overdue rail runs along the whole card */
+  html .app-shell .sx-table tbody tr.is-overdue {
+    background: color-mix(in srgb, var(--ds-danger) 5%, transparent);
+    box-shadow: inset 3px 0 0 var(--ds-danger);
+  }
+  html .app-shell .sx-table tbody tr.is-overdue > td,
+  html .app-shell .sx-table tbody tr.is-overdue > td:first-child {
+    background: transparent !important;
+    box-shadow: none;
+  }
+}
+/* phones: badges on one line, owner + due date on the next (a zero-height
+   flex item between the two groups forces the break) */
+@container sx-list (max-width: 480px) {
+  html .app-shell .sx-task-list .sx-table tbody tr {
+    row-gap: var(--ds-space-1);
+  }
+  html .app-shell .sx-task-list .sx-table tbody tr::before {
+    content: "";
+    flex: 0 0 100%;
+    order: 3;
+    height: 0;
+  }
+  html .app-shell .sx-task-list .sx-table td:is(:nth-child(2), :nth-child(5)) {
+    margin-top: var(--ds-space-1);
+  }
+}
+
+/* 14b. Toolbar by its own width.
+   Tasks (search + two selects + toggle + count) needs ~815px to keep the
+   placeholder readable on one line; below that the search takes the first
+   line and the filters share the second with the count at its end — instead
+   of a squeezed search and a count wrapping alone. */
+@container sx-toolbar (max-width: 830px) {
+  html .app-shell .sx-toolbar:has(.sx-check-filter, .sx-filter-label ~ .sx-filter-label) .sx-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+}
+/* any toolbar once it is phone-sized, whatever the viewport says */
+@container sx-toolbar (max-width: 560px) {
+  html .app-shell .sx-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  html .app-shell .sx-toolbar .sx-filter-label {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  html .app-shell .sx-filter-label select {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/* 14c. Feed: the sidebar drops under the stream before the stream gets cramped */
+@media (max-width: 1240px) {
+  html .app-shell .sx-feed-layout {
+    grid-template-columns: minmax(0, 1fr);
+    max-width: 820px;
+  }
+  html .app-shell .sx-feed-sidebar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    align-items: start;
+  }
+}
+
+@media (max-width: 760px) {
+  /* toolbar: search on its own line, filters share the next one */
+  html .app-shell .sx-search {
+    flex: 1 1 100%;
+    order: -1;
+    max-width: none;
+  }
+  html .app-shell .sx-toolbar .sx-filter-label {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  html .app-shell .sx-filter-label select {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  /* board: one column per swipe */
+  html .app-shell .sx-kanban-board {
+    scroll-snap-type: x mandatory;
+  }
+  html .app-shell .sx-kanban-column {
+    flex: 0 0 min(86%, 340px);
+    scroll-snap-align: start;
+  }
+
+  /* dialogs: one column, full-width actions */
+  html .app-shell .sx-modal-form {
+    padding: var(--ds-space-4) var(--ds-space-4) 0;
+  }
+  html .app-shell .sx-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-3);
+  }
+  html .app-shell .sx-span-2 {
+    grid-column: auto;
+  }
+  html .app-shell .sx-modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+    margin-inline: calc(-1 * var(--ds-space-4));
+    padding-inline: var(--ds-space-4);
+  }
+  html .app-shell .sx-modal-footer .sx-muted {
+    flex: 0 0 auto;
+  }
+  html .app-shell .sx-actions {
+    width: 100%;
+    margin-left: 0;
+  }
+  html .app-shell .sx-actions .btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+
+  /* feed */
+  html .app-shell .sx-composer,
+  html .app-shell .sx-feed-card {
+    padding-inline: var(--ds-space-4);
+  }
+  html .app-shell .sx-composer-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  html .app-shell .sx-feed-lead {
+    width: 100%;
+    max-width: none;
+  }
+  html .app-shell .sx-composer-footer .btn {
+    justify-content: center;
+  }
+}
+
+/* 14d. Touch.
+   Row actions get the larger target, and so do the text links inside rows
+   (task title, linked deal / lead, e-mail): each becomes a real 36px-tall
+   target (--ds-control-h-sm on touch) instead of an 18px line of text. The
+   extra height is padding on the side that faces empty space, so two links
+   stacked on each other (title over linked lead) stay visually paired and
+   their targets touch without overlapping; negative margins only ever reach
+   into gaps and paddings, never over another control. */
+@media (pointer: coarse) {
+  html .app-shell .sx-task-card-head .sx-icon-button {
+    width: var(--ds-control-h-sm);
+    height: var(--ds-control-h-sm);
+  }
+  html .app-shell .sx-task-footer select {
+    min-height: var(--ds-control-h-sm);
+  }
+
+  html .app-shell :is(.sx-link-button, .sx-linked-lead, .sx-task-title) {
+    min-width: var(--ds-control-h-sm);
+    min-height: var(--ds-control-h-sm);
+  }
+  html .app-shell :is(.sx-link-button, .sx-linked-lead) {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  /* task list: title on top, linked lead under it */
+  html .app-shell .sx-list-task > span {
+    gap: 0;
+  }
+  html .app-shell .sx-list-task .sx-task-title {
+    padding-block: 14px 4px;
+  }
+  html .app-shell .sx-list-task .sx-task-title:only-child {
+    padding-block: 9px;
+  }
+  html .app-shell .sx-list-task .sx-linked-lead {
+    align-items: flex-start;
+    padding-block: 4px 0;
+  }
+  html .app-shell .sx-task-list .sx-table td:first-child {
+    padding-block: 0;
+  }
+
+  /* task card (board): the title reaches into the gap under the card head,
+     the linked lead into the gaps around it */
+  html .app-shell .sx-task-card .sx-task-title {
+    margin-block: -6px -4px;
+    padding-block: 9px;
+  }
+  html .app-shell .sx-task-card > .sx-linked-lead {
+    margin-block: 0 -8px;
+  }
+
+  /* linked deals of a contact / company; e-mail of a member */
+  html .app-shell .sx-table .b24-multi-deal-links {
+    gap: 0;
+    margin-block: -6px;
+  }
+  html .app-shell .sx-table .b24-multi-deal-links > button {
+    align-items: center;
+  }
+  html .app-shell .sx-table .sx-email-link {
+    margin-block: -6px;
+  }
+
+  /* as cards: the first line (title + edit action) starts at the card edge,
+     because the title now carries the top padding itself */
+  @container sx-list (max-width: 920px) {
+    html .app-shell .sx-task-list .sx-table tbody tr {
+      padding-top: 0;
+    }
+    html .app-shell .sx-task-list .sx-list-task .sx-task-title:only-child {
+      padding-block: 14px 4px;
+    }
+    html .app-shell .sx-task-list .sx-list-task .sx-linked-lead {
+      margin-bottom: -6px; /* into the row gap above the badges */
+    }
+    html .app-shell .sx-task-list .sx-check-button {
+      margin-top: 13px; /* centred on the title's first line */
+    }
+    html .app-shell .sx-task-list .sx-table td:last-child {
+      margin-top: 5px;
+    }
+    html .app-shell .sx-table .b24-multi-deal-links {
+      align-items: center;
+      margin-block: -6px -8px;
+    }
+  }
+}
+
+/* --------------------------------------------------------------------------
+   15. Reduced motion
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  html .app-shell :is(
+      .sx-search,
+      .sx-check-filter,
+      .sx-icon-button,
+      .sx-check-button,
+      .sx-task-title,
+      .sx-kanban-column,
+      .sx-task-card,
+      .sx-task-footer select,
+      .sx-add-row,
+      .sx-feed-lead-link,
+      .sx-feed-actions button,
+      .b24-multi-deal-links > button > span
+    ) {
+    transition: none;
+  }
+}

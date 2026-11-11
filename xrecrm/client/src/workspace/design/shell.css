@@ -1,0 +1,1999 @@
+/* ==========================================================================
+   XRE CRM application frame  (design/shell.css — loaded after tokens + base)
+   --------------------------------------------------------------------------
+   Sidebar, mobile drawer, topbar and its popovers, page container, footer,
+   assistant launcher, toasts, the appearance drawer and the account / help
+   dialogs. Values come from design/tokens.css; the only new variables are the
+   frame dimensions below (--shell-*), which page files may read as well.
+
+   Breakpoints
+     > 900px   fixed sidebar + topbar
+     ≤ 900px   sidebar becomes an off-canvas drawer (menu button in the topbar)
+     ≤ 640px   topbar collapses: search → icon, mode switch → status dot
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   0. Frame dimensions
+   -------------------------------------------------------------------------- */
+:root {
+  --shell-sidebar-w: 248px;
+  --shell-topbar-h: 56px;
+  --shell-gutter: 32px; /* horizontal page padding, shared by topbar + content */
+  --shell-nav-h: 32px; /* one navigation row */
+  --shell-side-pad: 12px;
+  --shell-content-max: 1760px;
+
+  /* The sidebar is dark in every theme, so it gets its own readable accent
+     and neutral overlays derived from the sidebar text colour. */
+  --shell-side-accent: color-mix(in srgb, var(--xre-accent) 58%, #fff);
+  --shell-side-line: color-mix(in srgb, var(--xre-sidebar-text) 10%, transparent);
+  --shell-side-hover: color-mix(in srgb, var(--xre-sidebar-text) 8%, transparent);
+  --shell-side-pressed: color-mix(in srgb, var(--xre-sidebar-text) 13%, transparent);
+  --shell-side-active: color-mix(in srgb, var(--shell-side-accent) 17%, transparent);
+  --shell-side-item: color-mix(in srgb, var(--xre-sidebar-text) 80%, var(--xre-sidebar));
+}
+html[data-xre-theme="night"] {
+  --shell-side-accent: var(--xre-accent);
+}
+html[data-xre-density="comfortable"] {
+  --shell-topbar-h: 60px;
+  --shell-nav-h: 36px;
+}
+@media (max-width: 1440px) {
+  :root {
+    --shell-sidebar-w: 236px;
+    --shell-gutter: 24px;
+  }
+}
+@media (max-width: 1100px) {
+  :root {
+    --shell-sidebar-w: 220px;
+    --shell-gutter: 20px;
+  }
+}
+@media (max-width: 900px) {
+  :root {
+    --shell-sidebar-w: min(300px, 86vw);
+    --shell-gutter: 16px;
+    --shell-topbar-h: 56px;
+  }
+}
+@media (pointer: coarse) {
+  :root {
+    --shell-nav-h: 40px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   1. Frame layout
+   -------------------------------------------------------------------------- */
+html .app-shell {
+  min-height: 100dvh;
+  background: var(--xre-bg);
+}
+html .app-shell .workspace-main {
+  width: calc(100% - var(--shell-sidebar-w));
+  min-width: 0;
+  margin-left: var(--shell-sidebar-w);
+}
+
+/* --------------------------------------------------------------------------
+   2. Sidebar
+   -------------------------------------------------------------------------- */
+html .app-shell .sidebar {
+  width: var(--shell-sidebar-w);
+  padding: 0;
+  border-right: 1px solid var(--xre-sidebar-soft);
+  background: var(--xre-sidebar);
+  color: var(--xre-sidebar-text);
+  font-size: var(--ds-text-base);
+  line-height: 1.3;
+}
+
+/* 2a. Brand row — same height as the topbar so the two hairlines line up.
+   The PNG carries a lot of transparent padding; object-fit trims it. */
+html .app-shell .sidebar .brand {
+  flex: 0 0 auto;
+  height: var(--shell-topbar-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--shell-side-pad) 0 calc(var(--shell-side-pad) + 10px);
+  gap: var(--ds-space-2);
+}
+html .app-shell .sidebar .brand .cx-brand-logo {
+  width: 124px;
+  height: 44px;
+  max-height: none;
+  margin-left: -18px;
+  border-radius: 0;
+  object-fit: cover;
+  object-position: 50% 47%;
+}
+html .app-shell .sidebar .brand:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--shell-side-accent);
+}
+
+/* 2b. Workspace switch */
+html .app-shell .sidebar .workspace-switch {
+  flex: 0 0 auto;
+  min-height: 44px;
+  margin: var(--ds-space-1) var(--shell-side-pad) var(--ds-space-2);
+  padding: 6px var(--ds-space-2);
+  gap: 10px;
+  border: 1px solid var(--shell-side-line);
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--xre-sidebar-text) 4%, transparent);
+  color: var(--xre-sidebar-text);
+  box-shadow: none;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .sidebar .workspace-switch:hover {
+  border-color: color-mix(in srgb, var(--xre-sidebar-text) 18%, transparent);
+  background: var(--shell-side-hover);
+}
+html .app-shell .sidebar .workspace-switch:active {
+  background: var(--shell-side-pressed);
+}
+html .app-shell .sidebar .workspace-avatar {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--shell-side-accent) 22%, transparent);
+  color: var(--shell-side-accent);
+  font-size: var(--ds-text-sm);
+  font-weight: 700;
+}
+html .app-shell .sidebar :is(.workspace-switch, .user-profile) > span:nth-child(2) {
+  min-width: 0;
+}
+html .app-shell .sidebar :is(.workspace-switch, .user-profile) strong {
+  overflow: hidden;
+  color: var(--xre-sidebar-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .sidebar :is(.workspace-switch, .user-profile) small {
+  overflow: hidden;
+  margin-top: 1px;
+  color: var(--xre-sidebar-muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .sidebar :is(.workspace-switch, .user-profile) > svg {
+  flex: 0 0 auto;
+  color: var(--xre-sidebar-muted);
+}
+
+/* 2c. Navigation — the only part that scrolls. The list fades out at whichever
+   edge still hides items (a mask, so the rows themselves dissolve instead of
+   being cut by the bottom block); the fade follows the scroll position where
+   scroll-driven animations exist and is a fixed bottom fade elsewhere. */
+@property --shell-nav-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --shell-nav-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+html .app-shell .sidebar nav {
+  --shell-nav-fade-bottom: 24px; /* fallback: fixed fade, cleared by the bottom padding */
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--ds-space-1) var(--shell-side-pad) var(--ds-space-6);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: var(--ds-space-8) 96px; /* keeps a focused or current row clear of the fades */
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--xre-sidebar-text) 30%, transparent) transparent;
+  background: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--shell-nav-fade-top),
+    #000 calc(100% - var(--shell-nav-fade-bottom)),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent,
+    #000 var(--shell-nav-fade-top),
+    #000 calc(100% - var(--shell-nav-fade-bottom)),
+    transparent
+  );
+}
+@supports (animation-timeline: scroll()) {
+  /* no overflow → inactive timeline → both fades stay at 0 */
+  html .app-shell .sidebar nav {
+    --shell-nav-fade-bottom: 0px;
+    animation: shell-nav-fade linear both;
+    animation-timeline: scroll(self block);
+  }
+}
+@keyframes shell-nav-fade {
+  0% {
+    --shell-nav-fade-top: 0px;
+    --shell-nav-fade-bottom: 56px;
+  }
+  6% {
+    --shell-nav-fade-top: 32px;
+  }
+  94% {
+    --shell-nav-fade-bottom: 56px;
+  }
+  100% {
+    --shell-nav-fade-top: 32px;
+    --shell-nav-fade-bottom: 0px;
+  }
+}
+html .app-shell .sidebar .nav-group {
+  margin: 0;
+}
+html .app-shell .sidebar .nav-group + .nav-group {
+  margin-top: var(--ds-space-4);
+}
+html .app-shell .sidebar .nav-label {
+  margin: 0;
+  padding: 6px 10px;
+  color: var(--xre-sidebar-muted);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: var(--ds-tracking-caps);
+  opacity: 0.86;
+}
+
+html .app-shell .sidebar .nav-item {
+  position: relative;
+  min-height: var(--shell-nav-h);
+  margin: 0 0 1px;
+  padding: 0 10px;
+  gap: 10px;
+  border-radius: var(--ds-radius-md);
+  color: var(--shell-side-item);
+  font-size: var(--ds-text-base);
+  font-weight: 500;
+  line-height: 1.25;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .sidebar .nav-item > svg {
+  width: 18px;
+  height: 18px;
+  color: var(--xre-sidebar-muted);
+  stroke-width: 1.75;
+  transition: color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .sidebar .nav-item > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* trailing "opens elsewhere" arrow */
+html .app-shell .sidebar .nav-item > svg:last-child:not(:first-child) {
+  width: 14px;
+  height: 14px;
+  opacity: 0.7;
+}
+html .app-shell .sidebar .nav-item:hover {
+  background: var(--shell-side-hover);
+  color: var(--xre-sidebar-text);
+}
+html .app-shell .sidebar .nav-item:hover > svg {
+  color: var(--xre-sidebar-text);
+}
+html .app-shell .sidebar .nav-item:active {
+  background: var(--shell-side-pressed);
+}
+html .app-shell .sidebar .nav-item.active {
+  background: var(--shell-side-active);
+  color: var(--xre-sidebar-text);
+  font-weight: 600;
+}
+html .app-shell .sidebar .nav-item.active > svg:first-child {
+  color: var(--shell-side-accent);
+}
+/* active marker sits on the sidebar edge, inside the scroller's padding */
+html .app-shell .sidebar .nav-item.active::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(var(--shell-side-pad) * -1);
+  width: 3px;
+  height: 18px;
+  border-radius: 0 3px 3px 0;
+  background: var(--shell-side-accent);
+  translate: 0 -50%;
+}
+/* The list is taller than most screens: open it scrolled just far enough to
+   show the current page (Chromium 133+; elsewhere it simply starts at the
+   top). The target is aligned by its snap position — nothing snaps, the list
+   has no scroll-snap-type — and "end" means: rows already in view do not move
+   the list, rows below it come to rest above the bottom scroll padding. */
+html .app-shell .sidebar nav .nav-item.active {
+  scroll-initial-target: nearest;
+  scroll-snap-align: end;
+}
+/* "CRM" stays marked on its sub-pages (Etkinlikler, Takvim) that also have a
+   row of their own. Only the page itself keeps the filled pill and the edge
+   marker; the parent drops back to a quiet "you are inside this" state. */
+html .app-shell .sidebar nav .nav-item.active:has(~ .nav-item.active) {
+  background: transparent;
+  color: var(--xre-sidebar-text);
+  font-weight: 500;
+  scroll-initial-target: none;
+}
+html .app-shell .sidebar nav .nav-item.active:has(~ .nav-item.active):hover {
+  background: var(--shell-side-hover);
+}
+html .app-shell .sidebar nav .nav-item.active:has(~ .nav-item.active)::before {
+  content: none;
+}
+html .app-shell .sidebar :is(.nav-item, .workspace-switch, .user-profile, .sidebar-close):focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--shell-side-accent);
+}
+
+html .app-shell .sidebar .nav-count {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: var(--ds-radius-pill);
+  background: color-mix(in srgb, var(--xre-sidebar-text) 12%, transparent);
+  color: var(--xre-sidebar-text);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+html .app-shell .sidebar .nav-item.active .nav-count {
+  background: color-mix(in srgb, var(--shell-side-accent) 28%, transparent);
+  color: var(--xre-sidebar-text);
+}
+
+/* 2d. Bottom block: status, settings, help, account */
+html .app-shell .sidebar .sidebar-bottom {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: var(--ds-space-2) var(--shell-side-pad);
+  border-top: 1px solid var(--shell-side-line);
+}
+html .app-shell .sidebar .sidebar-status {
+  margin: 0 0 6px;
+  padding: 7px 10px;
+  gap: 10px;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: color-mix(in srgb, var(--xre-sidebar-text) 5%, transparent);
+  color: var(--xre-sidebar-text);
+}
+html .app-shell .sidebar .sidebar-status > div {
+  min-width: 0;
+}
+html .app-shell .sidebar .sidebar-status strong {
+  color: var(--xre-sidebar-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: 1.3;
+}
+html .app-shell .sidebar .sidebar-status small {
+  margin-top: 1px;
+  color: var(--xre-sidebar-muted);
+  font-size: var(--ds-text-xs);
+  line-height: 1.3;
+}
+html .app-shell .sidebar .sidebar-status > svg {
+  flex: 0 0 auto;
+  color: var(--xre-sidebar-muted);
+}
+html .app-shell .sidebar .sidebar-status .green-dot {
+  width: 8px;
+  height: 8px;
+  margin: 0 3px;
+  background: color-mix(in srgb, var(--ds-success) 55%, #fff);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ds-success) 30%, transparent);
+}
+html .app-shell .sidebar .user-profile {
+  position: relative;
+  min-height: 48px;
+  margin: 13px 0 0;
+  padding: 6px var(--ds-space-2);
+  gap: 10px;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  color: var(--xre-sidebar-text);
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+/* hairline above the account row, full sidebar width */
+html .app-shell .sidebar .user-profile::before {
+  content: "";
+  position: absolute;
+  top: -7px;
+  right: calc(var(--shell-side-pad) * -1);
+  left: calc(var(--shell-side-pad) * -1);
+  height: 1px;
+  background: var(--shell-side-line);
+}
+html .app-shell .sidebar .user-profile:hover {
+  background: var(--shell-side-hover);
+}
+html .app-shell .sidebar .user-profile:active {
+  background: var(--shell-side-pressed);
+}
+html .app-shell .sidebar .user-profile .avatar {
+  width: 32px !important; /* size comes from an inline style */
+  height: 32px !important;
+}
+
+/* 2e. Close button (drawer only; base.css hides it from 761px, the drawer
+   block below brings it back up to 900px) */
+html .app-shell .sidebar .sidebar-close {
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  background: transparent;
+  color: var(--xre-sidebar-muted);
+}
+html .app-shell .sidebar .sidebar-close:hover {
+  background: var(--shell-side-hover);
+  color: var(--xre-sidebar-text);
+}
+
+/* 2f. Very short viewports: let the whole sidebar scroll so the bottom block
+   can never squeeze the navigation to nothing. */
+@media (max-height: 600px) {
+  html .app-shell .sidebar {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--xre-sidebar-text) 22%, transparent) transparent;
+  }
+  html .app-shell .sidebar nav {
+    flex: 0 0 auto;
+    overflow: visible;
+    padding-bottom: var(--ds-space-3);
+    -webkit-mask-image: none;
+    mask-image: none;
+    animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   3. Off-canvas drawer (≤ 900px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  html .app-shell .workspace-main {
+    width: 100%;
+    margin-left: 0;
+  }
+  html .app-shell .sidebar {
+    z-index: 40;
+    border-right: 0;
+    transform: translateX(-102%);
+    visibility: hidden; /* keeps the hidden menu out of the tab order */
+    transition:
+      transform var(--ds-duration-base) var(--ds-ease),
+      visibility 0s linear var(--ds-duration-base);
+  }
+  html .app-shell .sidebar.open {
+    transform: none;
+    visibility: visible;
+    box-shadow: 18px 0 48px rgb(0 0 0 / 0.36);
+    transition:
+      transform var(--ds-duration-base) var(--ds-ease),
+      visibility 0s;
+  }
+  html .app-shell .sidebar .sidebar-close,
+  html .app-shell .topbar .mobile-menu {
+    display: inline-flex;
+  }
+  html .app-shell .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 35;
+    background: var(--ds-backdrop);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+  }
+  /* page behind an open drawer does not scroll */
+  html:has(.app-shell .sidebar.open) {
+    overflow: hidden;
+  }
+}
+@media (max-width: 900px) and (prefers-reduced-motion: no-preference) {
+  html .app-shell .sidebar-overlay {
+    animation: shell-fade-in var(--ds-duration-base) var(--ds-ease) both;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   4. Topbar
+   (No transform / filter / backdrop-filter here: the incoming-call toast is a
+   position:fixed child of .topbar-actions and must stay viewport-anchored.)
+   -------------------------------------------------------------------------- */
+html .app-shell .topbar {
+  height: var(--shell-topbar-h);
+  padding: 0 var(--shell-gutter);
+  gap: var(--ds-space-3);
+  border-bottom: 1px solid var(--xre-border);
+  background: var(--xre-surface);
+  color: var(--xre-text);
+}
+html[data-xre-theme="purple-glass"] .app-shell .topbar {
+  background: var(--ds-surface-overlay); /* glass surface is translucent */
+}
+
+html .app-shell .topbar .mobile-menu {
+  width: 36px;
+  height: 36px;
+  margin-left: -6px;
+  color: var(--xre-text);
+}
+
+/* 4a. Breadcrumb */
+html .app-shell .topbar .breadcrumb {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-right: auto;
+  gap: var(--ds-space-2);
+  font-size: var(--ds-text-base);
+  line-height: 1.3;
+  white-space: nowrap;
+}
+html .app-shell .topbar .breadcrumb > span {
+  flex: 0 0 auto;
+  color: var(--xre-text-faint);
+}
+html .app-shell .topbar .breadcrumb > span:nth-child(2) {
+  color: var(--xre-text-faint);
+  opacity: 0.6;
+}
+html .app-shell .topbar .breadcrumb > strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--xre-text);
+  font-weight: 600;
+  text-overflow: ellipsis;
+}
+
+/* 4b. Action cluster */
+/* The cluster gives way first (only the search field can shrink, down to its
+   min-width); the page title is truncated only after that. */
+html .app-shell .topbar .topbar-actions {
+  flex: 1 100 auto;
+  justify-content: flex-end;
+  min-width: auto;
+  gap: var(--ds-space-2);
+}
+html .app-shell .topbar .icon-button {
+  width: 36px;
+  height: 36px;
+}
+html .app-shell .topbar .icon-button > svg {
+  stroke-width: 1.75;
+}
+
+/* unread markers on the reminder + notification buttons */
+html .app-shell .topbar :is(.bell, .cx-notification-wrap > .icon-button) > i {
+  top: 6px;
+  right: 6px;
+  box-sizing: content-box;
+  width: 7px;
+  height: 7px;
+  border: 2px solid var(--xre-surface);
+  border-radius: 50%;
+  background: var(--xre-accent);
+}
+html .app-shell .topbar .cx-notification-wrap > .icon-button > i {
+  background: var(--ds-warn);
+}
+
+/* 4c. Assistant button */
+html .app-shell .topbar .ai-topbar-button {
+  flex: 0 0 auto;
+  height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-3) 0 10px;
+  gap: 6px;
+  border: 1px solid var(--ds-accent-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .topbar .ai-topbar-button:hover {
+  border-color: var(--xre-accent) !important; /* night-polish pins the border */
+  background-image: linear-gradient(var(--ds-hover), var(--ds-hover));
+}
+html .app-shell .topbar .ai-topbar-button:active {
+  background-image: linear-gradient(var(--ds-pressed), var(--ds-pressed));
+}
+@media (max-width: 1100px) {
+  /* label is hidden by the legacy sheet from 950px; keep the icon square */
+  html .app-shell .topbar .ai-topbar-button {
+    padding-inline: 10px;
+  }
+}
+
+/* 4d. Global search */
+html .app-shell .topbar .global-search {
+  /* starts at its minimum and grows into whatever the bar has left, so the
+     page title keeps its full width before the field gets comfortable */
+  flex: 1 1 132px;
+  width: auto;
+  min-width: 132px;
+  max-width: clamp(200px, 22vw, 320px);
+  height: 36px;
+  padding: 0 var(--ds-space-2) 0 10px;
+  gap: var(--ds-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface-muted);
+  color: var(--xre-text-faint);
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease),
+    background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .topbar .global-search:hover {
+  border-color: var(--ds-border-strong);
+}
+html .app-shell .topbar .global-search:focus-within {
+  border-color: var(--xre-accent);
+  background: var(--xre-surface-raised);
+  box-shadow: var(--ds-focus-ring-field);
+}
+html .app-shell .topbar .global-search > svg {
+  flex: 0 0 auto;
+  color: var(--xre-text-faint);
+}
+html .app-shell .topbar .global-search > input {
+  /* zero basis: an <input>'s intrinsic width would otherwise set the minimum
+     width of the whole action cluster */
+  flex: 1 1 0;
+  width: 0;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+}
+html .app-shell .topbar .global-search > kbd {
+  flex: 0 0 auto;
+  padding: 3px 6px;
+  border: 1px solid var(--xre-border);
+  border-radius: 5px;
+  background: var(--xre-surface);
+  color: var(--xre-text-faint);
+  font-family: inherit;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: 1;
+}
+/* shortcut hint steps aside when the field is at its narrowest */
+@media (min-width: 641px) {
+  html .app-shell .topbar .global-search {
+    container: shell-search / inline-size;
+  }
+}
+@container shell-search (max-width: 176px) {
+  html .app-shell .topbar .global-search > kbd {
+    display: none;
+  }
+}
+
+/* 4e. Separator, trial chip, mode switch, account avatar */
+html .app-shell .topbar .topbar-separator {
+  flex: 0 0 auto;
+  width: 1px;
+  height: 20px;
+  margin: 0 var(--ds-space-1);
+  background: var(--xre-border);
+}
+html .app-shell .topbar .trial-chip {
+  flex: 0 0 auto;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--ds-warn-border);
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-warn-soft);
+  color: var(--ds-warn);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .topbar .trial-chip.urgent {
+  border-color: var(--ds-danger-border);
+  background: var(--ds-danger-soft);
+  color: var(--ds-danger);
+}
+html .app-shell .topbar .demo-switch {
+  flex: 0 0 auto;
+  height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-2) 0 10px;
+  gap: var(--ds-space-2);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-pill);
+  background: transparent;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  white-space: nowrap;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .topbar .demo-switch:hover {
+  border-color: var(--ds-border-strong);
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+html .app-shell .topbar .demo-switch:active {
+  background: var(--ds-pressed);
+}
+html .app-shell .topbar .demo-switch > svg {
+  color: var(--xre-text-faint);
+}
+html .app-shell :is(.topbar, .workspace-footer) .amber-dot {
+  background: var(--ds-warn);
+}
+html .app-shell :is(.topbar, .workspace-footer) .green-dot {
+  background: var(--ds-success);
+}
+html .app-shell .topbar .demo-switch :is(.amber-dot, .green-dot) {
+  width: 8px;
+  height: 8px;
+}
+html .app-shell .topbar .demo-switch .amber-dot {
+  box-shadow: 0 0 0 3px var(--ds-warn-soft);
+}
+html .app-shell .topbar .demo-switch .green-dot {
+  box-shadow: 0 0 0 3px var(--ds-success-soft);
+}
+html .app-shell .topbar .top-avatar {
+  flex: 0 0 auto;
+  margin-left: var(--ds-space-1);
+  padding: 0;
+  border-radius: 50%;
+  transition: box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .topbar .top-avatar:hover {
+  box-shadow:
+    0 0 0 2px var(--xre-surface),
+    0 0 0 4px var(--ds-border-strong);
+}
+html .app-shell .topbar .top-avatar .avatar {
+  width: 32px !important; /* inline size is 31px */
+  height: 32px !important;
+}
+
+/* 4f. Narrow bars: the page title alone, no breadcrumb root */
+@media (max-width: 1280px) {
+  html .app-shell .topbar .breadcrumb > span {
+    display: none;
+  }
+  html .app-shell .topbar .breadcrumb > strong {
+    font-size: var(--ds-text-md);
+  }
+}
+
+/* 4g. Phone: search collapses to an icon and opens over the bar; the mode
+   switch keeps its status dot and chevron (the label stays for screen readers). */
+@media (max-width: 640px) {
+  html .app-shell .topbar {
+    padding-inline: var(--ds-space-3);
+    gap: var(--ds-space-2);
+  }
+  /* 12px bar padding - 4px puts the menu glyph on the 16px page gutter */
+  html .app-shell .topbar .mobile-menu {
+    margin-left: -4px;
+  }
+  html .app-shell .topbar .topbar-actions {
+    flex: 0 0 auto;
+    gap: 0;
+  }
+  /* Six actions leave the title about 100px: let it use two short lines
+     instead of ending in "…" on every second page. */
+  html .app-shell .topbar .breadcrumb {
+    white-space: normal;
+  }
+  html .app-shell .topbar .breadcrumb > strong {
+    display: -webkit-box;
+    font-size: var(--ds-text-base);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    text-wrap: balance;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+  html .app-shell .topbar :is(.topbar-separator, .top-avatar) {
+    display: none;
+  }
+  html .app-shell .topbar .ai-topbar-button {
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  html .app-shell .topbar .demo-switch {
+    width: 32px;
+    height: 36px;
+    padding: 0;
+    gap: 2px;
+    justify-content: center;
+    border-color: transparent;
+    font-size: 0;
+  }
+  html .app-shell .topbar .trial-chip {
+    max-width: 96px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  html .app-shell .topbar .global-search {
+    flex: 0 0 auto;
+    width: 36px;
+    min-width: 36px;
+    max-width: none;
+    padding: 0;
+    justify-content: center;
+    border-color: transparent;
+    background: transparent;
+    color: var(--xre-text-soft);
+  }
+  html .app-shell .topbar .global-search > svg {
+    width: 18px;
+    height: 18px;
+    color: inherit;
+    pointer-events: none;
+  }
+  html .app-shell .topbar .global-search > input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
+    cursor: pointer;
+  }
+  html .app-shell .topbar .global-search > kbd {
+    display: none;
+  }
+  html .app-shell .topbar .global-search:hover {
+    background: var(--ds-hover);
+  }
+  html .app-shell .topbar .global-search:is(:focus-within, :has(.search-results)) {
+    position: absolute;
+    top: calc((var(--shell-topbar-h) - 40px) / 2);
+    right: var(--ds-space-3);
+    left: var(--ds-space-3);
+    z-index: 5;
+    width: auto;
+    height: 40px;
+    padding: 0 var(--ds-space-3);
+    justify-content: flex-start;
+    border-color: var(--xre-accent);
+    background: var(--ds-surface-overlay);
+    box-shadow: var(--ds-focus-ring-field);
+  }
+  html .app-shell .topbar .global-search:is(:focus-within, :has(.search-results)) > input {
+    position: static;
+    opacity: 1;
+    cursor: text;
+    font-size: 16px; /* stops iOS from zooming the page on focus */
+  }
+}
+
+/* 4h. 360–380px phones: a little tighter, so one-word titles
+   ("Entegrasyonlar") still fit on a line instead of breaking mid-word. */
+@media (max-width: 380px) {
+  html .app-shell .topbar {
+    padding-inline: 10px;
+    gap: var(--ds-space-1);
+  }
+  html .app-shell .topbar .mobile-menu {
+    margin-left: -2px;
+  }
+  html .app-shell .topbar :is(.icon-button:not(.mobile-menu), .ai-topbar-button, .global-search:not(:focus-within, :has(.search-results))) {
+    width: 34px;
+    min-width: 34px;
+  }
+  html .app-shell .topbar .breadcrumb > strong {
+    font-size: var(--ds-text-sm);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. Topbar popovers: search results, activity, appointment reminders
+   -------------------------------------------------------------------------- */
+html .app-shell :is(.search-results, .notification-panel, .cx-notification-panel) {
+  top: calc(100% + var(--ds-space-2));
+  right: 0;
+  z-index: 60;
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  max-height: min(560px, calc(100dvh - var(--shell-topbar-h) - 24px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-surface-overlay);
+  color: var(--xre-text);
+  box-shadow: var(--ds-shadow-overlay);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-sm);
+  text-align: left;
+}
+@media (prefers-reduced-motion: no-preference) {
+  html .app-shell :is(.search-results, .notification-panel, .cx-notification-panel) {
+    transform-origin: top right;
+    animation: shell-pop-in 140ms var(--ds-ease) both;
+  }
+}
+@media (max-width: 640px) {
+  html .app-shell :is(.search-results, .notification-panel, .cx-notification-panel) {
+    position: fixed;
+    top: calc(var(--shell-topbar-h) + var(--ds-space-2));
+    right: var(--ds-space-3);
+    left: var(--ds-space-3);
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+/* 5a. Shared rows */
+html .app-shell :is(.search-results, .notification-panel) > button {
+  min-height: 44px;
+  padding: 10px var(--ds-space-4);
+  gap: var(--ds-space-3);
+  border-top: 1px solid var(--ds-divider);
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-sm);
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell :is(.search-results, .notification-panel) > button:hover {
+  background: var(--ds-hover);
+}
+html .app-shell :is(.search-results, .notification-panel) > button:active {
+  background: var(--ds-pressed);
+}
+html .app-shell :is(.search-results, .notification-panel, .cx-notification-panel) button:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--xre-accent);
+}
+html .app-shell :is(.search-results, .notification-panel) > button > span {
+  min-width: 0;
+}
+html .app-shell :is(.search-results, .notification-panel, .cx-notification-panel) strong {
+  display: block;
+  overflow: hidden;
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+  text-overflow: ellipsis;
+}
+html .app-shell :is(.search-results, .notification-panel, .cx-notification-panel) small {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* 5b. Search results */
+/* Hangs off the field it belongs to: same left edge, same width (the field
+   has a 1px border), never narrower than 320px when the field is squeezed. */
+@media (min-width: 641px) {
+  html .app-shell .search-results {
+    right: auto;
+    left: -1px;
+    width: max(calc(100% + 2px), 320px);
+    min-width: 0;
+    transform-origin: top left;
+  }
+}
+/* One header bar for all three popovers: 48px, hairline below, title on the
+   left, count or close button on the right. */
+html .app-shell .search-results .search-results-title,
+html .app-shell .notification-panel > h3,
+html .app-shell .cx-notification-panel > header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  min-height: 48px;
+  margin: 0;
+  padding: 0 var(--ds-space-2) 0 var(--ds-space-4);
+  border-bottom: 1px solid var(--xre-border);
+  background: var(--ds-surface-overlay);
+  color: var(--xre-text);
+  font-family: var(--heading);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  letter-spacing: -0.01em;
+}
+/* The search label is typed in capitals in the markup; the page language is
+   Turkish, so lowercase + first-letter gives "Müşteri sonuçları" correctly.
+   (::first-letter needs a block container, hence the positioned button.) */
+html .app-shell .search-results .search-results-title {
+  display: block;
+  padding: 13px 48px 13px var(--ds-space-4);
+  text-transform: lowercase;
+}
+html .app-shell .search-results .search-results-title::first-letter {
+  text-transform: uppercase;
+}
+html .app-shell .search-results .search-results-title .icon-button {
+  position: absolute;
+  top: 50%;
+  right: var(--ds-space-2);
+  width: var(--ds-control-h-sm);
+  height: var(--ds-control-h-sm);
+  translate: 0 -50%;
+}
+html .app-shell .search-results .search-results-title .icon-button > svg {
+  width: 16px;
+  height: 16px;
+}
+html .app-shell .search-results .search-results-title + button {
+  border-top: 0;
+}
+html .app-shell .search-results > button > svg {
+  flex: 0 0 auto;
+  color: var(--xre-text-faint);
+}
+/* the legacy `> span { flex: 1 }` also hits the avatar and stretches it */
+html .app-shell .search-results > button > .avatar {
+  flex: 0 0 auto;
+}
+html .app-shell .search-results .search-empty {
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-top: 1px solid var(--ds-divider);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-base);
+}
+
+/* 5c. Activity ("Son hareketler") */
+html .app-shell .notification-panel > h3 {
+  padding-right: var(--ds-space-4); /* a count badge, not a button, on the right */
+}
+html .app-shell .notification-panel > h3 + button {
+  border-top: 0;
+}
+html .app-shell .notification-panel > button {
+  align-items: flex-start;
+}
+html .app-shell .notification-panel .activity-icon {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+}
+html .app-shell .notification-panel > .notification-footer {
+  position: sticky;
+  bottom: 0;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  background: var(--ds-surface-subtle);
+  border-top-color: var(--xre-border);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+}
+html .app-shell .notification-panel > .notification-footer:hover {
+  background: var(--ds-surface-hover);
+}
+
+/* 5d. Appointment reminders */
+html .app-shell .cx-notification-panel h3 {
+  margin: 0;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+}
+html .app-shell .cx-notification-panel :is(header > button, article > button:last-of-type) {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--ds-control-h-sm);
+  height: var(--ds-control-h-sm);
+  border-radius: var(--ds-radius-md);
+  color: var(--xre-text-soft);
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .cx-notification-panel :is(header > button, article > button:last-of-type):hover {
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+html .app-shell .cx-notification-panel > article {
+  padding: 10px var(--ds-space-2) 10px var(--ds-space-4);
+  gap: var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-divider);
+  color: var(--ds-accent-text);
+}
+html .app-shell .cx-notification-panel > article.read {
+  opacity: 0.6;
+}
+html .app-shell .cx-notification-panel > article > svg {
+  flex: 0 0 auto;
+}
+html .app-shell .cx-notification-panel > article > button:first-of-type {
+  min-width: 0;
+  border-radius: var(--ds-radius-sm);
+}
+html .app-shell .cx-notification-panel > p {
+  padding: var(--ds-space-7) var(--ds-space-5);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+  text-align: center;
+}
+html .app-shell .cx-notification-panel > footer {
+  padding: 10px var(--ds-space-4);
+  border-top: 1px solid var(--xre-border);
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading-xs);
+}
+html .app-shell .cx-notification-panel > p + footer {
+  border-top-color: var(--ds-divider);
+}
+
+/* --------------------------------------------------------------------------
+   6. Page container and footer
+   -------------------------------------------------------------------------- */
+html .app-shell .page-content {
+  width: 100%;
+  max-width: var(--shell-content-max);
+  min-height: calc(100dvh - var(--shell-topbar-h));
+  margin: 0 auto;
+  padding: var(--ds-space-6) var(--shell-gutter) var(--ds-space-5);
+  color: var(--xre-text);
+}
+html[data-xre-density="comfortable"] .app-shell .page-content {
+  padding-top: var(--ds-space-7);
+}
+/* boards need every pixel */
+html .app-shell .page-content.kanban-page {
+  max-width: none;
+}
+@media (max-width: 640px) {
+  html .app-shell .page-content {
+    padding-top: var(--ds-space-5);
+  }
+}
+
+/* 6a. Dead ends rendered by App.tsx itself: "Bu modüle erişiminiz yok" and
+   "Bu sayfa bulunamadı". The markup is a bare page heading followed by one
+   button; here the pair is drawn as a single centred empty-state panel (muted
+   icon, title, one line of help, action), like the empty states inside pages.
+   The heading keeps room at the bottom and the button is pulled up into it. */
+html .app-shell .page-content > .page-heading:first-child:has(+ .btn) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  max-width: 520px;
+  margin: clamp(var(--ds-space-5), 14dvh, 160px) auto 0;
+  padding: var(--ds-space-8) var(--ds-space-6)
+    calc(var(--ds-space-8) + var(--ds-control-h) + var(--ds-space-5));
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface);
+  text-align: center;
+}
+html .app-shell .page-content > .page-heading:first-child:has(+ .btn) > div:first-child {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+html .app-shell .page-content > .page-heading:first-child:has(+ .btn) > div:first-child::before {
+  content: "";
+  width: 32px;
+  height: 32px;
+  margin-bottom: var(--ds-space-3);
+  background: var(--xre-text-faint);
+  opacity: 0.75;
+  /* lock */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect width='18' height='11' x='3' y='11' rx='2'/%3E%3Cpath d='M7 11V7a5 5 0 0 1 10 0v4'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+/* not found: compass */
+html .app-shell .page-content > .page-heading:first-child:has(+ .btn.primary) > div:first-child::before {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m16.24 7.76-1.8 5.41a2 2 0 0 1-1.27 1.27l-5.41 1.8 1.8-5.41a2 2 0 0 1 1.27-1.27z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='m16.24 7.76-1.8 5.41a2 2 0 0 1-1.27 1.27l-5.41 1.8 1.8-5.41a2 2 0 0 1 1.27-1.27z'/%3E%3C/svg%3E");
+}
+html .app-shell .page-content > .page-heading:first-child:has(+ .btn) h1 {
+  font-size: var(--ds-text-lg);
+  line-height: var(--ds-leading-lg);
+  text-wrap: balance;
+}
+html .app-shell .page-content > .page-heading:first-child:has(+ .btn) p {
+  max-width: 44ch;
+  margin-top: var(--ds-space-2);
+  text-wrap: pretty;
+}
+html .app-shell .page-content > .page-heading:first-child:has(+ .btn) + .btn {
+  position: relative;
+  display: flex;
+  width: fit-content;
+  margin: calc((var(--ds-space-8) + var(--ds-control-h)) * -1) auto 0;
+}
+
+/* `top: 100dvh` parks the footer at the bottom of short pages without turning
+   <main> into a flex container (pages rely on its block layout). */
+html .app-shell .workspace-footer {
+  position: sticky;
+  top: 100dvh;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-1) var(--ds-space-6);
+  margin-top: var(--ds-space-7);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--ds-divider);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading-xs);
+}
+html .app-shell .workspace-footer > span {
+  gap: var(--ds-space-2);
+  max-width: none;
+}
+html .app-shell .workspace-footer i {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin: 0 2px;
+  background: var(--xre-text-faint);
+  opacity: 0.6;
+}
+html .app-shell .workspace-footer :is(.amber-dot, .green-dot) {
+  width: 6px;
+  height: 6px;
+}
+/* keep the right-hand footer text clear of the assistant launcher (only when
+   the launcher is shown — see section 7) */
+html .app-shell:has(> .ai-floating-launch):not(:has(.topbar .ai-topbar-button)) .workspace-footer {
+  padding-right: 52px;
+}
+@media (max-width: 640px) {
+  html .app-shell:has(> .ai-floating-launch):not(:has(.topbar .ai-topbar-button)) .workspace-footer {
+    min-height: 60px;
+    align-content: flex-start;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7. Floating assistant launcher
+   The page gutter (16–32px) cannot hold a 44px button, so a fixed launcher
+   always ends up on top of the last column: row actions, amounts, selects.
+   App.tsx renders it together with the topbar "Asistan" button, which opens
+   the same panel and is always on screen (the bar is sticky, and the button
+   stays at every width). While that button exists the floating copy is
+   therefore not shown. Without it the launcher comes back as a 44px round
+   button: the footer reserves room, the label appears on hover / focus, and
+   it stacks below the drawer scrim, popovers and dialogs.
+   -------------------------------------------------------------------------- */
+html .app-shell:has(.topbar .ai-topbar-button) > .ai-floating-launch {
+  display: none;
+}
+html .app-shell .ai-floating-launch {
+  right: max(var(--ds-space-3), calc(var(--shell-gutter) - var(--ds-space-2)));
+  bottom: var(--ds-space-4);
+  z-index: 24;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  gap: 0;
+  border: 1px solid var(--ds-accent-border);
+  border-radius: var(--ds-radius-pill);
+  background: var(--ds-surface-overlay);
+  color: var(--ds-accent-text);
+  box-shadow: var(--ds-shadow-lg);
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    transform var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .ai-floating-launch > svg {
+  color: inherit;
+}
+html .app-shell .ai-floating-launch:hover {
+  border-color: var(--xre-accent);
+  background: var(--ds-surface-hover);
+}
+html .app-shell .ai-floating-launch:active {
+  background: var(--ds-surface-pressed);
+  transform: none;
+}
+html .app-shell .ai-floating-launch:focus-visible {
+  outline: none;
+  box-shadow: var(--ds-shadow-lg), var(--ds-focus-ring);
+}
+html .app-shell .ai-floating-launch > :is(span, kbd) {
+  position: absolute;
+  top: 50%;
+  opacity: 0;
+  pointer-events: none;
+  translate: 6px -50%;
+  transition:
+    opacity var(--ds-duration-fast) var(--ds-ease),
+    translate var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .ai-floating-launch > span {
+  right: calc(100% + 10px);
+  display: flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 42px 0 var(--ds-space-3);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-overlay);
+  color: var(--xre-text);
+  box-shadow: var(--ds-shadow-md);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  white-space: nowrap;
+}
+html .app-shell .ai-floating-launch > kbd {
+  right: calc(100% + 18px);
+  display: block;
+  padding: 3px 5px;
+  border: 1px solid var(--ds-accent-border);
+  border-radius: 4px;
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+}
+html .app-shell .ai-floating-launch:is(:hover, :focus-visible) > :is(span, kbd) {
+  opacity: 1;
+  translate: 0 -50%;
+}
+@media (hover: none) {
+  html .app-shell .ai-floating-launch > :is(span, kbd) {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. Toasts (sonner renders outside .app-shell)
+   -------------------------------------------------------------------------- */
+html [data-sonner-toaster][data-sonner-theme] {
+  --normal-bg: var(--ds-surface-overlay);
+  --normal-bg-hover: var(--ds-surface-hover);
+  --normal-border: var(--xre-border);
+  --normal-border-hover: var(--ds-border-strong);
+  --normal-text: var(--xre-text);
+  --success-bg: var(--ds-success-soft);
+  --success-border: var(--ds-success-border);
+  --success-text: var(--ds-success);
+  --info-bg: var(--ds-info-soft);
+  --info-border: var(--ds-info-border);
+  --info-text: var(--ds-info);
+  --warning-bg: var(--ds-warn-soft);
+  --warning-border: var(--ds-warn-border);
+  --warning-text: var(--ds-warn);
+  --error-bg: var(--ds-danger-soft);
+  --error-border: var(--ds-danger-border);
+  --error-text: var(--ds-danger);
+  --border-radius: var(--ds-radius-lg);
+  /* close button inside the toast, top right (sonner hangs it off the corner) */
+  --toast-close-button-start: auto;
+  --toast-close-button-end: 6px;
+  --toast-close-button-transform: none;
+  font-family: inherit;
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] {
+  padding: var(--ds-space-3) var(--ds-space-4);
+  gap: var(--ds-space-2);
+  align-items: flex-start;
+  box-shadow: var(--ds-shadow-lg);
+  font-size: var(--ds-text-base);
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-title] {
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-description] {
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  opacity: 0.9;
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"]:has([data-close-button]) {
+  padding-right: 44px;
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-icon] {
+  margin-top: 1px; /* optical: icon box is 16px, first text line 18–20px */
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] {
+  top: 6px;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: inherit;
+  opacity: 0.72;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    opacity var(--ds-duration-fast) var(--ds-ease);
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] > svg {
+  width: 14px;
+  height: 14px;
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:hover {
+  border: 0;
+  background: color-mix(in srgb, currentColor 12%, transparent);
+  opacity: 1;
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:active {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+}
+html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px currentColor;
+  opacity: 1;
+}
+/* lift the stack above the assistant launcher while it is shown */
+html:has(.app-shell > .ai-floating-launch):not(:has(.app-shell .topbar .ai-topbar-button))
+  [data-sonner-toaster][data-y-position="bottom"] {
+  bottom: 72px;
+}
+
+/* --------------------------------------------------------------------------
+   9. Appearance drawer (ThemePreferences.tsx — also outside .app-shell, so the
+   base button / field rules do not reach it and are restated here)
+   -------------------------------------------------------------------------- */
+html .theme-panel-backdrop {
+  background: var(--ds-backdrop);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+}
+html .theme-panel {
+  width: min(440px, 100vw);
+  border-left: 1px solid var(--xre-border);
+  background: var(--ds-surface-overlay);
+  color: var(--xre-text);
+  box-shadow: var(--ds-shadow-overlay);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+  -webkit-font-smoothing: antialiased;
+  scrollbar-width: thin;
+}
+html .theme-panel :focus-visible {
+  outline: none;
+  box-shadow: var(--ds-focus-ring);
+}
+
+html .theme-panel .theme-panel-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-5) var(--ds-space-5) var(--ds-space-4) var(--ds-space-6);
+  border-bottom: 1px solid var(--xre-border);
+  background: var(--ds-surface-overlay);
+}
+html .theme-panel .theme-panel-header .eyebrow {
+  margin: 0;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: 0.08em;
+}
+html .theme-panel .theme-panel-header h2 {
+  margin: var(--ds-space-1) 0 0;
+  color: var(--xre-text);
+  font-size: var(--ds-text-xl);
+  font-weight: 700;
+  line-height: var(--ds-leading-xl);
+  letter-spacing: var(--ds-tracking-tight);
+}
+html .theme-panel .theme-panel-header p {
+  margin: var(--ds-space-1) 0 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .theme-panel .icon-button {
+  width: var(--ds-control-h-sm);
+  height: var(--ds-control-h-sm);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--xre-text-soft);
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .theme-panel .icon-button:hover {
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+
+html .theme-panel .theme-panel-body {
+  padding: var(--ds-space-5) var(--ds-space-6) var(--ds-space-2);
+}
+html .theme-panel .theme-fieldset {
+  margin: 0 0 var(--ds-space-6);
+}
+html .theme-panel .theme-fieldset legend {
+  margin-bottom: var(--ds-space-2);
+  color: var(--xre-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+}
+
+/* 9a. Theme cards */
+html .theme-panel .theme-choice-grid {
+  gap: var(--ds-space-2);
+}
+html .theme-panel .theme-choice {
+  min-height: 48px;
+  padding: 0 var(--ds-space-3);
+  gap: 10px;
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  font-weight: 550;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .theme-panel .theme-choice:hover {
+  border-color: var(--ds-border-hover);
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+html .theme-panel .theme-choice.selected {
+  border-color: var(--xre-accent);
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+  box-shadow: inset 0 0 0 1px var(--xre-accent);
+}
+html .theme-panel .theme-choice.selected:focus-visible {
+  box-shadow:
+    inset 0 0 0 1px var(--xre-accent),
+    var(--ds-focus-ring);
+}
+html .theme-panel .theme-choice-swatches i {
+  width: 18px;
+  height: 18px;
+  margin-left: -6px;
+  border: 2px solid var(--ds-surface-overlay);
+  /* hairline on the colour itself, so a near-white swatch still reads as a dot */
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--xre-text) 22%, transparent);
+}
+html .theme-panel .theme-choice.selected .theme-choice-swatches i {
+  border-color: var(--xre-accent-soft);
+}
+html .theme-panel .theme-choice-swatches i:first-child {
+  margin-left: 0;
+}
+
+/* 9b. Segmented choices (density, font size) and background tiles */
+html .theme-panel .theme-panel-row {
+  gap: var(--ds-space-4);
+}
+html .theme-panel .theme-segmented {
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-track);
+}
+html .theme-panel .theme-segmented button {
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .theme-panel .theme-segmented button:hover {
+  color: var(--xre-text);
+}
+html .theme-panel .theme-segmented button.selected {
+  background: var(--ds-thumb);
+  color: var(--xre-text);
+  box-shadow: var(--ds-shadow-sm);
+}
+/* the thumb shadow above would otherwise replace the focus ring */
+html .theme-panel .theme-segmented button.selected:focus-visible {
+  box-shadow: var(--ds-focus-ring);
+}
+html .theme-panel .theme-segmented button:focus-visible {
+  position: relative; /* ring above the neighbouring segment */
+  z-index: 1;
+}
+html .theme-panel .theme-backgrounds {
+  gap: 2px;
+}
+html .theme-panel .theme-backgrounds button {
+  gap: 6px;
+  padding: var(--ds-space-2) var(--ds-space-1);
+  line-height: 1.2;
+}
+html .theme-panel .background-choice > span {
+  width: 100%;
+  max-width: 64px;
+  height: 32px;
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-sm);
+  background-color: var(--xre-bg);
+}
+html .theme-panel .background-choice.selected > span {
+  border-color: var(--xre-accent);
+}
+html .theme-panel .theme-error {
+  margin: 0 0 var(--ds-space-4);
+  padding: 10px var(--ds-space-3);
+  border: 1px solid var(--ds-danger-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-danger-soft);
+  color: var(--ds-danger);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+
+/* 9c. Footer + buttons */
+html .theme-panel .theme-panel-footer {
+  position: sticky;
+  bottom: 0;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3) var(--ds-space-6);
+  border-top: 1px solid var(--xre-border);
+  background: var(--ds-surface-subtle);
+}
+html .theme-panel .btn {
+  min-height: var(--ds-control-h);
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-base);
+  font-weight: 550;
+  line-height: 1.2;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+html .theme-panel .btn.secondary {
+  border-color: var(--ds-border-strong);
+  background: var(--xre-surface-raised);
+  color: var(--xre-text);
+}
+html .theme-panel .btn.secondary:hover {
+  border-color: var(--ds-border-hover);
+  background: var(--ds-surface-hover);
+  color: var(--xre-text);
+}
+html .theme-panel .btn.primary {
+  min-width: 96px;
+  border-color: transparent;
+  background: var(--ds-accent-solid);
+  color: var(--ds-on-accent);
+  box-shadow: var(--ds-shadow-sm);
+}
+html .theme-panel .btn.primary:hover {
+  background: var(--ds-accent-solid-hover);
+  color: var(--ds-on-accent);
+}
+html .theme-panel .btn.primary:active {
+  background: var(--ds-accent-solid-active);
+}
+html .theme-panel .btn:focus-visible {
+  box-shadow: var(--ds-focus-ring);
+}
+html .theme-panel .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+@media (max-width: 560px) {
+  html .theme-panel {
+    border-left: 0;
+  }
+  html .theme-panel .theme-panel-header {
+    padding: var(--ds-space-4) var(--ds-space-3) var(--ds-space-3) var(--ds-space-4);
+  }
+  html .theme-panel .theme-panel-body,
+  html .theme-panel .theme-panel-footer {
+    padding-inline: var(--ds-space-4);
+  }
+  html .theme-panel .theme-panel-row {
+    gap: 0;
+  }
+  /* two columns still fit a phone; one column wastes the height */
+  html .theme-panel .theme-choice-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  html .theme-panel .theme-panel-footer .btn {
+    flex: 1 1 0;
+    min-height: var(--ds-control-h-lg);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   10. Account and help dialogs, settings rows (rendered by App.tsx)
+   -------------------------------------------------------------------------- */
+html .app-shell .profile-modal {
+  gap: var(--ds-space-2);
+  padding-block: var(--ds-space-6);
+  background: transparent; /* the dialog shell already paints the surface */
+}
+html .app-shell .profile-modal > .avatar {
+  margin-bottom: var(--ds-space-1);
+  font-size: var(--ds-text-md);
+}
+html .app-shell .profile-modal > h3 {
+  color: var(--xre-text);
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  line-height: var(--ds-leading-lg);
+  letter-spacing: var(--ds-tracking-tight);
+}
+html .app-shell .profile-modal > p {
+  max-width: 44ch;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+html .app-shell .profile-modal > .badge {
+  margin-top: var(--ds-space-1);
+}
+/* work-time shortcut inside the account dialog (white card in every theme
+   in the legacy sheet) */
+html .app-shell .profile-modal .worktime-mini {
+  margin: var(--ds-space-4) 0 var(--ds-space-1);
+  padding: 10px var(--ds-space-3);
+  gap: var(--ds-space-3);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text);
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .profile-modal .worktime-mini:hover {
+  border-color: var(--ds-border-hover);
+  background: var(--ds-surface-hover);
+}
+html .app-shell .profile-modal .worktime-mini-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-success-soft);
+  color: var(--ds-success);
+}
+html .app-shell .profile-modal .worktime-mini-icon.paused {
+  background: var(--ds-warn-soft);
+  color: var(--ds-warn);
+}
+html .app-shell .profile-modal .worktime-mini-icon.finished {
+  background: var(--ds-violet-soft);
+  color: var(--ds-violet);
+}
+html .app-shell .profile-modal .worktime-mini-copy strong {
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .profile-modal .worktime-mini-copy small {
+  margin-top: 1px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .profile-modal .worktime-mini > svg {
+  flex: 0 0 auto;
+  color: var(--xre-text-faint);
+}
+html .app-shell .profile-modal .cx-profile-links {
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  margin: var(--ds-space-3) 0 var(--ds-space-1);
+}
+html .app-shell .profile-modal .cx-profile-links .icon-button {
+  width: var(--ds-control-h);
+  height: var(--ds-control-h);
+  border: 1px solid var(--ds-border-strong);
+}
+html .app-shell .profile-modal .btn {
+  margin-top: 0;
+  font-size: var(--ds-text-base);
+}
+html .app-shell .profile-modal .btn.full-width {
+  width: 100%;
+  margin-top: var(--ds-space-2);
+}
+html .app-shell .profile-modal > .text-button {
+  margin: 0;
+}
+
+html .app-shell .help-content h3 {
+  margin-bottom: var(--ds-space-1);
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+}
+html .app-shell .help-content > p {
+  max-width: 68ch;
+  margin-bottom: var(--ds-space-5);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: 1.6;
+}
+html .app-shell .help-content .info-banner {
+  align-items: flex-start;
+  gap: var(--ds-space-3);
+  margin: 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-info-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-info-soft);
+  color: var(--ds-info);
+}
+html .app-shell .help-content .info-banner > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+html .app-shell .help-content .info-banner p {
+  margin: 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-base);
+}
+
+html .app-shell .settings-panel {
+  padding: 0 var(--ds-space-5);
+}
+html .app-shell .settings-panel .setting-row {
+  gap: var(--ds-space-4) var(--ds-space-6);
+  padding: var(--ds-space-5) 0;
+  border-bottom-color: var(--ds-divider);
+}
+html .app-shell .settings-panel .setting-row > div {
+  min-width: 0;
+}
+html .app-shell .settings-panel .setting-row h3 {
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+}
+html .app-shell .settings-panel .setting-row p {
+  max-width: 64ch;
+  margin-top: var(--ds-space-1);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+html .app-shell .settings-panel .setting-row .btn {
+  flex: 0 0 auto;
+  font-size: var(--ds-text-base);
+}
+@media (max-width: 640px) {
+  html .app-shell .settings-panel {
+    padding: 0 var(--ds-space-4);
+  }
+  html .app-shell .settings-panel .setting-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. Sign-in screen (LoginScreen.tsx — a fixed layer of its own, so the base
+   focus rules do not reach it). Only the focus states: the legacy sheet left
+   the browser outline in the old brand green next to a themed button.
+   -------------------------------------------------------------------------- */
+html .login-screen :is(input, button, a):focus-visible {
+  outline: none;
+}
+html .login-screen .login-form input:focus-visible {
+  border-color: var(--xre-accent);
+  box-shadow: var(--ds-focus-ring-field);
+}
+html .login-screen .login-slug:focus-within {
+  border-color: var(--xre-accent);
+  box-shadow: var(--ds-focus-ring-field);
+}
+html .login-screen .login-slug input:focus-visible {
+  box-shadow: none;
+}
+html .login-screen :is(button, a):focus-visible {
+  border-radius: var(--ds-radius-md);
+  box-shadow: var(--ds-focus-ring);
+}
+html .login-screen .login-tabs button:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--xre-accent);
+}
+
+/* --------------------------------------------------------------------------
+   12. Motion
+   -------------------------------------------------------------------------- */
+@keyframes shell-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes shell-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html .app-shell .sidebar,
+  html .app-shell .sidebar *,
+  html .app-shell .topbar *,
+  html .app-shell .ai-floating-launch,
+  html .app-shell .ai-floating-launch > *,
+  html .theme-panel * {
+    transition: none;
+  }
+}

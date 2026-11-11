@@ -1,0 +1,2378 @@
+/* ==========================================================================
+   XRE CRM — CRM detail surfaces  (design/crm-detail.css)
+   --------------------------------------------------------------------------
+   1. Customer drawer: shell, header, stage strip, action row
+   2. Drawer rail: contact summary + customer form
+   3. Drawer feed: composer, to-dos, history
+   4. Drawer as a full-screen sheet (<= 900px)
+   5. Customer modal, contact card
+   6. Appointment, online-meeting and call dialogs
+   7. Shared record checkbox (activities + calendar)
+   8. /activities
+   9. /calendar
+   Values come from design/tokens.css. `!important` appears only where
+   night-polish.css pins the same property with !important.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Customer drawer — shell
+   Desktop: fixed record header (title, stages, actions) and two columns that
+   scroll on their own: properties rail on the left, activity feed on the right.
+   -------------------------------------------------------------------------- */
+html .app-shell .b24-drawer {
+  --cd-pad: var(--ds-space-6); /* horizontal gutter of the drawer */
+  --cd-rail: var(--xre-surface); /* opaque surface of header + rail */
+  --cd-close: 36px;
+
+  display: flex;
+  flex-direction: column;
+  width: min(1200px, calc(100vw - 64px));
+  overflow: hidden;
+  border-left: 1px solid var(--xre-border);
+  background: var(--xre-bg);
+  color: var(--xre-text);
+  box-shadow: var(--ds-shadow-overlay);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+  animation: none;
+}
+/* Glass theme: the rail must be solid, text scrolls underneath the save bar. */
+html[data-xre-theme="purple-glass"] .app-shell .b24-drawer {
+  --cd-rail: var(--ds-surface-overlay);
+}
+@media (prefers-reduced-motion: no-preference) {
+  html .app-shell .b24-drawer {
+    /* no fill-mode: a transform that stays applied would trap the fixed
+       task / activity modals that render inside the drawer */
+    animation: cd-drawer-in 220ms var(--ds-ease);
+  }
+}
+@keyframes cd-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(32px);
+  }
+}
+
+/* Close: inside the drawer, top-right corner; the header reserves room for it. */
+html .app-shell .b24-drawer-close {
+  position: absolute;
+  top: var(--ds-space-3);
+  right: var(--ds-space-4);
+  z-index: 4;
+  width: var(--cd-close);
+  height: var(--cd-close);
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--xre-text-soft);
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .b24-drawer-close:hover {
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+html .app-shell .b24-drawer-close:active {
+  background: var(--ds-pressed);
+}
+html .app-shell .b24-drawer-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Header: eyebrow, name, pipeline + owner on the left; deal value on the right. */
+html .app-shell .b24-drawer-header {
+  flex: none;
+  align-items: flex-end;
+  gap: var(--ds-space-5);
+  padding: var(--ds-space-5) var(--cd-pad) var(--ds-space-4);
+  border-bottom: 0;
+  background: var(--cd-rail);
+  color: var(--xre-text);
+}
+html .app-shell .b24-drawer-header > div {
+  flex: 1;
+  min-width: 0;
+  /* keeps a long name clear of the close button */
+  padding-right: calc(var(--cd-close) + var(--ds-space-2));
+}
+html .app-shell .b24-drawer-header span {
+  display: block;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: var(--ds-tracking-caps);
+}
+html .app-shell .b24-drawer-header h2 {
+  margin: 2px 0 var(--ds-space-1);
+  color: var(--xre-text);
+  font-family: var(--heading, inherit);
+  font-size: var(--ds-text-xl);
+  font-weight: 700;
+  line-height: var(--ds-leading-xl);
+  letter-spacing: var(--ds-tracking-tight);
+  overflow-wrap: anywhere;
+}
+html .app-shell .b24-drawer-header p {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .b24-drawer-header p i {
+  width: 3px;
+  height: 3px;
+  margin: 0 var(--ds-space-2);
+  background: var(--xre-text-faint);
+  vertical-align: middle;
+}
+html .app-shell .b24-drawer-header > strong {
+  color: var(--xre-text);
+  font-size: var(--ds-text-xl);
+  font-weight: 650;
+  line-height: var(--ds-leading-xl);
+  letter-spacing: var(--ds-tracking-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Stage strip: a stepper. Passed stages are tinted, the current one is solid.
+   (Colours are pinned with !important in night-polish.css, hence the flags.) */
+html .app-shell .b24-stage-strip {
+  flex: none;
+  gap: 3px;
+  /* top padding + negative margin: room for the focus ring inside the scroller */
+  margin-top: calc(var(--ds-space-1) * -1);
+  padding: var(--ds-space-1) var(--cd-pad) var(--ds-space-3);
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: var(--cd-rail);
+}
+html .app-shell .b24-stage-strip::-webkit-scrollbar {
+  display: none;
+}
+html .app-shell .b24-stage-strip button {
+  flex: 1 0 auto;
+  gap: 6px;
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-3);
+  border-radius: 4px;
+  background: var(--xre-surface-muted) !important;
+  color: var(--xre-text-soft) !important;
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .b24-stage-strip button:first-child {
+  border-radius: var(--ds-radius-md) 4px 4px var(--ds-radius-md);
+}
+html .app-shell .b24-stage-strip button:last-child {
+  border-radius: 4px var(--ds-radius-md) var(--ds-radius-md) 4px;
+}
+html .app-shell .b24-stage-strip button:has(~ button.active) {
+  background: var(--xre-accent-soft) !important;
+  color: var(--ds-accent-text) !important;
+}
+html .app-shell .b24-stage-strip button:not(.active):hover {
+  background-image: linear-gradient(var(--ds-pressed), var(--ds-pressed)) !important;
+  color: var(--xre-text) !important;
+}
+html .app-shell .b24-stage-strip button.active {
+  background: var(--ds-accent-solid) !important;
+  color: var(--ds-on-accent) !important;
+  font-weight: 650;
+}
+html .app-shell .b24-stage-strip button:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
+/* Action row: call / WhatsApp / plan / meeting / task as one quiet toolbar. */
+html .app-shell .b24-drawer-tools {
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  padding: 0 var(--cd-pad) var(--ds-space-4);
+  border-bottom: 1px solid var(--xre-border);
+  background: var(--cd-rail);
+}
+html .app-shell .b24-drawer-tools .v6-quick-actions {
+  gap: var(--ds-space-2);
+}
+html .app-shell .b24-drawer-tools .v6-quick-actions button {
+  gap: 6px;
+  min-width: var(--ds-control-h-sm);
+  min-height: var(--ds-control-h-sm);
+  padding: 0 10px;
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius-sm);
+  background: var(--xre-surface-raised);
+  color: var(--xre-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .b24-drawer-tools .v6-quick-actions button:not(:has(span)) {
+  padding: 0;
+}
+html .app-shell .b24-drawer-tools .v6-quick-actions button svg {
+  color: var(--ds-accent-text);
+}
+html .app-shell .b24-drawer-tools .v6-quick-actions button span {
+  font-size: inherit;
+}
+html .app-shell .b24-drawer-tools .v6-quick-actions button:hover:not(:disabled) {
+  border-color: var(--ds-border-hover);
+  background: var(--ds-surface-hover);
+}
+html .app-shell .b24-drawer-tools .v6-quick-actions button:active:not(:disabled) {
+  background: var(--ds-surface-pressed);
+}
+html .app-shell .b24-drawer-tools .v6-quick-actions button:disabled {
+  opacity: 0.5;
+}
+
+/* Two columns, each its own scroller. */
+html .app-shell .b24-drawer-content {
+  flex: 1;
+  min-height: 0;
+  grid-template-columns: minmax(320px, 384px) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   2. Drawer rail — contact summary + customer form
+   -------------------------------------------------------------------------- */
+html .app-shell .b24-drawer-info {
+  min-height: 0;
+  padding: var(--ds-space-5) var(--ds-space-5) 0 var(--cd-pad);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-right: 1px solid var(--xre-border);
+  border-radius: 0;
+  background: var(--cd-rail);
+  color: var(--xre-text);
+}
+html .app-shell .b24-info-person {
+  gap: var(--ds-space-3);
+}
+html .app-shell .b24-info-person > div {
+  min-width: 0;
+}
+html .app-shell .b24-info-person h3 {
+  margin: 0 0 2px;
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  overflow-wrap: anywhere;
+}
+html .app-shell .b24-info-person span:not(.avatar) {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .b24-detail-links {
+  gap: 2px;
+  margin: var(--ds-space-3) calc(var(--ds-space-2) * -1) 0;
+}
+html .app-shell .b24-detail-links:empty {
+  display: none;
+}
+html .app-shell .b24-detail-links a {
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-base);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .b24-detail-links a svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+html .app-shell .b24-detail-links a:hover {
+  background: var(--ds-hover);
+}
+
+html .app-shell .b24-drawer-info > form {
+  padding: 0;
+}
+html .app-shell .b24-drawer-info h4 {
+  margin: var(--ds-space-5) 0 var(--ds-space-3);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--ds-divider);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: var(--ds-tracking-caps);
+}
+html .app-shell .b24-drawer-info label {
+  margin-bottom: var(--ds-space-3);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .b24-drawer-info label :is(input, select, textarea) {
+  margin-top: 6px;
+  font-size: var(--ds-text-base);
+  font-weight: 400;
+}
+html .app-shell .b24-drawer-info label :is(input, select) {
+  padding-block: 0;
+}
+html .app-shell .b24-drawer-info label textarea {
+  min-height: 76px;
+  resize: vertical;
+}
+html .app-shell .b24-drawer-info input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .b24-drawer-info :is(.b24-info-row, .cx-date-row) {
+  gap: var(--ds-space-3);
+}
+html .app-shell .b24-drawer-info .cx-date-row > label {
+  display: block;
+}
+html .app-shell .b24-drawer-info .text-button {
+  margin: 0 0 var(--ds-space-2) calc(var(--ds-space-2) * -1);
+  color: var(--ds-accent-text);
+}
+html .app-shell .b24-drawer-info .cx-required-note {
+  display: block;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs) !important;
+  line-height: var(--ds-leading-xs);
+}
+
+/* Missing-field notice (also used in the customer modal). */
+html .app-shell .crm-required-hint {
+  margin: 0 0 var(--ds-space-4);
+  padding: 10px var(--ds-space-3);
+  border: 1px solid var(--ds-warn-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-warn-soft);
+  color: var(--xre-text);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .crm-required-hint strong {
+  color: var(--ds-warn);
+  font-weight: 650;
+}
+
+/* Linked contact / company cards. */
+html .app-shell .b24-drawer .cx-linked-cards {
+  gap: var(--ds-space-2);
+  margin: var(--ds-space-1) 0 var(--ds-space-4);
+}
+html .app-shell .b24-drawer .cx-linked-cards > div {
+  gap: var(--ds-space-3);
+  padding: 10px var(--ds-space-3);
+  border: 1px solid var(--xre-border) !important;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-subtle) !important;
+  color: var(--xre-text-faint) !important;
+}
+html .app-shell .b24-drawer .cx-linked-cards > div > svg {
+  flex: none;
+}
+html .app-shell .b24-drawer .cx-linked-cards > div > span {
+  min-width: 0;
+}
+html .app-shell .b24-drawer .cx-linked-cards strong {
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+html .app-shell .b24-drawer .cx-linked-cards small {
+  margin-top: 2px;
+  color: var(--xre-text-soft) !important;
+  font-size: var(--ds-text-sm);
+  line-height: 1.35;
+}
+
+/* Custom fields: name + value + add. */
+html .app-shell .b24-custom-add {
+  align-items: center;
+  gap: var(--ds-space-2);
+  margin-bottom: 0;
+}
+html .app-shell .b24-custom-add input {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+  padding: 0 var(--ds-space-3);
+  font-size: var(--ds-text-base);
+}
+html .app-shell .b24-custom-add .icon-button {
+  width: var(--ds-control-h);
+  height: var(--ds-control-h);
+  border: 1px dashed var(--ds-border-strong);
+  color: var(--ds-accent-text);
+}
+html .app-shell .b24-custom-add .icon-button:hover {
+  border-color: var(--xre-accent);
+  background: var(--xre-accent-soft);
+}
+
+/* Save stays in view while the form scrolls: sticky bar masked with the rail colour. */
+html .app-shell .b24-drawer-info > form > .btn.full-width {
+  --cd-mask:
+    -56px 0 0 var(--ds-space-4) var(--cd-rail),
+    56px 0 0 var(--ds-space-4) var(--cd-rail),
+    -56px -1px 0 var(--ds-space-4) var(--xre-border),
+    56px -1px 0 var(--ds-space-4) var(--xre-border);
+  position: sticky;
+  bottom: var(--ds-space-4);
+  z-index: 2;
+  margin: var(--ds-space-6) 0 var(--ds-space-4);
+  box-shadow: var(--cd-mask);
+}
+html .app-shell .b24-drawer-info > form > .btn.full-width:focus-visible {
+  box-shadow: var(--ds-focus-ring), var(--cd-mask);
+}
+
+/* --------------------------------------------------------------------------
+   3. Drawer feed — composer, to-dos, history
+   -------------------------------------------------------------------------- */
+html .app-shell .b24-drawer .cx-timeline {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: var(--ds-space-5) var(--cd-pad) var(--ds-space-7);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  background: transparent;
+  color: var(--xre-text);
+}
+html .app-shell .b24-drawer .cx-timeline > * {
+  flex: none;
+}
+
+/* Feed title (moved above the composer). */
+html .app-shell .b24-drawer .cx-discuss {
+  order: -1;
+  gap: var(--ds-space-2);
+  margin: 0 0 var(--ds-space-3);
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+}
+html .app-shell .b24-drawer .cx-discuss > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--xre-text-faint);
+}
+
+/* Composer. */
+html .app-shell .b24-drawer .cx-composer {
+  padding: var(--ds-space-3);
+  border: 1px solid var(--xre-border) !important;
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface) !important;
+  color: var(--xre-text) !important;
+}
+html .app-shell .b24-drawer .cx-composer-tabs {
+  gap: 2px;
+  padding-bottom: var(--ds-space-3);
+}
+html .app-shell .b24-drawer .cx-composer-tabs button {
+  gap: 6px;
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  white-space: nowrap;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .b24-drawer .cx-composer-tabs button:hover:not(:disabled) {
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+html .app-shell .b24-drawer .cx-composer-tabs button.active {
+  border: 0;
+  background: var(--xre-accent-soft) !important;
+  color: var(--ds-accent-text) !important;
+  font-weight: 600;
+}
+html .app-shell .b24-drawer .cx-composer-tabs button:last-child {
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .b24-drawer .cx-composer-tabs button:last-child svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ds-violet);
+}
+html .app-shell .b24-drawer .cx-composer-tabs button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+html .app-shell .b24-drawer .cx-compose-box {
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface-raised);
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .b24-drawer .cx-compose-box:hover {
+  border-color: var(--ds-border-hover);
+}
+html .app-shell .b24-drawer .cx-compose-box:focus-within {
+  border-color: var(--xre-accent);
+  box-shadow: var(--ds-focus-ring-field);
+}
+html .app-shell .b24-drawer .cx-compose-box textarea {
+  display: block;
+  min-height: 68px;
+  padding: 10px var(--ds-space-3);
+  background: transparent !important;
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+html .app-shell .b24-drawer .cx-compose-box textarea::placeholder {
+  color: var(--xre-text-faint);
+  opacity: 1;
+}
+html .app-shell .b24-drawer .cx-title-input {
+  display: block;
+  min-height: var(--ds-control-h-lg);
+  padding: 0 var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-divider) !important;
+  border-radius: 0;
+  background: transparent !important;
+  color: var(--xre-text);
+  font-size: var(--ds-text-base) !important;
+  font-weight: 600;
+}
+html .app-shell .b24-drawer .cx-inline-dates {
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2);
+  border-top: 1px solid var(--ds-divider);
+  background: var(--ds-surface-subtle);
+}
+html .app-shell .b24-drawer .cx-inline-dates label {
+  gap: 6px;
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-2);
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius-sm);
+  background: var(--xre-surface-raised);
+  color: var(--xre-text-faint);
+  transition: border-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .b24-drawer .cx-inline-dates label:focus-within {
+  border-color: var(--xre-accent);
+}
+html .app-shell .b24-drawer .cx-inline-dates input {
+  min-height: calc(var(--ds-control-h-sm) - 2px);
+  max-width: 150px;
+  padding: 0;
+  background: transparent !important;
+  color: var(--xre-text);
+  font-size: var(--ds-text-sm);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .b24-drawer .cx-inline-dates small {
+  padding-right: var(--ds-space-1);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+}
+html .app-shell .b24-drawer .cx-composer > footer {
+  flex-wrap: wrap;
+  gap: var(--ds-space-2) var(--ds-space-3);
+  margin-top: var(--ds-space-3);
+}
+/* The label is hard-coded as "KAYDET"; every other button here is sentence case.
+   Lower-case it and re-capitalise the first letter. ::first-letter only exists on a
+   block container whose text comes first, so the button is a block and its icon sits
+   in the left padding (a button centres its content vertically by itself). */
+html .app-shell .b24-drawer .cx-composer > footer > .btn.primary.small {
+  display: block;
+  position: relative;
+  padding-left: calc(10px + 13px + 6px);
+  text-transform: lowercase;
+}
+html .app-shell .b24-drawer .cx-composer > footer > .btn.primary.small::first-letter {
+  text-transform: uppercase;
+}
+html .app-shell .b24-drawer .cx-composer > footer > .btn.primary.small > svg {
+  position: absolute;
+  inset-block: 0;
+  left: 10px;
+  margin-block: auto;
+}
+html .app-shell .b24-drawer .cx-composer > footer .text-button {
+  margin: 0;
+}
+html .app-shell .b24-drawer .cx-composer > footer span {
+  display: block;
+  color: var(--xre-text-faint) !important;
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading-xs);
+}
+
+/* Section headings: label + hairline (were coloured pills on a line). */
+html .app-shell .b24-drawer .cx-section-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin: var(--ds-space-6) 0 var(--ds-space-3);
+  text-align: left;
+}
+html .app-shell .b24-drawer .cx-section-divider::before {
+  content: none;
+}
+html .app-shell .b24-drawer .cx-section-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--xre-border);
+}
+html .app-shell .b24-drawer .cx-section-divider span {
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--xre-text-soft) !important;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+  letter-spacing: 0;
+}
+
+/* To-dos. */
+html .app-shell .b24-drawer .cx-todos {
+  display: grid;
+  gap: var(--ds-space-2);
+}
+html .app-shell .b24-drawer .cx-todo {
+  gap: var(--ds-space-3);
+  margin: 0;
+  padding: var(--ds-space-4);
+  border: 1px solid var(--xre-border) !important;
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface) !important;
+  color: var(--xre-text-soft) !important;
+}
+html .app-shell .b24-drawer .cx-calendar-tile {
+  gap: var(--ds-space-1);
+  min-width: 52px;
+  padding: var(--ds-space-2) 6px;
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-accent-soft) !important;
+  color: var(--ds-accent-text) !important;
+}
+html .app-shell .b24-drawer .cx-calendar-tile svg {
+  width: 18px;
+  height: 18px;
+}
+html .app-shell .b24-drawer .cx-calendar-tile b {
+  color: inherit !important;
+  font-size: var(--ds-text-xs);
+  font-weight: 650;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+html .app-shell .b24-drawer .cx-todo strong {
+  display: block;
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+html .app-shell .b24-drawer .cx-todo time {
+  margin: 2px 0 0;
+  color: var(--ds-warn);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .b24-drawer .cx-todo p {
+  margin-top: 6px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+  overflow-wrap: anywhere;
+}
+html .app-shell .b24-drawer .cx-todo footer {
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-3);
+}
+html .app-shell .b24-drawer .cx-todo .btn {
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .b24-drawer .cx-todo > .avatar {
+  flex: none;
+  width: 24px !important; /* inline 21px is too tight for two initials at 11px */
+  height: 24px !important;
+}
+
+/* Inline empty state (no to-dos / no history). */
+html .app-shell .b24-drawer .cx-no-todos {
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-5) var(--ds-space-4);
+  border: 1px solid var(--ds-divider);
+  border-radius: var(--ds-radius-lg);
+  background: var(--ds-hover);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  text-align: center;
+}
+html .app-shell .b24-drawer .cx-no-todos svg {
+  flex: none;
+  color: var(--xre-text-faint);
+}
+
+/* History: one rail, a tone per event kind. */
+html .app-shell .b24-drawer .cx-history {
+  padding-left: 14px;
+}
+/* No events yet: there is no rail, so the empty state lines up with the one above. */
+html .app-shell .b24-drawer .cx-history:not(:has(> article)) {
+  padding-left: 0;
+}
+html .app-shell .b24-drawer .cx-history > article {
+  padding: 0 0 var(--ds-space-3) 26px;
+  border-left: 1px solid var(--xre-border);
+}
+html .app-shell .b24-drawer .cx-history > article:last-of-type {
+  padding-bottom: 0;
+  border-left-color: transparent;
+}
+html .app-shell .b24-drawer .cx-event-dot {
+  top: 7px;
+  left: -15px;
+  width: 30px;
+  height: 30px;
+  border: 3px solid var(--xre-bg);
+  background: var(--ds-info-soft);
+  color: var(--ds-info);
+}
+html .app-shell .b24-drawer .cx-event-dot svg {
+  width: 14px;
+  height: 14px;
+}
+html .app-shell .b24-drawer .cx-event-dot.message {
+  background: var(--ds-success-soft);
+  color: var(--ds-success);
+}
+html .app-shell .b24-drawer .cx-event-dot.call {
+  background: var(--ds-warn-soft);
+  color: var(--ds-warn);
+}
+html .app-shell .b24-drawer .cx-event-dot.analysis {
+  background: var(--ds-violet-soft);
+  color: var(--ds-violet);
+}
+html .app-shell .b24-drawer .cx-event-dot.activity {
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+}
+html .app-shell .b24-drawer .cx-history > article > div {
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--xre-border) !important;
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface) !important;
+  color: var(--xre-text-soft) !important;
+}
+html .app-shell .b24-drawer .cx-history header {
+  align-items: baseline;
+  gap: var(--ds-space-3);
+}
+html .app-shell .b24-drawer .cx-history header strong {
+  min-width: 0;
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+html .app-shell .b24-drawer .cx-history time {
+  flex: none;
+  color: var(--xre-text-faint) !important;
+  font-size: var(--ds-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+html .app-shell .b24-drawer .cx-history p {
+  margin-top: var(--ds-space-1);
+  color: var(--xre-text-soft) !important;
+  font-size: var(--ds-text-base);
+  line-height: 1.55;
+}
+html .app-shell .b24-drawer .cx-history p:empty {
+  display: none;
+}
+html .app-shell .b24-drawer .cx-ai-caption {
+  margin-top: var(--ds-space-3);
+  padding-top: var(--ds-space-2);
+  border-top: 1px solid var(--ds-divider);
+  color: var(--ds-violet);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading-xs);
+}
+
+/* --------------------------------------------------------------------------
+   4. Drawer as a full-screen sheet (<= 900px)
+   One scroller. Header stays on top, the action row becomes a bottom bar.
+   Reading order: composer + to-dos, then the customer form, then history.
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+  html .app-shell .b24-drawer {
+    --cd-pad: var(--ds-space-4);
+    width: 100vw;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-left: 0;
+  }
+  html .app-shell .b24-drawer > * {
+    flex: none;
+  }
+  html .app-shell .b24-drawer-close {
+    position: sticky;
+    top: var(--ds-space-3);
+    right: auto;
+    align-self: flex-end;
+    display: grid;
+    margin: var(--ds-space-3) var(--ds-space-3) calc((var(--cd-close) + var(--ds-space-3)) * -1) 0;
+    border-radius: var(--ds-radius-md);
+  }
+  html .app-shell .b24-drawer-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: var(--ds-space-1) var(--ds-space-4);
+    padding: var(--ds-space-3) calc(var(--ds-space-3) * 2 + var(--cd-close)) var(--ds-space-3) var(--cd-pad);
+    border-bottom: 1px solid var(--xre-border);
+  }
+  html .app-shell .b24-drawer-header > div {
+    flex: 1 1 100%;
+  }
+  html .app-shell .b24-drawer-header h2 {
+    margin: 0 0 2px;
+    font-size: var(--ds-text-lg);
+    line-height: var(--ds-leading-lg);
+  }
+  html .app-shell .b24-drawer-header > strong {
+    margin-right: 0;
+    font-size: var(--ds-text-md);
+    line-height: var(--ds-leading-md);
+    letter-spacing: 0;
+  }
+  html .app-shell .b24-stage-strip {
+    padding: var(--ds-space-3) var(--cd-pad);
+    border-bottom: 1px solid var(--xre-border);
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: var(--cd-pad);
+  }
+  html .app-shell .b24-stage-strip button {
+    min-width: 0;
+    min-height: var(--ds-control-h);
+    padding: 0 var(--ds-space-4);
+    scroll-snap-align: start;
+  }
+
+  /* Bottom action bar. */
+  html .app-shell .b24-drawer-tools {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    order: 10;
+    flex-wrap: nowrap;
+    margin-top: auto;
+    padding: var(--ds-space-3) var(--cd-pad) max(var(--ds-space-3), env(safe-area-inset-bottom));
+    border-top: 1px solid var(--xre-border);
+    border-bottom: 0;
+    box-shadow: 0 -6px 16px -8px rgb(var(--ds-shadow-rgb) / 0.18);
+  }
+  html .app-shell .b24-drawer-tools :is(.v6-quick-actions button, .btn) {
+    min-width: var(--ds-control-h-lg);
+    min-height: var(--ds-control-h-lg);
+    border-radius: var(--ds-radius-md);
+  }
+  html .app-shell .b24-drawer-tools .v6-quick-actions {
+    flex: none;
+  }
+  /* "Görev oluştur" keeps its own width (it stretched to 400px on a tablet);
+     the status badge takes the free space instead and sits at the far end. */
+  html .app-shell .b24-drawer-tools .btn {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  html .app-shell .b24-drawer-tools .badge {
+    flex: none;
+    margin-left: auto;
+  }
+
+  html .app-shell .b24-drawer-content {
+    display: flex;
+    flex: 1 0 auto;
+    flex-direction: column;
+    width: 100%;
+    max-width: 760px;
+    margin-inline: auto;
+    padding: var(--ds-space-4) var(--cd-pad) var(--ds-space-6);
+    overflow: visible;
+  }
+  html .app-shell .b24-drawer .cx-timeline {
+    display: contents;
+  }
+  html .app-shell .b24-drawer-content > *,
+  html .app-shell .b24-drawer .cx-timeline > * {
+    flex: none;
+    order: 1;
+  }
+  html .app-shell .b24-drawer .cx-discuss {
+    order: 0;
+  }
+  html .app-shell .b24-drawer-info {
+    order: 2;
+    margin-top: var(--ds-space-6);
+    padding: var(--ds-space-4) var(--ds-space-4) 0;
+    overflow: visible;
+    border: 1px solid var(--xre-border);
+    border-radius: var(--ds-radius-lg);
+  }
+  html .app-shell .b24-drawer .cx-section-divider.blue,
+  html .app-shell .b24-drawer .cx-history {
+    order: 3;
+  }
+  html .app-shell .b24-drawer-info > form > .btn.full-width {
+    position: static;
+    margin: var(--ds-space-5) 0 var(--ds-space-4);
+    box-shadow: var(--ds-shadow-sm);
+  }
+  html .app-shell .b24-drawer-info > form > .btn.full-width:focus-visible {
+    box-shadow: var(--ds-focus-ring);
+  }
+}
+@media (max-width: 520px) {
+  html .app-shell .b24-drawer .cx-composer-tabs {
+    flex-wrap: wrap;
+    gap: 2px;
+  }
+  html .app-shell .b24-drawer .cx-composer-tabs button:last-child {
+    font-size: var(--ds-text-sm);
+  }
+  html .app-shell .b24-drawer .cx-inline-dates small {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+  html .app-shell .b24-drawer .cx-inline-dates label {
+    flex: 1 1 0;
+  }
+  html .app-shell .b24-drawer .cx-inline-dates input {
+    flex: 1;
+    max-width: none;
+    min-width: 0;
+  }
+  html .app-shell .b24-drawer .cx-todo {
+    padding: var(--ds-space-3);
+  }
+  html .app-shell .b24-drawer .cx-history {
+    padding-left: 12px;
+  }
+  html .app-shell .b24-drawer .cx-history > article {
+    padding-left: 22px;
+  }
+  html .app-shell .b24-drawer .cx-history header {
+    flex-wrap: wrap;
+    gap: 0 var(--ds-space-3);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. Customer modal + contact card
+   -------------------------------------------------------------------------- */
+html .app-shell .modal .form-grid {
+  gap: var(--ds-space-4);
+}
+html .app-shell .modal .form-grid :is(input, select, textarea) {
+  font-weight: 400;
+}
+html .app-shell .modal .form-grid textarea {
+  min-height: 84px;
+}
+html .app-shell .modal .form-grid input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .modal .form-grid .crm-required-hint {
+  margin: 0;
+}
+
+/* Long forms: the action row stays reachable while the fields scroll. */
+html .app-shell .modal > form > .form-grid + .modal-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+}
+
+/* Edit mode: profile strip + tabs + event list. */
+html .app-shell .modal .lead-profile {
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-5) var(--ds-space-6) var(--ds-space-4);
+}
+html .app-shell .modal .lead-profile > div {
+  min-width: 0;
+}
+html .app-shell .modal .lead-profile h2 {
+  font-size: var(--ds-text-lg);
+  overflow-wrap: anywhere;
+}
+html .app-shell .modal .lead-profile p {
+  margin-top: 2px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .modal .lead-profile .badge {
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .modal > .tabs {
+  gap: var(--ds-space-5);
+  padding: 0 var(--ds-space-6);
+  border-bottom: 1px solid var(--xre-border);
+}
+html .app-shell .modal > .tabs button {
+  margin-bottom: -1px;
+  padding: 10px 2px;
+  border-bottom: 2px solid transparent;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  font-weight: 550;
+  transition:
+    color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .modal > .tabs button:hover {
+  color: var(--xre-text);
+}
+html .app-shell .modal > .tabs button.active {
+  border-bottom-color: var(--xre-accent);
+  color: var(--ds-accent-text);
+  font-weight: 600;
+}
+html .app-shell .modal .modal-content > .activity-item {
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-3) 0;
+}
+html .app-shell .modal .modal-content > .activity-item + .activity-item {
+  border-top: 1px solid var(--ds-divider);
+}
+html .app-shell .modal .modal-content > .activity-item .activity-icon {
+  width: var(--ds-control-h-sm);
+  height: var(--ds-control-h-sm);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-neutral-soft);
+  color: var(--xre-text-soft);
+}
+html .app-shell .modal .modal-content > .activity-item strong {
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+}
+html .app-shell .modal .modal-content > .activity-item p {
+  margin: 2px 0 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .modal .modal-content > .muted {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+}
+
+@media (max-width: 560px) {
+  html .app-shell .modal .modal-footer {
+    flex-wrap: wrap;
+  }
+  html .app-shell .modal .modal-footer .btn {
+    flex: 1 1 auto;
+    font-size: var(--ds-text-base);
+  }
+  html .app-shell .modal .lead-profile,
+  html .app-shell .modal > .tabs {
+    padding-inline: var(--ds-space-4);
+  }
+}
+
+/* Contact card (Kişi kartı). */
+html .app-shell .cx-contact-card {
+  padding: var(--ds-space-5) var(--ds-space-6) var(--ds-space-6);
+}
+html .app-shell .cx-contact-card > header {
+  flex-wrap: wrap;
+  gap: var(--ds-space-3);
+}
+html .app-shell .cx-contact-card > header > div {
+  flex: 1;
+  min-width: 0;
+}
+html .app-shell .cx-contact-card h2 {
+  color: var(--xre-text);
+  font-size: var(--ds-text-lg);
+  overflow-wrap: anywhere;
+}
+html .app-shell .cx-contact-card small {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .cx-contact-meta {
+  gap: var(--ds-space-2) var(--ds-space-5);
+  margin: var(--ds-space-4) 0 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-subtle);
+}
+html .app-shell .cx-contact-meta span {
+  gap: var(--ds-space-2);
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+html .app-shell .cx-contact-meta svg {
+  flex: none;
+  color: var(--xre-text-faint);
+}
+html .app-shell .cx-contact-card h3 {
+  margin: var(--ds-space-6) 0 var(--ds-space-2);
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 650;
+}
+html .app-shell .cx-contact-card > p {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+html .app-shell .cx-contact-opportunity {
+  gap: var(--ds-space-3);
+  min-height: var(--ds-control-h-lg);
+  margin-bottom: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface-raised);
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 550;
+  text-align: left;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .cx-contact-opportunity > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+html .app-shell .cx-contact-opportunity > svg {
+  flex: none;
+  color: var(--xre-text-faint);
+}
+html .app-shell .cx-contact-opportunity:hover {
+  border-color: var(--ds-border-hover);
+  background: var(--ds-surface-hover);
+}
+html .app-shell .cx-contact-opportunity:hover > svg {
+  color: var(--ds-accent-text);
+}
+html .app-shell .cx-contact-card > article {
+  margin-bottom: var(--ds-space-2);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface);
+}
+html .app-shell .cx-contact-card article header {
+  gap: var(--ds-space-2);
+  color: var(--ds-violet);
+  font-size: var(--ds-text-base);
+}
+html .app-shell .cx-contact-card article header strong {
+  color: var(--xre-text);
+  font-weight: 600;
+}
+html .app-shell .cx-contact-card article time {
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+html .app-shell .cx-contact-card article p {
+  margin: var(--ds-space-1) 0 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+html .app-shell .cx-contact-card article small {
+  display: block;
+  margin-top: var(--ds-space-2);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+}
+@media (max-width: 560px) {
+  html .app-shell .cx-contact-card {
+    padding: var(--ds-space-4);
+  }
+  html .app-shell .cx-contact-card > header > .btn {
+    flex: 1 1 100%;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. Appointment, online-meeting and call dialogs
+   -------------------------------------------------------------------------- */
+/* 6a. Appointment prompt (stage change needs a date + time). */
+html .app-shell .cx-appointment-form {
+  padding: var(--ds-space-5) var(--ds-space-6);
+}
+html .app-shell .cx-appointment-form .cx-info {
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-5);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-info-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-info-soft);
+  color: var(--ds-info);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+html .app-shell .cx-appointment-form .cx-info p {
+  color: var(--xre-text);
+}
+html .app-shell .cx-appointment-form .cx-info svg {
+  margin-top: 2px;
+}
+html .app-shell .cx-appointment-form .cx-date-row {
+  gap: var(--ds-space-4);
+}
+html .app-shell .cx-appointment-form label {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+}
+html .app-shell .cx-appointment-form label svg {
+  color: var(--xre-text-faint);
+}
+html .app-shell .cx-appointment-form label input {
+  grid-column: 1 / -1;
+  width: 100%;
+  padding: 0 var(--ds-space-3);
+  font-size: var(--ds-text-base);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .cx-appointment-form > small {
+  margin-top: var(--ds-space-3);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+}
+html .app-shell .cx-appointment-form > footer {
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-5);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--xre-border);
+}
+@media (max-width: 560px) {
+  html .app-shell .cx-appointment-form {
+    padding: var(--ds-space-4);
+  }
+  html .app-shell .cx-appointment-form > footer .btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* 6b. Online meeting planner. */
+html .app-shell .v6-meeting-form {
+  padding: var(--ds-space-5) var(--ds-space-6);
+}
+html .app-shell .v6-meeting-provider {
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-5);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-accent-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-accent-soft);
+  color: var(--xre-text);
+}
+html .app-shell .v6-meeting-provider > svg {
+  flex: none;
+  color: var(--ds-accent-text);
+}
+html .app-shell .v6-meeting-provider > div {
+  min-width: 0;
+  gap: 2px;
+}
+html .app-shell .v6-meeting-provider strong {
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+}
+html .app-shell .v6-meeting-provider span {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .v6-meeting-fields {
+  gap: var(--ds-space-4);
+  margin: 0; /* a <fieldset>: the UA's 2px inline margin pushed it off the banner's edges */
+}
+html .app-shell .v6-meeting-fields label {
+  gap: 6px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .v6-meeting-fields :is(input:not([type="checkbox"]), select, textarea) {
+  font-size: var(--ds-text-base);
+  font-weight: 400;
+}
+html .app-shell .v6-meeting-fields :is(input:not([type="checkbox"]), select) {
+  padding-block: 0;
+}
+html .app-shell .v6-meeting-fields a {
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .v6-meeting-fields .v6-invite-check {
+  gap: var(--ds-space-2);
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 400;
+}
+html .app-shell .v6-invite-check input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0; /* UA margin indented the box 4px from the fields above */
+}
+html .app-shell .v6-meeting-form .modal-footer {
+  margin: var(--ds-space-5) calc(var(--ds-space-6) * -1) calc(var(--ds-space-5) * -1);
+  gap: var(--ds-space-2);
+}
+html .app-shell .v6-meeting-form .modal-footer > span {
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+}
+html .app-shell .v6-error {
+  margin-top: var(--ds-space-4);
+  padding: 10px var(--ds-space-3);
+  border: 1px solid var(--ds-danger-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-danger-soft);
+  color: var(--ds-danger);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .v6-setup-note {
+  margin-bottom: var(--ds-space-4);
+  padding: 10px var(--ds-space-3);
+  border: 1px solid var(--ds-warn-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-warn-soft);
+  color: var(--ds-warn);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .v6-meeting-result {
+  gap: var(--ds-space-4);
+}
+html .app-shell .v6-meeting-icon {
+  display: inline-grid;
+  place-items: center;
+  padding: var(--ds-space-4);
+  background: var(--ds-success-soft);
+  color: var(--ds-success);
+}
+html .app-shell .v6-meeting-result h3 {
+  color: var(--xre-text);
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  letter-spacing: var(--ds-tracking-tight);
+}
+html .app-shell .v6-meeting-result p {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .v6-meet-link {
+  padding: 10px var(--ds-space-4);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-base);
+}
+html .app-shell .v6-meeting-result small {
+  max-width: 52ch;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+}
+html .app-shell :is(.v6-meeting-result, .v6-call-modal) .info-banner {
+  gap: var(--ds-space-3);
+  margin-bottom: 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--ds-info-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-info-soft);
+  color: var(--ds-info);
+  text-align: left;
+}
+html .app-shell :is(.v6-meeting-result, .v6-call-modal) .info-banner p {
+  flex: 1;
+  margin: 0;
+  color: var(--xre-text);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+@media (max-width: 650px) {
+  html .app-shell .v6-meeting-form {
+    padding: var(--ds-space-4);
+  }
+  html .app-shell .v6-meeting-form .modal-footer {
+    margin: var(--ds-space-4) calc(var(--ds-space-4) * -1) calc(var(--ds-space-4) * -1);
+  }
+  html .app-shell .v6-meeting-form .modal-footer .btn {
+    flex: 1 1 auto;
+  }
+}
+
+/* 6c. Call dialog opened from the drawer's "Ara" action. */
+html .app-shell .v6-call-tabs {
+  gap: 2px;
+  margin-bottom: var(--ds-space-4);
+  padding: 3px;
+  border: 1px solid var(--xre-border);
+  border-radius: 10px;
+  background: var(--ds-track);
+}
+html .app-shell .v6-call-tabs button {
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-3);
+  border: 0;
+  border-radius: 7px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .v6-call-tabs button:hover {
+  color: var(--xre-text);
+}
+html .app-shell .v6-call-tabs button.active {
+  background: var(--ds-thumb);
+  color: var(--ds-accent-text);
+  box-shadow: var(--ds-shadow-sm);
+}
+html .app-shell .v6-call-modal label {
+  gap: 6px;
+  margin-bottom: var(--ds-space-4);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+}
+html .app-shell .v6-call-modal p {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+html .app-shell .v6-call-modal small {
+  margin-top: var(--ds-space-3);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .v6-call-modal .pbx-call {
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-4);
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-color: var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-subtle);
+}
+
+/* --------------------------------------------------------------------------
+   7. Shared record checkbox (activities cards + calendar day list)
+   The button is the 32px hit area; the box itself is drawn with ::before.
+   -------------------------------------------------------------------------- */
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-record-check {
+  position: relative;
+  width: var(--ds-control-h-sm);
+  height: var(--ds-control-h-sm);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent !important;
+  color: var(--ds-on-accent);
+}
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-record-check::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 18px;
+  height: 18px;
+  margin: auto;
+  border: 1.5px solid var(--ds-border-hover);
+  border-radius: 5px;
+  background: var(--xre-surface-raised);
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-record-check svg {
+  position: relative;
+  width: 13px;
+  height: 13px;
+  stroke-width: 3;
+}
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-record-check .lucide-square {
+  opacity: 0;
+}
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-record-check:hover::before {
+  border-color: var(--xre-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xre-accent) 18%, transparent);
+}
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-record-check:has(.lucide-check)::before {
+  border-color: transparent;
+  background: var(--ds-accent-solid);
+}
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-record-check:focus-visible {
+  box-shadow: none;
+}
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-record-check:focus-visible::before {
+  box-shadow: var(--ds-focus-ring);
+}
+
+/* --------------------------------------------------------------------------
+   8. /activities — follow-up buckets with customer cards
+   -------------------------------------------------------------------------- */
+html .app-shell .crm-subview-heading {
+  margin: var(--ds-space-2) 0 var(--ds-space-5);
+}
+html .app-shell :is(.crm-activities-view, .crm-calendar-view) .crm-eyebrow {
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: 0.08em;
+}
+html .app-shell .crm-subview-heading h2 {
+  margin: var(--ds-space-1) 0 2px;
+  color: var(--xre-text) !important;
+  font-family: var(--heading, inherit);
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  line-height: var(--ds-leading-lg);
+  letter-spacing: var(--ds-tracking-tight);
+}
+html .app-shell .crm-subview-heading p {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+
+/* Bucket header: tone dot, title, count, hairline. */
+html .app-shell .crm-activities-view {
+  --cd-icon-open: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 7h10v10'/%3E%3Cpath d='M7 17 17 7'/%3E%3C/svg%3E");
+}
+html .app-shell .crm-activity-group {
+  --cd-tone: var(--xre-text-faint);
+  margin: 0 0 var(--ds-space-7);
+}
+html .app-shell .crm-activity-group.overdue {
+  --cd-tone: var(--ds-danger);
+}
+html .app-shell .crm-activity-group.today {
+  --cd-tone: var(--ds-warn);
+}
+html .app-shell .crm-activity-group.this-week {
+  --cd-tone: var(--ds-info);
+}
+html .app-shell .crm-activity-group > header {
+  gap: var(--ds-space-3);
+  margin-bottom: var(--ds-space-3);
+}
+html .app-shell .crm-activity-group > header > div {
+  align-items: center;
+  gap: var(--ds-space-2);
+}
+html .app-shell .crm-activity-group h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  white-space: nowrap;
+}
+html .app-shell .crm-activity-group h3::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cd-tone);
+}
+html .app-shell .crm-activity-group.none h3::before {
+  border: 1.5px solid var(--cd-tone);
+  background: transparent;
+}
+html .app-shell .crm-activity-group.overdue h3 {
+  color: var(--ds-danger);
+}
+html .app-shell .crm-activity-group > header span:not(.crm-group-line) {
+  padding: 2px var(--ds-space-2);
+  border-radius: var(--ds-radius-pill);
+  background: var(--xre-surface-muted);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .crm-activity-group .crm-group-line {
+  background: var(--xre-border);
+}
+html .app-shell .crm-activity-cards {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  align-items: start;
+  gap: var(--ds-space-4);
+}
+
+/* Customer card. */
+html .app-shell .crm-activities-view .crm-contact-card {
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-4);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface);
+  color: var(--xre-text);
+  box-shadow: var(--ds-shadow-sm);
+  transition: border-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .crm-activities-view .crm-contact-card:hover {
+  border-color: var(--ds-border-strong);
+  box-shadow: var(--ds-shadow-sm);
+}
+html .app-shell .crm-activities-view .crm-contact-card-top {
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control-h-sm);
+  margin: -6px -6px -6px 0;
+}
+/* "Müşteri ayrıntısı": the markup draws a rotated plus, which reads as "close".
+   Show an open-arrow instead (mask, so it follows the text colour). */
+html .app-shell .crm-activities-view .crm-contact-card-top .icon-button svg {
+  display: none;
+}
+html .app-shell .crm-activities-view .crm-contact-card-top .icon-button::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  -webkit-mask: var(--cd-icon-open) center / contain no-repeat;
+  mask: var(--cd-icon-open) center / contain no-repeat;
+}
+html .app-shell .crm-activities-view .crm-contact-card-top .icon-button:hover {
+  color: var(--ds-accent-text);
+}
+/* Same look as the source label on kanban cards (.b24-card-source): small caps row. */
+html .app-shell .crm-activities-view .crm-card-source {
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+html .app-shell .crm-activities-view .crm-open-count {
+  gap: var(--ds-space-1);
+  padding: 2px var(--ds-space-2);
+  border: 0;
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-xs);
+  font-weight: 650;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .crm-activities-view .crm-contact-heading {
+  gap: 2px;
+  min-width: 0;
+}
+html .app-shell .crm-activities-view .crm-contact-name {
+  max-width: 100%;
+  border-radius: var(--ds-radius-sm);
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  overflow-wrap: anywhere;
+  transition: color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .crm-activities-view .crm-contact-name:hover {
+  color: var(--ds-accent-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* Touch: a 40px target without moving anything. Padding is cancelled by an equal
+   negative margin; the extra area lies over the card gap above and the (inert)
+   subtitle below, which is why the button is lifted above it. */
+@media (pointer: coarse) {
+  html .app-shell .crm-activities-view .crm-contact-name {
+    position: relative;
+    z-index: 1;
+    min-width: var(--ds-control-h-lg);
+    min-height: var(--ds-control-h-lg);
+    margin-block: -6px -13px;
+    padding-block: 6px 13px;
+    text-align: left;
+  }
+}
+html .app-shell .crm-activities-view .crm-contact-heading strong {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 500;
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .crm-activities-view .crm-contact-meta {
+  gap: var(--ds-space-2);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .crm-activities-view .crm-contact-meta .avatar {
+  flex: none;
+}
+
+/* Next step: tinted by the bucket's urgency. */
+html .app-shell .crm-activities-view .crm-contact-record {
+  min-height: 0;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border-left: 2px solid var(--cd-tone);
+  border-radius: 0 var(--ds-radius-md) var(--ds-radius-md) 0;
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .crm-activities-view .crm-contact-record span {
+  gap: 1px;
+  min-width: 0;
+}
+html .app-shell .crm-activities-view .crm-contact-record b {
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .crm-activities-view .crm-contact-record small {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading-xs);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .crm-activities-view :is(.overdue, .today) .crm-contact-record small {
+  color: var(--cd-tone);
+  font-weight: 600;
+}
+html .app-shell .crm-activities-view .crm-no-record {
+  color: var(--xre-text-faint);
+}
+
+/* Open records: checkbox + title/meta row that opens the editor. */
+html .app-shell .crm-activity-card-records {
+  gap: 0;
+  margin: -4px 0;
+}
+html .app-shell .crm-activity-card-records .crm-activity-record-row + .crm-activity-record-row {
+  padding-top: 0;
+  border-top: 1px solid var(--ds-divider);
+}
+html .app-shell .crm-activity-record-row {
+  gap: var(--ds-space-1);
+  margin-left: -7px;
+}
+html .app-shell .crm-activities-view .crm-record-edit {
+  gap: var(--ds-space-2);
+  min-height: 44px;
+  padding: var(--ds-space-1) var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .crm-activities-view .crm-contact-card > .crm-record-edit {
+  flex: none;
+  margin: 0 calc(var(--ds-space-2) * -1);
+  min-height: var(--ds-control-h-sm);
+}
+html .app-shell .crm-activities-view .crm-record-edit:hover {
+  background: var(--ds-hover);
+}
+html .app-shell .crm-activities-view .crm-record-edit > span {
+  gap: 1px;
+}
+html .app-shell .crm-activities-view .crm-record-edit strong {
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: var(--ds-leading-sm);
+}
+html .app-shell .crm-activities-view .crm-record-edit small {
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading-xs);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .crm-activities-view .crm-record-edit > svg {
+  color: var(--xre-text-faint);
+  transition: color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .crm-activities-view .crm-record-edit:hover > svg {
+  color: var(--ds-accent-text);
+}
+html .app-shell .crm-activities-view .crm-add-activity {
+  gap: 6px;
+  min-height: var(--ds-control-h-sm);
+  margin: -4px 0 -4px calc(var(--ds-space-2) * -1);
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .crm-activities-view .crm-add-activity:hover {
+  background: var(--xre-accent-soft);
+}
+
+/* Card footer: quick actions. */
+html .app-shell .crm-activities-view .crm-contact-footer {
+  gap: var(--ds-space-2);
+  margin: auto calc(var(--ds-space-2) * -1) calc(var(--ds-space-2) * -1);
+  padding-top: var(--ds-space-2);
+  border-top: 1px solid var(--ds-divider);
+}
+html .app-shell .crm-activities-view .v6-quick-actions {
+  gap: 2px;
+}
+html .app-shell .crm-activities-view .v6-quick-actions button {
+  gap: 6px;
+  min-width: var(--ds-control-h-sm);
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .crm-activities-view .v6-quick-actions button span {
+  font-size: inherit;
+}
+html .app-shell .crm-activities-view .v6-quick-actions button:hover:not(:disabled) {
+  background: var(--xre-accent-soft);
+}
+html .app-shell .crm-activities-view .v6-quick-actions button:active:not(:disabled) {
+  background: var(--ds-pressed);
+}
+
+@media (max-width: 760px) {
+  html .app-shell .crm-activity-group {
+    margin-bottom: var(--ds-space-6);
+  }
+  html .app-shell .crm-activity-cards {
+    gap: var(--ds-space-3);
+  }
+  html .app-shell .crm-activities-view .v6-quick-actions span {
+    display: inline;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9. /calendar — month grid + selected-day panel
+   -------------------------------------------------------------------------- */
+html .app-shell .crm-calendar-view .crm-calendar-layout {
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 26%, 368px);
+  align-items: start;
+  gap: var(--ds-space-5);
+}
+html .app-shell .crm-calendar-view .crm-calendar-panel {
+  container: cd-calendar / inline-size;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Month header: title first, then previous / next / today. */
+html .app-shell .crm-calendar-view .crm-calendar-head {
+  gap: var(--ds-space-1);
+  margin: 0;
+  padding: var(--ds-space-3) var(--ds-space-4) var(--ds-space-3) var(--ds-space-5);
+}
+html .app-shell .crm-calendar-view .crm-calendar-head h2 {
+  order: -1;
+  color: var(--xre-text);
+  font-family: var(--heading, inherit);
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  line-height: var(--ds-leading-lg);
+  letter-spacing: var(--ds-tracking-tight);
+}
+html .app-shell .crm-calendar-view .crm-calendar-head .btn {
+  margin-left: var(--ds-space-2);
+}
+
+html .app-shell .crm-calendar-view .crm-calendar-weekdays {
+  gap: 0;
+  margin: 0;
+  border-block: 1px solid var(--xre-border);
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: 0.04em;
+  text-align: left;
+}
+html .app-shell .crm-calendar-view .crm-calendar-weekdays span {
+  padding: var(--ds-space-2) var(--ds-space-3);
+}
+
+/* Grid: hairlines instead of separate boxes. */
+html .app-shell .crm-calendar-view .crm-calendar-grid {
+  gap: 0;
+}
+/* Row height follows the viewport: with the panel scrolled under the top bar
+   (56 + 16), its own chrome (title 56, weekdays 35, legend 45, borders 2) and a
+   16px bottom gap, six weeks fit on one screen. Capped so tall screens stay dense.
+   svh, not dvh: rows must not resize while a tablet's browser bar slides away. */
+html .app-shell .crm-calendar-view :is(.crm-calendar-day, .crm-calendar-empty) {
+  min-height: clamp(84px, calc((100svh - 226px) / 6), 116px);
+  border: 0;
+  border-right: 1px solid var(--ds-divider);
+  border-bottom: 1px solid var(--ds-divider);
+  border-radius: 0;
+}
+html .app-shell .crm-calendar-view :is(.crm-calendar-day, .crm-calendar-empty):nth-child(7n) {
+  border-right: 0;
+}
+html .app-shell .crm-calendar-view :is(.crm-calendar-day, .crm-calendar-empty):nth-last-child(-n + 7) {
+  border-bottom: 0;
+}
+html .app-shell .crm-calendar-view .crm-calendar-empty {
+  background: var(--ds-surface-subtle);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-1);
+  padding: 6px;
+  background: transparent;
+  color: var(--xre-text-soft);
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day:hover {
+  border-color: var(--ds-divider);
+  background: var(--ds-hover);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day.selected {
+  border-color: var(--ds-divider);
+  background: var(--ds-selected);
+  box-shadow: inset 0 0 0 2px var(--xre-accent);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--xre-accent), inset 0 0 0 4px var(--ds-selected);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day > strong {
+  display: inline-grid;
+  place-items: center;
+  align-self: flex-start;
+  min-width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0 6px;
+  border-radius: var(--ds-radius-pill);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day.selected > strong {
+  color: var(--ds-accent-text);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day.today > strong {
+  background: var(--ds-accent-solid);
+  color: var(--ds-on-accent);
+}
+html .app-shell .crm-calendar-view .crm-calendar-events {
+  gap: 3px;
+  min-width: 0;
+}
+/* "<b>Name</b> · 13:00": as a flex row the name is the part that truncates and
+   the time (an anonymous item, which cannot shrink) always stays visible. */
+html .app-shell .crm-calendar-view .crm-calendar-event {
+  display: flex;
+  gap: 0.3em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--xre-accent-soft) !important;
+  box-shadow: inset 2px 0 0 currentColor;
+  color: var(--ds-accent-text) !important;
+  font-size: var(--ds-text-xs);
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .crm-calendar-view .crm-calendar-event.task {
+  background: var(--ds-warn-soft) !important;
+  color: var(--ds-warn) !important;
+}
+html .app-shell .crm-calendar-view .crm-calendar-event b {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .crm-calendar-view .crm-calendar-events small {
+  padding-left: 6px;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 550;
+}
+/* Short screens: tighter cells, so a day with three records is no taller than an empty one. */
+@media (max-height: 820px) {
+  html .app-shell .crm-calendar-view .crm-calendar-day {
+    gap: 2px;
+    padding-block: var(--ds-space-1);
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-day > strong {
+    min-width: 22px;
+    height: 22px;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-events {
+    gap: 2px;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-event {
+    padding-block: 1px;
+  }
+}
+
+html .app-shell .crm-calendar-view .crm-calendar-legend {
+  gap: var(--ds-space-4);
+  margin: 0;
+  padding: var(--ds-space-3) var(--ds-space-5);
+  border-top: 1px solid var(--xre-border);
+  background: transparent;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .crm-calendar-view .crm-calendar-legend span {
+  gap: 6px;
+}
+html .app-shell .crm-calendar-view .crm-calendar-legend span:last-child {
+  margin-left: auto;
+  color: var(--xre-text-faint);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .crm-calendar-view .crm-calendar-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--xre-accent);
+}
+html .app-shell .crm-calendar-view .crm-calendar-legend i.task {
+  background: var(--ds-warn);
+}
+
+/* Narrow month grid: events collapse to colour marks; the day list has the text. */
+@container cd-calendar (max-width: 520px) {
+  html .app-shell .crm-calendar-view .crm-calendar-weekdays {
+    text-align: center;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-weekdays span {
+    padding-inline: 0;
+  }
+  html .app-shell .crm-calendar-view :is(.crm-calendar-day, .crm-calendar-empty) {
+    min-height: 60px;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-day {
+    align-items: center;
+    gap: var(--ds-space-1);
+    padding: var(--ds-space-1) 2px 6px;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-day > strong {
+    align-self: center;
+    min-width: 28px;
+    height: 28px;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-events {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 3px;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-event {
+    flex: none;
+    width: 5px;
+    height: 5px;
+    padding: 0;
+    border-radius: 50%;
+    background: var(--xre-accent) !important;
+    box-shadow: none;
+    font-size: 0;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-event.task {
+    background: var(--ds-warn) !important;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-events small {
+    flex-basis: 100%;
+    padding: 0;
+    font-size: 10px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-head {
+    padding-inline: var(--ds-space-4) var(--ds-space-3);
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-legend {
+    padding-inline: var(--ds-space-4);
+  }
+}
+
+/* Selected day. */
+html .app-shell .crm-calendar-view .crm-calendar-day-detail {
+  position: sticky;
+  top: calc(56px + var(--ds-space-4));
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 56px - var(--ds-space-7));
+  padding: 0;
+  overflow: hidden;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-detail > header {
+  flex: none;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin: 0;
+  padding: var(--ds-space-4) var(--ds-space-4) var(--ds-space-4) var(--ds-space-5);
+  border-bottom: 1px solid var(--xre-border);
+  background: transparent;
+  color: var(--xre-text);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-detail > header > div {
+  min-width: 0;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-detail h2 {
+  margin: 2px 0 0;
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-detail > header .btn {
+  flex: none;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-detail > .empty {
+  padding: var(--ds-space-7) var(--ds-space-5);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-items {
+  gap: 0;
+  min-height: 0;
+  padding: var(--ds-space-2);
+  overflow-y: auto;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-items:empty {
+  display: none;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-item {
+  --cd-tone: var(--xre-accent);
+  position: relative;
+  gap: var(--ds-space-1);
+  padding: var(--ds-space-2) var(--ds-space-1) var(--ds-space-2) var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius-md);
+  background: transparent;
+  color: var(--xre-text-soft);
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-item.task {
+  --cd-tone: var(--ds-warn);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-item:hover {
+  background: var(--ds-hover);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-item + .crm-calendar-day-item::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: var(--ds-space-2);
+  left: var(--ds-space-2);
+  height: 1px;
+  background: var(--ds-divider);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-item.completed {
+  opacity: 1;
+}
+/* Done: quieter colours instead of opacity, so the text stays readable. */
+html .app-shell .crm-calendar-view .crm-calendar-day-item.completed .crm-calendar-day-body strong {
+  color: var(--xre-text-soft) !important;
+  font-weight: 550;
+  text-decoration: line-through;
+  text-decoration-color: var(--xre-text-faint);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-item.completed .crm-calendar-day-body > :is(span, p) {
+  color: var(--xre-text-faint);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-item.completed .crm-calendar-day-body > span::before {
+  opacity: 0.5;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-body {
+  gap: 2px;
+  padding: 6px 0 6px var(--ds-space-1);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-body strong {
+  overflow: visible;
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-body > span {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-body > span::before {
+  content: "";
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--cd-tone);
+}
+html .app-shell .crm-calendar-view .crm-calendar-day-body p {
+  margin: var(--ds-space-1) 0 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-base);
+  overflow-wrap: anywhere;
+}
+html .app-shell .crm-calendar-view .crm-linked-lead {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-1);
+  margin-top: var(--ds-space-1);
+  border-radius: var(--ds-radius-sm);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  text-decoration: none;
+}
+html .app-shell .crm-calendar-view .crm-linked-lead:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* Touch: the links that open the customer / the meeting get a 40px target.
+   The last one grows into the row's bottom padding, so rows barely get taller. */
+@media (pointer: coarse) {
+  html .app-shell .crm-calendar-view .crm-linked-lead {
+    min-height: var(--ds-control-h-lg);
+    margin-top: 0;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-day-body > .crm-linked-lead:last-child {
+    margin-bottom: -10px;
+  }
+}
+
+@media (max-width: 1180px) {
+  html .app-shell .crm-calendar-view .crm-calendar-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-4);
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-day-detail {
+    position: static;
+    max-height: none;
+  }
+  html .app-shell .crm-calendar-view .crm-calendar-day-items {
+    overflow: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html .app-shell :is(
+      .b24-drawer-close,
+      .b24-stage-strip button,
+      .v6-quick-actions button,
+      .cx-composer-tabs button,
+      .cx-compose-box,
+      .cx-contact-opportunity,
+      .crm-record-check::before,
+      .crm-record-edit,
+      .crm-add-activity,
+      .crm-contact-card,
+      .crm-calendar-day,
+      .crm-calendar-day-item
+    ) {
+    transition: none;
+  }
+}

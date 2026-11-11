@@ -1,0 +1,311 @@
+/* ==========================================================================
+   XRE CRM design tokens  (design/tokens.css — loaded first in the design layer)
+   --------------------------------------------------------------------------
+   Everything here is a CSS custom property on :root, with per-theme overrides
+   on html[data-xre-theme="…"]. Theme colours themselves live in themes.css
+   (--xre-*); this file adds the scale tokens (--ds-*) on top of them.
+
+   Rules of use
+   - surfaces / text / borders  → --xre-* (never hard-code)
+   - spacing, radius, type, shadow, motion, status → --ds-*
+   - filled accent controls     → background --ds-accent-solid, text --ds-on-accent
+   - status chips               → color --ds-<tone>, background --ds-<tone>-soft
+   Opaque colours are stored as plain hex per theme (not color-mix) so contrast
+   can be checked exactly; the formula is noted next to each group.
+   ========================================================================== */
+
+:root {
+  /* ---- Spacing: 4px grid ------------------------------------------------ */
+  --ds-space-1: 4px;
+  --ds-space-2: 8px;
+  --ds-space-3: 12px;
+  --ds-space-4: 16px;
+  --ds-space-5: 20px;
+  --ds-space-6: 24px;
+  --ds-space-7: 32px;
+  --ds-space-8: 40px;
+
+  /* ---- Radius ----------------------------------------------------------- */
+  --ds-radius-sm: 6px; /* badges, small buttons, inner chips */
+  --ds-radius-md: 8px; /* buttons, inputs, menu items */
+  --ds-radius-lg: 12px; /* panels, cards, tables */
+  --ds-radius-xl: 16px; /* modals, drawers, large overlays */
+  --ds-radius-pill: 999px;
+
+  /* ---- Type scale (follows the user's font-size preference) -------------- */
+  --ds-font-scale: var(--xre-font-scale, 1);
+  --ds-text-xs: calc(11px * var(--ds-font-scale)); /* captions, th, eyebrow — the floor */
+  --ds-text-sm: calc(12.5px * var(--ds-font-scale)); /* secondary text, small buttons, labels */
+  --ds-text-base: calc(13.5px * var(--ds-font-scale)); /* body, inputs, buttons, td */
+  --ds-text-md: calc(15px * var(--ds-font-scale)); /* panel / section titles */
+  --ds-text-lg: calc(17px * var(--ds-font-scale)); /* modal titles, sub-headings */
+  --ds-text-xl: calc(20px * var(--ds-font-scale)); /* KPI values, drawer titles */
+  --ds-text-2xl: calc(24px * var(--ds-font-scale)); /* page titles */
+
+  --ds-leading-xs: 1.45; /* pair with --ds-text-xs */
+  --ds-leading-sm: 1.45; /* pair with --ds-text-sm */
+  --ds-leading-base: 1.5; /* pair with --ds-text-base */
+  --ds-leading-md: 1.4; /* pair with --ds-text-md */
+  --ds-leading-lg: 1.35; /* pair with --ds-text-lg */
+  --ds-leading-xl: 1.3; /* pair with --ds-text-xl */
+  --ds-leading-2xl: 1.25; /* pair with --ds-text-2xl */
+
+  --ds-weight-regular: 400;
+  --ds-weight-medium: 500;
+  --ds-weight-semibold: 600;
+  --ds-weight-bold: 700;
+
+  --ds-tracking-tight: -0.02em; /* headings ≥ 17px */
+  --ds-tracking-caps: 0.06em; /* uppercase eyebrow / th labels */
+
+  /* ---- Control sizes ---------------------------------------------------- */
+  --ds-control-h: 36px; /* buttons, inputs, selects */
+  --ds-control-h-sm: 32px; /* .btn.small, icon buttons (min hit area) */
+  --ds-control-h-lg: 40px; /* touch / prominent actions */
+
+  /* ---- Motion ----------------------------------------------------------- */
+  --ds-ease: cubic-bezier(0.2, 0, 0, 1); /* ease-out, for enter + hover */
+  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ds-duration-fast: 120ms; /* hover, press, colour */
+  --ds-duration-base: 180ms; /* overlays, panels, layout-free transforms */
+
+  /* ---- Accent helpers --------------------------------------------------- */
+  /* Fill for primary buttons / selected chips; always ≥ 4.5:1 with --ds-on-accent. */
+  --ds-accent-solid: var(--xre-accent-strong);
+  --ds-accent-solid-hover: #095f7c; /* accent-strong 86% + black */
+  --ds-accent-solid-active: #08546d; /* accent-strong 76% + black */
+  /* Text/icon colour on top of --xre-accent / --xre-accent-strong / --ds-accent-solid. */
+  --ds-on-accent: #ffffff;
+  /* Accent as readable text / link colour on any surface (≥ 4.5:1). */
+  --ds-accent-text: var(--xre-accent-strong);
+  --ds-accent-border: #89c0d5; /* accent 42% + border */
+
+  /* ---- Neutral helpers -------------------------------------------------- */
+  /* Translucent overlays: put them on top of any surface. */
+  --ds-hover: color-mix(in srgb, var(--xre-text) 5%, transparent); /* row / ghost hover */
+  --ds-pressed: color-mix(in srgb, var(--xre-text) 9%, transparent); /* :active */
+  --ds-selected: color-mix(in srgb, var(--xre-accent) 10%, transparent); /* selected row */
+  --ds-divider: color-mix(in srgb, var(--xre-border) 70%, transparent); /* hairlines inside a panel */
+  /* Opaque equivalents for raised controls (secondary buttons, menus). */
+  --ds-surface-hover: #f3f4f5; /* text 5% + surface-raised */
+  --ds-surface-pressed: #eaebed; /* text 9% + surface-raised */
+  --ds-surface-subtle: #f5f8fb; /* between surface and surface-muted: table heads, footers */
+  --ds-border-strong: #bcc6cf; /* control borders (text 16% + border) */
+  --ds-border-hover: #a0abb5; /* control border on hover (text 30% + border) */
+
+  /* Segmented controls / pill tabs: inset track + raised thumb. */
+  --ds-track: var(--xre-surface-muted);
+  --ds-thumb: var(--xre-surface-raised);
+
+  /* Opaque surface for menus / popovers / modals (glass themes need it solid). */
+  --ds-surface-overlay: var(--xre-surface-raised);
+  /* The panel colour as an opaque value (sticky table cells must cover what
+     scrolls under them; purple-glass panels are translucent). */
+  --ds-surface-solid: var(--xre-surface);
+  --ds-backdrop: rgba(13, 24, 37, 0.46); /* modal scrim */
+
+  /* ---- Status colours: foreground + soft background + border ------------- */
+  /* Foregrounds are ≥ 4.5:1 on --xre-surface, on --xre-bg and on their own -soft. */
+  --ds-success: #0d7447;
+  --ds-warn: #945704;
+  --ds-danger: #bc2f2f;
+  --ds-info: #1763b0;
+  --ds-violet: #6846c0;
+  --ds-neutral: var(--xre-text-soft);
+
+  --ds-success-soft: #e4f0eb; /* tone 11% + surface */
+  --ds-warn-soft: #f3ede3;
+  --ds-danger-soft: #f8e8e8;
+  --ds-info-soft: #e5eef6;
+  --ds-violet-soft: #eeebf8;
+  --ds-neutral-soft: var(--xre-surface-muted);
+
+  --ds-success-border: #96bfb5; /* tone 34% + border */
+  --ds-warn-border: #c4b59e;
+  --ds-danger-border: #d1a7ac;
+  --ds-info-border: #99b9d8;
+
+  /* Filled destructive button. */
+  --ds-danger-solid: #bc2f2f;
+  --ds-danger-solid-hover: #a42727;
+  --ds-on-danger: #ffffff;
+
+  /* ---- Elevation -------------------------------------------------------- */
+  --ds-shadow-rgb: 16 30 46;
+  --ds-shadow-sm: 0 1px 2px rgb(var(--ds-shadow-rgb) / 0.06);
+  --ds-shadow-md:
+    0 1px 2px rgb(var(--ds-shadow-rgb) / 0.05),
+    0 4px 12px -2px rgb(var(--ds-shadow-rgb) / 0.09);
+  --ds-shadow-lg:
+    0 2px 4px rgb(var(--ds-shadow-rgb) / 0.04),
+    0 12px 28px -6px rgb(var(--ds-shadow-rgb) / 0.15);
+  --ds-shadow-overlay:
+    0 0 0 1px rgb(var(--ds-shadow-rgb) / 0.05),
+    0 8px 16px -4px rgb(var(--ds-shadow-rgb) / 0.08),
+    0 28px 64px -12px rgb(var(--ds-shadow-rgb) / 0.28);
+
+  /* ---- Focus ------------------------------------------------------------ */
+  /* Two-layer ring for buttons, links, cards, tabs. */
+  /* Ring colour: the solid accent is ≥ 3:1 on every theme's surface (WCAG 1.4.11). */
+  --ds-focus-color: var(--xre-accent);
+  --ds-focus-ring:
+    0 0 0 2px var(--xre-surface),
+    0 0 0 4px var(--ds-focus-color);
+  /* Soft halo for text fields (combine with border-color: var(--xre-accent)). */
+  --ds-focus-ring-field: 0 0 0 3px color-mix(in srgb, var(--xre-accent) 22%, transparent);
+
+  /* ---- Component tokens -------------------------------------------------- */
+  /* Inline notice / callout: one accent-tinted skin on every page. */
+  --ds-notice-bg: var(--xre-accent-soft);
+  --ds-notice-border: color-mix(in srgb, var(--xre-accent) 26%, var(--xre-border));
+  --ds-notice-icon: var(--ds-accent-text);
+  /* Unchecked checkbox / radio outline (≥ 3:1 on the surface). */
+  --ds-check-border: #8291a2; /* text-faint 78% + surface */
+  /* Initials avatar. Light themes keep the pastel swatch set inline by the
+     component; night replaces it with one quiet slate chip. */
+  --ds-avatar-text: #33473c;
+
+  /* ---- Refinements to theme colours (light) ------------------------------ */
+  /* #78899b was 3.3:1 on the page background; same hue, now 4.7:1 on white
+     and 4.3:1 on the page background (it carries real 11–12.5px content). */
+  --xre-text-faint: #64768a;
+}
+
+/* --------------------------------------------------------------------------
+   Night — light-cyan accent needs dark text; shadows are darker and tighter;
+   status foregrounds are lifted so they stay readable on #172638.
+   -------------------------------------------------------------------------- */
+html[data-xre-theme="night"] {
+  --ds-accent-solid: var(--xre-accent);
+  --ds-accent-solid-hover: #74dcf2; /* lighter on hover in the dark */
+  --ds-accent-solid-active: #3fc3e0;
+  --ds-on-accent: #06222c;
+  --ds-accent-text: var(--xre-accent);
+  --ds-accent-border: #3a7e97;
+
+  --ds-hover: color-mix(in srgb, var(--xre-text) 6%, transparent);
+  --ds-pressed: color-mix(in srgb, var(--xre-text) 11%, transparent);
+  --ds-selected: color-mix(in srgb, var(--xre-accent) 13%, transparent);
+  --ds-surface-hover: #27384b;
+  --ds-surface-pressed: #304053;
+  --ds-surface-subtle: #1d2f42;
+  --ds-border-strong: #3d556d;
+  --ds-border-hover: #5a7088;
+  --ds-track: #0f1c2b;
+  --ds-thumb: #263b52;
+  --ds-backdrop: rgba(3, 9, 16, 0.66);
+
+  --ds-success: #5fd699;
+  --ds-warn: #f5b85c;
+  --ds-danger: #ff8a8a;
+  --ds-info: #6db7ff;
+  --ds-violet: #b79bff;
+
+  --ds-success-soft: #1b3f3b;
+  --ds-warn-soft: #403624;
+  --ds-danger-soft: #472b36;
+  --ds-info-soft: #1f3a5c;
+  --ds-violet-soft: #33305e;
+
+  --ds-success-border: #3e746e;
+  --ds-warn-border: #716a59;
+  --ds-danger-border: #745a69;
+  --ds-info-border: #436a91;
+
+  --ds-danger-solid: #ff8a8a;
+  --ds-danger-solid-hover: #ffa3a3;
+  --ds-on-danger: #33090c;
+
+  --ds-shadow-rgb: 0 0 0;
+  --ds-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.32);
+  --ds-shadow-md:
+    0 1px 2px rgb(0 0 0 / 0.3),
+    0 4px 10px -2px rgb(0 0 0 / 0.36);
+  --ds-shadow-lg:
+    0 2px 4px rgb(0 0 0 / 0.28),
+    0 10px 22px -6px rgb(0 0 0 / 0.5);
+  --ds-shadow-overlay:
+    0 0 0 1px rgb(255 255 255 / 0.05),
+    0 8px 16px -6px rgb(0 0 0 / 0.42),
+    0 24px 48px -12px rgb(0 0 0 / 0.66);
+
+  --ds-focus-ring-field: 0 0 0 3px color-mix(in srgb, var(--xre-accent) 26%, transparent);
+
+  --ds-notice-bg: #173242; /* halfway between the surface and accent-soft: tinted, not loud */
+  --ds-notice-border: #2b5166;
+  --ds-check-border: #62788f; /* 3.4:1 on the surface */
+  --ds-avatar-bg: #2a4159; /* one step above surface-muted */
+  --ds-avatar-ring: #3d556d;
+  --ds-avatar-text: #dbe7f2;
+
+  --xre-text-faint: #8ea4b8; /* unchanged: 5.9:1 on the surface */
+}
+
+/* --------------------------------------------------------------------------
+   Purple glass — translucent surfaces: overlays must be solid, shadows tinted.
+   -------------------------------------------------------------------------- */
+html[data-xre-theme="purple-glass"] {
+  --ds-accent-solid-hover: #522e96;
+  --ds-accent-solid-active: #482884;
+  --ds-accent-border: #b39ddf;
+  --ds-surface-hover: #f3f3f6;
+  --ds-surface-pressed: #ebeaee;
+  --ds-surface-subtle: #f5f2fc;
+  --ds-border-strong: #c0b7d5;
+  --ds-border-hover: #a69ebd;
+  --ds-surface-overlay: #fdfcff;
+  --ds-surface-solid: #fdfcff;
+  --ds-backdrop: rgba(25, 19, 44, 0.44);
+  --ds-shadow-rgb: 45 30 90;
+  --ds-focus-ring:
+    0 0 0 2px #fdfcff,
+    0 0 0 4px var(--ds-focus-color);
+  --ds-check-border: #8d87a1;
+  --xre-text-faint: #756e8c; /* was #817b96 (3.6:1 on the muted surface) */
+}
+
+html[data-xre-theme="ocean"] {
+  --ds-accent-solid-hover: #05596d;
+  --ds-accent-solid-active: #054e61;
+  --ds-accent-border: #7dbbcc;
+  --ds-surface-hover: #eef3f6;
+  --ds-surface-pressed: #e5ebef;
+  --ds-surface-subtle: #f0f8fb;
+  --ds-border-strong: #b3cad3;
+  --ds-border-hover: #98b1bc;
+  --ds-backdrop: rgba(11, 41, 64, 0.44);
+  --ds-shadow-rgb: 10 50 70;
+  --ds-check-border: #7d94a1;
+  --xre-text-faint: #587585; /* was #718b9b; now 4.9:1 on white, 4.5:1 on the page background */
+}
+
+html[data-xre-theme="forest"] {
+  --ds-accent-solid-hover: #0b593f;
+  --ds-accent-solid-active: #0a4f37;
+  --ds-accent-border: #85bba4;
+  --ds-surface-hover: #f0f4f1;
+  --ds-surface-pressed: #e6ece9;
+  --ds-surface-subtle: #f2f7f4;
+  --ds-border-strong: #b7c9be;
+  --ds-border-hover: #9cb0a5;
+  --ds-backdrop: rgba(16, 44, 36, 0.44);
+  --ds-shadow-rgb: 16 50 36;
+  --ds-check-border: #7e9387;
+  --xre-text-faint: #5a7566; /* was #789080; now 5.0:1 on white, 4.6:1 on the page background */
+}
+
+/* Native controls (date pickers, select popups, scrollbars) follow the theme. */
+:root {
+  color-scheme: light;
+}
+html[data-xre-theme="night"] {
+  color-scheme: dark;
+}
+
+/* Touch devices get the larger control height everywhere the token is used. */
+@media (pointer: coarse) {
+  :root {
+    --ds-control-h: 40px;
+    --ds-control-h-sm: 36px;
+  }
+}

@@ -1,0 +1,2151 @@
+/* ==========================================================================
+   XRE CRM — people & administration  (design/admin.css)
+   --------------------------------------------------------------------------
+   Pages: /employees, /structure, /access, /audit, /profile, /settings,
+          /system, /workspaces
+   Containers: .access-page (employees, structure, access, profile),
+               .system-page (audit log, backups), .workspace-admin,
+               .settings-panel.
+   Builds on tokens.css + base.css. Selectors are `.app-shell .<page> X` so
+   they beat base.css (`html .app-shell X`) and the legacy page files.
+   `!important` appears only where night-polish.css pins a value with it.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Page containers
+   The legacy .access-page added its own padding + max-width on top of the
+   shell's page gutter, so these pages sat 30px further in than every other.
+   -------------------------------------------------------------------------- */
+.app-shell .access-page {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+
+.app-shell .system-page {
+  gap: var(--ds-space-4);
+}
+.app-shell .system-page > * {
+  min-width: 0;
+}
+.app-shell .system-page > .page-heading {
+  margin-bottom: var(--ds-space-2); /* + grid gap = the usual 24px */
+}
+
+/* Shared surface for the area's panels (legacy: white, 16px radius, big shadow). */
+.app-shell .access-page :is(.access-role-list, .access-grant-card, .employee-panel, .profile-card, .profile-security),
+.app-shell :is(.system-list, .settings-panel, .login-accounts) {
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface);
+  color: var(--xre-text);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+/* --------------------------------------------------------------------------
+   2. Inline notices (.access-notice, .system-note, .notice-line)
+   The box itself (tint, border, icon, 12.5px text) is the shared notice
+   primitive pinned in base.css §10a; this file only adds the page spacing,
+   the inline code / link styles and the "run of notices" grouping.
+   -------------------------------------------------------------------------- */
+.app-shell :is(.access-page .access-notice, .system-page .system-note) {
+  margin: 0 0 var(--ds-space-3);
+}
+.app-shell .system-page .system-note {
+  margin: 0;
+}
+.app-shell :is(.access-page .access-notice, .system-page .system-note) code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--xre-text) 8%, transparent);
+  color: var(--xre-text) !important;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  overflow-wrap: anywhere;
+}
+.app-shell .access-page .access-notice button {
+  margin-left: var(--ds-space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ds-accent-text) !important;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+/* the last notice of a run gets the normal block spacing below it */
+.app-shell .access-page .access-notice:not(:has(+ .access-notice)) {
+  margin-bottom: var(--ds-space-5);
+}
+
+/* Demo mode: the "Giriş hesapları" panel holds one sentence and no table, so a
+   full card read as a panel whose body failed to load. It becomes a notice
+   line: key icon, the title as the bold lead-in, the sentence after it. */
+.app-shell .access-page > .login-accounts:not(:has(> header, > .form-grid, > .table-wrap)) {
+  position: relative;
+  display: block;
+  margin-bottom: var(--ds-space-3);
+  padding: 10px 14px 10px 40px;
+  overflow: visible;
+  border: 1px solid var(--ds-notice-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-notice-bg);
+  box-shadow: none;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: 1.5;
+}
+.app-shell .access-page > .login-accounts:not(:has(> header, > .form-grid, > .table-wrap)) > h3 {
+  display: inline;
+  padding: 0;
+  color: var(--xre-text);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  line-height: inherit;
+  letter-spacing: 0;
+}
+.app-shell .access-page > .login-accounts:not(:has(> header, > .form-grid, > .table-wrap)) > h3 > svg {
+  position: absolute;
+  top: 11px;
+  left: 14px;
+  width: 16px;
+  height: 16px;
+  color: var(--ds-notice-icon);
+}
+.app-shell .access-page > .login-accounts:not(:has(> header, > .form-grid, > .table-wrap)) > .muted {
+  display: inline;
+  max-width: none;
+  margin: 0 0 0 var(--ds-space-1);
+  padding: 0;
+  color: var(--xre-text-soft);
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* A run of notices is one box with one line per message, not a stack of boxes
+   (employees in demo mode had three of them above the table). `:not(#_)` is
+   needed to out-rank the pinned primitive's border and padding. */
+html .app-shell:not(#_) .access-page > :is(.access-notice, .login-accounts:not(:has(> header, > .form-grid, > .table-wrap))):has(+ .access-notice) {
+  margin-bottom: 0;
+  padding-bottom: var(--ds-space-1);
+  border-bottom: 0 !important;
+  border-bottom-right-radius: 0;
+  border-bottom-left-radius: 0;
+}
+html .app-shell:not(#_) .access-page > :is(.access-notice, .login-accounts:not(:has(> header, > .form-grid, > .table-wrap))) + .access-notice {
+  padding-top: var(--ds-space-1);
+  border-top: 0 !important;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.app-shell .workspace-admin .notice-line {
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  margin: 0 0 var(--ds-space-4);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+.app-shell .workspace-admin .notice-line > :is(.green-dot, .amber-dot) {
+  width: 8px;
+  height: 8px;
+  margin: 7px 2px 0 3px;
+  background: var(--ds-success);
+  box-shadow: 0 0 0 3px var(--ds-success-soft);
+}
+.app-shell .workspace-admin .notice-line > .amber-dot {
+  background: var(--ds-warn);
+  box-shadow: 0 0 0 3px var(--ds-warn-soft);
+}
+
+/* --------------------------------------------------------------------------
+   3. Login accounts panel (employees) and "change password" (profile)
+   Same .login-accounts shell in three shapes: header + table, h3 + text
+   (demo), h3 + form + button (profile).
+   -------------------------------------------------------------------------- */
+.app-shell .login-accounts {
+  gap: 0;
+  margin-bottom: var(--ds-space-5);
+  padding: 0;
+  overflow: hidden;
+}
+.app-shell .login-accounts > header {
+  align-items: center;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-4) var(--ds-space-5);
+}
+.app-shell .login-accounts > header > div {
+  min-width: 0;
+}
+.app-shell .login-accounts h3 {
+  gap: var(--ds-space-2);
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  letter-spacing: -0.01em;
+}
+.app-shell .login-accounts h3 > svg {
+  flex: 0 0 auto;
+  color: var(--xre-text-faint);
+}
+.app-shell .login-accounts .muted {
+  max-width: 78ch;
+  margin-top: 2px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .login-accounts > h3 {
+  padding: var(--ds-space-4) var(--ds-space-5) 0;
+}
+.app-shell .login-accounts > .muted {
+  margin: 2px 0 0;
+  padding: 0 var(--ds-space-5) var(--ds-space-4);
+}
+.app-shell .login-accounts > .table-wrap {
+  border-top: 1px solid var(--xre-border);
+}
+.app-shell .login-accounts > .form-grid {
+  max-width: 640px;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-4) var(--ds-space-5) 0;
+}
+.app-shell .login-accounts > .btn {
+  justify-self: start;
+  margin: var(--ds-space-4) var(--ds-space-5) var(--ds-space-5);
+}
+
+/* --------------------------------------------------------------------------
+   4. Admin tables (login accounts, backups, workspaces, audit diff)
+   -------------------------------------------------------------------------- */
+.app-shell :is(.login-accounts, .system-list, .workspace-admin) table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.app-shell :is(.login-accounts, .system-list, .workspace-admin) :is(th, td) {
+  vertical-align: middle;
+}
+.app-shell :is(.login-accounts, .system-list, .workspace-admin) tbody tr:last-child > td {
+  border-bottom: 0;
+}
+.app-shell :is(.login-accounts, .system-list) td.mono {
+  color: var(--xre-text-soft);
+  font-variant-numeric: tabular-nums;
+}
+.app-shell :is(.login-accounts, .system-list) td strong {
+  font-weight: 600;
+}
+/* Action cells were `display: flex` on the <td>, which detaches the cell from
+   the row (its bottom border no longer lines up). Keep it a real cell. */
+.app-shell td:is(.login-account-actions, .system-actions) {
+  display: table-cell;
+  width: 1%;
+  padding-block: var(--ds-space-2);
+  text-align: right;
+  white-space: nowrap;
+}
+.app-shell td:is(.login-account-actions, .system-actions) > * {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.app-shell td:is(.login-account-actions, .system-actions) > .text-button {
+  margin: 0;
+  min-height: var(--ds-control-h-sm);
+  padding: 0 10px;
+}
+.app-shell td:is(.login-account-actions, .system-actions) > * + * {
+  margin-left: var(--ds-space-1);
+}
+
+/* backups: size is a compared number */
+.app-shell .system-list > .table-wrap :is(th, td):nth-child(3) {
+  text-align: right;
+}
+
+/* Phones: each table row becomes a compact card instead of a sideways scroller
+   (column heads are dropped; every value explains itself). */
+@media (max-width: 640px) {
+  .app-shell :is(.login-accounts, .system-list) > .table-wrap :is(table, tbody) {
+    display: block;
+  }
+  .app-shell :is(.login-accounts, .system-list) > .table-wrap thead {
+    display: none;
+  }
+  .app-shell :is(.login-accounts, .system-list) > .table-wrap tr {
+    display: grid;
+    align-items: center;
+    gap: var(--ds-space-1) var(--ds-space-3);
+    padding: var(--ds-space-3) var(--ds-space-4);
+    border-bottom: 1px solid var(--ds-divider);
+  }
+  .app-shell :is(.login-accounts, .system-list) > .table-wrap tr:last-child {
+    border-bottom: 0;
+  }
+  .app-shell :is(.login-accounts, .system-list) > .table-wrap td {
+    display: block;
+    width: auto;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+  /* accounts: name + status / e-mail / last login + actions */
+  .app-shell .login-accounts > .table-wrap tr {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .app-shell .login-accounts > .table-wrap td:nth-child(3) {
+    grid-area: 1 / 2;
+  }
+  .app-shell .login-accounts > .table-wrap td:nth-child(2) {
+    grid-area: 2 / 1 / 3 / 3;
+  }
+  .app-shell .login-accounts > .table-wrap td:nth-child(4) {
+    grid-area: 3 / 1;
+    font-size: var(--ds-text-sm);
+  }
+  .app-shell .login-accounts > .table-wrap td:nth-child(5) {
+    grid-area: 3 / 2;
+    margin-right: -6px;
+    white-space: nowrap;
+  }
+  /* backups: file name / type · size · date / actions */
+  .app-shell .system-list > .table-wrap tr {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+  .app-shell .system-list > .table-wrap td:nth-child(1) {
+    grid-column: 1 / -1;
+  }
+  .app-shell .system-list > .table-wrap td:is(:nth-child(3), :nth-child(4)) {
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    white-space: nowrap;
+  }
+  .app-shell .system-list > .table-wrap td:nth-child(5) {
+    grid-column: 1 / -1;
+    margin: 2px 0 -4px -8px;
+    white-space: nowrap;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   5. Employees: toolbar + grid table (.employee-*)
+   Full-bleed table inside the panel; below 860px of panel width each row
+   becomes a small card instead of a 1000px-wide scroller.
+   -------------------------------------------------------------------------- */
+.app-shell .access-page .employee-panel {
+  padding: 0;
+  overflow: hidden;
+  container: employees / inline-size;
+}
+.app-shell .access-page .employee-toolbar {
+  gap: var(--ds-space-3);
+  margin: 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border-bottom: 1px solid var(--xre-border);
+}
+.app-shell .access-page .access-search {
+  flex: 0 1 440px; /* same field as /contacts and /tasks */
+  width: auto;
+  min-width: 0;
+  gap: var(--ds-space-2);
+  padding: 0 var(--ds-space-3);
+  /* night-polish pins these three */
+  border-color: var(--ds-border-strong) !important;
+  background: var(--xre-surface-raised) !important;
+  color: var(--xre-text-faint) !important;
+}
+.app-shell .access-page .access-search:hover {
+  border-color: var(--ds-border-hover) !important;
+}
+.app-shell .access-page .access-search:focus-within {
+  border-color: var(--xre-accent) !important;
+}
+/* The markup ships a "person" glyph here; every other list search uses the
+   magnifier, so the glyph is swapped for it (lucide "search", same 16px). */
+.app-shell .access-page .access-search > svg {
+  display: none;
+}
+.app-shell .access-page .access-search::before {
+  content: "";
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.app-shell .access-page .access-search input {
+  min-height: calc(var(--ds-control-h) - 2px);
+  padding: 0;
+}
+.app-shell .access-page .access-count {
+  flex: 0 0 auto;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.app-shell .access-page .employee-table {
+  overflow-x: auto;
+}
+.app-shell .access-page :is(.employee-head, .employee-row) {
+  min-width: 0;
+  grid-template-columns:
+    minmax(220px, 2.1fr) minmax(110px, 1.1fr) minmax(150px, 1.15fr)
+    minmax(130px, 1fr) 92px 16px;
+  gap: var(--ds-space-3);
+  padding-inline: var(--ds-space-4);
+}
+.app-shell .access-page .employee-head {
+  min-height: 36px;
+  padding-block: 0;
+  border-bottom: 1px solid var(--xre-border);
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: 0.04em;
+}
+.app-shell .access-page .employee-row {
+  padding-block: 10px;
+  border-top: 1px solid var(--ds-divider);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .access-page .employee-head + .employee-row {
+  border-top: 0;
+}
+.app-shell .access-page .employee-row:hover {
+  background: var(--ds-hover);
+}
+.app-shell .access-page .employee-person {
+  gap: var(--ds-space-3);
+}
+.app-shell .access-page .employee-person strong {
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .employee-person small {
+  margin-top: 1px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page :is(.employee-avatar, .profile-avatar) {
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+  font-family: var(--heading);
+  font-weight: 700;
+  line-height: 1;
+  user-select: none;
+}
+/* Table avatars are neutral initials chips like the shared .avatar in every
+   other table (night pins its own slate chip in base.css §10c). */
+.app-shell .access-page .employee-avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--xre-surface-muted);
+  color: var(--ds-avatar-text);
+  font-family: inherit;
+  font-size: var(--ds-text-xs);
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.app-shell .access-page .employee-row code {
+  justify-self: start;
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: var(--xre-surface-muted) !important;
+  color: var(--xre-text-soft) !important;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  line-height: 1.5;
+}
+.app-shell .access-page .employee-row select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ds-control-h-sm);
+  padding-left: 10px;
+  font-size: var(--ds-text-base);
+}
+.app-shell .access-page .employee-row select:disabled {
+  opacity: 0.7;
+}
+
+/* Status toggle: a tinted chip that reads as a state, not as a third dropdown.
+   Same 6px corner as the status badges on sibling pages (/team, org detail). */
+.app-shell .access-page .status-button {
+  justify-self: start;
+  gap: 5px;
+  min-height: var(--ds-control-h-sm);
+  padding: 0 10px 0 8px;
+  border: 1px solid var(--xre-border) !important;
+  border-radius: var(--ds-radius-sm);
+  background: var(--xre-surface-muted) !important;
+  color: var(--xre-text-soft) !important;
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .access-page .status-button.active {
+  border-color: var(--ds-success-border) !important;
+  background: var(--ds-success-soft) !important;
+  color: var(--ds-success) !important;
+}
+.app-shell .access-page .status-button:not(:disabled):hover {
+  border-color: var(--ds-border-hover) !important;
+  color: var(--xre-text) !important;
+}
+.app-shell .access-page .status-button.active:not(:disabled):hover {
+  border-color: var(--ds-success) !important;
+  color: var(--ds-success) !important;
+}
+.app-shell .access-page .status-button:not(:disabled):active {
+  background: var(--ds-surface-pressed) !important;
+}
+.app-shell .access-page .status-button:focus-visible {
+  box-shadow: var(--ds-focus-ring) !important;
+}
+.app-shell .access-page .status-button:disabled {
+  opacity: 0.6;
+}
+.app-shell .access-page .employee-protected {
+  display: grid;
+  place-items: center;
+  color: var(--xre-text-faint);
+}
+
+.app-shell .access-page .access-empty {
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-8) var(--ds-space-6);
+  color: var(--xre-text-faint);
+}
+.app-shell .access-page .access-empty strong {
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+}
+.app-shell .access-page .access-empty span {
+  max-width: 44ch;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+}
+
+@container employees (max-width: 860px) {
+  .app-shell .access-page .employee-head {
+    display: none;
+  }
+  .app-shell .access-page .employee-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    gap: 10px var(--ds-space-3);
+    padding-block: var(--ds-space-4);
+  }
+  .app-shell .access-page .employee-row:first-of-type {
+    border-top: 0;
+  }
+  .app-shell .access-page .employee-person {
+    grid-area: 1 / 1 / 2 / 3;
+  }
+  .app-shell .access-page .employee-protected {
+    grid-area: 1 / 3;
+  }
+  .app-shell .access-page .employee-row code {
+    grid-area: 2 / 1;
+    align-self: center;
+  }
+  .app-shell .access-page .status-button {
+    grid-area: 2 / 2 / 3 / 4;
+    justify-self: end;
+  }
+  .app-shell .access-page .employee-row select:nth-of-type(1) {
+    grid-area: 3 / 1;
+  }
+  .app-shell .access-page .employee-row select:nth-of-type(2) {
+    grid-area: 3 / 2 / 4 / 4;
+  }
+  .app-shell .access-page .employee-row select {
+    min-height: var(--ds-control-h);
+  }
+}
+/* Tablet-width panel: two full-width lines per person. Name + e-mail get the
+   whole first line (they were cut off beside two selects), the status chip
+   sits at the right edge; ID and the two selects share the second line. */
+@container employees (min-width: 620px) and (max-width: 860px) {
+  .app-shell .access-page .employee-row {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--ds-space-2) var(--ds-space-3);
+    padding-block: var(--ds-space-3);
+  }
+  .app-shell .access-page .employee-person {
+    grid-area: 1 / 1 / 2 / 3;
+  }
+  .app-shell .access-page .status-button {
+    grid-area: 1 / 3;
+    align-self: center;
+    justify-self: end;
+  }
+  .app-shell .access-page .employee-protected {
+    grid-area: 1 / 3;
+    justify-self: end;
+  }
+  /* owner row: the lock sits at the edge, the chip steps aside for it */
+  .app-shell .access-page .employee-row:has(> .employee-protected > svg) .status-button {
+    margin-right: calc(16px + var(--ds-space-3));
+  }
+  .app-shell .access-page .employee-row code {
+    grid-area: 2 / 1;
+    margin-left: 44px;
+    max-width: calc(100% - 44px);
+  }
+  .app-shell .access-page .employee-row select:nth-of-type(1) {
+    grid-area: 2 / 2;
+  }
+  .app-shell .access-page .employee-row select:nth-of-type(2) {
+    grid-area: 2 / 3;
+  }
+  .app-shell .access-page .employee-row select {
+    min-height: var(--ds-control-h-sm);
+  }
+}
+@container employees (max-width: 420px) {
+  .app-shell .access-page .employee-toolbar {
+    flex-wrap: wrap;
+  }
+  .app-shell .access-page .access-search {
+    flex: 1 1 100%;
+  }
+  .app-shell .access-page .employee-person small {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   6. Access: role list
+   -------------------------------------------------------------------------- */
+.app-shell .access-page .access-security {
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px 0 8px;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-success-soft);
+  color: var(--ds-success);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.app-shell .access-page .access-layout {
+  grid-template-columns: 288px minmax(0, 1fr);
+  gap: var(--ds-space-5);
+  max-width: 1360px; /* keeps module names and their toggles within one glance */
+}
+.app-shell .access-page .access-role-list {
+  padding: var(--ds-space-3);
+}
+.app-shell .access-page .access-panel-heading {
+  gap: var(--ds-space-3);
+  padding: var(--ds-space-1) var(--ds-space-2) var(--ds-space-3);
+  color: var(--xre-text-faint);
+}
+.app-shell .access-page .access-panel-heading .eyebrow {
+  display: block;
+  margin: 0 0 2px;
+}
+.app-shell .access-page .access-panel-heading :is(h2, h3) {
+  margin: 0;
+  color: var(--xre-text);
+  font-family: var(--heading);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  letter-spacing: -0.01em;
+}
+.app-shell .access-page .access-panel-heading p {
+  margin: 2px 0 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+
+.app-shell .access-page .access-role-item {
+  gap: 10px;
+  margin-top: 2px;
+  padding: var(--ds-space-2) 10px;
+  border: 1px solid transparent;
+  border-radius: var(--ds-radius-md);
+  color: var(--xre-text-faint);
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .access-page .access-role-item:hover {
+  background: var(--ds-hover);
+}
+.app-shell .access-page .access-role-item:active {
+  background: var(--ds-pressed);
+}
+.app-shell .access-page .access-role-item.active {
+  border-color: var(--ds-accent-border) !important;
+  background: var(--xre-accent-soft) !important;
+  color: var(--ds-accent-text) !important;
+}
+/* Selected or not, a focused role shows the ring (night-polish strips the
+   box-shadow of the active item, so the ring is an outline). */
+.app-shell .access-page .access-role-item:focus-visible {
+  outline: 2px solid var(--ds-focus-color);
+  outline-offset: 2px;
+}
+.app-shell .access-page .access-role-item strong {
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .access-role-item small {
+  margin-top: 1px;
+  color: var(--xre-text-soft) !important;
+  font-size: var(--ds-text-sm);
+  line-height: 1.4;
+}
+.app-shell .access-page .access-role-icon {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface-muted) !important;
+  color: var(--xre-text-soft);
+}
+.app-shell .access-page .access-role-item.active .access-role-icon {
+  background: color-mix(in srgb, var(--xre-accent) 20%, transparent) !important;
+  color: var(--ds-accent-text);
+}
+.app-shell .access-page .access-role-item > svg {
+  flex: 0 0 auto;
+  color: var(--xre-text-faint);
+}
+.app-shell .access-page .access-footnote {
+  margin: var(--ds-space-3) 0 0;
+  padding: var(--ds-space-3) var(--ds-space-2) var(--ds-space-1);
+  border-top: 1px solid var(--ds-divider);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+
+@media (min-width: 901px) {
+  .app-shell .access-page .access-role-list {
+    position: sticky;
+    top: calc(var(--shell-topbar-h, 56px) + var(--ds-space-4));
+  }
+}
+
+/* --------------------------------------------------------------------------
+   7. Access: permission matrix (.grant-*)
+   Sticky column header, no zebra, read/write as on/off chips so a column
+   can be scanned at a glance; rows without read access recede.
+   -------------------------------------------------------------------------- */
+.app-shell .access-page .access-grant-card {
+  padding: 0;
+  overflow: visible; /* the sticky header needs it; rows never scroll sideways */
+  container: grants / inline-size;
+}
+.app-shell .access-page .access-grant-heading {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--ds-space-3) var(--ds-space-5);
+  flex-wrap: wrap;
+  min-width: 0;
+  padding: var(--ds-space-5) var(--ds-space-5) var(--ds-space-4);
+}
+.app-shell .access-page .access-grant-heading > div {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.app-shell .access-page .access-grant-heading h2 {
+  font-size: var(--ds-text-xl);
+  font-weight: 700;
+  line-height: var(--ds-leading-xl);
+  letter-spacing: var(--ds-tracking-tight);
+}
+.app-shell .access-page .access-grant-heading .btn {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.app-shell .access-page .access-grant-card :is(.grant-grid-head, .grant-row) {
+  grid-template-columns: minmax(150px, 1fr) 104px 104px minmax(180px, 232px);
+  column-gap: var(--ds-space-3);
+  padding-inline: var(--ds-space-5);
+}
+.app-shell .access-page .access-grant-card .grant-grid-head {
+  position: sticky;
+  top: var(--shell-topbar-h, 56px);
+  z-index: 2;
+  min-height: 36px;
+  padding-block: 0;
+  border-block: 1px solid var(--xre-border);
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: 0.04em;
+}
+.app-shell .access-page .access-grant-card .grant-grid-head span:nth-child(4) {
+  text-align: left;
+}
+.app-shell .access-page .access-grant-card .grant-row {
+  min-height: 52px;
+  padding-block: var(--ds-space-2);
+  border-bottom: 1px solid var(--ds-divider);
+  background: transparent;
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .access-page .access-grant-card .grant-row:last-child {
+  border-bottom: 0;
+}
+.app-shell .access-page .access-grant-card .grant-row:hover {
+  background: var(--ds-hover);
+}
+.app-shell .access-page .grant-row strong {
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+  overflow-wrap: anywhere;
+}
+.app-shell .access-page .grant-row small {
+  margin-top: 1px;
+  color: var(--xre-text-faint);
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: var(--ds-text-xs);
+  line-height: var(--ds-leading-xs);
+}
+/* module is switched off for this role → its label recedes */
+.app-shell .access-page .grant-row:has(> .access-check:nth-child(2) input:not(:checked)) strong {
+  color: var(--xre-text-soft);
+  font-weight: 500;
+}
+
+.app-shell .access-page .access-check {
+  justify-self: center;
+  gap: 6px;
+  min-height: var(--ds-control-h-sm);
+  padding: 0 11px 0 9px;
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md); /* same corner as the scope select beside it */
+  background: transparent;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .access-page .access-check input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: var(--ds-accent-solid);
+}
+.app-shell .access-page .access-check:hover {
+  border-color: var(--ds-border-hover);
+  color: var(--xre-text);
+}
+.app-shell .access-page .access-check:has(input:checked) {
+  border-color: var(--ds-accent-border);
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+}
+.app-shell .access-page .access-check:has(input:focus-visible) {
+  box-shadow: var(--ds-focus-ring);
+}
+.app-shell .access-page .access-check input:focus-visible {
+  outline: none;
+}
+.app-shell .access-page .access-check:has(input:disabled) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.app-shell .access-page .access-check:has(input:disabled):hover {
+  border-color: var(--xre-border);
+  color: var(--xre-text-soft);
+}
+.app-shell .access-page .access-check:has(input:checked:disabled):hover {
+  border-color: var(--ds-accent-border);
+  color: var(--ds-accent-text);
+}
+.app-shell .access-page .access-check input:disabled {
+  cursor: not-allowed;
+}
+
+.app-shell .access-page .grant-row select {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ds-control-h-sm);
+  padding-left: 10px;
+  font-size: var(--ds-text-base);
+}
+
+.app-shell .access-page .access-grant-note {
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3) var(--ds-space-5);
+  border-top: 1px solid var(--xre-border);
+  border-radius: 0 0 var(--ds-radius-lg) var(--ds-radius-lg);
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .access-grant-note .green-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--ds-success);
+}
+
+/* Narrow card: each module becomes two lines (name, then its three controls). */
+@container grants (max-width: 560px) {
+  .app-shell .access-page .access-grant-card .grant-grid-head {
+    display: none;
+  }
+  .app-shell .access-page .access-grant-card :is(.grant-grid-head, .grant-row) {
+    padding-inline: var(--ds-space-4);
+  }
+  .app-shell .access-page .access-grant-card .grant-row {
+    grid-template-columns: auto auto minmax(0, 1fr);
+    gap: var(--ds-space-2);
+    padding-block: var(--ds-space-3);
+  }
+  .app-shell .access-page .access-grant-card .grant-row:first-child {
+    border-top: 1px solid var(--xre-border);
+  }
+  .app-shell .access-page .grant-row > div:first-child {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--ds-space-3);
+  }
+  .app-shell .access-page .grant-row small {
+    margin: 0;
+  }
+  .app-shell .access-page .access-check {
+    justify-self: start;
+    min-height: var(--ds-control-h);
+  }
+  .app-shell .access-page .grant-row select {
+    min-height: var(--ds-control-h);
+  }
+  .app-shell .access-page .access-grant-heading,
+  .app-shell .access-page .access-grant-note {
+    padding-inline: var(--ds-space-4);
+  }
+  .app-shell .access-page .access-grant-heading .btn {
+    flex: 1 1 100%;
+  }
+}
+/* Phones: beside the two chips the scope select was ~140px and cut its value
+   ("Tüm ekip kayıt…"). The chips move up next to the module name, where they
+   line up as two columns, and the select takes the full second line. */
+@container grants (max-width: 460px) {
+  .app-shell .access-page .access-grant-card .grant-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+  }
+  .app-shell .access-page .grant-row > div:first-child {
+    grid-column: 1;
+    display: block;
+  }
+  .app-shell .access-page .grant-row small {
+    display: block;
+    margin-top: 1px;
+  }
+  .app-shell .access-page .grant-row select {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .app-shell .access-page .access-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-4);
+  }
+  /* roles flow into columns so the matrix is not pushed a screen down */
+  .app-shell .access-page .access-role-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(240px, 100%), 1fr));
+    gap: 2px var(--ds-space-2);
+  }
+  .app-shell .access-page .access-role-list > :is(.access-panel-heading, .access-footnote) {
+    grid-column: 1 / -1;
+  }
+  .app-shell .access-page .access-role-item {
+    margin-top: 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   8. Add-employee dialog (.access-dialog) — same anatomy as .modal
+   -------------------------------------------------------------------------- */
+.app-shell .access-page .access-dialog-backdrop {
+  z-index: 100; /* legacy 20 sat under the sidebar */
+  padding: var(--ds-space-6);
+  overflow-y: auto;
+}
+.app-shell .access-page .access-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  max-height: min(90vh, 100dvh - 32px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-xl);
+  background: var(--ds-surface-overlay);
+  color: var(--xre-text);
+  box-shadow: var(--ds-shadow-overlay);
+}
+.app-shell .access-page .access-dialog-head {
+  flex: 0 0 auto;
+  align-items: center; /* like .modal > header */
+  gap: var(--ds-space-4);
+  margin: 0;
+  padding: var(--ds-space-5) var(--ds-space-6) var(--ds-space-4);
+  border-bottom: 1px solid var(--xre-border);
+}
+/* Shared modal header = title, subtitle, close. This dialog also ships an
+   eyebrow line above the title, which pushed the title and the close button
+   out of line with every other modal. The text stays, as a quiet tag after
+   the title, so the header keeps the shared two-line anatomy. */
+.app-shell .access-page .access-dialog-head > div {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0 var(--ds-space-2);
+  min-width: 0;
+}
+.app-shell .access-page .access-dialog-head h2 {
+  grid-area: 1 / 1;
+  margin: 0;
+  color: var(--xre-text);
+  font-family: var(--heading);
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  line-height: var(--ds-leading-lg);
+  letter-spacing: var(--ds-tracking-tight);
+}
+.app-shell .access-page .access-dialog-head .eyebrow {
+  grid-area: 1 / 2;
+  justify-self: start;
+  max-width: 100%;
+  margin: 0;
+  padding: 3px 8px;
+  overflow: hidden;
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-neutral-soft);
+  color: var(--ds-neutral);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-shell .access-page .access-dialog-head p {
+  grid-column: 1 / -1;
+  margin: var(--ds-space-1) 0 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+/* Close: the markup is a bare "×" character. It is drawn as the same 19px
+   lucide X inside the same 32px icon button as the shared <Modal>. */
+.app-shell .access-page .access-dialog .icon-button {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  margin: 0;
+  padding: 0;
+  color: var(--xre-text-soft);
+  font-size: 0;
+  line-height: 0;
+  cursor: pointer;
+}
+.app-shell .access-page .access-dialog .icon-button::before {
+  content: "";
+  width: 19px;
+  height: 19px;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 6 18'/%3E%3Cpath d='m6 6 12 12'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.app-shell .access-page .access-dialog .icon-button:hover {
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+.app-shell .access-page .access-dialog .icon-button:active {
+  background: var(--ds-pressed);
+}
+.app-shell .access-page .access-dialog > .access-form-grid {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: var(--ds-space-5) var(--ds-space-6);
+  overflow-y: auto;
+}
+.app-shell .access-page .access-dialog-actions {
+  flex: 0 0 auto;
+  gap: var(--ds-space-2);
+  margin: 0;
+  padding: var(--ds-space-4) var(--ds-space-6);
+  border-top: 1px solid var(--xre-border);
+  background: var(--ds-surface-subtle);
+}
+
+/* Shared form grid (dialog + profile). */
+.app-shell .access-page .access-form-grid {
+  gap: var(--ds-space-4);
+  align-items: start;
+}
+.app-shell .access-page .access-form-grid label {
+  gap: 6px;
+  min-width: 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .access-form-grid :is(input, select) {
+  width: 100%;
+  padding-block: 0;
+  font-weight: 400;
+}
+.app-shell .access-page .field-hint {
+  color: var(--xre-text-faint);
+  font-weight: 400;
+}
+/* "Label <hint> <input>" sits in a column flexbox: keep label + hint on one line */
+.app-shell .access-page .access-form-grid label:has(> .field-hint) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: var(--ds-space-2);
+  align-items: baseline;
+}
+.app-shell .access-page .access-form-grid label:has(> .field-hint) > :is(input, select) {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 560px) {
+  .app-shell .login-accounts > header {
+    flex-wrap: wrap;
+  }
+  .app-shell .access-page .access-dialog-backdrop {
+    padding: var(--ds-space-3);
+  }
+  .app-shell .access-page .access-dialog-head,
+  .app-shell .access-page .access-dialog > .access-form-grid,
+  .app-shell .access-page .access-dialog-actions {
+    padding-inline: var(--ds-space-4);
+  }
+  .app-shell .access-page .access-dialog-actions .btn {
+    flex: 1 1 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .app-shell .access-page .access-dialog {
+    animation: ds-modal-in var(--ds-duration-base) var(--ds-ease) both;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   9. Company structure: org chart (.cx-org-*) + department form
+   -------------------------------------------------------------------------- */
+.app-shell .access-page .cx-org-heading {
+  gap: var(--ds-space-3);
+  padding: 0 0 var(--ds-space-3);
+}
+.app-shell .access-page .cx-org-heading > span {
+  gap: var(--ds-space-2);
+  color: var(--xre-text);
+  font-family: var(--heading);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  letter-spacing: -0.01em;
+}
+.app-shell .access-page .cx-org-heading > span > svg {
+  color: var(--xre-text-faint);
+}
+/* the page already has one primary action ("Çalışan ekle") */
+.app-shell .access-page .cx-org-heading > .btn.primary {
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-3);
+  border-color: var(--ds-border-strong);
+  background: var(--xre-surface-raised);
+  color: var(--xre-text);
+  box-shadow: none;
+}
+.app-shell .access-page .cx-org-heading > .btn.primary:hover {
+  border-color: var(--ds-border-hover);
+  background: var(--ds-surface-hover);
+  color: var(--xre-text);
+}
+.app-shell .access-page .cx-org-heading > .btn.primary:active {
+  background: var(--ds-surface-pressed);
+}
+/* `box-shadow: none` above must not take the focus ring with it */
+.app-shell .access-page .cx-org-heading > .btn.primary:focus-visible {
+  outline: 2px solid var(--ds-focus-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--xre-bg);
+}
+
+.app-shell .access-page .cx-org-layout {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  min-height: 400px;
+  margin-bottom: var(--ds-space-5);
+  border: 1px solid var(--xre-border) !important;
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-bg) !important;
+  box-shadow: var(--ds-shadow-sm);
+}
+/* dotted ground = "this is a canvas you can scroll", the nodes float on it */
+.app-shell .access-page .cx-org-canvas {
+  padding: var(--ds-space-7) var(--ds-space-5);
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    color-mix(in srgb, var(--xre-text-faint) 26%, transparent) 1px,
+    transparent 1.5px
+  );
+  background-size: 20px 20px;
+}
+.app-shell .access-page .cx-org-branch {
+  padding: 0 var(--ds-space-2);
+}
+.app-shell .access-page .cx-org-node {
+  gap: 2px;
+  width: 184px;
+  padding: var(--ds-space-3) 14px 0;
+  border: 1px solid var(--xre-border) !important;
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface) !important;
+  color: var(--xre-text-faint);
+  box-shadow: var(--ds-shadow-sm);
+  cursor: pointer;
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .access-page .cx-org-node > svg {
+  margin-bottom: var(--ds-space-2);
+}
+.app-shell .access-page .cx-org-node strong {
+  min-height: 0;
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+  overflow-wrap: anywhere;
+}
+.app-shell .access-page .cx-org-node small {
+  color: var(--xre-text-soft) !important;
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  font-variant-numeric: tabular-nums;
+}
+.app-shell .access-page .cx-org-node > span {
+  margin: 10px -14px 0;
+  padding: 5px 14px;
+  border-top: 1px solid var(--ds-divider);
+  border-radius: 0 0 calc(var(--ds-radius-lg) - 1px) calc(var(--ds-radius-lg) - 1px);
+  background: var(--ds-surface-subtle) !important;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.app-shell .access-page .cx-org-node:hover {
+  border-color: var(--ds-border-hover) !important;
+  background: var(--xre-surface) !important;
+  box-shadow: var(--ds-shadow-md);
+}
+.app-shell .access-page .cx-org-node.selected {
+  border-color: var(--xre-accent) !important;
+  color: var(--ds-accent-text);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--xre-accent) 22%, transparent),
+    var(--ds-shadow-sm);
+}
+.app-shell .access-page .cx-org-node:focus-visible {
+  box-shadow: var(--ds-focus-ring);
+}
+
+/* Connectors. The legacy horizontal bar assumed every child was 170px wide and
+   drifted as soon as a child had children of its own; each branch now draws
+   its own half of the bar, so it always meets the vertical stubs. */
+.app-shell .access-page .cx-org-children {
+  margin-top: 40px;
+}
+.app-shell .access-page .cx-org-children:not(:empty)::before {
+  display: none;
+}
+.app-shell .access-page .cx-org-children > .cx-org-branch::before {
+  top: -20px;
+  height: 20px;
+  border-left: 1px solid var(--ds-border-hover);
+}
+.app-shell .access-page .cx-org-children > .cx-org-branch::after {
+  content: "";
+  position: absolute;
+  top: -20px;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--ds-border-hover);
+}
+.app-shell .access-page .cx-org-children > .cx-org-branch:first-child::after {
+  left: 50%;
+}
+.app-shell .access-page .cx-org-children > .cx-org-branch:last-child::after {
+  right: calc(50% - 1px);
+}
+.app-shell .access-page .cx-org-children > .cx-org-branch:only-child::after {
+  display: none;
+}
+.app-shell .access-page .cx-org-branch:has(> .cx-org-children:not(:empty)) > .cx-org-node::after {
+  height: 20px;
+  border-left: 1px solid var(--ds-border-hover);
+}
+
+.app-shell .access-page .cx-no-todos {
+  padding: var(--ds-space-4);
+  border: 1px dashed var(--ds-border-strong);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+}
+
+/* Department detail */
+.app-shell .access-page .cx-org-detail {
+  min-width: 0;
+  padding: var(--ds-space-5);
+  border-left: 1px solid var(--xre-border) !important;
+  background: var(--xre-surface) !important;
+}
+.app-shell .access-page .cx-org-detail > header {
+  gap: var(--ds-space-3);
+  min-height: var(--ds-control-h-sm);
+  margin-bottom: var(--ds-space-2);
+  color: var(--xre-text-soft);
+}
+.app-shell .access-page .cx-org-detail h3 {
+  min-width: 0;
+  color: var(--xre-text) !important;
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.app-shell .access-page .cx-org-detail > header > button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: var(--ds-control-h-sm);
+  height: var(--ds-control-h-sm);
+  margin-right: -6px;
+  border-radius: var(--ds-radius-md);
+  color: var(--xre-text-soft);
+  cursor: pointer;
+  transition:
+    background-color var(--ds-duration-fast) var(--ds-ease),
+    color var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .access-page .cx-org-detail > header > button:hover {
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+.app-shell .access-page .cx-org-detail > header > button:active {
+  background: var(--ds-pressed);
+}
+.app-shell .access-page .cx-org-detail .badge {
+  font-size: var(--ds-text-xs);
+}
+.app-shell .access-page .cx-org-detail h4 {
+  margin: var(--ds-space-5) 0 var(--ds-space-1);
+  color: var(--xre-text-faint) !important;
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  line-height: var(--ds-leading-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.app-shell .access-page .cx-org-detail > div {
+  gap: 10px;
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--ds-divider);
+}
+.app-shell .access-page .cx-org-detail > h4 + div {
+  border-top: 0;
+}
+.app-shell .access-page .cx-org-detail > div > span:not(.badge, .avatar) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.app-shell .access-page .cx-org-detail > div > .avatar {
+  flex: 0 0 auto;
+}
+.app-shell .access-page .cx-org-detail strong {
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+  font-weight: 600;
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .cx-org-detail small {
+  margin-top: 1px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .cx-org-detail :is(strong, small) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-shell .access-page .cx-org-detail p {
+  margin-top: var(--ds-space-1);
+  color: var(--xre-text-soft) !important;
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-base);
+}
+
+@media (max-width: 900px) {
+  .app-shell .access-page .cx-org-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .app-shell .access-page .cx-org-canvas {
+    min-height: 0;
+    padding: var(--ds-space-6) var(--ds-space-4);
+  }
+  .app-shell .access-page .cx-org-detail {
+    border-left: 0 !important;
+    border-top: 1px solid var(--xre-border) !important;
+  }
+}
+
+/* Phones: the chart turns into an indented tree, so every department is
+   reachable without panning a canvas that is wider than the screen. */
+@media (max-width: 640px) {
+  .app-shell .access-page .cx-org-layout {
+    min-height: 0;
+  }
+  .app-shell .access-page .cx-org-canvas {
+    display: block;
+    padding: var(--ds-space-4);
+    overflow: visible;
+  }
+  .app-shell .access-page .cx-org-roots {
+    flex-direction: column;
+    gap: var(--ds-space-2);
+    min-width: 0;
+    margin: 0;
+  }
+  .app-shell .access-page .cx-org-branch {
+    align-items: stretch;
+    padding: 0;
+  }
+  .app-shell .access-page .cx-org-node {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0 var(--ds-space-3);
+    width: 100%;
+    min-height: 52px;
+    padding: var(--ds-space-2) var(--ds-space-3);
+  }
+  .app-shell .access-page .cx-org-node > svg {
+    grid-area: 1 / 1 / 3 / 2;
+    margin: 0;
+  }
+  .app-shell .access-page .cx-org-node strong {
+    grid-area: 1 / 2;
+  }
+  .app-shell .access-page .cx-org-node small {
+    grid-area: 2 / 2;
+  }
+  .app-shell .access-page .cx-org-node > span {
+    grid-area: 1 / 3 / 3 / 4;
+    margin: 0;
+    padding: 2px 6px;
+    border: 0;
+    border-radius: var(--ds-radius-sm);
+  }
+  .app-shell .access-page .cx-org-children {
+    flex-direction: column;
+    gap: var(--ds-space-2);
+    margin: var(--ds-space-2) 0 0 18px;
+    padding-left: 14px;
+  }
+  .app-shell .access-page .cx-org-children:empty {
+    display: none;
+  }
+  .app-shell .access-page .cx-org-branch:has(> .cx-org-children:not(:empty)) > .cx-org-node::after {
+    display: none;
+  }
+  /* elbow: a rail down the left of the children + a stub into each node */
+  .app-shell .access-page .cx-org-children > .cx-org-branch::before {
+    top: 26px;
+    left: -14px;
+    width: 14px;
+    height: 0;
+    border-left: 0;
+    border-top: 1px solid var(--ds-border-hover);
+  }
+  .app-shell .access-page .cx-org-children > .cx-org-branch::after,
+  .app-shell .access-page .cx-org-children > .cx-org-branch:first-child::after,
+  .app-shell .access-page .cx-org-children > .cx-org-branch:only-child::after {
+    display: block;
+    top: calc(var(--ds-space-2) * -1);
+    bottom: 0;
+    left: -14px;
+    right: auto;
+    border-top: 0;
+    border-left: 1px solid var(--ds-border-hover);
+  }
+  .app-shell .access-page .cx-org-children > .cx-org-branch:last-child::after {
+    bottom: auto;
+    height: calc(26px + var(--ds-space-2));
+  }
+}
+
+/* Department modal form. The form is the modal body and its submit button is
+   its last child, so there is no footer element: the tinted footer bar of the
+   shared modal is drawn behind the button instead (same 16px padding, border
+   and --ds-surface-subtle as .modal-footer). */
+.app-shell .access-page .cx-department-form {
+  position: relative;
+  isolation: isolate;
+  gap: var(--ds-space-4);
+  padding: var(--ds-space-5) var(--ds-space-6) var(--ds-space-4);
+}
+.app-shell .access-page .cx-department-form::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: auto 0 0;
+  height: calc(var(--ds-control-h) + 2 * var(--ds-space-4));
+  border-top: 1px solid var(--xre-border);
+  border-radius: 0 0 calc(var(--ds-radius-xl) - 1px) calc(var(--ds-radius-xl) - 1px);
+  background: var(--ds-surface-subtle);
+}
+.app-shell .access-page .cx-department-form > .btn {
+  /* flex gap (16) + 20 = body bottom padding (20) + footer top padding (16) */
+  margin-top: var(--ds-space-5);
+}
+.app-shell .access-page .cx-department-form label {
+  gap: 6px;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .cx-department-form :is(input, select) {
+  width: 100%;
+  padding-block: 0;
+  font-weight: 400;
+}
+.app-shell .access-page .cx-department-form p {
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-base);
+}
+@media (max-width: 560px) {
+  .app-shell .access-page .cx-department-form {
+    padding-inline: var(--ds-space-4);
+  }
+  .app-shell .access-page .cx-department-form > .btn {
+    align-self: stretch;
+    justify-content: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   10. Profile (.profile-*)
+   -------------------------------------------------------------------------- */
+.app-shell .access-page .profile-layout {
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+  gap: var(--ds-space-5);
+  align-items: start;
+  /* no max-width: the page spans the same column as every other page and as
+     its own footer (it used to stop at 1120px and leave a band on the right) */
+}
+.app-shell .access-page .profile-card {
+  padding: 0;
+}
+.app-shell .access-page .profile-identity {
+  gap: var(--ds-space-4);
+  margin: 0;
+  padding: var(--ds-space-5) var(--ds-space-6);
+  border-bottom: 1px solid var(--xre-border);
+}
+.app-shell .access-page .profile-identity > div {
+  min-width: 0;
+}
+.app-shell .access-page .profile-avatar {
+  width: 48px;
+  height: 48px;
+  font-size: var(--ds-text-lg);
+}
+.app-shell .access-page .profile-identity h2 {
+  margin: 0;
+  color: var(--xre-text);
+  font-family: var(--heading);
+  font-size: var(--ds-text-lg);
+  font-weight: 700;
+  line-height: var(--ds-leading-lg);
+  letter-spacing: var(--ds-tracking-tight);
+  overflow-wrap: anywhere;
+}
+.app-shell .access-page .profile-identity p {
+  margin: 2px 0 0;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  overflow-wrap: anywhere;
+}
+.app-shell .access-page .verified-badge {
+  flex: 0 0 auto;
+  gap: 5px;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--ds-success-border);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-success-soft);
+  color: var(--ds-success);
+  font-size: var(--ds-text-sm);
+  font-weight: 550;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.app-shell .access-page .profile-card > form > .access-form-grid {
+  padding: var(--ds-space-5) var(--ds-space-6);
+}
+.app-shell .access-page .profile-actions {
+  gap: var(--ds-space-3);
+  margin: 0;
+  padding: var(--ds-space-4) var(--ds-space-6);
+  border-top: 1px solid var(--xre-border);
+  border-radius: 0 0 var(--ds-radius-lg) var(--ds-radius-lg);
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .profile-actions > span {
+  gap: 6px;
+  min-width: 0;
+}
+.app-shell .access-page .profile-actions > span:has(> svg) {
+  color: var(--ds-success);
+  font-weight: 550;
+}
+.app-shell .access-page .profile-actions > .btn {
+  flex: 0 0 auto;
+}
+
+.app-shell .access-page .profile-security {
+  padding: var(--ds-space-5) var(--ds-space-6);
+  color: var(--xre-text-soft);
+}
+.app-shell .access-page .profile-security > .eyebrow {
+  margin: 0;
+}
+.app-shell .access-page .profile-security > svg {
+  box-sizing: content-box;
+  width: 20px;
+  height: 20px;
+  margin: var(--ds-space-4) 0 var(--ds-space-3);
+  padding: var(--ds-space-2);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+}
+.app-shell .access-page .profile-security h3 {
+  margin: 0 0 var(--ds-space-1);
+  color: var(--xre-text);
+  font-family: var(--heading);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  letter-spacing: -0.01em;
+}
+.app-shell .access-page .profile-security p {
+  margin: 0 0 var(--ds-space-5);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-base);
+}
+.app-shell .access-page .profile-security dl {
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--ds-space-2) var(--ds-space-5);
+  padding-top: var(--ds-space-4);
+  border-top: 1px solid var(--ds-divider);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .access-page .profile-security dt {
+  color: var(--xre-text-faint);
+}
+.app-shell .access-page .profile-security dd {
+  color: var(--xre-text) !important;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.app-shell .access-page .profile-security code {
+  color: var(--xre-text) !important;
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  font-size: var(--ds-text-xs);
+}
+
+@media (max-width: 900px) {
+  .app-shell .access-page .profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* the editable form stays first; legacy moved the info box above it */
+  .app-shell .access-page .profile-security {
+    order: 0;
+  }
+}
+@media (max-width: 560px) {
+  .app-shell .access-page .profile-identity,
+  .app-shell .access-page .profile-card > form > .access-form-grid,
+  .app-shell .access-page .profile-actions,
+  .app-shell .access-page .profile-security {
+    padding-inline: var(--ds-space-4);
+  }
+  .app-shell .access-page .profile-identity {
+    align-items: center;
+  }
+  .app-shell .access-page .profile-actions {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   11. Settings rows (.settings-panel / .setting-row)
+   -------------------------------------------------------------------------- */
+.app-shell .settings-panel {
+  max-width: none; /* was 960px: a third content width next to profile's 1120 */
+  padding: 0 var(--ds-space-5);
+}
+.app-shell .settings-panel .setting-row {
+  gap: var(--ds-space-4) var(--ds-space-6);
+  padding: var(--ds-space-5) 0;
+  border-bottom: 1px solid var(--ds-divider);
+}
+.app-shell .settings-panel .setting-row:last-child {
+  border-bottom: 0;
+}
+.app-shell .settings-panel .setting-row > div {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.app-shell .settings-panel .setting-row h3 {
+  color: var(--xre-text);
+  font-size: var(--ds-text-md);
+  font-weight: 650;
+  line-height: var(--ds-leading-md);
+  letter-spacing: -0.01em;
+}
+/* `html` prefix: shell.css caps this at 64ch, which left a one-word last line
+   once the panel spans the page width */
+html .app-shell .settings-panel .setting-row p {
+  max-width: 80ch;
+  margin-top: 2px;
+  text-wrap: pretty;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+.app-shell .settings-panel .setting-row > .btn {
+  flex: 0 0 auto;
+  font-size: var(--ds-text-base);
+}
+@media (max-width: 640px) {
+  .app-shell .settings-panel {
+    padding: 0 var(--ds-space-4);
+  }
+  .app-shell .settings-panel .setting-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ds-space-3);
+    padding: var(--ds-space-4) 0;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   12. System pages: toolbar, audit log, backups (.system-*, .audit-*)
+   -------------------------------------------------------------------------- */
+.app-shell .system-page .system-toolbar {
+  gap: var(--ds-space-2) var(--ds-space-3);
+}
+/* The wrapper is the field; the input inside must not draw a second box. */
+.app-shell .system-page .system-search {
+  flex: 1 1 260px;
+  max-width: 420px;
+  min-height: var(--ds-control-h);
+  gap: var(--ds-space-2);
+  padding: 0 var(--ds-space-3);
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface-raised);
+  color: var(--xre-text-faint);
+  cursor: text;
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    box-shadow var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .system-page .system-search:hover {
+  border-color: var(--ds-border-hover);
+}
+.app-shell .system-page .system-search:focus-within {
+  border-color: var(--xre-accent);
+  box-shadow: var(--ds-focus-ring-field);
+}
+.app-shell .system-page .system-search > svg {
+  flex: 0 0 auto;
+}
+.app-shell .system-page .system-search input {
+  min-width: 0;
+  min-height: calc(var(--ds-control-h) - 2px);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent !important;
+  box-shadow: none;
+  color: var(--xre-text);
+}
+.app-shell .system-page .system-toolbar select {
+  flex: 0 1 220px;
+  min-width: 0;
+  padding-block: 0;
+  padding-left: var(--ds-space-3);
+}
+.app-shell .system-page .system-count {
+  margin-left: auto;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.app-shell .system-page .system-list {
+  padding: 0;
+  overflow: hidden;
+}
+/* Demo / no-permission state: give the bare empty block a home. */
+.app-shell .system-page > .empty {
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface);
+  box-shadow: var(--ds-shadow-sm);
+}
+
+/* Audit entries */
+.app-shell .system-page .audit-row {
+  border-bottom: 1px solid var(--ds-divider);
+}
+.app-shell .system-page .audit-row:last-child {
+  border-bottom: 0;
+}
+.app-shell .system-page .audit-head {
+  gap: var(--ds-space-3);
+  min-height: 44px;
+  padding: var(--ds-space-2) var(--ds-space-4);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+  cursor: pointer;
+  transition: background-color var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .system-page .audit-head:hover {
+  background: var(--ds-hover);
+}
+.app-shell .system-page .audit-head:active {
+  background: var(--ds-pressed);
+}
+.app-shell .system-page .audit-head[aria-expanded="true"] {
+  background: var(--ds-surface-subtle);
+}
+.app-shell .system-page .audit-head:focus-visible {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--xre-accent) 72%, transparent);
+}
+.app-shell .system-page .audit-head > svg {
+  color: var(--xre-text-faint);
+}
+/* disclosure caret (the row is a toggle but had no affordance) */
+.app-shell .system-page .audit-head::after {
+  content: "";
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin: 0 3px 3px var(--ds-space-1);
+  border: solid var(--xre-text-faint);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+  transition: transform var(--ds-duration-fast) var(--ds-ease);
+}
+.app-shell .system-page .audit-head[aria-expanded="true"]::after {
+  margin-bottom: -3px;
+  transform: rotate(225deg);
+}
+.app-shell .system-page .audit-text {
+  font-size: var(--ds-text-base);
+}
+.app-shell .system-page .audit-text :is(strong, em) {
+  color: var(--xre-text);
+  font-weight: 600;
+}
+.app-shell .system-page .audit-text small {
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+}
+.app-shell .system-page .audit-text .badge {
+  margin-inline: 2px;
+  vertical-align: 1px;
+}
+.app-shell .system-page .audit-head time {
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+  white-space: nowrap;
+}
+.app-shell .system-page .audit-detail {
+  gap: var(--ds-space-3);
+  justify-items: start;
+  padding: var(--ds-space-1) var(--ds-space-4) var(--ds-space-4) 43px;
+  background: var(--ds-surface-subtle);
+}
+.app-shell .system-page .audit-detail table {
+  width: 100%;
+  max-width: 880px;
+  border: 1px solid var(--xre-border);
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface);
+  font-size: var(--ds-text-sm);
+  overflow: hidden;
+  white-space: normal;
+}
+.app-shell .system-page .audit-detail :is(th, td) {
+  padding: var(--ds-space-2) var(--ds-space-3);
+}
+.app-shell .system-page .audit-detail th {
+  width: 33%;
+  border-bottom: 1px solid var(--xre-border);
+}
+.app-shell .system-page .audit-detail th:first-child {
+  width: 24%;
+}
+.app-shell .system-page .audit-detail td {
+  border-bottom: 1px solid var(--ds-divider);
+  font-size: var(--ds-text-sm);
+  vertical-align: top;
+}
+.app-shell .system-page .audit-detail td:first-child {
+  color: var(--xre-text-soft);
+  font-weight: 550;
+}
+/* before → after: the new value is the one that matters */
+.app-shell .system-page .audit-detail td:nth-child(2) {
+  color: var(--xre-text-faint);
+}
+.app-shell .system-page .audit-detail td:nth-child(3) {
+  color: var(--xre-text);
+  font-weight: 550;
+}
+.app-shell .system-page .audit-detail tbody tr:hover {
+  background: transparent;
+}
+.app-shell .system-page .audit-detail p {
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-base);
+}
+.app-shell .system-page .audit-detail .text-button {
+  margin: 0 0 0 -8px;
+  color: var(--ds-accent-text);
+}
+
+@media (max-width: 640px) {
+  .app-shell .system-page .system-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  .app-shell .system-page .system-toolbar select {
+    flex: 1 1 0;
+  }
+  .app-shell .system-page .audit-head {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 2px var(--ds-space-3);
+    padding-block: 10px;
+  }
+  .app-shell .system-page .audit-head > svg {
+    margin-top: 3px;
+  }
+  .app-shell .system-page .audit-head::after {
+    grid-area: 1 / 3;
+    margin-top: 5px;
+  }
+  .app-shell .system-page .audit-head time {
+    grid-area: 2 / 2;
+  }
+  .app-shell .system-page .audit-detail {
+    padding-left: var(--ds-space-4);
+    overflow-x: auto;
+  }
+}
+
+/* Backups */
+.app-shell .system-page .system-note p {
+  min-width: 0;
+}
+.app-shell .system-page .system-list .table-wrap {
+  overflow-x: auto;
+}
+.app-shell .system-page .modal .setup-footnote {
+  margin: 0 0 var(--ds-space-4);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-base);
+  line-height: var(--ds-leading-base);
+}
+.app-shell .system-page .modal .setup-footnote strong {
+  color: var(--xre-text);
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   13. Workspaces (.workspace-admin)
+   -------------------------------------------------------------------------- */
+.app-shell .workspace-admin {
+  container: workspaces / inline-size;
+}
+.app-shell .workspace-admin .table-scroll {
+  overflow-x: auto;
+}
+.app-shell .workspace-admin table {
+  min-width: 920px;
+  font-size: var(--ds-text-base);
+}
+.app-shell .workspace-admin th {
+  padding: 10px var(--ds-space-4);
+  border-bottom: 1px solid var(--xre-border);
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.app-shell .workspace-admin td {
+  padding: 10px var(--ds-space-4);
+  border-bottom: 1px solid var(--ds-divider);
+  white-space: nowrap;
+}
+.app-shell .workspace-admin td strong {
+  font-weight: 600;
+}
+.app-shell .workspace-admin td small {
+  margin-top: 1px;
+  color: var(--xre-text-faint);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+}
+.app-shell .workspace-admin td small a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-radius: 3px;
+  color: var(--ds-accent-text);
+  text-decoration: none;
+}
+.app-shell .workspace-admin td small a:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.app-shell .workspace-admin td .badge + small {
+  margin-top: 3px;
+}
+/* Wide table in a narrow window: the company name stays put while the rest
+   scrolls underneath it. */
+.app-shell .workspace-admin :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--xre-surface);
+  background-clip: padding-box;
+}
+.app-shell .workspace-admin th:first-child {
+  background-color: var(--ds-surface-subtle);
+}
+html[data-xre-theme="purple-glass"] .app-shell .workspace-admin td:first-child {
+  background-color: var(--ds-surface-overlay); /* glass surface is translucent */
+}
+.app-shell .workspace-admin tbody tr:hover > td:first-child {
+  background-image: linear-gradient(var(--ds-hover), var(--ds-hover));
+}
+@container workspaces (max-width: 919px) {
+  .app-shell .workspace-admin :is(th, td):first-child {
+    box-shadow: inset -1px 0 0 var(--xre-border);
+  }
+}
+.app-shell .workspace-admin .row-actions {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.app-shell .workspace-admin .row-actions .btn {
+  min-height: var(--ds-control-h-sm);
+  padding: 0 10px;
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-text-sm);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell :is(.access-page, .system-page) :is(.employee-row, .status-button, .access-role-item, .grant-row, .access-check, .cx-org-node, .audit-head, .system-search) {
+    transition: none;
+  }
+  .app-shell .system-page .audit-head::after {
+    transition: none;
+  }
+}

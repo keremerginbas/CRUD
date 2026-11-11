@@ -1,0 +1,2022 @@
+/* ==========================================================================
+   XRE CRM — CRM workspace  (design/crm.css)
+   --------------------------------------------------------------------------
+   Routes: /kanban (board) and /leads (list); the page chrome is shared with
+   /activities and /calendar because all four render pages/CRM.tsx.
+   Builds on tokens.css + base.css and refines kanban-refresh.css.
+
+   Scope: every rule is nested under `html .app-shell .page-content` (0,2,1)
+   and then keyed on a CRM-only class, so nothing leaks into other pages
+   (.crm-toolbar and .leads-table are also used elsewhere — they are only
+   matched here together with .b24-filter-bar / after .b24-deal-summary).
+
+   !important is used only against rules that are themselves !important:
+   night-polish.css (toolbar, search field, table rows, form fields),
+   kanban-refresh.css (column header) and crm-upgrade.css (card density).
+
+   Sections
+     1. Page head + actions          7. Board + columns
+     2. View tabs + pipeline row     8. Deal cards
+     3. Filter bar + filter panel    9. Card density profiles
+     4. Personal views row          10. Quick add, add card, column footer
+     5. Deal summary strip          11. List view (table)
+     6. Bulk selection bar          12. Dialogs (advanced filter, layout)
+                                    13. Responsive   14. Motion
+   ========================================================================== */
+
+html .app-shell .page-content {
+  /* Local sizes shared by the sections below. */
+  --crm-col-w: 296px; /* board column basis */
+  --crm-card-pad: 12px;
+  --crm-row-h: var(--ds-control-h-sm); /* controls in the dense toolbar rows */
+  --crm-row-bg: var(--xre-surface); /* opaque row colour for the pinned list column */
+  --crm-cell-px: var(--ds-space-4); /* list cell inline padding */
+
+  /* ------------------------------------------------------------------------
+     1. Page head + actions
+     ------------------------------------------------------------------------ */
+  & .crm-views-heading {
+    align-items: flex-start;
+    margin-bottom: var(--ds-space-4);
+  }
+  & .crm-views-heading h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  /* record count: a quiet pill next to the title */
+  & .crm-views-heading h1 span {
+    display: inline-grid;
+    place-items: center;
+    min-width: 26px;
+    height: 22px;
+    margin: 0;
+    padding: 0 var(--ds-space-2);
+    border-radius: var(--ds-radius-pill);
+    background: var(--xre-surface-muted);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  & .crm-view-actions {
+    gap: var(--ds-space-2);
+  }
+  /* same size / weight / tracking as every other primary button (base.css);
+     the upper-case label itself is literal in the markup */
+  & .crm-view-actions .btn.primary > svg:last-child {
+    margin-left: -2px;
+    opacity: 0.8;
+  }
+
+  /* ------------------------------------------------------------------------
+     2. View tabs + pipeline selector — one row on desktop.
+     <main> must stay a block container (the shell relies on it), so the tabs
+     float and the pipeline control (a flex box = its own formatting context)
+     sits beside them.
+     ------------------------------------------------------------------------ */
+  & .crm-views-tabs {
+    margin: 0 0 var(--ds-space-4);
+  }
+  & .b24-crm-control {
+    justify-content: flex-start;
+    gap: var(--ds-space-3);
+    min-height: 40px;
+    margin-bottom: var(--ds-space-4);
+  }
+  @media (min-width: 761px) {
+    & .crm-views-tabs {
+      float: left;
+      margin-right: var(--ds-space-3);
+    }
+    & .crm-toolbar.b24-filter-bar {
+      clear: both;
+    }
+  }
+
+  /* pipeline picker: icon + borderless select + two actions in one control */
+  & .b24-pipeline-select {
+    gap: 0;
+    height: 40px;
+    min-width: 0;
+    padding: 0 var(--ds-space-1) 0 var(--ds-space-3);
+    border: 1px solid var(--xre-border);
+    border-radius: 10px;
+    background: var(--xre-surface);
+    color: var(--ds-accent-text);
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      box-shadow var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .b24-pipeline-select:hover {
+    border-color: var(--ds-border-hover);
+  }
+  & .b24-pipeline-select:has(select:focus-visible) {
+    border-color: var(--xre-accent);
+    box-shadow: var(--ds-focus-ring-field);
+  }
+  & .b24-pipeline-select > svg {
+    flex: 0 0 auto;
+  }
+  & .b24-pipeline-select select {
+    appearance: none;
+    -webkit-appearance: none;
+    align-self: stretch;
+    min-width: 0;
+    max-width: 280px;
+    margin-right: var(--ds-space-1);
+    padding: 0 30px 0 var(--ds-space-2);
+    border: 0;
+    border-radius: 0;
+    background-color: transparent !important; /* night-polish field fill */
+    background-image:
+      linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+      right 15px center,
+      right 10px center;
+    background-size:
+      5px 5px,
+      5px 5px;
+    background-repeat: no-repeat;
+    box-shadow: 1px 0 0 var(--ds-divider); /* hairline before the actions */
+    color: var(--xre-text) !important;
+    font-size: var(--ds-text-base);
+    font-weight: 600;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    outline: none;
+  }
+  & .b24-pipeline-select .icon-button {
+    width: 30px;
+    height: 30px;
+    border-radius: var(--ds-radius-sm);
+    color: var(--xre-text-soft);
+  }
+
+  /* ------------------------------------------------------------------------
+     3. Filter bar + (optional) filter panel + personal views = ONE surface
+     with hairlines between its rows, instead of three stacked boxes.
+     ------------------------------------------------------------------------ */
+  & .crm-toolbar.b24-filter-bar {
+    gap: var(--ds-space-3);
+    margin: 0;
+    padding: var(--ds-space-2) var(--ds-space-3);
+    border: 1px solid var(--xre-border) !important;
+    border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+    background: var(--xre-surface) !important;
+    box-shadow: none;
+  }
+  & .crm-toolbar.b24-filter-bar .search-field {
+    flex: 1 1 260px;
+    width: auto;
+    max-width: 440px;
+    min-height: var(--ds-control-h);
+    padding-inline: var(--ds-space-3);
+    gap: var(--ds-space-2);
+    border-color: var(--ds-border-strong) !important;
+    border-radius: var(--ds-radius-md);
+    background: var(--xre-surface-raised) !important;
+    color: var(--xre-text-faint) !important;
+  }
+  & .crm-toolbar.b24-filter-bar .search-field:hover {
+    border-color: var(--ds-border-hover) !important;
+  }
+  & .crm-toolbar.b24-filter-bar .search-field:focus-within {
+    border-color: var(--xre-accent) !important;
+    box-shadow: var(--ds-focus-ring-field);
+  }
+  & .crm-toolbar.b24-filter-bar .search-field input {
+    align-self: stretch; /* the whole field is the hit area, not a 22px line */
+    min-width: 0;
+    min-height: calc(var(--ds-control-h) - 2px);
+    color: var(--xre-text) !important;
+    font-size: var(--ds-text-base);
+  }
+  & .crm-toolbar.b24-filter-bar .toolbar-right {
+    gap: var(--ds-space-2);
+    min-width: 0;
+  }
+  & .crm-toolbar.b24-filter-bar .toolbar-right select {
+    max-width: 220px;
+  }
+
+  & .b24-filter-bar + .filter-panel {
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: var(--ds-space-3) var(--ds-space-4);
+    margin: 0;
+    padding: var(--ds-space-3);
+    border: 1px solid var(--xre-border);
+    border-top: 0;
+    border-radius: 0;
+    background: var(--ds-surface-subtle);
+    color: var(--xre-text);
+  }
+  & .b24-filter-bar + .filter-panel label {
+    flex: 0 1 220px;
+    min-width: 0;
+  }
+  & .b24-filter-bar + .filter-panel select {
+    width: 100%;
+  }
+  & .b24-filter-bar + .filter-panel .text-button {
+    min-height: var(--ds-control-h);
+    margin: 0;
+    padding: 0 var(--ds-space-2);
+  }
+
+  /* ------------------------------------------------------------------------
+     4. Personal views — a single dense row: label · saved view · filter ·
+     layout · delete ……… new view name + save.
+     ------------------------------------------------------------------------ */
+  & .crm-personalization {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ds-space-2) var(--ds-space-3);
+    margin: 0;
+    padding: var(--ds-space-2) var(--ds-space-3);
+    border: 1px solid var(--xre-border);
+    border-top: 0;
+    border-radius: 0 0 var(--ds-radius-lg) var(--ds-radius-lg);
+    background: var(--xre-surface);
+    box-shadow: none;
+  }
+  & .crm-personalization-toolbar {
+    display: contents;
+  }
+  & .crm-personalization-heading {
+    flex: 0 0 auto;
+    gap: var(--ds-space-2);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    color: var(--xre-text-faint);
+  }
+  & .crm-personalization-heading > div {
+    gap: 0;
+  }
+  & .crm-personalization-heading strong {
+    color: var(--xre-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+    line-height: 1.35;
+  }
+  & .crm-personalization-heading small {
+    display: block;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    line-height: 1.35;
+  }
+  & .crm-personalization-actions {
+    flex: 1 1 auto;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: var(--ds-space-2);
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+  & .crm-personalization :is(.crm-personalization-actions select, .crm-personalization-save input) {
+    min-height: var(--crm-row-h);
+    font-size: var(--ds-text-sm);
+  }
+  & .crm-personalization-actions select {
+    flex: 0 1 190px;
+    width: 190px;
+    min-width: 130px;
+    max-width: 100%;
+  }
+  & .crm-personalization .btn.small {
+    min-height: var(--crm-row-h);
+    padding: 0 10px;
+  }
+  & .crm-personalization .icon-button {
+    width: var(--crm-row-h);
+    height: var(--crm-row-h);
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    color: var(--xre-text-soft);
+  }
+  & .crm-personalization .icon-button:hover:not(:disabled) {
+    background: var(--ds-danger-soft); /* it is the "delete view" action */
+    color: var(--ds-danger);
+  }
+  & .crm-personalization-save {
+    flex: 1 1 240px;
+    flex-wrap: nowrap;
+    gap: var(--ds-space-2);
+    min-width: 0;
+    max-width: 360px;
+    margin: 0 0 0 auto;
+    padding: 0;
+    border: 0;
+  }
+  & .crm-personalization-save input {
+    flex: 1 1 110px;
+    min-width: 0;
+  }
+  & .crm-personalization-save:has(.text-button) {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    max-width: none;
+  }
+  & .crm-personalization .text-button {
+    margin: 0;
+    color: var(--ds-accent-text);
+    font-size: var(--ds-text-sm);
+  }
+  & .crm-personalization-message {
+    flex: 1 1 100%;
+    margin: 0;
+    padding: 0;
+    color: var(--ds-danger);
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+  }
+
+  /* ------------------------------------------------------------------------
+     5. Deal summary strip
+     ------------------------------------------------------------------------ */
+  & .b24-deal-summary {
+    flex-wrap: wrap;
+    gap: var(--ds-space-2) var(--ds-space-4);
+    min-height: 48px;
+    padding: var(--ds-space-2) var(--ds-space-1);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+  }
+  & .b24-deal-summary > span {
+    gap: var(--ds-space-2);
+    white-space: nowrap;
+  }
+  & .b24-deal-summary > span + span {
+    padding-left: var(--ds-space-4);
+    border-left: 1px solid var(--xre-border);
+  }
+  & .b24-deal-summary strong {
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+  & .b24-summary-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    background: var(--xre-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--xre-accent) 20%, transparent);
+  }
+  & .b24-deal-summary > button {
+    gap: 6px;
+    min-height: var(--ds-control-h-sm);
+    margin-left: auto;
+    padding: 0 10px;
+    border-radius: var(--ds-radius-md);
+    color: var(--ds-accent-text);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    white-space: nowrap;
+    transition: background-color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .b24-deal-summary > button:hover {
+    background: var(--ds-hover);
+  }
+  & .b24-deal-summary > button:active {
+    background: var(--ds-pressed);
+  }
+
+  /* ------------------------------------------------------------------------
+     6. Bulk selection bar — sticks under the topbar while the page scrolls.
+     ------------------------------------------------------------------------ */
+  & .b24-bulk {
+    position: sticky;
+    top: calc(var(--shell-topbar-h, 56px) + var(--ds-space-2));
+    z-index: 6;
+    gap: var(--ds-space-2);
+    margin: 0 0 var(--ds-space-3);
+    padding: var(--ds-space-2) var(--ds-space-3) var(--ds-space-2) var(--ds-space-4);
+    border: 1px solid var(--ds-accent-border);
+    border-radius: var(--ds-radius-lg);
+    /* opaque (it floats over cards), tinted with the selection colour */
+    background:
+      linear-gradient(var(--ds-selected), var(--ds-selected)),
+      var(--ds-surface-overlay);
+    box-shadow: var(--ds-shadow-md);
+    color: var(--xre-text);
+    font-size: var(--ds-text-sm);
+  }
+  & .b24-bulk > strong {
+    margin-right: var(--ds-space-2);
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  & .b24-bulk select {
+    min-height: var(--crm-row-h);
+    max-width: 200px;
+    font-size: var(--ds-text-sm);
+  }
+  & .b24-bulk .btn.small + select {
+    margin-left: var(--ds-space-2);
+  }
+  & .b24-bulk .text-button {
+    min-height: var(--crm-row-h);
+    margin: 0 0 0 auto;
+    padding: 0 var(--ds-space-2);
+    color: var(--xre-text-soft);
+  }
+
+  /* ------------------------------------------------------------------------
+     7. Board + columns
+     The board bleeds into the page gutter and scrolls horizontally inside
+     itself. A column never grows taller than the viewport: its header and
+     footer stay put and the card list scrolls, so stage name / total and the
+     horizontal scrollbar are always reachable.
+     ------------------------------------------------------------------------ */
+  & .kanban-board.b24-kanban {
+    align-items: flex-start;
+    gap: var(--ds-space-3);
+    min-height: 0;
+    margin-inline: calc(-1 * var(--shell-gutter, 32px));
+    padding: 2px var(--shell-gutter, 32px) var(--ds-space-4);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: var(--shell-gutter, 32px);
+  }
+  & .b24-kanban .kanban-column {
+    flex: 1 0 var(--crm-col-w);
+    width: var(--crm-col-w);
+    min-width: 0;
+    max-width: 340px;
+    max-height: calc(100dvh - var(--shell-topbar-h, 56px) - var(--ds-space-8));
+    overflow: hidden;
+    border: 1px solid var(--xre-border);
+    border-radius: var(--ds-radius-lg);
+    background: var(--ds-track); /* inset well: cards sit on top of it */
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      box-shadow var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .b24-kanban .kanban-column.drag-over {
+    border-style: solid;
+    border-color: var(--stage);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--stage) 24%, transparent);
+  }
+
+  /* header: stage stripe + dot carry the colour, the fill is only a hint */
+  & .b24-kanban .kanban-column > header {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: 14px var(--ds-space-3) 10px 14px;
+    border-bottom: 1px solid var(--xre-border) !important;
+    border-radius: 0;
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--stage) 7%, transparent),
+        color-mix(in srgb, var(--stage) 7%, transparent)
+      ),
+      var(--xre-surface) !important;
+    color: var(--xre-text);
+  }
+  & .b24-kanban .kanban-column > header > div {
+    gap: var(--ds-space-2);
+    min-height: 28px;
+  }
+  & .b24-kanban .kanban-column > header h3 {
+    gap: var(--ds-space-2);
+    overflow: hidden;
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 650;
+    line-height: 1.3;
+    letter-spacing: 0;
+    text-overflow: ellipsis;
+  }
+  & .b24-kanban .kanban-column > header h3::before {
+    flex: 0 0 8px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--stage) 20%, transparent);
+  }
+  & .b24-kanban .kanban-column > header .column-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 22px;
+    height: 20px;
+    margin-left: 0;
+    padding: 0 6px;
+    border-radius: var(--ds-radius-pill);
+    background: var(--xre-surface-muted);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-xs);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+  & .b24-kanban .kanban-column > header .icon-button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid transparent;
+    border-radius: var(--ds-radius-sm);
+    background: transparent;
+    color: var(--xre-text-soft);
+  }
+  & .b24-kanban .kanban-column > header .icon-button:hover {
+    border-color: transparent;
+    background: var(--ds-hover);
+    color: var(--xre-text);
+  }
+  & .b24-kanban .kanban-column > header p {
+    margin: 2px 0 0 var(--ds-space-4);
+    color: var(--xre-text);
+    font-size: var(--ds-text-md);
+    font-weight: 650;
+    line-height: var(--ds-leading-md);
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  & .b24-kanban .kanban-cards {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: var(--ds-space-2);
+    min-height: 88px; /* keeps an empty stage a usable drop target */
+    padding: var(--ds-space-2);
+    overflow-y: auto;
+    background: transparent;
+  }
+  & .b24-kanban .kanban-cards > * {
+    flex: 0 0 auto;
+  }
+
+  /* ------------------------------------------------------------------------
+     8. Deal cards
+     ------------------------------------------------------------------------ */
+  & .b24-kanban .lead-card.b24-deal-card {
+    margin: 0;
+    padding: var(--crm-card-pad) var(--crm-card-pad) var(--ds-space-2) 14px;
+    border: 1px solid var(--xre-border);
+    border-radius: 10px;
+    background: var(--xre-surface);
+    box-shadow: var(--ds-shadow-sm);
+    color: var(--xre-text);
+    transform: none;
+    /* long boards: off-screen cards skip layout and paint */
+    content-visibility: auto;
+    contain-intrinsic-size: auto 280px;
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      box-shadow var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .b24-kanban .lead-card.b24-deal-card::before {
+    top: 10px;
+    bottom: 10px;
+    opacity: 0.9;
+  }
+  & .b24-kanban .lead-card.b24-deal-card:hover {
+    border-color: var(--ds-border-hover);
+    box-shadow: var(--ds-shadow-md);
+    transform: none;
+  }
+  /* selected for a bulk action */
+  & .b24-kanban .lead-card.b24-deal-card:has(.lead-card-top input:checked) {
+    border-color: var(--xre-accent);
+    background:
+      linear-gradient(var(--ds-selected), var(--ds-selected)),
+      var(--xre-surface);
+    box-shadow: 0 0 0 1px var(--xre-accent);
+  }
+
+  & .b24-kanban .lead-card-top {
+    gap: var(--ds-space-2);
+    min-height: 24px;
+    margin-bottom: 6px;
+  }
+  & .b24-kanban .b24-deal-card input[type="checkbox"] {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    margin: 0;
+  }
+  & .b24-kanban .b24-card-source {
+    min-width: 0;
+    margin: 0 auto 0 0;
+    overflow: hidden;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: 0.04em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .b24-kanban .crm-open-count {
+    gap: 4px;
+    height: 22px;
+    padding: 0 7px;
+    border: 0;
+    border-radius: var(--ds-radius-pill);
+    background: var(--xre-surface-muted);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-xs);
+    font-weight: 650;
+    font-variant-numeric: tabular-nums;
+  }
+  & .b24-kanban .lead-card-top .icon-button {
+    width: 26px;
+    height: 26px;
+    margin-right: -4px;
+    border-radius: var(--ds-radius-sm);
+    color: var(--xre-text-faint);
+  }
+  & .b24-kanban .lead-card-top .icon-button:hover {
+    color: var(--xre-text);
+  }
+
+  & .b24-kanban .b24-deal-title {
+    display: block;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    border-radius: 4px;
+    color: var(--xre-text);
+    font-size: calc(14px * var(--ds-font-scale, 1));
+    font-weight: 650;
+    line-height: 1.35;
+    letter-spacing: -0.005em;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+  & .b24-kanban .b24-deal-title:hover {
+    color: var(--ds-accent-text);
+  }
+  & .b24-kanban .b24-card-secondary {
+    display: block;
+    margin-top: 2px;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+  }
+  & .b24-kanban .b24-deal-value {
+    margin: var(--ds-space-2) 0;
+    color: var(--xre-text);
+    font-size: var(--ds-text-md);
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    font-variant-numeric: tabular-nums;
+  }
+  & .b24-kanban .b24-contact-link {
+    gap: var(--ds-space-2);
+    max-width: 100%;
+    margin: 0 0 var(--ds-space-2);
+    padding: 0;
+    border-radius: var(--ds-radius-sm);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: 1.3;
+    text-align: left;
+  }
+  & .b24-kanban .b24-contact-link:hover {
+    color: var(--xre-text);
+  }
+  & .b24-kanban .b24-contact-link .avatar {
+    flex: 0 0 auto;
+    font-size: 10px;
+  }
+  & .b24-kanban .b24-card-tags {
+    gap: var(--ds-space-1);
+    margin: 0 0 var(--ds-space-2);
+  }
+  & .b24-kanban .b24-card-tags .badge {
+    padding: 2px 7px;
+    border: 0;
+    border-radius: var(--ds-radius-sm);
+    background: var(--xre-surface-muted);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-xs);
+    font-weight: 600;
+  }
+  & .b24-kanban .b24-card-tags .badge.amber {
+    background: var(--ds-warn-soft);
+    color: var(--ds-warn);
+  }
+
+  /* next step: the most important line after the name */
+  & .b24-kanban .b24-next-activity {
+    align-items: flex-start;
+    gap: var(--ds-space-2);
+    min-height: 0;
+    margin-top: 2px;
+    padding: var(--ds-space-2) 0 6px;
+    border-top: 1px solid var(--ds-divider);
+    border-style: solid none none;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: 1.4;
+  }
+  & .b24-kanban .b24-next-activity > svg {
+    flex: 0 0 auto;
+    margin-top: 2px;
+    color: var(--xre-text-faint);
+  }
+  & .b24-kanban .b24-next-activity > span {
+    min-width: 0;
+    color: var(--xre-text);
+    overflow-wrap: anywhere;
+  }
+  & .b24-kanban .b24-next-activity small {
+    display: block;
+    margin-top: 1px;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+  }
+  & .b24-kanban .b24-next-activity button {
+    gap: 6px;
+    padding: 0;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-sm);
+    line-height: 1.4;
+  }
+  & .b24-kanban .b24-next-activity button:hover {
+    color: var(--ds-accent-text);
+  }
+  & .b24-kanban .b24-next-activity.overdue :is(span, small, svg) {
+    color: var(--ds-danger);
+  }
+
+  /* quick actions (call · WhatsApp · activity · meeting): card + list */
+  & :is(.b24-kanban, .leads-table) .crm-lead-actions {
+    margin: 0;
+  }
+  & :is(.b24-kanban, .leads-table) .v6-quick-actions {
+    gap: 2px;
+  }
+  & :is(.b24-kanban, .leads-table) .v6-quick-actions button {
+    gap: 5px;
+    min-width: 28px;
+    min-height: 28px;
+    padding: 0 6px;
+    border-radius: var(--ds-radius-sm);
+    color: var(--ds-accent-text);
+    font-weight: 550;
+    transition: background-color var(--ds-duration-fast) var(--ds-ease);
+  }
+  /* the icon carries the accent, the label stays neutral until hover */
+  & :is(.b24-kanban, .leads-table) .v6-quick-actions button span {
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: 1;
+    transition: color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & :is(.b24-kanban, .leads-table) .v6-quick-actions button:hover:not(:disabled) span {
+    color: var(--ds-accent-text);
+  }
+  & :is(.b24-kanban, .leads-table) .v6-quick-actions button:hover:not(:disabled) {
+    background: var(--xre-accent-soft);
+  }
+  & :is(.b24-kanban, .leads-table) .v6-quick-actions button:active:not(:disabled) {
+    background: var(--ds-pressed);
+  }
+  & :is(.b24-kanban, .leads-table) .v6-quick-actions button:disabled {
+    color: var(--xre-text-faint);
+    opacity: 0.55;
+  }
+  & .b24-kanban .crm-lead-actions {
+    margin: 0 -6px 6px; /* icons line up with the text edge */
+  }
+
+  & .b24-kanban .lead-card-footer {
+    gap: var(--ds-space-2);
+    margin-top: 0;
+    padding: var(--ds-space-2) 0 2px;
+    border-top: 1px solid var(--ds-divider);
+    border-style: solid none none;
+  }
+  & .b24-kanban .lead-card-footer > span {
+    gap: 6px;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    text-overflow: ellipsis;
+  }
+  & .b24-kanban .lead-card-footer .avatar {
+    flex: 0 0 auto;
+    font-size: 9px;
+  }
+  & .b24-kanban .lead-card-footer select {
+    appearance: none;
+    -webkit-appearance: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 136px;
+    height: 28px;
+    padding: 0 24px 0 var(--ds-space-2);
+    border: 1px solid transparent !important;
+    border-radius: var(--ds-radius-sm);
+    background-color: var(--xre-surface-muted) !important;
+    background-image:
+      linear-gradient(45deg, transparent 50%, currentColor 50%),
+      linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position:
+      right 12px center,
+      right 8px center;
+    background-size:
+      4px 4px,
+      4px 4px;
+    background-repeat: no-repeat;
+    color: var(--xre-text-soft) !important;
+    font-size: var(--ds-text-xs);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .b24-kanban .lead-card-footer select:hover {
+    border-color: var(--ds-border-hover) !important;
+    color: var(--xre-text) !important;
+  }
+  & .b24-kanban .lead-card-footer select:focus-visible {
+    border-color: var(--xre-accent) !important;
+    box-shadow: var(--ds-focus-ring-field);
+    outline: none;
+  }
+
+  /* ------------------------------------------------------------------------
+     9. Card density profiles (Düzen → Sıkı / Standart / Detaylı)
+     crm-upgrade.css sets these with !important.
+     ------------------------------------------------------------------------ */
+  & .b24-kanban .lead-card.crm-card-profile-compact {
+    padding: 10px 10px 6px var(--ds-space-3) !important;
+  }
+  & .b24-kanban .crm-card-profile-compact .lead-card-top {
+    margin-bottom: var(--ds-space-1);
+  }
+  & .b24-kanban .crm-card-profile-compact .b24-deal-title {
+    font-size: var(--ds-text-base) !important;
+  }
+  & .b24-kanban .crm-card-profile-compact .b24-deal-value {
+    margin: var(--ds-space-1) 0 6px !important;
+    font-size: var(--ds-text-base) !important;
+  }
+  & .b24-kanban .crm-card-profile-compact .b24-next-activity {
+    padding: 6px 0 var(--ds-space-1);
+  }
+  & .b24-kanban .crm-card-profile-compact .crm-lead-actions {
+    margin-bottom: var(--ds-space-1);
+  }
+  & .b24-kanban .crm-card-profile-compact .lead-card-footer {
+    padding-top: 6px;
+  }
+
+  & .b24-kanban .lead-card.crm-card-profile-detailed {
+    padding: 14px 14px 10px var(--ds-space-4) !important;
+  }
+  & .b24-kanban .crm-card-profile-detailed .b24-deal-title {
+    font-size: var(--ds-text-md) !important;
+  }
+  & .b24-kanban .crm-card-profile-detailed .b24-card-source {
+    white-space: normal;
+  }
+  & .b24-kanban .crm-detailed-card {
+    gap: 3px;
+    margin: 0 0 10px;
+    padding: var(--ds-space-2) 10px;
+    border: 0;
+    border-radius: var(--ds-radius-md);
+    background: var(--xre-surface-muted);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: 1.45;
+  }
+
+  /* ------------------------------------------------------------------------
+     10. Quick add form, "add card" affordance, column footer, board hint
+     ------------------------------------------------------------------------ */
+  & .b24-kanban .b24-quick-card {
+    margin: 0;
+    padding: 10px;
+    border: 1px solid var(--xre-accent);
+    border-radius: 10px;
+    background: var(--xre-surface);
+    box-shadow: var(--ds-focus-ring-field);
+  }
+  & .b24-kanban .b24-quick-card input {
+    width: 100%;
+    margin: 0 0 var(--ds-space-2);
+  }
+  & .b24-kanban .b24-quick-card > div {
+    align-items: center;
+    gap: var(--ds-space-2);
+  }
+  & .b24-kanban .b24-quick-card .text-button {
+    min-height: var(--ds-control-h-sm);
+    margin: 0;
+    padding: 0 var(--ds-space-2);
+  }
+
+  & .b24-kanban .add-card {
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 var(--ds-space-3);
+    border: 1px dashed var(--ds-border-strong);
+    border-radius: 10px;
+    background: transparent;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .b24-kanban .add-card:hover {
+    border-color: var(--xre-accent);
+    background: var(--xre-accent-soft);
+    color: var(--ds-accent-text);
+  }
+  & .b24-kanban .add-card:active {
+    background: var(--ds-pressed);
+  }
+
+  & .b24-kanban .column-automation {
+    flex: 0 0 auto;
+    gap: 6px;
+    min-height: 36px;
+    padding: 0 var(--ds-space-3) 0 14px;
+    border-top: 1px solid var(--xre-border);
+    background: transparent;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    font-weight: 550;
+    font-variant-numeric: tabular-nums;
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-ease),
+      color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .b24-kanban .column-automation:hover {
+    background: var(--ds-hover);
+    color: var(--ds-accent-text);
+  }
+  & .b24-kanban .column-automation:focus-visible {
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--xre-accent) 72%, transparent);
+  }
+
+  /* the hint talks about dragging cards: list, activities and calendar do not
+     have any, so it only shows under the board */
+  & :not(.kanban-board) + .b24-board-hint {
+    display: none;
+  }
+  & .b24-board-hint {
+    max-width: 90ch;
+    margin-top: var(--ds-space-3);
+    text-wrap: pretty;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    line-height: var(--ds-leading-xs);
+  }
+
+  /* ------------------------------------------------------------------------
+     11. List view — the panel that follows the summary strip
+     ------------------------------------------------------------------------ */
+  /* the panel is a size container: the list reacts to the room it really has
+     (sidebar open or collapsed), not to the window width */
+  & .b24-deal-summary ~ .panel:has(> .table-wrap > .leads-table) {
+    container: crm-list / inline-size;
+  }
+  & .b24-deal-summary ~ .panel > .table-wrap:has(> .leads-table) {
+    /* long lists scroll inside the panel so the header and footer stay visible */
+    max-height: calc(100dvh - var(--shell-topbar-h, 56px) - 92px);
+    overflow: auto;
+    overscroll-behavior-x: contain;
+  }
+  & .b24-deal-summary ~ .panel .leads-table {
+    /* the whole head sticks as one piece (cells that stick one by one are
+       pixel-snapped separately and leave hairline gaps between them) */
+    & thead {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--ds-surface-subtle);
+    }
+    & th {
+      height: 40px;
+      padding: 0 var(--crm-cell-px);
+      border: 0;
+      background: var(--ds-surface-subtle);
+      box-shadow: inset 0 -1px 0 var(--xre-border); /* borders do not stick */
+      color: var(--xre-text-faint);
+    }
+    & td {
+      height: 56px;
+      padding: var(--ds-space-2) var(--crm-cell-px);
+      border-bottom: 1px solid var(--ds-divider);
+      color: var(--xre-text-soft) !important;
+      vertical-align: middle;
+    }
+    & tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    /* selection column */
+    & :is(th, td):first-child {
+      width: 44px;
+      padding-right: 0;
+    }
+    & :is(th, td):first-child input {
+      display: block;
+      width: 15px;
+      height: 15px;
+      margin: 0;
+    }
+
+    /* rows: only the customer cell opens the record, so only it gets a hand */
+    & tbody tr {
+      background: transparent !important;
+      cursor: default;
+      transition: none; /* the pinned cell cannot animate with it */
+    }
+    & tbody tr:hover {
+      background: var(--ds-hover) !important;
+    }
+    & tbody tr:has(td:first-child input:checked) {
+      background: var(--ds-selected) !important;
+      box-shadow: inset 2px 0 0 var(--xre-accent);
+    }
+
+    /* customer cell */
+    & td:nth-child(2) {
+      min-width: 200px;
+      cursor: pointer;
+    }
+    & td:nth-child(2) strong {
+      display: block;
+      color: var(--xre-text) !important;
+      font-size: var(--ds-text-base);
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    & td:nth-child(2):hover strong {
+      color: var(--ds-accent-text) !important;
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+    }
+    & .b24-table-person {
+      margin-top: 1px;
+      color: var(--xre-text-faint) !important;
+      font-size: var(--ds-text-sm);
+      line-height: 1.35;
+    }
+
+    /* amounts line up on the right when the default column set is shown
+       (columns are optional and carry no class, see the note in the report) */
+    & tr:has(> :nth-child(8):last-child) > :nth-child(4) {
+      padding-right: var(--ds-space-6);
+      text-align: right;
+    }
+    & tbody tr:has(> :nth-child(8):last-child) > :nth-child(4) {
+      color: var(--xre-text) !important;
+      font-weight: 550;
+    }
+
+    /* next activity: the one elastic column. `max-width: 0` takes the cell
+       out of the table's minimum width, so the row always fits the panel and
+       this column absorbs what is left; the step itself may use two lines
+       (the row is two lines tall anyway). */
+    & td:has(> span:not([class]), > .b24-red, > .text-button) {
+      width: 30%;
+      min-width: 148px;
+      max-width: 0;
+    }
+    & td > span:not([class]),
+    & td > .b24-red {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      overflow: hidden;
+      line-height: 1.35;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+    & .b24-red {
+      color: var(--ds-danger);
+      font-weight: 550;
+    }
+    & td > .text-button {
+      color: var(--xre-text-faint);
+    }
+    & td > .text-button:hover {
+      color: var(--ds-accent-text);
+    }
+
+    & .owner-cell {
+      gap: var(--ds-space-2);
+      color: var(--xre-text-soft) !important;
+      font-size: var(--ds-text-base);
+    }
+    & .owner-cell .avatar {
+      flex: 0 0 auto;
+      font-size: 9px;
+    }
+
+    /* activity count + quick actions */
+    & .v6-list-actions {
+      gap: var(--ds-space-2);
+      min-width: 0;
+    }
+    & .v6-list-actions .crm-open-count {
+      min-width: 22px;
+      height: 22px;
+      padding: 0 6px;
+      border: 0;
+      border-radius: var(--ds-radius-pill);
+      background: var(--xre-surface-muted);
+      color: var(--xre-text-soft);
+      font-size: var(--ds-text-xs);
+      font-weight: 650;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+  & .b24-deal-summary ~ .panel > .table-wrap > .empty {
+    padding-block: var(--ds-space-8);
+  }
+
+  /* Roomy panel (≈ 1280px windows and up): the actions column is pinned to the
+     right edge. The table normally fits, because the next-step column is
+     elastic; if long names still make it overflow, the other columns scroll
+     under the pinned one and a divider + shadow appears on its left edge for
+     as long as something is hidden there (scroll-driven, so it does not exist
+     when nothing scrolls). Narrower panels get a plain sideways-scrolling
+     table with the shared edge fade from base.css instead. */
+  @container crm-list (min-width: 961px) {
+    & .b24-deal-summary ~ .panel > .table-wrap:has(> .leads-table) {
+      mask-image: none; /* the base edge fade would wash out the pinned column */
+      animation: none;
+    }
+    & .b24-deal-summary ~ .panel .leads-table {
+      & :is(th, td):last-child {
+        position: sticky;
+        right: 0;
+      }
+      & th:last-child {
+        z-index: 3;
+      }
+      & td:last-child {
+        z-index: 1;
+        background-color: var(--crm-row-bg);
+      }
+      & tbody tr:hover td:last-child {
+        background-image: linear-gradient(var(--ds-hover), var(--ds-hover));
+      }
+      & tbody tr:has(td:first-child input:checked) td:last-child {
+        background-image: linear-gradient(var(--ds-selected), var(--ds-selected));
+      }
+      & :is(th, td):last-child::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 100%;
+        bottom: 0;
+        width: 14px;
+        border-right: 1px solid var(--xre-border);
+        background: linear-gradient(to left, rgb(var(--ds-shadow-rgb) / 0.14), transparent);
+        opacity: 0;
+        pointer-events: none;
+      }
+      @supports (animation-timeline: scroll()) {
+        & :is(th, td):last-child::before {
+          animation: crm-pin-edge linear both;
+          animation-timeline: scroll(nearest inline);
+        }
+      }
+    }
+  }
+  @container crm-list (max-width: 960px) {
+    /* the table scrolls sideways here anyway: no need to squeeze the next step */
+    & .b24-deal-summary ~ .panel .leads-table td:has(> span:not([class]), > .b24-red, > .text-button) {
+      min-width: 220px;
+    }
+  }
+  /* just enough room to pin: tighter cells keep the default columns on one screen */
+  @container crm-list (min-width: 961px) and (max-width: 1040px) {
+    & .b24-deal-summary ~ .panel .leads-table {
+      --crm-cell-px: 10px;
+
+      & td:has(> span:not([class]), > .b24-red, > .text-button) {
+        min-width: 136px;
+      }
+    }
+  }
+  & .b24-deal-summary ~ .panel > .table-footer {
+    align-items: center;
+    gap: var(--ds-space-4);
+    min-height: 40px;
+    padding: 0 var(--ds-space-4);
+    border-top: 1px solid var(--xre-border);
+    background: var(--ds-surface-subtle);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  & .b24-deal-summary ~ .panel > .table-footer > span {
+    max-width: none;
+    color: var(--xre-text-faint);
+  }
+
+  /* ------------------------------------------------------------------------
+     12. Dialogs: "Gelişmiş filtreler" and "Kart ve liste düzeni"
+     (they live inside .crm-personalization, so no transform / contain there)
+     ------------------------------------------------------------------------ */
+  & .crm-personalization-backdrop {
+    padding: var(--ds-space-6);
+  }
+  & .crm-personalization-modal {
+    width: min(760px, 100%);
+    max-height: min(780px, 100dvh - 48px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    border: 1px solid var(--xre-border);
+    border-radius: var(--ds-radius-xl);
+    background: var(--ds-surface-overlay);
+    box-shadow: var(--ds-shadow-overlay);
+    color: var(--xre-text);
+  }
+  & .crm-personalization-modal:has(fieldset) {
+    width: min(560px, 100%);
+  }
+  & .crm-personalization-modal > header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    align-items: flex-start;
+    gap: var(--ds-space-4);
+    padding: var(--ds-space-5) var(--ds-space-6) var(--ds-space-4);
+    border-bottom: 1px solid var(--xre-border);
+    background: var(--ds-surface-overlay);
+  }
+  & .crm-personalization-modal > header h2 {
+    margin: 0;
+    color: var(--xre-text);
+    font-size: var(--ds-text-lg);
+    font-weight: 700;
+    line-height: var(--ds-leading-lg);
+    letter-spacing: var(--ds-tracking-tight);
+  }
+  & .crm-personalization-modal > header p {
+    margin: var(--ds-space-1) 0 0;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+  }
+  & .crm-personalization-modal > header .icon-button {
+    margin: -4px -8px 0 0;
+    border: 0;
+  }
+  & .crm-personalization-modal > header .icon-button:hover:not(:disabled) {
+    background: var(--ds-hover);
+    color: var(--xre-text);
+  }
+
+  & .crm-personalization-grid {
+    gap: var(--ds-space-4) var(--ds-space-3);
+    padding: var(--ds-space-5) var(--ds-space-6);
+  }
+  & .crm-personalization-grid label {
+    gap: 6px;
+    min-width: 0;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-weight: 550;
+    line-height: var(--ds-leading-sm);
+  }
+  & .crm-personalization-grid :is(input, select) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  & .crm-personalization-modal fieldset {
+    min-width: 0;
+    margin: 0;
+    padding: var(--ds-space-5) var(--ds-space-6);
+    border: 0;
+    border-top: 1px solid var(--ds-divider);
+  }
+  & .crm-personalization-modal header + fieldset {
+    border-top: 0;
+  }
+  /* float pulls the legend off the fieldset border into normal flow */
+  & .crm-personalization-modal legend {
+    float: left;
+    width: 100%;
+    gap: 6px;
+    margin: 0 0 10px;
+    padding: 0;
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-weight: 600;
+    line-height: var(--ds-leading-sm);
+  }
+  & .crm-personalization-modal legend + * {
+    clear: both;
+  }
+  & :is(.crm-profile-options, .crm-column-options) {
+    gap: var(--ds-space-2);
+  }
+  & :is(.crm-profile-options, .crm-column-options) label {
+    gap: var(--ds-space-2);
+    min-height: var(--ds-control-h-lg);
+    padding: 0 var(--ds-space-3);
+    border: 1px solid var(--ds-border-strong);
+    border-radius: var(--ds-radius-md);
+    background: var(--xre-surface-raised);
+    color: var(--xre-text);
+    font-size: var(--ds-text-base);
+    font-weight: 500;
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      background-color var(--ds-duration-fast) var(--ds-ease);
+  }
+  & :is(.crm-profile-options, .crm-column-options) label:hover:not(.locked) {
+    border-color: var(--ds-border-hover);
+    background: var(--ds-surface-hover);
+  }
+  & :is(.crm-profile-options, .crm-column-options) label:has(input:focus-visible) {
+    box-shadow: var(--ds-focus-ring);
+  }
+  & :is(.crm-profile-options, .crm-column-options) input {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    accent-color: var(--ds-accent-solid);
+    outline: none;
+  }
+  & .crm-profile-options label.selected {
+    border-color: var(--xre-accent);
+    background: var(--xre-accent-soft);
+    box-shadow: 0 0 0 1px var(--xre-accent);
+    color: var(--ds-accent-text);
+    font-weight: 600;
+  }
+  & .crm-column-options label:not(.locked):not(:has(input:checked)) {
+    color: var(--xre-text-soft);
+  }
+  & .crm-column-options label.locked {
+    border-color: var(--xre-border);
+    background: var(--xre-surface-muted);
+    color: var(--xre-text-soft);
+  }
+  & .crm-column-options label small {
+    margin-left: auto;
+    color: var(--xre-text-faint);
+    font-size: var(--ds-text-xs);
+    font-weight: 550;
+  }
+
+  & .crm-personalization-modal > footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    gap: var(--ds-space-2);
+    padding: var(--ds-space-4) var(--ds-space-6);
+    border-top: 1px solid var(--xre-border);
+    background: var(--ds-surface-subtle);
+  }
+
+  /* Pipeline editor (opened from the pipeline row): legacy 9–11px helper text */
+  & .pipeline-editor-stages h4 {
+    margin-bottom: var(--ds-space-1);
+    color: var(--xre-text);
+    font-size: var(--ds-text-md);
+    font-weight: 650;
+    line-height: var(--ds-leading-md);
+  }
+  & .pipeline-editor-stages p {
+    margin-bottom: var(--ds-space-3);
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    line-height: var(--ds-leading-sm);
+  }
+  & .pipeline-editor-stages > div {
+    gap: var(--ds-space-2);
+    margin-bottom: var(--ds-space-2);
+  }
+  & .pipeline-editor-stages input[type="color"] {
+    width: var(--ds-control-h);
+    height: var(--ds-control-h);
+    padding: 3px;
+    border: 1px solid var(--ds-border-strong);
+    border-radius: var(--ds-radius-md);
+    background: var(--xre-surface-raised);
+    cursor: pointer;
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-ease),
+      box-shadow var(--ds-duration-fast) var(--ds-ease);
+  }
+  & .pipeline-editor-stages input[type="color"]:hover {
+    border-color: var(--ds-border-hover);
+  }
+  /* base.css removes the outline of every input and its field ring skips
+     type=color, so the swatch gets the button ring here */
+  & .pipeline-editor-stages input[type="color"]:focus-visible {
+    border-color: var(--xre-accent);
+    outline: none;
+    box-shadow: var(--ds-focus-ring);
+  }
+  & .pipeline-editor-stages span {
+    flex: 0 0 64px;
+    width: 64px;
+    overflow: hidden;
+    color: var(--xre-text-faint);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: var(--ds-text-xs);
+    text-overflow: ellipsis;
+  }
+
+  /* ------------------------------------------------------------------------
+     13. Responsive
+     ------------------------------------------------------------------------ */
+  /* Touch: every small control grows to the touch size. */
+  @media (pointer: coarse) {
+    & :is(.b24-kanban, .leads-table) .v6-quick-actions button {
+      min-width: 36px;
+      min-height: 36px;
+    }
+    & .b24-kanban .lead-card-footer select {
+      height: 34px;
+    }
+    & .b24-kanban .lead-card-top .icon-button,
+    & .b24-kanban .kanban-column > header .icon-button {
+      width: 34px;
+      height: 34px;
+    }
+    & .b24-pipeline-select .icon-button {
+      width: 34px;
+      height: 34px;
+    }
+
+    /* bulk-select boxes: 20px box, 42px hit area */
+    & :is(.b24-kanban .b24-deal-card, .leads-table) input[type="checkbox"] {
+      position: relative;
+      width: 20px;
+      height: 20px;
+    }
+    & :is(.b24-kanban .b24-deal-card, .leads-table) input[type="checkbox"]::after {
+      content: "";
+      position: absolute;
+      inset: -11px;
+    }
+    /* text-sized buttons on a card: a little more height, and a hit area that
+       reaches into the non-interactive lines around them (40px in total) */
+    & .b24-kanban :is(.b24-deal-title, .b24-contact-link, .b24-next-activity button) {
+      position: relative;
+    }
+    & .b24-kanban :is(.b24-deal-title, .b24-contact-link, .b24-next-activity button)::after {
+      content: "";
+      position: absolute;
+      inset: -4px 0;
+    }
+    & .b24-kanban .b24-deal-title {
+      padding-block: var(--ds-space-1);
+    }
+    & .b24-kanban .b24-deal-title::after {
+      inset: -2px 0 -11px;
+    }
+    & .b24-kanban .b24-contact-link,
+    & .b24-kanban .b24-next-activity button {
+      min-height: 32px;
+    }
+    /* the taller "plan an activity" button stays level with its icon */
+    & .b24-kanban .b24-next-activity:has(> button) {
+      align-items: center;
+      padding-block: var(--ds-space-1) 2px;
+    }
+    & .b24-kanban .b24-next-activity:has(> button) > svg {
+      margin-top: 0;
+    }
+    & .b24-deal-summary ~ .panel .leads-table td > .text-button {
+      min-height: var(--ds-control-h-sm);
+    }
+  }
+
+  /* Short screens (1366×768, 1280×720, landscape tablets): the chrome above
+     the board or list gives up ~45px — the subtitle moves next to the title
+     where there is room and the toolbar rows lose some padding. */
+  @media (min-width: 761px) and (max-height: 860px) {
+    & .crm-views-heading {
+      margin-bottom: var(--ds-space-3);
+    }
+    /* the title block takes the room the actions leave: the subtitle sits
+       beside the title when it fits there and drops under it when it does
+       not (the actions never wrap because of it) */
+    & .crm-views-heading > div:first-child {
+      display: flex;
+      flex: 1 1 0%;
+      flex-wrap: wrap;
+      align-items: baseline;
+      align-self: flex-start; /* the title keeps the y it has on every page */
+      gap: 0 var(--ds-space-3);
+      min-width: min(100%, 320px);
+    }
+    & .crm-views-heading > div:first-child p {
+      margin-top: 0;
+    }
+    & .crm-views-tabs,
+    & .b24-crm-control {
+      margin-bottom: var(--ds-space-3);
+    }
+    & .crm-toolbar.b24-filter-bar,
+    & .crm-personalization {
+      padding-block: 6px;
+    }
+    & .b24-deal-summary {
+      min-height: 40px;
+      padding-block: var(--ds-space-1);
+    }
+  }
+
+  /* Narrow desktop / tablet: the "save view" group takes its own line. */
+  @media (max-width: 1224px) {
+    & .crm-personalization-save {
+      flex: 1 1 100%;
+      max-width: none;
+      margin-left: 0;
+    }
+    & .crm-personalization-save input {
+      max-width: 320px;
+    }
+  }
+
+  @media (max-width: 760px) {
+    & .crm-views-heading {
+      margin-bottom: var(--ds-space-3);
+    }
+    & .crm-views-heading > div:last-child,
+    & .crm-view-actions {
+      width: 100%;
+    }
+    & .crm-view-actions .btn {
+      flex: 1 1 0;
+      min-width: 0;
+      padding-inline: var(--ds-space-2);
+    }
+    & .crm-view-actions .btn.primary {
+      flex: 1 1 100%;
+    }
+
+    & .crm-views-tabs {
+      width: 100%;
+      margin-bottom: var(--ds-space-2);
+      overflow-x: auto;
+    }
+    & .crm-views-tabs button {
+      flex: 1 1 auto;
+      justify-content: center;
+      min-height: 34px;
+      padding-inline: var(--ds-space-2);
+    }
+    & .b24-crm-control {
+      flex-direction: row;
+      align-items: center;
+      margin-bottom: var(--ds-space-2);
+    }
+    & .b24-pipeline-select {
+      flex: 1 1 auto;
+    }
+    & .b24-pipeline-select select {
+      flex: 1 1 auto;
+      max-width: none;
+    }
+
+    & .crm-toolbar.b24-filter-bar {
+      flex-wrap: wrap;
+      gap: var(--ds-space-2);
+    }
+    & .crm-toolbar.b24-filter-bar .search-field {
+      flex: 1 1 100%;
+      max-width: none;
+    }
+    & .crm-toolbar.b24-filter-bar .toolbar-right {
+      width: 100%;
+    }
+    & .crm-toolbar.b24-filter-bar .toolbar-right select {
+      flex: 1 1 0;
+      min-width: 0;
+      max-width: none;
+    }
+    & .b24-filter-bar + .filter-panel label {
+      flex: 1 1 100%;
+    }
+
+    /* Personal views: a one-line caption, then every control on ONE row that
+       scrolls sideways (4 stacked rows before). The caption stays put while
+       the row scrolls. */
+    & .crm-personalization {
+      display: grid;
+      grid-template-columns: max-content max-content;
+      align-items: center;
+      gap: 6px var(--ds-space-2);
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: thin;
+    }
+    & .crm-personalization-heading {
+      position: sticky;
+      left: 0;
+      grid-column: 1 / -1;
+      justify-self: start;
+      max-width: calc(100vw - 2 * var(--shell-gutter, 16px) - 2 * var(--ds-space-3) - 2px);
+    }
+    & .crm-personalization-heading > div {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      min-width: 0;
+    }
+    & .crm-personalization-heading strong {
+      flex: 0 0 auto;
+    }
+    & .crm-personalization-heading small {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    & .crm-personalization-actions {
+      flex-wrap: nowrap;
+    }
+    & .crm-personalization-actions select {
+      flex: 0 0 150px;
+      width: 150px;
+    }
+    & .crm-personalization-actions .btn.small,
+    & .crm-personalization-save .btn.small {
+      flex: 0 0 auto;
+      white-space: nowrap;
+    }
+    & .crm-personalization-save,
+    & .crm-personalization-save:has(.text-button) {
+      flex-wrap: nowrap;
+      width: max-content;
+      max-width: none;
+      margin: 0;
+    }
+    & .crm-personalization-save input {
+      flex: 0 0 170px;
+      width: 170px;
+      max-width: none;
+    }
+    & .crm-personalization-message {
+      position: sticky;
+      left: 0;
+      grid-column: 1 / -1;
+      justify-self: start;
+      max-width: calc(100vw - 2 * var(--shell-gutter, 16px) - 2 * var(--ds-space-3) - 2px);
+    }
+
+    /* Summary: the figures become two-line stats on one row that scrolls
+       sideways to the "Robotlar & kurallar" shortcut (4 stacked rows before).
+       Each stat takes 36% of the row, so the third one is always cut at the
+       edge — that is the cue that the row goes on. */
+    & .b24-deal-summary {
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 0;
+      min-height: 0;
+      margin-inline: calc(-1 * var(--shell-gutter, 16px));
+      padding: var(--ds-space-2) var(--shell-gutter, 16px) var(--ds-space-3);
+      overflow-x: auto;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      scroll-padding-inline: var(--shell-gutter, 16px);
+    }
+    /* same scroll-driven edge fade as the wide tables (keyframes: base.css) */
+    @supports (animation-timeline: scroll()) {
+      & .b24-deal-summary {
+        mask-image: linear-gradient(
+          to right,
+          transparent,
+          #000 var(--ds-fade-start),
+          #000 calc(100% - var(--ds-fade-end)),
+          transparent
+        );
+        animation: ds-scroll-fade linear both;
+        animation-timeline: scroll(self inline);
+      }
+    }
+    & .b24-deal-summary > span {
+      display: grid;
+      flex: 0 0 auto;
+      grid-template-columns: auto auto;
+      justify-content: start;
+      align-items: center;
+      gap: 0 6px;
+      min-width: 36%;
+      padding-right: var(--ds-space-4);
+      font-size: var(--ds-text-xs);
+      line-height: var(--ds-leading-xs);
+    }
+    & .b24-deal-summary > span strong {
+      grid-column: 1 / -1;
+      font-size: var(--ds-text-base);
+      line-height: 1.35;
+    }
+    & .b24-deal-summary > button {
+      flex: 0 0 auto;
+      width: auto;
+      min-height: var(--ds-control-h-sm);
+      margin: 0 0 0 var(--ds-space-4);
+      border: 1px solid var(--ds-border-strong);
+      background: var(--xre-surface-raised);
+    }
+
+    /* bulk bar: docked to the bottom of the screen (under the thumb, and it
+       no longer covers the column header); title + clear on the first line,
+       then one line per action */
+    & .b24-bulk {
+      position: fixed;
+      top: auto;
+      right: var(--ds-space-3);
+      bottom: calc(var(--ds-space-3) + env(safe-area-inset-bottom, 0px));
+      left: var(--ds-space-3);
+      z-index: 20;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      margin: 0;
+      padding: var(--ds-space-2) var(--ds-space-3) var(--ds-space-3);
+      box-shadow: var(--ds-shadow-lg);
+    }
+    /* room at the end of the page so the last card can scroll clear of it */
+    &:has(> .b24-bulk) {
+      padding-bottom: calc(176px + env(safe-area-inset-bottom, 0px));
+    }
+    & .b24-bulk > strong {
+      order: -2;
+      margin: 0;
+    }
+    & .b24-bulk .text-button {
+      order: -1;
+      margin: 0 calc(-1 * var(--ds-space-2)) 0 0;
+    }
+    & .b24-bulk select {
+      width: 100%;
+      max-width: none;
+      min-height: var(--ds-control-h);
+    }
+    & .b24-bulk .btn.small {
+      min-height: var(--ds-control-h);
+    }
+    & .b24-bulk .btn.small + select {
+      margin-left: 0;
+    }
+
+    /* board: one column per screen, snapping while swiping */
+    & .kanban-board.b24-kanban {
+      gap: var(--ds-space-2);
+      scroll-snap-type: x proximity;
+    }
+    & .b24-kanban .kanban-column {
+      flex: 0 0 min(86vw, 320px);
+      width: min(86vw, 320px);
+      max-width: none;
+      /* phones: the column is as tall as its cards and the page does the
+         vertical scrolling — no list scrolling inside a scrolling page */
+      max-height: none;
+      scroll-snap-align: start;
+    }
+    & .b24-kanban .kanban-cards {
+      overflow-y: visible;
+    }
+
+    & .crm-personalization-backdrop {
+      padding: var(--ds-space-3);
+    }
+    & .crm-personalization-modal > header,
+    & .crm-personalization-grid,
+    & .crm-personalization-modal fieldset,
+    & .crm-personalization-modal > footer {
+      padding-inline: var(--ds-space-4);
+    }
+  }
+
+  /* Laptops: tighter cells and icon-only quick actions (title + aria-label
+     stay) so the list needs little or no sideways scrolling. */
+  @media (max-width: 1500px) {
+    --crm-cell-px: var(--ds-space-3);
+
+    & .b24-deal-summary ~ .panel .leads-table {
+      & tr:has(> :nth-child(8):last-child) > :nth-child(4) {
+        padding-right: var(--ds-space-4);
+      }
+      & td:nth-child(2) {
+        min-width: 180px;
+      }
+      & .v6-quick-actions button {
+        min-width: 32px;
+        min-height: 32px;
+        padding: 0;
+      }
+      & .v6-quick-actions button span {
+        display: none;
+      }
+    }
+  }
+
+  /* Phones: the table turns into a stack of cards (no sideways scrolling). */
+  @media (max-width: 640px) {
+    & .b24-deal-summary ~ .panel > .table-wrap:has(> .leads-table) {
+      max-height: none;
+      overflow: visible;
+    }
+    & .b24-deal-summary ~ .panel .leads-table {
+      display: block;
+      white-space: normal;
+
+      & thead,
+      & tbody {
+        display: block;
+      }
+      & thead {
+        position: static;
+      }
+      & tr {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px var(--ds-space-3);
+        /* room on the left for the checkbox, which is taken out of the flow */
+        padding: var(--ds-space-3) var(--ds-space-3) var(--ds-space-2) calc(var(--ds-space-3) * 2 + 20px);
+      }
+      & tbody tr {
+        border-bottom: 1px solid var(--ds-divider);
+      }
+      & tbody tr:last-child {
+        border-bottom: 0;
+      }
+      & :is(th, td) {
+        display: block;
+        position: static;
+        width: auto;
+        height: auto;
+        min-width: 0;
+        max-width: 100%;
+        padding: 0;
+        border: 0;
+        box-shadow: none;
+        text-align: left;
+      }
+      & :is(th, td):first-child {
+        position: absolute;
+        top: var(--ds-space-3);
+        left: var(--ds-space-3);
+        display: grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+      }
+      /* header row keeps "select all" + the first label */
+      & thead tr {
+        min-height: 40px;
+        padding-block: 0;
+        background: var(--ds-surface-subtle);
+        box-shadow: inset 0 -1px 0 var(--xre-border);
+      }
+      & th {
+        background: transparent;
+      }
+      & th:first-child {
+        top: 10px;
+      }
+      & th:nth-child(n + 3) {
+        display: none;
+      }
+      /* card lines: name · stage + amount · next step · owner + source · actions */
+      & td:nth-child(2) {
+        flex: 1 1 100%;
+      }
+      & td:nth-child(n + 3) {
+        font-size: var(--ds-text-sm);
+      }
+      & tr:has(> :nth-child(8):last-child) > :nth-child(4) {
+        padding-right: 0;
+      }
+      & td:has(> span:not([class]), > .b24-red, > .text-button) {
+        flex: 1 1 100%;
+        order: 1;
+        width: auto;
+        min-width: 0;
+        max-width: 100%;
+      }
+      & td:has(> .owner-cell),
+      & td:has(> .owner-cell) ~ td {
+        order: 2;
+      }
+      & .owner-cell {
+        font-size: var(--ds-text-sm);
+      }
+      & td:last-child {
+        flex: 1 1 100%;
+        order: 3;
+        margin-left: -6px;
+      }
+      & .v6-list-actions {
+        flex-direction: row-reverse;
+        justify-content: space-between;
+      }
+    }
+    & .b24-deal-summary ~ .panel > .table-footer {
+      flex-wrap: wrap;
+      gap: 2px var(--ds-space-3);
+      padding-block: var(--ds-space-2);
+    }
+  }
+
+  @media (max-width: 480px) {
+    /* four tabs fit without scrolling once the decorative icons step aside */
+    & .crm-views-tabs button svg {
+      display: none;
+    }
+    & :is(.crm-profile-options, .crm-column-options) {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    & .crm-personalization-modal > footer .btn {
+      flex: 1 1 0;
+    }
+  }
+
+  /* ------------------------------------------------------------------------
+     14. Motion
+     ------------------------------------------------------------------------ */
+  @media (prefers-reduced-motion: no-preference) {
+    & .crm-personalization-modal {
+      animation: crm-dialog-in var(--ds-duration-base) var(--ds-ease) both;
+    }
+    & .b24-kanban .b24-quick-card,
+    & .b24-bulk {
+      animation: crm-rise-in var(--ds-duration-base) var(--ds-ease) both;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    & .b24-kanban :is(.kanban-column, .lead-card, .add-card, .column-automation),
+    & .b24-pipeline-select,
+    & .b24-deal-summary > button {
+      transition: none;
+    }
+    & .kanban-board.b24-kanban {
+      scroll-snap-type: none;
+    }
+  }
+}
+
+@keyframes crm-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* pinned list column: edge visible until the sideways scroll reaches its end */
+@keyframes crm-pin-edge {
+  0%,
+  97% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes crm-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Glass theme: the surface is translucent, pinned cells need a solid colour. */
+html[data-xre-theme="purple-glass"] .app-shell .page-content {
+  --crm-row-bg: var(--ds-surface-overlay);
+}
