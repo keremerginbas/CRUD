@@ -600,6 +600,13 @@ export default function CRM({
                         onDragStart={(e) =>
                           e.dataTransfer.setData("text/plain", l.id)
                         }
+                        // Kartın boş bir yerine çift tıklamak müşteri kartını açar;
+                        // düğme, seçim kutusu ve açılır listeler kendi işini yapmaya devam eder.
+                        onDoubleClick={(e) => {
+                          if ((e.target as HTMLElement).closest("button, a, input, select, textarea, label")) return;
+                          onLead(l);
+                        }}
+                        title="Müşteri kartını açmak için çift tıklayın"
                       >
                         <div className="lead-card-top">
                           <input
