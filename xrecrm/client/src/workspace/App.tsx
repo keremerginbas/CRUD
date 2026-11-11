@@ -59,7 +59,8 @@ import "./style.css";
 import "./bitrix.css";
 import "./customer.css";
 import LeadDrawer from "./components/LeadDrawer";
-import { PREVIEW, currentPath } from "./nav";
+import { PREVIEW, WORKSPACE_SLUG, currentPath, withBase } from "./nav";
+import { SignupScreen, WorkspaceLocked, WorkspaceMissing } from "./components/Signup";
 import LoginScreen, { QrApprove, type AuthStatus } from "./components/LoginScreen";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const OnlineMeeting = lazy(() => import("./components/OnlineMeeting"));
@@ -88,6 +89,7 @@ const DataQuality = lazy(() => import("./pages/DataQuality"));
 const Worktime = lazy(() => import("./pages/Worktime"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const SystemBackups = lazy(() => import("./pages/SystemBackups"));
+const Workspaces = lazy(() => import("./pages/Workspaces"));
 const navGroups = [
   {
     label: "ÇALIŞMA ALANI",
@@ -129,11 +131,15 @@ const navGroups = [
       ["/webhooks", "Webhooklar", Webhook],
       ["/integrations", "Entegrasyonlar", Link2],
       ["/apps", "Bitrix24'ten geçiş", Blocks],
+      ["/workspaces", "Firmalar", Building2],
     ],
   },
 ] as const;
 function Workspace() {
-  const { data, demo, user, setDemo, loading, request } = useStore();
+  const { data, demo, user, workspace, setDemo, loading, request } = useStore();
+  // Kayıtla açılan firmalarda ortak altyapıya bağlı modüller (WhatsApp, santral, n8n…) kapalıdır.
+  const tenant = Boolean(!demo && workspace && !workspace.isDefault);
+  const tenantHidden = new Set(["/whatsapp", "/calls", "/lines", "/n8n", "/webhooks", "/integrations", "/apps", "/ai", "/system", "/workspaces"]);
   const routeModules: Record<string, AccessModule> = {
     "/feed": "feed",
     "/kanban": "crm",
@@ -162,8 +168,10 @@ function Workspace() {
     "/apps": "integrations",
   };
   // Bitrix aktarımı ve uygulama ayarları yalnız çalışma alanı sahibine görünür.
-  const ownerOnly = new Set(["/apps"]);
+  const ownerOnly = new Set(["/apps", "/workspaces"]);
   const permitted = (url: string) =>
+    tenant && tenantHidden.has(url) ? false :
+    url === "/workspaces" ? Boolean(!demo && user?.isOwner && workspace?.isDefault) :
     ownerOnly.has(url) ? Boolean(user?.isOwner) :
     (url === "/data-quality" &&
       Boolean(
@@ -196,7 +204,7 @@ function Workspace() {
   const [meeting, setMeeting] = useState<{ leadId?: string } | null>(null);
   const [messageDraft, setMessageDraft] = useState("");
   const navigate = (p: string) => {
-    history.pushState({}, "", p);
+    history.pushState({}, "", withBase(p));
     setPath(p);
     setSidebar(false);
     window.scrollTo(0, 0);
@@ -274,6 +282,21 @@ function Workspace() {
       .catch(() => {})
       .finally(() => setAuthChecked(true));
   }, []);
+  // Ücretsiz kayıt ayarı ve (firma adresindeyse) o firmanın adı.
+  const [signupConfig, setSignupConfig] = useState({ signup: false, trialDays: 5 });
+  const [slugInfo, setSlugInfo] = useState<{ slug: string; name: string } | "missing" | null>(null);
+  useEffect(() => {
+    if (PREVIEW || EMBED) return;
+    fetch("/api/workspaces/config")
+      .then((r) => r.json())
+      .then((c) => setSignupConfig({ signup: Boolean(c?.signup), trialDays: Number(c?.trialDays) || 5 }))
+      .catch(() => {});
+    if (!WORKSPACE_SLUG) return;
+    fetch(`/api/workspaces/public/${WORKSPACE_SLUG}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((w) => setSlugInfo(w && !w.isDefault ? { slug: w.slug, name: w.name } : w ? null : "missing"))
+      .catch(() => setSlugInfo("missing"));
+  }, []);
   // Giriş ekranı gerekip gerekmediği ilk çizimde bilinir; arada pano görünmez.
   const params = new URLSearchParams(location.search);
   const autoLogin = Boolean(
@@ -282,6 +305,7 @@ function Workspace() {
       !loading &&
       !dismissedNow &&
       (!dismissedSession ||
+        Boolean(WORKSPACE_SLUG) ||
         authStatus.needsSetup ||
         params.has("login_error") ||
         params.has("giris")),
@@ -339,6 +363,15 @@ function Workspace() {
   }
   if (!PREVIEW && !dismissedSession && (loading || !authChecked))
     return <BootSplash />;
+  const logout = () => void request("/api/auth/logout", {}).finally(() => location.reload());
+  if (!user && path === "/kayit" && !WORKSPACE_SLUG && signupConfig.signup && authStatus && !authStatus.needsSetup)
+    return <SignupScreen trialDays={signupConfig.trialDays} />;
+  if (!user && WORKSPACE_SLUG && !dismissedNow) {
+    if (slugInfo === "missing") return <WorkspaceMissing slug={WORKSPACE_SLUG} signup={signupConfig.signup} />;
+    if (!slugInfo || !authStatus) return <BootSplash />;
+  }
+  if (user && !demo && workspace && (workspace.state === "expired" || workspace.state === "suspended"))
+    return <WorkspaceLocked workspace={workspace} onLogout={logout} />;
   if (path === "/qr-onay" && !authOpen && !autoLogin)
     return (
       <QrApprove loggedIn={Boolean(user)} onLogin={() => setAuthOpen(true)} />
@@ -349,6 +382,8 @@ function Workspace() {
         status={authStatus}
         onDemo={dismissLogin}
         onClose={authStatus.needsSetup ? undefined : dismissLogin}
+        workspace={slugInfo && slugInfo !== "missing" ? slugInfo : null}
+        signup={signupConfig.signup && !WORKSPACE_SLUG}
       />
     );
   return (
@@ -378,9 +413,9 @@ function Workspace() {
             className="workspace-switch"
             onClick={() => setProfile(!profile)}
           >
-            <span className="workspace-avatar">X</span>
+            <span className="workspace-avatar">{tenant ? (workspace?.name || "?").slice(0, 1).toUpperCase() : "X"}</span>
             <span>
-              <strong>XRE Real Estate</strong>
+              <strong>{tenant ? workspace?.name : "XRE Real Estate"}</strong>
               <small>Çalışma alanı</small>
             </span>
             <ChevronDown size={15} />
@@ -477,7 +512,7 @@ function Workspace() {
             </div>
             <div className="topbar-actions">
               <ThemeButton />
-              <AssistantTopbar />
+              {!tenant && <AssistantTopbar />}
               <div className="global-search">
                 <Search size={16} />
                 <input
@@ -555,6 +590,11 @@ function Workspace() {
                 )}
               </div>
               <span className="topbar-separator" />
+              {tenant && workspace?.state === "trial" && (
+                <span className={`trial-chip ${(workspace.daysLeft ?? 9) <= 1 ? "urgent" : ""}`} title="Deneme süresi dolunca verileriniz saklanır; devam etmek için bize yazmanız yeterli.">
+                  Deneme: {workspace.daysLeft} gün kaldı
+                </span>
+              )}
               <button
                 className="demo-switch"
                 onClick={() => {
@@ -655,6 +695,8 @@ function Workspace() {
               />
             ) : path === "/system" ? (
               <SystemBackups />
+            ) : path === "/workspaces" ? (
+              <Workspaces />
             ) : path === "/access" ? (
               <Access />
             ) : path === "/employees" || path === "/structure" ? (
@@ -963,12 +1005,12 @@ function Workspace() {
             </div>
           </Modal>
         )}
-        <GlobalAssistant
+        {!tenant && <GlobalAssistant
           navigate={navigate}
           onLead={(id) =>
             setLeadModal(data.leads.find((l) => l.id === id) || null)
           }
-        />
+        />}
       </div>
     </AssistantProvider>
   );

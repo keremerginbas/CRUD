@@ -109,12 +109,18 @@ export default function LoginScreen({
   status,
   onDemo,
   onClose,
+  workspace,
+  signup,
 }: {
   status: AuthStatus;
   onDemo: () => void;
   onClose?: () => void;
+  /** Firma adresinden (crm.../ahmet) girişte o firmanın alanı. */
+  workspace?: { slug: string; name: string } | null;
+  /** Ücretsiz kayıt açıksa kayıt bağlantısı gösterilir. */
+  signup?: boolean;
 }) {
-  const setup = status.needsSetup;
+  const setup = status.needsSetup && !workspace;
   const [mode, setMode] = useState<"password" | "qr">("password");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -143,7 +149,7 @@ export default function LoginScreen({
     }
     setBusy(true);
     try {
-      await api(setup ? "/api/auth/setup" : "/api/auth/local-login", setup ? { name, email, password } : { email, password });
+      await api(setup ? "/api/auth/setup" : "/api/auth/local-login", setup ? { name, email, password } : { email, password, workspace: workspace?.slug });
       toast.success(setup ? "Yönetici hesabı oluşturuldu." : "Giriş yapıldı.");
       finish();
     } catch (err) {
@@ -198,12 +204,14 @@ export default function LoginScreen({
         <p className="login-sub">
           {setup
             ? "İlk kurulum: çalışma alanının yönetici hesabını oluşturun. Bu hesap tüm yetkilere sahip olur."
-            : "XRE CRM hesabınızla devam edin."}
+            : workspace
+              ? `${workspace.name} çalışma alanına giriş yapın.`
+              : "XRE CRM hesabınızla devam edin."}
         </p>
         {status.database === false && (
           <p className="login-error">Veritabanına ulaşılamıyor. Sunucu kayıtlarını kontrol edin.</p>
         )}
-        {!setup && (
+        {!setup && !workspace && (
           <div className="login-tabs" role="tablist">
             <button role="tab" aria-selected={mode === "password"} className={mode === "password" ? "active" : ""} onClick={() => setMode("password")}>
               E-posta ile
@@ -213,7 +221,7 @@ export default function LoginScreen({
             </button>
           </div>
         )}
-        {mode === "qr" && !setup ? (
+        {mode === "qr" && !setup && !workspace ? (
           <QrPanel onDone={finish} />
         ) : (
           <form onSubmit={submit} className="login-form">
@@ -256,7 +264,7 @@ export default function LoginScreen({
             </button>
           </form>
         )}
-        {!setup && (
+        {!setup && !workspace && (
           <>
             <div className="login-divider"><span>veya</span></div>
             <div className="login-social">
@@ -292,6 +300,11 @@ export default function LoginScreen({
               Sosyal girişler yalnız yöneticinin CRM'de açtığı hesabın e-postasıyla eşleşirse çalışır.
             </p>
           </>
+        )}
+        {signup && !setup && (
+          <a className="login-signup-link" href="/kayit">
+            Firmanız için ücretsiz deneyin <ArrowRight size={14} />
+          </a>
         )}
         <button className="text-button login-demo" onClick={onDemo}>
           Giriş yapmadan demoyu incele

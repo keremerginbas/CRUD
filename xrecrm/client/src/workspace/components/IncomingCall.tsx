@@ -17,12 +17,12 @@ interface Ringing {
 
 /** Santralden gelen "çalıyor" olaylarını dinler ve müşteri kartını öne çıkarır. */
 export default function IncomingCall({ onLead }: { onLead: (id: string) => void }) {
-  const { demo, user, data, saveLead, refresh } = useStore();
+  const { demo, user, workspace, data, saveLead, refresh } = useStore();
   const [calls, setCalls] = useState<Ringing[]>([]);
   const timers = useRef(new Map<string, number>());
 
   useEffect(() => {
-    if (demo || !user || typeof EventSource === "undefined") return;
+    if (demo || !user || workspace?.communication === false || typeof EventSource === "undefined") return;
     const source = new EventSource("/api/pbx/stream", { withCredentials: true });
     source.addEventListener("ringing", (e) => {
       const call = JSON.parse((e as MessageEvent).data) as Ringing;

@@ -170,7 +170,7 @@ export function AssistantProvider({
           ),
         );
       } catch {}
-    } else if (user?.canAccess !== false && user) {
+    } else if (user?.canAccess !== false && user && store.workspace?.communication !== false) {
       const current = session.current;
       request("/api/assistant/status")
         .then((r) => {

@@ -1,10 +1,21 @@
+import { slugFromPath } from "../../../shared/workspaces";
 // Önizleme yapısında (tek dosya, sunucusuz) adres çubuğuna yazılamayabilir;
 // yol sanal olarak tutulur. Normal çalışmada doğrudan location.pathname döner.
 export const PREVIEW = Boolean(import.meta.env.VITE_XRE_PREVIEW);
 let virtualPath = "/";
 
+/** Adresteki çalışma alanı kısa adı (crm.../ahmet → "ahmet"); varsayılan alanda boştur. */
+export const WORKSPACE_SLUG =
+  PREVIEW || typeof window === "undefined" ? "" : slugFromPath(window.location.pathname);
+const BASE = WORKSPACE_SLUG ? `/${WORKSPACE_SLUG}` : "";
+/** Uygulama içi yolu adres çubuğundaki yola çevirir (/kanban → /ahmet/kanban). */
+export const withBase = (path: string) => (BASE && path.startsWith("/") ? (path === "/" ? BASE : BASE + path) : path);
+
 export function currentPath(): string {
-  return PREVIEW ? virtualPath : window.location.pathname;
+  if (PREVIEW) return virtualPath;
+  const p = window.location.pathname;
+  if (BASE && (p === BASE || p.startsWith(BASE + "/"))) return p.slice(BASE.length) || "/";
+  return p;
 }
 
 export function installPreviewShims(): void {

@@ -55,6 +55,26 @@ services:
     depends_on:
       - evolution
 
+  # Deneme kurulumu (deneme-kur.sh, profil: test): yeni özellikler canlıya alınmadan önce burada denenir.
+  # Kendi verisi vardır; canlı CRM'in verisine, WhatsApp sunucusuna ve anahtarlarına erişmez.
+  crm-test:
+    build: ../..
+    container_name: xrecrm-test
+    profiles: ["test"]
+    restart: always
+    environment:
+      NODE_ENV: production
+      PUBLIC_ORIGIN: https://${TEST_DOMAIN:-test.invalid}
+      XRE_DATA_DIR: /app/data
+      XRE_APP_MODE: crm
+      XRE_SESSION_SECRET: ${TEST_SESSION_SECRET:-}
+      XRE_SIGNUP: "1"
+      XRE_TRIAL_DAYS: ${XRE_TRIAL_DAYS:-5}
+    volumes:
+      - test_data:/app/data
+    networks:
+      - proxy
+
   evolution:
     image: evoapicloud/evolution-api:v2.3.7
     restart: always
@@ -121,6 +141,7 @@ networks:
 volumes:
   crm_data:
   wa_data:
+  test_data:
   evolution_instances:
   evolution_pg:
   evolution_redis:

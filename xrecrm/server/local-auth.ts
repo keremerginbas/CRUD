@@ -12,6 +12,7 @@ import type { Store } from "./db.js";
 import type { AuthContext } from "./types.js";
 import type { AccessEmployee } from "../shared/access.js";
 import { allRoles, rawStoreOf } from "./access.js";
+import { defaultSlug, workspaceBySlug } from "./workspaces.js";
 import {
   SESSION_COOKIE,
   cookieHeader,
@@ -146,12 +147,13 @@ export async function setSession(
   req: Request,
   res: Response,
   account: LocalAccount,
-  options: { partitioned?: boolean } = {},
+  options: { partitioned?: boolean; workspace?: string } = {},
 ) {
   const token = await createSessionToken({
     openId: account.openId,
     name: account.name,
     email: account.email,
+    workspace: options.workspace,
   });
   res.setHeader(
     "Set-Cookie",
@@ -227,9 +229,19 @@ export function registerLocalAuthRoutes(app: Express, store: Store) {
           error: "TOO_MANY_ATTEMPTS",
           message: "Çok fazla hatalı deneme. 15 dakika sonra tekrar deneyin.",
         });
-      const owner = await raw.resolveOwner();
-      if (!owner)
+      const defaultOwner = await raw.resolveOwner();
+      if (!defaultOwner)
         return res.status(409).json({ error: "SETUP_REQUIRED", message: "Önce yönetici hesabını oluşturun." });
+      // Adresinde kısa ad olan firmalar kendi çalışma alanına girer; yoksa varsayılan alan.
+      const slug = String(req.body?.workspace || "").trim().toLowerCase();
+      let tenant: string | undefined;
+      if (slug && slug !== defaultSlug()) {
+        const ws = await workspaceBySlug(store, slug);
+        if (!ws)
+          return res.status(404).json({ error: "WORKSPACE_NOT_FOUND", message: "Bu adreste bir çalışma alanı yok." });
+        tenant = ws.ownerOpenId;
+      }
+      const owner = tenant || defaultOwner;
       const account = email ? await findByEmail(owner, email) : undefined;
       // Hesap yoksa da şifre özeti hesaplanır; yanıt süresi e-postayı ele vermez.
       const valid = account
@@ -244,7 +256,7 @@ export function registerLocalAuthRoutes(app: Express, store: Store) {
       attempts.delete(key);
       const updated = { ...account, lastLoginAt: now() };
       await raw.put(ACCOUNT_KIND, account.id, updated, owner);
-      await setSession(req, res, updated);
+      await setSession(req, res, updated, { workspace: tenant });
       res.json({ ok: true, user: publicAccount(updated) });
     } catch (error) {
       fail(res, error);

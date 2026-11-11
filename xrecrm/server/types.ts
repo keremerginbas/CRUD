@@ -80,6 +80,8 @@ export interface UserIdentity {
   openId: string;
   name?: string;
   email?: string;
+  /** Oturumun ait olduğu çalışma alanının sahibi; boşsa varsayılan alan. */
+  workspace?: string;
 }
 
 export interface AuthContext {

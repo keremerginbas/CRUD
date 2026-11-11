@@ -131,6 +131,7 @@ function identityFromClaims(
     openId,
     name: claims.name ? String(claims.name) : undefined,
     email: claims.email ? String(claims.email) : undefined,
+    workspace: claims.ws ? String(claims.ws) : undefined,
   };
 }
 
@@ -192,6 +193,18 @@ export async function verifyRequestSession(
     const user = await verifySessionIdentity(req);
     if (!user) return null;
     const raw = rawStoreOf(store);
+    // Kayıtla açılan çalışma alanı: sahip, imzalı oturum belirtecinden gelir.
+    if (user.workspace) {
+      // Belirteçteki alan kayıtlı değilse (silinmiş ya da başka kurulumdan) oturum geçersizdir.
+      const known = (await raw.list<{ ownerOpenId?: string }>("workspace", "xre-system")).some(
+        (r) => r.payload?.ownerOpenId === user.workspace,
+      );
+      if (!known) return null;
+      return resolveAuthContext(raw, user, {
+        ownerOpenId: user.workspace,
+        isOwner: user.openId === user.workspace,
+      });
+    }
     return resolveAuthContext(raw, user, await raw.claimOwner(user));
   } catch {
     return null;
@@ -208,6 +221,7 @@ export async function createSessionToken(user: UserIdentity): Promise<string> {
     openId: user.openId,
     name: user.name,
     email: user.email,
+    ...(user.workspace ? { ws: user.workspace } : {}),
   })
     .setProtectedHeader({ alg: "HS256", typ: "JWT" })
     .setIssuedAt()

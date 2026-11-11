@@ -1,12 +1,13 @@
 import { Sparkles, Workflow, ArrowUpRight, ShieldCheck } from "lucide-react";
 import { useStore } from "../store";
+import { withBase } from "../nav";
 import { useAssistant } from "./Assistant";
 import { Badge } from "./ui";
 export default function AIIntegration() {
   const { demo } = useStore();
   const ai = useAssistant();
   const go = (path: string) => {
-    window.history.pushState({}, "", path);
+    window.history.pushState({}, "", withBase(path));
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
   return (

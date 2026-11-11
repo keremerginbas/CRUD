@@ -49,3 +49,20 @@
 .login-accounts h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; }
 .login-accounts .muted { color: var(--muted); font-size: 12.5px; margin-top: 3px; }
 .login-account-actions { display: flex; gap: 6px; align-items: center; justify-content: flex-end; }
+.login-signup-link { align-self: center; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; color: var(--xre-accent, #168db3); text-decoration: none; }
+.login-signup-link:hover { text-decoration: underline; }
+.login-slug { display: flex; align-items: stretch; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; background: var(--xre-surface, #fff); }
+.login-slug > span { display: flex; align-items: center; padding: 0 2px 0 12px; color: var(--muted); font-weight: 400; font-size: 14px; white-space: nowrap; }
+.login-slug input { border: 0; border-radius: 0; padding-left: 0; flex: 1; min-width: 0; font-weight: 600; }
+.login-slug:focus-within { border-color: var(--xre-accent, #168db3); }
+.login-slug input:focus { outline: none; }
+.qr-approve .login-card .btn { text-decoration: none; }
+.trial-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 600; background: #fff4d6; color: #7a5200; white-space: nowrap; }
+.trial-chip.urgent { background: #fbe8e6; color: #9c2f28; }
+.workspace-admin table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.workspace-admin th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.workspace-admin td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+.workspace-admin td small { display: block; color: var(--muted); font-size: 12px; }
+.workspace-admin .row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.workspace-admin .table-scroll { overflow-x: auto; }
+.workspace-admin .notice-line { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--xre-text-soft, #536477); margin-bottom: 12px; }

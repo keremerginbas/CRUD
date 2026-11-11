@@ -18,6 +18,8 @@ import React, {
   useRef,
 } from "react";
 import { toast } from "sonner";
+import type { WorkspaceInfo } from "../../../shared/workspaces";
+import { PREVIEW, WORKSPACE_SLUG } from "./nav";
 import { AppState, Lead, Rule, Stage, makeDemo, emptyState } from "./data";
 import { RecordKind, SuiteRecord, makeSuiteDemo, Task } from "./suite";
 function loadDemo(): AppState {
@@ -46,6 +48,8 @@ interface Store {
   data: AppState;
   demo: boolean;
   user: any;
+  /** Oturumun çalışma alanı (deneme süresi, açık modüller). */
+  workspace: WorkspaceInfo | null;
   loading: boolean;
   setDemo: (v: boolean) => void;
   refresh: () => Promise<void>;
@@ -104,12 +108,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [demo, setDemoState] = useState(true);
   const [data, setData] = useState<AppState>(loadDemo);
   const [user, setUser] = useState<any>(null);
+  const [workspace, setWorkspace] = useState<WorkspaceInfo | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     api("/api/me")
       .then((d) => {
-        const next =
+        let next =
           d && Object.prototype.hasOwnProperty.call(d, "user") ? d.user : null;
+        const ws: WorkspaceInfo | null = (next && d.workspace) || null;
+        if (ws && !PREVIEW) {
+          // Firma oturumu her zaman kendi adresinde çalışır (crm.../ahmet).
+          if (!WORKSPACE_SLUG && !ws.isDefault && !location.search.includes("embed=")) {
+            location.replace(`/${ws.slug}${location.pathname === "/" ? "" : location.pathname}${location.search}`);
+            return;
+          }
+          // Adres başka bir firmanınsa bu oturum orada geçerli değildir: giriş ekranı gösterilir.
+          if (WORKSPACE_SLUG && WORKSPACE_SLUG !== ws.slug) next = null;
+        }
+        setWorkspace(next ? ws : null);
         setUser(next);
         // Giriş yapmış kullanıcı doğrudan canlı CRM ile başlar (demo tercih edilmediyse).
         let preferDemo = false;
@@ -129,8 +145,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (demo) localStorage.setItem("xre-demo-v2", JSON.stringify(data));
   }, [data, demo]);
+  const locked = workspace?.state === "expired" || workspace?.state === "suspended";
   const refresh = useCallback(async () => {
-    if (demo) return;
+    if (demo || locked) return;
     try {
       const state = await api("/api/state");
       if (Array.isArray(state?.lines)) setLineInventory(state.lines);
@@ -138,7 +155,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       toast.error((e as Error).message);
     }
-  }, [demo]);
+  }, [demo, locked]);
   const setDemo = (v: boolean) => {
     if (!v && (!user || user.canAccess === false)) {
       toast.error("Gerçek CRM verileri için yetkili oturum gerekli.");
@@ -461,6 +478,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         data,
         demo,
         user,
+        workspace,
         loading,
         setDemo,
         refresh,

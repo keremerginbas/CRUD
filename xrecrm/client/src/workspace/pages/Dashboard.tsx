@@ -78,7 +78,7 @@ export default function Dashboard({
   onLead: (l: Lead) => void;
   onNew: () => void;
 }) {
-  const { data, demo, user, request } = useStore();
+  const { data, demo, user, workspace, request } = useStore();
   const [period, setPeriod] = useState<Period>("7d");
   const [status, setStatus] = useState<ProviderStatus | null>(null);
   const [hooks, setHooks] = useState<{ inbound: number; outbound: number } | null>(null);
@@ -89,7 +89,7 @@ export default function Dashboard({
   );
 
   useEffect(() => {
-    if (demo || !user) {
+    if (demo || !user || workspace?.communication === false) {
       setStatus(null);
       setHooks(null);
       return;

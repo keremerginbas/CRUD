@@ -84,6 +84,13 @@ import {
 import { verifyBitrixContext } from "./bitrix.js";
 import { lines } from "../shared/lines.js";
 import { registerLocalAccountRoutes, registerLocalAuthRoutes } from "./local-auth.js";
+import {
+  communicationAllowed,
+  registerWorkspaceAdminRoutes,
+  registerWorkspacePublicRoutes,
+  workspaceGuard,
+  workspaceInfo,
+} from "./workspaces.js";
 import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.js";
 import { registerBitrixAppRoutes } from "./bitrix-app.js";
 import { allowedPhones, lineAccessGuard, lineAllowed, linePhones } from "./line-access.js";
@@ -690,6 +697,12 @@ async function executeOutbox(
     throw Object.assign(new Error("Kural olayı için lead bulunamadı."), {
       statusCode: 404,
     });
+  // Kayıtla açılan çalışma alanları ortak iletişim hatlarını (WhatsApp, arama, webhook) kullanamaz.
+  if (!(await communicationAllowed(store, owner)))
+    return {
+      skipped: true,
+      reason: "Bu çalışma alanında iletişim otomasyonları henüz açık değil.",
+    };
   if (action === "whatsapp") {
     const text = renderTemplate(
       typeof config.template === "string"
@@ -1308,6 +1321,7 @@ export function createApp(
               permissions: auth.permissions,
             }
           : null,
+        workspace: auth ? await workspaceInfo(store, auth) : null,
       });
     } catch {
       res.json({ user: null });
@@ -1574,6 +1588,7 @@ export function createApp(
   );
 
   registerLocalAuthRoutes(app, store);
+  registerWorkspacePublicRoutes(app, store);
   registerSocialAuthRoutes(app, store);
   // CRM'in Bitrix24 içinde uygulama olarak açılması artık varsayılan kapalıdır
   // (XRE CRM bağımsız bir üründür). Gerekirse XRE_BITRIX_EMBED=1 ile açılır.
@@ -1601,7 +1616,8 @@ export function createApp(
     );
   registerMediaBodyParser(app);
   app.use(express.json({ limit: "1mb" }));
-  app.use("/api", requireAuth(store), requireModulePermissions);
+  app.use("/api", requireAuth(store), workspaceGuard(store), requireModulePermissions);
+  registerWorkspaceAdminRoutes(app, store);
   app.use(["/api/messages", "/api/whatsapp/send"], lineAccessGuard(store));
   if (withConnector) registerBillingAdminRoutes(app, baseStore);
   registerSuiteRoutes(app, store);
@@ -1676,7 +1692,8 @@ export function createApp(
           publicCall(r.payload as Record<string, unknown>),
         ),
         ...suite,
-        lines,
+        // Hat envanteri varsayılan alana aittir; diğer firmalara gösterilmez.
+        lines: (await communicationAllowed(store, owner)) ? lines : [],
         stageHistory: stages
           .map((r) => r.payload)
           .filter((h) => visibleLeads.has(h.leadId) && Date.parse(h.at) >= since),
