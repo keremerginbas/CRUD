@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Kitap Takip",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Kitabınızın satıldığı sitelerdeki stok, fiyat ve yorum bilgilerini düzenli olarak kaydeder.",
   "permissions": ["storage", "alarms", "tabs", "scripting"],
   "host_permissions": [
@@ -13,7 +13,8 @@
     "https://nobelkitap.com/*",
     "https://www.imge.com.tr/*",
     "https://www.e-kitapmedia.de/*",
-    "https://www.bkmkitap.com/*"
+    "https://www.bkmkitap.com/*",
+    "https://www.kitapyurdu.com/*"
   ],
   "optional_host_permissions": ["https://*/*"],
   "background": { "service_worker": "background.js" },

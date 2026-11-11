@@ -4,6 +4,7 @@ const DEFAULT_BOOK = { title: "Özgür'ün Salıncağı", isbn: '9786259756189' 
 const DEFAULT_TARGETS = [
   { id: 'hepsiburada', name: 'Hepsiburada', url: 'https://www.hepsiburada.com/bilim-ve-sanat-yayinlari-ozgur-un-salincagi-basak-caliskan-kabiloglu-32-sayfa-turkce-cocuk-kitabi-normal-boy-yas-araligi-pm-HBC0000A6M7ZP' },
   { id: 'amazon', name: 'Amazon', url: 'https://www.amazon.com.tr/dp/6259756186' },
+  { id: 'kitapyurdu', name: 'Kitapyurdu', url: 'https://www.kitapyurdu.com/index.php?route=product/search&filter_name=9786259756189' },
   { id: 'dost', name: 'Dost Kitabevi', url: 'https://dostkitabevi.com/ozgurun-salincagi' },
   { id: 'nobel', name: 'Nobel Kitap', url: 'https://nobelkitap.com/kitap/ozgurun-salincagi' },
   { id: 'imge', name: 'İmge Kitabevi', url: 'https://www.imge.com.tr/urun/ozgur-un-salincagi-basak-caliskan-kabiloglu-9786259756189' },

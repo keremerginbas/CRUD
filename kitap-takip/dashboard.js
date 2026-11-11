@@ -1,7 +1,8 @@
 const L = KitapTakipLib;
 const $ = (id) => document.getElementById(id);
 const STRIP_DAYS = 60;
-const FIELD_LABEL = { price: 'Fiyat', stockQty: 'Stok adedi', edition: 'Baskı', reviewCount: 'Yorum sayısı', rank: 'Satış sıralaması', leadTime: 'Temin süresi', sellers: 'Satıcı sayısı' };
+const SIGNAL_DAYS = 30;
+const FIELD_LABEL = { price: 'Fiyat', stockQty: 'Stok adedi', soldCount: 'Satın alma sayacı', edition: 'Baskı', reviewCount: 'Yorum sayısı', rank: 'Satış sıralaması', leadTime: 'Temin süresi', sellers: 'Satıcı sayısı' };
 
 const el = (tag, attrs = {}, ...kids) => {
   const n = document.createElement(tag);
@@ -29,18 +30,22 @@ async function load() {
 function stockCell(s) {
   if (!s) return '–';
   const parts = [];
-  if (s.stockQty != null && !s.stockQtyPlaceholder) parts.push(el('strong', {}, `${s.stockQty} adet`), el('small', {}, `Kaynak: ${s.stockQtySource}`));
-  else if (s.stockQty != null) parts.push('Adet gizli', el('small', {}, `Sitedeki ${s.stockQty} değeri tüm kitaplarda aynı; gerçek stok değil.`));
-  else if (s.status === 'in_stock') parts.push('Adet gizli');
+  const real = L.realQty(s);
+  if (real != null) {
+    parts.push(el('strong', {}, `${real} adet`), el('small', {}, `Kaynak: ${s.stockQtySource}`));
+    if (s.status === 'on_order') parts.push(el('small', {}, 'Mağaza stok tutmuyor; sipariş gelince tedarik ediyor.'));
+  } else if (s.stockQtyPlaceholder) {
+    parts.push('Adet gizli', el('small', {}, `Sitedeki ${s.stockQty.toLocaleString('tr-TR')} değeri yer tutucu; gerçek stok değil.`));
+  } else if (s.status === 'in_stock' || s.status === 'on_order') parts.push('Adet gizli');
   else parts.push('–');
   if (s.availabilityText) parts.push(el('small', {}, s.availabilityText));
-  if (s.maxOrderQty != null && !s.stockQtyPlaceholder) parts.push(el('small', {}, `Tek siparişte en çok ${s.maxOrderQty}`));
+  if (s.maxOrderQty != null && real == null && !s.stockQtyPlaceholder) parts.push(el('small', {}, `Tek siparişte en çok ${s.maxOrderQty}`));
   return parts;
 }
 
 function renderNow(state) {
   const latest = L.latestByTarget(state.snapshots);
-  const head = el('tr', {}, ['Site', 'Durum', 'Stok adedi', 'Fiyat', 'Temin', 'Baskı', 'Puan ve ilgi', 'Son kontrol', ''].map((h) => el('th', { scope: 'col' }, h)));
+  const head = el('tr', {}, ['Site', 'Durum', 'Stok adedi', 'Satın alma sayacı', 'Fiyat', 'Temin ve baskı', 'Puan ve ilgi', 'Son kontrol'].map((h) => el('th', { scope: 'col' }, h)));
   const rows = state.targets.map((t) => {
     // Son tarama okunamadıysa, en son okunabilen kaydın verisini göster.
     const last = latest[t.id];
@@ -54,22 +59,55 @@ function renderNow(state) {
     if (s && s.rank != null) interest.push(`${s.rank.toLocaleString('tr-TR')}. sıra`);
     if (s && s.sellers != null) interest.push(`${s.sellers} satıcı`);
     if (s && s.counts) for (const [k, v] of Object.entries(s.counts)) interest.push(`${v} ${k}`);
+    // Sitenin yazdığı ilgi cümleleri; satın alma sayacı kendi sütununda gösterildiği için burada yinelenmez.
+    const extra = s && s.signals ? s.signals.filter((x) => !/satın alınmıştır/i.test(x)) : [];
     return el('tr', {},
       el('td', {}, el('a', { href: t.url, target: '_blank', rel: 'noreferrer' }, t.name)),
       el('td', {}, s ? pill(s.status) : el('span', { class: 'pill s-none' }, 'Henüz taranmadı'), s && s.note ? el('small', {}, s.note) : null),
       el('td', {}, stockCell(s)),
+      el('td', { class: 'num' }, s && s.soldCount != null ? [el('strong', {}, `${s.soldCount.toLocaleString('tr-TR')} adet`), el('small', {}, 'Sitenin kendi sayacı')] : '–'),
       el('td', { class: 'num' }, s ? fmtMoney(s.price, s.currency) : '–', s && s.listPrice ? el('small', {}, `Liste: ${fmtMoney(s.listPrice, s.currency)}`) : null),
-      el('td', {}, (s && s.leadTime) || '–'),
-      el('td', { class: 'num' }, s && s.edition != null ? `${s.edition}. baskı` : '–'),
-      el('td', {}, interest.length ? interest.join(', ') : '–'),
-      el('td', { class: 'num' }, last ? fmtTime(last.ts) : '–'),
-      el('td', {}, el('button', { class: 'link', type: 'button', onclick: () => startScan(t.id) }, 'Yeniden tara')));
+      el('td', {}, s && (s.leadTime || s.edition != null) ? [s.leadTime || null, s.edition != null ? el(s.leadTime ? 'small' : 'span', {}, `${s.edition}. baskı`) : null] : '–'),
+      el('td', {}, interest.length ? interest.join(', ') : (extra.length ? null : '–'), extra.map((x) => el('small', {}, x))),
+      el('td', { class: 'num' }, last ? fmtTime(last.ts) : 'Henüz yok', el('div', {}, el('button', { class: 'link', type: 'button', onclick: () => startScan(t.id) }, 'Yeniden tara'))));
   });
   $('now').replaceChildren(el('thead', {}, head), el('tbody', {}, rows));
   const waiting = state.targets.filter((t) => latest[t.id] && latest[t.id].status === 'blocked').map((t) => t.name);
   $('now-hint').textContent = waiting.length
     ? `${waiting.join(', ')} doğrulama istiyor. Açık kalan sekmede doğrulamayı tamamlayın, sonra "Yeniden tara"ya basın.`
     : 'Siteler çoğunlukla yalnızca "stokta var / yok" bilgisini verir. Adet, site paylaştığında gösterilir.';
+}
+
+function renderSignals(state) {
+  const since = Date.now() - SIGNAL_DAYS * 86400000;
+  const head = el('tr', {}, ['Site', 'Satın alma sayacı', 'Stoktan düşen', 'Stoka giren', 'Tükenme', 'Yenilenme', 'Sıralama sıçraması', 'Yeni yorum'].map((h) => el('th', { scope: 'col' }, h)));
+  let totalSold = 0, totalDrop = 0, anySold = false, anyStock = false, readings = 0;
+  const none = (text) => el('td', { class: 'none' }, text);
+  const rows = state.targets.map((t) => {
+    const g = L.salesSignals(state.snapshots, t.id, since);
+    readings = Math.max(readings, g.readings);
+    if (g.soldCount != null) { anySold = true; totalSold += g.soldGain || 0; }
+    if (g.hasRealStock) { anyStock = true; totalDrop += g.stockDrop; }
+    if (!state.snapshots.some((x) => x.targetId === t.id && !L.UNREADABLE.has(x.status))) {
+      return el('tr', {}, el('td', {}, el('strong', {}, t.name)), el('td', { class: 'none', colspan: '7' }, 'Bu siteden henüz okunabilen bir kayıt yok.'));
+    }
+    return el('tr', {},
+      el('td', {}, el('strong', {}, t.name)),
+      g.soldCount != null ? el('td', { class: 'num' }, `${g.soldCount.toLocaleString('tr-TR')} adet`, el('small', {}, `Bu dönemde +${g.soldGain || 0}`)) : none('Site göstermiyor'),
+      g.hasRealStock ? el('td', { class: 'num' }, `${g.stockDrop} adet`) : none('Adet gizli'),
+      g.hasRealStock ? el('td', { class: 'num' }, `${g.stockRise} adet`) : none('–'),
+      g.readings ? el('td', { class: 'num' }, String(g.soldOut)) : none('–'),
+      g.readings ? el('td', { class: 'num' }, String(g.restocked)) : none('–'),
+      g.hasRank ? el('td', { class: 'num' }, String(g.rankJumps)) : none('Sıralama yok'),
+      g.reviewGain != null ? el('td', { class: 'num' }, `+${g.reviewGain}`) : none('–'));
+  });
+  $('signals').replaceChildren(el('thead', {}, head), el('tbody', {}, rows));
+  const bits = [];
+  if (anySold) bits.push(`satın alma sayaçlarında +${totalSold} adet`);
+  if (anyStock) bits.push(`gerçek stok gösteren mağazalarda stoktan düşen ${totalDrop} adet`);
+  $('signals-lede').textContent = readings < 2
+    ? 'İşaretler ikinci taramadan sonra dolmaya başlar; değişim ölçmek için en az iki okuma gerekir.'
+    : bits.length ? `Bu dönemde ${bits.join(', ')}.` : 'Bu dönemde ölçülebilen bir satış işareti yok.';
 }
 
 function renderStrips(state) {
@@ -83,7 +121,7 @@ function renderStrips(state) {
   });
   const first = new Date(now - (STRIP_DAYS - 1) * 86400000).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long' });
   $('strips').replaceChildren(...rows, el('div', { class: 'strip-axis' }, el('span', {}, first), el('span', {}, 'Bugün')));
-  $('legend').replaceChildren(...['in_stock', 'out_of_stock', 'no_buy_button', 'blocked'].map((s) => el('li', {}, pill(s))), el('li', {}, el('span', { class: 'pill s-none' }, 'Kayıt yok')));
+  $('legend').replaceChildren(...['in_stock', 'on_order', 'out_of_stock', 'no_buy_button', 'blocked'].map((s) => el('li', {}, pill(s))), el('li', {}, el('span', { class: 'pill s-none' }, 'Kayıt yok')));
 }
 
 function describeEvent(e) {
@@ -92,6 +130,9 @@ function describeEvent(e) {
     if (e.to === 'in_stock' && e.from !== 'in_stock') return `Yeniden stokta (önceki durum: ${L.STATUS_LABEL[e.from] || e.from})`;
     return `Durum değişti: ${L.STATUS_LABEL[e.from] || e.from} → ${L.STATUS_LABEL[e.to] || e.to}`;
   }
+  if (e.field === 'stockQty') return e.to < e.from ? `Stoktan ${e.from - e.to} adet düştü (kalan: ${e.to})` : `Stoka ${e.to - e.from} adet girdi (toplam: ${e.to})`;
+  if (e.field === 'rank') return `Satış sıralaması yükseldi: ${e.from.toLocaleString('tr-TR')}. sıradan ${e.to.toLocaleString('tr-TR')}. sıraya (arada satış olmuş olabilir)`;
+  if (e.field === 'soldCount') return `Satın alma sayacı ${e.from} → ${e.to} (+${e.to - e.from})`;
   const show = (v) => (typeof v === 'number' ? v.toLocaleString('tr-TR') : v);
   return `${FIELD_LABEL[e.field] || e.field}: ${show(e.from)} → ${show(e.to)}`;
 }
@@ -125,7 +166,13 @@ async function render() {
   $('book-sub').textContent = `ISBN ${state.book.isbn}, ${state.targets.length} sayfa takipte`;
   document.title = `${state.book.title} – Kitap Takip`;
   $('interval').value = String(state.settings.intervalHours);
-  renderScanState(state); renderNow(state); renderStrips(state); renderEvents(state); renderTargets(state);
+  renderScanState(state); renderNow(state); renderSignals(state); renderStrips(state); renderEvents(state); renderTargets(state);
+}
+
+function download(blob, name) {
+  const url = URL.createObjectURL(blob);
+  el('a', { href: url, download: name }).click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 function startScan(targetId) { chrome.runtime.sendMessage({ type: 'scan', targetId }); }
@@ -143,10 +190,16 @@ $('interval').addEventListener('change', async (e) => {
 });
 $('csv').addEventListener('click', async () => {
   const state = await load();
-  const url = URL.createObjectURL(new Blob([L.toCsv(state.snapshots, state.targets)], { type: 'text/csv;charset=utf-8' }));
-  el('a', { href: url, download: `kitap-takip-${L.dayKey(Date.now())}.csv` }).click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  download(new Blob([L.toCsv(state.snapshots, state.targets)], { type: 'text/csv;charset=utf-8' }), `kitap-takip-${L.dayKey(Date.now())}.csv`);
 });
+// Okuyucuyu bir siteye göre ayarlamak için: son taramanın sayfa parçaları (yalnızca ürün bilgisi).
+$('diag').addEventListener('click', async () => {
+  const state = await load();
+  const { diag } = await chrome.storage.local.get('diag');
+  const payload = { exportedAt: new Date().toISOString(), book: state.book, targets: state.targets, latest: L.latestByTarget(state.snapshots), diag: diag || {} };
+  download(new Blob([JSON.stringify(payload, null, 1)], { type: 'application/json' }), `kitap-takip-tani-${L.dayKey(Date.now())}.json`);
+});
+
 $('add').addEventListener('submit', async (e) => {
   e.preventDefault();
   const form = e.target;

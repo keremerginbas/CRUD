@@ -8,6 +8,7 @@
   --in: #2e8b62;
   --out: #c23b4e;
   --wait: #c98a12;
+  --order: #3c86b0;
   --off: #7b8a91;
   --none: #e6edf0;
   --rope: #b98b52;
@@ -17,7 +18,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --paper: #0f1b20; --card: #16262d; --ink: #e6eef1; --muted: #9cb0b8; --line: #2a3d45;
-    --pine: #8fd0c0; --in: #4fbf8c; --out: #ef6b7d; --wait: #e3ae3f; --off: #8a9aa1; --none: #223239; --rope: #c79a62;
+    --pine: #8fd0c0; --in: #4fbf8c; --out: #ef6b7d; --wait: #e3ae3f; --order: #6fb3da; --off: #8a9aa1; --none: #223239; --rope: #c79a62;
   }
 }
 * { box-sizing: border-box; }
@@ -52,17 +53,22 @@ button.link { white-space: nowrap; border: 0; background: none; padding: 0; colo
 .scan-state { min-height: 1.5em; margin: 10px 2px 0; color: var(--muted); }
 
 main { max-width: 1180px; margin: 0 auto; padding: 4px 24px 60px; display: grid; gap: 36px; }
+/* Geniş tablolar sayfayı değil, kendi kutusunu kaydırsın. */
+main > section { min-width: 0; }
 .table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--line); border-radius: 6px; }
-table { border-collapse: collapse; width: 100%; min-width: 860px; }
+table { border-collapse: collapse; width: 100%; min-width: 980px; }
 th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
 th { font-size: .82rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
 tr:last-child td { border-bottom: 0; }
 td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
 td small { display: block; color: var(--muted); font-size: .8rem; max-width: 30ch; }
+td.none { color: var(--muted); }
+#now td:nth-child(3) { min-width: 190px; }
+#now td:nth-child(7) { min-width: 130px; }
 td a { color: inherit; font-weight: 600; }
 .pill { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; white-space: nowrap; }
 .pill::before { content: ""; width: 11px; height: 11px; border-radius: 3px; background: var(--c); }
-.s-in_stock { --c: var(--in); } .s-out_of_stock { --c: var(--out); } .s-preorder { --c: var(--in); }
+.s-on_order { --c: var(--order); } .s-in_stock { --c: var(--in); } .s-out_of_stock { --c: var(--out); } .s-preorder { --c: var(--in); }
 .s-no_buy_button { --c: var(--off); } .s-not_listed { --c: var(--off); }
 .s-blocked, .s-error, .s-unknown { --c: var(--wait); } .s-none { --c: var(--none); }
 

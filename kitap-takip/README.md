@@ -1,7 +1,7 @@
 # Kitap Takip
 
-*Özgür'ün Salıncağı* (ISBN 9786259756189) kitabının satıldığı sitelerdeki stok, fiyat ve yorum
-bilgilerini düzenli olarak kaydeden bir Chrome / Edge eklentisi.
+*Özgür'ün Salıncağı* (ISBN 9786259756189) kitabının satıldığı sitelerdeki stok, fiyat ve satış
+işaretlerini düzenli olarak kaydeden bir Chrome / Edge eklentisi.
 
 Eklenti sayfaları sizin tarayıcınızda, arka plan sekmesinde açar, bilgiyi okur ve sekmeyi kapatır.
 Bir site doğrulama (CAPTCHA) isterse sekme açık kalır; doğrulamayı siz tamamlarsınız ve
@@ -16,28 +16,53 @@ Bir site doğrulama (CAPTCHA) isterse sekme açık kalır; doğrulamayı siz tam
 5. Açılan panelde **Şimdi tara**ya basın. Panele daha sonra araç çubuğundaki eklenti simgesinden ulaşırsınız.
 
 Otomatik tarama, tarayıcı açıkken seçtiğiniz aralıkta (varsayılan 12 saat) çalışır.
+Önceki sürümü kurduysanız `chrome://extensions` sayfasında eklentinin **yenile** düğmesine basın.
 
-## Neleri kaydeder
+## Satışı nasıl anlarız
 
-| Bilgi | Kaynak |
-| --- | --- |
-| Stok durumu (stokta, tükendi, satışa kapalı, listelenmiyor) | Sayfanın yapısal verisi, satın alma düğmesi, "Tükendi" yazısı |
-| Stok adedi | "Son 3 ürün" gibi uyarılar veya sayfaya gömülü stok alanı; yalnızca site paylaşıyorsa |
-| Fiyat ve liste fiyatı | Yapısal veri veya sayfa metni |
-| Temin süresi, baskı sayısı | Sayfa metni |
-| Puan, yorum sayısı, satış sıralaması, satıcı sayısı | Site gösteriyorsa |
+Hiçbir site "şu kadar sattı" raporu vermez, ama bazıları işe yarar sayıları açıkça ya da sayfanın
+içine gömülü olarak yayımlar. Eklenti bunları güvenilirlik sırasıyla toplar:
 
-Stok geçmişi şeridi her gün için durumu gösterir; "Değişiklikler" listesi tükenme, yenilenme,
-fiyat ve baskı değişikliklerini tarihleriyle verir. Tüm kayıtlar **CSV indir** ile dışa aktarılır.
+| İşaret | Nerede | Ne söyler |
+| --- | --- | --- |
+| Satın alma sayacı | Kitapyurdu ("Bu üründen N adet satın alınmıştır") | O sitede satılan adet. İki tarama arasındaki artış, o dönemin satışıdır. |
+| Gerçek stok adedi | İmge Kitabevi ve aynı altyapıyı kullanan mağazalar (sayfaya gömülü stok alanı); "son 3 ürün" gibi uyarılar | Mağazanın elindeki kopya sayısı. Azalma çoğunlukla satıştır, artış yeni sevkiyattır. |
+| Tükenme ve yenilenme | Bütün mağazalar | Mağaza ya da dağıtımcı elindekini bitirmiş ve yenisini almış. Her döngü bir partinin eridiğini gösterir. |
+| Satış sıralaması | Amazon | Numaranın belirgin biçimde küçülmesi, arada en az bir satış olduğunu gösterir. |
+| Yorum, puan, okur sayıları | Hepsiburada, Amazon, 1000Kitap | Okura ulaşan kopyaların alt sınırı; alıcıların küçük bir bölümü yorum yazar. |
+| Baskı sayısı | Künye bilgisi veren mağazalar | "2. baskı" görünmesi, ilk baskının dağıtıldığını gösterir. |
 
-## Sınırlar
+Panelin **Satış işaretleri** bölümü bu sayıları son 30 gün için site site özetler.
 
-- Gerçek satış adedi hiçbir sitede yayımlanmaz. Bu araç dolaylı işaretleri kaydeder.
-- Çoğu site adet vermez. Nobel Kitap'ın sayfasındaki `100` değeri bütün kitaplarda aynıdır;
-  eklenti bunu tanır ve "Adet gizli" olarak gösterir.
-- Hepsiburada, Amazon, Dost Kitabevi ve 1000Kitap geliştirme ortamından açılamadığı için bu
-  sitelerin okuyucusu yalnızca örnek sayfalarla denendi. İlk taramada bu satırlarda eksik ya da
-  yanlış bilgi görürseniz okuyucunun o siteye göre ayarlanması gerekir.
+Bazı mağazalar kitabı kendi deposunda tutmaz; sipariş gelince dağıtımcıdan getirtir. Panel bunları
+**Siparişle temin** olarak gösterir. Bu mağazalardaki "stokta" yazısı mağazanın değil,
+dağıtımcının durumunu yansıtır. Nobel Kitap'taki `100` ve BKM'deki `999999` değerleri yer
+tutucudur; eklenti bunları tanır ve "Adet gizli" olarak gösterir.
+
+### Kesin rakamlar
+
+Dışarıdan toplanan işaretler tahmindir. Kesin sayıların iki kaynağı vardır; ikisi de yazarın hakkıdır:
+
+- **Bandrol kaydı:** Basılan her kitaba Kültür ve Turizm Bakanlığı'ndan bandrol alınır. Eser
+  sahipleri, kitapları için alınan bandrolleri (baskı sayısı ve bandrol adedi) e-Devlet üzerinden
+  sorgulayabilir. Bu, kaç adet basıldığını ve yeni baskı yapılıp yapılmadığını gösterir.
+- **Yayınevinin satış hesabı:** Türk Borçlar Kanunu'nun yayım sözleşmesine ilişkin 497. maddesi
+  satış hesaplarını düzenler. Telif ödemeniz satışa bağlıysa satış hesabını yazılı olarak isteyin;
+  sözleşmenizdeki ilgili maddeye de bakın.
+
+## Yeni sayfa ekleme
+
+Panelin altındaki forma ürün sayfasının adresini yapıştırın. Ürün sayfasını bilmiyorsanız sitenin
+ISBN ile arama adresini de yapıştırabilirsiniz; eklenti arama sonucundan kitabın kendi sayfasını
+bulur ve sonraki taramalarda doğrudan orayı okur. Kitapyurdu bu yolla hazır eklidir.
+
+## Okuyucunun bir siteye göre ayarlanması
+
+Hepsiburada, Amazon, Kitapyurdu, Dost Kitabevi ve 1000Kitap geliştirme ortamından açılamadığı
+için bu sitelerin okuyucusu yalnızca örnek sayfalarla denendi. İlk taramadan sonra bu satırlarda
+eksik ya da yanlış bilgi görürseniz **Tanı dosyası indir**e basıp dosyayı paylaşın. Dosyada her
+sitenin son taramasından yalnızca ürünle ilgili sayfa parçaları (ürün alanının yazısı, stokla
+ilgili alanlar, düğme adları) bulunur; göndermeden önce açıp bakabilirsiniz.
 
 ## Geliştirme
 
@@ -47,8 +72,8 @@ npx playwright install chromium
 npm test
 ```
 
-- `extractor.js`: açık sayfadan veriyi okur.
+- `extractor.js`: açık sayfadan veriyi okur; arama sayfasından ürün sayfasını bulur.
 - `background.js`: zamanlama ve tarama.
-- `lib.js`: değişiklik ve geçmiş hesapları.
+- `lib.js`: değişiklik, geçmiş ve satış işareti hesapları.
 - `dashboard.*`: takip ekranı.
 - `targets.js`: varsayılan kitap ve sayfalar.

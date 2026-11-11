@@ -17,11 +17,13 @@
       <div class="actions">
         <label class="interval">Otomatik tarama
           <select id="interval">
+            <option value="3">3 saatte bir</option>
             <option value="6">6 saatte bir</option>
             <option value="12">12 saatte bir</option>
             <option value="24">Günde bir</option>
           </select>
         </label>
+        <button id="diag" class="quiet" type="button">Tanı dosyası indir</button>
         <button id="csv" class="quiet" type="button">CSV indir</button>
         <button id="scan" class="primary" type="button">Şimdi tara</button>
       </div>
@@ -34,6 +36,13 @@
       <h2 id="h-now">Şu anki durum</h2>
       <div class="table-wrap"><table id="now"></table></div>
       <p class="hint" id="now-hint"></p>
+    </section>
+
+    <section aria-labelledby="h-signals">
+      <h2 id="h-signals">Satış işaretleri, son 30 gün</h2>
+      <p class="lede" id="signals-lede"></p>
+      <div class="table-wrap"><table id="signals"></table></div>
+      <p class="hint">Satın alma sayacı sitenin kendi yazdığı sayıdır. Stoktan düşen adet, gerçek stok gösteren mağazalarda iki tarama arasındaki azalmadır; çoğu zaman satıştır, ama sayım düzeltmesi de olabilir. Sıralama sıçraması, arada en az bir satış olduğunu gösterir.</p>
     </section>
 
     <section aria-labelledby="h-strip">

@@ -6,6 +6,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   const STATUS_LABEL = {
     in_stock: 'Stokta',
+    on_order: 'Siparişle temin',
     out_of_stock: 'Tükendi',
     preorder: 'Ön sipariş',
     no_buy_button: 'Satışa kapalı',
@@ -17,6 +18,9 @@
   // Bu durumlar "okuyamadık" demektir; değişiklik hesabına katılmaz.
   const UNREADABLE = new Set(['blocked', 'error', 'unknown']);
 
+  // Başlık karşılaştırması için: büyük/küçük harf, Türkçe harf ve noktalama farklarını yok sayar.
+  const normTitle = (s) => (s || '').toLocaleLowerCase('tr').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ı/g, 'i').replace(/[^a-z0-9]/g, '');
+
   const dayKey = (ts) => {
     const d = new Date(ts);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -26,6 +30,38 @@
     const map = {};
     for (const s of snapshots) if (!map[s.targetId] || s.ts > map[s.targetId].ts) map[s.targetId] = s;
     return map;
+  }
+
+  // Sitenin gerçekten paylaştığı stok adedi; yer tutucu değerler (100, 999999) sayılmaz.
+  const realQty = (s) => (s && s.stockQty != null && !s.stockQtyPlaceholder ? s.stockQty : null);
+  const SELLABLE = new Set(['in_stock', 'on_order', 'preorder']);
+  const isRankJump = (prev, s) => prev.rank != null && s.rank != null && s.rank < prev.rank * 0.85;
+
+  // Bir sitenin kayıtlarından satış işaretlerini çıkarır. Hiçbiri kesin satış adedi değildir;
+  // "satın alma sayacı" sitenin kendi beyanı, diğerleri dolaylı göstergedir.
+  function salesSignals(snapshots, targetId, sinceTs) {
+    const rows = snapshots.filter((s) => s.targetId === targetId && !UNREADABLE.has(s.status)).sort((a, b) => a.ts - b.ts);
+    const out = { readings: 0, hasRealStock: false, stockDrop: 0, stockRise: 0, soldOut: 0, restocked: 0, rankJumps: 0, hasRank: false, soldGain: null, soldCount: null, reviewGain: null };
+    let prev = null;
+    for (const s of rows) {
+      const inWindow = s.ts >= sinceTs;
+      if (inWindow) out.readings++;
+      if (realQty(s) != null) out.hasRealStock = true;
+      if (s.rank != null) out.hasRank = true;
+      if (s.soldCount != null) out.soldCount = s.soldCount;
+      if (prev && inWindow) {
+        const a = realQty(prev), b = realQty(s);
+        if (a != null && b != null) { if (b < a) out.stockDrop += a - b; else out.stockRise += b - a; }
+        if (SELLABLE.has(prev.status) && s.status === 'out_of_stock') out.soldOut++;
+        if (prev.status === 'out_of_stock' && SELLABLE.has(s.status)) out.restocked++;
+        // Sıralama numarasının belirgin biçimde küçülmesi, arada en az bir satış olduğunu gösterir.
+        if (isRankJump(prev, s)) out.rankJumps++;
+        if (prev.soldCount != null && s.soldCount != null && s.soldCount > prev.soldCount) out.soldGain = (out.soldGain || 0) + (s.soldCount - prev.soldCount);
+        if (prev.reviewCount != null && s.reviewCount != null && s.reviewCount > prev.reviewCount) out.reviewGain = (out.reviewGain || 0) + (s.reviewCount - prev.reviewCount);
+      }
+      prev = s;
+    }
+    return out;
   }
 
   // Art arda iki okuma arasındaki farkları olaya çevirir.
@@ -39,10 +75,14 @@
       if (!prev) continue;
       const push = (field, from, to) => events.push({ ts: s.ts, targetId: s.targetId, field, from, to });
       if (prev.status !== s.status) push('status', prev.status, s.status);
-      for (const f of ['price', 'stockQty', 'edition', 'reviewCount', 'rank', 'leadTime', 'sellers']) {
+      for (const f of ['price', 'edition', 'reviewCount', 'soldCount', 'leadTime', 'sellers']) {
         const a = prev[f], b = s[f];
         if (a != null && b != null && a !== b) push(f, a, b);
       }
+      // Sıralama her gün oynar; yalnızca belirgin yükselişler (olası satış) olay sayılır.
+      if (isRankJump(prev, s)) push('rank', prev.rank, s.rank);
+      const qa = realQty(prev), qb = realQty(s);
+      if (qa != null && qb != null && qa !== qb) push('stockQty', qa, qb);
     }
     return events.sort((a, b) => b.ts - a.ts);
   }
@@ -67,7 +107,7 @@
 
   function toCsv(snapshots, targets) {
     const name = Object.fromEntries(targets.map((t) => [t.id, t.name]));
-    const cols = ['ts', 'site', 'status', 'stockQty', 'stockQtySource', 'stockQtyPlaceholder', 'maxOrderQty', 'price', 'currency', 'leadTime', 'edition', 'rating', 'reviewCount', 'rank', 'sellers', 'counts', 'note'];
+    const cols = ['ts', 'site', 'status', 'stockQty', 'stockQtySource', 'stockQtyPlaceholder', 'maxOrderQty', 'soldCount', 'price', 'listPrice', 'currency', 'leadTime', 'edition', 'rating', 'reviewCount', 'rank', 'sellers', 'counts', 'signals', 'note'];
     const cell = (v) => {
       if (v == null) return '';
       const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
@@ -78,5 +118,5 @@
     return '﻿' + [cols.join(','), ...rows].join('\n');
   }
 
-  return { STATUS_LABEL, UNREADABLE, dayKey, latestByTarget, deriveEvents, dayStrip, toCsv };
+  return { STATUS_LABEL, UNREADABLE, normTitle, realQty, salesSignals, dayKey, latestByTarget, deriveEvents, dayStrip, toCsv };
 });

@@ -53,3 +53,48 @@ test('CSV başlık ve Türkçe durum etiketi içerir', () => {
   assert.ok(row.includes('Site A,Tükendi'));
   assert.ok(row.includes('"a, b"'));
 });
+
+test('satış işaretleri: stoktan düşen, giren, tükenme, sıralama sıçraması ve satış sayacı', () => {
+  const since = now - 30 * D;
+  const sig = lib.salesSignals([
+    snap('a', 40, { status: 'in_stock', stockQty: 9 }), // pencere dışı: yalnızca başlangıç değeri
+    snap('a', 6, { status: 'in_stock', stockQty: 5, rank: 90000, soldCount: 10, reviewCount: 2 }),
+    snap('a', 5, { status: 'in_stock', stockQty: 3, rank: 40000, soldCount: 12, reviewCount: 2 }),
+    snap('a', 4, { status: 'blocked' }),
+    snap('a', 3, { status: 'out_of_stock', stockQty: 0, rank: 52000, soldCount: 15, reviewCount: 3 }),
+    snap('a', 2, { status: 'in_stock', stockQty: 10, rank: 60000, soldCount: 15, reviewCount: 3 }),
+    snap('b', 2, { status: 'in_stock', stockQty: 1 }),
+  ], 'a', since);
+  assert.strictEqual(sig.stockDrop, 4 + 2 + 3); // 9→5, 5→3, 3→0
+  assert.strictEqual(sig.stockRise, 10);
+  assert.strictEqual(sig.soldOut, 1);
+  assert.strictEqual(sig.restocked, 1);
+  assert.strictEqual(sig.rankJumps, 1);
+  assert.strictEqual(sig.soldGain, 5);
+  assert.strictEqual(sig.soldCount, 15);
+  assert.strictEqual(sig.reviewGain, 1);
+  assert.strictEqual(sig.hasRealStock, true);
+});
+
+test('yer tutucu stok değerleri satış işareti üretmez', () => {
+  const sig = lib.salesSignals([
+    snap('a', 3, { status: 'on_order', stockQty: 100, stockQtyPlaceholder: true }),
+    snap('a', 2, { status: 'on_order', stockQty: 999999, stockQtyPlaceholder: true }),
+  ], 'a', now - 30 * D);
+  assert.strictEqual(sig.hasRealStock, false);
+  assert.strictEqual(sig.stockDrop, 0);
+  assert.strictEqual(lib.deriveEvents([
+    snap('a', 3, { status: 'on_order', stockQty: 100, stockQtyPlaceholder: true }),
+    snap('a', 2, { status: 'on_order', stockQty: 999999, stockQtyPlaceholder: true }),
+  ]).length, 0);
+});
+
+test('sıralamadaki küçük oynamalar olay üretmez, belirgin yükseliş üretir', () => {
+  const ev = lib.deriveEvents([
+    snap('a', 4, { status: 'in_stock', rank: 60000 }),
+    snap('a', 3, { status: 'in_stock', rank: 61500 }),
+    snap('a', 2, { status: 'in_stock', rank: 58000 }),
+    snap('a', 1, { status: 'in_stock', rank: 30000 }),
+  ]);
+  assert.deepStrictEqual(ev.map((e) => [e.field, e.from, e.to]), [['rank', 58000, 30000]]);
+});
