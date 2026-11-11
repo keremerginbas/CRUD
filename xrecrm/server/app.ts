@@ -1239,6 +1239,7 @@ export function createApp(
   const baseStore = options.store || createStore();
   // crm modunda WhatsApp by XRE (Bitrix Market uygulaması) ayrı sunucuda çalışır.
   const withConnector = appMode() !== "crm";
+  const bitrixEmbed = process.env.XRE_BITRIX_EMBED?.trim() === "1";
   const rawStore = liveNotifyStore(auditStore(webhookEmitterStore(baseStore)));
   const store = createPermissionStore(
     stagePolicyStore(appointmentStore(rawStore)),
@@ -1574,7 +1575,9 @@ export function createApp(
 
   registerLocalAuthRoutes(app, store);
   registerSocialAuthRoutes(app, store);
-  registerBitrixAppRoutes(app, store);
+  // CRM'in Bitrix24 içinde uygulama olarak açılması artık varsayılan kapalıdır
+  // (XRE CRM bağımsız bir üründür). Gerekirse XRE_BITRIX_EMBED=1 ile açılır.
+  if (bitrixEmbed) registerBitrixAppRoutes(app, store);
   if (withConnector) registerB24ConnectorRoutes(app, baseStore);
   registerN8nInboundRoute(app, store, processInboundWebhook);
   const hubDeps = {
@@ -2110,7 +2113,7 @@ export function createApp(
     }
   });
 
-  app.post("/api/bitrix/placement", async (req, res) => {
+  if (bitrixEmbed) app.post("/api/bitrix/placement", async (req, res) => {
     try {
       const authId = String(
         req.headers["x-bitrix-auth"] || req.body?.AUTH_ID || "",

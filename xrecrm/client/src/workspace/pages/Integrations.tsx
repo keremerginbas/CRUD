@@ -91,16 +91,6 @@ const providers = [
     path: "/api/webhooks/vapi",
   },
   {
-    id: "bitrix",
-    name: "Bitrix24",
-    caption: "Yerel uygulama & CRM",
-    icon: Globe,
-    tone: "blue",
-    text: "Bitrix müşteri bağlamı ve mevcut WhatsApp uygulamasıyla birlikte çalışma.",
-    keys: ["BITRIX_DOMAIN", "BITRIX_WEBHOOK"],
-    path: "/bitrix/app",
-  },
-  {
     id: "webhook",
     name: "Webhook & n8n",
     caption: "Gelen ve giden olaylar",
@@ -223,32 +213,12 @@ export default function Integrations({
     return (
       <>
         <PageTitle
-          eyebrow="UYGULAMA EKOSİSTEMİ"
-          title="Araçlarınız birlikte çalışsın."
-          description="Bitrix24'ten verilerinizi taşıyın, CRM bağlamını yerel uygulamalara aktarın."
+          eyebrow="GEÇİŞ VE AKTARIM"
+          title="Bitrix24'ten XRE CRM'e geçin."
+          description="Bitrix24'teki lead, kişi ve şirketlerinizi XRE CRM'e taşıyın; CRM verisini kendi iş akışlarınıza aktarın."
         />
         <BitrixImport />
         <div className="integration-grid">
-          <article className="integration-card">
-            <span className="provider-icon pbx">
-              <Globe size={25} />
-            </span>
-            <h3>Bitrix24 yerel uygulama</h3>
-            <p>
-              Mevcut media.zip uygulamasının müşteri bağlamı ve doğrulanmış
-              kullanıcı oturumlarıyla iletişim paneline erişin.
-            </p>
-            <Badge>Kurulum gerekli</Badge>
-            <footer>
-              <button
-                className="btn secondary"
-                onClick={() => setSelected(providers[4])}
-              >
-                Kurulum bilgileri
-                <ArrowUpRight size={15} />
-              </button>
-            </footer>
-          </article>
           <article className="integration-card">
             <span className="provider-icon vapi">
               <Terminal size={25} />
@@ -289,7 +259,7 @@ export default function Integrations({
             <footer>
               <button
                 className="btn secondary"
-                onClick={() => setSelected(providers[5])}
+                onClick={() => setSelected(providers.find((p) => p.id === "webhook") || null)}
               >
                 Bağlantıyı yapılandır
                 <ArrowUpRight size={15} />

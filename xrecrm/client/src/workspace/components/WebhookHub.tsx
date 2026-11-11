@@ -225,7 +225,7 @@ export default function WebhookHub() {
         <div>
           <h3>Webhook merkezi</h3>
           <p>
-            Bitrix24'teki gelen/giden webhook mantığı: dış sistemler CRM'e yazar,
+            Gelen ve giden webhook'lar: dış sistemler CRM'e yazar,
             CRM olayları anında n8n ve diğer uygulamalara gider.
           </p>
         </div>

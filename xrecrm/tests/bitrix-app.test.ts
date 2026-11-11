@@ -15,6 +15,7 @@ beforeEach(() => {
     XRE_SESSION_SECRET: "bitrix-app-test-secret-0123456789abcdef",
     XRE_DATA_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "xre-bx-")),
     BITRIX_DOMAIN: "https://xre.bitrix24.com.tr/",
+    XRE_BITRIX_EMBED: "1",
     OUTBOUND_ALLOW_PRIVATE_HOSTS: "127.0.0.1",
   });
 });
@@ -232,5 +233,12 @@ describe("WhatsApp bağlantı eşitleme", () => {
     expect(await store.get("connection", "baska-oturum", owner)).toBeFalsy();
     const lines = await (await fetch(`${base}/api/whatsapp/lines`, { headers })).json();
     expect(lines.lines.find((l: any) => l.lineId === "ai-1")).toMatchObject({ phone: "905321116976", provider: "evolution" });
+  });
+
+  it("varsayılan kurulumda CRM Bitrix içinde açılmaz (XRE_BITRIX_EMBED kapalı)", async () => {
+    delete process.env.XRE_BITRIX_EMBED;
+    const base = await listen(createApp({ store: createMemoryStore() }));
+    expect((await fetch(`${base}/bitrix/app`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }))).status).toBe(404);
+    expect((await fetch(`${base}/bitrix/install`, form({ DOMAIN: "xre.bitrix24.com.tr", AUTH_ID: "good" }))).status).toBe(404);
   });
 });

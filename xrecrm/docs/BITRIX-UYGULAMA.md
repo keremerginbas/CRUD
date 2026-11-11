@@ -1,3 +1,5 @@
+> **Not (Kasım 2026):** XRE CRM bağımsız bir üründür; CRM'in Bitrix24 içinde uygulama olarak açılması varsayılan olarak kapalıdır. Bu belgedeki kurulum yalnız sunucunun `.env` dosyasına `XRE_BITRIX_EMBED=1` eklenirse çalışır. Bitrix24'ten veri taşımak için CRM'de **Bitrix24'ten geçiş** ekranını kullanın.
+
 # XRE CRM WhatsApp'ı Bitrix24'e yerel uygulama olarak ekleme
 
 Bu uygulama iki şey sağlar:

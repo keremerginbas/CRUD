@@ -128,7 +128,7 @@ const navGroups = [
       ["/n8n", "n8n iş akışları", Workflow],
       ["/webhooks", "Webhooklar", Webhook],
       ["/integrations", "Entegrasyonlar", Link2],
-      ["/apps", "Bitrix aktarımı & uygulamalar", Blocks],
+      ["/apps", "Bitrix24'ten geçiş", Blocks],
     ],
   },
 ] as const;

@@ -158,7 +158,7 @@ export default function IntegrationSettings() {
         <p className="is-note">Yükleniyor…</p>
       ) : (
         <div className="is-groups">
-          {SETTING_GROUPS.map((g) => (
+          {SETTING_GROUPS.filter((g) => !g.hidden).map((g) => (
             <GroupCard key={g.id} group={g} status={status} onSaved={setSettings} />
           ))}
         </div>

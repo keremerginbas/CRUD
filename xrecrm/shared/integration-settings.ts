@@ -13,6 +13,8 @@ export interface SettingGroup {
   title: string;
   description: string;
   test?: string;
+  /** CRM'in Entegrasyonlar ekranında gösterilmez (ayrı sunucuda .env ile yönetilir). */
+  hidden?: boolean;
   fields: SettingField[];
 }
 
@@ -96,8 +98,8 @@ export const SETTING_GROUPS: SettingGroup[] = [
   },
   {
     id: "bitrix",
-    title: "Bitrix24",
-    description: "Aktarım ve mevcut Bitrix uygulaması için gelen webhook.",
+    title: "Bitrix24'ten geçiş",
+    description: "Bitrix24'teki verilerinizi XRE CRM'e taşımak için gelen webhook adresi.",
     test: "bitrix",
     fields: [
       { key: "BITRIX_DOMAIN", label: "Bitrix alan adı", placeholder: "xre.bitrix24.com.tr" },
@@ -107,6 +109,7 @@ export const SETTING_GROUPS: SettingGroup[] = [
   },
   {
     id: "b24-marketplace",
+    hidden: true,
     title: "Bitrix24 pazar yeri uygulaması (WhatsApp by XRE)",
     description: "Başka Bitrix24 portallarına satılan Açık Kanal bağlayıcısı. Kurulum: {origin}/b24/install, uygulama: {origin}/b24/app, lisans ve ödeme yönetimi: {origin}/b24/admin",
     fields: [
