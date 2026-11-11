@@ -70,6 +70,12 @@ services:
       XRE_SESSION_SECRET: ${TEST_SESSION_SECRET:-}
       XRE_SIGNUP: "1"
       XRE_TRIAL_DAYS: ${XRE_TRIAL_DAYS:-5}
+      # Kayıtta e-posta doğrulaması (canlı CRM ile aynı SMTP ayarları)
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - test_data:/app/data
     networks:

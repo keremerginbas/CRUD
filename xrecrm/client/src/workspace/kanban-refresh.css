@@ -1,0 +1,340 @@
+/* CRM kanban: sade, okunaklı pano. Tüm renkler tema değişkenlerinden gelir;
+   aşama rengi (--stage) yalnız vurgu olarak kullanılır (şerit, nokta, sayaç). */
+
+/* --- Üst araçlar: tek satırlık, temaya uyumlu ------------------------------ */
+.kanban-page .crm-toolbar.b24-filter-bar {
+  background: var(--xre-surface);
+  border: 1px solid var(--xre-border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  box-shadow: none;
+}
+.kanban-page .crm-toolbar .search-field {
+  background: var(--xre-surface-muted);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  color: var(--xre-text-soft);
+  transition: border-color 0.15s, background 0.15s;
+}
+.kanban-page .crm-toolbar .search-field:focus-within {
+  border-color: var(--xre-accent);
+  background: var(--xre-surface);
+}
+.kanban-page .crm-toolbar .search-field input {
+  background: transparent;
+  color: var(--xre-text);
+}
+.kanban-page .crm-toolbar .search-field input::placeholder { color: var(--xre-text-faint); }
+
+.kanban-page .crm-personalization {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  padding: 8px 12px;
+  border: 1px solid var(--xre-border);
+  border-radius: 14px;
+  background: var(--xre-surface);
+}
+.kanban-page .crm-personalization-toolbar {
+  display: contents;
+}
+.kanban-page .crm-personalization-heading { flex: 0 0 auto; border: 0; padding: 0; color: var(--xre-text-soft); }
+.kanban-page .crm-personalization-heading strong { font-size: 13px; color: var(--xre-text); }
+.kanban-page .crm-personalization-heading small { display: none; }
+.kanban-page .crm-personalization-actions { flex: 1 1 auto; justify-content: flex-start; padding: 0; border: 0; }
+.kanban-page .crm-personalization-save {
+  flex: 0 1 340px;
+  display: flex;
+  gap: 8px;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+}
+.kanban-page .crm-personalization-save input { flex: 1; min-width: 120px; }
+
+.kanban-page .b24-deal-summary {
+  padding: 10px 2px 12px;
+  color: var(--xre-text-soft);
+  font-size: 13px;
+}
+.kanban-page .b24-deal-summary strong { color: var(--xre-text); font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* --- Sütunlar ------------------------------------------------------------- */
+.kanban-board.b24-kanban {
+  gap: 14px;
+  align-items: flex-start;
+  padding-bottom: 18px;
+}
+.b24-kanban .kanban-column {
+  --stage: var(--xre-accent);
+  background: color-mix(in srgb, var(--xre-surface-muted) 55%, var(--xre-bg));
+  border: 1px solid var(--xre-border);
+  border-radius: 16px;
+  overflow: hidden;
+  min-width: 300px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.b24-kanban .kanban-column.drag-over {
+  border-color: var(--stage);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--stage) 22%, transparent);
+}
+.b24-kanban .kanban-column > header {
+  position: relative;
+  background: color-mix(in srgb, var(--stage) 9%, var(--xre-surface)) !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--xre-border) !important;
+  border-radius: 0;
+  padding: 14px 14px 12px;
+  color: var(--xre-text);
+  min-height: 0;
+}
+.b24-kanban .kanban-column > header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--stage);
+}
+.b24-kanban .kanban-column > header::after { display: none; }
+.b24-kanban .kanban-column > header > div { display: flex; align-items: center; gap: 8px; }
+.b24-kanban .kanban-column > header h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: var(--xre-text);
+  text-shadow: none;
+}
+.b24-kanban .kanban-column > header h3::before {
+  content: "";
+  flex: 0 0 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--stage);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--stage) 22%, transparent);
+}
+.b24-kanban .kanban-column > header .column-count {
+  background: color-mix(in srgb, var(--stage) 18%, transparent);
+  color: color-mix(in srgb, var(--stage) 62%, var(--xre-text));
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  min-width: 22px;
+  text-align: center;
+}
+.b24-kanban .kanban-column > header .icon-button {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--xre-border);
+  color: var(--xre-text-soft);
+}
+.b24-kanban .kanban-column > header .icon-button:hover {
+  background: var(--stage);
+  border-color: var(--stage);
+  color: #fff;
+}
+.b24-kanban .kanban-column > header p {
+  margin: 8px 0 0 16px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--xre-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  text-shadow: none;
+}
+.b24-kanban .kanban-cards {
+  background: transparent;
+  padding: 10px;
+  gap: 10px;
+  border: 0;
+}
+
+/* --- Kartlar -------------------------------------------------------------- */
+.b24-kanban .lead-card.b24-deal-card {
+  position: relative;
+  background: var(--xre-surface);
+  border: 1px solid var(--xre-border);
+  border-radius: 13px;
+  padding: 12px 13px 10px 15px;
+  box-shadow: 0 1px 2px rgba(8, 20, 34, 0.06);
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  cursor: grab;
+}
+.b24-kanban .lead-card.b24-deal-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--stage);
+  opacity: 0.85;
+}
+.b24-kanban .lead-card.b24-deal-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--stage) 55%, var(--xre-border));
+  box-shadow: 0 10px 24px rgba(8, 20, 34, 0.16);
+}
+.b24-kanban .lead-card.b24-deal-card:active { cursor: grabbing; }
+.b24-kanban .lead-card-top { margin-bottom: 6px; }
+.b24-kanban .b24-card-source {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--xre-text-faint);
+  text-transform: uppercase;
+}
+.b24-kanban .crm-open-count {
+  background: var(--xre-surface-muted);
+  border: 0;
+  border-radius: 999px;
+  color: var(--xre-text-soft);
+  font-size: 11.5px;
+}
+.b24-kanban .b24-deal-title {
+  font-size: 14.5px;
+  font-weight: 650;
+  color: var(--xre-text);
+  letter-spacing: -0.005em;
+  padding: 0;
+}
+.b24-kanban .b24-deal-title:hover { color: var(--xre-accent-strong); }
+.b24-kanban .b24-card-secondary { color: var(--xre-text-soft); font-size: 12px; margin-top: 2px; }
+.b24-kanban .b24-deal-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--xre-text);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  margin: 8px 0 4px;
+}
+.b24-kanban .b24-contact-link { color: var(--xre-text-soft); font-size: 12.5px; padding: 2px 0; }
+.b24-kanban .b24-card-tags span,
+.b24-kanban .b24-card-tags .badge {
+  background: var(--xre-surface-muted);
+  color: var(--xre-text-soft);
+  border: 0;
+  border-radius: 6px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.b24-kanban .b24-next-activity {
+  border-top: 1px solid var(--xre-border);
+  border-bottom: 0;
+  border-style: solid none none;
+  margin-top: 10px;
+  padding: 9px 0 4px;
+  color: var(--xre-text-soft);
+  font-size: 12px;
+}
+.b24-kanban .b24-next-activity.overdue { color: #e5484d; }
+html[data-xre-theme="night"] .b24-kanban .b24-next-activity.overdue { color: #ff8589; }
+.b24-kanban .lead-card-footer {
+  border-top: 1px solid var(--xre-border);
+  border-bottom: 0;
+  border-style: solid none none;
+  margin-top: 6px;
+  padding-top: 8px;
+}
+.b24-kanban .lead-card-footer button,
+.b24-kanban .lead-card-footer a {
+  color: var(--xre-text-soft);
+  font-size: 12px;
+  border-radius: 7px;
+  padding: 4px 6px;
+  transition: background 0.12s, color 0.12s;
+}
+.b24-kanban .lead-card-footer button:hover,
+.b24-kanban .lead-card-footer a:hover {
+  background: var(--xre-accent-soft);
+  color: var(--xre-accent-strong);
+}
+
+.b24-kanban .add-card {
+  background: transparent;
+  border: 1px dashed var(--xre-border);
+  border-radius: 11px;
+  color: var(--xre-text-faint);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.b24-kanban .add-card:hover {
+  border-color: var(--stage);
+  color: var(--xre-text);
+  background: color-mix(in srgb, var(--stage) 8%, transparent);
+}
+.b24-kanban .column-automation {
+  border-top: 1px solid var(--xre-border);
+  color: var(--xre-text-faint);
+  font-size: 12px;
+  background: transparent;
+}
+.b24-kanban .column-automation:hover { color: var(--xre-accent-strong); }
+.b24-kanban .b24-quick-card {
+  background: var(--xre-surface);
+  border: 1px solid var(--stage);
+  border-radius: 12px;
+}
+.b24-kanban .lead-card-footer > span { color: var(--xre-text-faint); font-size: 11.5px; }
+.b24-kanban .lead-card-footer select {
+  background-color: var(--xre-surface-muted);
+  color: var(--xre-text-soft);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 22px 4px 8px;
+  max-width: 130px;
+}
+.b24-kanban .lead-card-footer select:hover,
+.b24-kanban .lead-card-footer select:focus { border-color: var(--xre-accent); color: var(--xre-text); }
+
+/* --- Üst çubuktaki genel arama: temaya uyumlu tek parça kutu --------------- */
+.topbar .global-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--xre-surface-muted);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0 10px;
+  height: 36px;
+  min-width: 220px;
+  color: var(--xre-text-faint);
+  transition: border-color 0.15s, background 0.15s;
+}
+.topbar .global-search:focus-within { border-color: var(--xre-accent); background: var(--xre-surface); }
+.topbar .global-search > svg { position: static; background: transparent; color: inherit; flex: 0 0 auto; }
+.topbar .global-search > input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--xre-text);
+  font-size: 13px;
+  outline: none;
+  box-shadow: none;
+}
+.topbar .global-search > input::placeholder { color: var(--xre-text-faint); }
+.topbar .global-search > kbd {
+  position: static;
+  background: var(--xre-surface);
+  border: 1px solid var(--xre-border);
+  border-radius: 6px;
+  color: var(--xre-text-faint);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}

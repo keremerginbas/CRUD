@@ -31,6 +31,24 @@ XRE_TRIAL_DAYS=5
 
 Kapatmak için `XRE_SIGNUP=1` satırını silip yeniden `kurulum.sh` çalıştırın. Kapatınca yeni kayıt alınmaz; kayıtlı firmalar çalışmaya devam eder.
 
+## E-posta doğrulaması
+
+Sunucuda e-posta gönderimi (SMTP) ayarlıysa kayıt iki adımdır: firma formu doldurur, e-postasına gelen 6 haneli kodu girer, alan ancak o zaman açılır. Kod 30 dakika geçerlidir, 5 hatalı denemede iptal olur.
+
+`.env` dosyasına ekleyin (değerlerde boşluk olmamalı) ve `kurulum.sh` ile `deneme-kur.sh` betiklerini yeniden çalıştırın:
+
+```
+SMTP_HOST=smtp.saglayiciniz.com
+SMTP_PORT=465
+SMTP_USER=xre.software@xre.com.tr
+SMTP_PASS=e-posta-sifreniz
+SMTP_FROM=xre.software@xre.com.tr
+```
+
+- `SMTP_PORT`: 465 (SSL) veya 587 (STARTTLS). Değerler e-posta sağlayıcınızın "giden sunucu" ayarlarıdır; Outlook ya da telefon kurulumunda kullandıklarınızla aynıdır.
+- SMTP ayarı yoksa kayıt doğrulamasız çalışır; Firmalar ekranı bunu yazar.
+- Gönderim hatası olursa: `docker logs xrecrm-crm 2>&1 | grep Doğrulama`
+
 ## Önce deneme kurulumunda deneyin
 
 Canlıda açmadan önce ayrı bir adreste deneyebilirsiniz. Deneme kurulumunun verisi ayrıdır; canlı CRM'e ve WhatsApp'a dokunmaz.

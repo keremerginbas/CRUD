@@ -1,9 +1,9 @@
 .login-screen { position: fixed; inset: 0; z-index: 200; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(360px, 480px); background: var(--xre-bg, #f3f6fa); overflow-y: auto; }
-.login-brand { position: relative; overflow: hidden; background: #0b1828 url("/login-poster.jpg") center / cover no-repeat; color: #e9f5fd; padding: 48px 56px; display: flex; flex-direction: column; justify-content: flex-end; }
-.login-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.login-brand::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6, 14, 26, 0) 45%, rgba(6, 14, 26, 0.55) 70%, rgba(6, 14, 26, 0.92) 100%); pointer-events: none; }
+.login-brand { position: relative; overflow: hidden; background: #060c16 radial-gradient(120% 90% at 30% 20%, #0f3a5c 0%, #0a1f3a 38%, #060c16 78%); color: #e9f5fd; padding: 48px 56px; display: flex; flex-direction: column; justify-content: flex-end; }
+.login-fluid { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.9s ease; pointer-events: none; }
+.login-fluid.ready { opacity: 1; }
+.login-brand::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(6, 12, 22, 0.05) 22%, rgba(6, 12, 22, 0.74) 60%, rgba(6, 12, 22, 0.96) 100%); pointer-events: none; }
 .login-brand-text { position: relative; z-index: 1; display: grid; gap: 16px; max-width: 520px; }
-@media (prefers-reduced-motion: reduce) { .login-video { display: none; } }
 .login-brand h2 { font-family: var(--heading); font-size: 26px; line-height: 1.25; max-width: 460px; }
 .login-brand ul { margin: 0; padding-left: 18px; display: grid; gap: 8px; color: #bcd3e4; font-size: 15px; }
 .login-brand small { display: inline-flex; align-items: center; gap: 6px; color: #8fb3c9; }
@@ -66,3 +66,7 @@
 .workspace-admin .row-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
 .workspace-admin .table-scroll { overflow-x: auto; }
 .workspace-admin .notice-line { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--xre-text-soft, #536477); margin-bottom: 12px; }
+.login-code { text-align: center; font-size: 26px !important; font-weight: 700; letter-spacing: 10px; font-variant-numeric: tabular-nums; }
+.login-verify-icon { color: var(--xre-accent, #168db3); }
+.login-card .text-button:disabled { opacity: 0.55; cursor: default; }
+.login-brand-logo { position: absolute; top: 36px; left: 48px; z-index: 1; height: 64px; width: auto; }

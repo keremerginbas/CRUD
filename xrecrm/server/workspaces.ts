@@ -14,6 +14,7 @@ import type { AuthContext } from "./types.js";
 import { rawStoreOf } from "./access.js";
 import { ACCOUNT_KIND, hashPassword, setSession, type LocalAccount } from "./local-auth.js";
 import { suiteKinds } from "./suite.js";
+import { mailConfigured, sendMail } from "./mailer.js";
 import { RESERVED_SLUGS, SLUG_PATTERN, type WorkspaceInfo } from "../shared/workspaces.js";
 
 export const WORKSPACE_KIND = "workspace";
@@ -31,7 +32,47 @@ export interface Workspace {
   createdAt: string;
   trialEndsAt: string;
   status: "trial" | "active" | "suspended";
+  /** Kayıtta e-posta kodu doğrulandı mı? */
+  emailVerified?: boolean;
   note?: string;
+}
+
+const PENDING_KIND = "workspace-pending";
+const PENDING_TTL_MS = 30 * 60_000;
+const RESEND_WAIT_MS = 60_000;
+const MAX_CODE_ATTEMPTS = 5;
+const MAX_SENDS = 4;
+interface SignupDraft {
+  company: string;
+  slug: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+}
+interface PendingSignup extends SignupDraft {
+  codeHash: string;
+  expiresAt: number;
+  attempts: number;
+  sentAt: number;
+  sends: number;
+}
+const hashCode = (pendingId: string, code: string) => crypto.createHash("sha256").update(`${pendingId}:${code}`).digest("hex");
+/** SMTP ayarlıysa kayıtta e-posta doğrulanır; XRE_SIGNUP_VERIFY=0 ile kapatılabilir. */
+export const verificationRequired = () => mailConfigured() && process.env.XRE_SIGNUP_VERIFY?.trim() !== "0";
+
+const escapeHtml = (v: string) => v.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+function sendVerification(draft: SignupDraft, code: string) {
+  return sendMail({
+    to: draft.email,
+    subject: `XRE CRM doğrulama kodunuz: ${code}`,
+    text: `Merhaba ${draft.name},\n\n${draft.company} için XRE CRM çalışma alanını açmak üzeresiniz.\n\nDoğrulama kodunuz: ${code}\n\nKod 30 dakika geçerlidir. Bu kaydı siz başlatmadıysanız bu e-postayı yok sayabilirsiniz.\n\nXRE CRM`,
+    html: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;color:#152332;line-height:1.5;max-width:480px">
+<p>Merhaba ${escapeHtml(draft.name)},</p>
+<p><b>${escapeHtml(draft.company)}</b> için XRE CRM çalışma alanını açmak üzeresiniz.</p>
+<p style="font-size:30px;font-weight:700;letter-spacing:6px;background:#f1f5f9;border-radius:10px;padding:14px 18px;text-align:center;margin:20px 0">${code}</p>
+<p>Kod 30 dakika geçerlidir. Bu kaydı siz başlatmadıysanız bu e-postayı yok sayabilirsiniz.</p>
+<p style="color:#64748b">XRE CRM</p></div>`,
+  });
 }
 
 export const signupEnabled = () => process.env.XRE_SIGNUP?.trim() === "1";
@@ -114,7 +155,7 @@ export function registerWorkspacePublicRoutes(app: Express, store: Store) {
   const json = express.json({ limit: "16kb" });
 
   app.get("/api/workspaces/config", (_req, res) => {
-    res.json({ signup: signupEnabled(), trialDays: trialDays(), defaultSlug: defaultSlug() });
+    res.json({ signup: signupEnabled(), trialDays: trialDays(), defaultSlug: defaultSlug(), verifyEmail: verificationRequired() });
   });
 
   app.get("/api/workspaces/public/:slug", async (req, res) => {
@@ -155,28 +196,107 @@ export function registerWorkspacePublicRoutes(app: Express, store: Store) {
     if (await workspaceBySlug(store, input.slug))
       return res.status(409).json({ error: "SLUG_TAKEN", message: "Bu kısa ad alınmış; başka bir ad seçin." });
 
+    const passwordHash = await hashPassword(input.password);
+    const draft: SignupDraft = { company: input.company, slug: input.slug, name: input.name, email: input.email, passwordHash };
+    if (!verificationRequired()) return finish(req, res, draft);
+
+    // E-posta doğrulaması: alan, kod girilince açılır. Kod yalnız özet olarak saklanır.
+    for (const r of await raw.list<PendingSignup>(PENDING_KIND, WORKSPACE_SYSTEM_OWNER))
+      if (r.payload.expiresAt < Date.now()) await raw.delete(PENDING_KIND, r.id, WORKSPACE_SYSTEM_OWNER);
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    const pendingId = crypto.randomBytes(18).toString("hex");
+    const pending: PendingSignup = { ...draft, codeHash: hashCode(pendingId, code), expiresAt: Date.now() + PENDING_TTL_MS, attempts: 0, sentAt: Date.now(), sends: 1 };
+    await raw.put(PENDING_KIND, pendingId, pending, WORKSPACE_SYSTEM_OWNER);
+    try {
+      await sendVerification(pending, code);
+    } catch (error) {
+      await raw.delete(PENDING_KIND, pendingId, WORKSPACE_SYSTEM_OWNER);
+      console.warn("Doğrulama e-postası gönderilemedi:", (error as Error).message);
+      return res.status(502).json({ error: "MAIL_FAILED", message: "Doğrulama e-postası gönderilemedi. Adresi kontrol edip tekrar deneyin." });
+    }
+    res.status(202).json({ ok: true, verify: true, pendingId, email: input.email });
+  });
+
+  const loadPending = async (id: unknown) => {
+    const pendingId = String(id || "");
+    if (!/^[0-9a-f]{36}$/.test(pendingId)) return null;
+    const record = (await raw.get<PendingSignup>(PENDING_KIND, pendingId, WORKSPACE_SYSTEM_OWNER))?.payload;
+    if (!record) return null;
+    if (record.expiresAt < Date.now()) {
+      await raw.delete(PENDING_KIND, pendingId, WORKSPACE_SYSTEM_OWNER);
+      return null;
+    }
+    return { pendingId, record };
+  };
+  const expired = (res: Response) =>
+    res.status(410).json({ error: "CODE_EXPIRED", message: "Kodun süresi doldu. Kayıt formunu yeniden doldurun." });
+
+  app.post("/api/workspaces/signup/verify", json, async (req, res) => {
+    if (!signupEnabled()) return res.status(404).json({ error: "SIGNUP_DISABLED", message: "Yeni kayıt şu an kapalı." });
+    const found = await loadPending(req.body?.pendingId);
+    if (!found) return expired(res);
+    const { pendingId, record } = found;
+    const code = String(req.body?.code || "").replace(/\D/g, "");
+    const given = Buffer.from(hashCode(pendingId, code));
+    const wanted = Buffer.from(record.codeHash);
+    if (given.length !== wanted.length || !crypto.timingSafeEqual(given, wanted)) {
+      const attempts = record.attempts + 1;
+      if (attempts >= MAX_CODE_ATTEMPTS) {
+        await raw.delete(PENDING_KIND, pendingId, WORKSPACE_SYSTEM_OWNER);
+        return res.status(410).json({ error: "CODE_EXPIRED", message: "Çok fazla hatalı deneme. Kayıt formunu yeniden doldurun." });
+      }
+      await raw.put(PENDING_KIND, pendingId, { ...record, attempts }, WORKSPACE_SYSTEM_OWNER);
+      return res.status(400).json({ error: "CODE_INVALID", message: `Kod hatalı. ${MAX_CODE_ATTEMPTS - attempts} deneme hakkınız kaldı.` });
+    }
+    await raw.delete(PENDING_KIND, pendingId, WORKSPACE_SYSTEM_OWNER);
+    return finish(req, res, record, true);
+  });
+
+  app.post("/api/workspaces/signup/resend", json, async (req, res) => {
+    if (!signupEnabled()) return res.status(404).json({ error: "SIGNUP_DISABLED", message: "Yeni kayıt şu an kapalı." });
+    const found = await loadPending(req.body?.pendingId);
+    if (!found) return expired(res);
+    const { pendingId, record } = found;
+    if (Date.now() - record.sentAt < RESEND_WAIT_MS)
+      return res.status(429).json({ error: "TOO_SOON", message: "Yeni kod için bir dakika bekleyin." });
+    if (record.sends >= MAX_SENDS)
+      return res.status(429).json({ error: "TOO_MANY", message: "Çok fazla kod istendi. Kayıt formunu yeniden doldurun." });
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    await raw.put(PENDING_KIND, pendingId, { ...record, codeHash: hashCode(pendingId, code), attempts: 0, sentAt: Date.now(), sends: record.sends + 1 }, WORKSPACE_SYSTEM_OWNER);
+    try {
+      await sendVerification(record, code);
+    } catch (error) {
+      console.warn("Doğrulama e-postası gönderilemedi:", (error as Error).message);
+      return res.status(502).json({ error: "MAIL_FAILED", message: "E-posta gönderilemedi. Biraz sonra tekrar deneyin." });
+    }
+    res.json({ ok: true });
+  });
+
+  /** Alanı ve sahibinin hesabını oluşturur, oturumu açar. */
+  async function finish(req: Request, res: Response, draft: SignupDraft, emailVerified = false) {
     const id = `acc_${crypto.randomBytes(8).toString("hex")}`;
     const now = new Date().toISOString();
     const account: LocalAccount = {
       id,
       openId: `local:${id}`,
-      name: input.name,
-      email: input.email,
-      passwordHash: await hashPassword(input.password),
+      name: draft.name,
+      email: draft.email,
+      passwordHash: draft.passwordHash,
       active: true,
       createdAt: now,
       updatedAt: now,
       lastLoginAt: now,
     };
     const ws: Workspace = {
-      slug: input.slug,
-      name: input.company,
+      slug: draft.slug,
+      name: draft.company,
       ownerOpenId: account.openId,
-      contactName: input.name,
-      contactEmail: input.email,
+      contactName: draft.name,
+      contactEmail: draft.email,
       createdAt: now,
       trialEndsAt: new Date(Date.now() + trialDays() * DAY).toISOString(),
       status: "trial",
+      emailVerified,
     };
     // Aynı anda iki kayıt aynı adı almasın.
     const claimed = await raw.insertIfAbsent(WORKSPACE_KIND, ws.slug, ws, WORKSPACE_SYSTEM_OWNER);
@@ -186,7 +306,7 @@ export function registerWorkspacePublicRoutes(app: Express, store: Store) {
     await setSession(req, res, account, { workspace: ws.ownerOpenId });
     console.info(`Yeni çalışma alanı: ${ws.slug} (${ws.name}) · ${ws.contactEmail}`);
     res.status(201).json({ ok: true, workspace: { slug: ws.slug, name: ws.name, trialEndsAt: ws.trialEndsAt } });
-  });
+  }
 }
 
 /** Oturum gerektiren uçlar: yalnız varsayılan alanın sahibi tüm firmaları yönetir. */
@@ -210,7 +330,7 @@ export function registerWorkspaceAdminRoutes(app: Express, store: Store) {
       out.push({ ...ws, ownerOpenId: undefined, ...workspaceState(ws), users: accounts.length, leads: leads.length, lastLoginAt: lastLogin });
     }
     out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    res.json({ workspaces: out, signup: signupEnabled(), trialDays: trialDays() });
+    res.json({ workspaces: out, signup: signupEnabled(), trialDays: trialDays(), verifyEmail: verificationRequired() });
   });
 
   app.post("/api/workspaces/:slug", async (req, res) => {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Eye, EyeOff, Loader2, QrCode, ShieldCheck, Smartphone, X } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "../store";
+import FluidBackdrop from "./FluidBackdrop";
 import "../login.css";
 
 export interface AuthStatus {
@@ -168,22 +169,8 @@ export default function LoginScreen({
   return (
     <div className="login-screen" role="dialog" aria-modal="true" aria-label="XRE CRM giriş">
       <section className="login-brand">
-        <video
-          className="login-video"
-          poster="/login-poster.jpg"
-          autoPlay
-          muted
-          loop
-          playsInline
-          preload="auto"
-          aria-hidden="true"
-          ref={(el) => {
-            if (el && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) el.pause();
-          }}
-        >
-          <source src="/login-video.webm" type="video/webm" />
-          <source src="/login-video.mp4" type="video/mp4" />
-        </video>
+        <FluidBackdrop />
+        <img className="login-brand-logo" src="/xre-crm-logo-white.png" alt="XRE CRM" />
         <div className="login-brand-text">
         <h2>Müşterileriniz, aramalarınız ve ekibiniz tek ekranda.</h2>
         <ul>
@@ -191,7 +178,7 @@ export default function LoginScreen({
           <li>WhatsApp, santral ve yapay zekâ aramaları</li>
           <li>n8n ve webhook otomasyonları</li>
         </ul>
-        <small><ShieldCheck size={14} /> Verileriniz kendi sunucunuzda kalır.</small>
+        <small><ShieldCheck size={14} /> Verileriniz yalnız size aittir.</small>
         </div>
       </section>
       <section className="login-card">

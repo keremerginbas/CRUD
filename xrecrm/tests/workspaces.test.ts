@@ -2,19 +2,21 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import http from "node:http";
 import { createApp, processOutboxOnce } from "../server/app";
 import { createMemoryStore } from "../server/db";
+import { setMailSender, type Mail } from "../server/mailer";
 import { resetSignupAttempts, slugProblem, workspaceBySlug, WORKSPACE_KIND, WORKSPACE_SYSTEM_OWNER } from "../server/workspaces";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
 
 beforeEach(() => {
-  for (const key of ["MANUS_JWT_SECRET", "MANUS_PROJECT_ID", "XRE_OWNER_OPEN_ID", "MANUS_OWNER_OPEN_ID", "MANUS_OAUTH_PORTAL_URL", "XRE_SIGNUP", "XRE_TRIAL_DAYS", "XRE_DEFAULT_SLUG"])
+  for (const key of ["MANUS_JWT_SECRET", "MANUS_PROJECT_ID", "XRE_OWNER_OPEN_ID", "MANUS_OWNER_OPEN_ID", "MANUS_OAUTH_PORTAL_URL", "XRE_SIGNUP", "XRE_TRIAL_DAYS", "XRE_DEFAULT_SLUG", "XRE_SIGNUP_VERIFY", "SMTP_HOST", "SMTP_USER", "SMTP_PASS"])
     delete process.env[key];
   process.env.XRE_SESSION_SECRET = "workspace-test-secret-0123456789abcdef";
   resetSignupAttempts();
 });
 afterEach(() => {
   for (const server of servers.splice(0)) server.close();
+  setMailSender(null);
   for (const key of Object.keys(process.env)) if (!(key in savedEnv)) delete process.env[key];
   Object.assign(process.env, savedEnv);
 });
@@ -145,6 +147,69 @@ describe("Çalışma alanları", () => {
     expect((await get(base, "/api/state", tenant)).status).toBe(401);
     expect((await get(base, "/api/settings/integrations", tenant)).status).toBe(401);
     expect((await (await get(base, "/api/me", tenant)).json()).user).toBeNull();
+  });
+
+  it("e-posta gönderimi ayarlıysa alan ancak kod doğrulanınca açılır", async () => {
+    process.env.XRE_SIGNUP = "1";
+    const sent: Mail[] = [];
+    setMailSender(async (mail) => void sent.push(mail));
+    const { base, store } = await start();
+    await setupDefault(base);
+    expect((await (await get(base, "/api/workspaces/config")).json()).verifyEmail).toBe(true);
+
+    const signup = await post(base, "/api/workspaces/signup", ahmet);
+    expect(signup.status).toBe(202);
+    expect(cookieOf(signup)).toBe("");
+    const { pendingId, verify } = await signup.json();
+    expect(verify).toBe(true);
+    expect(await workspaceBySlug(store, "ahmet")).toBeNull();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].to).toBe("ahmet@firma.test");
+    const code = sent[0].text.match(/\b(\d{6})\b/)![1];
+    // Kod ve şifre düz metin olarak saklanmaz.
+    const stored = JSON.stringify(await store.list("workspace-pending", WORKSPACE_SYSTEM_OWNER));
+    expect(stored).not.toContain(code);
+    expect(stored).not.toContain(ahmet.password);
+
+    const wrong = code === "000000" ? "111111" : "000000";
+    const bad = await post(base, "/api/workspaces/signup/verify", { pendingId, code: wrong });
+    expect(bad.status).toBe(400);
+    expect((await post(base, "/api/workspaces/signup/resend", { pendingId })).status).toBe(429);
+    expect((await post(base, "/api/workspaces/signup/verify", { pendingId: "yok", code })).status).toBe(410);
+
+    const ok = await post(base, "/api/workspaces/signup/verify", { pendingId, code });
+    expect(ok.status).toBe(201);
+    const me = await (await get(base, "/api/me", cookieOf(ok))).json();
+    expect(me.workspace).toMatchObject({ slug: "ahmet", state: "trial" });
+    expect((await workspaceBySlug(store, "ahmet"))!.emailVerified).toBe(true);
+    // Kod bir kez kullanılır.
+    expect((await post(base, "/api/workspaces/signup/verify", { pendingId, code })).status).toBe(410);
+  });
+
+  it("beş hatalı kod denemesinde kayıt isteği iptal olur", async () => {
+    process.env.XRE_SIGNUP = "1";
+    const sent: Mail[] = [];
+    setMailSender(async (mail) => void sent.push(mail));
+    const { base, store } = await start();
+    await setupDefault(base);
+    const { pendingId } = await (await post(base, "/api/workspaces/signup", ahmet)).json();
+    const code = sent[0].text.match(/\b(\d{6})\b/)![1];
+    const wrong = code === "000000" ? "111111" : "000000";
+    for (let i = 0; i < 4; i++) expect((await post(base, "/api/workspaces/signup/verify", { pendingId, code: wrong })).status).toBe(400);
+    expect((await post(base, "/api/workspaces/signup/verify", { pendingId, code: wrong })).status).toBe(410);
+    expect((await post(base, "/api/workspaces/signup/verify", { pendingId, code })).status).toBe(410);
+    expect(await workspaceBySlug(store, "ahmet")).toBeNull();
+  });
+
+  it("e-posta gönderilemezse kayıt isteği tutulmaz", async () => {
+    process.env.XRE_SIGNUP = "1";
+    setMailSender(async () => {
+      throw new Error("smtp kapalı");
+    });
+    const { base, store } = await start();
+    await setupDefault(base);
+    expect((await post(base, "/api/workspaces/signup", ahmet)).status).toBe(502);
+    expect(await store.list("workspace-pending", WORKSPACE_SYSTEM_OWNER)).toHaveLength(0);
   });
 
   it("firma kendi çalışanını ekler; çalışan o alana girer", async () => {

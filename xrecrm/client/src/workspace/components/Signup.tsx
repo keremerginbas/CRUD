@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { ArrowRight, Check, Eye, EyeOff, Loader2, LogOut, Mail, MessageCircle } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, Loader2, LogOut, Mail, MailCheck, MessageCircle } from "lucide-react";
 import { SLUG_PATTERN, suggestSlug, type WorkspaceInfo } from "../../../../shared/workspaces";
 import { api } from "../store";
+import FluidBackdrop from "./FluidBackdrop";
 import "../login.css";
 
 const SUPPORT_EMAIL = "xre.software@xre.com.tr";
@@ -19,6 +20,48 @@ export function SignupScreen({ trialDays }: { trialDays: number }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const effectiveSlug = slugTouched ? slug : suggestSlug(company);
+  // E-posta doğrulama adımı: sunucu kod gönderdiyse burada sorulur.
+  const [pendingId, setPendingId] = useState("");
+  const [code, setCode] = useState("");
+  const [wait, setWait] = useState(0);
+  useEffect(() => {
+    if (wait <= 0) return;
+    const t = setTimeout(() => setWait(wait - 1), 1000);
+    return () => clearTimeout(t);
+  }, [wait]);
+  const enter = (workspaceSlug: string) => {
+    try {
+      sessionStorage.removeItem("xre-prefer-demo");
+    } catch {
+      /* depolama kapalı */
+    }
+    location.href = `/${workspaceSlug}`;
+  };
+  async function verify(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      const r = await api("/api/workspaces/signup/verify", { pendingId, code });
+      enter(r.workspace.slug);
+    } catch (err) {
+      const status = (err as Error & { status?: number }).status;
+      setError((err as Error).message);
+      setCode("");
+      setBusy(false);
+      // Süre doldu ya da deneme hakkı bitti: forma dönülür, yazılanlar durur.
+      if (status === 410) setPendingId("");
+    }
+  }
+  async function resend() {
+    setError("");
+    try {
+      await api("/api/workspaces/signup/resend", { pendingId });
+      setWait(60);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,12 +73,14 @@ export function SignupScreen({ trialDays }: { trialDays: number }) {
     setBusy(true);
     try {
       const r = await api("/api/workspaces/signup", { company, slug: effectiveSlug, name, email, password });
-      try {
-        sessionStorage.removeItem("xre-prefer-demo");
-      } catch {
-        /* depolama kapalı */
+      if (r.verify) {
+        setPendingId(r.pendingId);
+        setCode("");
+        setWait(60);
+        setBusy(false);
+        return;
       }
-      location.href = `/${r.workspace.slug}`;
+      enter(r.workspace.slug);
     } catch (err) {
       setError((err as Error).message);
       setBusy(false);
@@ -45,6 +90,8 @@ export function SignupScreen({ trialDays }: { trialDays: number }) {
   return (
     <div className="login-screen" role="dialog" aria-modal="true" aria-label="XRE CRM ücretsiz kayıt">
       <section className="login-brand">
+        <FluidBackdrop />
+        <img className="login-brand-logo" src="/xre-crm-logo-white.png" alt="XRE CRM" />
         <div className="login-brand-text">
           <h2>Satış ekibiniz için CRM, {trialDays} gün ücretsiz.</h2>
           <ul>
@@ -55,6 +102,41 @@ export function SignupScreen({ trialDays }: { trialDays: number }) {
           <small><Check size={14} /> Kredi kartı gerekmez. Verileriniz yalnız size aittir.</small>
         </div>
       </section>
+      {pendingId ? (
+      <section className="login-card">
+        <MailCheck size={34} className="login-verify-icon" />
+        <h1>E-postanızı doğrulayın</h1>
+        <p className="login-sub">
+          <b>{email}</b> adresine 6 haneli bir kod gönderdik. Kodu aşağıya yazın. Gelmediyse gereksiz (spam) klasörüne de bakın.
+        </p>
+        <form onSubmit={verify} className="login-form">
+          <label>
+            Doğrulama kodu
+            <input
+              className="login-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              required
+              autoFocus
+            />
+          </label>
+          {error && <p className="login-error" role="alert">{error}</p>}
+          <button className="btn primary login-submit" disabled={busy || code.length !== 6}>
+            {busy ? <Loader2 size={16} className="spin" /> : <ArrowRight size={16} />}
+            Doğrula ve başla
+          </button>
+        </form>
+        <button className="text-button login-demo" disabled={wait > 0} onClick={() => void resend()}>
+          {wait > 0 ? `Kodu yeniden gönder (${wait} sn)` : "Kodu yeniden gönder"}
+        </button>
+        <button className="text-button login-demo" onClick={() => { setPendingId(""); setError(""); }}>
+          <ArrowLeft size={14} /> Bilgileri düzelt
+        </button>
+      </section>
+      ) : (
       <section className="login-card">
         <h1>Ücretsiz deneyin</h1>
         <p className="login-sub">Firmanız için ayrı bir çalışma alanı açılır. {trialDays} gün boyunca ücretsiz kullanırsınız.</p>
@@ -106,6 +188,7 @@ export function SignupScreen({ trialDays }: { trialDays: number }) {
         </form>
         <a className="login-signup-link" href="/">Zaten hesabım var: giriş yap</a>
       </section>
+      )}
     </div>
   );
 }

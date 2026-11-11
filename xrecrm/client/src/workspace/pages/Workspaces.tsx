@@ -26,13 +26,13 @@ const day = (v: string) => (v ? new Date(v).toLocaleDateString("tr-TR", { timeZo
 export default function Workspaces() {
   const { request } = useStore();
   const [rows, setRows] = useState<Row[] | null>(null);
-  const [info, setInfo] = useState({ signup: false, trialDays: 5 });
+  const [info, setInfo] = useState({ signup: false, trialDays: 5, verifyEmail: false });
   const [busy, setBusy] = useState("");
   const load = () =>
     request("/api/workspaces")
       .then((d: any) => {
         setRows(d.workspaces || []);
-        setInfo({ signup: Boolean(d.signup), trialDays: Number(d.trialDays) || 5 });
+        setInfo({ signup: Boolean(d.signup), trialDays: Number(d.trialDays) || 5, verifyEmail: Boolean(d.verifyEmail) });
       })
       .catch((e: Error) => {
         setRows([]);
@@ -68,7 +68,7 @@ export default function Workspaces() {
       <p className="notice-line">
         <span className={info.signup ? "green-dot" : "amber-dot"} />
         {info.signup
-          ? `Ücretsiz kayıt açık. Yeni firmalar ${info.trialDays} gün deneme alır.`
+          ? `Ücretsiz kayıt açık. Yeni firmalar ${info.trialDays} gün deneme alır. ${info.verifyEmail ? "E-posta doğrulaması açık." : "E-posta doğrulaması kapalı: sunucuda SMTP ayarları yok."}`
           : "Ücretsiz kayıt kapalı. Açmak için sunucu ayarlarına XRE_SIGNUP=1 ekleyin."}
       </p>
       {rows === null ? null : rows.length === 0 ? (

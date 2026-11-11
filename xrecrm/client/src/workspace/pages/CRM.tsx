@@ -533,6 +533,7 @@ export default function CRM({
               <section
                 key={s.id}
                 className={`kanban-column ${over === s.id ? "drag-over" : ""}`}
+                style={{ ["--stage" as string]: s.color } as React.CSSProperties}
                 onDragOver={(e) => {
                   e.preventDefault();
                   setOver(s.id);
