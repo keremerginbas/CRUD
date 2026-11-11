@@ -44,12 +44,6 @@ export function createConnectorApp(options: { store: Store; background?: boolean
         ),
       );
   }
-  app.use((_req, res, next) => {
-    res.setHeader("x-content-type-options", "nosniff");
-    res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
-    next();
-  });
-
   app.get("/health", async (_req, res) => {
     const readiness = await store.readiness().catch(() => ({ database: false }));
     res.status(readiness.database ? 200 : 503).json({ ok: readiness.database, service: "whatsapp-by-xre", time: new Date().toISOString() });
