@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Kitap Takip",
-  "version": "0.2.0",
-  "description": "Kitabınızın satıldığı sitelerdeki stok, fiyat ve yorum bilgilerini düzenli olarak kaydeder.",
+  "version": "0.3.0",
+  "description": "Kitabınızın satıldığı sitelerdeki stok, fiyat ve satış işaretlerini düzenli olarak kaydeder; değişiklikleri isterseniz Telegram'dan bildirir.",
   "permissions": ["storage", "alarms", "tabs", "scripting"],
   "host_permissions": [
     "https://www.hepsiburada.com/*",
@@ -14,7 +14,8 @@
     "https://www.imge.com.tr/*",
     "https://www.e-kitapmedia.de/*",
     "https://www.bkmkitap.com/*",
-    "https://www.kitapyurdu.com/*"
+    "https://www.kitapyurdu.com/*",
+    "https://api.telegram.org/*"
   ],
   "optional_host_permissions": ["https://*/*"],
   "background": { "service_worker": "background.js" },

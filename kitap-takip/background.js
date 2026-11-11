@@ -1,6 +1,6 @@
 // Arka plan: zamanlanmış tarama. Her sayfayı kullanıcının kendi tarayıcısında
 // arka plan sekmesinde açar, veriyi okur, kaydeder ve sekmeyi kapatır.
-importScripts('targets.js', 'lib.js');
+importScripts('targets.js', 'lib.js', 'telegram.js');
 
 const ALARM = 'kitap-takip-tarama';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -106,6 +106,23 @@ async function scanTarget(target, book) {
   return { snapshot: { ...fields, ts: Date.now(), targetId: target.id, url }, diag };
 }
 
+// Taramanın getirdiği değişiklikleri, Telegram bağlıysa tek mesaj olarak gönderir.
+async function notify(targets, book, events, blocked) {
+  const { telegram } = await chrome.storage.local.get('telegram');
+  if (!telegram || !telegram.token || !telegram.chatId) return;
+  const picked = KitapTakipTelegram.pickBlockedNotices(blocked, telegram.notified || {}, KitapTakipLib.dayKey(Date.now()));
+  const text = KitapTakipTelegram.buildScanMessage({ book, targets, events, blocked: picked.ids });
+  if (!text) return;
+  const res = await KitapTakipTelegram.sendMessage(telegram.token, telegram.chatId, text);
+  const current = (await chrome.storage.local.get('telegram')).telegram;
+  if (!current) return; // gönderim sırasında bağlantı kaldırılmış
+  await chrome.storage.local.set({
+    telegram: res.ok
+      ? { ...current, notified: picked.notified, lastError: null, lastSentAt: Date.now() }
+      : { ...current, lastError: { ts: Date.now(), message: res.message } },
+  });
+}
+
 let running = false;
 async function scan(onlyId) {
   if (running) return;
@@ -113,16 +130,21 @@ async function scan(onlyId) {
   try {
     const { targets, book } = await getState();
     const list = onlyId ? targets.filter((t) => t.id === onlyId) : targets;
+    const events = [];
+    const blocked = [];
     for (const t of list) {
       await chrome.storage.local.set({ scanState: { running: true, current: t.name, startedAt: Date.now() } });
       const { snapshot, diag } = await scanTarget(t, book);
       const { snapshots } = await getState();
       snapshots.push(snapshot);
+      events.push(...KitapTakipLib.newEvents(snapshots, snapshot));
+      if (snapshot.status === 'blocked') blocked.push(t.id);
       // Tanı kaydı: her site için yalnızca son taramanınki saklanır.
       const store = (await chrome.storage.local.get('diag')).diag || {};
       store[t.id] = { ts: snapshot.ts, status: snapshot.status, ...(diag || { url: snapshot.url, note: snapshot.note }) };
       await chrome.storage.local.set({ snapshots, diag: store });
     }
+    await notify(targets, book, events, blocked).catch(() => {}); // bildirim hatası taramayı bozmasın
   } finally {
     running = false;
     await chrome.storage.local.set({ scanState: { running: false, finishedAt: Date.now() } });

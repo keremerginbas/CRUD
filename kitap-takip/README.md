@@ -50,6 +50,23 @@ Dışarıdan toplanan işaretler tahmindir. Kesin sayıların iki kaynağı vard
   satış hesaplarını düzenler. Telif ödemeniz satışa bağlıysa satış hesabını yazılı olarak isteyin;
   sözleşmenizdeki ilgili maddeye de bakın.
 
+## Telegram bildirimleri
+
+1. Telegram'da botunuzu açıp **Başlat**'a basın.
+2. Panelin **Telegram bildirimleri** bölümüne BotFather'ın verdiği token'ı yapıştırıp **Bağlan**'a basın.
+3. **Deneme mesajı gönder** ile sınayın.
+
+Her taramadan sonra, değişiklik varsa tek mesaj gelir: satın alma sayacındaki artış, stoktan düşen
+ya da stoka giren adet, tükenme ve yeniden stok, satış sıralamasındaki yükseliş, yeni yorum, yeni
+baskı, fiyat ve satıcı sayısı değişikliği. Bir site doğrulama isterse bunu da günde bir kez haber
+verir. Mesajlar tarama anında gelir; tarayıcı kapalıyken tarama yapılmaz.
+
+Token yalnızca bu tarayıcıda saklanır; depoya, CSV'ye ya da tanı dosyasına yazılmaz.
+**Bağlantıyı kaldır** token'ı siler.
+
+Başka birinin kitabı sepetine eklediği dışarıdan görülemez; bu bilgi yalnızca sitenin kendi
+sisteminde durur. Satış, yukarıdaki işaretlerden anlaşılır.
+
 ## Yeni sayfa ekleme
 
 Panelin altındaki forma ürün sayfasının adresini yapıştırın. Ürün sayfasını bilmiyorsanız sitenin
@@ -72,8 +89,12 @@ npx playwright install chromium
 npm test
 ```
 
+`test/extension.test.js` eklentiyi gerçek tarayıcıya yükler ve mağaza ile Telegram'ın yerine yerel bir
+sunucu koyar; geçici sertifika üretmek için `openssl` komutuna ihtiyaç duyar.
+
 - `extractor.js`: açık sayfadan veriyi okur; arama sayfasından ürün sayfasını bulur.
 - `background.js`: zamanlama ve tarama.
 - `lib.js`: değişiklik, geçmiş ve satış işareti hesapları.
+- `telegram.js`: bildirim metni ve Telegram çağrıları.
 - `dashboard.*`: takip ekranı.
 - `targets.js`: varsayılan kitap ve sayfalar.

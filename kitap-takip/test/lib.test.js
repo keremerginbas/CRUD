@@ -98,3 +98,28 @@ test('sıralamadaki küçük oynamalar olay üretmez, belirgin yükseliş üreti
   ]);
   assert.deepStrictEqual(ev.map((e) => [e.field, e.from, e.to]), [['rank', 58000, 30000]]);
 });
+
+// --- Bir taramanın ürettiği yeni olaylar (bildirim için) ---
+
+test('yeni olaylar yalnızca son okumanın getirdiği değişikliklerdir', () => {
+  const last = snap('a', 0, { status: 'out_of_stock', stockQty: 0 });
+  const ev = lib.newEvents([
+    snap('a', 3, { status: 'in_stock', stockQty: 5 }),
+    snap('a', 2, { status: 'in_stock', stockQty: 2 }), // eski değişiklik: yeniden bildirilmemeli
+    snap('b', 1, { status: 'in_stock', price: 100 }),
+    last,
+    snap('b', 0, { status: 'in_stock', price: 90 }), // başka sitenin değişikliği
+  ], last);
+  assert.deepStrictEqual(ev.map((e) => [e.targetId, e.field, e.from, e.to]).sort(), [['a', 'status', 'in_stock', 'out_of_stock'], ['a', 'stockQty', 2, 0]]);
+});
+
+test('okunamayan son tarama yeni olay üretmez', () => {
+  const last = snap('a', 0, { status: 'blocked' });
+  assert.deepStrictEqual(lib.newEvents([snap('a', 1, { status: 'in_stock', price: 100 }), last], last), []);
+});
+
+test('olay açıklamaları: yeni baskı ve yeniden stok', () => {
+  assert.strictEqual(lib.describeEvent({ field: 'edition', from: 1, to: 2 }), '2. baskı göründü (önceki: 1. baskı)');
+  assert.strictEqual(lib.describeEvent({ field: 'status', from: 'out_of_stock', to: 'in_stock' }), 'Yeniden stokta (önceki durum: Tükendi)');
+  assert.strictEqual(lib.describeEvent({ field: 'price', from: 105, to: 97.5 }), 'Fiyat: 105 → 97,5');
+});

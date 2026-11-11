@@ -118,5 +118,28 @@
     return '﻿' + [cols.join(','), ...rows].join('\n');
   }
 
-  return { STATUS_LABEL, UNREADABLE, normTitle, realQty, salesSignals, dayKey, latestByTarget, deriveEvents, dayStrip, toCsv };
+  // Bir okumanın, aynı sitenin önceki okunabilir kaydına göre getirdiği değişiklikler.
+  function newEvents(snapshots, snapshot) {
+    return deriveEvents(snapshots.filter((s) => s.targetId === snapshot.targetId)).filter((e) => e.ts === snapshot.ts);
+  }
+
+  const FIELD_LABEL = { price: 'Fiyat', stockQty: 'Stok adedi', soldCount: 'Satın alma sayacı', edition: 'Baskı', reviewCount: 'Yorum sayısı', rank: 'Satış sıralaması', leadTime: 'Temin süresi', sellers: 'Satıcı sayısı' };
+
+  // Olayın okura gösterilen cümlesi (panelde ve Telegram mesajında aynı).
+  function describeEvent(e) {
+    const label = (st) => STATUS_LABEL[st] || st;
+    const show = (v) => (typeof v === 'number' ? v.toLocaleString('tr-TR') : v);
+    if (e.field === 'status') {
+      if (e.to === 'out_of_stock') return 'Stok tükendi';
+      if (e.to === 'in_stock' && e.from !== 'in_stock') return `Yeniden stokta (önceki durum: ${label(e.from)})`;
+      return `Durum değişti: ${label(e.from)} → ${label(e.to)}`;
+    }
+    if (e.field === 'stockQty') return e.to < e.from ? `Stoktan ${e.from - e.to} adet düştü (kalan: ${e.to})` : `Stoka ${e.to - e.from} adet girdi (toplam: ${e.to})`;
+    if (e.field === 'soldCount' && e.to > e.from) return `${e.to - e.from} adet satıldı (satın alma sayacı ${show(e.from)} → ${show(e.to)})`;
+    if (e.field === 'rank') return `Satış sıralaması yükseldi: ${show(e.from)}. sıradan ${show(e.to)}. sıraya (arada satış olmuş olabilir)`;
+    if (e.field === 'edition' && e.to > e.from) return `${e.to}. baskı göründü (önceki: ${e.from}. baskı)`;
+    return `${FIELD_LABEL[e.field] || e.field}: ${show(e.from)} → ${show(e.to)}`;
+  }
+
+  return { STATUS_LABEL, UNREADABLE, normTitle, realQty, salesSignals, dayKey, latestByTarget, deriveEvents, newEvents, describeEvent, dayStrip, toCsv };
 });

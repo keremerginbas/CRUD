@@ -57,6 +57,30 @@
       <ol id="events" class="events"></ol>
     </section>
 
+    <section aria-labelledby="h-tg">
+      <h2 id="h-tg">Telegram bildirimleri</h2>
+      <p class="lede">Stok, satış sayacı, baskı ve fiyat değişiklikleri her taramadan sonra Telegram'dan size yazılır.</p>
+      <div id="tg-off">
+        <ol class="steps">
+          <li>Telegram'da botunuzu açıp <strong>Başlat</strong>'a basın.</li>
+          <li>BotFather'ın verdiği token'ı aşağıya yapıştırıp <strong>Bağlan</strong>'a basın.</li>
+        </ol>
+        <form id="tg-form" class="add">
+          <label class="grow">Bot token'ı <input id="tg-token" type="password" autocomplete="off" required placeholder="123456789:AA..."></label>
+          <button id="tg-connect" type="submit">Bağlan</button>
+        </form>
+        <p class="hint">Token yalnızca bu tarayıcıda saklanır; dışa aktarılan dosyalara yazılmaz.</p>
+      </div>
+      <div id="tg-on" hidden>
+        <p id="tg-who"></p>
+        <div class="actions">
+          <button id="tg-test" type="button">Deneme mesajı gönder</button>
+          <button id="tg-disconnect" type="button">Bağlantıyı kaldır</button>
+        </div>
+      </div>
+      <p class="hint" id="tg-status" role="status"></p>
+    </section>
+
     <section aria-labelledby="h-targets">
       <h2 id="h-targets">Takip edilen sayfalar</h2>
       <ul id="targets" class="targets"></ul>
@@ -71,6 +95,7 @@
 
   <script src="targets.js"></script>
   <script src="lib.js"></script>
+  <script src="telegram.js"></script>
   <script src="dashboard.js"></script>
 </body>
 </html>

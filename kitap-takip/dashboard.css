@@ -98,3 +98,8 @@ td a { color: inherit; font-weight: 600; }
   .strip-row { grid-template-columns: 1fr; gap: 4px; }
   .strip-axis { margin-left: 0; }
 }
+
+[hidden] { display: none !important; }
+.steps { margin: 0 0 12px; padding-left: 1.3em; max-width: 70ch; }
+.steps li { margin: 2px 0; }
+#tg-who { margin: 0 0 12px; }

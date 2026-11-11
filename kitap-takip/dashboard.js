@@ -1,8 +1,8 @@
 const L = KitapTakipLib;
+const T = KitapTakipTelegram;
 const $ = (id) => document.getElementById(id);
 const STRIP_DAYS = 60;
 const SIGNAL_DAYS = 30;
-const FIELD_LABEL = { price: 'Fiyat', stockQty: 'Stok adedi', soldCount: 'Satın alma sayacı', edition: 'Baskı', reviewCount: 'Yorum sayısı', rank: 'Satış sıralaması', leadTime: 'Temin süresi', sellers: 'Satıcı sayısı' };
 
 const el = (tag, attrs = {}, ...kids) => {
   const n = document.createElement(tag);
@@ -17,13 +17,14 @@ const fmtMoney = (v, cur) => (v == null ? '–' : `${v.toLocaleString('tr-TR', {
 const pill = (status) => el('span', { class: `pill s-${status}` }, L.STATUS_LABEL[status] || status);
 
 async function load() {
-  const s = await chrome.storage.local.get(['targets', 'snapshots', 'settings', 'book', 'scanState']);
+  const s = await chrome.storage.local.get(['targets', 'snapshots', 'settings', 'book', 'scanState', 'telegram']);
   return {
     targets: s.targets || DEFAULT_TARGETS,
     snapshots: s.snapshots || [],
     settings: { intervalHours: 12, ...(s.settings || {}) },
     book: s.book || DEFAULT_BOOK,
     scanState: s.scanState || { running: false },
+    telegram: s.telegram || null,
   };
 }
 
@@ -124,24 +125,11 @@ function renderStrips(state) {
   $('legend').replaceChildren(...['in_stock', 'on_order', 'out_of_stock', 'no_buy_button', 'blocked'].map((s) => el('li', {}, pill(s))), el('li', {}, el('span', { class: 'pill s-none' }, 'Kayıt yok')));
 }
 
-function describeEvent(e) {
-  if (e.field === 'status') {
-    if (e.to === 'out_of_stock') return 'Stok tükendi';
-    if (e.to === 'in_stock' && e.from !== 'in_stock') return `Yeniden stokta (önceki durum: ${L.STATUS_LABEL[e.from] || e.from})`;
-    return `Durum değişti: ${L.STATUS_LABEL[e.from] || e.from} → ${L.STATUS_LABEL[e.to] || e.to}`;
-  }
-  if (e.field === 'stockQty') return e.to < e.from ? `Stoktan ${e.from - e.to} adet düştü (kalan: ${e.to})` : `Stoka ${e.to - e.from} adet girdi (toplam: ${e.to})`;
-  if (e.field === 'rank') return `Satış sıralaması yükseldi: ${e.from.toLocaleString('tr-TR')}. sıradan ${e.to.toLocaleString('tr-TR')}. sıraya (arada satış olmuş olabilir)`;
-  if (e.field === 'soldCount') return `Satın alma sayacı ${e.from} → ${e.to} (+${e.to - e.from})`;
-  const show = (v) => (typeof v === 'number' ? v.toLocaleString('tr-TR') : v);
-  return `${FIELD_LABEL[e.field] || e.field}: ${show(e.from)} → ${show(e.to)}`;
-}
-
 function renderEvents(state) {
   const name = Object.fromEntries(state.targets.map((t) => [t.id, t.name]));
   const events = L.deriveEvents(state.snapshots).slice(0, 100);
   $('events').replaceChildren(...(events.length
-    ? events.map((e) => el('li', {}, el('time', {}, fmtTime(e.ts)), el('strong', {}, name[e.targetId] || e.targetId), el('span', {}, describeEvent(e))))
+    ? events.map((e) => el('li', {}, el('time', {}, fmtTime(e.ts)), el('strong', {}, name[e.targetId] || e.targetId), el('span', {}, L.describeEvent(e))))
     : [el('li', { class: 'empty' }, 'Henüz değişiklik yok. İkinci taramadan sonra stok, fiyat ve baskı değişiklikleri burada listelenir.')]));
 }
 
@@ -149,6 +137,21 @@ function renderTargets(state) {
   $('targets').replaceChildren(...state.targets.map((t) => el('li', {},
     el('strong', {}, t.name), el('span', { class: 'url' }, t.url),
     el('button', { class: 'link', type: 'button', onclick: () => removeTarget(t.id) }, 'Kaldır'))));
+}
+
+// Telegram durum satırı: işlem sonucu ya da son gönderim hatası.
+function setTgStatus(text, kind = 'action') {
+  $('tg-status').textContent = text;
+  $('tg-status').dataset.kind = kind;
+}
+
+function renderTelegram(state) {
+  const tg = state.telegram;
+  $('tg-off').hidden = !!tg;
+  $('tg-on').hidden = !tg;
+  if (tg) $('tg-who').textContent = `Bağlı bot: @${tg.botName}. Mesajlar ${tg.chatName} adlı sohbete gidiyor.`;
+  if (tg && tg.lastError) setTgStatus(`Son bildirim gönderilemedi (${fmtTime(tg.lastError.ts)}): ${tg.lastError.message}`, 'error');
+  else if ($('tg-status').dataset.kind === 'error') setTgStatus('');
 }
 
 function renderScanState(state) {
@@ -166,7 +169,7 @@ async function render() {
   $('book-sub').textContent = `ISBN ${state.book.isbn}, ${state.targets.length} sayfa takipte`;
   document.title = `${state.book.title} – Kitap Takip`;
   $('interval').value = String(state.settings.intervalHours);
-  renderScanState(state); renderNow(state); renderSignals(state); renderStrips(state); renderEvents(state); renderTargets(state);
+  renderScanState(state); renderNow(state); renderSignals(state); renderStrips(state); renderEvents(state); renderTelegram(state); renderTargets(state);
 }
 
 function download(blob, name) {
@@ -192,6 +195,30 @@ $('csv').addEventListener('click', async () => {
   const state = await load();
   download(new Blob([L.toCsv(state.snapshots, state.targets)], { type: 'text/csv;charset=utf-8' }), `kitap-takip-${L.dayKey(Date.now())}.csv`);
 });
+$('tg-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const token = $('tg-token').value.trim();
+  setTgStatus('Bağlanılıyor…');
+  const res = await T.connect(token);
+  if (!res.ok) { setTgStatus(res.message); return; }
+  await chrome.storage.local.set({ telegram: { token, chatId: res.chatId, chatName: res.chatName, botName: res.botName } });
+  $('tg-token').value = '';
+  setTgStatus(`Bağlandı: @${res.botName} botu ${res.chatName} adlı sohbete yazacak. "Deneme mesajı gönder" ile sınayabilirsiniz.`);
+});
+
+$('tg-test').addEventListener('click', async () => {
+  const { telegram, book } = await load();
+  if (!telegram) return;
+  setTgStatus('Gönderiliyor…');
+  const res = await T.sendMessage(telegram.token, telegram.chatId, `${book.title}\nKitap Takip bağlandı. Değişiklikler bu sohbete yazılacak.`);
+  setTgStatus(res.ok ? "Deneme mesajı gönderildi; Telegram'a bakın." : res.message);
+});
+
+$('tg-disconnect').addEventListener('click', async () => {
+  await chrome.storage.local.remove('telegram');
+  setTgStatus('Bağlantı kaldırıldı; token bu tarayıcıdan silindi.');
+});
+
 // Okuyucuyu bir siteye göre ayarlamak için: son taramanın sayfa parçaları (yalnızca ürün bilgisi).
 $('diag').addEventListener('click', async () => {
   const state = await load();
