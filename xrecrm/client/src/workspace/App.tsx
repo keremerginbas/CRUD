@@ -59,6 +59,7 @@ import "./style.css";
 import "./bitrix.css";
 import "./customer.css";
 import "./kanban-refresh.css";
+import "./night-polish.css";
 import LeadDrawer from "./components/LeadDrawer";
 import { PREVIEW, WORKSPACE_SLUG, currentPath, withBase } from "./nav";
 import { SignupScreen, WorkspaceLocked, WorkspaceMissing } from "./components/Signup";

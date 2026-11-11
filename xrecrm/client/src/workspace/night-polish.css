@@ -1,0 +1,360 @@
+/* Koyu tema düzeltmeleri: açık temadan kalan beyaz zeminler, okunmayan yazılar ve
+   parlak simge kutucukları. Yalnız koyu (night) temada geçerlidir. */
+
+html[data-xre-theme="night"] .sx-feed-card,
+html[data-xre-theme="night"] .cx-org-layout,
+html[data-xre-theme="night"] .cx-org-node,
+html[data-xre-theme="night"] .cx-org-detail,
+html[data-xre-theme="night"] .worktime-card,
+html[data-xre-theme="night"] .worktime-tab,
+html[data-xre-theme="night"] .b24-report-kpis > article,
+html[data-xre-theme="night"] .cx-metrics-grid > article,
+html[data-xre-theme="night"] .rule-card,
+html[data-xre-theme="night"] .automation-visual > span,
+html[data-xre-theme="night"] .crm-toolbar.b24-filter-bar,
+html[data-xre-theme="night"] .employee-toolbar .access-search,
+html[data-xre-theme="night"] .leads-table tbody tr,
+html[data-xre-theme="night"] .sx-table tbody tr.is-overdue > td,
+html[data-xre-theme="night"] .crm-record-check,
+html[data-xre-theme="night"] .sx-check-button {
+  background: var(--xre-surface) !important;
+  border-color: var(--xre-border) !important;
+  color: var(--xre-text);
+}
+
+html[data-xre-theme="night"] .cx-org-layout {
+  background: var(--xre-bg) !important;
+}
+
+html[data-xre-theme="night"] .leads-table tbody tr:hover,
+html[data-xre-theme="night"] .cx-org-node:hover,
+html[data-xre-theme="night"] .rule-card:hover {
+  background: var(--xre-surface-raised) !important;
+}
+
+html[data-xre-theme="night"] .cx-org-node.selected {
+  border-color: var(--xre-accent) !important;
+  box-shadow: 0 0 0 2px var(--xre-accent-soft);
+}
+
+html[data-xre-theme="night"] .sx-table tbody tr.is-overdue > td {
+  background: color-mix(in srgb, #ff6b6b 9%, var(--xre-surface)) !important;
+}
+
+html[data-xre-theme="night"] .sx-table tbody tr.is-overdue > td:first-child {
+  box-shadow: inset 3px 0 0 #ff7b7b;
+}
+
+html[data-xre-theme="night"] .crm-toolbar .search-field,
+html[data-xre-theme="night"] .worktime-timeline,
+html[data-xre-theme="night"] .worktime-timeline .empty,
+html[data-xre-theme="night"] .b24-funnel-track,
+html[data-xre-theme="night"] .employee-row code,
+html[data-xre-theme="night"] .rule-flow b,
+html[data-xre-theme="night"] .worktime-status.idle,
+html[data-xre-theme="night"] .status-button,
+html[data-xre-theme="night"] .sx-tabs button > span,
+html[data-xre-theme="night"] .toggle {
+  background: var(--xre-surface-muted) !important;
+  border-color: var(--xre-border) !important;
+  color: var(--xre-text-soft) !important;
+}
+
+html[data-xre-theme="night"] .toggle.on,
+html[data-xre-theme="night"] .toggle.active,
+html[data-xre-theme="night"] .toggle[aria-checked="true"],
+html[data-xre-theme="night"] .toggle[aria-pressed="true"] {
+  background: var(--xre-accent) !important;
+}
+
+html[data-xre-theme="night"] .crm-toolbar .search-field input {
+  background: transparent !important;
+  color: var(--xre-text) !important;
+}
+
+html[data-xre-theme="night"] .access-notice,
+html[data-xre-theme="night"] .worktime-notice,
+html[data-xre-theme="night"] .worktime-location-card,
+html[data-xre-theme="night"] .b24-report-note,
+html[data-xre-theme="night"] .automation-intro,
+html[data-xre-theme="night"] .info-banner,
+html[data-xre-theme="night"] .sx-info-strip {
+  background: var(--xre-accent-soft) !important;
+  border-color: color-mix(in srgb, var(--xre-accent) 30%, var(--xre-border)) !important;
+  color: var(--xre-text-soft) !important;
+}
+
+html[data-xre-theme="night"] .access-notice *,
+html[data-xre-theme="night"] .worktime-notice *,
+html[data-xre-theme="night"] .worktime-location-card *,
+html[data-xre-theme="night"] .b24-report-note *,
+html[data-xre-theme="night"] .automation-intro p,
+html[data-xre-theme="night"] .info-banner p,
+html[data-xre-theme="night"] .sx-info-strip * {
+  color: var(--xre-text-soft) !important;
+}
+
+html[data-xre-theme="night"] .automation-intro h2,
+html[data-xre-theme="night"] .automation-intro h3,
+html[data-xre-theme="night"] .automation-intro strong,
+html[data-xre-theme="night"] .info-banner strong,
+html[data-xre-theme="night"] .sx-info-strip strong,
+html[data-xre-theme="night"] .access-notice strong,
+html[data-xre-theme="night"] .worktime-notice strong {
+  color: var(--xre-text) !important;
+}
+
+html[data-xre-theme="night"] .sx-tabs button.active,
+html[data-xre-theme="night"] .segmented button.active,
+html[data-xre-theme="night"] .worktime-tab.active,
+html[data-xre-theme="night"] .access-role-item.active,
+html[data-xre-theme="night"] .status-button.active {
+  background: var(--xre-accent-soft) !important;
+  color: var(--xre-accent-strong) !important;
+  border-color: color-mix(in srgb, var(--xre-accent) 45%, transparent) !important;
+  box-shadow: none !important;
+}
+
+html[data-xre-theme="night"] .access-role-item.active strong,
+html[data-xre-theme="night"] .access-role-item.active small {
+  color: var(--xre-text) !important;
+}
+
+html[data-xre-theme="night"] .sx-tabs button.active > span {
+  background: color-mix(in srgb, var(--xre-accent) 25%, transparent) !important;
+  color: var(--xre-accent-strong) !important;
+}
+
+html[data-xre-theme="night"] .ai-topbar-button {
+  background: var(--xre-accent-soft) !important;
+  color: var(--xre-accent-strong) !important;
+  border: 1px solid color-mix(in srgb, var(--xre-accent) 40%, transparent) !important;
+}
+
+html[data-xre-theme="night"] .stat-icon,
+html[data-xre-theme="night"] .channel-symbol,
+html[data-xre-theme="night"] .provider-icon,
+html[data-xre-theme="night"] .activity-icon,
+html[data-xre-theme="night"] .sx-event-icon,
+html[data-xre-theme="night"] .rule-icon,
+html[data-xre-theme="night"] .access-role-icon,
+html[data-xre-theme="night"] .cx-org-node > span {
+  background: color-mix(in srgb, currentColor 16%, transparent) !important;
+}
+
+html[data-xre-theme="night"] .stat-icon.green,
+html[data-xre-theme="night"] .activity-icon.green,
+html[data-xre-theme="night"] .rule-icon.green,
+html[data-xre-theme="night"] .provider-icon.whatsapp,
+html[data-xre-theme="night"] .channel-symbol {
+  color: #5fd699 !important;
+}
+
+html[data-xre-theme="night"] .stat-icon.blue,
+html[data-xre-theme="night"] .rule-icon.blue,
+html[data-xre-theme="night"] .provider-icon.pbx {
+  color: #6db7ff !important;
+}
+
+html[data-xre-theme="night"] .stat-icon.amber {
+  color: #f5b85c !important;
+}
+
+html[data-xre-theme="night"] .stat-icon.purple,
+html[data-xre-theme="night"] .rule-icon.purple,
+html[data-xre-theme="night"] .provider-icon.vapi {
+  color: #b79bff !important;
+}
+
+html[data-xre-theme="night"] .stat-icon.red {
+  color: #ff8a8a !important;
+}
+
+html[data-xre-theme="night"] .db-kpi strong em.up {
+  background: color-mix(in srgb, #5fd699 18%, transparent) !important;
+  color: #5fd699 !important;
+}
+
+html[data-xre-theme="night"] .db-kpi strong em.down {
+  background: color-mix(in srgb, #ff8a8a 18%, transparent) !important;
+  color: #ff8a8a !important;
+}
+
+html[data-xre-theme="night"] .crm-calendar-event.task {
+  background: color-mix(in srgb, #f5b85c 18%, transparent) !important;
+  color: #f7c983 !important;
+  border-color: transparent !important;
+}
+
+html[data-xre-theme="night"] .crm-calendar-event.activity {
+  background: color-mix(in srgb, var(--xre-accent) 18%, transparent) !important;
+  color: var(--xre-accent-strong) !important;
+  border-color: transparent !important;
+}
+
+html[data-xre-theme="night"] .sx-task-title,
+html[data-xre-theme="night"] .sx-composer-top strong,
+html[data-xre-theme="night"] .sx-event-item strong,
+html[data-xre-theme="night"] .sx-feed-note strong,
+html[data-xre-theme="night"] .sx-feed-card h3,
+html[data-xre-theme="night"] .sx-feed-card strong,
+html[data-xre-theme="night"] .crm-personalization-heading strong,
+html[data-xre-theme="night"] .crm-subview-heading h2,
+html[data-xre-theme="night"] .crm-contact-record b,
+html[data-xre-theme="night"] .crm-record-edit strong,
+html[data-xre-theme="night"] .crm-calendar-day-body strong,
+html[data-xre-theme="night"] .employee-person strong,
+html[data-xre-theme="night"] .rule-card h3,
+html[data-xre-theme="night"] .cx-org-detail h3,
+html[data-xre-theme="night"] .cx-org-node strong,
+html[data-xre-theme="night"] .b24-report-kpis strong,
+html[data-xre-theme="night"] .cx-metrics-grid strong,
+html[data-xre-theme="night"] .worktime-card h2,
+html[data-xre-theme="night"] .worktime-card h3,
+html[data-xre-theme="night"] .worktime-card strong,
+html[data-xre-theme="night"] main.page-content header > div > h3,
+html[data-xre-theme="night"] .leads-table td strong {
+  color: var(--xre-text) !important;
+}
+
+html[data-xre-theme="night"] .sx-owner,
+html[data-xre-theme="night"] .sx-feed-head time,
+html[data-xre-theme="night"] .sx-feed-card p,
+html[data-xre-theme="night"] .cx-org-node small,
+html[data-xre-theme="night"] .cx-org-detail h4,
+html[data-xre-theme="night"] .cx-org-detail p,
+html[data-xre-theme="night"] .profile-security dd,
+html[data-xre-theme="night"] .profile-security code,
+html[data-xre-theme="night"] .b24-report-kpis small,
+html[data-xre-theme="night"] .rule-card p,
+html[data-xre-theme="night"] .rule-flow span,
+html[data-xre-theme="night"] .leads-table td,
+html[data-xre-theme="night"] .leads-table .owner-cell,
+html[data-xre-theme="night"] .b24-table-person,
+html[data-xre-theme="night"] .worktime-card p,
+html[data-xre-theme="night"] .worktime-card small,
+html[data-xre-theme="night"] .cx-metrics-grid small,
+html[data-xre-theme="night"] .cx-metrics-grid span {
+  color: var(--xre-text-soft) !important;
+}
+
+html[data-xre-theme="night"] .sx-task-title:hover {
+  color: var(--xre-accent-strong) !important;
+}
+
+html[data-xre-theme="night"] .sx-composer-top .avatar {
+  background: var(--xre-surface-muted) !important;
+  color: var(--xre-text) !important;
+}
+
+html[data-xre-theme="night"] .worktime-primary {
+  color: #06281a !important;
+  font-weight: 700;
+}
+
+html[data-xre-theme="night"] .db-kpi {
+  border: 1px solid var(--xre-border) !important;
+  background: var(--xre-surface) !important;
+  box-shadow: none !important;
+  border-radius: 14px;
+}
+
+html[data-xre-theme="night"] .db-kpi:hover {
+  border-color: color-mix(in srgb, var(--xre-accent) 55%, var(--xre-border)) !important;
+  background: var(--xre-surface-raised) !important;
+}
+
+html[data-xre-theme="night"] .db-kpi.alert {
+  border-color: color-mix(in srgb, #ff8a8a 55%, var(--xre-border)) !important;
+}
+
+html[data-xre-theme="night"] .segmented {
+  background: var(--xre-surface-muted) !important;
+  border-color: var(--xre-border) !important;
+}
+
+html[data-xre-theme="night"] .segmented button {
+  color: var(--xre-text-soft);
+}
+
+html[data-xre-theme="night"] .worktime-card b,
+html[data-xre-theme="night"] .worktime-legend b {
+  color: var(--xre-text) !important;
+}
+
+/* Tarayıcının kendi denetimleri (onay kutusu, kaydırma çubuğu, açılır liste) de koyu olsun. */
+html[data-xre-theme="night"] {
+  color-scheme: dark;
+}
+
+/* Form alanları: hangi sayfada olursa olsun koyu zemin, açık yazı. */
+html[data-xre-theme="night"] :where(.app-shell) :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
+  background-color: var(--xre-surface-raised) !important;
+  color: var(--xre-text) !important;
+  border-color: var(--xre-border) !important;
+}
+html[data-xre-theme="night"] :where(.app-shell) :where(input, textarea)::placeholder {
+  color: var(--xre-text-faint) !important;
+}
+html[data-xre-theme="night"] .global-search > input,
+html[data-xre-theme="night"] .search-field input,
+html[data-xre-theme="night"] .access-search input,
+html[data-xre-theme="night"] .sx-toolbar input[type="search"] {
+  background-color: transparent !important;
+}
+
+/* Müşteri kartı (yan panel) */
+html[data-xre-theme="night"] .cx-composer,
+html[data-xre-theme="night"] .cx-discuss,
+html[data-xre-theme="night"] .cx-history article > div,
+html[data-xre-theme="night"] .cx-linked-cards > div {
+  background: var(--xre-surface-raised) !important;
+  border-color: var(--xre-border) !important;
+  color: var(--xre-text-soft) !important;
+}
+html[data-xre-theme="night"] .cx-history article strong,
+html[data-xre-theme="night"] .cx-linked-cards strong,
+html[data-xre-theme="night"] .cx-history article p {
+  color: var(--xre-text) !important;
+}
+html[data-xre-theme="night"] .cx-history time,
+html[data-xre-theme="night"] .cx-linked-cards small,
+html[data-xre-theme="night"] .cx-composer footer span {
+  color: var(--xre-text-faint) !important;
+}
+html[data-xre-theme="night"] .b24-stage-strip button {
+  background: var(--xre-surface-muted) !important;
+  color: var(--xre-text-soft) !important;
+}
+html[data-xre-theme="night"] .b24-stage-strip button.active {
+  background: var(--xre-accent) !important;
+  color: #06202b !important;
+  font-weight: 700;
+}
+html[data-xre-theme="night"] .cx-composer-tabs button.active {
+  background: var(--xre-accent-soft) !important;
+  color: var(--xre-accent-strong) !important;
+}
+html[data-xre-theme="night"] .cx-calendar-tile {
+  background: color-mix(in srgb, var(--xre-accent) 16%, transparent) !important;
+  color: var(--xre-accent-strong) !important;
+}
+html[data-xre-theme="night"] .cx-calendar-tile b {
+  color: var(--xre-accent-strong) !important;
+}
+html[data-xre-theme="night"] .cx-section-divider span {
+  color: #06202b !important;
+  font-weight: 700;
+}
+html[data-xre-theme="night"] .avatar {
+  color: #22364b !important;
+}
+html[data-xre-theme="night"] .cx-todo {
+  background: var(--xre-surface-raised) !important;
+  border: 1px solid var(--xre-border) !important;
+  color: var(--xre-text-soft) !important;
+}
+html[data-xre-theme="night"] .cx-todo strong,
+html[data-xre-theme="night"] .cx-todo h4 {
+  color: var(--xre-text) !important;
+}
