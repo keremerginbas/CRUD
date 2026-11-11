@@ -29,6 +29,8 @@ ENV
   echo ".env oluşturuldu (gizli anahtarlar otomatik üretildi)."
 fi
 set -a; . ./.env; set +a
+# WhatsApp by XRE ayrıldıysa (whatsapp-ayir.sh) onun servisi de kurulur / güncellenir.
+if [ -n "${WA_DOMAIN:-}" ]; then COMPOSE="$COMPOSE --profile whatsapp"; fi
 
 # Alan adı bu sunucuyu gösteriyor mu?
 PUBLIC_IP=$(curl -fsS4 https://api.ipify.org || true)

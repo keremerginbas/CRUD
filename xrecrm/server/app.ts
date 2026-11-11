@@ -93,6 +93,7 @@ import { startLineHealthMonitor } from "./b24-connector.js";
 import { resumeCampaigns } from "./b24-campaigns.js";
 import { registerBillingAdminRoutes, startBillingReminders } from "./b24-billing.js";
 import { startWaitAlerts } from "./b24-alerts.js";
+import { appMode } from "./connector-app.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
@@ -1236,6 +1237,8 @@ export function createApp(
   options: { store?: Store; background?: boolean } = {},
 ): Express {
   const baseStore = options.store || createStore();
+  // crm modunda WhatsApp by XRE (Bitrix Market uygulaması) ayrı sunucuda çalışır.
+  const withConnector = appMode() !== "crm";
   const rawStore = liveNotifyStore(auditStore(webhookEmitterStore(baseStore)));
   const store = createPermissionStore(
     stagePolicyStore(appointmentStore(rawStore)),
@@ -1459,6 +1462,19 @@ export function createApp(
       // Bitrix pazar yeri bağlayıcısının oturumları CRM çalışma alanına girmez.
       if (isConnectorInstance(req.body?.instance)) {
         res.status(200).json({ ok: true });
+        // Bağımsız WhatsApp uygulaması varken (crm modu) bu olaylar ona iletilir
+        // (WhatsApp sunucusunun webhook adresi yenilenene kadar mesaj kaybolmasın).
+        if (!withConnector) {
+          const forward = process.env.CONNECTOR_WEBHOOK_URL?.trim();
+          if (forward)
+            void fetch(forward, {
+              method: "POST",
+              headers: { "content-type": "application/json", authorization: `Bearer ${process.env.EVOLUTION_WEBHOOK_SECRET}` },
+              body: JSON.stringify(req.body),
+              signal: AbortSignal.timeout(15_000),
+            }).catch((error) => console.warn("WhatsApp by XRE sunucusuna iletilemedi:", errorMessage(error)));
+          return;
+        }
         void handleConnectorEvolution(baseStore, req.body).catch((error) =>
           console.warn("Bitrix bağlayıcısına iletilemedi:", errorMessage(error)),
         );
@@ -1559,7 +1575,7 @@ export function createApp(
   registerLocalAuthRoutes(app, store);
   registerSocialAuthRoutes(app, store);
   registerBitrixAppRoutes(app, store);
-  registerB24ConnectorRoutes(app, baseStore);
+  if (withConnector) registerB24ConnectorRoutes(app, baseStore);
   registerN8nInboundRoute(app, store, processInboundWebhook);
   const hubDeps = {
     ownerScope,
@@ -1584,7 +1600,7 @@ export function createApp(
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", requireAuth(store), requireModulePermissions);
   app.use(["/api/messages", "/api/whatsapp/send"], lineAccessGuard(store));
-  registerBillingAdminRoutes(app, baseStore);
+  if (withConnector) registerBillingAdminRoutes(app, baseStore);
   registerSuiteRoutes(app, store);
   registerPreferenceRoutes(app, rawStore);
   registerCrmWorkspaceRoutes(app, rawStore);
@@ -1610,11 +1626,13 @@ export function createApp(
     await loadIntegrationSettings(store);
   });
   if (options.background) startBackupScheduler(baseStore);
-  if (options.background) startReportScheduler(baseStore);
-  if (options.background) startLineHealthMonitor(baseStore);
-  if (options.background) startBillingReminders(baseStore);
-  if (options.background) startWaitAlerts(baseStore);
-  if (options.background) void resumeCampaigns(baseStore).catch((e) => console.warn("Kampanyalar devam ettirilemedi:", (e as Error).message));
+  if (options.background && withConnector) {
+    startReportScheduler(baseStore);
+    startLineHealthMonitor(baseStore);
+    startBillingReminders(baseStore);
+    startWaitAlerts(baseStore);
+    void resumeCampaigns(baseStore).catch((e) => console.warn("Kampanyalar devam ettirilemedi:", (e as Error).message));
+  }
   registerMediaRoutes(app, store, {
     providerFor: (lineId, owner) => lineProvider(store, owner, lineId),
     guard: (owner, lineId, phone, provider) =>

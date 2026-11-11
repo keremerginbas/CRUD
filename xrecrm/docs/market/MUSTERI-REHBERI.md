@@ -63,4 +63,4 @@ Başka bir yolla tahsilat yaptıysanız `/b24/admin` → **Lisans kodları**'nda
 
 - E-posta: kaanince0408@gmail.com
 - Telefon / WhatsApp: +90 505 035 29 40
-- Yardım sayfası: https://crm.xresoftware.com.tr/b24/support
+- Yardım sayfası: https://whatsapp.xresoftware.com.tr/b24/support

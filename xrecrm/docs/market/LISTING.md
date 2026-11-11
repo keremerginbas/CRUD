@@ -11,9 +11,9 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 | Kategoriler | Integrations → Messengers / Open Channels connectors; CRM; Automation → Chat bots *(bu sonuncusu yalnız Bitrix sohbet botu eklenirse seçilebilir; şimdilik seçmeyin)* |
 | İkon | `docs/market/icon-512.png` (512×512, PNG, saydam değil, üçüncü taraf logosu yok) |
 | Ekran görüntüleri | `docs/market/screenshots/en-*.png` (İngilizce kart) ve `tr-*.png` (Türkçe kart): 1920×1080, 6 kurulum adımı + 6 kullanım ekranı, gerçek olmayan demo verisi. Bitrix kuralı uygulamanın **Bitrix24 kaydırmalı paneli içinde** görünmesini ister. Yayından önce aynı ekranları kendi test portalınızda, uygulama Bitrix içinde açıkken yeniden çekin. |
-| Lisans sözleşmesi | `https://crm.xresoftware.com.tr/b24/legal/terms` |
-| Gizlilik politikası | `https://crm.xresoftware.com.tr/b24/legal/privacy` |
-| Geliştiriciyle iletişim | `https://crm.xresoftware.com.tr/b24/support` |
+| Lisans sözleşmesi | `https://whatsapp.xresoftware.com.tr/b24/legal/terms` |
+| Gizlilik politikası | `https://whatsapp.xresoftware.com.tr/b24/legal/privacy` |
+| Geliştiriciyle iletişim | `https://whatsapp.xresoftware.com.tr/b24/support` |
 | Fiyat politikası | "The application will be distributed for free" + "Users must pay for the external service" |
 
 ### Short description
@@ -63,7 +63,7 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 
 ### Support and feedback information
 
-> E-mail: [support@…] · Phone: [+90 …] · Help page: https://crm.xresoftware.com.tr/b24/support
+> E-mail: [support@…] · Phone: [+90 …] · Help page: https://whatsapp.xresoftware.com.tr/b24/support
 > Support hours: [Monday–Friday, 09:00–18:00 (UTC+3)]. We reply to every request within 1 business day.
 
 ### Keywords
@@ -79,8 +79,8 @@ Bu dosya, Bitrix24 geliştirici alanındaki (https://vendors.bitrix24.com) uygul
 | Alan | Değer |
 |---|---|
 | Teknoloji | Use REST API |
-| Uygulama adresi (Application URL) | `https://crm.xresoftware.com.tr/b24/app` |
-| Kurulum adresi (Installer URL) | `https://crm.xresoftware.com.tr/b24/install` |
+| Uygulama adresi (Application URL) | `https://whatsapp.xresoftware.com.tr/b24/app` |
+| Kurulum adresi (Installer URL) | `https://whatsapp.xresoftware.com.tr/b24/install` |
 | Sol menüye sayfa ekle | Evet |
 | BitrixMobile'a göm | Hayır (panel mobilde çalışır ama ilk sürümde gerekmez) |
 | Yönetici olmadan kurulabilir | Hayır |

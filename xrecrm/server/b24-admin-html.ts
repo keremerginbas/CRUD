@@ -12,6 +12,8 @@ const ICONS: Record<string, string> = {
 const icon = (k: string) => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]}</svg>`;
 
 export function adminHtml() {
+  // Bağımsız WhatsApp sunucusunda (connector modu) CRM yoktur: giriş şifreyle yapılır.
+  const standalone = String(process.env.XRE_APP_MODE || "").trim().toLowerCase() === "connector";
   return `<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>WhatsApp by XRE yönetimi</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -97,7 +99,7 @@ export function adminHtml() {
     <button role="tab" data-tab="codes" aria-selected="false">${icon("codes")}Lisans kodları</button>
     <button role="tab" data-tab="pricing" aria-selected="false">${icon("pricing")}Fiyatlar</button>
   </nav>
-  <div class="foot"><a href="/">CRM’e dön</a></div>
+  <div class="foot">${standalone ? '<a href="#" id="logout">Çıkış yap</a>' : '<a href="/">CRM’e dön</a>'}</div>
 </aside>
 <div class="content">
 <div class="head2"><div><h1 id="title">Genel bakış</h1><p id="subtitle">Gelir, müşteriler ve lisanslar</p></div><button class="btn" id="refresh">Yenile</button></div>
@@ -117,11 +119,16 @@ const phone=p=>p?"+"+String(p).replace(/^(\\d{2})(\\d{3})(\\d{3})(\\d{2})(\\d{2}
 const TITLES={overview:["Genel bakış","Gelir, müşteriler ve lisanslar"],payments:["Ödemeler","Havale bildirimlerini onaylayın"],portals:["Portallar","Uygulamayı kuran firmalar ve numaraları"],codes:["Lisans kodları","Müşteriye verilecek ön ödemeli kodlar"],pricing:["Fiyatlar","Paket fiyatları, indirimler ve banka bilgisi"]};
 let tt;function toast(m,e){const t=$("#toast");t.textContent=m;t.className="toast show"+(e?" err":"");clearTimeout(tt);tt=setTimeout(()=>t.className="toast",e?6000:3000);}
 async function api(path,body){const r=await fetch("/api/b24-admin/"+path,{method:body?"POST":"GET",credentials:"include",headers:{"content-type":"application/json"},body:body?JSON.stringify(body):undefined});const j=await r.json().catch(()=>({}));
-  if(r.status===401)throw new Error("CRM oturumu yok. Önce CRM'e yönetici hesabıyla giriş yapın, sonra bu sayfayı yenileyin.");if(!r.ok)throw new Error(j.message||"İşlem tamamlanamadı.");return j;}
-async function load(){try{S=await api("state");const pc=S.payments.filter(p=>p.status==="pending").length;const b=$("#payCount");b.hidden=!pc;b.textContent=pc;render();}catch(e){$("#main").innerHTML='<div class="list"><div class="empty"><strong>Ekran açılamadı</strong>'+esc(e.message)+'<br><a class="btn primary" href="/" style="margin-top:14px;display:inline-flex;text-decoration:none">CRM\\'e git</a></div></div>';}}
+  if(r.status===401&&j.error==="LOGIN_REQUIRED")throw Object.assign(new Error(j.message||""),{login:true});
+  if(r.status===401)throw new Error(j.message||"CRM oturumu yok. Önce CRM'e yönetici hesabıyla giriş yapın, sonra bu sayfayı yenileyin.");if(!r.ok)throw new Error(j.message||"İşlem tamamlanamadı.");return j;}
+function loginForm(){$("#title").textContent="Giriş";$("#subtitle").textContent="WhatsApp by XRE yönetimi";
+  $("#main").innerHTML='<form class="card" id="lf" style="max-width:420px"><h3>Yönetim girişi</h3><p class="cap">Şifre sunucudaki .env dosyasında B24_ADMIN_PASSWORD olarak kayıtlıdır.</p><label class="field">Şifre<input id="lp" type="password" autocomplete="current-password" required></label><div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn primary">Giriş yap</button></div></form>';
+  $("#lp").focus();$("#lf").onsubmit=async e=>{e.preventDefault();try{const r=await fetch("/api/b24-admin/login",{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify({password:$("#lp").value})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.message||"Giriş yapılamadı.");await load();if(S)go(tab);}catch(err){toast(err.message,true);}};}
+async function load(){try{S=await api("state");const pc=S.payments.filter(p=>p.status==="pending").length;const b=$("#payCount");b.hidden=!pc;b.textContent=pc;render();}catch(e){if(e.login){loginForm();return;}$("#main").innerHTML='<div class="list"><div class="empty"><strong>Ekran açılamadı</strong>'+esc(e.message)+'<br><a class="btn primary" href="/" style="margin-top:14px;display:inline-flex;text-decoration:none">CRM\\'e git</a></div></div>';}}
 function go(t){tab=t;document.querySelectorAll(".nav button").forEach(x=>x.setAttribute("aria-selected",String(x.dataset.tab===t)));$("#title").textContent=TITLES[t][0];$("#subtitle").textContent=TITLES[t][1];render();window.scrollTo(0,0);}
 document.querySelectorAll(".nav button").forEach(b=>b.onclick=()=>go(b.dataset.tab));
 $("#refresh").onclick=()=>load();
+{const lo=$("#logout");if(lo)lo.onclick=async e=>{e.preventDefault();await fetch("/api/b24-admin/logout",{method:"POST",credentials:"include"});location.reload();};}
 const st={active:"Aktif",free:"Ücretsiz",trial:"Deneme",expired:"Süresi doldu",new:"Bağlanmadı"};
 function barChart(el,data,cur){
   const w=Math.max(280,el.clientWidth),h=220,pl=46,pr=8,pt=22,pb=26,max=Math.max(1,...data.map(d=>d.amount));

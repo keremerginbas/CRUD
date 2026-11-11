@@ -16,8 +16,39 @@ services:
       EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
       EVOLUTION_WEBHOOK_URL: http://crm:3000/api/webhooks/evolution
       OUTBOUND_ALLOW_PRIVATE_HOSTS: evolution,n8n
+      # whatsapp-ayir.sh sonrası "crm": WhatsApp by XRE aşağıdaki ayrı serviste çalışır.
+      XRE_APP_MODE: ${CRM_APP_MODE:-all}
+      CONNECTOR_WEBHOOK_URL: http://whatsapp:3000/api/webhooks/evolution
     volumes:
       - crm_data:/app/data
+    networks:
+      - default
+      - proxy
+    depends_on:
+      - evolution
+
+  # WhatsApp by XRE (Bitrix24 Market uygulaması): CRM'den bağımsız sunucu ve veri.
+  # whatsapp-ayir.sh ile etkinleşir (profil: whatsapp).
+  whatsapp:
+    build: ../..
+    container_name: xrecrm-wa
+    profiles: ["whatsapp"]
+    restart: always
+    env_file: .env
+    environment:
+      XRE_APP_MODE: connector
+      PUBLIC_ORIGIN: https://${WA_DOMAIN:-whatsapp.invalid}
+      B24_LEGACY_ORIGIN: https://${CRM_DOMAIN}
+      XRE_DATA_DIR: /app/data
+      EVOLUTION_API_URL: http://evolution:8080
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
+      EVOLUTION_WEBHOOK_SECRET: ${EVOLUTION_WEBHOOK_SECRET}
+      EVOLUTION_WEBHOOK_URL: http://whatsapp:3000/api/webhooks/evolution
+      OUTBOUND_ALLOW_PRIVATE_HOSTS: evolution
+    volumes:
+      - wa_data:/app/data
+      # Yalnız ilk taşıma için, salt okunur
+      - crm_data:/crm-data:ro
     networks:
       - default
       - proxy
@@ -38,7 +69,7 @@ services:
       CACHE_REDIS_ENABLED: "true"
       CACHE_REDIS_URI: redis://redis:6379/6
       CACHE_LOCAL_ENABLED: "false"
-      CONFIG_SESSION_PHONE_CLIENT: XRE CRM
+      CONFIG_SESSION_PHONE_CLIENT: WhatsApp by XRE
       CONFIG_SESSION_PHONE_NAME: Chrome
       LANGUAGE: tr
     volumes:
@@ -89,6 +120,7 @@ networks:
 
 volumes:
   crm_data:
+  wa_data:
   evolution_instances:
   evolution_pg:
   evolution_redis:

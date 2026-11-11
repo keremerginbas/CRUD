@@ -67,6 +67,19 @@ function applyValues(values: Record<string, string>) {
   }
 }
 
+/** WhatsApp by XRE bağımsız çalışırken taşınan ayarlar (CRM sahibine değil uygulamaya kayıtlı). */
+export const CONNECTOR_SETTINGS_OWNER = "b24-connector";
+export const SETTINGS_KIND = KIND;
+export const SETTINGS_ID = ID;
+/** Bağımsız WhatsApp uygulamasına taşınabilecek ayarlar (adres ve WhatsApp sunucusu ayarları hariç). */
+export const CONNECTOR_SETTING_KEYS = SETTING_KEYS.filter((k) => k === "XRE_OPENAI_API_KEY" || k.startsWith("B24_"));
+export async function loadConnectorSettings(store: Store): Promise<number> {
+  const stored = (await rawStoreOf(store).get<StoredSettings>(KIND, ID, CONNECTOR_SETTINGS_OWNER))?.payload;
+  const values = Object.fromEntries(Object.entries(stored?.values || {}).filter(([k]) => CONNECTOR_SETTING_KEYS.includes(k)));
+  applyValues(values);
+  return Object.keys(values).length;
+}
+
 /** Sunucu başlangıcında kayıtlı ayarları ortam değişkenlerine uygular. */
 export async function loadIntegrationSettings(store: Store): Promise<number> {
   const raw = rawStoreOf(store);

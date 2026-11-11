@@ -63,7 +63,7 @@ Portallar sekmesi firma firma listelenir. Firmaya tıklayınca numaraları açı
   - Numaraları işaretleyip **Havale ile öde** der. Ekranda IBAN ve referans kodu (ör. `XRE-3F9A1C`) çıkar.
   - Ya da elindeki **lisans kodunu** girer.
   - Fatura bilgilerini (kurumsal veya bireysel) bu sekmeden kaydeder.
-- **XRE yönetimi:** `https://crm.xresoftware.com.tr/b24/admin` adresi CRM'e sahip hesabıyla giriş yapılmışken açılır.
+- **XRE yönetimi:** `https://whatsapp.xresoftware.com.tr/b24/admin` adresi `B24_ADMIN_PASSWORD` şifresiyle açılır (ayrıntı: docs/market/AYIRMA.md).
   - **Ödemeler:** Havale bildirimleri burada listelenir. **Onayla** deyince lisans kendiliğinden uzar.
   - **Portallar:** Her müşteri ve numarası listelenir. Seçilen numaraların lisansı elle uzatılabilir.
   - **Lisans kodları:** Süre ve numara sayısı belirlenerek tek kullanımlık kod üretilir.
@@ -76,12 +76,12 @@ Kartla ödeme (iyzico / PayTR) bu kayıtların üzerine sonradan eklenecek; mevc
 
 | | |
 |---|---|
-| Kurulum yolu | `https://crm.xresoftware.com.tr/b24/install` |
-| Uygulama (işleyici) yolu | `https://crm.xresoftware.com.tr/b24/app` |
+| Kurulum yolu | `https://whatsapp.xresoftware.com.tr/b24/install` |
+| Uygulama (işleyici) yolu | `https://whatsapp.xresoftware.com.tr/b24/app` |
 | Gerekli izinler | `imconnector`, `imopenlines`, `crm`, `user_basic` (gerekirse `user`), `im` |
-| Lisans sözleşmesi | `https://crm.xresoftware.com.tr/b24/legal/terms` |
-| Gizlilik politikası | `https://crm.xresoftware.com.tr/b24/legal/privacy` |
-| Destek | `https://crm.xresoftware.com.tr/b24/support` |
+| Lisans sözleşmesi | `https://whatsapp.xresoftware.com.tr/b24/legal/terms` |
+| Gizlilik politikası | `https://whatsapp.xresoftware.com.tr/b24/legal/privacy` |
+| Destek | `https://whatsapp.xresoftware.com.tr/b24/support` |
 
 ## Kendi portalınızda deneme (pazar yerine yüklemeden)
 

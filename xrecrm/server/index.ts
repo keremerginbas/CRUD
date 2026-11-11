@@ -13,11 +13,35 @@ import { loadIntegrationSettings } from "./integration-settings.js";
 import { webhookEmitterStore } from "./webhook-hub.js";
 import { auditStore } from "./audit.js";
 import { liveNotifyStore } from "./live-notify.js";
+import { appMode, createConnectorApp, migrateFromCrm } from "./connector-app.js";
+import { loadConnectorSettings } from "./integration-settings.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(here, "..");
 
+/** WhatsApp by XRE'yi CRM'den bağımsız çalıştırır (XRE_APP_MODE=connector). */
+async function startConnector(): Promise<void> {
+  ensureSessionSecret(projectRoot);
+  const store = createStore();
+  await store.init();
+  // Tek seferlik: CRM veri klasöründen taşıma (node dist/server.js --migrate-from /crm-data [--force])
+  const from = process.argv.indexOf("--migrate-from");
+  if (from > 0) {
+    const result = await migrateFromCrm(store, String(process.argv[from + 1] || ""), { force: process.argv.includes("--force") });
+    console.log(`Taşındı: ${result.records} kayıt, ${result.files} dosya.`, JSON.stringify(result.kinds));
+    (store as { flushSync?: () => void }).flushSync?.();
+    process.exit(0);
+  }
+  const count = await loadConnectorSettings(store).catch(() => 0);
+  if (count) console.log(`WhatsApp by XRE: ${count} uygulama ayarı yüklendi.`);
+  const app = createConnectorApp({ store, background: true });
+  const port = Number(process.env.PORT || 3000);
+  await new Promise<void>((resolve) => createHttpServer(app).listen(port, "0.0.0.0", () => resolve()));
+  console.log(`WhatsApp by XRE sunucusu 0.0.0.0:${port} adresinde (${process.env.PUBLIC_ORIGIN || "adres tanımsız"}).`);
+}
+
 export async function start(): Promise<void> {
+  if (appMode() === "connector") return startConnector();
   ensureSessionSecret(projectRoot);
   const inventory = loadLineInventory(projectRoot);
   console.log(`Hat envanteri: ${inventory.count} hat (${inventory.source === "placeholder" ? "yer tutucu" : "yerel yapılandırma"})`);

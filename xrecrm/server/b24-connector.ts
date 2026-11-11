@@ -13,7 +13,7 @@ import { onCustomerMessage, registerAgentPanelRoutes, type AgentConfig } from ".
 import { registerLivePanelRoutes, type ReportSettings } from "./b24-live.js";
 import { CAMPAIGN_KIND, registerCampaignRoutes } from "./b24-campaigns.js";
 import { langOf, localizeMessage, normLang, pick, type Lang } from "./b24-i18n.js";
-import { alreadySent, appendThread, bindCardTabs, CARD_TABS_VERSION, chatHtml, chatTicket, mergeLidChat, mergeThread, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
+import { alreadySent, appendThread, bindCardTabs, CARD_PLACEMENTS, CARD_TABS_VERSION, chatHtml, chatTicket, mergeLidChat, mergeThread, registerChatRoutes, THREAD_KIND, type ThreadMessage } from "./b24-chat.js";
 import { logRestCall } from "./b24-restlog.js";
 import { needsReply } from "./b24-reply.js";
 import { registerLegalRoutes } from "./b24-legal.js";
@@ -74,6 +74,8 @@ export interface B24Portal {
   lang?: Lang;
   /** Uygulamayı kuran / açan Bitrix yöneticileri; lisans hatırlatmaları bunlara gider. */
   adminIds?: string[];
+  /** Bitrix'e kaydedilen uygulama adresi (olay, kanal ayarı, kart sekmesi); değişince yeniden bağlanır. */
+  baseUrl?: string;
   /** Sohbet ekranındaki hazır cevaplar (/kısayol) */
   quickReplies?: QuickReply[];
   /** "Kurulum yarım kaldı" hatırlatmasının gönderildiği zaman */
@@ -562,6 +564,43 @@ async function registerConnector(store: Store, portal: B24Portal, base: string) 
       if (!/already|binded|bound/i.test(String((error as Error).message))) throw error;
     }
   }
+}
+
+/**
+ * Uygulama yeni adrese taşındıysa (PUBLIC_ORIGIN değişti) kurulu portallardaki Bitrix
+ * kayıtlarını yeni adrese çevirir: eski olay ve kart sekmesi kayıtları kaldırılır,
+ * yenileri eklenir, kanal ayar sayfası yeni adresle kaydedilir. Eski adres
+ * B24_LEGACY_ORIGIN ile verilir (ilk taşımada portalda kayıtlı adres yoktur).
+ */
+export async function rebindPortal(store: Store, portal: B24Portal, base = origin()): Promise<boolean> {
+  if (!base) return false;
+  const old = (portal.baseUrl || env("B24_LEGACY_ORIGIN") || base).replace(/\/$/, "");
+  if (old === base) {
+    if (portal.baseUrl !== base) await savePortal(store, { ...((await portalById(store, portal.id)) || portal), baseUrl: base });
+    return false;
+  }
+  for (const event of ["OnImConnectorMessageAdd", "OnImConnectorLineDelete", "OnImConnectorStatusDelete", "OnAppUninstall"])
+    await b24Call(store, portal, "event.unbind", { event, handler: `${old}/b24/events` }).catch(() => undefined);
+  for (const placement of CARD_PLACEMENTS)
+    await b24Call(store, portal, "placement.unbind", { PLACEMENT: placement, HANDLER: `${old}/b24/card` }).catch(() => undefined);
+  await registerConnector(store, portal, base);
+  const warnings = await bindCardTabs(store, portal, base);
+  await savePortal(store, { ...((await portalById(store, portal.id)) || portal), baseUrl: base, ...(warnings.length ? {} : { cardTabs: CARD_TABS_VERSION }) });
+  console.info(`WhatsApp by XRE: ${portal.domain} Bitrix bağlantıları ${old} → ${base} adresine taşındı.`);
+  return true;
+}
+/** Tüm etkin portalları yeni adrese taşır (açılışta bir kez). */
+export async function rebindPortals(store: Store) {
+  let moved = 0;
+  for (const row of await store.list<B24Portal>(PORTAL_KIND, SYSTEM_OWNER)) {
+    if (!row.payload.active) continue;
+    try {
+      if (await rebindPortal(store, row.payload)) moved++;
+    } catch (error) {
+      console.warn(`WhatsApp by XRE: ${row.payload.domain} yeni adrese taşınamadı:`, (error as Error).message);
+    }
+  }
+  return moved;
 }
 
 async function activateLine(store: Store, portal: B24Portal, line: string, active: boolean) {
@@ -1548,7 +1587,7 @@ async function installPortal(store: Store, p: BitrixParams, base: string): Promi
   await registerConnector(store, portal, base);
   const tabWarnings = await bindCardTabs(store, portal, base);
   if (tabWarnings.length) console.warn(`WhatsApp by XRE kart sekmesi (${portal.domain}):`, tabWarnings.join("; "));
-  else await savePortal(store, { ...portal, cardTabs: CARD_TABS_VERSION });
+  await savePortal(store, { ...portal, baseUrl: base, ...(tabWarnings.length ? {} : { cardTabs: CARD_TABS_VERSION }) });
   return portal;
 }
 
