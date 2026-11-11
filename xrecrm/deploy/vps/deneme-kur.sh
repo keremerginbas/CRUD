@@ -5,7 +5,7 @@
 #   - ücretsiz kayıt açıktır (XRE_SIGNUP=1)
 #
 # Önce DNS: deneme alan adının A kaydını bu sunucunun IP adresine yönlendirin.
-# Kullanım:  sudo bash xrecrm/deploy/vps/deneme-kur.sh
+# Kullanım:  sudo bash xrecrm/deploy/vps/deneme-kur.sh [alan-adı]
 # Kaldırma:  sudo bash xrecrm/deploy/vps/deneme-kur.sh --kaldir
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -41,8 +41,15 @@ fi
 
 echo "== XRE CRM deneme kurulumu =="
 DEFAULT_TEST="test.${CRM_DOMAIN}"
-read -rp "Deneme alan adı [${TEST_DOMAIN:-$DEFAULT_TEST}]: " INPUT
+# Alan adı komutla verilebilir (soru sorulmaz): deneme-kur.sh test.crm.ornek.com
+INPUT=${1:-}
+[ -n "$INPUT" ] || read -rp "Deneme alan adı [${TEST_DOMAIN:-$DEFAULT_TEST}] (aynısı için Enter): " INPUT
 TEST_NEW=${INPUT:-${TEST_DOMAIN:-$DEFAULT_TEST}}
+if ! printf '%s' "$TEST_NEW" | grep -Eq '^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z]{2,}$'; then
+  echo "Geçersiz alan adı: '$TEST_NEW'"
+  echo "Buraya yalnız alan adı yazılır (ör. $DEFAULT_TEST). Komutu yeniden çalıştırıp soruda Enter'a basın."
+  exit 1
+fi
 if [ "$TEST_NEW" = "$CRM_DOMAIN" ] || [ "$TEST_NEW" = "${WA_DOMAIN:-}" ]; then echo "Deneme alan adı canlı adreslerle aynı olamaz."; exit 1; fi
 
 PUBLIC_IP=$(curl -fsS4 https://api.ipify.org || true)
