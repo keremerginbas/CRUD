@@ -9,7 +9,7 @@
 // - Onay pencerelerinde yalnızca ürünü sepetten çıkarmayı soran pencere onaylanır.
 (() => {
   const ADD_RE = /^sepete (ekle|at)$/i;
-  const DANGER_RE = /(satın al|şimdi al|hemen al|alışverişi tamamla|sipariş|ödeme|ödemeye|checkout|buy now|tek tıkla|one ?click|premium|üye ol|abone|ürünleri sil|tümünü sil|hepsini sil|sepeti (boşalt|temizle))/i;
+  const DANGER_RE = /(satın al|şimdi al|hemen al|alışverişi tamamla|sipariş|ödeme|ödemeye|checkout|buy now|tek tıkla|one ?click|premium|üye ol|abone|ürünleri sil|tümünü sil|hepsini sil|sepeti (boşalt|temizle)|geri al)/i;
   const BLOCK_RE = /(just a moment|bir dakika lütfen|attention required|güvenlik doğrulaması|güvenlik kontrolünü tamamlayın|you have been blocked|robot olmadığınızı|captcha)/i;
   const PLUS_RE = /(art[ıi]r|arttır|increase|increment|\bplus\b)/i;
   const MINUS_RE = /(azalt|eksilt|decrease|decrement|\bminus\b)/i;
@@ -18,7 +18,10 @@
   // Onay penceresi: yalnızca ürünü çıkarmayı soran, başka bir işe (üyelik, ödeme) değinmeyen pencere.
   const REMOVAL_TEXT_RE = /(sepet\S*\s+(sil|çıkar|kaldır)|silmek|çıkarmak|kaldırmak|silinsin|silinecek)/i;
   const UNSAFE_DIALOG_RE = /(premium|üyelik|abonelik|ödeme|satın al|sipariş|taksit|çerez)/i;
-  const DECLINE_RE = /(vazgeç|iptal|hayır|favori|liste|kapat)/i;
+  const DECLINE_RE = /(vazgeç|iptal|hayır|favori|liste|kapat|geri al)/i;
+  // Sepet satırlarını açıkça işaretleyen siteler: satır sayısı buradan sayılır. Boş sepet sayfasında
+  // gösterilen önerilen ürünlerin düğmeleri böylece satır sanılmaz.
+  const ROW_SELECTORS = { 'checkout.hepsiburada.com': 'li[data-sku][data-listingid]' };
   const REMOVE_VERB_RE = /(^|[\s,])(sil|kaldır|çıkar)$/i;
   const LIMIT_MSG_RE = /(en fazla|yalnızca|sadece|stok|limit|sınır|mevcut)/i;
   const CLICKABLE = 'button, a, [role="button"], input[type="submit"], input[type="button"]';
@@ -171,7 +174,8 @@
     const page = pageKind();
     if (page !== 'cart') return { page };
     // Sayfadaki sepet satırı sayısı: arka plan, kitabı ekledikten sonra tam bir satır arttığını doğrular.
-    const groups = controlGroups(document.body);
+    const rows = ROW_SELECTORS[location.hostname];
+    const groups = rows ? [...document.querySelectorAll(rows)].filter(visible).length : controlGroups(document.body);
     const line = findLine(title, ids);
     if (!line) return { page, found: false, groups };
     const c = controls(line);

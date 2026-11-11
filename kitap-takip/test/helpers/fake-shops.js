@@ -6,7 +6,7 @@ const HOSTS = ['www.hepsiburada.com', 'checkout.hepsiburada.com', 'www.amazon.co
 
 function createShops() {
   const s = {};
-  const reset = () => Object.assign(s, { hbOurs: 0, hbOther: 2, hbStock: 4, hbRemoveWorks: true, hbLowerWorks: true, hbAddWorks: true, hbViewed: false, hbLayout: 'stepper', hbTyped: [], hbMaxSeen: 0, deletedAll: false, subscribed: false, amzQty: 0, amzStock: 7, amzMessage: '', boughtNow: false, log: [] });
+  const reset = () => Object.assign(s, { hbOurs: 0, hbOther: 2, hbStock: 4, hbRemoveWorks: true, hbLowerWorks: true, hbAddWorks: true, hbViewed: false, hbLayout: 'stepper', hbTyped: [], hbMaxSeen: 0, deletedAll: false, subscribed: false, undone: false, amzQty: 0, amzStock: 7, amzMessage: '', boughtNow: false, log: [] });
   reset();
 
   const page = (res, title, body) => { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title></head><body>${body}</body></html>`); };
@@ -27,11 +27,10 @@ function createShops() {
     <div><h1>Sepetim</h1><button type="button" onclick="fetch('/api/delete-all', { method: 'POST' })">Ürünleri sil</button></div>
     <ul class="item_list_1NnvG" id="list"></ul><div id="toast" role="alert"></div>
     ${s.hbViewed ? `<aside><h2>Son gezdikleriniz</h2><div><a href="#">${TITLE}</a> <button>Sepete ekle</button></div></aside>` : ''}
-    <div id="dlg" class="co-modal" role="dialog" hidden><p>Ürünü sepetinizden çıkarmak istediğinize emin misiniz?</p><button id="no">Vazgeç</button><button id="fav">Sil ve favorilere ekle</button><button id="yes">Sepetten çıkar</button></div>
+    <div id="toasts" class="hb-toast-notifier-container hb-toast-notifier-position-top-right"></div>
     <div class="oneclick_tp_1CWe3" role="dialog"><p>Premium'a geç, kargo bedava ve %3 Hepsipara avantajları ile tasarruf et.</p><button onclick="fetch('/api/subscribe', { method: 'POST' })">Onayla</button></div>
     <div class="cta_3vBFp"><button id="continue_step_btn" onclick="fetch('/api/buy-now', { method: 'POST' })">Alışverişi tamamla</button></div>
     <script>
-      let pending = null;
       const ICON = '<svg width="12" height="12" fill="none"><path d="M0 0h12v12H0z"></path></svg>';
       const api = async (path, body) => (await fetch(path, { method: 'POST', body: JSON.stringify(body || {}) })).json();
       function render(st) {
@@ -51,15 +50,23 @@ function createShops() {
           const input = box.querySelector('input');
           input.value = qty;
           input.oninput = () => api('/api/typed', { key, value: input.value });
-          box.firstElementChild.onclick = async () => { if (qty > 1 && stepper) render(await api('/api/qty', { key, delta: -1 })); else { pending = key; document.getElementById('dlg').hidden = false; } };
+          // Gerçek sitedeki gibi: çıkarma onay sormaz; ürün hemen çıkar ve "Geri al" bildirimi görünür.
+          box.firstElementChild.onclick = async () => {
+            if (qty > 1 && stepper) return render(await api('/api/qty', { key, delta: -1 }));
+            const after = await api('/api/remove', { key });
+            render(after);
+            if (after[key] === 0) document.getElementById('toasts').innerHTML = '<div class="hb-toast-notifier-box hb-toast-notifier-type-success"><div class="hb-toast-text">Ürün sepetinizden kaldırıldı</div><div class="hb-toast-message"><a id="hb-toast-link-undo" class="hb-toast-link" href="#">Geri al</a></div></div>';
+            const undo = document.getElementById('hb-toast-link-undo');
+            if (undo) undo.onclick = (e) => { e.preventDefault(); fetch('/api/undo', { method: 'POST' }); };
+          };
           if (stepper) box.lastElementChild.onclick = async () => render(await api('/api/qty', { key, delta: 1 }));
           list.append(li);
         }
         document.getElementById('toast').textContent = st.message || '';
+        // Sepet boşken, gerçek sitedeki gibi başka ürünler listelenir (kendi düğmeleriyle).
+        if (!list.children.length) list.insertAdjacentHTML('afterend', '<section id="recs"><h2>Şu an en çok bakılan ürünler</h2><div>Oyuncu Klavyesi <button type="button" aria-label="Adedi artır">+</button><input inputmode="numeric" value="1"></div></section>');
+        else if (document.getElementById('recs')) document.getElementById('recs').remove();
       }
-      document.getElementById('no').onclick = () => { document.getElementById('dlg').hidden = true; };
-      document.getElementById('fav').onclick = () => fetch('/api/subscribe', { method: 'POST' });
-      document.getElementById('yes').onclick = async () => { document.getElementById('dlg').hidden = true; render(await api('/api/remove', { key: pending })); };
       api('/api/cart').then(render);
     </script>`;
 
@@ -93,6 +100,7 @@ function createShops() {
     if (route === 'POST /api/buy-now' || route === 'POST /buy-now') { s.boughtNow = true; json(res, {}); return true; }
     if (route === 'POST /api/delete-all') { s.deletedAll = true; json(res, {}); return true; }
     if (route === 'POST /api/subscribe') { s.subscribed = true; json(res, {}); return true; }
+    if (route === 'POST /api/undo') { s.undone = true; json(res, {}); return true; }
 
     if (host === 'www.hepsiburada.com') {
       // Sepete ekleme denemesinden sonra kitap, sepet sayfasındaki "son gezdikleriniz" şeridinde de görünür.

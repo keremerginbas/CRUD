@@ -57,6 +57,7 @@ Dışarıdan toplanan işaretler tahmindir. Kesin sayıların iki kaynağı vard
 Hepsiburada ve Amazon stok adedini göstermez; satıcının elindeki adet, bir siparişe en çok kaç adet
 eklenebildiğinden anlaşılır.
 
+- **Dost Kitabevi:** Sepete gerek yoktur; ürün sayfası stok adedini kendisi yazar.
 - **Amazon:** Sepete dokunulmaz. Ürün sayfasındaki adet seçici en çok 30'a kadar gider; daha az
   seçenek varsa satıcının stoku (ya da sipariş sınırı) o kadardır ve panel bunu "adet seçici"
   kaynağıyla gösterir.
@@ -83,10 +84,11 @@ işaretleyin; ilk denemeyi **Şimdi ölç** ile yapıp izleyin.
   "en az N adet" yazar. Ölçüm, satıcının istatistiğinde sepete ekleme olarak görünür. Sitelerin
   kullanım koşulları otomatik sepet işlemlerine izin vermeyebilir; açıp açmamak sizin kararınızdır.
 
-Ölçüm, Hepsiburada sepetinin gerçek sayfa yapısına (satır, adet kutusu, "Sepetten Çıkar" ve
-"Ürünü Arttır" düğmeleri) göre yazıldı ve bu yapının kopyası üzerinde sınandı. Gerçek sitede henüz
-baştan sona çalıştırılmadı: adet 1'den büyükken sol düğmenin ve çıkarma onayının nasıl göründüğü
-bilinmiyor; ölçüm bu ikisinde düğmelerin adına değil konumuna ve pencerenin metnine bakar. Bir
+Ölçüm, Hepsiburada sepetinin gerçek sayfa yapısına göre yazıldı: ürün kodu taşıyan satırlar, adet
+kutusu, "Sepetten Çıkar" ve "Ürünü Arttır" düğmeleri, onay sormadan çıkarma ve ardından görünen
+"Geri al" bildirimi (bu bağlantıya basılmaz), boş sepette listelenen başka ürünler. Bu yapının
+kopyası üzerinde sınandı; gerçek sitede henüz baştan sona çalıştırılmadı. Adet 1'den büyükken sol
+düğmenin adı bilinmiyor; ölçüm onu adından değil, adet kutusunun solundaki konumundan tanır. Bir
 ölçüm yapılamazsa **Sepet sayfasını incele**ye (hiçbir düğmeye basmaz) ve ardından **Tanı dosyası
 indir**e basıp dosyayı paylaşın; dosyaya sepetinizdeki diğer ürünlerin adları da girer.
 

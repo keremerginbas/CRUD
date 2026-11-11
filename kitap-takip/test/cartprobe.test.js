@@ -272,3 +272,39 @@ test('çıkarmayla ilgisi olmayan pencerelerde (üyelik teklifi, çerez izni) hi
   assert.deepStrictEqual(await flags(page), { other: 2, ours: 1, typed: [], ...UNTOUCHED });
   await page.close();
 });
+
+// --- Gerçek Hepsiburada sepetinde görülen davranış: çıkarma onaysızdır, "Geri al" bildirimi çıkar ---
+
+async function openAt(url, html) {
+  const page = await browser.newPage();
+  await page.route(`${new URL(url).origin}/**`, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8', body: `<!doctype html><html><head><meta charset="utf-8"><title>Sepetim</title></head><body>${html}</body></html>` }));
+  await page.goto(url);
+  await page.addScriptTag({ path: path.join(__dirname, '..', 'cartprobe.js') });
+  return page;
+}
+
+test('onay penceresi çıkmayan sepette kitap tek basışla çıkar; "Geri al" bağlantısına basılmaz', async () => {
+  const page = await open(hbCart());
+  // Gerçek sitedeki gibi: onay penceresi yok, ürün hemen çıkar ve geri alma bildirimi görünür.
+  await page.evaluate(() => {
+    document.getElementById('dlg').remove();
+    document.querySelector('#ours .product_quantities_1LpFc').firstElementChild.onclick = () => {
+      state.ours = 0; render();
+      document.body.insertAdjacentHTML('beforeend', '<div class="hb-toast-notifier-container"><div class="hb-toast-notifier-box"><div class="hb-toast-text">Ürün sepetinizden kaldırıldı</div><div class="hb-toast-message"><a id="hb-toast-link-undo" class="hb-toast-link" href="#" onclick="window.undone = true">Geri al</a></div></div></div>');
+    };
+  });
+  assert.strictEqual((await cart(page, 'remove', TITLE, IDS)).acted, 'delete');
+  assert.strictEqual((await cart(page, 'confirm')).acted, false);
+  assert.strictEqual((await cart(page, 'inspect', TITLE, IDS)).found, false);
+  assert.strictEqual(await page.evaluate(() => window.undone), undefined);
+  await page.close();
+});
+
+test('Hepsiburada sepetinde satır sayısı sitenin kendi satırlarından sayılır; önerilen ürünlerin düğmeleri sayılmaz', async () => {
+  const recs = '<section><h2>Şu an en çok bakılan ürünler</h2><div>Klavye <button type="button" aria-label="Adedi artır">+</button><input inputmode="numeric" value="1"></div></section>';
+  const page = await openAt('https://checkout.hepsiburada.com/sepetim', hbCart({ extra: recs }));
+  assert.strictEqual((await cart(page, 'inspect', TITLE, IDS)).groups, 2);
+  await page.evaluate(() => { state.ours = 0; state.other = 0; render(); });
+  assert.strictEqual((await cart(page, 'inspect', TITLE, IDS)).groups, 0);
+  await page.close();
+});

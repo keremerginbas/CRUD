@@ -156,8 +156,8 @@ const HB = { id: 'hepsiburada', name: 'Hepsiburada', url: 'https://www.hepsibura
 const AMZ = { id: 'amazon', name: 'Amazon', url: 'https://www.amazon.com.tr/dp/6259756186' };
 const cartActivity = () => shops.state.log.filter((l) => /sepetim|\/api\/(add|qty|remove|cart|typed)|\/cart\/|\/gp\/cart/.test(l));
 const PROBE_HB = { cartProbe: 2 }; // kullanıcının geçerli ölçüm sürümü (2) için verdiği onay
-const untouched = () => ({ boughtNow: shops.state.boughtNow, deletedAll: shops.state.deletedAll, subscribed: shops.state.subscribed, typed: shops.state.hbTyped });
-const UNTOUCHED = { boughtNow: false, deletedAll: false, subscribed: false, typed: [] };
+const untouched = () => ({ boughtNow: shops.state.boughtNow, deletedAll: shops.state.deletedAll, subscribed: shops.state.subscribed, undone: shops.state.undone, typed: shops.state.hbTyped });
+const UNTOUCHED = { boughtNow: false, deletedAll: false, subscribed: false, undone: false, typed: [] };
 const closeTabs = async (re) => { for (const p of ctx.pages()) if (re.test(p.url())) await p.close(); };
 
 test('ölçüm kapalıyken sepete hiç dokunulmaz; satıcı adı yine okunur', async () => {
@@ -191,6 +191,16 @@ test('Amazon düzeninde sepete dokunulmaz; sınır ürün sayfasındaki adet se�
   assert.strictEqual(snap.stockQtySource, 'adet seçici');
   assert.deepStrictEqual(cartActivity(), []);
   assert.strictEqual(shops.state.amzQty, 0);
+});
+
+test('sepet başta boşsa (sayfada önerilen ürünler varken) ölçüm yine doğru çalışır', async () => {
+  await reset({ targets: [HB], settings: PROBE_HB });
+  shops.state.hbOther = 0;
+  const snap = await scanAndWait();
+  assert.strictEqual(snap.cartLimit, 4);
+  assert.strictEqual(snap.cartWarning, undefined);
+  assert.strictEqual(shops.state.hbOurs, 0, 'kitap sepette kalmamalı');
+  assert.deepStrictEqual(untouched(), UNTOUCHED);
 });
 
 test('önceki ölçüm sürümü için verilmiş onay yeni ölçümü çalıştırmaz', async () => {
