@@ -212,3 +212,62 @@ test('eşleşen ürün yoksa adres dönmez', async () => {
   const link = await runAt(`https://ornek.test/arama?q=${ISBN}`, '<p>Aradığınız kriterlere uygun ürün bulunamadı.</p><a href="/kitap/baska-kitap/1.html">Başka Kitap</a>', findFn);
   assert.strictEqual(link, null);
 });
+
+// --- Satıcı bilgisi (Hepsiburada ve Amazon gibi pazaryerleri) ---
+// Bu sayfalar gerçek sitelerden alınmadı; bilinen sayfa yapılarına göre kuruldu.
+
+test('Amazon düzeni: satıcı adı, teklif sayısı ve adet seçicinin üst sınırı okunur', async () => {
+  const out = await run(`
+    <div id="centerCol"><h1 id="title"><span id="productTitle">Özgür'ün Salıncağı</span></h1><div id="price"><span>150,00 TL</span></div></div>
+    <div id="rightCol">
+      <div id="availability"><span>Stokta var.</span></div>
+      <select id="quantity" name="quantity">${[1, 2, 3, 4, 5].map((n) => `<option value="${n}">${n}</option>`).join('')}</select>
+      <input type="submit" id="add-to-cart-button" value="Sepete Ekle"><input type="submit" id="buy-now-button" value="Şimdi Al">
+      <div id="merchantInfoFeature_feature_div"><span>Satıcı</span> <a id="sellerProfileTriggerId" href="/sp?seller=A1">Kitapsan Dağıtım</a></div>
+      <div id="olp_feature_div">Yeni (3) başlangıç fiyatı: 135,00 TL</div>
+    </div>`);
+  assert.strictEqual(out.status, 'in_stock');
+  assert.strictEqual(out.seller, 'Kitapsan Dağıtım');
+  assert.strictEqual(out.sellers, 3);
+  assert.strictEqual(out.maxOrderQty, 5);
+});
+
+test('"Satıcı: X" yazısından satıcı adı okunur; yanındaki puan ada karışmaz', async () => {
+  const out = await run('<main><h1>Kitap</h1><p>Satıcı: <a href="/magaza/bilgi">Bilgi Kitabevi</a> <span>9,6</span></p><p>120,00 TL</p><button>Sepete ekle</button></main>');
+  assert.strictEqual(out.seller, 'Bilgi Kitabevi');
+});
+
+test('satıcı etiketi ve adı ayrı satırlardaysa ad bir sonraki satırdan alınır', async () => {
+  const out = await run('<main><h1>Kitap</h1><p>120,00 TL</p><div><div>Gönderici</div><div>Amazon</div><div>Satıcı</div><div>Ada Kitap</div></div><button>Sepete ekle</button></main>');
+  assert.strictEqual(out.seller, 'Ada Kitap');
+});
+
+test('yapısal veride birden çok teklif varsa satıcı listesi fiyatlarıyla çıkar', async () => {
+  const ld = { '@type': 'Product', name: 'Kitap', gtin13: ISBN, offers: { '@type': 'AggregateOffer', offerCount: 2, lowPrice: '120.00', priceCurrency: 'TRY', offers: [
+    { '@type': 'Offer', price: '120.00', availability: 'https://schema.org/InStock', seller: { '@type': 'Organization', name: 'A Kitap' } },
+    { '@type': 'Offer', price: '135.00', availability: 'https://schema.org/InStock', seller: { '@type': 'Organization', name: 'B Kitap' } },
+  ] } };
+  const out = await run(`<script type="application/ld+json">${JSON.stringify(ld)}</script><main><h1>Kitap</h1><p>120,00 TL</p></main>`);
+  assert.strictEqual(out.status, 'in_stock');
+  assert.strictEqual(out.price, 120);
+  assert.strictEqual(out.seller, 'A Kitap');
+  assert.strictEqual(out.sellers, 2);
+  assert.deepStrictEqual(out.sellerList, [{ name: 'A Kitap', price: 120 }, { name: 'B Kitap', price: 135 }]);
+});
+
+test('gömülü ürün kaydındaki satıcılar okunur; başka ürünlerin satıcıları karışmaz', async () => {
+  const out = await runAt('https://ornek.test/kitap-adi-pm-HBC0000A6M7ZP', `<script>window.__INITIAL_STATE__ = {
+      product: { sku: "HBC0000A6M7ZP", listings: [{ merchantName: "A Kitap", price: { value: 120 }, availableStock: 4 }, { merchantName: "B Kitap", price: { value: 135 }, availableStock: 9 }] },
+      recommendations: [{ sku: "HBX0000000001", merchantName: "Alakasız Satıcı", availableStock: 50 }] };</script>
+    <main><h1>Kitap</h1><p>120,00 TL</p><button>Sepete ekle</button></main>`, extractFn);
+  assert.deepStrictEqual(out.sellerList, [{ name: 'A Kitap', price: 120 }, { name: 'B Kitap', price: 135 }]);
+  assert.strictEqual(out.seller, 'A Kitap');
+  assert.strictEqual(out.sellers, 2);
+  assert.strictEqual(out.stockQty, 4); // öne çıkan (ilk) teklifin stoku
+});
+
+test('ürün alanı dışındaki farklı satıcı adları ana satıcı sanılmaz', async () => {
+  const out = await run(`<main><article><h1>Kitap</h1><p>120,00 TL</p><button>Sepete ekle</button></article></main>
+    <section><div>Başka Kitap 1 <span>Satıcı: X Mağaza</span></div><div>Başka Kitap 2 <span>Satıcı: Y Mağaza</span></div></section>${'<p>dolgu metni</p>'.repeat(80)}`);
+  assert.strictEqual(out.seller, undefined);
+});

@@ -9,6 +9,7 @@ const path = require('node:path');
 const https = require('node:https');
 const { execFileSync } = require('node:child_process');
 const { chromium } = require('playwright');
+const { createShops } = require('./helpers/fake-shops.js');
 
 const EXT = path.join(__dirname, '..');
 const ISBN = '9786259756189';
@@ -23,6 +24,7 @@ const productPage = (qty) => `<!doctype html><html><head><meta charset="utf-8"><
 const challengePage = '<!doctype html><html><head><meta charset="utf-8"><title>Bir dakika lütfen...</title></head><body><p>Güvenlik doğrulaması yapılıyor</p></body></html>';
 
 let ctx, dash, profile, server;
+const shops = createShops(); // sepet ölçümü testleri için sahte pazaryerleri
 let storeHtml = productPage(2); // mağazanın o an sunduğu sayfa
 const tgCalls = []; // eklentiden (arka plan ve panel) Telegram'a giden bütün çağrılar
 let tgReplies = {}; // Telegram yöntemine göre dönülecek yanıt
@@ -34,13 +36,15 @@ test.before(async () => {
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', key, '-out', cert, '-days', '2', '-subj', '/CN=kitap-takip-test'], { stdio: 'ignore' });
   server = https.createServer({ key: fs.readFileSync(key), cert: fs.readFileSync(cert) }, (req, res) => {
     const host = (req.headers.host || '').split(':')[0];
-    if (host !== 'api.telegram.org') {
-      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-      return res.end(storeHtml);
-    }
     let raw = '';
     req.on('data', (c) => { raw += c; });
     req.on('end', () => {
+      if (shops.handle(host, req, raw, res)) return;
+      if (host !== 'api.telegram.org') {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(storeHtml);
+        return;
+      }
       const method = req.url.split('/').pop();
       tgCalls.push({ url: `https://${host}${req.url}`, method: req.method, body: raw ? JSON.parse(raw) : null });
       const reply = tgReplies[method] || { status: 500, body: { ok: false, error_code: 500, description: 'yanıt tanımlı değil' } };
@@ -54,7 +58,7 @@ test.before(async () => {
     channel: 'chromium', headless: true, locale: 'tr-TR', acceptDownloads: true,
     args: [
       `--disable-extensions-except=${EXT}`, `--load-extension=${EXT}`,
-      `--host-resolver-rules=MAP www.imge.com.tr 127.0.0.1:${port}, MAP api.telegram.org 127.0.0.1:${port}`,
+      `--host-resolver-rules=${['www.imge.com.tr', 'api.telegram.org', ...shops.HOSTS].map((h) => `MAP ${h} 127.0.0.1:${port}`).join(', ')}`,
       '--ignore-certificate-errors', '--no-proxy-server',
     ],
   });
@@ -75,10 +79,11 @@ const read = (keys) => dash.evaluate((k) => chrome.storage.local.get(k), keys);
 const SENT = { status: 200, body: { ok: true, result: { message_id: 1, date: 1794380100, chat: { id: 777, first_name: 'Ada', type: 'private' }, text: '' } } };
 const sends = () => tgCalls.filter((c) => c.url.endsWith('/sendMessage')).map((c) => ({ url: c.url, body: c.body }));
 
-async function scanAndWait() {
+// Taramayı başlatır (varsayılan: tam tarama) ve yeni kayıt gelip tarama bitene kadar bekler.
+async function scanAndWait(start = () => dash.evaluate(() => chrome.runtime.sendMessage({ type: 'scan' }))) {
   const before = ((await read(['snapshots'])).snapshots || []).length;
-  await dash.evaluate(() => chrome.runtime.sendMessage({ type: 'scan' }));
-  for (let i = 0; i < 120; i++) {
+  await start();
+  for (let i = 0; i < 480; i++) {
     await dash.waitForTimeout(500);
     const s = await read(['snapshots', 'scanState']);
     if ((s.snapshots || []).length > before && s.scanState && !s.scanState.running) return s.snapshots[s.snapshots.length - 1];
@@ -87,6 +92,7 @@ async function scanAndWait() {
 }
 
 async function reset(extra = {}) {
+  shops.reset();
   tgCalls.length = 0;
   tgReplies = { sendMessage: SENT };
   await dash.evaluate(() => chrome.storage.local.clear());
@@ -142,6 +148,111 @@ test('site doğrulama isterse bildirim gider, aynı gün ikinci kez gitmez', asy
   await scanAndWait();
   assert.strictEqual(sends().length, 1);
   for (const p of ctx.pages()) if (p.url().startsWith('https://www.imge.com.tr/')) await p.close();
+});
+
+// --- Sepet sınırıyla stok ölçümü ---
+
+const HB = { id: 'hepsiburada', name: 'Hepsiburada', url: 'https://www.hepsiburada.com/ornek-kitap-pm-HBC0000A6M7ZP' };
+const AMZ = { id: 'amazon', name: 'Amazon', url: 'https://www.amazon.com.tr/dp/6259756186' };
+const cartActivity = () => shops.state.log.filter((l) => /sepetim|\/api\/(add|qty|remove|cart)|\/cart\/|\/gp\/cart/.test(l));
+const closeTabs = async (re) => { for (const p of ctx.pages()) if (re.test(p.url())) await p.close(); };
+
+test('ölçüm kapalıyken sepete hiç dokunulmaz; satıcı adı yine okunur', async () => {
+  await reset({ targets: [HB] });
+  const snap = await scanAndWait();
+  assert.strictEqual(snap.status, 'in_stock');
+  assert.strictEqual(snap.seller, 'A Kitap');
+  assert.strictEqual(snap.cartLimit, undefined);
+  assert.deepStrictEqual(cartActivity(), []);
+});
+
+test('artı/eksi düğmeli sepette stok sınırı bulunur, kitap sepetten çıkarılır, diğer ürüne dokunulmaz', async () => {
+  await reset({ targets: [HB], settings: { cartProbe: true } });
+  const snap = await scanAndWait();
+  assert.strictEqual(snap.cartLimit, 4);
+  assert.strictEqual(snap.cartLimitCapped, false);
+  assert.strictEqual(snap.stockQty, 4);
+  assert.strictEqual(snap.stockQtySource, 'sepet sınırı');
+  assert.strictEqual(snap.cartWarning, undefined);
+  assert.strictEqual(shops.state.hbOurs, 0, 'kitap sepette kalmamalı');
+  assert.strictEqual(shops.state.hbOther, 2, 'kullanıcının diğer ürünü değişmemeli');
+  assert.strictEqual(shops.state.boughtNow, false);
+  assert.deepStrictEqual(ctx.pages().filter((p) => /hepsiburada/.test(p.url())).map((p) => p.url()), []);
+});
+
+test('açılır listeli ve sayfayı yenileyen sepette sınır ve sitenin uyarısı okunur', async () => {
+  await reset({ targets: [AMZ], settings: { cartProbe: true } });
+  const snap = await scanAndWait();
+  assert.strictEqual(snap.seller, 'Kitapsan');
+  assert.strictEqual(snap.cartLimit, 7);
+  assert.strictEqual(snap.stockQty, 7);
+  assert.strictEqual(snap.cartNote, 'Bu satıcının bu üründen yalnızca 7 adedi mevcut.');
+  assert.strictEqual(shops.state.amzQty, 0, 'kitap sepette kalmamalı');
+  assert.strictEqual(shops.state.boughtNow, false);
+});
+
+test('kitap zaten sepetteyse ölçüm yapılmaz ve sepet değişmez', async () => {
+  await reset({ targets: [HB], settings: { cartProbe: true } });
+  shops.state.hbOurs = 2;
+  const snap = await scanAndWait();
+  assert.match(snap.cartNote, /zaten sepetinizde/);
+  assert.strictEqual(snap.cartLimit, undefined);
+  assert.strictEqual(shops.state.hbOurs, 2);
+  assert.ok(!shops.state.log.some((l) => /\/api\/(add|qty|remove)$/.test(l)), shops.state.log.join(' | '));
+});
+
+test('aynı gün ikinci taramada yeniden ölçülmez; son ölçüm kayda taşınır', async () => {
+  await reset({ targets: [HB], settings: { cartProbe: true } });
+  const first = await scanAndWait();
+  shops.state.log.length = 0;
+  const second = await scanAndWait();
+  assert.deepStrictEqual(cartActivity(), []);
+  assert.strictEqual(second.stockQty, 4);
+  assert.strictEqual(second.cartCheckedAt, first.cartCheckedAt);
+});
+
+test('kitap sepetten çıkarılamazsa uyarı kaydedilir, Telegram\'a yazılır ve sepet sekmesi açık kalır', async () => {
+  await reset({ targets: [HB], settings: { cartProbe: true }, telegram: CONNECTED });
+  shops.state.hbRemoveWorks = false;
+  const snap = await scanAndWait();
+  assert.match(snap.cartWarning, /sepetinizden çıkarılamadı/);
+  assert.strictEqual(sends().length, 1);
+  assert.match(sends()[0].body.text, /Hepsiburada: Ölçümden sonra kitap sepetinizden çıkarılamadı/);
+  assert.ok(ctx.pages().some((p) => p.url().startsWith('https://checkout.hepsiburada.com/sepetim')), 'sepet sekmesi açık kalmalı');
+  await closeTabs(/hepsiburada/);
+});
+
+test('kitap sepete eklenemediyse ve adı sepet sayfasında başka yerde geçiyorsa başka ürüne dokunulmaz', async () => {
+  await reset({ targets: [HB], settings: { cartProbe: true } });
+  shops.state.hbAddWorks = false; // "Sepete ekle" sessizce işe yaramıyor; sepette yalnızca kullanıcının diğer ürünü var
+  const snap = await scanAndWait();
+  assert.strictEqual(shops.state.hbOther, 2, 'kullanıcının ürününün adedi değişmemeli');
+  assert.ok(!shops.state.log.some((l) => /\/api\/(qty|remove)$/.test(l)), shops.state.log.join(' | '));
+  assert.match(snap.cartNote, /sepete eklenemedi/);
+  assert.strictEqual(snap.cartLimit, undefined);
+  assert.strictEqual(snap.cartWarning, undefined);
+});
+
+test('panelden ölçüm açılır; "Şimdi ölç" yalnızca sepetli siteleri, bugün ölçülmüş olsa da yeniden ölçer', async () => {
+  await reset({ targets: [HB, TARGET] });
+  assert.strictEqual(await dash.locator('#cart-now').isDisabled(), true);
+  await dash.check('#cart-probe');
+  assert.strictEqual((await read(['settings'])).settings.cartProbe, true);
+  await scanAndWait(() => dash.click('#cart-now'));
+  shops.state.log.length = 0;
+  await scanAndWait(() => dash.click('#cart-now'));
+  const { snapshots } = await read(['snapshots']);
+  assert.deepStrictEqual(snapshots.map((x) => [x.targetId, x.cartLimit]), [['hepsiburada', 4], ['hepsiburada', 4]]);
+  assert.ok(cartActivity().length > 0, 'ikinci basışta da ölçüm yapılmalı');
+  const row = await dash.locator('#now tbody tr', { hasText: 'Hepsiburada' }).innerText();
+  assert.match(row, /4 adet/);
+  assert.match(row, /sepet sınırı/);
+  assert.match(row, /A Kitap/);
+});
+
+test('kitap sepette kaldıysa uyarı panelde ilgili satırda görünür', async () => {
+  await reset({ targets: [HB], snapshots: [{ targetId: 'hepsiburada', ts: Date.now(), status: 'in_stock', price: 120, currency: 'TRY', cartCheckedAt: Date.now(), cartWarning: 'Ölçümden sonra kitap sepetinizden çıkarılamadı; sepetinizi kontrol edin.' }] });
+  await dash.waitForFunction(() => /sepetinizden çıkarılamadı/.test(document.querySelector('#now tbody').innerText));
 });
 
 // --- Panelde bağlanma ---

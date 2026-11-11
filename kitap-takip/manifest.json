@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Kitap Takip",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Kitabınızın satıldığı sitelerdeki stok, fiyat ve satış işaretlerini düzenli olarak kaydeder; değişiklikleri isterseniz Telegram'dan bildirir.",
   "permissions": ["storage", "alarms", "tabs", "scripting"],
   "host_permissions": [
     "https://www.hepsiburada.com/*",
+    "https://checkout.hepsiburada.com/*",
     "https://www.amazon.com.tr/*",
     "https://1000kitap.com/*",
     "https://dostkitabevi.com/*",

@@ -75,7 +75,7 @@
       if (!prev) continue;
       const push = (field, from, to) => events.push({ ts: s.ts, targetId: s.targetId, field, from, to });
       if (prev.status !== s.status) push('status', prev.status, s.status);
-      for (const f of ['price', 'edition', 'reviewCount', 'soldCount', 'leadTime', 'sellers']) {
+      for (const f of ['price', 'edition', 'reviewCount', 'soldCount', 'leadTime', 'sellers', 'seller']) {
         const a = prev[f], b = s[f];
         if (a != null && b != null && a !== b) push(f, a, b);
       }
@@ -107,7 +107,7 @@
 
   function toCsv(snapshots, targets) {
     const name = Object.fromEntries(targets.map((t) => [t.id, t.name]));
-    const cols = ['ts', 'site', 'status', 'stockQty', 'stockQtySource', 'stockQtyPlaceholder', 'maxOrderQty', 'soldCount', 'price', 'listPrice', 'currency', 'leadTime', 'edition', 'rating', 'reviewCount', 'rank', 'sellers', 'counts', 'signals', 'note'];
+    const cols = ['ts', 'site', 'status', 'seller', 'sellerList', 'stockQty', 'stockQtySource', 'stockQtyPlaceholder', 'maxOrderQty', 'cartLimit', 'cartLimitCapped', 'cartNote', 'soldCount', 'price', 'listPrice', 'currency', 'leadTime', 'edition', 'rating', 'reviewCount', 'rank', 'sellers', 'counts', 'signals', 'note'];
     const cell = (v) => {
       if (v == null) return '';
       const s = typeof v === 'object' ? JSON.stringify(v) : String(v);
@@ -123,7 +123,7 @@
     return deriveEvents(snapshots.filter((s) => s.targetId === snapshot.targetId)).filter((e) => e.ts === snapshot.ts);
   }
 
-  const FIELD_LABEL = { price: 'Fiyat', stockQty: 'Stok adedi', soldCount: 'Satın alma sayacı', edition: 'Baskı', reviewCount: 'Yorum sayısı', rank: 'Satış sıralaması', leadTime: 'Temin süresi', sellers: 'Satıcı sayısı' };
+  const FIELD_LABEL = { price: 'Fiyat', stockQty: 'Stok adedi', soldCount: 'Satın alma sayacı', edition: 'Baskı', reviewCount: 'Yorum sayısı', rank: 'Satış sıralaması', leadTime: 'Temin süresi', sellers: 'Satıcı sayısı', seller: 'Satıcı' };
 
   // Olayın okura gösterilen cümlesi (panelde ve Telegram mesajında aynı).
   function describeEvent(e) {
@@ -141,5 +141,64 @@
     return `${FIELD_LABEL[e.field] || e.field}: ${show(e.from)} → ${show(e.to)}`;
   }
 
-  return { STATUS_LABEL, UNREADABLE, normTitle, realQty, salesSignals, dayKey, latestByTarget, deriveEvents, newEvents, describeEvent, dayStrip, toCsv };
+  // --- Sepet sınırı ölçümü ---
+
+  const CART_REASON = {
+    already_in_cart: 'Kitap zaten sepetinizde olduğu için ölçüm yapılmadı; sepetinize dokunulmadı.',
+    login: 'Sepet sayfası giriş istedi; ölçüm yapılamadı. Sitede oturum açıp yeniden deneyin.',
+    blocked: 'Sepet sayfası doğrulama istedi; ölçüm yapılamadı.',
+    no_add_button: 'Ürün sayfasında "Sepete ekle" düğmesi bulunamadı; ölçüm yapılamadı.',
+    not_in_cart: 'Kitap sepete eklenemedi ya da sepette bulunamadı; ölçüm yapılamadı.',
+    error: 'Ölçüm sırasında beklenmeyen bir hata oldu.',
+  };
+  const CART_WARNING = 'Ölçümden sonra kitap sepetinizden çıkarılamadı; sepetinizi kontrol edin.';
+  const CART_EVERY_MS = 20 * 3600000; // günde bir ölçüm
+  const CART_CARRY_MS = 36 * 3600000; // son ölçümün geçerli sayıldığı süre
+
+  // Adresteki ürün kodu: Amazon'da ASIN, Hepsiburada'da SKU gibi.
+  function urlIds(url) {
+    let path = '';
+    try { path = new URL(url).pathname; } catch (e) { return []; }
+    return [...new Set((path.match(/[A-Za-z0-9]{10,}/g) || []).filter((t) => /\d/.test(t) && /^[A-Z0-9]+$/.test(t)))];
+  }
+
+  // Ölçüm sonucunu taramanın kaydına işler.
+  function applyCartResult(data, res, now) {
+    const out = { ...data, cartCheckedAt: now };
+    if (res.cleaned === false) out.cartWarning = CART_WARNING;
+    if (!res.ok) return { ...out, cartNote: CART_REASON[res.reason] || CART_REASON.error };
+    out.cartLimit = res.limit;
+    out.cartLimitCapped = !!res.capped;
+    if (res.note) out.cartNote = res.note;
+    // Sınıra gerçekten ulaşıldıysa ve sayfa kendi stokunu yazmıyorsa, sınır stok adedi sayılır.
+    if (res.limit != null && !res.capped && realQty(data) == null) {
+      out.stockQty = res.limit;
+      out.stockQtySource = 'sepet sınırı';
+      out.stockQtyPlaceholder = false;
+    }
+    return out;
+  }
+
+  const lastCartCheck = (snapshots, targetId) => snapshots.filter((s) => s.targetId === targetId && s.cartCheckedAt != null).sort((a, b) => b.cartCheckedAt - a.cartCheckedAt)[0] || null;
+
+  function cartProbeDue(snapshots, targetId, now) {
+    const last = lastCartCheck(snapshots, targetId);
+    return !last || now - last.cartCheckedAt >= CART_EVERY_MS;
+  }
+
+  // Ölçüm yapılmayan taramada son ölçümün sonucunu kayda taşır.
+  function carryCartLimit(data, snapshots, targetId, now) {
+    const last = lastCartCheck(snapshots, targetId);
+    if (!last || last.cartLimit == null || now - last.cartCheckedAt > CART_CARRY_MS || !SELLABLE.has(data.status)) return data;
+    const out = { ...data, cartLimit: last.cartLimit, cartLimitCapped: !!last.cartLimitCapped, cartCheckedAt: last.cartCheckedAt };
+    if (last.cartNote) out.cartNote = last.cartNote;
+    if (!last.cartLimitCapped && realQty(data) == null) {
+      out.stockQty = last.cartLimit;
+      out.stockQtySource = 'sepet sınırı';
+      out.stockQtyPlaceholder = false;
+    }
+    return out;
+  }
+
+  return { applyCartResult, cartProbeDue, carryCartLimit, urlIds, STATUS_LABEL, UNREADABLE, normTitle, realQty, salesSignals, dayKey, latestByTarget, deriveEvents, newEvents, describeEvent, dayStrip, toCsv };
 });

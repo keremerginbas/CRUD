@@ -12,3 +12,9 @@ const DEFAULT_TARGETS = [
   { id: 'bkm', name: 'BKM Kitap', url: 'https://www.bkmkitap.com/ozgurun-salincagi' },
   { id: '1000kitap', name: '1000Kitap', url: 'https://1000kitap.com/kitap/ozgur-un-salincagi--542304' },
 ];
+
+// Sepet sınırıyla stok ölçümünün yapılabildiği siteler ve sepet sayfalarının adresi.
+const CART_URLS = {
+  'www.hepsiburada.com': 'https://checkout.hepsiburada.com/sepetim',
+  'www.amazon.com.tr': 'https://www.amazon.com.tr/gp/cart/view.html',
+};

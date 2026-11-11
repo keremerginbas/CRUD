@@ -119,3 +119,8 @@ test('bot engellendiyse gönderme başarısız döner ve ne yapılacağını sö
   assert.strictEqual(res.reason, 'chat');
   assert.match(res.message, /Başlat/);
 });
+
+test('uyarılar (ör. kitap sepette kaldı) mesajın sonuna eklenir', () => {
+  const msg = tg.buildScanMessage({ book, targets, events: [], blocked: [], warnings: ['Hepsiburada: Ölçümden sonra kitap sepetinizden çıkarılamadı; sepetinizi kontrol edin.'] });
+  assert.deepStrictEqual(msg.split('\n'), ["Özgür'ün Salıncağı", 'Hepsiburada: Ölçümden sonra kitap sepetinizden çıkarılamadı; sepetinizi kontrol edin.']);
+});

@@ -103,3 +103,9 @@ td a { color: inherit; font-weight: 600; }
 .steps { margin: 0 0 12px; padding-left: 1.3em; max-width: 70ch; }
 .steps li { margin: 2px 0; }
 #tg-who { margin: 0 0 12px; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.check input { width: 18px; height: 18px; accent-color: var(--pine); }
+.notes { margin: 12px 0 0; padding-left: 1.2em; color: var(--muted); font-size: .9rem; max-width: 80ch; }
+.notes li { margin: 2px 0; }
+td .warn { display: block; color: var(--out); font-weight: 600; font-size: .85rem; max-width: 34ch; }
+#h-cart + .lede + .actions { align-items: center; }

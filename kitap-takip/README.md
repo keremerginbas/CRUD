@@ -27,6 +27,8 @@ içine gömülü olarak yayımlar. Eklenti bunları güvenilirlik sırasıyla to
 | --- | --- | --- |
 | Satın alma sayacı | Kitapyurdu ("Bu üründen N adet satın alınmıştır") | O sitede satılan adet. İki tarama arasındaki artış, o dönemin satışıdır. |
 | Gerçek stok adedi | İmge Kitabevi ve aynı altyapıyı kullanan mağazalar (sayfaya gömülü stok alanı); "son 3 ürün" gibi uyarılar | Mağazanın elindeki kopya sayısı. Azalma çoğunlukla satıştır, artış yeni sevkiyattır. |
+| Sepet sınırı | Hepsiburada ve Amazon (isteğe bağlı ölçüm, aşağıda) | Satıcının stoku ya da sipariş başına sınırı. Sayı düşerse satıcının stoku azalmıştır. |
+| Satıcılar | Hepsiburada ve Amazon | Kitabı öne çıkan satıcı, diğer satıcılar ve fiyatları. Öne çıkan satıcının değişmesi, öncekinin stokunun bittiğini gösterebilir. |
 | Tükenme ve yenilenme | Bütün mağazalar | Mağaza ya da dağıtımcı elindekini bitirmiş ve yenisini almış. Her döngü bir partinin eridiğini gösterir. |
 | Satış sıralaması | Amazon | Numaranın belirgin biçimde küçülmesi, arada en az bir satış olduğunu gösterir. |
 | Yorum, puan, okur sayıları | Hepsiburada, Amazon, 1000Kitap | Okura ulaşan kopyaların alt sınırı; alıcıların küçük bir bölümü yorum yazar. |
@@ -49,6 +51,32 @@ Dışarıdan toplanan işaretler tahmindir. Kesin sayıların iki kaynağı vard
 - **Yayınevinin satış hesabı:** Türk Borçlar Kanunu'nun yayım sözleşmesine ilişkin 497. maddesi
   satış hesaplarını düzenler. Telif ödemeniz satışa bağlıysa satış hesabını yazılı olarak isteyin;
   sözleşmenizdeki ilgili maddeye de bakın.
+
+## Sepet sınırıyla stok ölçümü
+
+Hepsiburada ve Amazon stok adedini göstermez. Bu ölçüm, bir alıcının elle yapabileceği şeyi yapar:
+kitabı sepete ekler, adedi sitenin izin verdiği yere kadar yükseltir, ulaştığı sayıyı kaydeder ve
+kitabı sepetten çıkarır. Varsayılan olarak kapalıdır.
+
+1. Panelde **Sepet sınırıyla stok ölçümü** bölümünde **Günde bir kez ölç** kutusunu işaretleyin.
+2. İlk denemeyi **Şimdi ölç** ile yapın ve sonucu Hepsiburada ile Amazon satırlarında görün.
+
+Kurallar:
+
+- Yalnızca "Sepete ekle", adet artır/azalt ve sil düğmelerine basılır. Satın alma ya da ödeme
+  düğmelerine hiçbir koşulda basılmaz.
+- Yalnızca ölçümün kendi eklediği satıra dokunulur. Kitap zaten sepetinizdeyse ya da eklenen satır
+  kesin olarak ayırt edilemiyorsa hiçbir şeye dokunulmaz.
+- Kitap sepetten çıkarılamazsa sepet sekmesi açık kalır; panelde ve Telegram'da uyarı görürsünüz.
+- Bulunan sayı satıcının stoku ya da sipariş başına sınırı olabilir; panel bunu "sepet sınırı" olarak
+  gösterir. Sınıra ulaşılamazsa "en az N adet" yazar.
+- Ölçüm, satıcının istatistiğinde sepete ekleme olarak görünür. Sitelerin kullanım koşulları
+  otomatik sepet işlemlerine izin vermeyebilir; açıp açmamak sizin kararınızdır.
+
+Ölçüm ve satıcı okuması gerçek Hepsiburada ve Amazon sayfalarında denenemedi (bu siteler geliştirme
+ortamından açılmıyor); yaygın sepet düzenlerini canlandıran örnek sayfalarla sınandı. İlk
+çalıştırmada bir satırda "ölçüm yapılamadı" notu görürseniz **Tanı dosyası indir**e basıp dosyayı
+paylaşın; dosyada sepet sayfasının düğme ve alan adları da yer alır.
 
 ## Telegram bildirimleri
 
@@ -89,12 +117,14 @@ npx playwright install chromium
 npm test
 ```
 
-`test/extension.test.js` eklentiyi gerçek tarayıcıya yükler ve mağaza ile Telegram'ın yerine yerel bir
-sunucu koyar; geçici sertifika üretmek için `openssl` komutuna ihtiyaç duyar.
+`test/extension.test.js` eklentiyi gerçek tarayıcıya yükler ve mağazaların, sahte iki pazaryerinin
+(`test/helpers/fake-shops.js`) ve Telegram'ın yerine yerel bir sunucu koyar; geçici sertifika üretmek
+için `openssl` komutuna ihtiyaç duyar.
 
 - `extractor.js`: açık sayfadan veriyi okur; arama sayfasından ürün sayfasını bulur.
 - `background.js`: zamanlama ve tarama.
 - `lib.js`: değişiklik, geçmiş ve satış işareti hesapları.
 - `telegram.js`: bildirim metni ve Telegram çağrıları.
+- `cartprobe.js`: sepet sınırı ölçümünün sayfa tarafı (düğmeleri bulma, adedi yükseltme, silme).
 - `dashboard.*`: takip ekranı.
 - `targets.js`: varsayılan kitap ve sayfalar.

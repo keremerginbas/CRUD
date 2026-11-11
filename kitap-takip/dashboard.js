@@ -21,7 +21,7 @@ async function load() {
   return {
     targets: s.targets || DEFAULT_TARGETS,
     snapshots: s.snapshots || [],
-    settings: { intervalHours: 12, ...(s.settings || {}) },
+    settings: { intervalHours: 12, cartProbe: false, ...(s.settings || {}) },
     book: s.book || DEFAULT_BOOK,
     scanState: s.scanState || { running: false },
     telegram: s.telegram || null,
@@ -32,14 +32,20 @@ function stockCell(s) {
   if (!s) return '–';
   const parts = [];
   const real = L.realQty(s);
+  const fromCart = s.stockQtySource === 'sepet sınırı';
   if (real != null) {
     parts.push(el('strong', {}, `${real} adet`), el('small', {}, `Kaynak: ${s.stockQtySource}`));
-    if (s.status === 'on_order') parts.push(el('small', {}, 'Mağaza stok tutmuyor; sipariş gelince tedarik ediyor.'));
+    if (fromCart) parts.push(el('small', {}, 'Satıcının stoku ya da sipariş sınırı.'));
+    if (s.status === 'on_order' && !fromCart) parts.push(el('small', {}, 'Mağaza stok tutmuyor; sipariş gelince tedarik ediyor.'));
+  } else if (s.cartLimit != null && s.cartLimitCapped) {
+    parts.push(el('strong', {}, `En az ${s.cartLimit} adet`), el('small', {}, 'Sepette sınıra ulaşılamadı.'));
   } else if (s.stockQtyPlaceholder) {
     parts.push('Adet gizli', el('small', {}, `Sitedeki ${s.stockQty.toLocaleString('tr-TR')} değeri yer tutucu; gerçek stok değil.`));
   } else if (s.status === 'in_stock' || s.status === 'on_order') parts.push('Adet gizli');
   else parts.push('–');
   if (s.availabilityText) parts.push(el('small', {}, s.availabilityText));
+  if (s.cartNote) parts.push(el('small', {}, s.cartNote));
+  if (s.cartCheckedAt != null && (s.cartLimit != null || s.cartNote)) parts.push(el('small', {}, `Sepet ölçümü: ${fmtTime(s.cartCheckedAt)}`));
   if (s.maxOrderQty != null && real == null && !s.stockQtyPlaceholder) parts.push(el('small', {}, `Tek siparişte en çok ${s.maxOrderQty}`));
   return parts;
 }
@@ -62,9 +68,14 @@ function renderNow(state) {
     if (s && s.counts) for (const [k, v] of Object.entries(s.counts)) interest.push(`${v} ${k}`);
     // Sitenin yazdığı ilgi cümleleri; satın alma sayacı kendi sütununda gösterildiği için burada yinelenmez.
     const extra = s && s.signals ? s.signals.filter((x) => !/satın alınmıştır/i.test(x)) : [];
+    const others = s && s.sellerList ? s.sellerList.filter((x) => x.name !== s.seller) : [];
+    if (others.length) extra.push(`Diğer satıcılar: ${others.slice(0, 5).map((x) => (x.price != null ? `${x.name} (${fmtMoney(x.price, s.currency)})` : x.name)).join(', ')}`);
     return el('tr', {},
       el('td', {}, el('a', { href: t.url, target: '_blank', rel: 'noreferrer' }, t.name)),
-      el('td', {}, s ? pill(s.status) : el('span', { class: 'pill s-none' }, 'Henüz taranmadı'), s && s.note ? el('small', {}, s.note) : null),
+      el('td', {}, s ? pill(s.status) : el('span', { class: 'pill s-none' }, 'Henüz taranmadı'),
+        s && s.seller ? el('small', {}, `Satıcı: ${s.seller}`) : null,
+        s && s.note ? el('small', {}, s.note) : null,
+        s && s.cartWarning ? el('span', { class: 'warn' }, s.cartWarning) : null),
       el('td', {}, stockCell(s)),
       el('td', { class: 'num' }, s && s.soldCount != null ? [el('strong', {}, `${s.soldCount.toLocaleString('tr-TR')} adet`), el('small', {}, 'Sitenin kendi sayacı')] : '–'),
       el('td', { class: 'num' }, s ? fmtMoney(s.price, s.currency) : '–', s && s.listPrice ? el('small', {}, `Liste: ${fmtMoney(s.listPrice, s.currency)}`) : null),
@@ -154,6 +165,11 @@ function renderTelegram(state) {
   else if ($('tg-status').dataset.kind === 'error') setTgStatus('');
 }
 
+function renderCart(state) {
+  $('cart-probe').checked = !!state.settings.cartProbe;
+  $('cart-now').disabled = !state.settings.cartProbe || !!state.scanState.running;
+}
+
 function renderScanState(state) {
   const st = state.scanState;
   $('scan').disabled = !!st.running;
@@ -169,7 +185,7 @@ async function render() {
   $('book-sub').textContent = `ISBN ${state.book.isbn}, ${state.targets.length} sayfa takipte`;
   document.title = `${state.book.title} – Kitap Takip`;
   $('interval').value = String(state.settings.intervalHours);
-  renderScanState(state); renderNow(state); renderSignals(state); renderStrips(state); renderEvents(state); renderTelegram(state); renderTargets(state);
+  renderScanState(state); renderNow(state); renderSignals(state); renderStrips(state); renderEvents(state); renderCart(state); renderTelegram(state); renderTargets(state);
 }
 
 function download(blob, name) {
@@ -195,6 +211,13 @@ $('csv').addEventListener('click', async () => {
   const state = await load();
   download(new Blob([L.toCsv(state.snapshots, state.targets)], { type: 'text/csv;charset=utf-8' }), `kitap-takip-${L.dayKey(Date.now())}.csv`);
 });
+$('cart-probe').addEventListener('change', async (e) => {
+  const state = await load();
+  await chrome.storage.local.set({ settings: { ...state.settings, cartProbe: e.target.checked } });
+});
+// Yalnızca sepet ölçümü yapılabilen siteleri, bugün ölçülmüş olsalar da yeniden ölçer.
+$('cart-now').addEventListener('click', () => chrome.runtime.sendMessage({ type: 'scan', cartOnly: true, forceCart: true }));
+
 $('tg-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const token = $('tg-token').value.trim();

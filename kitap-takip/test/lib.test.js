@@ -123,3 +123,80 @@ test('olay açıklamaları: yeni baskı ve yeniden stok', () => {
   assert.strictEqual(lib.describeEvent({ field: 'status', from: 'out_of_stock', to: 'in_stock' }), 'Yeniden stokta (önceki durum: Tükendi)');
   assert.strictEqual(lib.describeEvent({ field: 'price', from: 105, to: 97.5 }), 'Fiyat: 105 → 97,5');
 });
+
+test('öne çıkan satıcı değişince olay üretilir', () => {
+  const ev = lib.deriveEvents([
+    snap('a', 2, { status: 'in_stock', seller: 'A Kitap' }),
+    snap('a', 1, { status: 'in_stock', seller: 'B Kitap' }),
+  ]);
+  assert.deepStrictEqual(ev.map((e) => [e.field, e.from, e.to]), [['seller', 'A Kitap', 'B Kitap']]);
+  assert.strictEqual(lib.describeEvent(ev[0]), 'Satıcı: A Kitap → B Kitap');
+});
+
+// --- Sepet sınırı ölçümünün kayda işlenmesi ---
+
+const H = 3600000;
+
+test('ölçüm sonucu stok adedi olarak işlenir ve kaynağı belirtilir', () => {
+  const out = lib.applyCartResult({ status: 'in_stock', price: 120 }, { ok: true, limit: 4, capped: false, note: 'Bu üründen en fazla 4 adet alabilirsiniz', cleaned: true }, now);
+  assert.strictEqual(out.stockQty, 4);
+  assert.strictEqual(out.stockQtySource, 'sepet sınırı');
+  assert.strictEqual(out.cartLimit, 4);
+  assert.strictEqual(out.cartCheckedAt, now);
+  assert.strictEqual(out.cartWarning, undefined);
+  assert.strictEqual(lib.realQty(out), 4);
+});
+
+test('sınıra ulaşılamadıysa (en az N) stok adedi yazılmaz', () => {
+  const out = lib.applyCartResult({ status: 'in_stock' }, { ok: true, limit: 999, capped: true, cleaned: true }, now);
+  assert.strictEqual(out.stockQty, undefined);
+  assert.strictEqual(out.cartLimit, 999);
+  assert.strictEqual(out.cartLimitCapped, true);
+});
+
+test('sayfanın kendi yazdığı gerçek stok, sepet sınırıyla ezilmez', () => {
+  const out = lib.applyCartResult({ status: 'in_stock', stockQty: 2, stockQtySource: 'sayfa metni' }, { ok: true, limit: 10, capped: false, cleaned: true }, now);
+  assert.strictEqual(out.stockQty, 2);
+  assert.strictEqual(out.stockQtySource, 'sayfa metni');
+  assert.strictEqual(out.cartLimit, 10);
+});
+
+test('kitap sepetten çıkarılamadıysa uyarı yazılır', () => {
+  const out = lib.applyCartResult({ status: 'in_stock' }, { ok: true, limit: 4, capped: false, cleaned: false }, now);
+  assert.match(out.cartWarning, /sepetinizden çıkarılamadı/);
+});
+
+test('ölçüm yapılamadıysa neden not edilir ve stok yazılmaz', () => {
+  const out = lib.applyCartResult({ status: 'in_stock' }, { ok: false, reason: 'already_in_cart' }, now);
+  assert.match(out.cartNote, /zaten sepetinizde/);
+  assert.strictEqual(out.stockQty, undefined);
+  assert.strictEqual(out.cartCheckedAt, now);
+});
+
+test('ölçüm günde bir kez yapılır', () => {
+  const snaps = [{ targetId: 'hb', ts: now - 30 * H, cartCheckedAt: now - 30 * H }, { targetId: 'amz', ts: now - 2 * H, cartCheckedAt: now - 2 * H }];
+  assert.strictEqual(lib.cartProbeDue(snaps, 'hb', now), true);
+  assert.strictEqual(lib.cartProbeDue(snaps, 'amz', now), false);
+  assert.strictEqual(lib.cartProbeDue(snaps, 'yeni', now), true);
+});
+
+test('ölçüm yapılmayan taramada son ölçüm taşınır; böylece bir sonraki ölçümle karşılaştırılabilir', () => {
+  const prev = { targetId: 'hb', ts: now - 12 * H, status: 'in_stock', stockQty: 4, stockQtySource: 'sepet sınırı', cartLimit: 4, cartLimitCapped: false, cartCheckedAt: now - 12 * H };
+  const carried = lib.carryCartLimit({ status: 'in_stock', price: 120 }, [prev], 'hb', now);
+  assert.strictEqual(carried.stockQty, 4);
+  assert.strictEqual(carried.cartCheckedAt, now - 12 * H);
+  // Kitap tükenmişse ya da ölçüm çok eskiyse taşınmaz.
+  assert.strictEqual(lib.carryCartLimit({ status: 'out_of_stock' }, [prev], 'hb', now).stockQty, undefined);
+  assert.strictEqual(lib.carryCartLimit({ status: 'in_stock' }, [{ ...prev, cartCheckedAt: now - 60 * H }], 'hb', now).stockQty, undefined);
+});
+
+test('adresin içindeki ürün kodu (ASIN, SKU) çıkarılır', () => {
+  assert.deepStrictEqual(lib.urlIds('https://www.amazon.com.tr/dp/6259756186?ref=x'), ['6259756186']);
+  assert.deepStrictEqual(lib.urlIds('https://www.hepsiburada.com/bilim-ve-sanat-ozgur-un-salincagi-pm-HBC0000A6M7ZP'), ['HBC0000A6M7ZP']);
+  assert.deepStrictEqual(lib.urlIds('https://nobelkitap.com/kitap/ozgurun-salincagi'), []);
+});
+
+test('ölçüm yarıda kalsa bile kitap sepette kaldıysa uyarı yazılır', () => {
+  const out = lib.applyCartResult({ status: 'in_stock' }, { ok: false, reason: 'not_in_cart', cleaned: false }, now);
+  assert.match(out.cartWarning, /sepetinizden çıkarılamadı/);
+});

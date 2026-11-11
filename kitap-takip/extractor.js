@@ -24,6 +24,9 @@
     /^(stockquantity|stock_quantity|stockcount|stock_count|stockamount|stock_amount|stokadedi|stok_adedi|stokmiktari|stok_miktari|stokadet|stok_adet)$/i,
     /^(stock|stok|inventory|inventoryquantity|inventory_quantity|availablestock|available_stock|availablequantity|available_quantity|sellablequantity|saleablequantity)$/i,
   ];
+  // Gömülü ürün kaydında satıcı adını taşıyan alanlar.
+  const SELLER_KEY_RE = /^(merchantname|merchant_name|sellername|seller_name|storename|store_name|saticiadi|satici_adi)$/i;
+  const PRICE_KEY_RE = /^(price|saleprice|sale_price|finalprice|final_price|amount|value)$/i;
   const STATE_ROOTS = ['__NUXT__', '__NEXT_DATA__', '__INITIAL_STATE__', '__PRELOADED_STATE__', '__APOLLO_STATE__', '__INITIAL_DATA__', '__APP_STATE__', 'PRODUCT_DATA', '__PRODUCT_DETAIL_APP_INITIAL_STATE__', 'productDetailModel', 'productModel', 'utag_data'];
   // Analitik nesneleri sepet adedi ("quantity": 1) taşır, stok değil; bakılmaz.
   const SKIP_ROOT_RE = /^(\$|dataLayer|google|gaGlobal|ga$|gtag|fbq|chrome|webpackChunk|__next_f|__next_s|closure_|_F_|GOOGLE_)/i;
@@ -126,9 +129,48 @@
     } catch (e) { /* erişilemeyen pencere özelliği */ }
     const found = [];
     const roots = [];
+    const sellers = [];
     const t0 = performance.now();
     let count = 0;
     const numeric = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : typeof v === 'string' && /^-?\d{1,7}$/.test(v) ? Number(v) : null);
+    const priceOf = (node) => {
+      for (const [k, v] of Object.entries(node)) {
+        if (!PRICE_KEY_RE.test(k)) continue;
+        if (typeof v === 'number') return v;
+        if (typeof v === 'string' && parseNum(v) != null) return parseNum(v);
+        if (v && typeof v === 'object') { const inner = [v.value, v.amount, v.price].find((x) => typeof x === 'number'); if (inner != null) return inner; }
+      }
+      return null;
+    };
+    // Kitabın kaydının altındaki teklif / satıcı kayıtlarını toplar (sınırlı derinlik).
+    const harvest = (record, path, depth) => {
+      const local = new Set();
+      const q = [[record, 0]];
+      for (let i = 0; i < q.length && local.size < 3000; i++) {
+        const [node, d] = q[i];
+        if (local.has(node)) continue;
+        local.add(node);
+        let ents;
+        try { ents = Object.entries(node); } catch (e) { continue; }
+        if (!Array.isArray(node)) {
+          let name = null;
+          for (const [k, v] of ents) {
+            if (SELLER_KEY_RE.test(k) && typeof v === 'string') name = v;
+            else if (/^(merchant|seller|store)$/i.test(k) && v && typeof v === 'object' && typeof v.name === 'string') name = v.name;
+          }
+          name = squash(name);
+          if (name.length >= 2 && name.length <= 60 && !sellers.some((x) => x.name === name)) sellers.push({ name, price: priceOf(node) });
+          if (d > 0) {
+            for (const [k, v] of ents) {
+              const n = numeric(v);
+              const pri = STATE_KEYS.findIndex((re) => re.test(k));
+              if (n != null && pri >= 0) found.push({ path: `${path}…${k}`, key: k, value: n, pri: pri + 10, depth: depth + d });
+            }
+          }
+        }
+        if (d < 4) for (const [, v] of ents) if (v && typeof v === 'object' && isPlain(v)) q.push([v, d + 1]);
+      }
+    };
     for (const name of names) {
       if (SKIP_ROOT_RE.test(name)) continue;
       let root;
@@ -142,7 +184,7 @@
         if (seen.has(o)) continue;
         seen.add(o);
         // Çok büyük sayfa verilerinde taramayı sınırla.
-        if (++count > 150000 || (count % 2000 === 0 && performance.now() - t0 > 1200)) return { found, roots };
+        if (++count > 150000 || (count % 2000 === 0 && performance.now() - t0 > 1200)) return { found, roots, sellers };
         let entries;
         try { entries = Object.entries(o); } catch (e) { continue; }
         if (!Array.isArray(o) && entries.some(([, v]) => (typeof v === 'string' || typeof v === 'number') && ids.includes(String(v)))) {
@@ -154,18 +196,32 @@
             if (pri < 0 && name === 'PRODUCT_DATA' && /^quantity$/i.test(k)) pri = STATE_KEYS.length;
             if (pri >= 0) found.push({ path: `${path}.${k}`, key: k, value: n, pri, depth });
           }
+          harvest(o, path, depth);
         }
         if (depth < 12) for (const [k, v] of entries) if (v && typeof v === 'object' && isPlain(v)) queue.push([v, `${path}.${k}`, depth + 1]);
       }
     }
     found.sort((a, b) => a.pri - b.pri || a.depth - b.depth);
-    return { found, roots };
+    return { found, roots, sellers };
   }
 
   function visibleStock(text) {
     const pats = [/son\s+(\d+)\s+(?:ürün|adet)/i, /sadece\s+(\d+)\s+adet/i, /(\d+)\s+adet\s+kaldı/i, /stok\s*(?:adedi|miktarı|durumu)?\s*:\s*(\d+)/i];
     for (const p of pats) { const m = text.match(p); if (m) return Number(m[1]); }
     return null;
+  }
+
+  // "Satıcı: X" satırlarından ya da tek başına "Satıcı" etiketinin altındaki satırdan satıcı adlarını çıkarır.
+  function sellerNames(text) {
+    const lines = (text || '').split('\n').map(squash).filter(Boolean);
+    const names = [];
+    for (let i = 0; i < lines.length && names.length < 12; i++) {
+      const m = lines[i].match(/^Satıcı\s*:\s*(.+)$/i);
+      let name = m ? m[1] : /^Satıcı$/i.test(lines[i]) ? lines[i + 1] || '' : '';
+      name = name.replace(/\s+\d+(?:[.,]\d+)?$/, ''); // yanındaki satıcı puanı
+      if (name.length >= 2 && name.length <= 60 && !/^\d/.test(name)) names.push(name);
+    }
+    return names;
   }
 
   function quantityLimit(area) {
@@ -217,16 +273,21 @@
     }
 
     const ld = ldProduct(isbn);
-    const offer = ld ? (Array.isArray(ld.offers) ? ld.offers[0] : ld.offers) : null;
+    // Tek teklif ya da birden çok satıcının teklifini saran toplu kayıt (AggregateOffer).
+    const rawOffers = ld ? [].concat(ld.offers || []).filter(Boolean) : [];
+    const agg = rawOffers.find((o) => o.offers) || null;
+    const offers = agg ? [].concat(agg.offers || []).filter(Boolean) : rawOffers;
+    const offer = offers[0] || agg;
+    const priceSrc = agg && agg.lowPrice != null ? agg : offer;
     const area = mainArea();
     const areaText = squash(area.innerText);
     out.hasIsbn = !!isbn && document.documentElement.innerHTML.includes(isbn);
 
     // Fiyat
-    if (offer && (offer.price != null || offer.lowPrice != null)) {
-      out.price = parseNum(offer.price != null ? offer.price : offer.lowPrice);
-      out.currency = offer.priceCurrency || null;
-      const spec = [].concat(offer.priceSpecification || []).map((x) => parseNum(x && x.price)).filter((n) => n != null && n > out.price);
+    if (priceSrc && (priceSrc.price != null || priceSrc.lowPrice != null)) {
+      out.price = parseNum(priceSrc.price != null ? priceSrc.price : priceSrc.lowPrice);
+      out.currency = priceSrc.priceCurrency || (offer && offer.priceCurrency) || null;
+      const spec = [].concat((offer && offer.priceSpecification) || []).map((x) => parseNum(x && x.price)).filter((n) => n != null && n > out.price);
       if (spec.length) out.listPrice = Math.max(...spec);
     } else {
       const meta = document.querySelector('meta[property="product:price:amount"], meta[property="og:price:amount"]');
@@ -286,10 +347,10 @@
     if (out.status === 'in_stock' && (onOrder || realQty === 0 || (out.leadTime && !(realQty > 0)))) out.status = 'on_order';
 
     // Puan ve yorumlar
-    const agg = ld && ld.aggregateRating;
-    if (agg) {
-      out.rating = parseNum(agg.ratingValue);
-      out.reviewCount = parseNum(agg.reviewCount != null ? agg.reviewCount : agg.ratingCount);
+    const ratingInfo = ld && ld.aggregateRating;
+    if (ratingInfo) {
+      out.rating = parseNum(ratingInfo.ratingValue);
+      out.reviewCount = parseNum(ratingInfo.reviewCount != null ? ratingInfo.reviewCount : ratingInfo.ratingCount);
     }
     const acr = squash((document.querySelector('#acrCustomerReviewText') || {}).innerText);
     if (acr && out.reviewCount == null) out.reviewCount = parseNum(acr);
@@ -297,8 +358,19 @@
     // Satış sıralaması (Amazon) ve satıcı sayısı
     const rank = body.match(/En Çok Satanlar Sıralaması:?\s*.{0,160}?([\d.]+)\s*numara/i) || body.match(/Sıralaması:?\s*#?\s*([\d.]+)/i);
     if (rank) out.rank = parseNum(rank[1]);
-    const sellers = body.match(/(\d+)\s+(?:diğer\s+)?satıcı/i);
-    if (sellers) out.sellers = Number(sellers[1]);
+    // Satıcılar: öne çıkan satıcı, diğer satıcılar ve toplam satıcı sayısı
+    const ldSellers = offers.filter((o) => o.seller && o.seller.name).map((o) => ({ name: squash(o.seller.name), price: parseNum(o.price) }));
+    const amazonSeller = squash((document.querySelector('#sellerProfileTriggerId') || document.querySelector('#merchantInfoFeature_feature_div .offer-display-feature-text-message') || {}).textContent);
+    const areaSellers = sellerNames(area.innerText);
+    const pageSellers = [...new Set(sellerNames(document.body.innerText))];
+    const seller = amazonSeller || areaSellers[0] || (pageSellers.length === 1 ? pageSellers[0] : null) || (ldSellers[0] && ldSellers[0].name) || (mined.sellers[0] && mined.sellers[0].name) || null;
+    if (seller) out.seller = seller;
+    const sellerList = ldSellers.length > 1 ? ldSellers : mined.sellers.length > 1 ? mined.sellers : [];
+    if (sellerList.length) out.sellerList = sellerList.slice(0, 8);
+    const others = body.match(/(\d+)\s+diğer\s+satıcı/i) || body.match(/Diğer\s+Satıcılar\s*\(\s*(\d+)\s*\)/i);
+    const total = body.match(/Yeni\s*\((\d+)\)\s*(?:başlangıç|teklif)/i) || body.match(/(\d+)\s+satıcı/i);
+    const sellerCount = Math.max((agg && Number(agg.offerCount)) || 0, sellerList.length, others ? Number(others[1]) + 1 : 0, total ? Number(total[1]) : 0);
+    if (sellerCount > 0) out.sellers = sellerCount;
 
     // Sitenin kendi yazdığı satış sayacı ve ilgi cümleleri
     const sold = body.match(SOLD_RE);

@@ -9,7 +9,7 @@
   const API = 'https://api.telegram.org';
   const MAX_LINES = 30; // Telegram tek mesajda 4096 karakter kabul eder.
   // Bildirilecek değişiklik türleri; temin süresi gibi ufak oynamalar telefona gönderilmez.
-  const NOTIFY_FIELDS = new Set(['status', 'stockQty', 'soldCount', 'rank', 'reviewCount', 'edition', 'price', 'sellers']);
+  const NOTIFY_FIELDS = new Set(['status', 'stockQty', 'soldCount', 'rank', 'reviewCount', 'edition', 'price', 'sellers', 'seller']);
 
   const MESSAGES = {
     token: "Token geçersiz. BotFather'ın verdiği token'ı eksiksiz yapıştırın.",
@@ -19,12 +19,13 @@
   };
 
   // Bir taramanın sonucunu tek mesaja çevirir; söylenecek bir şey yoksa null döner.
-  function buildScanMessage({ book, targets, events, blocked }) {
+  function buildScanMessage({ book, targets, events, blocked, warnings = [] }) {
     const name = Object.fromEntries(targets.map((t) => [t.id, t.name]));
     const lines = events.filter((e) => NOTIFY_FIELDS.has(e.field)).map((e) => `${name[e.targetId] || e.targetId}: ${lib.describeEvent(e)}`);
     const shown = lines.slice(0, MAX_LINES);
     if (lines.length > MAX_LINES) shown.push(`… ve ${lines.length - MAX_LINES} değişiklik daha (ayrıntılar panelde)`);
     if (blocked.length) shown.push(`Doğrulama gerekiyor: ${blocked.map((id) => name[id] || id).join(', ')}. Tarayıcıda açık kalan sekmede doğrulamayı tamamlayıp "Yeniden tara"ya basın.`);
+    shown.push(...warnings);
     return shown.length ? [book.title, ...shown].join('\n') : null;
   }
 
