@@ -43,6 +43,10 @@ def find_container():
         names = sh(["docker", "ps", "--format", "{{.Names}}"]).splitlines()
     except Exception:
         return ""
+    # WhatsApp by XRE ayrı sunucudaysa video ve seslendirme orada.
+    for wanted in ("xrecrm-wa",):
+        if wanted in names:
+            return wanted
     for n in names:
         if n.endswith("-crm") or n.endswith("-crm-1") or n == "xrecrm-crm":
             return n

@@ -52,7 +52,7 @@ Kendi portalınızdaki yerel uygulamanın (Geliştirici kaynakları → yerel uy
 - **WhatsApp bağlantıları kopmaz.** Telefonlarda yeniden QR okutmak gerekmez. Evolution yeniden başlarken bağlantılar birkaç saniye kopup geri gelir.
 - **Kısa bakım boşluğu:** Taşıma sırasındaki yaklaşık 20 saniyede gelen mesajlar kaybolabilir; bu yüzden sessiz bir saatte çalıştırın. Bu sürenin dışında CRM'e gelen Market olayları yeni sunucuya iletilir.
 - **OpenAI anahtarı ve Bitrix uygulama anahtarları** CRM ayarlarından kopyalanır. CRM'in diğer entegrasyon anahtarları (Meta, santral, n8n…) kopyalanmaz.
-- **Ayar değişikliği:** Bundan sonra OpenAI anahtarı gibi uygulama ayarlarını değiştirmek için sunucudaki `.env` dosyasına yazıp `kurulum.sh` çalıştırın.
+- **Ayar değişikliği:** Bundan sonra uygulama ayarlarını (OpenAI anahtarı, destek e-postası ve telefonu, satıcı adı…) değiştirmek için sunucudaki `.env` dosyasına yazıp `kurulum.sh` çalıştırın. `.env`'deki değer, CRM'den taşınan eski değerin önüne geçer. Örnek: `B24_SUPPORT_EMAIL=destek@firma.com`.
 
 ## Geri alma
 

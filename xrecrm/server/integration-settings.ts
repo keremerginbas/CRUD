@@ -75,7 +75,8 @@ export const SETTINGS_ID = ID;
 export const CONNECTOR_SETTING_KEYS = SETTING_KEYS.filter((k) => k === "XRE_OPENAI_API_KEY" || k.startsWith("B24_"));
 export async function loadConnectorSettings(store: Store): Promise<number> {
   const stored = (await rawStoreOf(store).get<StoredSettings>(KIND, ID, CONNECTOR_SETTINGS_OWNER))?.payload;
-  const values = Object.fromEntries(Object.entries(stored?.values || {}).filter(([k]) => CONNECTOR_SETTING_KEYS.includes(k)));
+  // .env dosyasında verilen değer, CRM'den taşınan eski değerin önüne geçer.
+  const values = Object.fromEntries(Object.entries(stored?.values || {}).filter(([k]) => CONNECTOR_SETTING_KEYS.includes(k) && !process.env[k]?.trim()));
   applyValues(values);
   return Object.keys(values).length;
 }
