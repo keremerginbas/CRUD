@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kitap Takip</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header class="top">
+    <div class="rope" aria-hidden="true"></div>
+    <div class="top-inner">
+      <div>
+        <h1 id="book-title">Kitap Takip</h1>
+        <p class="sub" id="book-sub"></p>
+      </div>
+      <div class="actions">
+        <label class="interval">Otomatik tarama
+          <select id="interval">
+            <option value="6">6 saatte bir</option>
+            <option value="12">12 saatte bir</option>
+            <option value="24">Günde bir</option>
+          </select>
+        </label>
+        <button id="csv" class="quiet" type="button">CSV indir</button>
+        <button id="scan" class="primary" type="button">Şimdi tara</button>
+      </div>
+    </div>
+    <p class="scan-state" id="scan-state" role="status"></p>
+  </header>
+
+  <main>
+    <section aria-labelledby="h-now">
+      <h2 id="h-now">Şu anki durum</h2>
+      <div class="table-wrap"><table id="now"></table></div>
+      <p class="hint" id="now-hint"></p>
+    </section>
+
+    <section aria-labelledby="h-strip">
+      <h2 id="h-strip">Stok geçmişi</h2>
+      <p class="lede">Her kutu bir gün. Tükenme ve yenilenme tarihleri burada görünür.</p>
+      <div id="strips"></div>
+      <ul class="legend" id="legend"></ul>
+    </section>
+
+    <section aria-labelledby="h-events">
+      <h2 id="h-events">Değişiklikler</h2>
+      <ol id="events" class="events"></ol>
+    </section>
+
+    <section aria-labelledby="h-targets">
+      <h2 id="h-targets">Takip edilen sayfalar</h2>
+      <ul id="targets" class="targets"></ul>
+      <form id="add" class="add">
+        <label>Site adı <input name="name" required placeholder="Örn. Kitapyurdu"></label>
+        <label class="grow">Ürün sayfası adresi <input name="url" type="url" required placeholder="https://..."></label>
+        <button type="submit">Sayfa ekle</button>
+      </form>
+      <p class="hint" id="add-msg" role="status"></p>
+    </section>
+  </main>
+
+  <script src="targets.js"></script>
+  <script src="lib.js"></script>
+  <script src="dashboard.js"></script>
+</body>
+</html>

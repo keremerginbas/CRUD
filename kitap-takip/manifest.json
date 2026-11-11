@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Kitap Takip",
+  "version": "0.1.0",
+  "description": "Kitabınızın satıldığı sitelerdeki stok, fiyat ve yorum bilgilerini düzenli olarak kaydeder.",
+  "permissions": ["storage", "alarms", "tabs", "scripting"],
+  "host_permissions": [
+    "https://www.hepsiburada.com/*",
+    "https://www.amazon.com.tr/*",
+    "https://1000kitap.com/*",
+    "https://dostkitabevi.com/*",
+    "https://www.dostkitabevi.com/*",
+    "https://nobelkitap.com/*",
+    "https://www.imge.com.tr/*",
+    "https://www.e-kitapmedia.de/*",
+    "https://www.bkmkitap.com/*"
+  ],
+  "optional_host_permissions": ["https://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "Kitap Takip panelini aç" },
+  "options_page": "dashboard.html"
+}
