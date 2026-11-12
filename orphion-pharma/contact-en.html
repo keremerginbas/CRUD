@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-storage="orphion">
+<html lang="en" data-brand="orphion" data-storage="orphion">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,124 +22,120 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/images/fav-icon.png">
 <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/schibsted-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/css/site.css?v=e278d0e8">
+<link rel="stylesheet" href="assets/css/site.css?v=82e24ab3">
+<script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <div class="wrap header-row">
-    <a class="brand" href="index-en.html"><img src="assets/images/orphion-logo.webp" width="289" height="125" alt="Orphion Pharma logo"></a>
-    <nav class="main-nav" aria-label="Menu">
-      <ul><li class="nav-item"><button class="nav-parent" type="button" aria-expanded="false">Company<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="about-en.html">About Us</a></li><li><a href="chairman-message-en.html">Chairman&#x27;s Message</a></li><li><a href="mission-vision-en.html">Mission &amp; Vision</a></li><li><a href="human-resources-en.html">Careers</a></li></ul></li><li><a href="services-en.html">Capabilities</a></li><li><a href="events-en.html">Events</a></li><li class="nav-item"><button class="nav-parent" type="button" aria-expanded="false">Partners<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="partners-en.html">Our Partners</a></li><li><a href="partners-en.html#portfolio">Product Portfolio</a></li></ul></li><li><a href="contact-en.html" aria-current="page">Contact</a></li><li class="mobile-cta"><a class="btn" href="contact-en.html#contact-form">Partner With Us</a></li></ul>
+<a class="absolute -top-16 left-4 z-[100] rounded-md bg-ink px-4 py-2.5 text-white focus:top-3" href="#main">Skip to content</a>
+<header class="site-header sticky top-0 z-50 border-b border-transparent bg-white transition-colors [&.scrolled]:border-line">
+  <div class="wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
+    <a class="shrink-0" href="index-en.html"><img class="h-11 w-auto lg:h-16" src="assets/images/orphion-logo.webp" width="289" height="125" alt="Orphion Pharma logo"></a>
+    <nav class="main-nav lg:ml-auto" aria-label="Menu">
+      <ul class="flex items-center gap-1"><li class="nav-item relative"><button class="nav-link nav-parent" type="button" aria-expanded="false">Company<svg class="chev h-3 w-3 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="about-en.html">About Us</a></li><li><a href="chairman-message-en.html">Chairman&#x27;s Message</a></li><li><a href="mission-vision-en.html">Mission &amp; Vision</a></li><li><a href="human-resources-en.html">Careers</a></li></ul></li><li><a class="nav-link" href="services-en.html">Capabilities</a></li><li><a class="nav-link" href="events-en.html">Events</a></li><li class="nav-item relative"><button class="nav-link nav-parent" type="button" aria-expanded="false">Partners<svg class="chev h-3 w-3 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="partners-en.html">Our Partners</a></li><li><a href="partners-en.html#portfolio">Product Portfolio</a></li></ul></li><li><a class="nav-link" href="contact-en.html" aria-current="page">Contact</a></li><li class="mt-6 border-0 lg:hidden"><a class="btn w-full" href="contact-en.html#contact-form">Partner With Us</a></li></ul>
     </nav>
-    <div class="header-tools">
-      <div class="lang-switch" role="group" aria-label="Language">
-        <a href="contact.html" hreflang="tr" lang="tr">TR</a>
-        <a href="contact-en.html" hreflang="en" lang="en" aria-current="true">EN</a>
-      </div>
-      <a class="btn" href="contact-en.html#contact-form">Partner With Us</a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Menu"><span></span></button>
+    <div class="ml-auto flex items-center gap-3 lg:ml-0">
+      <div class="flex rounded-md border border-line p-[3px]" role="group" aria-label="Language"><a class="rounded px-2.5 py-1.5 text-sm font-semibold no-underline text-muted hover:text-ink" href="contact.html" hreflang="tr" lang="tr">TR</a><a class="rounded px-2.5 py-1.5 text-sm font-semibold no-underline bg-ink text-white" href="contact-en.html" hreflang="en" lang="en" aria-current="true">EN</a></div>
+      <a class="btn hidden min-h-[44px] px-4 text-[15px] xl:inline-flex" href="contact-en.html#contact-form">Partner With Us</a>
+      <button class="menu-toggle grid h-11 w-11 place-items-center rounded-md border border-line bg-white lg:hidden" type="button" aria-expanded="false" aria-label="Menu">
+        <span class="burger relative block h-0.5 w-[18px] bg-ink transition before:absolute before:-top-1.5 before:left-0 before:h-0.5 before:w-full before:bg-ink before:transition before:content-[''] after:absolute after:left-0 after:top-1.5 after:h-0.5 after:w-full after:bg-ink after:transition after:content-['']"></span>
+      </button>
     </div>
   </div>
 </header>
 <main id="main">
-<section class="page-hero">
-  <div class="wrap">
-    <ol class="crumbs"><li><a href="index-en.html">Home</a></li><li aria-current="page">Contact</li></ol>
-    <h1>Contact</h1><p class="lead">Tell us about your patient access, supply or Türkiye market entry needs and we will get back to you shortly.</p>
+<section class="relative overflow-hidden bg-ink pb-14 pt-14 text-on-dark md:pb-20 md:pt-24">
+  <div class="pointer-events-none absolute -right-40 top-1/2 h-[520px] w-[520px] -translate-y-1/2 rounded-full border border-white/10"></div>
+  <div class="pointer-events-none absolute -right-20 top-1/2 h-[340px] w-[340px] -translate-y-1/2 rounded-full border border-accent/30"></div>
+  <div class="wrap relative">
+    <ol class="mb-6 flex flex-wrap text-[15px] text-on-dark-muted"><li class="after:mx-2 after:opacity-60 after:content-['/']"><a class="text-on-dark-muted no-underline hover:text-white" href="index-en.html">Home</a></li><li aria-current="page">Contact</li></ol>
+    <h1 class="h-page mb-5 max-w-[18ch] text-white">Contact</h1><p class="lead text-on-dark">Tell us about your patient access, supply or Türkiye market entry needs and we will get back to you shortly.</p>
   </div>
 </section>
 <section class="section">
-  <div class="wrap split">
-    <div>
-      <h2>Reach us</h2>
-      <ul class="contact-lines">
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><div><strong>Email</strong><a href="mailto:info@orphionpharma.com">info@orphionpharma.com</a></div></li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg><div><strong>Phone</strong><a href="tel:+903122155010">+90 (312) 215 50 10</a></div></li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg><div><strong>WhatsApp</strong><a href="https://wa.me/905325691111" target="_blank" rel="noopener">Chat on WhatsApp</a></div></li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><div><strong>Working hours</strong>Monday–Friday, 09:00–18:00</div></li>
-      </ul>
-    </div>
-    <div class="form-card" id="contact-form"><h2 style="font-size:28px">Send us a message</h2>
-<form class="form js-contact-form" action="contact.php" method="post" novalidate>
+  <div class="wrap grid items-start gap-12 lg:grid-cols-[5fr_7fr] lg:gap-20">
+    <div data-reveal><h2 class="h-section">Reach us</h2><ul class="mt-7 grid gap-6"><li class="grid grid-cols-[24px_1fr] gap-3.5"><svg class="i mt-0.5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg><div><strong class="block text-ink">Email</strong><a class="no-underline hover:underline" href="mailto:info@orphionpharma.com">info@orphionpharma.com</a></div></li><li class="grid grid-cols-[24px_1fr] gap-3.5"><svg class="i mt-0.5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2Z"/></svg><div><strong class="block text-ink">Phone</strong><a class="no-underline hover:underline" href="tel:+903122155010">+90 (312) 215 50 10</a></div></li><li class="grid grid-cols-[24px_1fr] gap-3.5"><svg class="i mt-0.5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg><div><strong class="block text-ink">WhatsApp</strong><a class="no-underline hover:underline" href="https://wa.me/905325691111" target="_blank" rel="noopener">Chat on WhatsApp</a></div></li><li class="grid grid-cols-[24px_1fr] gap-3.5"><svg class="i mt-0.5 text-accent-ink" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><div><strong class="block text-ink">Working hours</strong>Monday–Friday, 09:00–18:00</div></li></ul></div>
+    <div class="scroll-mt-28 rounded-2xl border border-line bg-white p-7 md:p-12" id="contact-form" data-reveal data-reveal-delay="1">
+      <h2 class="mb-6 text-[28px]">Send us a message</h2>
+<form class="js-contact-form grid gap-x-5 gap-y-[18px] sm:grid-cols-2" action="contact.php" method="post" novalidate>
   <input type="hidden" name="lang" value="en"><input type="hidden" name="ts" value="">
   <div class="hp-field" aria-hidden="true"><label for="cf-website">Website</label><input type="text" id="cf-website" name="website" tabindex="-1" autocomplete="off"></div>
-  <div class="field"><label for="cf-name">Full name</label><input type="input" id="cf-name" name="name" required autocomplete="name" minlength="2" maxlength="100"></div>
+  <div class="field"><label for="cf-name">Full name</label><input type="text" id="cf-name" name="name" required autocomplete="name" minlength="2" maxlength="100"></div>
   <div class="field"><label for="cf-email">Email</label><input type="email" id="cf-email" name="email" required autocomplete="email" maxlength="200"></div>
-  <div class="field"><label for="cf-phone">Phone <span class="opt">(optional)</span></label><input type="tel" id="cf-phone" name="phone" autocomplete="tel" maxlength="40"></div>
-  <div class="field"><label for="cf-company">Company <span class="opt">(optional)</span></label><input type="text" id="cf-company" name="company" autocomplete="organization" maxlength="150"></div>
-  <div class="field full"><label for="cf-message">Your message</label><textarea id="cf-message" name="message" required minlength="5" maxlength="5000"></textarea></div>
-  <label class="consent full"><input type="checkbox" name="kvkk_consent" value="1" required><span>I have read the <a href="privacy-en.html" target="_blank" rel="noopener">Privacy Notice</a> and consent to my personal data being processed and transferred abroad in order to respond to my enquiry.</span></label>
-  <div class="full"><button class="btn dark" type="submit">Send message</button><div class="form-status" role="status" aria-live="polite"></div></div>
-</form></div>
+  <div class="field"><label for="cf-phone">Phone <span class="font-normal text-muted">(optional)</span></label><input type="tel" id="cf-phone" name="phone" autocomplete="tel" maxlength="40"></div>
+  <div class="field"><label for="cf-company">Company <span class="font-normal text-muted">(optional)</span></label><input type="text" id="cf-company" name="company" autocomplete="organization" maxlength="150"></div>
+  <div class="field sm:col-span-2"><label for="cf-message">Your message</label><textarea id="cf-message" name="message" required minlength="5" maxlength="5000"></textarea></div>
+  <label class="flex items-start gap-3 text-[15px] leading-normal text-muted sm:col-span-2"><input class="mt-0.5 h-5 w-5 shrink-0 accent-ink" type="checkbox" name="kvkk_consent" value="1" required><span class="[&_a]:text-ink [&_a]:underline">I have read the <a href="privacy-en.html" target="_blank" rel="noopener">Privacy Notice</a> and consent to my personal data being processed and transferred abroad in order to respond to my enquiry.</span></label>
+  <div class="sm:col-span-2"><button class="btn btn-dark" type="submit">Send message</button><div class="form-status" role="status" aria-live="polite"></div></div>
+</form>
+    </div>
   </div>
 </section>
-<section class="section tint">
+<section class="section bg-mist">
   <div class="wrap">
-    <div class="section-head"><h2>Our offices</h2></div>
-    <ul class="offices">
-      <li class="office hq">
-        <h3>Headquarters – Dubai</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Meydan Grandstand, 6th Floor<br>Meydan Road, Nad Al Sheba<br>Dubai, U.A.E.</a></address>
+    <div class="mb-12 flex flex-wrap items-end justify-between gap-x-10 gap-y-5" data-reveal><h2 class="h-section m-0 max-w-[20ch] ">Our offices</h2></div>
+    <ul class="grid gap-8 md:grid-cols-3">
+      <li class="border-t-2 border-accent pt-5" data-reveal data-reveal-delay="1">
+        <h3 class="mb-2.5 text-lg text-ink">Headquarters – Dubai</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-body" href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Meydan Grandstand, 6th Floor<br>Meydan Road, Nad Al Sheba<br>Dubai, U.A.E.</a></address>
       </li>
-      <li class="office">
-        <h3>Türkiye Liaison Office</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=NEXT+LEVEL+%C4%B0%C5%9F+Merkezi%2C+K%C4%B1z%C4%B1l%C4%B1rmak+Mahallesi+Dumlup%C4%B1nar+Bulvar%C4%B1%2C+%C3%87ankaya%2C+Ankara" target="_blank" rel="noopener">Kızılırmak Mahallesi Dumlupınar Bulvarı<br>NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23<br>Çankaya / Ankara, Türkiye</a></address><div class="phones"><a href="tel:+903122155010">+90 (312) 215 50 10</a><a href="tel:+903122225458">+90 (312) 222 54 58</a></div>
+      <li class="border-t-2 border-line pt-5" data-reveal data-reveal-delay="2">
+        <h3 class="mb-2.5 text-lg text-ink">Türkiye Liaison Office</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-body" href="https://www.google.com/maps/search/?api=1&query=NEXT+LEVEL+%C4%B0%C5%9F+Merkezi%2C+K%C4%B1z%C4%B1l%C4%B1rmak+Mahallesi+Dumlup%C4%B1nar+Bulvar%C4%B1%2C+%C3%87ankaya%2C+Ankara" target="_blank" rel="noopener">Kızılırmak Mahallesi Dumlupınar Bulvarı<br>NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23<br>Çankaya / Ankara, Türkiye</a></address><a class="block no-underline hover:underline text-body" href="tel:+903122155010">+90 (312) 215 50 10</a><a class="block no-underline hover:underline text-body" href="tel:+903122225458">+90 (312) 222 54 58</a>
       </li>
-      <li class="office">
-        <h3>US Outreach Office</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=3324+Sunbeam+Place%2C+Batavia%2C+OH+45103" target="_blank" rel="noopener">3324 Sunbeam Place<br>Batavia, OH 45103<br>United States</a></address><div class="phones"><a href="tel:+15133881634">+1 (513) 388-1634</a></div>
+      <li class="border-t-2 border-line pt-5" data-reveal data-reveal-delay="3">
+        <h3 class="mb-2.5 text-lg text-ink">US Outreach Office</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-body" href="https://www.google.com/maps/search/?api=1&query=3324+Sunbeam+Place%2C+Batavia%2C+OH+45103" target="_blank" rel="noopener">3324 Sunbeam Place<br>Batavia, OH 45103<br>United States</a></address><a class="block no-underline hover:underline text-body" href="tel:+15133881634">+1 (513) 388-1634</a>
       </li>
     </ul>
-    <div class="map-consent" style="margin-top:48px" data-map-src="https://maps.google.com/maps?q=Meydan%20Grandstand%2C%20Meydan%20Road%2C%20Nad%20Al%20Sheba%2C%20Dubai&amp;z=15&amp;output=embed" data-map-title="Headquarters – Dubai">
+    <div class="map-consent mt-12 grid min-h-[360px] place-items-center rounded-2xl bg-white p-8 text-center [&.loaded]:block [&.loaded]:p-0 [&_iframe]:h-[420px] [&_iframe]:w-full [&_iframe]:rounded-2xl [&_iframe]:border-0" data-map-src="https://maps.google.com/maps?q=Meydan%20Grandstand%2C%20Meydan%20Road%2C%20Nad%20Al%20Sheba%2C%20Dubai&amp;z=15&amp;output=embed" data-map-title="Headquarters – Dubai">
       <div>
-        <p><strong>Headquarters – Dubai</strong></p>
-        <p class="muted">Viewing the map loads Google Maps, which sends some data such as your IP address to Google.</p>
-        <button type="button" class="btn dark js-load-map">Show map</button>
-        <p style="margin-top:16px"><a href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Open in Google Maps</a></p>
+        <p class="font-semibold text-ink">Headquarters – Dubai</p>
+        <p class="mx-auto max-w-[52ch] text-muted">Viewing the map loads Google Maps, which sends some data such as your IP address to Google.</p>
+        <button class="btn btn-dark js-load-map" type="button">Show map</button>
+        <p class="mt-4"><a href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Open in Google Maps</a></p>
       </div>
     </div>
   </div>
 </section>
 </main>
-<footer class="site-footer">
+<footer class="bg-ink-deep pb-8 pt-20 text-base text-on-dark">
   <div class="wrap">
-    <div class="footer-top">
-      <div class="footer-brand">
-        <img src="assets/images/orphion-logo-white.webp" width="702" height="280" alt="Orphion Pharma logo" loading="lazy">
-        <p class="tagline" lang="en">Bridging Innovation and Life.</p>
-        <p><a href="mailto:info@orphionpharma.com">info@orphionpharma.com</a><br><a href="tel:+903122155010">+90 (312) 215 50 10</a></p>
-        <ul class="footer-links"><li><a href="about-en.html">About Us</a></li><li><a href="services-en.html">Capabilities</a></li><li><a href="events-en.html">Events</a></li><li><a href="partners-en.html">Our Partners</a></li><li><a href="human-resources-en.html">Careers</a></li><li><a href="contact-en.html">Contact</a></li></ul>
+    <div class="grid gap-12 border-b border-white/10 pb-14 lg:grid-cols-[4fr_8fr]">
+      <div>
+        <img class="mb-5 h-16 w-auto" src="assets/images/orphion-logo-white.webp" width="702" height="280" alt="Orphion Pharma logo" loading="lazy">
+        <p class="mb-4 font-serif text-[22px] text-white" lang="en">Bridging Innovation and Life.</p>
+        <p><a class="text-on-dark hover:text-white" href="mailto:info@orphionpharma.com">info@orphionpharma.com</a><br><a class="text-on-dark hover:text-white" href="tel:+903122155010">+90 (312) 215 50 10</a></p>
+        <ul class="mt-6 flex flex-wrap gap-x-6 gap-y-2.5"><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="about-en.html">About Us</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="services-en.html">Capabilities</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="events-en.html">Events</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="partners-en.html">Our Partners</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="human-resources-en.html">Careers</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="contact-en.html">Contact</a></li></ul>
       </div>
-      <ul class="offices">
-      <li class="office hq">
-        <h3>Headquarters – Dubai</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Meydan Grandstand, 6th Floor<br>Meydan Road, Nad Al Sheba<br>Dubai, U.A.E.</a></address>
+      <ul class="grid gap-8 md:grid-cols-3">
+      <li class="border-t-2 border-accent pt-5" data-reveal data-reveal-delay="1">
+        <h3 class="mb-2.5 text-lg text-white">Headquarters – Dubai</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Meydan Grandstand, 6th Floor<br>Meydan Road, Nad Al Sheba<br>Dubai, U.A.E.</a></address>
       </li>
-      <li class="office">
-        <h3>Türkiye Liaison Office</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=NEXT+LEVEL+%C4%B0%C5%9F+Merkezi%2C+K%C4%B1z%C4%B1l%C4%B1rmak+Mahallesi+Dumlup%C4%B1nar+Bulvar%C4%B1%2C+%C3%87ankaya%2C+Ankara" target="_blank" rel="noopener">Kızılırmak Mahallesi Dumlupınar Bulvarı<br>NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23<br>Çankaya / Ankara, Türkiye</a></address><div class="phones"><a href="tel:+903122155010">+90 (312) 215 50 10</a><a href="tel:+903122225458">+90 (312) 222 54 58</a></div>
+      <li class="border-t-2 border-white/20 pt-5" data-reveal data-reveal-delay="2">
+        <h3 class="mb-2.5 text-lg text-white">Türkiye Liaison Office</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=NEXT+LEVEL+%C4%B0%C5%9F+Merkezi%2C+K%C4%B1z%C4%B1l%C4%B1rmak+Mahallesi+Dumlup%C4%B1nar+Bulvar%C4%B1%2C+%C3%87ankaya%2C+Ankara" target="_blank" rel="noopener">Kızılırmak Mahallesi Dumlupınar Bulvarı<br>NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23<br>Çankaya / Ankara, Türkiye</a></address><a class="block no-underline hover:underline text-on-dark" href="tel:+903122155010">+90 (312) 215 50 10</a><a class="block no-underline hover:underline text-on-dark" href="tel:+903122225458">+90 (312) 222 54 58</a>
       </li>
-      <li class="office">
-        <h3>US Outreach Office</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=3324+Sunbeam+Place%2C+Batavia%2C+OH+45103" target="_blank" rel="noopener">3324 Sunbeam Place<br>Batavia, OH 45103<br>United States</a></address><div class="phones"><a href="tel:+15133881634">+1 (513) 388-1634</a></div>
+      <li class="border-t-2 border-white/20 pt-5" data-reveal data-reveal-delay="3">
+        <h3 class="mb-2.5 text-lg text-white">US Outreach Office</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=3324+Sunbeam+Place%2C+Batavia%2C+OH+45103" target="_blank" rel="noopener">3324 Sunbeam Place<br>Batavia, OH 45103<br>United States</a></address><a class="block no-underline hover:underline text-on-dark" href="tel:+15133881634">+1 (513) 388-1634</a>
       </li>
     </ul>
     </div>
-    <div class="footer-bottom">
+    <div class="flex flex-wrap justify-between gap-x-8 gap-y-4 pt-7 text-sm text-on-dark-muted">
       <p>© <span data-current-year>2026</span> Orphion Pharma. All rights reserved.</p>
-      <nav aria-label="Privacy Notice">
-        <a href="privacy-en.html">Privacy Notice</a>
-        <button type="button" class="js-cookie-settings">Cookie settings</button>
+      <nav class="flex flex-wrap gap-x-6 gap-y-2" aria-label="Privacy Notice">
+        <a class="text-on-dark-muted no-underline hover:text-white hover:underline" href="privacy-en.html">Privacy Notice</a>
+        <button class="js-cookie-settings text-on-dark-muted hover:text-white hover:underline" type="button">Cookie settings</button>
       </nav>
     </div>
   </div>
 </footer>
-<a class="wa-float" href="https://wa.me/905325691111" target="_blank" rel="noopener" aria-label="Chat on WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg></a>
-<div class="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie settings">
-  <p>This site only stores your language and cookie preferences in your browser. With your permission we also use analytics cookies to measure visits. Details: <a href="privacy-en.html#cookies">Privacy &amp; Cookie Policy</a>.</p>
-  <div class="cookie-actions"><button type="button" class="accept">Accept</button><button type="button" class="reject">Essential only</button></div>
+<a class="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#1FA855] text-white shadow-[0_10px_24px_rgba(0,0,0,.18)] transition hover:bg-[#178A45]" href="https://wa.me/905325691111" target="_blank" rel="noopener" aria-label="Chat on WhatsApp"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg></a>
+<div class="cookie-banner fixed bottom-3 left-3 right-3 z-[60] rounded-xl border border-line bg-white p-4 text-sm shadow-[0_18px_48px_rgba(16,26,46,.18)] sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-[420px] sm:p-5 sm:text-[15px]" role="dialog" aria-live="polite" aria-label="Cookie settings">
+  <p class="mb-3">This site only stores your language and cookie preferences in your browser. With your permission we also use analytics cookies to measure visits. Details: <a class="underline" href="privacy-en.html#cookies">Privacy &amp; Cookie Policy</a>.</p>
+  <div class="flex gap-2.5"><button class="accept min-h-[42px] flex-1 rounded-md bg-ink px-4 font-semibold text-white" type="button">Accept</button><button class="reject min-h-[42px] flex-1 rounded-md border border-ink px-4 font-semibold text-ink" type="button">Essential only</button></div>
 </div>
-<script src="assets/js/site.js?v=bf8451e1" defer></script>
+<script src="assets/js/site.js?v=c8e861b8" defer></script>
 </body>
 </html>

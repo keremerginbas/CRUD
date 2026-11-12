@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-storage="orphion">
+<html lang="en" data-brand="orphion" data-storage="orphion">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,83 +22,85 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/images/fav-icon.png">
 <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/schibsted-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/css/site.css?v=e278d0e8">
+<link rel="stylesheet" href="assets/css/site.css?v=82e24ab3">
+<script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
-<a class="skip-link" href="#main">Skip to content</a>
-<header class="site-header">
-  <div class="wrap header-row">
-    <a class="brand" href="index-en.html"><img src="assets/images/orphion-logo.webp" width="289" height="125" alt="Orphion Pharma logo"></a>
-    <nav class="main-nav" aria-label="Menu">
-      <ul><li class="nav-item is-current"><button class="nav-parent" type="button" aria-expanded="false">Company<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="about-en.html">About Us</a></li><li><a href="chairman-message-en.html" aria-current="page">Chairman&#x27;s Message</a></li><li><a href="mission-vision-en.html">Mission &amp; Vision</a></li><li><a href="human-resources-en.html">Careers</a></li></ul></li><li><a href="services-en.html">Capabilities</a></li><li><a href="events-en.html">Events</a></li><li class="nav-item"><button class="nav-parent" type="button" aria-expanded="false">Partners<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="partners-en.html">Our Partners</a></li><li><a href="partners-en.html#portfolio">Product Portfolio</a></li></ul></li><li><a href="contact-en.html">Contact</a></li><li class="mobile-cta"><a class="btn" href="contact-en.html#contact-form">Partner With Us</a></li></ul>
+<a class="absolute -top-16 left-4 z-[100] rounded-md bg-ink px-4 py-2.5 text-white focus:top-3" href="#main">Skip to content</a>
+<header class="site-header sticky top-0 z-50 border-b border-transparent bg-white transition-colors [&.scrolled]:border-line">
+  <div class="wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
+    <a class="shrink-0" href="index-en.html"><img class="h-11 w-auto lg:h-16" src="assets/images/orphion-logo.webp" width="289" height="125" alt="Orphion Pharma logo"></a>
+    <nav class="main-nav lg:ml-auto" aria-label="Menu">
+      <ul class="flex items-center gap-1"><li class="nav-item relative is-current"><button class="nav-link nav-parent" type="button" aria-expanded="false">Company<svg class="chev h-3 w-3 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="about-en.html">About Us</a></li><li><a href="chairman-message-en.html" aria-current="page">Chairman&#x27;s Message</a></li><li><a href="mission-vision-en.html">Mission &amp; Vision</a></li><li><a href="human-resources-en.html">Careers</a></li></ul></li><li><a class="nav-link" href="services-en.html">Capabilities</a></li><li><a class="nav-link" href="events-en.html">Events</a></li><li class="nav-item relative"><button class="nav-link nav-parent" type="button" aria-expanded="false">Partners<svg class="chev h-3 w-3 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="partners-en.html">Our Partners</a></li><li><a href="partners-en.html#portfolio">Product Portfolio</a></li></ul></li><li><a class="nav-link" href="contact-en.html">Contact</a></li><li class="mt-6 border-0 lg:hidden"><a class="btn w-full" href="contact-en.html#contact-form">Partner With Us</a></li></ul>
     </nav>
-    <div class="header-tools">
-      <div class="lang-switch" role="group" aria-label="Language">
-        <a href="yk-baskani-mesaji.html" hreflang="tr" lang="tr">TR</a>
-        <a href="chairman-message-en.html" hreflang="en" lang="en" aria-current="true">EN</a>
-      </div>
-      <a class="btn" href="contact-en.html#contact-form">Partner With Us</a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Menu"><span></span></button>
+    <div class="ml-auto flex items-center gap-3 lg:ml-0">
+      <div class="flex rounded-md border border-line p-[3px]" role="group" aria-label="Language"><a class="rounded px-2.5 py-1.5 text-sm font-semibold no-underline text-muted hover:text-ink" href="yk-baskani-mesaji.html" hreflang="tr" lang="tr">TR</a><a class="rounded px-2.5 py-1.5 text-sm font-semibold no-underline bg-ink text-white" href="chairman-message-en.html" hreflang="en" lang="en" aria-current="true">EN</a></div>
+      <a class="btn hidden min-h-[44px] px-4 text-[15px] xl:inline-flex" href="contact-en.html#contact-form">Partner With Us</a>
+      <button class="menu-toggle grid h-11 w-11 place-items-center rounded-md border border-line bg-white lg:hidden" type="button" aria-expanded="false" aria-label="Menu">
+        <span class="burger relative block h-0.5 w-[18px] bg-ink transition before:absolute before:-top-1.5 before:left-0 before:h-0.5 before:w-full before:bg-ink before:transition before:content-[''] after:absolute after:left-0 after:top-1.5 after:h-0.5 after:w-full after:bg-ink after:transition after:content-['']"></span>
+      </button>
     </div>
   </div>
 </header>
 <main id="main">
-<section class="page-hero">
-  <div class="wrap">
-    <ol class="crumbs"><li><a href="index-en.html">Home</a></li><li aria-current="page">Chairman&#x27;s Message</li></ol>
-    <h1>Chairman&#x27;s Message</h1>
+<section class="relative overflow-hidden bg-ink pb-14 pt-14 text-on-dark md:pb-20 md:pt-24">
+  <div class="pointer-events-none absolute -right-40 top-1/2 h-[520px] w-[520px] -translate-y-1/2 rounded-full border border-white/10"></div>
+  <div class="pointer-events-none absolute -right-20 top-1/2 h-[340px] w-[340px] -translate-y-1/2 rounded-full border border-accent/30"></div>
+  <div class="wrap relative">
+    <ol class="mb-6 flex flex-wrap text-[15px] text-on-dark-muted"><li class="after:mx-2 after:opacity-60 after:content-['/']"><a class="text-on-dark-muted no-underline hover:text-white" href="index-en.html">Home</a></li><li aria-current="page">Chairman&#x27;s Message</li></ol>
+    <h1 class="h-page mb-5 max-w-[18ch] text-white">Chairman&#x27;s Message</h1>
   </div>
 </section>
 <section class="section">
-  <div class="wrap split">
-    <div class="sticky">
-      <figure class="portrait" style="margin:0"><img src="assets/images/chairman-fevzi-aydin.webp" alt="Fevzi Aydın" loading="lazy"></figure>
-      <div class="portrait-caption"><strong>Fevzi Aydın</strong><span>Chairman &amp; Managing Partner, Orphion Pharma</span></div>
+  <div class="wrap grid items-start gap-12 lg:grid-cols-[5fr_7fr] lg:gap-24">
+    <div class="lg:sticky lg:top-32" data-reveal>
+      <figure class="m-0 overflow-hidden rounded-lg bg-mist aspect-[4/5]"><img class="h-full w-full object-cover" src="assets/images/chairman-fevzi-aydin.webp" alt="Fevzi Aydın" style="object-position:top"></figure>
+      <p class="mt-5"><strong class="block text-xl text-ink">Fevzi Aydın</strong><span class="text-muted">Chairman &amp; Managing Partner, Orphion Pharma</span></p>
     </div>
-    <article class="prose"><p class="emph">I believe working in healthcare carries a responsibility unlike that of almost any other industry.</p><p>Because ultimately, the decisions we make, the partnerships we build, and the treatments we help make accessible across borders are not reflected merely in numbers on a balance sheet.</p><p>They can affect a human life.</p><p>Science and medicine are advancing at an extraordinary pace. Treatments are being developed today for diseases that, not long ago, had few or sometimes no meaningful therapeutic options.</p><p>Yet the existence of a treatment somewhere in the world does not necessarily mean that every patient who needs it can access it.</p><p>Regulatory pathways, reimbursement systems, supply chains and commercial priorities can leave an effective treatment thousands of miles away from the patient waiting for it.</p><p>This is the idea that inspired Orphion Pharma: to shorten that distance.</p><p>We believe the true value of a medicine is realized not simply when it is discovered, developed or approved, but when it reaches the patient who needs it.</p><p>That is why we focus particularly on serious and rare diseases and areas of significant unmet medical need, working alongside innovative pharmaceutical and biotechnology companies, physicians, healthcare authorities and other stakeholders across the patient-access ecosystem.</p><p>Our ambition goes beyond supplying medicines.</p><p>We aim to build a trusted, sustainable and responsible bridge between medical innovation, wherever it originates, and patients who need access to it.</p><p>This philosophy also defines the responsibility we assume toward our partners.</p><p>When a company entrusts us with one of its therapies, we do not see merely a commercial product. We recognize the years of scientific research behind it, the people who dedicated themselves to developing it, the investment required to bring it forward and, most importantly, the patients who may be waiting for it.</p><p>For that reason, we believe in long-term partnerships built on transparency, scientific integrity, trust and ethical responsibility.</p><p>Our journey began in Türkiye and is increasingly reaching beyond its borders. Wherever that journey takes us, however, our compass will remain the same:</p><div class="compass"><p>To be present where the need exists.</p><p>To shorten the distance between scientific innovation and patient access.</p><p>And never to forget that behind everything we do, there is a human life.</p></div><p>We know that our journey is only beginning.</p><p>Our ambition is not simply to build a growing pharmaceutical company, but to build a healthcare company that is trusted, takes responsibility and acts when and where patients need it.</p><p>Because ultimately, we believe success should not be measured solely by how much a company grows, but by how many lives it helps bring closer to better treatment.</p>
-      <p class="signature" style="display:block;font-family:var(--sans)"><strong>Fevzi Aydın</strong><span>Chairman &amp; Managing Partner<br>Orphion Pharma</span></p>
+    <article class="prose-serif"><p class="text-[24px] leading-[1.45] text-ink">I believe working in healthcare carries a responsibility unlike that of almost any other industry.</p><p>Because ultimately, the decisions we make, the partnerships we build, and the treatments we help make accessible across borders are not reflected merely in numbers on a balance sheet.</p><p>They can affect a human life.</p><p>Science and medicine are advancing at an extraordinary pace. Treatments are being developed today for diseases that, not long ago, had few or sometimes no meaningful therapeutic options.</p><p>Yet the existence of a treatment somewhere in the world does not necessarily mean that every patient who needs it can access it.</p><p>Regulatory pathways, reimbursement systems, supply chains and commercial priorities can leave an effective treatment thousands of miles away from the patient waiting for it.</p><p>This is the idea that inspired Orphion Pharma: to shorten that distance.</p><p>We believe the true value of a medicine is realized not simply when it is discovered, developed or approved, but when it reaches the patient who needs it.</p><p>That is why we focus particularly on serious and rare diseases and areas of significant unmet medical need, working alongside innovative pharmaceutical and biotechnology companies, physicians, healthcare authorities and other stakeholders across the patient-access ecosystem.</p><p>Our ambition goes beyond supplying medicines.</p><p>We aim to build a trusted, sustainable and responsible bridge between medical innovation, wherever it originates, and patients who need access to it.</p><p>This philosophy also defines the responsibility we assume toward our partners.</p><p>When a company entrusts us with one of its therapies, we do not see merely a commercial product. We recognize the years of scientific research behind it, the people who dedicated themselves to developing it, the investment required to bring it forward and, most importantly, the patients who may be waiting for it.</p><p>For that reason, we believe in long-term partnerships built on transparency, scientific integrity, trust and ethical responsibility.</p><p>Our journey began in Türkiye and is increasingly reaching beyond its borders. Wherever that journey takes us, however, our compass will remain the same:</p><div class="my-8 border-l-[3px] border-accent bg-mist px-7 py-6 text-ink"><p class="m-0 [&+p]:mt-1.5">To be present where the need exists.</p><p class="m-0 [&+p]:mt-1.5">To shorten the distance between scientific innovation and patient access.</p><p class="m-0 [&+p]:mt-1.5">And never to forget that behind everything we do, there is a human life.</p></div><p>We know that our journey is only beginning.</p><p>Our ambition is not simply to build a growing pharmaceutical company, but to build a healthcare company that is trusted, takes responsibility and acts when and where patients need it.</p><p>Because ultimately, we believe success should not be measured solely by how much a company grows, but by how many lives it helps bring closer to better treatment.</p>
+      <p class="mt-10 font-sans"><strong class="block text-ink">Fevzi Aydın</strong><span class="text-[15px] text-muted">Chairman &amp; Managing Partner<br>Orphion Pharma</span></p>
     </article>
   </div>
 </section>
 </main>
-<footer class="site-footer">
+<footer class="bg-ink-deep pb-8 pt-20 text-base text-on-dark">
   <div class="wrap">
-    <div class="footer-top">
-      <div class="footer-brand">
-        <img src="assets/images/orphion-logo-white.webp" width="702" height="280" alt="Orphion Pharma logo" loading="lazy">
-        <p class="tagline" lang="en">Bridging Innovation and Life.</p>
-        <p><a href="mailto:info@orphionpharma.com">info@orphionpharma.com</a><br><a href="tel:+903122155010">+90 (312) 215 50 10</a></p>
-        <ul class="footer-links"><li><a href="about-en.html">About Us</a></li><li><a href="services-en.html">Capabilities</a></li><li><a href="events-en.html">Events</a></li><li><a href="partners-en.html">Our Partners</a></li><li><a href="human-resources-en.html">Careers</a></li><li><a href="contact-en.html">Contact</a></li></ul>
+    <div class="grid gap-12 border-b border-white/10 pb-14 lg:grid-cols-[4fr_8fr]">
+      <div>
+        <img class="mb-5 h-16 w-auto" src="assets/images/orphion-logo-white.webp" width="702" height="280" alt="Orphion Pharma logo" loading="lazy">
+        <p class="mb-4 font-serif text-[22px] text-white" lang="en">Bridging Innovation and Life.</p>
+        <p><a class="text-on-dark hover:text-white" href="mailto:info@orphionpharma.com">info@orphionpharma.com</a><br><a class="text-on-dark hover:text-white" href="tel:+903122155010">+90 (312) 215 50 10</a></p>
+        <ul class="mt-6 flex flex-wrap gap-x-6 gap-y-2.5"><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="about-en.html">About Us</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="services-en.html">Capabilities</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="events-en.html">Events</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="partners-en.html">Our Partners</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="human-resources-en.html">Careers</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="contact-en.html">Contact</a></li></ul>
       </div>
-      <ul class="offices">
-      <li class="office hq">
-        <h3>Headquarters – Dubai</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Meydan Grandstand, 6th Floor<br>Meydan Road, Nad Al Sheba<br>Dubai, U.A.E.</a></address>
+      <ul class="grid gap-8 md:grid-cols-3">
+      <li class="border-t-2 border-accent pt-5" data-reveal data-reveal-delay="1">
+        <h3 class="mb-2.5 text-lg text-white">Headquarters – Dubai</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Meydan Grandstand, 6th Floor<br>Meydan Road, Nad Al Sheba<br>Dubai, U.A.E.</a></address>
       </li>
-      <li class="office">
-        <h3>Türkiye Liaison Office</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=NEXT+LEVEL+%C4%B0%C5%9F+Merkezi%2C+K%C4%B1z%C4%B1l%C4%B1rmak+Mahallesi+Dumlup%C4%B1nar+Bulvar%C4%B1%2C+%C3%87ankaya%2C+Ankara" target="_blank" rel="noopener">Kızılırmak Mahallesi Dumlupınar Bulvarı<br>NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23<br>Çankaya / Ankara, Türkiye</a></address><div class="phones"><a href="tel:+903122155010">+90 (312) 215 50 10</a><a href="tel:+903122225458">+90 (312) 222 54 58</a></div>
+      <li class="border-t-2 border-white/20 pt-5" data-reveal data-reveal-delay="2">
+        <h3 class="mb-2.5 text-lg text-white">Türkiye Liaison Office</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=NEXT+LEVEL+%C4%B0%C5%9F+Merkezi%2C+K%C4%B1z%C4%B1l%C4%B1rmak+Mahallesi+Dumlup%C4%B1nar+Bulvar%C4%B1%2C+%C3%87ankaya%2C+Ankara" target="_blank" rel="noopener">Kızılırmak Mahallesi Dumlupınar Bulvarı<br>NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23<br>Çankaya / Ankara, Türkiye</a></address><a class="block no-underline hover:underline text-on-dark" href="tel:+903122155010">+90 (312) 215 50 10</a><a class="block no-underline hover:underline text-on-dark" href="tel:+903122225458">+90 (312) 222 54 58</a>
       </li>
-      <li class="office">
-        <h3>US Outreach Office</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=3324+Sunbeam+Place%2C+Batavia%2C+OH+45103" target="_blank" rel="noopener">3324 Sunbeam Place<br>Batavia, OH 45103<br>United States</a></address><div class="phones"><a href="tel:+15133881634">+1 (513) 388-1634</a></div>
+      <li class="border-t-2 border-white/20 pt-5" data-reveal data-reveal-delay="3">
+        <h3 class="mb-2.5 text-lg text-white">US Outreach Office</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=3324+Sunbeam+Place%2C+Batavia%2C+OH+45103" target="_blank" rel="noopener">3324 Sunbeam Place<br>Batavia, OH 45103<br>United States</a></address><a class="block no-underline hover:underline text-on-dark" href="tel:+15133881634">+1 (513) 388-1634</a>
       </li>
     </ul>
     </div>
-    <div class="footer-bottom">
+    <div class="flex flex-wrap justify-between gap-x-8 gap-y-4 pt-7 text-sm text-on-dark-muted">
       <p>© <span data-current-year>2026</span> Orphion Pharma. All rights reserved.</p>
-      <nav aria-label="Privacy Notice">
-        <a href="privacy-en.html">Privacy Notice</a>
-        <button type="button" class="js-cookie-settings">Cookie settings</button>
+      <nav class="flex flex-wrap gap-x-6 gap-y-2" aria-label="Privacy Notice">
+        <a class="text-on-dark-muted no-underline hover:text-white hover:underline" href="privacy-en.html">Privacy Notice</a>
+        <button class="js-cookie-settings text-on-dark-muted hover:text-white hover:underline" type="button">Cookie settings</button>
       </nav>
     </div>
   </div>
 </footer>
-<a class="wa-float" href="https://wa.me/905325691111" target="_blank" rel="noopener" aria-label="Chat on WhatsApp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg></a>
-<div class="cookie-banner" role="dialog" aria-live="polite" aria-label="Cookie settings">
-  <p>This site only stores your language and cookie preferences in your browser. With your permission we also use analytics cookies to measure visits. Details: <a href="privacy-en.html#cookies">Privacy &amp; Cookie Policy</a>.</p>
-  <div class="cookie-actions"><button type="button" class="accept">Accept</button><button type="button" class="reject">Essential only</button></div>
+<a class="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#1FA855] text-white shadow-[0_10px_24px_rgba(0,0,0,.18)] transition hover:bg-[#178A45]" href="https://wa.me/905325691111" target="_blank" rel="noopener" aria-label="Chat on WhatsApp"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg></a>
+<div class="cookie-banner fixed bottom-3 left-3 right-3 z-[60] rounded-xl border border-line bg-white p-4 text-sm shadow-[0_18px_48px_rgba(16,26,46,.18)] sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-[420px] sm:p-5 sm:text-[15px]" role="dialog" aria-live="polite" aria-label="Cookie settings">
+  <p class="mb-3">This site only stores your language and cookie preferences in your browser. With your permission we also use analytics cookies to measure visits. Details: <a class="underline" href="privacy-en.html#cookies">Privacy &amp; Cookie Policy</a>.</p>
+  <div class="flex gap-2.5"><button class="accept min-h-[42px] flex-1 rounded-md bg-ink px-4 font-semibold text-white" type="button">Accept</button><button class="reject min-h-[42px] flex-1 rounded-md border border-ink px-4 font-semibold text-ink" type="button">Essential only</button></div>
 </div>
-<script src="assets/js/site.js?v=bf8451e1" defer></script>
+<script src="assets/js/site.js?v=c8e861b8" defer></script>
 </body>
 </html>

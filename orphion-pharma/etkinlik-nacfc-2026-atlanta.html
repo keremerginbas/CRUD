@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr" data-storage="orphion">
+<html lang="tr" data-brand="orphion" data-storage="orphion">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,88 +22,91 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/images/fav-icon.png">
 <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/schibsted-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/css/site.css?v=e278d0e8">
+<link rel="stylesheet" href="assets/css/site.css?v=82e24ab3">
+<script>document.documentElement.classList.add("js")</script>
 </head>
 <body>
-<a class="skip-link" href="#main">İçeriğe geç</a>
-<header class="site-header">
-  <div class="wrap header-row">
-    <a class="brand" href="index.html"><img src="assets/images/orphion-logo.webp" width="289" height="125" alt="Orphion Pharma logosu"></a>
-    <nav class="main-nav" aria-label="Menü">
-      <ul><li class="nav-item"><button class="nav-parent" type="button" aria-expanded="false">Kurumsal<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="about.html">Hakkımızda</a></li><li><a href="yk-baskani-mesaji.html">Başkanın Mesajı</a></li><li><a href="misyon-vizyon.html">Misyon ve Vizyon</a></li><li><a href="insan-kaynaklari.html">İnsan Kaynakları</a></li></ul></li><li><a href="hizmetler.html">Hizmetlerimiz</a></li><li><a href="etkinlikler.html" aria-current="page">Etkinlikler</a></li><li class="nav-item"><button class="nav-parent" type="button" aria-expanded="false">Partnerler<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="partnerler.html">Partnerlerimiz</a></li><li><a href="partnerler.html#portfolio">Ürün Portföyümüz</a></li></ul></li><li><a href="contact.html">İletişim</a></li><li class="mobile-cta"><a class="btn" href="contact.html#contact-form">Bizimle Çalışın</a></li></ul>
+<a class="absolute -top-16 left-4 z-[100] rounded-md bg-ink px-4 py-2.5 text-white focus:top-3" href="#main">İçeriğe geç</a>
+<header class="site-header sticky top-0 z-50 border-b border-transparent bg-white transition-colors [&.scrolled]:border-line">
+  <div class="wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
+    <a class="shrink-0" href="index.html"><img class="h-11 w-auto lg:h-16" src="assets/images/orphion-logo.webp" width="289" height="125" alt="Orphion Pharma logosu"></a>
+    <nav class="main-nav lg:ml-auto" aria-label="Menü">
+      <ul class="flex items-center gap-1"><li class="nav-item relative"><button class="nav-link nav-parent" type="button" aria-expanded="false">Kurumsal<svg class="chev h-3 w-3 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="about.html">Hakkımızda</a></li><li><a href="yk-baskani-mesaji.html">Başkanın Mesajı</a></li><li><a href="misyon-vizyon.html">Misyon ve Vizyon</a></li><li><a href="insan-kaynaklari.html">İnsan Kaynakları</a></li></ul></li><li><a class="nav-link" href="hizmetler.html">Hizmetlerimiz</a></li><li><a class="nav-link" href="etkinlikler.html" aria-current="page">Etkinlikler</a></li><li class="nav-item relative"><button class="nav-link nav-parent" type="button" aria-expanded="false">Partnerler<svg class="chev h-3 w-3 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="partnerler.html">Partnerlerimiz</a></li><li><a href="partnerler.html#portfolio">Ürün Portföyümüz</a></li></ul></li><li><a class="nav-link" href="contact.html">İletişim</a></li><li class="mt-6 border-0 lg:hidden"><a class="btn w-full" href="contact.html#contact-form">Bizimle Çalışın</a></li></ul>
     </nav>
-    <div class="header-tools">
-      <div class="lang-switch" role="group" aria-label="Dil seçimi">
-        <a href="etkinlik-nacfc-2026-atlanta.html" hreflang="tr" lang="tr" aria-current="true">TR</a>
-        <a href="event-nacfc-2026-atlanta-en.html" hreflang="en" lang="en">EN</a>
-      </div>
-      <a class="btn" href="contact.html#contact-form">Bizimle Çalışın</a>
-      <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Menü"><span></span></button>
+    <div class="ml-auto flex items-center gap-3 lg:ml-0">
+      <div class="flex rounded-md border border-line p-[3px]" role="group" aria-label="Dil seçimi"><a class="rounded px-2.5 py-1.5 text-sm font-semibold no-underline bg-ink text-white" href="etkinlik-nacfc-2026-atlanta.html" hreflang="tr" lang="tr" aria-current="true">TR</a><a class="rounded px-2.5 py-1.5 text-sm font-semibold no-underline text-muted hover:text-ink" href="event-nacfc-2026-atlanta-en.html" hreflang="en" lang="en">EN</a></div>
+      <a class="btn hidden min-h-[44px] px-4 text-[15px] xl:inline-flex" href="contact.html#contact-form">Bizimle Çalışın</a>
+      <button class="menu-toggle grid h-11 w-11 place-items-center rounded-md border border-line bg-white lg:hidden" type="button" aria-expanded="false" aria-label="Menü">
+        <span class="burger relative block h-0.5 w-[18px] bg-ink transition before:absolute before:-top-1.5 before:left-0 before:h-0.5 before:w-full before:bg-ink before:transition before:content-[''] after:absolute after:left-0 after:top-1.5 after:h-0.5 after:w-full after:bg-ink after:transition after:content-['']"></span>
+      </button>
     </div>
   </div>
 </header>
 <main id="main">
-<section class="page-hero">
-  <div class="wrap">
-    <ol class="crumbs"><li><a href="index.html">Ana Sayfa</a></li><li><a href="etkinlikler.html">Etkinlikler</a></li><li aria-current="page">NACFC 2026</li></ol>
-    <h1>NACFC 2026</h1><p class="lead">Kuzey Amerika Kistik Fibrozis Konferansı 2026</p><ul class="event-hero-meta"><li>Konum: <strong>Atlanta, ABD</strong></li><li>Yıl: <strong>2026</strong></li><li>Odak: <strong>Kistik Fibrozis</strong></li></ul>
+<section class="relative overflow-hidden bg-ink pb-14 pt-14 text-on-dark md:pb-20 md:pt-24">
+  <div class="pointer-events-none absolute -right-40 top-1/2 h-[520px] w-[520px] -translate-y-1/2 rounded-full border border-white/10"></div>
+  <div class="pointer-events-none absolute -right-20 top-1/2 h-[340px] w-[340px] -translate-y-1/2 rounded-full border border-accent/30"></div>
+  <div class="wrap relative">
+    <ol class="mb-6 flex flex-wrap text-[15px] text-on-dark-muted"><li class="after:mx-2 after:opacity-60 after:content-['/']"><a class="text-on-dark-muted no-underline hover:text-white" href="index.html">Ana Sayfa</a></li><li class="after:mx-2 after:opacity-60 after:content-['/']"><a class="text-on-dark-muted no-underline hover:text-white" href="etkinlikler.html">Etkinlikler</a></li><li aria-current="page">NACFC 2026</li></ol>
+    <h1 class="h-page mb-5 max-w-[18ch] text-white">NACFC 2026</h1><p class="lead text-on-dark">Kuzey Amerika Kistik Fibrozis Konferansı 2026</p><ul class="mt-6 flex flex-wrap gap-x-7 gap-y-2 text-base text-on-dark"><li>Konum: <strong class="font-semibold text-white">Atlanta, ABD</strong></li><li>Yıl: <strong class="font-semibold text-white">2026</strong></li><li>Odak: <strong class="font-semibold text-white">Kistik Fibrozis</strong></li></ul>
   </div>
 </section>
 <section class="section">
-  <div class="wrap split even">
-    <div class="gallery"><figure><img src="assets/images/events/nacfc-2026-atlanta.webp" alt="Orphion Pharma, NACFC 2026" style="object-position:center"></figure></div>
-    <article class="prose"><p>Kistik fibrozis alanında bilimi, bakımı ve inovasyonu ilerletmeye adanmış en önemli küresel buluşmalardan biri olan Kuzey Amerika Kistik Fibrozis Konferansı&#x27;na (NACFC 2026) Atlanta&#x27;da katılmaktan gurur duyduk.</p><p>Orphion Pharma için NACFC, en son bilimsel gelişmeleri takip etmenin ötesindeydi. Kistik fibrozis tedavisinin geleceğini şekillendiren araştırmacıları, klinisyenleri ve yenilikçileri dinlemek, onlardan öğrenmek ve onlarla iletişim kurmak için bir fırsattı.</p><p>Konferans boyunca yeni tedaviler, yenilikçi tedavi yaklaşımları ve en önemlisi hastalar için hâlâ karşılanmamış ihtiyaçlar üzerine değerli görüşmeler yaptık.</p><p>Misyonumuz net: dünyadaki anlamlı yenilikleri belirlemek ve bunları Türkiye&#x27;deki ve ötesindeki hastalar için erişilebilir kılacak köprüleri kurmak.</p><p>Atlanta&#x27;dan yeni bakış açıları, umut verici görüşmeler ve bilimsel ilerlemeyi gerçek hasta erişimine dönüştürebilecek ortaklıklar geliştirme konusunda daha da güçlü bir kararlılıkla döndük.</p>
-      <blockquote class="motto"><p>Bilimden erişime. İnovasyondan hastaya.</p><cite lang="en">Orphion Pharma, “Bridging Innovation and Life.”</cite></blockquote>
-      <ul class="tags"><li lang="en">#NACFC2026</li><li lang="en">#CysticFibrosis</li><li lang="en">#RareDiseases</li><li lang="en">#PatientAccess</li><li lang="en">#UnmetMedicalNeeds</li><li lang="en">#MarketAccess</li></ul>
+  <div class="wrap grid items-start gap-12 lg:grid-cols-2 lg:gap-20">
+    <div class="grid gap-4" data-reveal><figure class="m-0 overflow-hidden rounded-lg bg-mist"><img class="max-h-[760px] w-full object-cover" src="assets/images/events/nacfc-2026-atlanta.webp" alt="Orphion Pharma, NACFC 2026" style="object-position:center"></figure></div>
+    <article class="prose-serif" data-reveal data-reveal-delay="1"><p>Kistik fibrozis alanında bilimi, bakımı ve inovasyonu ilerletmeye adanmış en önemli küresel buluşmalardan biri olan Kuzey Amerika Kistik Fibrozis Konferansı&#x27;na (NACFC 2026) Atlanta&#x27;da katılmaktan gurur duyduk.</p><p>Orphion Pharma için NACFC, en son bilimsel gelişmeleri takip etmenin ötesindeydi. Kistik fibrozis tedavisinin geleceğini şekillendiren araştırmacıları, klinisyenleri ve yenilikçileri dinlemek, onlardan öğrenmek ve onlarla iletişim kurmak için bir fırsattı.</p><p>Konferans boyunca yeni tedaviler, yenilikçi tedavi yaklaşımları ve en önemlisi hastalar için hâlâ karşılanmamış ihtiyaçlar üzerine değerli görüşmeler yaptık.</p><p>Misyonumuz net: dünyadaki anlamlı yenilikleri belirlemek ve bunları Türkiye&#x27;deki ve ötesindeki hastalar için erişilebilir kılacak köprüleri kurmak.</p><p>Atlanta&#x27;dan yeni bakış açıları, umut verici görüşmeler ve bilimsel ilerlemeyi gerçek hasta erişimine dönüştürebilecek ortaklıklar geliştirme konusunda daha da güçlü bir kararlılıkla döndük.</p>
+      <blockquote class="my-8"><p class="mb-2 text-[26px] leading-[1.35] text-ink">Bilimden erişime. İnovasyondan hastaya.</p><cite class="font-sans text-base not-italic text-muted" lang="en">Orphion Pharma, “Bridging Innovation and Life.”</cite></blockquote>
+      <ul class="flex flex-wrap gap-2 font-sans"><li class="rounded-full bg-mist px-3 py-1 text-sm text-muted" lang="en">#NACFC2026</li><li class="rounded-full bg-mist px-3 py-1 text-sm text-muted" lang="en">#CysticFibrosis</li><li class="rounded-full bg-mist px-3 py-1 text-sm text-muted" lang="en">#RareDiseases</li><li class="rounded-full bg-mist px-3 py-1 text-sm text-muted" lang="en">#PatientAccess</li><li class="rounded-full bg-mist px-3 py-1 text-sm text-muted" lang="en">#UnmetMedicalNeeds</li><li class="rounded-full bg-mist px-3 py-1 text-sm text-muted" lang="en">#MarketAccess</li></ul>
     </article>
   </div>
-  <div class="wrap"><nav class="pager" aria-label="Etkinlikler"><span></span><a class="next" href="etkinlik-cphi-milan-2026.html"><small>Sonraki etkinlik</small><strong lang="en">CPHI Milan 2026</strong></a></nav></div>
+  <div class="wrap"><nav class="mt-16 grid grid-cols-2 gap-6 border-t border-line pt-7" aria-label="Etkinlikler"><span></span><a class="group no-underline text-right" href="etkinlik-cphi-milan-2026.html"><small class="block text-sm text-muted">Sonraki etkinlik</small><strong class="text-[19px] text-ink group-hover:text-accent-ink" lang="en">CPHI Milan 2026</strong></a></nav></div>
 </section>
-<section class="section dark">
-  <div class="wrap cta-band">
-    <h2>Bir sonraki etkinlikte görüşelim.</h2>
-    <a class="btn" href="contact.html#contact-form">Bizimle Çalışın</a>
+
+<section class="section bg-ink">
+  <div class="wrap flex flex-wrap items-center justify-between gap-x-12 gap-y-7" data-reveal>
+    <h2 class="h-section m-0 max-w-[22ch] text-white">Bir sonraki etkinlikte görüşelim.</h2>
+    <a class="btn" href="contact.html#contact-form">Bizimle Çalışın <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
   </div>
 </section>
 </main>
-<footer class="site-footer">
+<footer class="bg-ink-deep pb-8 pt-20 text-base text-on-dark">
   <div class="wrap">
-    <div class="footer-top">
-      <div class="footer-brand">
-        <img src="assets/images/orphion-logo-white.webp" width="702" height="280" alt="Orphion Pharma logosu" loading="lazy">
-        <p class="tagline" lang="en">Bridging Innovation and Life.</p>
-        <p><a href="mailto:info@orphionpharma.com">info@orphionpharma.com</a><br><a href="tel:+903122155010">+90 (312) 215 50 10</a></p>
-        <ul class="footer-links"><li><a href="about.html">Hakkımızda</a></li><li><a href="hizmetler.html">Hizmetlerimiz</a></li><li><a href="etkinlikler.html">Etkinlikler</a></li><li><a href="partnerler.html">Partnerlerimiz</a></li><li><a href="insan-kaynaklari.html">İnsan Kaynakları</a></li><li><a href="contact.html">İletişim</a></li></ul>
+    <div class="grid gap-12 border-b border-white/10 pb-14 lg:grid-cols-[4fr_8fr]">
+      <div>
+        <img class="mb-5 h-16 w-auto" src="assets/images/orphion-logo-white.webp" width="702" height="280" alt="Orphion Pharma logosu" loading="lazy">
+        <p class="mb-4 font-serif text-[22px] text-white" lang="en">Bridging Innovation and Life.</p>
+        <p><a class="text-on-dark hover:text-white" href="mailto:info@orphionpharma.com">info@orphionpharma.com</a><br><a class="text-on-dark hover:text-white" href="tel:+903122155010">+90 (312) 215 50 10</a></p>
+        <ul class="mt-6 flex flex-wrap gap-x-6 gap-y-2.5"><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="about.html">Hakkımızda</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="hizmetler.html">Hizmetlerimiz</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="etkinlikler.html">Etkinlikler</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="partnerler.html">Partnerlerimiz</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="insan-kaynaklari.html">İnsan Kaynakları</a></li><li><a class="font-medium text-on-dark no-underline hover:text-accent" href="contact.html">İletişim</a></li></ul>
       </div>
-      <ul class="offices">
-      <li class="office hq">
-        <h3>Merkez – Dubai</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Meydan Grandstand, 6th Floor<br>Meydan Road, Nad Al Sheba<br>Dubai, U.A.E.</a></address>
+      <ul class="grid gap-8 md:grid-cols-3">
+      <li class="border-t-2 border-accent pt-5" data-reveal data-reveal-delay="1">
+        <h3 class="mb-2.5 text-lg text-white">Merkez – Dubai</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=Meydan+Grandstand%2C+Meydan+Road%2C+Nad+Al+Sheba%2C+Dubai" target="_blank" rel="noopener">Meydan Grandstand, 6th Floor<br>Meydan Road, Nad Al Sheba<br>Dubai, U.A.E.</a></address>
       </li>
-      <li class="office">
-        <h3>Türkiye İrtibat Ofisi</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=NEXT+LEVEL+%C4%B0%C5%9F+Merkezi%2C+K%C4%B1z%C4%B1l%C4%B1rmak+Mahallesi+Dumlup%C4%B1nar+Bulvar%C4%B1%2C+%C3%87ankaya%2C+Ankara" target="_blank" rel="noopener">Kızılırmak Mahallesi Dumlupınar Bulvarı<br>NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23<br>Çankaya / Ankara, Türkiye</a></address><div class="phones"><a href="tel:+903122155010">+90 (312) 215 50 10</a><a href="tel:+903122225458">+90 (312) 222 54 58</a></div>
+      <li class="border-t-2 border-white/20 pt-5" data-reveal data-reveal-delay="2">
+        <h3 class="mb-2.5 text-lg text-white">Türkiye İrtibat Ofisi</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=NEXT+LEVEL+%C4%B0%C5%9F+Merkezi%2C+K%C4%B1z%C4%B1l%C4%B1rmak+Mahallesi+Dumlup%C4%B1nar+Bulvar%C4%B1%2C+%C3%87ankaya%2C+Ankara" target="_blank" rel="noopener">Kızılırmak Mahallesi Dumlupınar Bulvarı<br>NEXT LEVEL İş Merkezi A Blok No:3/108 Kat:23<br>Çankaya / Ankara, Türkiye</a></address><a class="block no-underline hover:underline text-on-dark" href="tel:+903122155010">+90 (312) 215 50 10</a><a class="block no-underline hover:underline text-on-dark" href="tel:+903122225458">+90 (312) 222 54 58</a>
       </li>
-      <li class="office">
-        <h3>ABD İrtibat Ofisi</h3>
-        <address><a href="https://www.google.com/maps/search/?api=1&query=3324+Sunbeam+Place%2C+Batavia%2C+OH+45103" target="_blank" rel="noopener">3324 Sunbeam Place<br>Batavia, OH 45103<br>United States</a></address><div class="phones"><a href="tel:+15133881634">+1 (513) 388-1634</a></div>
+      <li class="border-t-2 border-white/20 pt-5" data-reveal data-reveal-delay="3">
+        <h3 class="mb-2.5 text-lg text-white">ABD İrtibat Ofisi</h3>
+        <address class="mb-3 not-italic"><a class="no-underline hover:underline text-on-dark" href="https://www.google.com/maps/search/?api=1&query=3324+Sunbeam+Place%2C+Batavia%2C+OH+45103" target="_blank" rel="noopener">3324 Sunbeam Place<br>Batavia, OH 45103<br>United States</a></address><a class="block no-underline hover:underline text-on-dark" href="tel:+15133881634">+1 (513) 388-1634</a>
       </li>
     </ul>
     </div>
-    <div class="footer-bottom">
+    <div class="flex flex-wrap justify-between gap-x-8 gap-y-4 pt-7 text-sm text-on-dark-muted">
       <p>© <span data-current-year>2026</span> Orphion Pharma. Tüm hakları saklıdır.</p>
-      <nav aria-label="KVKK Aydınlatma Metni">
-        <a href="kvkk.html">KVKK Aydınlatma Metni</a>
-        <button type="button" class="js-cookie-settings">Çerez ayarları</button>
+      <nav class="flex flex-wrap gap-x-6 gap-y-2" aria-label="KVKK Aydınlatma Metni">
+        <a class="text-on-dark-muted no-underline hover:text-white hover:underline" href="kvkk.html">KVKK Aydınlatma Metni</a>
+        <button class="js-cookie-settings text-on-dark-muted hover:text-white hover:underline" type="button">Çerez ayarları</button>
       </nav>
     </div>
   </div>
 </footer>
-<a class="wa-float" href="https://wa.me/905325691111" target="_blank" rel="noopener" aria-label="WhatsApp ile yazın"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg></a>
-<div class="cookie-banner" role="dialog" aria-live="polite" aria-label="Çerez ayarları">
-  <p>Bu sitede yalnızca dil ve çerez tercihinizi hatırlamak için tarayıcınızda zorunlu kayıtlar tutulur. İzin verirseniz ziyaret istatistikleri için analitik çerezler de kullanılır. Ayrıntılar: <a href="kvkk.html#cerezler">KVKK ve Çerez Politikası</a>.</p>
-  <div class="cookie-actions"><button type="button" class="accept">Kabul et</button><button type="button" class="reject">Yalnızca zorunlu</button></div>
+<a class="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#1FA855] text-white shadow-[0_10px_24px_rgba(0,0,0,.18)] transition hover:bg-[#178A45]" href="https://wa.me/905325691111" target="_blank" rel="noopener" aria-label="WhatsApp ile yazın"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg></a>
+<div class="cookie-banner fixed bottom-3 left-3 right-3 z-[60] rounded-xl border border-line bg-white p-4 text-sm shadow-[0_18px_48px_rgba(16,26,46,.18)] sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-[420px] sm:p-5 sm:text-[15px]" role="dialog" aria-live="polite" aria-label="Çerez ayarları">
+  <p class="mb-3">Bu sitede yalnızca dil ve çerez tercihinizi hatırlamak için tarayıcınızda zorunlu kayıtlar tutulur. İzin verirseniz ziyaret istatistikleri için analitik çerezler de kullanılır. Ayrıntılar: <a class="underline" href="kvkk.html#cerezler">KVKK ve Çerez Politikası</a>.</p>
+  <div class="flex gap-2.5"><button class="accept min-h-[42px] flex-1 rounded-md bg-ink px-4 font-semibold text-white" type="button">Kabul et</button><button class="reject min-h-[42px] flex-1 rounded-md border border-ink px-4 font-semibold text-ink" type="button">Yalnızca zorunlu</button></div>
 </div>
-<script src="assets/js/site.js?v=bf8451e1" defer></script>
+<script src="assets/js/site.js?v=c8e861b8" defer></script>
 </body>
 </html>

@@ -1,11 +1,12 @@
 /* ------------------------------------------------------------------
-   Orphion Pharma / Rome Pharma - site.js (v3, bağımlılık yok)
+   Orphion Pharma / Rome Pharma - site.js (bağımlılık yok)
    Menü, dil tercihi, iletişim/başvuru formu, harita onayı, çerez bildirimi
    ------------------------------------------------------------------ */
 (function () {
     "use strict";
 
     var root = document.documentElement;
+    root.classList.add("js");
     var KEY = root.getAttribute("data-storage") || "site";
     var LANG_KEY = KEY + "_lang";
     var CONSENT_KEY = KEY + "_cookie_consent";
@@ -200,6 +201,35 @@
         $$(".js-cookie-settings").forEach(function (b) {
             b.addEventListener("click", function (e) { e.preventDefault(); banner.classList.add("show"); });
         });
+    }
+
+    /* Kaydırınca beliren içerik */
+    var revealEls = $$("[data-reveal]");
+    if ("IntersectionObserver" in window) {
+        var ro = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+                if (en.isIntersecting) { en.target.classList.add("is-in"); ro.unobserve(en.target); }
+            });
+        }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+        revealEls.forEach(function (el) { ro.observe(el); });
+    } else {
+        revealEls.forEach(function (el) { el.classList.add("is-in"); });
+    }
+
+    /* Erişim akışı: çizgi bölüm kaydırıldıkça dolar */
+    var tracks = $$(".pathway-track");
+    if (tracks.length) {
+        var updateTracks = function () {
+            tracks.forEach(function (tr) {
+                var box = tr.parentElement.getBoundingClientRect();
+                var vh = window.innerHeight;
+                var p = (vh * 0.85 - box.top) / (vh * 0.5);
+                tr.style.setProperty("--progress", Math.max(0, Math.min(1, p)).toFixed(3));
+            });
+        };
+        window.addEventListener("scroll", updateTracks, { passive: true });
+        window.addEventListener("resize", updateTracks);
+        updateTracks();
     }
 
     /* Telif yılı */

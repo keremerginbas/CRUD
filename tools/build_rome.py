@@ -280,9 +280,9 @@ b.TITLES = {
 
 
 if __name__ == "__main__":
-    # Site artık tools/build_v3.py ile üretiliyor; bu dosya Rome içerik verilerini sağlar.
+    # Site artık tools/web (npm run build) ile üretiliyor; bu dosya Rome içerik verilerini sağlar.
     if "--legacy" in sys.argv:
         sync_shared_files()
         b.main()
     else:
-        print("Bu dosya artık yalnızca Rome içerik verisi tutar. Siteyi üretmek için: python3 tools/build_v3.py rome")
+        print("Bu dosya artık yalnızca Rome içerik verisi tutar. Siteyi üretmek için: cd tools/web && npm run build:rome")

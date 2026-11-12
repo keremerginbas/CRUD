@@ -1,0 +1,195 @@
+/* ------------------------------------------------------------------
+   Orphion Pharma / Rome Pharma - Tailwind girişi
+   Marka renkleri <html data-brand="..."> ile seçilir. Derleme: npm run build
+   ------------------------------------------------------------------ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  @font-face {
+    font-family: "Schibsted Grotesk";
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src: url(../fonts/schibsted-normal-latin-ext.woff2) format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "Schibsted Grotesk";
+    font-style: normal;
+    font-weight: 400 900;
+    font-display: swap;
+    src: url(../fonts/schibsted-normal-latin.woff2) format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "Source Serif 4";
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url(../fonts/sourceserif-italic-latin-ext.woff2) format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "Source Serif 4";
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url(../fonts/sourceserif-italic-latin.woff2) format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+  @font-face {
+    font-family: "Source Serif 4";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(../fonts/sourceserif-normal-latin-ext.woff2) format("woff2");
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+  }
+  @font-face {
+    font-family: "Source Serif 4";
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url(../fonts/sourceserif-normal-latin.woff2) format("woff2");
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+
+  [data-brand="orphion"] {
+    --ink: 22 33 58; --ink-deep: 15 23 41; --navy: 30 42 68;
+    --accent: 255 145 75; --accent-hover: 255 164 102; --accent-on: 22 33 58; --accent-ink: 180 80 26;
+    --mist: 241 244 248; --line: 220 227 236; --body: 51 65 85; --muted: 93 107 126;
+    --on-dark: 196 206 221; --on-dark-muted: 138 151 171;
+  }
+  [data-brand="rome"] {
+    --ink: 15 42 64; --ink-deep: 10 30 47; --navy: 27 58 87;
+    --accent: 45 206 152; --accent-hover: 82 219 174; --accent-on: 15 42 64; --accent-ink: 14 122 87;
+    --mist: 238 245 246; --line: 214 227 232; --body: 47 65 83; --muted: 88 105 122;
+    --on-dark: 191 208 220; --on-dark-muted: 134 160 179;
+  }
+
+  html { scroll-behavior: smooth; scroll-padding-top: 100px; -webkit-text-size-adjust: 100%; }
+  body { @apply bg-white font-sans text-[17px] leading-relaxed text-body antialiased; }
+  h1, h2, h3, h4 { @apply font-sans font-bold text-ink; text-wrap: balance; letter-spacing: -0.015em; }
+  a { text-underline-offset: 3px; }
+  :where(p):not(:last-child) { margin-bottom: 1em; }
+  :where(h1, h2, h3, h4):not(:last-child) { margin-bottom: .5em; }
+  :focus-visible { @apply rounded outline outline-[3px] outline-offset-[3px] outline-accent; }
+  ::selection { @apply bg-accent text-accent-on; }
+}
+
+@layer components {
+  .wrap { @apply mx-auto w-full max-w-wrap px-6; }
+  .section { @apply py-20 md:py-28; }
+  .h-display { @apply text-[clamp(42px,6vw,80px)] leading-[1.02] tracking-[-0.03em]; }
+  .h-page { @apply text-[clamp(38px,4.8vw,64px)] leading-[1.05] tracking-[-0.025em]; }
+  .h-section { @apply text-[clamp(30px,3.4vw,46px)] leading-[1.1]; }
+  .lead { @apply max-w-[62ch] text-[clamp(19px,1.6vw,22px)] leading-[1.55]; }
+  .btn {
+    @apply inline-flex min-h-[52px] items-center justify-center gap-2.5 rounded-md bg-accent px-6 text-base font-semibold
+           text-accent-on no-underline transition-colors duration-200 hover:bg-accent-hover disabled:cursor-progress disabled:opacity-60;
+  }
+  .btn-ghost { @apply bg-transparent text-white shadow-[inset_0_0_0_1.5px_rgba(255,255,255,.45)] hover:bg-white/5 hover:shadow-[inset_0_0_0_1.5px_#fff]; }
+  .btn-dark { @apply bg-ink text-white hover:bg-navy; }
+  .link { @apply border-b-[1.5px] border-current pb-0.5 font-semibold text-accent-ink no-underline hover:text-ink; }
+  .link-light { @apply border-b-[1.5px] border-current pb-0.5 font-semibold text-accent no-underline hover:text-white; }
+  .field label { @apply mb-1.5 block text-[15px] font-semibold text-ink; }
+  .field input, .field textarea {
+    @apply min-h-[52px] w-full rounded-md border border-[#C7D0DC] bg-white px-4 py-3 text-base text-ink
+           transition focus:border-ink focus:outline-none focus:ring-4 focus:ring-accent/30;
+  }
+  .field textarea { @apply min-h-[150px] resize-y; }
+
+  /* Uzun metin (Başkanın mesajı, etkinlikler, Hakkımızda) */
+  .prose-serif { @apply max-w-[66ch] font-serif text-[19px] leading-[1.75] text-[#26303f] md:text-[20px]; }
+  .prose-serif p { @apply mb-[1.1em]; }
+
+  /* KVKK metni (içerik verisinden gelen ham HTML) */
+  .legal { @apply max-w-[74ch]; }
+  .legal h2 { @apply mb-3 mt-10 text-2xl; }
+  .legal p { @apply mb-4; }
+  .legal .updated { @apply text-[15px] text-muted; }
+  .legal table { @apply my-4 w-full border-collapse text-[15px]; }
+  .legal th, .legal td { @apply border-b border-line px-3 py-2.5 text-left align-top; }
+  .legal th { @apply bg-mist text-ink; }
+  .legal ul { @apply mb-4 list-disc pl-5; }
+  .legal a { @apply text-accent-ink underline; }
+  .legal button { @apply text-accent-ink underline; }
+
+  /* Form durumu, onay kutusu, CV alanı */
+  .form-status { @apply mt-4 hidden rounded-md px-4 py-3.5 text-[15px]; }
+  .form-status.show { @apply block; }
+  .form-status.success { @apply bg-emerald-50 text-emerald-900; }
+  .form-status.error { @apply bg-red-50 text-red-900; }
+  .hp-field { @apply absolute -left-[9999px] h-px w-px overflow-hidden; }
+
+  /* Üst menü */
+  .nav-link { @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2.5 text-base font-medium text-ink no-underline hover:text-accent-ink; }
+  .nav-link[aria-current="page"], .is-current > .nav-link { @apply text-accent-ink; }
+  .submenu {
+    @apply invisible absolute left-0 top-[calc(100%+6px)] min-w-[240px] translate-y-1 rounded-xl border border-line bg-white p-2
+           opacity-0 shadow-[0_18px_40px_rgba(16,26,46,.12)] transition duration-150;
+  }
+  .nav-item.open .submenu, .nav-item:hover .submenu, .nav-item:focus-within .submenu { @apply visible translate-y-0 opacity-100; }
+  .submenu a { @apply block rounded-md px-3 py-2.5 font-medium text-ink no-underline hover:bg-mist; }
+  .nav-item.open .chev { @apply rotate-180; }
+}
+
+/* ---------- Mobil menü ---------- */
+@media (max-width: 1023px) {
+  .main-nav { @apply invisible fixed inset-x-0 bottom-0 top-[72px] m-0 overflow-y-auto border-t border-line bg-white px-6 pb-10 pt-4 opacity-0 transition; }
+  .menu-open .main-nav { @apply visible opacity-100; }
+  .main-nav > ul { @apply flex-col items-stretch gap-0; }
+  .main-nav > ul > li { @apply border-b border-line; }
+  .main-nav .nav-link { @apply w-full justify-between px-1 py-4 text-[19px]; }
+  .submenu { @apply visible static hidden min-w-0 translate-y-0 border-0 p-0 pb-3 pl-3 opacity-100 shadow-none; }
+  .nav-item.open .submenu { @apply block; }
+  .nav-item:hover:not(.open) .submenu { @apply hidden; }
+  body.menu-open { @apply overflow-hidden; }
+}
+.menu-open .burger { @apply bg-transparent; }
+.menu-open .burger::before { transform: translateY(6px) rotate(45deg); }
+.menu-open .burger::after { transform: translateY(-6px) rotate(-45deg); }
+
+/* ---------- Kaydırınca beliren içerik ---------- */
+.js [data-reveal] { opacity: 0; transform: translateY(22px); transition: opacity .7s ease, transform .7s cubic-bezier(.2, .7, .2, 1); }
+.js [data-reveal].is-in { opacity: 1; transform: none; }
+.js [data-reveal-delay="1"] { transition-delay: .08s; }
+.js [data-reveal-delay="2"] { transition-delay: .16s; }
+.js [data-reveal-delay="3"] { transition-delay: .24s; }
+
+/* Erişim akışı: çizgi kaydırdıkça dolar */
+.pathway-track { transform-origin: left center; transform: scaleX(var(--progress, 0)); }
+
+/* ---------- Giriş: 3D küre ---------- */
+.globe { position: relative; }
+.globe canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
+.globe canvas:active { cursor: grabbing; }
+.globe-label {
+  position: absolute; left: 0; top: 0; pointer-events: none; white-space: nowrap;
+  font-size: 13px; font-weight: 600; color: rgb(var(--on-dark)); transition: opacity .3s ease;
+  text-shadow: 0 1px 8px rgb(var(--ink));
+}
+.globe-label.hub { font-size: 16px; font-weight: 700; color: #fff; }
+.globe-fallback .map-land { fill: none; stroke: rgb(var(--on-dark) / .24); stroke-width: 3.4; stroke-linecap: round; }
+.globe-fallback .map-arc { fill: none; stroke: rgb(var(--accent)); stroke-width: 1.6; stroke-linecap: round; }
+.globe-fallback .map-node { fill: #fff; }
+.globe-fallback .map-hub { fill: rgb(var(--accent)); }
+.globe-fallback .map-label { fill: rgb(var(--on-dark)); font-size: 12.5px; font-weight: 550; }
+.globe-fallback .map-label.hub { fill: #fff; font-size: 15px; font-weight: 700; }
+.globe.ready .globe-fallback { display: none; }
+
+/* İkonlar */
+.i { width: 24px; height: 24px; flex-shrink: 0; }
+
+/* Çerez bildirimi */
+.cookie-banner { display: none; }
+.cookie-banner.show { display: block; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .js [data-reveal] { opacity: 1; transform: none; transition: none; }
+  .pathway-track { transform: none; }
+  *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
