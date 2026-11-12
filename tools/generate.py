@@ -194,6 +194,12 @@ def prepare_output():
     fonts.mkdir(parents=True, exist_ok=True)
     for f in (TOOLS / "web/fonts").glob("*.woff2"):
         shutil.copy2(f, fonts / f.name)
+    media = ROOT / "assets/media"
+    media.mkdir(parents=True, exist_ok=True)
+    for f in (TOOLS / "web/media").iterdir():
+        if BRAND_KEY == "orphion" and f.name.startswith("pills-stethoscope"):
+            continue  # yalnızca Rome girişinde kullanılıyor
+        shutil.copy2(f, media / f.name)
 
 
 # ---------------------------------------------------------------------------
@@ -379,7 +385,8 @@ def footer(lang):
 def head(page, lang, title, desc, extra=""):
     other = "en" if lang == "tr" else "tr"
     og = s.SITE_URL + getattr(s, "OG_IMAGES", {}).get(page, "assets/images/og-image.jpg")
-    globe_js = '\n<script src="assets/js/globe.js?v=__HASH_GLOBE_JS__" defer></script>' if page == "home" else ""
+    globe_js = ('\n<script src="assets/js/globe.js?v=__HASH_GLOBE_JS__" defer></script>'
+                if page == "home" and BRAND_KEY == "orphion" else "")
     return f"""<!DOCTYPE html>
 <html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}">
 <head>
@@ -425,8 +432,8 @@ def page_hero(lang, title, lead="", crumbs=(), extra=""):
     lead_html = f'<p class="lead text-on-dark">{lead}</p>' if lead else ""
     return f"""
 <section class="relative overflow-hidden bg-ink pb-14 pt-14 text-on-dark md:pb-20 md:pt-24">
-  <div class="pointer-events-none absolute -right-40 top-1/2 h-[520px] w-[520px] -translate-y-1/2 rounded-full border border-white/10"></div>
-  <div class="pointer-events-none absolute -right-20 top-1/2 h-[340px] w-[340px] -translate-y-1/2 rounded-full border border-accent/30"></div>
+  <img class="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-luminosity" src="assets/media/page-texture.webp" alt="" width="960" height="540">
+  <div class="pointer-events-none absolute inset-0 bg-gradient-to-r from-ink via-ink/90 to-ink/40"></div>
   <div class="wrap relative">
     <ol class="mb-6 flex flex-wrap text-[15px] text-on-dark-muted">{crumb_html}</ol>
     <h1 class="h-page mb-5 max-w-[18ch] text-white">{esc(title)}</h1>{lead_html}{extra}
@@ -566,13 +573,40 @@ def cta_band(lang, text, dark=True):
 </section>"""
 
 
-def hero(lang, h1, lead, actions, legend):
+def loop_video(name, label, cls="aspect-[16/9] rounded-lg"):
+    """Sessiz, döngülü video. Hareket azaltma tercihinde ve ekran dışındayken site.js durdurur."""
+    return (f'<figure class="m-0 overflow-hidden bg-mist {cls}"><video class="h-full w-full object-cover" '
+            f'poster="assets/media/{name}-poster.webp" muted loop playsinline autoplay preload="metadata" '
+            f'aria-label="{esc(label)}">{video_sources(name)}</video></figure>')
+
+
+def video_sources(name):
+    return (f'<source src="assets/media/{name}.webm" type="video/webm">'
+            f'<source src="assets/media/{name}.mp4" type="video/mp4">')
+
+
+def hero(lang, h1, lead, actions, legend, video=None):
     legend_html = "".join(
         f'<li class="flex items-baseline gap-2.5"><span class="h-2.5 w-2.5 shrink-0 translate-y-[-1px] rounded-full {"bg-accent" if k == "hq" else "bg-white"}"></span>'
         f'<span><strong class="font-semibold text-white">{esc(a)}</strong> {esc(b)}</span></li>'
         for k, a, b in legend)
     h1_lang = ' lang="en"' if h1 == getattr(s, "TAGLINE", None) else ""
     size = "max-w-[11ch]" if len(h1) < 32 else "max-w-[16ch] !text-[clamp(38px,4.4vw,62px)]"
+    if video:
+        return f"""
+<section class="relative isolate overflow-hidden bg-ink text-on-dark">
+  <video class="absolute inset-0 -z-10 h-full w-full object-cover" poster="assets/media/{video}-poster.webp" muted loop playsinline autoplay preload="auto" aria-hidden="true">{video_sources(video)}</video>
+  <div class="absolute inset-0 -z-10 bg-gradient-to-r from-ink via-ink/85 to-ink/30"></div>
+  <div class="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-ink to-transparent"></div>
+  <div class="wrap relative flex min-h-[min(760px,88vh)] items-center">
+    <div class="py-20 lg:py-28">
+      <h1 class="h-display mb-7 text-white motion-safe:animate-[rise_.8s_ease_both] {size}"{h1_lang}>{esc(h1)}</h1>
+      <p class="lead mb-10 max-w-[40ch] text-on-dark motion-safe:animate-[rise_.8s_.12s_ease_both]">{esc(lead)}</p>
+      <div class="flex flex-wrap gap-3.5 motion-safe:animate-[rise_.8s_.24s_ease_both]">{actions}</div>
+    </div>
+  </div>
+  <div class="wrap relative"><ul class="flex flex-wrap gap-x-8 gap-y-2.5 border-t border-white/15 pb-7 pt-5 text-[15px]">{legend_html}</ul></div>
+</section>"""
     return f"""
 <section class="relative overflow-hidden bg-ink text-on-dark">
   <div class="pointer-events-none absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-accent/10 blur-3xl"></div>
@@ -664,7 +698,7 @@ def orphion_home(lang):
 
 <section class="section">
   <div class="wrap grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
-    <div data-reveal>{photo('assets/images/bg/hero-medicines.webp', 'Hekim hastaya ilacını veriyor' if lang == 'tr' else 'A physician handing medicine to a patient')}</div>
+    <div data-reveal>{loop_video('medicines-table', 'İlaçlar ve stetoskop' if lang == 'tr' else 'Medicines and a stethoscope', 'aspect-[16/10] rounded-lg')}</div>
     <div data-reveal data-reveal-delay="1">
       <blockquote class="m-0"><p class="font-serif text-[clamp(24px,2.4vw,32px)] leading-[1.35] text-ink before:text-accent before:content-['“'] after:text-accent after:content-['”']">{esc(quote_txt)}</p></blockquote>
       <div class="mt-7 flex items-center gap-4">
@@ -988,7 +1022,7 @@ def rome_home(lang):
     actions = (f'<a class="btn" href="{href("contact", lang, "#contact-form")}">{esc(UI[lang]["cta"])}</a>'
                f'<a class="btn btn-ghost" href="{href("about", lang)}">{esc(R["cta2"])}</a>')
     why_t = re.sub("<[^>]+>", "", A["why_t"])
-    return hero(lang, R["h1"], R["lead"], actions, R["legend"]) + f"""
+    return hero(lang, R["h1"], R["lead"], actions, R["legend"], video="pills-stethoscope") + f"""
 
 <section class="section">
   <div class="wrap grid items-start gap-12 lg:grid-cols-[5fr_7fr] lg:gap-24">
@@ -999,7 +1033,7 @@ def rome_home(lang):
 
 <section class="section bg-mist">
   <div class="wrap grid items-center gap-12 lg:grid-cols-2 lg:gap-20">
-    <div data-reveal>{photo('assets/images/bg/hero-medicines.webp', 'Hekim hastaya ilacını veriyor' if lang == 'tr' else 'A physician handing medicine to a patient')}</div>
+    <div data-reveal>{loop_video('medicines-table', 'İlaçlar ve stetoskop' if lang == 'tr' else 'Medicines and a stethoscope', 'aspect-[16/10] rounded-lg')}</div>
     <div data-reveal data-reveal-delay="1">
       <h2 class="h-section">{esc(why_t)}</h2>
       <p class="lead">{esc(A['why'])}</p>

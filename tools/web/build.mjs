@@ -33,7 +33,9 @@ for (const brand of brands) {
 
   console.log(`[${brand}] JavaScript paketleniyor`);
   await esbuild.build({
-    entryPoints: { site: join(here, "src/site.js"), globe: join(here, "src/globe.js") },
+    entryPoints: brand === "orphion"
+      ? { site: join(here, "src/site.js"), globe: join(here, "src/globe.js") }
+      : { site: join(here, "src/site.js") },
     outdir: join(dir, "assets/js"),
     bundle: true,
     minify: true,
@@ -47,7 +49,7 @@ for (const brand of brands) {
   const marks = {
     __HASH_SITE_CSS__: hash(join(dir, "assets/css/site.css")),
     __HASH_SITE_JS__: hash(join(dir, "assets/js/site.js")),
-    __HASH_GLOBE_JS__: hash(join(dir, "assets/js/globe.js")),
+    __HASH_GLOBE_JS__: brand === "orphion" ? hash(join(dir, "assets/js/globe.js")) : "",
   };
   for (const f of readdirSync(dir).filter((n) => n.endsWith(".html"))) {
     const p = join(dir, f);

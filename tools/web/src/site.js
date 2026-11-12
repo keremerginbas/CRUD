@@ -232,6 +232,25 @@
         updateTracks();
     }
 
+    /* Videolar: hareket azaltma tercihinde durdur; ekran dışındayken oynatma */
+    var videos = $$("video[autoplay]");
+    if (videos.length) {
+        var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        videos.forEach(function (v) {
+            v.muted = true;
+            if (reduceMotion) { v.removeAttribute("autoplay"); v.pause(); }
+        });
+        if (!reduceMotion && "IntersectionObserver" in window) {
+            var vo = new IntersectionObserver(function (entries) {
+                entries.forEach(function (en) {
+                    if (en.isIntersecting) { var pr = en.target.play(); if (pr && pr.catch) pr.catch(function () {}); }
+                    else en.target.pause();
+                });
+            }, { threshold: 0.1 });
+            videos.forEach(function (v) { vo.observe(v); });
+        }
+    }
+
     /* Telif yılı */
     $$("[data-current-year]").forEach(function (el) { el.textContent = new Date().getFullYear(); });
 })();
