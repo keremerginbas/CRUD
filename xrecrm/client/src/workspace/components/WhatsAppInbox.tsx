@@ -176,7 +176,9 @@ export default function WhatsAppInbox({
     setLineId((current) => used || (waLines.some((l) => l.lineId === current) ? current : waLines[0].lineId));
   }, [conv?.key, waLines]);
   useEffect(() => {
-    bottom.current?.scrollIntoView?.({ block: "end" });
+    // Yalnızca mesaj kutusunu kaydır; sayfanın kendisini aşağı çekme (telefonda başlık kayboluyordu).
+    const box = bottom.current?.parentElement;
+    if (box) box.scrollTop = box.scrollHeight;
   }, [conv?.key, conv?.messages.length]);
 
   const line = waLines?.find((l) => l.lineId === lineId);

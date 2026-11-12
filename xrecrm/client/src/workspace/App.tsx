@@ -70,6 +70,7 @@ import "./design/suite.css";
 import "./design/admin.css";
 import "./design/insights.css";
 import "./design/comms.css";
+import "./design/mobile-fixes.css";
 import LeadDrawer from "./components/LeadDrawer";
 import { PREVIEW, WORKSPACE_SLUG, currentPath, withBase } from "./nav";
 import InviteAccept from "./components/InviteAccept";
