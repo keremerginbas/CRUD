@@ -39,7 +39,7 @@ function start(el) {
   const onDark = rgbVar("--on-dark");
   const ink = rgbVar("--ink");
 
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   el.appendChild(renderer.domElement);
   const scene = new Scene();
   const camera = new PerspectiveCamera(32, 1, 0.1, 50);

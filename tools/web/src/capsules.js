@@ -10,7 +10,7 @@
    ------------------------------------------------------------------ */
 import {
   WebGLRenderer, Scene, PerspectiveCamera, Color, Vector3, Group, Mesh, CapsuleGeometry,
-  MeshPhysicalMaterial, HemisphereLight, DirectionalLight, ACESFilmicToneMapping, MathUtils, Clock,
+  MeshPhysicalMaterial, MeshStandardMaterial, HemisphereLight, DirectionalLight, ACESFilmicToneMapping, MathUtils, Clock,
 } from "three";
 
 const host = document.querySelector("[data-capsules]");
@@ -46,14 +46,14 @@ if (host && story) start();
 function start() {
   let renderer;
   try {
-    renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
+    renderer = new WebGLRenderer({ antialias: (window.devicePixelRatio || 1) < 1.5, alpha: true, powerPreference: "high-performance" });
   } catch (e) {
     finishLoader(true);
     return; // WebGL yok: metinler ve arka plan yeterli
   }
   const canvas = renderer.domElement;
   host.appendChild(canvas);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.1;
 
@@ -76,12 +76,12 @@ function start() {
   // İki renkli kapsül malzemesi: yerel y > 0 üst renk, altı alt renk
   function capsuleMaterial(glass) {
     if (glass) {
+      // Kırılma (transmission) her karede sahneyi ikinci kez çizdirir; yarı saydam cam yeterli
       return new MeshPhysicalMaterial({
-        color: 0xffffff, roughness: 0.08, clearcoat: 1, clearcoatRoughness: 0.03, transmission: 0.92,
-        ior: 1.48, thickness: 1.6, transparent: true,
+        color: 0xffffff, roughness: 0.1, clearcoat: 1, clearcoatRoughness: 0.05, transparent: true, opacity: 0.55, depthWrite: false,
       });
     }
-    const m = new MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.15, transparent: true });
+    const m = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.32, metalness: 0, transparent: true });
     m.userData.top = { value: new Color() };
     m.userData.bottom = { value: new Color() };
     m.onBeforeCompile = (sh) => {
@@ -99,8 +99,8 @@ function start() {
   }
 
   const mobile = window.innerWidth < 768;
-  const count = mobile ? 44 : 84;
-  const geo = new CapsuleGeometry(0.5, 1.0, 8, 24); // toplam boy 2, çap 1
+  const count = mobile ? 34 : 64;
+  const geo = new CapsuleGeometry(0.5, 1.0, 6, 16); // toplam boy 2, çap 1
   const bodies = [];
   for (let i = 0; i < count; i++) {
     const r = Math.random();
@@ -294,7 +294,7 @@ function start() {
     }
 
     const collide = 0.28 * (1 - 0.93 * shapeF) * (1 - flyF);
-    for (let step = 0; step < 4; step++) {
+    for (let step = 0; step < 2; step++) {
       for (let i = 0; i < bodies.length; i++) {
         for (let j = i + 1; j < bodies.length; j++) {
           const a = bodies[i], c = bodies[j];
@@ -346,7 +346,9 @@ function start() {
       b.group.position.copy(b.pos);
     }
     renderer.render(scene, camera);
+    quality();
   }
+  const quality = adaptiveQuality(renderer);
   requestAnimationFrame(frame);
 }
 
@@ -399,4 +401,19 @@ if (loader && loader.isConnected) {
   }
 } else if (!loader) {
   control.started = true;
+}
+
+// Yavaş cihazlarda çözünürlüğü düşür: son 60 karenin ortalaması 22 ms'yi geçerse piksel oranı 1'e iner
+function adaptiveQuality(renderer) {
+  let last = performance.now(), sum = 0, n = 0, lowered = false;
+  return () => {
+    const now = performance.now(), dt = now - last;
+    last = now;
+    if (lowered || dt > 200) return;
+    sum += dt; n++;
+    if (n === 60) {
+      if (sum / n > 22 && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); lowered = true; }
+      sum = 0; n = 0;
+    }
+  };
 }

@@ -46,12 +46,12 @@ function init() {
   bubbles(hero.querySelector("[data-bubbles]"));
   let renderer;
   try {
-    renderer = new WebGLRenderer({ antialias: true, alpha: true });
+    renderer = new WebGLRenderer({ antialias: (window.devicePixelRatio || 1) < 1.5, alpha: true });
   } catch (e) {
     wireCards(null);
     return;
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   host.appendChild(renderer.domElement);
@@ -71,9 +71,9 @@ function init() {
   scene.add(tilt);
   const profile = [[0, -1.3], [0.62, -1.3], [0.72, -1.2], [0.75, -1.05], [0.75, 0.72], [0.72, 0.86], [0.56, 1.0],
     [0.4, 1.08], [0.38, 1.16], [0.38, 1.3], [0, 1.3]].map(([x, y]) => new Vector2(x, y));
-  const glass = new Mesh(new LatheGeometry(profile, 72), new MeshPhysicalMaterial({
-    color: "#C9772E", roughness: 0.12, metalness: 0, transmission: 0.55, thickness: 0.6, ior: 1.5,
-    clearcoat: 1, clearcoatRoughness: 0.05, attenuationColor: new Color("#7A3B0E"), attenuationDistance: 0.9,
+  const glass = new Mesh(new LatheGeometry(profile, 48), new MeshPhysicalMaterial({
+    color: "#B8661F", roughness: 0.12, metalness: 0, transparent: true, opacity: 0.86,
+    clearcoat: 1, clearcoatRoughness: 0.05,
   }));
   bottle.add(glass);
   // İçteki kapsüller (şişenin içinde belli belirsiz görünür)
@@ -88,7 +88,7 @@ function init() {
   }
   // Kapak (beyaz, yivli)
   const cap = new Group();
-  cap.add(new Mesh(new CylinderGeometry(0.46, 0.46, 0.5, 64), new MeshPhysicalMaterial({ color: "#F5F7FA", roughness: 0.35, clearcoat: 0.4 })));
+  cap.add(new Mesh(new CylinderGeometry(0.46, 0.46, 0.5, 64), new MeshStandardMaterial({ color: "#F5F7FA", roughness: 0.35 })));
   for (let i = 0; i < 3; i++) {
     const ring = new Mesh(new TorusGeometry(0.462, 0.012, 8, 64), new MeshStandardMaterial({ color: "#D9DEE5", roughness: 0.5 }));
     ring.rotation.x = Math.PI / 2;
@@ -128,9 +128,9 @@ function init() {
   drawLabel(accentNow);
 
   /* ---------- Kapsüller ---------- */
-  const capsuleGeo = new CapsuleGeometry(0.5, 1.0, 8, 24);
+  const capsuleGeo = new CapsuleGeometry(0.5, 1.0, 6, 16);
   function twoTone() {
-    const m = new MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.28, clearcoat: 0.8, clearcoatRoughness: 0.12, transparent: true });
+    const m = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0, transparent: true });
     m.userData.top = { value: new Color() };
     m.userData.bottom = { value: new Color() };
     m.onBeforeCompile = (sh) => {
@@ -236,7 +236,9 @@ function init() {
       p.mesh.scale.setScalar(p.scale * p.hidden);
     });
     renderer.render(scene, camera);
+    quality();
   }
+  const quality = adaptiveQuality(renderer);
   requestAnimationFrame(frame);
 
   /* ---------- Tema değişimi ---------- */
@@ -327,4 +329,19 @@ function bubbles(box) {
     setTimeout(() => b.remove(), dur * 1000);
   };
   setInterval(make, 420);
+}
+
+// Yavaş cihazlarda çözünürlüğü düşür: son 60 karenin ortalaması 22 ms'yi geçerse piksel oranı 1'e iner
+function adaptiveQuality(renderer) {
+  let last = performance.now(), sum = 0, n = 0, lowered = false;
+  return () => {
+    const now = performance.now(), dt = now - last;
+    last = now;
+    if (lowered || dt > 200) return;
+    sum += dt; n++;
+    if (n === 60) {
+      if (sum / n > 22 && renderer.getPixelRatio() > 1) { renderer.setPixelRatio(1); lowered = true; }
+      sum = 0; n = 0;
+    }
+  };
 }

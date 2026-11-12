@@ -38,6 +38,18 @@ LANGS = ("tr", "en")
 WEB = TOOLS / "web"
 
 
+TAGLINE_TR = "İnovasyonu hayatla buluşturuyoruz."
+
+
+def tagline(lang):
+    """Orphion sloganı: Türkçe sayfada Türkçe, İngilizcede marka sloganı."""
+    return TAGLINE_TR if lang == "tr" else s.TAGLINE
+
+
+def tagline_attr(lang):
+    return "" if lang == "tr" else ' lang="en"'
+
+
 def esc(x):
     return html.escape(str(x), quote=True)
 
@@ -347,7 +359,7 @@ def offices_html(lang, dark=False, cols=3):
 def footer(lang):
     u = UI[lang]
     logo, w, h = LOGO["footer"]
-    tagline = s.TAGLINE if BRAND_KEY == "orphion" else s.T[lang]["tagline"]
+    tag = tagline(lang) if BRAND_KEY == "orphion" else s.T[lang]["tagline"]
     links = [("about", u["about"]), ("contact", u["contact"])]
     if BRAND_KEY == "orphion":
         links = [("about", u["about"]), ("services", u["services"]), ("events", u["events"]),
@@ -361,7 +373,7 @@ def footer(lang):
     <div class="grid gap-12 border-b border-white/10 pb-14 lg:grid-cols-[4fr_8fr]">
       <div>
         <img class="mb-5 h-16 w-auto" src="{logo}" width="{w}" height="{h}" alt="{esc(u['logo_alt'].format(C['name']))}" loading="lazy">
-        <p class="mb-4 font-serif text-[22px] text-white"{' lang="en"' if BRAND_KEY == 'orphion' else ''}>{esc(tagline)}</p>
+        <p class="mb-4 font-serif text-[22px] text-white"{tagline_attr(lang) if BRAND_KEY == 'orphion' else ''}>{esc(tag)}</p>
         <p><a class="text-on-dark hover:text-white" href="mailto:{C['email']}">{C['email']}</a><br><a class="text-on-dark hover:text-white" href="tel:{C['phone_tel']}">{C['phone_display']}</a></p>
         <ul class="mt-6 flex flex-wrap gap-x-6 gap-y-2.5">{links_html}</ul>
       </div>
@@ -409,7 +421,7 @@ def head(page, lang, title, desc, extra=""):
                     '\n<script type="module" src="assets/js/capsules.js?v=__HASH_CAPSULES_JS__"></script>'
                     '\n<script type="module" src="assets/js/globe.js?v=__HASH_GLOBE_JS__"></script>')
     return f"""<!DOCTYPE html>
-<html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}"{' data-smooth' if page == 'home' else ''}>
+<html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -700,7 +712,7 @@ STORY = {
         "heart_hint": "İmleci kalbin üzerinden geçirin",
         "release_h": "Ve mesafe\nkısalır.",
         "release_p": "Tıbbi inovasyon ile ona ihtiyaç duyan hasta arasında güvenilir, sürdürülebilir ve sorumlu bir köprü kuruyoruz.",
-        "marquee": ["Bridging Innovation and Life", "Hasta erişimi", "Nadir hastalıklar", "Türkiye ve ötesi"],
+        "marquee": ["İnovasyonu hayatla buluşturuyoruz", "Hasta erişimi", "Nadir hastalıklar", "Türkiye ve ötesi"],
     },
     "en": {
         "loader": "Preparing access pathways", "loader_done": "Bridge in place",
@@ -742,7 +754,7 @@ def story_html(lang):
     u = UI[lang]
     facts = "".join(f"""
         <li class="group rounded-[1.4rem] bg-gradient-to-b from-white/90 via-white/40 to-white/10 p-px shadow-[0_14px_40px_-12px_rgb(var(--ink)/.25)] transition-transform duration-300 hover:-translate-y-0.5">
-          <div class="relative overflow-hidden rounded-[1.35rem] bg-white/45 px-6 py-5 backdrop-blur-xl">
+          <div class="relative overflow-hidden rounded-[1.35rem] bg-white/80 px-6 py-5">
             <span class="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"></span>
             <div class="mb-2 flex items-center justify-between text-[13px] font-semibold text-muted"><span>{esc(k)}</span><span class="h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_rgb(var(--accent)/.7)]"></span></div>
             <p class="m-0 text-lg font-semibold text-ink">{esc(v)}</p>
@@ -750,7 +762,7 @@ def story_html(lang):
           </div>
         </li>""" for k, v, d in st["facts"])
     actions = (f'<a class="btn" href="{href("contact", lang, "#contact-form")}">{esc(s.HERO[lang]["cta_partner"])}</a>'
-               f'<a class="btn bg-white/60 text-ink shadow-[inset_0_0_0_1.5px_rgb(var(--ink)/.25)] backdrop-blur hover:bg-white" href="{href("services", lang)}">{esc(s.HERO[lang]["cta_caps"])}</a>')
+               f'<a class="btn bg-white/60 text-ink shadow-[inset_0_0_0_1.5px_rgb(var(--ink)/.25)] hover:bg-white" href="{href("services", lang)}">{esc(s.HERO[lang]["cta_caps"])}</a>')
     return f"""
 <div class="story-bg pointer-events-none fixed inset-0 -z-10" data-story-bg data-stage="0" aria-hidden="true"></div>
 <div class="pointer-events-none fixed inset-0 z-0 transition-opacity duration-700" data-capsules aria-hidden="true"></div>
@@ -759,10 +771,10 @@ def story_html(lang):
     <div class="wrap flex flex-col justify-between gap-10 pb-12 md:flex-row md:items-end md:pb-14">
       <div class="pointer-events-auto max-w-[760px]">
         <p class="mb-5 text-[15px] font-semibold text-accent-ink" data-intro>{esc(st['eyebrow'])}</p>
-        <h1 class="h-display mb-8 max-w-[11ch]" lang="en" data-intro style="--d:.12s">{esc(s.TAGLINE)}</h1>
+        <h1 class="h-display mb-8 max-w-[12ch]"{tagline_attr(lang)} data-intro style="--d:.12s">{esc(tagline(lang))}</h1>
         <div class="flex flex-wrap gap-3.5" data-intro style="--d:.24s">{actions}</div>
       </div>
-      <div class="pointer-events-auto rounded-2xl border border-white/60 bg-white/55 p-5 shadow-[0_14px_40px_-16px_rgb(var(--ink)/.3)] backdrop-blur-xl md:w-[300px]" data-intro style="--d:.36s">
+      <div class="pointer-events-auto rounded-2xl border border-white/60 bg-white/85 p-5 shadow-[0_14px_40px_-16px_rgb(var(--ink)/.3)] md:w-[300px]" data-intro style="--d:.36s">
         <p class="m-0 text-[17px] font-medium leading-snug text-ink">{esc(st['aside'])}</p>
         <p class="mt-5 flex items-center gap-2 text-sm font-semibold text-muted motion-safe:animate-pulse">{icon('chev', 'h-4 w-4')} {esc(st['scroll'])}</p>
       </div>
@@ -787,7 +799,7 @@ def story_html(lang):
     <div class="wrap flex justify-end pb-28">
       <div class="pointer-events-auto max-w-sm md:text-right">
         <p class="text-[17px] leading-relaxed text-body" data-reveal>{esc(st['heart_p'])}</p>
-        <p class="mt-6 inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/45 px-4 py-2.5 text-sm font-semibold text-ink backdrop-blur-md" data-reveal data-reveal-delay="2">{icon('arrow', 'h-4 w-4')} {esc(st['heart_hint'])}</p>
+        <p class="mt-6 inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/85 px-4 py-2.5 text-sm font-semibold text-ink" data-reveal data-reveal-delay="2">{icon('arrow', 'h-4 w-4')} {esc(st['heart_hint'])}</p>
       </div>
     </div>
   </section>
@@ -897,7 +909,7 @@ def orphion_about(lang):
 <section class="section bg-ink">
   <div class="wrap" data-reveal>
     <p class="m-0 max-w-[34ch] font-serif text-[clamp(26px,3vw,40px)] leading-[1.3] text-white">{esc(a['closing'])}</p>
-    <p class="mt-7"><span class="font-semibold text-accent">{esc(a['why'])}</span> <span class="font-semibold text-white" lang="en">{esc(s.TAGLINE)}</span></p>
+    <p class="mt-7"><span class="font-semibold text-accent">{esc(a['why'])}</span> <span class="font-semibold text-white"{tagline_attr(lang)}>{esc(tagline(lang))}</span></p>
   </div>
 </section>
 <section class="section">
@@ -1032,7 +1044,7 @@ def orphion_event(e, lang):
   <div class="wrap grid items-start gap-12 lg:grid-cols-2 lg:gap-20">
     <div class="grid gap-4" data-reveal>{gallery}</div>
     <article class="prose-serif" data-reveal data-reveal-delay="1">{paras}
-      <blockquote class="my-8"><p class="mb-2 text-[26px] leading-[1.35] text-ink">{esc(e['motto'][lang])}</p><cite class="font-sans text-base not-italic text-muted" lang="en">{esc(C['name'])}, “{esc(s.TAGLINE)}”</cite></blockquote>
+      <blockquote class="my-8"><p class="mb-2 text-[26px] leading-[1.35] text-ink">{esc(e['motto'][lang])}</p><cite class="font-sans text-base not-italic text-muted"{tagline_attr(lang)}>{esc(C['name'])}, “{esc(tagline(lang))}”</cite></blockquote>
       <ul class="flex flex-wrap gap-2 font-sans">{tags}</ul>
     </article>
   </div>
@@ -1183,7 +1195,7 @@ def rome_stage(lang):
     st = ROME_STAGE[lang]
     lines = dict(zip(("supply", "consult"), s.BUSINESS_LINES[lang]))
     cards = "".join(f"""
-        <button class="group w-[150px] rounded-[26px] border border-white/15 bg-white/[.06] p-4 pt-5 text-left backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[.12] aria-pressed:border-accent aria-pressed:bg-white/[.1]" type="button" data-theme-card="{key}" aria-pressed="{'true' if key == 'supply' else 'false'}">
+        <button class="group w-[150px] rounded-[26px] border border-white/15 bg-white/[.08] p-4 pt-5 text-left transition duration-300 hover:-translate-y-1 hover:bg-white/[.12] aria-pressed:border-accent aria-pressed:bg-white/[.1]" type="button" data-theme-card="{key}" aria-pressed="{'true' if key == 'supply' else 'false'}">
           <span class="mb-6 grid h-12 w-12 place-items-center rounded-2xl {'bg-[#2DCE98]' if key == 'supply' else 'bg-[#38A8F5]'} text-[#0F2A40] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110">{icon('pill' if key == 'supply' else 'handshake', 'h-6 w-6')}</span>
           <span class="block text-[15px] font-semibold leading-tight text-white">{esc(title)}</span>
           <span class="mt-1 block text-xs leading-snug text-on-dark">{esc(sub)}</span>
@@ -1201,7 +1213,7 @@ def rome_stage(lang):
       <p class="m-0 text-[15px] font-semibold text-accent" data-intro>{esc(st['eyebrow'])}</p>
       <h1 class="h-display m-0 max-w-[12ch] text-[clamp(40px,5.4vw,78px)] text-white" data-intro style="--d:.1s">{esc(R['h1'])}</h1>
       <p class="m-0 max-w-[40ch] text-lg leading-relaxed text-on-dark" data-intro style="--d:.2s">{esc(R['lead'])}</p>
-      <a class="group inline-flex w-fit items-center gap-5 rounded-full bg-black/40 py-1.5 pl-6 pr-1.5 font-bold text-white no-underline backdrop-blur transition hover:-translate-y-0.5 hover:bg-black/60" href="{href('contact', lang, '#contact-form')}" data-intro style="--d:.3s">{esc(UI[lang]['cta'])}
+      <a class="group inline-flex w-fit items-center gap-5 rounded-full bg-black/40 py-1.5 pl-6 pr-1.5 font-bold text-white no-underline transition hover:-translate-y-0.5 hover:bg-black/60" href="{href('contact', lang, '#contact-form')}" data-intro style="--d:.3s">{esc(UI[lang]['cta'])}
         <span class="grid h-10 w-10 place-items-center rounded-full bg-accent text-2xl font-black leading-none text-accent-on transition-transform duration-300 group-hover:rotate-90">+</span></a>
       <div class="mt-auto flex items-center gap-4 pt-6" data-intro style="--d:.4s">
         <span class="grid h-12 w-12 place-items-center rounded-xl border border-white/15 bg-white/5">{icon('landmark', 'h-6 w-6')}</span>
