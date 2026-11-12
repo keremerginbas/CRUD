@@ -29,6 +29,7 @@ import {
 import { toast } from "sonner";
 import { useStore } from "../store";
 import { PageTitle, Badge, Modal, Empty } from "../components/ui";
+import { withBase } from "../nav";
 const providers = [
   {
     id: "meta",
@@ -461,6 +462,12 @@ export default function Integrations({
             : "WhatsApp, Netgsm, Vapi ve iş uygulamalarınızı CRM süreçlerinize bağlayın."
         }
         actions={
+          <>
+          {!webhooks && !demo && user?.isOwner && (
+            <a className="btn secondary" href={withBase("/apps")}>
+              Bitrix24'ten veri aktar
+            </a>
+          )}
           <button
             className="btn secondary"
             onClick={() => {
@@ -478,6 +485,7 @@ export default function Integrations({
             <RefreshCw size={16} />
             Durumu yenile
           </button>
+          </>
         }
       />
       {webhooks ? (

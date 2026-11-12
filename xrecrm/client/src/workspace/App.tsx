@@ -142,7 +142,6 @@ const navGroups = [
       ["/n8n", "n8n iş akışları", Workflow],
       ["/webhooks", "Webhooklar", Webhook],
       ["/integrations", "Entegrasyonlar", Link2],
-      ["/apps", "Bitrix24'ten geçiş", Blocks],
       ["/workspaces", "Firmalar", Building2],
     ],
   },
