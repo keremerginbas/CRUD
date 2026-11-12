@@ -29,7 +29,7 @@ export interface Pipeline {
   id: string;
   name: string;
   description: string;
-  stages: { id: Stage; label: string; color: string }[];
+  stages: { id: Stage; label: string; color: string; description?: string }[];
   requiredFieldsByStage?: StagePolicy;
   createdAt: string;
   updatedAt: string;

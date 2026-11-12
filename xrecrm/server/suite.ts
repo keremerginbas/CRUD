@@ -52,6 +52,7 @@ const commentSchema = z.object({
 const stageSchema = z.object({
   id: z.enum(stages),
   label: nonEmptySafeString(120),
+  description: safeString(500).optional(),
   color: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "Renk geçerli hex biçiminde olmalı."),

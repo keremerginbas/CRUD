@@ -28,8 +28,10 @@ import {
   ArrowRight,
   Check,
   Bookmark,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Modal } from "../components/ui";
 import { useStore } from "../store";
 import { Lead, Stage, money } from "../data";
 import {
@@ -170,7 +172,37 @@ export default function CRM({
   ]);
   const pipelines = availablePipelines(data.pipelines);
   const current = pipelines.find((p) => p.id === pipeline) || pipelines[0];
-  const stages = getPipelineStages(data.pipelines, pipeline);
+  // "Tüm satış hunileri" görünümünde de varsayılan huninin düzenlenmiş aşama adları kullanılır.
+  const stages = current?.stages || getPipelineStages(data.pipelines, pipeline);
+  const [stageEdit, setStageEdit] = useState<{ id: string; label: string; description: string; color: string } | null>(null);
+  const [stageBusy, setStageBusy] = useState(false);
+  const saveStage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!stageEdit || !current) return;
+    const label = stageEdit.label.trim();
+    if (!label) {
+      toast.error("Aşama adı gerekli.");
+      return;
+    }
+    setStageBusy(true);
+    try {
+      await saveRecord("pipelines", {
+        ...current,
+        stages: current.stages.map((s) =>
+          s.id === stageEdit.id
+            ? { ...s, label, color: stageEdit.color, description: stageEdit.description.trim() }
+            : s,
+        ),
+        updatedAt: new Date().toISOString(),
+      });
+      toast.success("Aşama güncellendi.");
+      setStageEdit(null);
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setStageBusy(false);
+    }
+  };
   const owners = [
     ...new Set([
       ...data.members.map((m) => m.name),
@@ -502,6 +534,54 @@ export default function CRM({
           </button>
         </div>
       )}
+      {stageEdit && (
+        <Modal
+          title="Aşamayı düzenle"
+          subtitle={`${current?.name || "Satış hunisi"} · bu hunideki tüm kullanıcılar için geçerlidir`}
+          onClose={() => setStageEdit(null)}
+        >
+          <form onSubmit={saveStage}>
+            <div className="modal-content form-grid">
+              <label className="full">
+                Aşama adı
+                <input
+                  required
+                  autoFocus
+                  maxLength={120}
+                  value={stageEdit.label}
+                  onChange={(e) => setStageEdit({ ...stageEdit, label: e.target.value })}
+                />
+              </label>
+              <label className="full">
+                Açıklama (isteğe bağlı)
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={stageEdit.description}
+                  onChange={(e) => setStageEdit({ ...stageEdit, description: e.target.value })}
+                  placeholder="Bu aşamada ne yapılır? Örn. İlk arama yapıldı, ihtiyaç soruldu."
+                />
+              </label>
+              <label>
+                Renk
+                <input
+                  type="color"
+                  value={stageEdit.color}
+                  onChange={(e) => setStageEdit({ ...stageEdit, color: e.target.value })}
+                />
+              </label>
+            </div>
+            <footer className="modal-footer">
+              <button type="button" className="btn secondary" onClick={() => setStageEdit(null)}>
+                Vazgeç
+              </button>
+              <button className="btn primary" disabled={stageBusy}>
+                Kaydet
+              </button>
+            </footer>
+          </form>
+        </Modal>
+      )}
       {importing && (
         <ImportWizard kind="leads" onClose={() => setImporting(false)} />
       )}
@@ -546,7 +626,17 @@ export default function CRM({
               >
                 <header style={{ background: s.color, borderColor: s.color }}>
                   <div>
-                    <h3>{s.label}</h3>
+                    <h3 title={s.description || undefined}>{s.label}</h3>
+                    <button
+                      className="icon-button stage-edit"
+                      aria-label={`${s.label} aşamasını düzenle`}
+                      title="Aşama adını ve açıklamasını düzenle"
+                      onClick={() =>
+                        setStageEdit({ id: s.id, label: s.label, description: s.description || "", color: s.color })
+                      }
+                    >
+                      <Pencil size={13} />
+                    </button>
                     <span className="column-count">{items.length}</span>
                     <button
                       className="icon-button"
@@ -560,6 +650,7 @@ export default function CRM({
                     </button>
                   </div>
                   <p>{money(items.reduce((n, l) => n + l.value, 0))}</p>
+                  {s.description && <small className="stage-description">{s.description}</small>}
                 </header>
                 <div className="kanban-cards">
                   {quick === s.id && (
