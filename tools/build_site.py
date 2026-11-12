@@ -16,6 +16,7 @@ tekrar çalıştırın; HTML dosyalarını elle düzenlemeyin.
 
 import html
 import json
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent / "orphion-pharma"
@@ -2198,4 +2199,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # Site artık tools/build_v3.py ile üretiliyor; bu dosya içerik verilerini sağlar.
+    # Eski şablonu yeniden üretmek için: python3 tools/build_site.py --legacy
+    if "--legacy" in sys.argv:
+        main()
+    else:
+        print("Bu dosya artık yalnızca içerik verisi tutar. Siteyi üretmek için: python3 tools/build_v3.py")

@@ -3,13 +3,24 @@
 Yayına alınacak dosyalar `orphion-pharma/` klasöründedir (sunucunun web köküne olduğu gibi yüklenir).
 
 ## Sayfaları güncelleme
-HTML dosyaları `tools/build_site.py` ile üretilir. Metin, telefon, adres vb. değişiklikleri
-bu dosyada yapıp şunu çalıştırın:
+İki site de `tools/build_v3.py` ile üretilir (şablonsuz v3 tasarım):
 
-    python3 tools/build_site.py
+    python3 tools/build_v3.py            # iki site
+    python3 tools/build_v3.py orphion    # yalnızca Orphion
+    python3 tools/build_v3.py rome       # yalnızca Rome
+
+- Tasarım: `tools/v3/site.css`, `tools/v3/site.js`, yazı tipleri `tools/v3/fonts/`.
+- Sayfa düzenleri, hizmet metinleri, misyon/vizyon ve ana sayfa metinleri: `tools/build_v3.py`.
+- Ortak içerik verileri (ofisler, telefonlar, Hakkımızda, Başkanın mesajı, etkinlikler, KVKK metni):
+  `tools/build_site.py`; Rome'a özel metinler: `tools/build_rome.py`.
+- Renkler `build_v3.py` içindeki `TOKENS` sözlüğündedir; logolar değiştirilmeden kullanılır.
+- Her çalıştırmada `assets/` klasörü baştan kurulur; eski şablon dosyaları silinir.
+
+Sunucuya yüklerken eski şablon dosyalarını (assets/css/main.css, bootstrap, eski görseller)
+silin; en temizi web kökünü boşaltıp zip içeriğini yüklemektir (`.well-known` klasörüne dokunmayın).
 
 ## Yayın öncesi yapılacaklar
-- `orphion-pharma/assets/js/main.js` → `GA_MEASUREMENT_ID` alanına Google Analytics kimliğini yazın (boşsa Analytics yüklenmez).
+- `tools/v3/site.js` → `GA_MEASUREMENT_ID` alanına Google Analytics kimliğini yazın (boşsa Analytics yüklenmez).
 - Google Search Console'da alan adını DNS ile doğrulayın ve `sitemap.xml` gönderin.
 - `contact.php` sunucuda PHP `mail()` ile çalışır; hosting SMTP istiyorsa `send_mail()` fonksiyonunu uyarlayın.
 - İletişim formu ve İnsan Kaynakları (CV ekli) başvuruları `fevziaydin@orphionpharma.com` adresine gider (`contact.php` → `MAIL_TO`).
@@ -22,9 +33,7 @@ bu dosyada yapıp şunu çalıştırın:
 ## Rome Pharma
 Yayına alınacak dosyalar `rome-pharma/` klasöründedir (romepharma.com web kökü).
 
-    python3 tools/build_rome.py
+    python3 tools/build_v3.py rome
 
-Rome, Orphion üreticisini kendi logosu, renkleri ve metinleriyle çalıştırır. İletişim kısmı
+Rome, aynı tasarımı kendi logosu, renkleri ve metinleriyle kullanır. İletişim kısmı
 (ofisler, telefonlar) Orphion ile aynıdır; e-posta `fevziaydin@rome-pharma.com`.
-CSS/JS/form dosyaları her çalıştırmada Orphion'dan kopyalanır; Rome'a özel bir düzeltme
-gerekiyorsa `tools/build_rome.py` içindeki `sync_shared_files()` fonksiyonuna ekleyin.
