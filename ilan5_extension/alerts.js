@@ -20,7 +20,8 @@
       'İlan no: '+clean(event.listingId),'Eski: '+money(event.oldPrice,event.currency)+' → Yeni: '+money(event.newPrice,event.currency),'',event.url].join('\n');
   }
   function newListingText(event){
-    return ['🆕 TAKİPTEKİ ARAMADA YENİ İLAN',clean(event.title).slice(0,240)||'Başlıksız ilan','İlan no: '+clean(event.listingId),
+    const site=root.IlanSites?.name?.(event.source)||'';
+    return ['🆕 TAKİPTEKİ ARAMADA YENİ İLAN'+(site?' · '+site:''),clean(event.title).slice(0,240)||'Başlıksız ilan','İlan no: '+clean(event.listingId),
       'Fiyat: '+money(event.newPrice,event.currency),'',event.url].join('\n');
   }
   // Next local occurrence of HH:MM after `now`.

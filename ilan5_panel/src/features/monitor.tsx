@@ -33,7 +33,7 @@ function MonitorCard() {
   return (
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-3">
-        <div><CardTitle>Otomatik ilan kontrolü</CardTitle><CardDescription>Sahibinden ve Hepsiemlak bağlantıları düzenli kontrol edilir; kaldırılma iki ayrı kontrolle doğrulanır.</CardDescription></div>
+        <div><CardTitle>Otomatik ilan kontrolü</CardTitle><CardDescription>Sahibinden, Hepsiemlak, Emlakjet ve arabam.com ilanları düzenli kontrol edilir; kaldırılma iki ayrı kontrolle doğrulanır.</CardDescription></div>
         <Badge variant={!enabled || ['paused', 'blocked'].includes(status) ? 'warning' : 'success'}>{!enabled ? 'Otomatik kontrol kapalı' : status === 'paused' ? 'Duraklatıldı' : status === 'blocked' ? 'Kontrol bekleniyor' : 'Otomatik takip açık'}</Badge>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

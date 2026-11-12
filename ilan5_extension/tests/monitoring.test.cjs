@@ -59,6 +59,15 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS ' + n
     assert.equal(M.eligible(BASE), true);
     for (const edit of [{source: 'hepsiemlak'}, {url: 'https://www.sahibinden.com/satilik-arsa'}, {url: URL1.replace('sahibinden.com', 'sahibinden.com.evil.invalid')}, {deletedAt: '2026-01-01'}, {listingId: 'other'}]) assert.equal(M.eligible({...BASE, ...edit}), false);
   });
+  await test('3.1.1: Hepsiemlak, Emlakjet and arabam.com details are monitored too', () => {
+    const core = require('../core.js');
+    for (const url of ['https://www.hepsiemlak.com/ankara-golbasi-satilik/tarla/0-47475589', 'https://www.emlakjet.com/ilan/golbasi-satilik-arsa-19990109', 'https://www.arabam.com/ilan/sahibinden-satilik-renault-clio/temiz/44985286']) {
+      const record = core.normalizeRecord({url, title: 'x', price: 1});
+      assert.equal(M.eligible(record), true, url);
+      assert.equal(M.eligible({...record, url: url.replace(/\d+$/, '')}), false, 'search pages are not monitored');
+    }
+    assert.equal(M.eligible({...BASE, url: 'https://www.example.com/ilan/x-123/detay'}), false);
+  });
   await test('two explicit observations need the full confirmation interval', async () => {
     const h = harness(); await h.scan();
     assert.equal(h.row().monitoring.status, 'suspected'); assert.equal(h.queued.length, 0);

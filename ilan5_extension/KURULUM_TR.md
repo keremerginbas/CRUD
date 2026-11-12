@@ -1,4 +1,4 @@
-# İlan5 3.1.0 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
+# İlan5 3.1.1 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,17 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.1.0** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.1.1** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 3.1.1 yeni ve kalkan ilan takibi dört sitede
+
+- **Yayından kalkan ilan:** “İlan yayında mı?” kontrolü önceden yalnız Sahibinden ve Hepsiemlak ilanlarını kontrol ediyordu, Telegram bildirimi de yalnız Sahibinden için gidiyordu. Artık Sahibinden, Hepsiemlak, Emlakjet ve arabam.com ilanlarının hepsi kontrol edilir ve kalkma doğrulanınca Telegram'a bildirilir. Kalkma yine iki ayrı kontrolle doğrulanır; sayfa okunamazsa ilan “kaldırıldı” sayılmaz.
+- **Telegram mesajlarında site adı:** “🆕 Takipteki aramada yeni ilan · Emlakjet”, “🔴 İlan yayından kaldırıldı · arabam.com” gibi.
+- Başka bir şey değişmedi; tarama ve panel 3.1.0 ile aynıdır.
 
 ## 3.1.0 yeni panel: İlan5 Komuta Merkezi
 

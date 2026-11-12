@@ -48,12 +48,13 @@
     function messageFor(record){
       const at=record.monitoring?.removedAt||iso();
       const date=new Intl.DateTimeFormat('tr-TR',{timeZone:'Europe/Istanbul',dateStyle:'short',timeStyle:'short'}).format(new Date(at));
-      return ['🔴 İLAN YAYINDAN KALDIRILDI',clean(record.title).slice(0,240)||'Başlıksız ilan','İlan no: '+clean(record.listingId),
+      const site=(root.IlanSites||require('./sites.js')).name(record.source);
+      return ['🔴 İLAN YAYINDAN KALDIRILDI'+(site?' · '+site:''),clean(record.title).slice(0,240)||'Başlıksız ilan','İlan no: '+clean(record.listingId),
         'Kontrol: '+date,'Kaynakta iki ayrı kontrolde yayında olmadığı doğrulandı.','',record.url].join('\n').slice(0,3800);
     }
     async function enqueueRemoval(record,eventId){return serial(async()=>{await load();
       const old=outbox.find(e=>e.eventId===eventId);if(old)return {eventId,status:old.status,duplicate:true};
-      const url=new URL(record.url);if(!/^https:$/.test(url.protocol)||!/^www\.sahibinden\.com$/.test(url.hostname)||!/^\/ilan\/.+-\d+\/detay\/?$/.test(url.pathname))throw Error('Bildirim için doğrulanmış Sahibinden ilan bağlantısı gerekli.');
+      const url=new URL(record.url),sites=root.IlanSites||require('./sites.js');if(url.protocol!=='https:'||!sites.forHost(url.hostname)||!sites.listingId(url.href))throw Error('Bildirim için doğrulanmış ilan bağlantısı gerekli.');
       if(record.monitoring?.status!=='removed'||record.monitoring.removalEventId!==eventId||!Number.isFinite(record.monitoring.missingCount)||record.monitoring.missingCount<2)throw Error('Yayından kalkma doğrulanmadan bildirim oluşturulamaz.');
       const entry={eventId,recordId:record.id,listingId:record.listingId,title:clean(record.title).slice(0,240),chatId:chatId(config.chatId),text:messageFor(record),status:'queued',createdAt:iso(),notBefore:clock(),attempts:0,error:''};
       outbox.push(entry);await saveOutbox();await patchEntry(entry);await schedule();return {eventId,status:'queued',duplicate:false};

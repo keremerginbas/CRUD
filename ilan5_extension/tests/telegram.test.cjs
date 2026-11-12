@@ -166,6 +166,17 @@ test('one explicit disappearance or unknown state cannot create notification',as
   assert.equal((h.state[OUTBOX_KEY]||[]).length,0);
 });
 
+test('3.1.1: removals on every supported site are notified, foreign hosts refused',async()=>{
+  const h=harness();await h.configure();
+  for(const [id,url] of [['ev-jet','https://www.emlakjet.com/ilan/golbasi-satilik-arsa-19990109'],['ev-arabam','https://www.arabam.com/ilan/sahibinden-satilik-renault-clio/temiz/44985286'],['ev-hepsi','https://www.hepsiemlak.com/ankara-golbasi-satilik/tarla/0-47475589']]){
+    const record={...core.normalizeRecord({url,title:'Kalkan ilan',price:1}),monitoring:{status:'removed',removalEventId:id,missingCount:2,removedAt:'2026-11-12T09:00:00Z'}};
+    assert.equal((await h.client.enqueueRemoval(record,id)).status,'queued');
+  }
+  const texts=(h.state[OUTBOX_KEY]||[]).map(e=>e.text).join('\n');
+  assert.match(texts,/YAYINDAN KALDIRILDI · Emlakjet/);assert.match(texts,/YAYINDAN KALDIRILDI · arabam\.com/);
+  await assert.rejects(h.client.enqueueRemoval({...sample('ev-evil'),url:'https://www.example.com/ilan/x-1/detay'},'ev-evil'),/doğrulanmış ilan/);
+});
+
 test('missing confirmation count cannot create notification',async()=>{
   const h=harness();await h.configure();
   await assert.rejects(h.client.enqueueRemoval({...sample('no-count-event'),monitoring:{status:'removed',removalEventId:'no-count-event'}},'no-count-event'),/doğrulanmadan/);

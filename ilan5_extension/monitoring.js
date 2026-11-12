@@ -8,23 +8,25 @@
   const GAP = 15000;
   const MINUTE = 60000;
 
+  // Every supported site (sites.js): Sahibinden, Hepsiemlak, Emlakjet, arabam.com.
+  const Sites = () => root.IlanSites || require('./sites.js');
   function sourceUrl(value) {
     const url = new URL(String(value));
     const host = url.hostname.toLowerCase().replace(/^(?:www|m)\./, '');
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.port || !['sahibinden.com','hepsiemlak.com'].includes(host)) throw Error('Geçerli bir Sahibinden veya Hepsiemlak adresi gerekli.');
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.port || !Sites().forHost(host)) throw Error('Geçerli bir ' + Sites().namesText() + ' adresi gerekli.');
     url.protocol = 'https:'; url.hostname = 'www.' + host; url.hash = '';
     return url;
   }
   function detail(value) {
     const url = sourceUrl(value);
-    const source = url.hostname.includes('hepsiemlak.com') ? 'hepsiemlak' : 'sahibinden';
-    const id = source === 'hepsiemlak' ? url.pathname.match(/\/(\d+-\d+)\/?$/)?.[1] : url.pathname.match(/^\/ilan\/.+-(\d+)\/detay\/?$/)?.[1];
+    const source = Sites().forHost(url.hostname).id;
+    const id = Sites().listingId(url.href);
     if (!id) throw Error('İlan detay adresi gerekli.');
     url.search = ''; url.pathname = url.pathname.replace(/\/$/, '');
     return {url: url.href, listingId: id, source};
   }
   function eligible(record) {
-    if (!record || !record.id || record.deletedAt || record.monitoring?.enabled===false || !['sahibinden','hepsiemlak'].includes(record.source)) return false;
+    if (!record || !record.id || record.deletedAt || record.monitoring?.enabled===false || !Sites().ids.includes(record.source)) return false;
     try { const ref = detail(record.url); return record.source === ref.source && (!record.listingId || String(record.listingId) === ref.listingId); } catch (_) { return false; }
   }
   function validateObservation(response, expected) {
