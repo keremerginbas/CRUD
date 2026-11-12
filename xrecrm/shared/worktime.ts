@@ -10,6 +10,10 @@ export interface WorktimePeriod {
   startAt: string;
   endAt: string | null;
   type: WorktimePeriodType;
+  /** Online randevuda kimle görüşüldüğü (yalnızca "appointment" türünde). */
+  meetingWith?: string;
+  /** Online randevunun hangi proje için yapıldığı (yalnızca "appointment" türünde). */
+  meetingProject?: string;
 }
 
 export interface WorktimeLocation {
@@ -65,6 +69,8 @@ export interface WorktimeOwnResponse {
 export interface WorktimeTransitionRequest {
   action: WorktimeAction;
   pauseType?: WorktimePauseType;
+  meetingWith?: string;
+  meetingProject?: string;
   operationId: string;
   expectedVersion?: number;
   location?: WorktimeLocation;

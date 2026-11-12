@@ -89,6 +89,28 @@ describe("worktime native API", () => {
     expect(finished.body.summary.breakMs).toBeGreaterThanOrEqual(0);
   });
 
+  it("online randevu kimle ve hangi proje için görüşüldüğü yazılmadan başlatılamaz", async () => {
+    await transition("start", id(), 0);
+    const send = (extra: Record<string, unknown>) =>
+      call("/api/worktime/transition", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "pause", pauseType: "appointment", operationId: id(), expectedVersion: 1, ...extra }),
+      });
+    for (const missing of [{}, { meetingWith: "Deniz Arslan" }, { meetingProject: "Nova Life" }, { meetingWith: "   ", meetingProject: "Nova Life" }]) {
+      const denied = await send(missing);
+      expect(denied.response.status).toBe(400);
+      expect(denied.body.error).toBe("MEETING_DETAILS_REQUIRED");
+    }
+    const ok = await send({ meetingWith: " Deniz Arslan ", meetingProject: "Nova Life" });
+    expect(ok.response.status).toBe(200);
+    const period = ok.body.today.periods.find((p: any) => p.type === "appointment");
+    expect(period).toMatchObject({ meetingWith: "Deniz Arslan", meetingProject: "Nova Life" });
+    // Yeniden okunduğunda da saklanmış olmalı.
+    const again = await call("/api/worktime");
+    expect(again.body.today.periods.find((p: any) => p.type === "appointment")).toMatchObject({ meetingWith: "Deniz Arslan", meetingProject: "Nova Life" });
+  });
+
   it("does not reset a finished day when the employee restarts", async () => {
     await transition("start", id(), 0);
     await transition("finish", id(), 1);

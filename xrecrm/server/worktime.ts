@@ -13,6 +13,8 @@ export interface WorktimePeriod {
   startAt: string;
   endAt: string | null;
   type: WorktimePeriodType;
+  meetingWith?: string;
+  meetingProject?: string;
 }
 
 export interface WorktimeDayState {
@@ -41,6 +43,8 @@ const TARGET_WORK_MS = 8 * 60 * 60 * 1000;
 const transitionSchema = z.object({
   action: z.enum(["start", "pause", "resume", "finish"]),
   pauseType: z.enum(["need", "meal", "appointment"]).optional(),
+  meetingWith: z.string().trim().max(200).optional(),
+  meetingProject: z.string().trim().max(200).optional(),
   operationId: z.string().uuid(),
   expectedVersion: z.number().int().min(0).optional(),
   location: z
@@ -203,7 +207,14 @@ function applyTransition(
     state.finishedAt = null;
   } else if (action === "pause") {
     closeActive(state, at);
-    state.periods.push({ startAt: at, endAt: null, type: pauseType || "need" });
+    const period: WorktimePeriod = { startAt: at, endAt: null, type: pauseType || "need" };
+    if (period.type === "appointment") {
+      const who = String(payload.meetingWith || "").trim();
+      const project = String(payload.meetingProject || "").trim();
+      if (who) period.meetingWith = who.slice(0, 200);
+      if (project) period.meetingProject = project.slice(0, 200);
+    }
+    state.periods.push(period);
     state.status = "paused";
   } else if (action === "resume") {
     closeActive(state, at);
@@ -756,6 +767,13 @@ async function transition(
       throw new WorktimeError("Mesai zaten açık.", 409, "INVALID_TRANSITION");
     if (input.action === "pause" && !input.pauseType)
       throw new WorktimeError("Mola türü gerekli.", 400, "INVALID_REQUEST");
+    // Online randevu: kimle ve hangi proje için görüşüldüğü zorunludur.
+    if (input.action === "pause" && input.pauseType === "appointment" && (!input.meetingWith || !input.meetingProject))
+      throw new WorktimeError(
+        "Online randevu için kiminle ve hangi proje için görüştüğünüzü yazın.",
+        400,
+        "MEETING_DETAILS_REQUIRED",
+      );
 
     const serverAt = nowIso();
     const version = state.version + 1;
@@ -764,6 +782,9 @@ async function transition(
       type: "worktime.transition",
       action: input.action,
       pauseType: input.pauseType,
+      ...(input.pauseType === "appointment"
+        ? { meetingWith: input.meetingWith, meetingProject: input.meetingProject }
+        : {}),
       operationId: input.operationId,
       day,
       version,

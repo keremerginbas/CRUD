@@ -762,3 +762,4 @@
   color: var(--wt-muted);
   margin-top: 2px;
 }
+.worktime-meeting { display: block; margin-top: 2px; color: var(--xre-text); font-weight: 600; }

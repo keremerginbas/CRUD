@@ -14,7 +14,7 @@ import {
   Utensils,
   Video,
 } from "lucide-react";
-import { PageTitle } from "../components/ui";
+import { Modal, PageTitle } from "../components/ui";
 import { useStore } from "../store";
 import { readDemoWorktime, transitionDemoWorktime } from "../worktime-demo";
 import type {
@@ -271,6 +271,11 @@ function PeriodList({ state, now }: { state: DayState; now: number }) {
                     ? ` – ${time(period.endAt)}`
                     : " – devam ediyor"}
                 </small>
+                {period.type === "appointment" && (period.meetingWith || period.meetingProject) && (
+                  <small className="worktime-meeting">
+                    {[period.meetingWith, period.meetingProject].filter(Boolean).join(" · ")}
+                  </small>
+                )}
               </div>
               <b>{duration(ms)}</b>
             </div>
@@ -302,6 +307,8 @@ export default function Worktime({
   const [team, setTeam] = useState<TeamResponse | null>(null);
   const [teamVisible, setTeamVisible] = useState(false);
   const [teamDenied, setTeamDenied] = useState(false);
+  // Online randevu başlatılırken kimle ve hangi proje için görüşüldüğü sorulur (zorunlu).
+  const [meeting, setMeeting] = useState<{ meetingWith: string; meetingProject: string } | null>(null);
 
   // The store request keeps the live signature (api(url, body, method)); demo requests never fetch.
   const request = useCallback(
@@ -366,6 +373,7 @@ export default function Worktime({
   const transition = async (
     action: "start" | "pause" | "resume" | "finish",
     pauseType?: "need" | "meal" | "appointment",
+    meeting?: { meetingWith: string; meetingProject: string },
   ) => {
     if (!data || pending) return;
     if (
@@ -382,6 +390,7 @@ export default function Worktime({
         {
           action,
           pauseType,
+          ...(meeting || {}),
           operationId: randomOperationId(),
           expectedVersion:
             action === "finish" && data.previousOpen
@@ -580,6 +589,13 @@ export default function Worktime({
                           ? "Tamamlandı"
                           : "Başlamadı"}
                     </small>
+                    {row.periods
+                      .filter((p) => p.type === "appointment" && (p.meetingWith || p.meetingProject))
+                      .map((p) => (
+                        <small className="worktime-meeting" key={p.startAt}>
+                          Randevu {time(p.startAt)} · {[p.meetingWith, p.meetingProject].filter(Boolean).join(" · ")}
+                        </small>
+                      ))}
                   </span>
                   <b>{duration(row.summary.netMs)}</b>
                 </div>
@@ -683,7 +699,7 @@ export default function Worktime({
                     </span>
                   </button>
                   <button
-                    onClick={() => void transition("pause", "appointment")}
+                    onClick={() => setMeeting({ meetingWith: "", meetingProject: "" })}
                     disabled={pending}
                   >
                     <Video size={17} />
@@ -790,6 +806,55 @@ export default function Worktime({
           </div>
           <PeriodList state={selected} now={now} />
         </section>
+      )}
+      {meeting && (
+        <Modal
+          title="Online randevu"
+          subtitle="Randevu süresi mesaiye sayılır; kiminle ve hangi proje için görüştüğünüzü yazın."
+          onClose={() => setMeeting(null)}
+        >
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const details = { meetingWith: meeting.meetingWith.trim(), meetingProject: meeting.meetingProject.trim() };
+              if (!details.meetingWith || !details.meetingProject) return;
+              setMeeting(null);
+              void transition("pause", "appointment", details);
+            }}
+          >
+            <div className="modal-content form-grid">
+              <label className="full">
+                Kiminle görüşüyorsunuz?
+                <input
+                  required
+                  autoFocus
+                  maxLength={200}
+                  value={meeting.meetingWith}
+                  onChange={(e) => setMeeting({ ...meeting, meetingWith: e.target.value })}
+                  placeholder="Örn. Deniz Arslan"
+                />
+              </label>
+              <label className="full">
+                Hangi proje için?
+                <input
+                  required
+                  maxLength={200}
+                  value={meeting.meetingProject}
+                  onChange={(e) => setMeeting({ ...meeting, meetingProject: e.target.value })}
+                  placeholder="Örn. Nova Life"
+                />
+              </label>
+            </div>
+            <footer className="modal-footer">
+              <button type="button" className="btn secondary" onClick={() => setMeeting(null)}>
+                Vazgeç
+              </button>
+              <button className="btn primary" disabled={pending || !meeting.meetingWith.trim() || !meeting.meetingProject.trim()}>
+                Randevuyu başlat
+              </button>
+            </footer>
+          </form>
+        </Modal>
       )}
     </div>
   );

@@ -222,6 +222,9 @@ function applyTransition(
       startAt: at,
       endAt: null,
       type: input.pauseType || "need",
+      ...(input.pauseType === "appointment"
+        ? { meetingWith: input.meetingWith, meetingProject: input.meetingProject }
+        : {}),
     });
     next.status = "paused";
   } else if (input.action === "resume") {
@@ -283,6 +286,8 @@ export function transitionDemoWorktime(
     input.expectedVersion !== state.version
   )
     throw transitionError("Mesai başka bir sekmede değişti; ekranı yenileyin.");
+  if (input.action === "pause" && input.pauseType === "appointment" && (!input.meetingWith?.trim() || !input.meetingProject?.trim()))
+    throw transitionError("Online randevu için kiminle ve hangi proje için görüştüğünüzü yazın.");
   if (input.action === "pause" && state.status !== "working")
     throw transitionError("Yalnızca çalışan mesai mola durumuna alınabilir.");
   if (input.action === "resume" && state.status !== "paused")
