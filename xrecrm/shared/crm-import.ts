@@ -78,6 +78,17 @@ function byteLength(value: string): number {
   return unescape(encodeURIComponent(value)).length;
 }
 
+/** 12000 → "12.000"; ICU'suz ortamlarda da aynı sonucu verir. */
+export function formatImportCount(value: number): string {
+  return String(Math.trunc(value)).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
+/** 1_000_000 → "1 MB" (ondalık MB; sınır mesajlarında kullanılır). */
+export function formatImportBytes(bytes: number): string {
+  const mb = bytes / 1_000_000;
+  return `${Number.isInteger(mb) ? mb : mb.toFixed(1).replace(".", ",")} MB`;
+}
+
 /** The same phone key as server/security.ts, kept dependency-free for the browser. */
 export function normalizePhone(raw: unknown): string {
   let digits = String(raw ?? "").replace(/\D/g, "");
@@ -221,7 +232,10 @@ export function parseDelimited(
   const maxBytes = options.maxBytes ?? IMPORT_MAX_BYTES;
   const maxRows = options.maxRows ?? IMPORT_MAX_ROWS;
   if (byteLength(input) > maxBytes)
-    throw new ImportParseError("FILE_TOO_LARGE", "Dosya 1 MB sınırını aşıyor.");
+    throw new ImportParseError(
+      "FILE_TOO_LARGE",
+      `Dosya ${formatImportBytes(maxBytes)} sınırını aşıyor.`,
+    );
   if (!text.trim()) throw new ImportParseError("EMPTY_FILE", "Dosya boş.");
   const delimiter = options.delimiter ?? detectDelimiter(text);
   const records: string[][] = [];
@@ -242,7 +256,7 @@ export function parseDelimited(
     if (records.length > maxRows + 1)
       throw new ImportParseError(
         "TOO_MANY_ROWS",
-        `Dosya ${maxRows} veri satırından fazla içeriyor.`,
+        `Dosya ${formatImportCount(maxRows)} veri satırından fazla içeriyor.`,
         physicalRow,
       );
   };
@@ -323,7 +337,7 @@ export function parseDelimited(
   if (records.length > maxRows)
     throw new ImportParseError(
       "TOO_MANY_ROWS",
-      `Dosya ${maxRows} veri satırından fazla içeriyor.`,
+      `Dosya ${formatImportCount(maxRows)} veri satırından fazla içeriyor.`,
     );
   return { delimiter, headers, rows: records };
 }
@@ -503,6 +517,11 @@ export function validateImportRow(
       });
   }
   return issues;
+}
+
+/** Mükerrer eşleştirme anahtarları; parçalı aktarım planı da aynı anahtarları kullanır. */
+export function importMatchKeys(kind: CrmImportKind, row: ImportRawRow): string[] {
+  return matchKeys(kind, row);
 }
 
 function matchKeys(kind: CrmImportKind, row: ImportRawRow): string[] {

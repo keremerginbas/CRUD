@@ -3,6 +3,8 @@ import {
   IMPORT_MAX_COLUMNS,
   IMPORT_MAX_ROWS,
   ImportParseError,
+  formatImportBytes,
+  formatImportCount,
   type ParsedDelimitedFile,
 } from "./crm-import";
 
@@ -49,9 +51,18 @@ const attr = (tag: string, name: string) =>
  * Yalnızca metin ve sayı değerleri alınır; formül sonuçları kayıtlı değerinden okunur.
  * Gizli sistem sütunları burada değil, normalizeImportTable içinde ayıklanır.
  */
-export function parseXlsx(bytes: Uint8Array): ParsedDelimitedFile {
-  if (bytes.byteLength > XLSX_MAX_BYTES)
-    throw new ImportParseError("FILE_TOO_LARGE", "Excel dosyası 5 MB sınırını aşıyor.");
+export function parseXlsx(
+  bytes: Uint8Array,
+  options: { maxBytes?: number; maxRows?: number; maxUnzippedBytes?: number } = {},
+): ParsedDelimitedFile {
+  const maxBytes = options.maxBytes ?? XLSX_MAX_BYTES;
+  const maxRows = options.maxRows ?? IMPORT_MAX_ROWS;
+  const maxUnzipped = options.maxUnzippedBytes ?? XLSX_MAX_UNZIPPED;
+  if (bytes.byteLength > maxBytes)
+    throw new ImportParseError(
+      "FILE_TOO_LARGE",
+      `Excel dosyası ${formatImportBytes(maxBytes)} sınırını aşıyor.`,
+    );
   let files: Record<string, Uint8Array>;
   let total = 0;
   try {
@@ -64,7 +75,7 @@ export function parseXlsx(bytes: Uint8Array): ParsedDelimitedFile {
           /^xl\/worksheets\/[^/]+\.xml$/.test(file.name);
         if (!wanted) return false;
         total += file.originalSize;
-        if (total > XLSX_MAX_UNZIPPED)
+        if (total > maxUnzipped)
           throw new ImportParseError("FILE_TOO_LARGE", "Excel dosyası çok büyük.");
         return true;
       },
@@ -136,10 +147,10 @@ export function parseXlsx(bytes: Uint8Array): ParsedDelimitedFile {
       cells[index] = value;
     }
     if (cells.some((cell) => cell.trim() !== "")) table.push(cells);
-    if (table.length > IMPORT_MAX_ROWS + 1)
+    if (table.length > maxRows + 1)
       throw new ImportParseError(
         "TOO_MANY_ROWS",
-        `Dosya ${IMPORT_MAX_ROWS} veri satırından fazla içeriyor.`,
+        `Dosya ${formatImportCount(maxRows)} veri satırından fazla içeriyor.`,
       );
   }
   if (!table.length) throw new ImportParseError("EMPTY_FILE", "Dosyada veri bulunamadı.");

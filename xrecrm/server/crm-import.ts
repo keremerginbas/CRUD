@@ -192,30 +192,70 @@ function payloadKeys(kind: CrmImportKind, payload: any): string[] {
       : []),
   ];
 }
+/**
+ * Mükerrer anahtarı → kayıtlar dizini. İstek başına bir kez kurulur; böylece her
+ * satır için tüm kayıtları taramak (satır × kayıt) yerine anahtar araması yapılır.
+ * On binlerce kayıtlı parçalı içe aktarmada sunucunun kilitlenmemesi için gerekli.
+ */
+type KeyIndex = Map<string, Array<{ record: StoredRecord; position: number }>>;
+function indexByKeys(kind: CrmImportKind, records: StoredRecord[]): KeyIndex {
+  const index: KeyIndex = new Map();
+  records.forEach((record, position) => {
+    for (const key of new Set(payloadKeys(kind, record.payload))) {
+      const list = index.get(key);
+      if (list) list.push({ record, position });
+      else index.set(key, [{ record, position }]);
+    }
+  });
+  return index;
+}
 function visibleCandidateIds(
   kind: CrmImportKind,
   row: ImportRawRow,
-  records: StoredRecord[],
+  visibleIndex: KeyIndex,
 ): string[] {
-  const keys = new Set(duplicateKeys(kind, row));
-  return records
-    .filter((record) =>
-      payloadKeys(kind, record.payload).some((key) => keys.has(key)),
-    )
-    .map((record) => record.id);
+  const found = new Map<string, number>();
+  for (const key of duplicateKeys(kind, row))
+    for (const entry of visibleIndex.get(key) || [])
+      found.set(entry.record.id, entry.position);
+  // Kayıtların depodaki sırasını koru (önceki doğrusal taramayla aynı sonuç).
+  return [...found.entries()].sort((a, b) => a[1] - b[1]).map(([id]) => id);
 }
 function hiddenDuplicate(
   kind: CrmImportKind,
   row: ImportRawRow,
-  records: StoredRecord[],
+  allIndex: KeyIndex,
   visibleIds: Set<string>,
 ): boolean {
-  const keys = new Set(duplicateKeys(kind, row));
-  return records.some(
-    (record) =>
-      !visibleIds.has(record.id) &&
-      payloadKeys(kind, record.payload).some((key) => keys.has(key)),
-  );
+  for (const key of duplicateKeys(kind, row))
+    for (const entry of allIndex.get(key) || [])
+      if (!visibleIds.has(entry.record.id)) return true;
+  return false;
+}
+
+/** Bağlı şirket/kişi aramaları için istek başına bir kez kurulan dizin. */
+interface ReferenceIndex {
+  companiesByName: Map<string, any[]>;
+  contactIds: Set<unknown>;
+}
+function buildReferenceIndex(
+  visibleCompanies: StoredRecord[],
+  visibleContacts: StoredRecord[],
+): ReferenceIndex {
+  const companiesByName = new Map<string, any[]>();
+  for (const record of visibleCompanies) {
+    const company = record.payload as any;
+    const key = normalizeName(company.name);
+    const list = companiesByName.get(key);
+    if (list) list.push(company);
+    else companiesByName.set(key, [company]);
+  }
+  return {
+    companiesByName,
+    contactIds: new Set(
+      visibleContacts.map((record) => (record.payload as any).id),
+    ),
+  };
 }
 
 async function referenceIssues(
@@ -223,8 +263,7 @@ async function referenceIssues(
   raw: ImportRawRow,
   scopedStore: Store,
   owner: string,
-  visibleCompanies: StoredRecord[],
-  visibleContacts: StoredRecord[],
+  references: ReferenceIndex,
 ): Promise<{
   issues: ImportIssue[];
   companyId: string;
@@ -235,8 +274,6 @@ async function referenceIssues(
   let companyId = String(raw.companyId || "").trim();
   let companyName = String(raw.companyName || "").trim();
   let contactId = String(raw.contactId || "").trim();
-  const companies = visibleCompanies.map((record) => record.payload as any);
-  const contacts = visibleContacts.map((record) => record.payload as any);
   if (companyId) {
     const exact = await scopedStore.get("companies", companyId, owner);
     if (!exact) {
@@ -251,9 +288,8 @@ async function referenceIssues(
       companyName = String((exact.payload as any).name || companyName);
     }
   } else if (companyName) {
-    const matches = companies.filter(
-      (company) => normalizeName(company.name) === normalizeName(companyName),
-    );
+    const matches =
+      references.companiesByName.get(normalizeName(companyName)) || [];
     if (matches.length === 1) {
       companyId = String(matches[0].id);
       companyName = String(matches[0].name);
@@ -277,7 +313,7 @@ async function referenceIssues(
   }
   if (kind === "leads" && contactId) {
     const exact = await scopedStore.get("contacts", contactId, owner);
-    if (!exact || !contacts.some((contact) => contact.id === contactId)) {
+    if (!exact || !references.contactIds.has(contactId)) {
       issues.push(
         issue(
           "REFERENCE_NOT_VISIBLE",
@@ -328,6 +364,12 @@ async function makePreview(
     ),
   );
   const visibleIds = new Set(records.visible.map((record) => record.id));
+  const visibleIndex = indexByKeys(kind, records.visible);
+  const allIndex = indexByKeys(kind, records.all);
+  const referenceIndex = buildReferenceIndex(
+    records.visibleCompanies,
+    records.visibleContacts,
+  );
   for (const row of base.rows) {
     const source = rows[row.rowNumber - 2];
     const references = await referenceIssues(
@@ -335,11 +377,10 @@ async function makePreview(
       source.raw,
       scopedStore,
       owner,
-      records.visibleCompanies,
-      records.visibleContacts,
+      referenceIndex,
     );
     row.issues.push(...references.issues);
-    const isHidden = hiddenDuplicate(kind, source.raw, records.all, visibleIds);
+    const isHidden = hiddenDuplicate(kind, source.raw, allIndex, visibleIds);
     if (isHidden) {
       row.unavailable = true;
       delete row.candidateId;
@@ -351,7 +392,7 @@ async function makePreview(
         ),
       );
     } else {
-      const candidates = visibleCandidateIds(kind, source.raw, records.visible);
+      const candidates = visibleCandidateIds(kind, source.raw, visibleIndex);
       if (candidates.length) {
         row.candidateId = candidates[0];
         if (candidates.length > 1) row.candidateIds = candidates;
@@ -423,8 +464,7 @@ async function buildEntity(
   tenantOwner: string,
   assigneeName: string,
   scopedStore: Store,
-  visibleCompanies: StoredRecord[],
-  visibleContacts: StoredRecord[],
+  references: ReferenceIndex,
 ): Promise<{ entity?: any; issues: ImportIssue[] }> {
   const issues = validateImportRow(kind, raw);
   const refs = await referenceIssues(
@@ -432,8 +472,7 @@ async function buildEntity(
     raw,
     scopedStore,
     tenantOwner,
-    visibleCompanies,
-    visibleContacts,
+    references,
   );
   issues.push(...refs.issues);
   if (issues.length)
@@ -610,6 +649,10 @@ async function commitImport(
   );
   const records = await loadRecords(scopedStore, rawStore, owner, body.kind);
   const visibleIds = new Set(records.visible.map((record) => record.id));
+  const referenceIndex = buildReferenceIndex(
+    records.visibleCompanies,
+    records.visibleContacts,
+  );
   let created = 0;
   let recovered = 0;
   const responseRows: ImportPreviewRow[] = [];
@@ -622,8 +665,7 @@ async function commitImport(
       owner,
       auth.displayName || auth.user.name || actor,
       scopedStore,
-      records.visibleCompanies,
-      records.visibleContacts,
+      referenceIndex,
     );
     const id = importId(body.kind, raw);
     const anyExisting = await rawStore.get<any>(

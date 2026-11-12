@@ -1,0 +1,62 @@
+/* Büyük dosya içe aktarımı: ilerleme çubuğu ve durum notları. */
+.dq-import-running {
+  margin: 16px 0;
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+.dq-import-progress {
+  width: 100%;
+}
+.dq-import-progress-text {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text, #f4f5f8);
+  margin-bottom: 6px;
+}
+.dq-import-progress-text span:last-child {
+  color: var(--muted, #9ca5b5);
+}
+.dq-import-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--border, #303746) 70%, transparent);
+}
+.dq-import-progress-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent, #77d8c0);
+  transition: width 0.2s ease;
+}
+.dq-import-note {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted, #9ca5b5);
+  margin: 8px 0;
+}
+.dq-import-note .spin {
+  vertical-align: -2px;
+  margin-right: 4px;
+}
+.dq-import-result-error {
+  color: #f0a2a2;
+}
+.dq-import-error-list {
+  max-height: 220px;
+  overflow: auto;
+  margin: 8px 0;
+}
+.dq-import-error-list p {
+  margin: 0;
+}
+.dq-import-result .dq-import-actions {
+  justify-content: flex-start;
+}
+.dq-import-header .icon-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
