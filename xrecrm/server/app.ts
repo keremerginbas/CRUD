@@ -104,7 +104,7 @@ import { startWaitAlerts } from "./b24-alerts.js";
 import { appMode } from "./connector-app.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
-import { registerEmailRoutes, startEmailPoller } from "./email.js";
+import { registerEmailRoutes, sendAutomationEmail, startEmailPoller } from "./email.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
 import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-inventory.js";
 import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
@@ -134,6 +134,7 @@ import {
   getSuiteState,
   registerSuiteRoutes,
   taskFromRuleEvent,
+  FeedPostSchema,
   validateLeadReferences,
 } from "./suite.js";
 
@@ -466,6 +467,7 @@ async function triggerRules(
   fromStage: string,
   toStage: string,
   transitionKey?: string,
+  chainDepth = 0,
 ): Promise<void> {
   const rules = (await rawStoreOf(store).list<Rule>("rule", owner))
     .map((row) => row.payload)
@@ -519,6 +521,7 @@ async function triggerRules(
         transitionAt,
         scheduledAt: plan.runAt,
         ruleFingerprint: fingerprint,
+        chainDepth,
         planReason: plan.reason,
         ...(!plan.eligible
           ? { result: { skipped: true, reason: plan.reason } }
@@ -576,7 +579,9 @@ async function executeOutbox(
           ? "calls"
           : payload.action === "webhook"
             ? "integrations"
-            : "tasks";
+            : ["stage", "owner", "note", "email"].includes(String(payload.action))
+              ? "crm"
+              : "tasks";
     if (
       actor &&
       actor.permissions?.[module].scope === "own" &&
@@ -699,6 +704,66 @@ async function executeOutbox(
     throw Object.assign(new Error("Kural olayı için lead bulunamadı."), {
       statusCode: 404,
     });
+  // --- Çalışma alanının kendi verisi üzerinde çalışan işlemler (ortak hat gerektirmez) ---
+  if (action === "stage") {
+    const target = String(config.targetStage || "");
+    const depth = Number(payload.chainDepth) || 0;
+    if (!target) throw Object.assign(new Error("Aşama değiştirme kuralı için hedef aşama gerekli."), { statusCode: 400 });
+    if (target === lead.stage) return { skipped: true, reason: "Müşteri zaten hedef aşamada." };
+    // Kurallar birbirini tetikleyebilir; sonsuz döngüyü önlemek için zincir 3 adımda kesilir.
+    if (depth >= 3) return { skipped: true, reason: "Otomasyon zinciri 3 adımı aştı; döngüyü önlemek için durduruldu." };
+    const parsedStage = LeadSchema.safeParse({ ...lead, stage: target, lastActivity: now() });
+    if (!parsedStage.success) throw Object.assign(new Error("Hedef aşama geçerli değil."), { statusCode: 400 });
+    const moved = parsedStage.data;
+    await store.put("lead", moved.id, moved, owner);
+    const key = `lead-stage:${moved.id}:${lead.stage}:${moved.stage}:auto:${event.id}`;
+    await store.appendEvent(
+      owner,
+      key,
+      { type: "stage-change", actorName: "Otomasyon", leadId: moved.id, fromStage: lead.stage, toStage: moved.stage, createdAt: now() },
+      "completed",
+    );
+    await triggerRules(store, owner, moved, lead.stage, moved.stage, key, depth + 1);
+    return { completed: true, activity: "stage", leadId: moved.id, fromStage: lead.stage, toStage: moved.stage };
+  }
+  if (action === "owner") {
+    const wanted = String(config.owner || "").trim();
+    if (!wanted) throw Object.assign(new Error("Sorumlu değiştirme kuralı için kişi gerekli."), { statusCode: 400 });
+    const employee = (await rawStoreOf(store).list<{ name?: string; active?: boolean }>("employee", owner))
+      .map((row) => row.payload)
+      .find((e) => e.active !== false && String(e.name || "").trim().toLocaleLowerCase("tr-TR") === wanted.toLocaleLowerCase("tr-TR"));
+    if (!employee?.name) return { skipped: true, reason: `"${wanted}" adlı etkin bir çalışan bulunamadı.` };
+    if (lead.owner === employee.name) return { skipped: true, reason: "Müşterinin sorumlusu zaten bu kişi." };
+    const previous = lead.owner;
+    await store.put("lead", lead.id, { ...lead, owner: employee.name }, owner);
+    return { completed: true, activity: "owner", leadId: lead.id, from: previous, to: employee.name };
+  }
+  if (action === "note") {
+    const text = renderTemplate(typeof config.template === "string" ? config.template : "", lead).trim();
+    if (!text) throw Object.assign(new Error("Not kuralı için metin gerekli."), { statusCode: 400 });
+    const stamp = now();
+    const post = FeedPostSchema.parse({
+      id: `note-event-${event.id}`,
+      author: "Otomasyon",
+      text: text.slice(0, 10000),
+      leadId: lead.id,
+      createdAt: stamp,
+      updatedAt: stamp,
+    });
+    await store.put("feed", post.id, post, owner);
+    return { completed: true, activity: "note", leadId: lead.id, noteId: post.id };
+  }
+  if (action === "email") {
+    const sent = await sendAutomationEmail(
+      store,
+      owner,
+      lead,
+      renderTemplate(typeof config.subject === "string" ? config.subject : "", lead),
+      renderTemplate(typeof config.template === "string" ? config.template : "", lead),
+      `rule-email:${event.id}`,
+    );
+    return { completed: true, activity: "email", leadId: lead.id, ...sent };
+  }
   // Kayıtla açılan çalışma alanları ortak iletişim hatlarını (WhatsApp, arama, webhook) kullanamaz.
   if (!(await communicationAllowed(store, owner)))
     return {

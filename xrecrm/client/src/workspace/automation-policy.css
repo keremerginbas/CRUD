@@ -289,3 +289,5 @@
   .automation-catalog nav button { white-space: nowrap; }
   .automation-stage { flex-basis: 78vw; }
 }
+.automation-template-hint { display: block; margin-top: 4px; font-size: 12px; color: var(--xre-text-soft); font-weight: 400; }
+.automation-robot-icon.email { background: color-mix(in srgb, #f59e0b 16%, transparent); color: var(--ds-warning, #b45309); }

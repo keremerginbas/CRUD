@@ -61,7 +61,7 @@ export const RuleSchema = z
     name: z.string().min(1).max(200),
     triggerStage: LeadStage,
     pipelineId: z.string().max(191).optional(),
-    action: z.enum(["task", "whatsapp", "vapi", "webhook"]),
+    action: z.enum(["task", "whatsapp", "vapi", "webhook", "stage", "owner", "note", "email"]),
     enabled: z.boolean(),
     config: z
       .object({
@@ -69,6 +69,9 @@ export const RuleSchema = z
         url: z.string().max(2048).optional(),
         lineId: z.string().max(191).optional(),
         assistantId: z.string().max(191).optional(),
+        targetStage: z.string().max(191).optional(),
+        owner: z.string().max(191).optional(),
+        subject: z.string().max(300).optional(),
       })
       .passthrough(),
     policy: AutomationPolicySchema.optional(),

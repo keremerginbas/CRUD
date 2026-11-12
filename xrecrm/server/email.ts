@@ -702,6 +702,70 @@ const sendPerDay = () => Math.max(1, Math.min(2000, Number(process.env.XRE_EMAIL
 // Uçlar
 // ---------------------------------------------------------------------------
 
+/**
+ * Otomasyon kuralı adına müşteriye e-posta gönderir. Gönderen, müşterinin sorumlusunun
+ * bağlı posta kutusudur; sorumlunun kutusu yoksa çalışma alanı sahibininki kullanılır.
+ * Alıcı her zaman müşterinin kayıtlı adresidir.
+ */
+export async function sendAutomationEmail(
+  store: Store,
+  owner: string,
+  lead: Lead,
+  subjectInput: string,
+  textInput: string,
+  idempotencyKey: string,
+): Promise<{ messageId: string; from: string; to: string }> {
+  const raw = rawStoreOf(store);
+  const subject = assertHeaderSafe(String(subjectInput || "").trim(), "Konu").slice(0, 300);
+  const text = String(textInput || "").replace(/\r\n?/g, "\n").trim();
+  if (!subject) throw new EmailError("E-posta otomasyonu için konu gerekli.", 400, "INVALID");
+  if (!text) throw new EmailError("E-posta otomasyonu için ileti metni gerekli.", 400, "INVALID");
+  const to = await recipientOf(raw, owner, lead);
+  if (!to) throw new EmailError("Bu müşterinin geçerli bir e-posta adresi yok.", 400, "NO_RECIPIENT");
+  const accounts = (await raw.list<StoredEmailAccount>(EMAIL_ACCOUNT_KIND, owner)).map((r) => r.payload);
+  const ownerName = String(lead.owner || "").trim().toLocaleLowerCase("tr-TR");
+  const employees = (await raw.list<{ name?: string; openId?: string; active?: boolean }>("employee", owner)).map((r) => r.payload);
+  const responsible = ownerName
+    ? employees.find((e) => e.active !== false && String(e.name || "").trim().toLocaleLowerCase("tr-TR") === ownerName)
+    : undefined;
+  const account =
+    (responsible?.openId && accounts.find((a) => a.id === responsible.openId)) || accounts.find((a) => a.id === owner);
+  if (!account)
+    throw new EmailError("Müşterinin sorumlusunun veya hesap sahibinin bağlı bir posta kutusu yok.", 409, "NOT_CONNECTED");
+  // Aynı kural olayı yeniden denenirse ikinci kez gönderilmez.
+  const recordId = `em_auto_${crypto.createHash("sha256").update(idempotencyKey).digest("hex").slice(0, 32)}`;
+  const previous = (await raw.get<EmailMessage>(EMAIL_MESSAGE_KIND, recordId, owner))?.payload;
+  if (previous) return { messageId: previous.messageId, from: previous.from, to: previous.to };
+  if (limited(`send-min:${owner}:${account.id}`, sendPerMinute(), 60_000) || limited(`send-day:${owner}:${account.id}`, sendPerDay(), 86_400_000))
+    throw new EmailError("E-posta gönderim sınırına ulaşıldı; kural daha sonra yeniden denenecek.", 429, "RATE_LIMITED");
+  let sent: { messageId: string };
+  try {
+    sent = await transports().send(configOf(account), { to, subject, text });
+  } catch (error) {
+    throw describeMailError(error, account, "send");
+  }
+  const messageId = cleanId(sent.messageId) || `<${crypto.randomUUID()}@xre.yerel>`;
+  const record: EmailMessage = {
+    id: recordId,
+    leadId: lead.id,
+    userOpenId: account.id,
+    direction: "outbound",
+    from: account.email,
+    fromName: account.displayName,
+    to,
+    subject,
+    text,
+    truncated: false,
+    attachments: [],
+    messageId,
+    inReplyTo: "",
+    references: [],
+    createdAt: new Date().toISOString(),
+  };
+  await raw.put(EMAIL_MESSAGE_KIND, record.id, record, owner);
+  return { messageId, from: account.email, to };
+}
+
 export function registerEmailRoutes(app: Express, store: Store) {
   const raw = rawStoreOf(store);
   const authOf = (req: Request) => (req as Request & { auth: AuthContext }).auth;

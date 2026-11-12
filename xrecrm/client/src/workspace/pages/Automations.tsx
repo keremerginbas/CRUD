@@ -13,6 +13,9 @@ import {
   Clock,
   ShieldCheck,
   X,
+  Mail,
+  StickyNote,
+  UserCog,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Rule, Lead, lines, formatPhone } from "../data";
@@ -33,20 +36,33 @@ const actionNames = {
   whatsapp: "WhatsApp mesajı gönder",
   vapi: "Vapi AI araması başlat",
   webhook: "Webhook gönder",
+  stage: "Aşamayı değiştir",
+  owner: "Sorumluyu değiştir",
+  note: "Karta not ekle",
+  email: "E-posta gönder",
 };
 const icons = {
   task: CheckSquare,
   whatsapp: MessageCircle,
   vapi: Phone,
   webhook: Webhook,
+  stage: ArrowRight,
+  owner: UserCog,
+  note: StickyNote,
+  email: Mail,
 };
 const catalogGroups = [
   { id: "customer", label: "Müşteri iletişimi", icon: MessageCircle },
   { id: "team", label: "Ekip ve görevler", icon: CheckSquare },
+  { id: "record", label: "Müşteri kaydı", icon: UserCog },
   { id: "systems", label: "Diğer sistemler", icon: Webhook },
 ];
 const catalogItems: { group: string; action: Rule["action"]; title: string; description: string }[] = [
   { group: "customer", action: "whatsapp", title: "WhatsApp mesajı gönder", description: "Müşteriye hazırladığınız mesajı otomatik gönderir." },
+  { group: "customer", action: "email", title: "E-posta gönder", description: "Müşteriye, sorumlusunun bağlı posta kutusundan e-posta gönderir." },
+  { group: "record", action: "stage", title: "Aşamayı değiştir", description: "Müşteriyi seçtiğiniz aşamaya taşır." },
+  { group: "record", action: "owner", title: "Sorumluyu değiştir", description: "Müşteriyi seçtiğiniz çalışana devreder." },
+  { group: "record", action: "note", title: "Karta not ekle", description: "Müşteri kartının akışına otomatik bir not yazar." },
   { group: "customer", action: "vapi", title: "Yapay zekâ ile ara", description: "Sesli asistan müşteriyi arar, sonucu müşteri kartına yazar." },
   { group: "team", action: "task", title: "Görev oluştur", description: "Sorumlu danışmana son tarihli bir görev açar." },
   { group: "systems", action: "webhook", title: "Webhook gönder", description: "Müşteri bilgisini n8n gibi başka bir sisteme iletir." },
@@ -622,11 +638,61 @@ export default function Automations() {
                   ))}
                 </select>
               </label>
-              {(["task", "whatsapp"] as string[]).includes(editing.action) && (
+              {editing.action === "email" && (
+                <label className="full">
+                  Konu
+                  <input
+                    required
+                    maxLength={300}
+                    value={editing.config.subject || ""}
+                    onChange={(e) => updateEditing({ config: { ...editing.config, subject: e.target.value } })}
+                    placeholder="Örn. Talebiniz bize ulaştı"
+                  />
+                </label>
+              )}
+              {editing.action === "stage" && (
+                <label className="full">
+                  Taşınacak aşama
+                  <select
+                    required
+                    value={editing.config.targetStage || ""}
+                    onChange={(e) => updateEditing({ config: { ...editing.config, targetStage: e.target.value } })}
+                  >
+                    <option value="">Aşama seçin</option>
+                    {displayStages
+                      .filter((s) => s.id !== editing.triggerStage)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.label}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              {editing.action === "owner" && (
+                <label className="full">
+                  Yeni sorumlu
+                  <select
+                    required
+                    value={editing.config.owner || ""}
+                    onChange={(e) => updateEditing({ config: { ...editing.config, owner: e.target.value } })}
+                  >
+                    <option value="">Çalışan seçin</option>
+                    {data.members.map((m) => (
+                      <option key={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {(["task", "whatsapp", "note", "email"] as string[]).includes(editing.action) && (
                 <label className="full">
                   {editing.action === "task"
                     ? "Görev açıklaması"
-                    : "Mesaj metni"}
+                    : editing.action === "note"
+                      ? "Not metni"
+                      : editing.action === "email"
+                        ? "E-posta metni"
+                        : "Mesaj metni"}
                   <textarea
                     rows={3}
                     required
@@ -638,6 +704,9 @@ export default function Automations() {
                     }
                     placeholder="Görev ya da mesaj içeriğini yazın…"
                   />
+                  <small className="automation-template-hint">
+                    Müşteri bilgisi eklemek için: {"{{name}}"}, {"{{company}}"}, {"{{city}}"}, {"{{owner}}"}
+                  </small>
                 </label>
               )}
               {editing.action === "task" && (
