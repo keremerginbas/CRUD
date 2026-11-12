@@ -120,3 +120,52 @@ it("e-posta kuralı bağlı posta kutusundan müşterinin kayıtlı adresine tek
   await drain(store);
   expect(sent).toHaveLength(1);
 });
+
+it("tetikleyici olay olduğunda müşteriyi ileri taşır, o aşamanın kuralını çalıştırır; geri taşımaz ve kapanmış müşteriye dokunmaz", async () => {
+  const { store, call } = await start();
+  const owner = (await store.resolveOwner())!;
+  const trigger = (id: string, event: string, targetStage: string, extra: Record<string, unknown> = {}) => ({ id, name: `Tetik ${id}`, event, targetStage, enabled: true, allowBackward: false, ...extra });
+  expect((await call("POST", "/api/triggers", trigger("t1", "task.done", "qualified"))).status).toBe(201);
+  expect((await call("POST", "/api/triggers", trigger("t2", "task.done", "contacted"))).status).toBe(201);
+  expect((await call("POST", "/api/triggers", trigger("bad", "olmayan.olay", "contacted"))).status).toBe(400);
+  expect((await (await call("GET", "/api/triggers")).json()).triggers).toHaveLength(2);
+  await call("POST", "/api/rules", rule("not-q", "qualified", "note", { template: "Nitelikli aşamaya geçti." }));
+  await call("POST", "/api/leads", { lead: { id: "lead_t", name: "Tetik Müşterisi", phone: "+905550000009" } });
+  const stageOf = async (id: string) => (await (await call("GET", "/api/state")).json()).leads.find((l: any) => l.id === id).stage;
+  const task = (id: string, leadId: string, status: string) => ({ id, title: "Ara", description: "", status, priority: "normal", assignee: "", leadId, dueAt: new Date(Date.now() + 3600_000).toISOString(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  // Depo sarmalayıcısı uygulamanın içindedir; görev API üzerinden açılıp tamamlanır.
+  const done = async (id: string, leadId: string) => {
+    expect((await call("POST", "/api/tasks", task(id, leadId, "todo"))).status).toBeLessThan(300);
+    expect((await call("PATCH", `/api/tasks/${id}`, { status: "done" })).status).toBeLessThan(300);
+  };
+  await done("task_1", "lead_t");
+  // İki tetikleyiciden en ileri aşama (qualified) seçilir.
+  expect(await stageOf("lead_t")).toBe("qualified");
+  await drain(store);
+  const notes = (await store.list<any>("feed", owner)).map((r) => r.payload);
+  expect(notes.some((n) => n.leadId === "lead_t" && n.text === "Nitelikli aşamaya geçti.")).toBe(true);
+
+  // Daha ilerideki müşteri geri taşınmaz.
+  await call("PATCH", "/api/leads/lead_t", { stage: "proposal" });
+  await done("task_2", "lead_t");
+  expect(await stageOf("lead_t")).toBe("proposal");
+  // Kapanmış müşteri yerinden oynamaz.
+  await call("POST", "/api/leads", { lead: { id: "lead_w", name: "Kazanılan", phone: "+905550000010", stage: "won" } });
+  await done("task_3", "lead_w");
+  expect(await stageOf("lead_w")).toBe("won");
+  expect((await call("DELETE", "/api/triggers/t1")).status).toBe(200);
+  expect((await (await call("GET", "/api/triggers")).json()).triggers).toHaveLength(1);
+});
+
+it("bildirim kuralı çalışanın kutusuna kalıcı not bırakır; yalnız o kişi görür ve okundu yapabilir", async () => {
+  const { store, call } = await start();
+  await call("POST", "/api/rules", rule("haber", "new", "notify", { owner: "Sistem Sahibi", template: "{{name}} yeni müşteri olarak eklendi" }));
+  await call("POST", "/api/rules", rule("baska", "new", "notify", { owner: "Başka Biri", template: "Bu bana gelmemeli" }));
+  await call("POST", "/api/leads", { lead: { id: "lead_n", name: "Bildirim Müşterisi", phone: "+905550000011" } });
+  await drain(store);
+  const inbox = await (await call("GET", "/api/inbox")).json();
+  expect(inbox.unread).toBe(1);
+  expect(inbox.notifications.map((n: any) => [n.title, n.leadId])).toEqual([["Bildirim Müşterisi yeni müşteri olarak eklendi", "lead_n"]]);
+  expect((await call("POST", "/api/inbox/read", {})).status).toBe(200);
+  expect((await (await call("GET", "/api/inbox")).json()).unread).toBe(0);
+});

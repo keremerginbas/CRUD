@@ -29,6 +29,8 @@ export function requireModulePermissions(
     path === "/settings/integrations" ||
     // E-posta uçları kendi sahiplik ve müşteri erişim kontrollerini yapar.
     /^\/email(?:\/|$)/.test(path) ||
+    // Tetikleyici ve bildirim kutusu uçları kendi yetki kontrollerini yapar.
+    /^\/(triggers|inbox)(?:\/|$)/.test(path) ||
     path === "/pbx/me" ||
     path === "/lines" ||
     path === "/audit" ||

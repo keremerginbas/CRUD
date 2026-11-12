@@ -291,3 +291,16 @@
 }
 .automation-template-hint { display: block; margin-top: 4px; font-size: 12px; color: var(--xre-text-soft); font-weight: 400; }
 .automation-robot-icon.email { background: color-mix(in srgb, #f59e0b 16%, transparent); color: var(--ds-warning, #b45309); }
+
+/* Tetikleyiciler */
+.automation-trigger { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 4px 0 8px; border-radius: 8px; font-size: 12px; color: var(--xre-text); background: color-mix(in srgb, var(--stage, var(--xre-accent)) 14%, var(--xre-surface)); border: 1px solid color-mix(in srgb, var(--stage, var(--xre-accent)) 40%, transparent); }
+.automation-trigger > svg { color: var(--stage, var(--xre-accent)); flex: none; }
+.automation-trigger > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.automation-trigger > button { all: unset; cursor: pointer; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 6px; color: var(--xre-text-soft); }
+.automation-trigger > button:hover, .automation-trigger > button:focus-visible { background: color-mix(in srgb, var(--xre-text) 10%, transparent); color: var(--xre-text); }
+.automation-catalog li.automation-catalog-note { border-style: dashed; font-size: 13px; color: var(--xre-text-soft); }
+.automation-catalog li.automation-catalog-note label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.automation-catalog ul { max-height: min(60vh, 520px); overflow-y: auto; }
+@media (max-width: 560px) { .automation-catalog nav { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }
+@media (pointer: coarse) { .automation-trigger { min-height: 40px; } .automation-trigger > button { width: 36px; height: 36px; } }
+.notification-panel button.unread strong::after { content: ""; display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--xre-accent); vertical-align: middle; }

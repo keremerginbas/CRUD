@@ -110,6 +110,7 @@ import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-
 import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
 import { registerBackupRoutes, startBackupScheduler } from "./backup.js";
 import { liveNotifyStore } from "./live-notify.js";
+import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
 import {
@@ -533,6 +534,31 @@ async function triggerRules(
   }
 }
 
+/** Müşteriyi otomasyon/tetikleyici adına başka aşamaya taşır ve yeni aşamanın kurallarını çalıştırır. */
+async function moveLeadByAutomation(
+  store: Store,
+  owner: string,
+  lead: Lead,
+  target: string,
+  keySuffix: string,
+  actorName: string,
+  chainDepth: number,
+): Promise<Lead> {
+  const parsed = LeadSchema.safeParse({ ...lead, stage: target, lastActivity: now() });
+  if (!parsed.success) throw Object.assign(new Error("Hedef aşama geçerli değil."), { statusCode: 400 });
+  const moved = parsed.data;
+  await store.put("lead", moved.id, moved, owner);
+  const key = `lead-stage:${moved.id}:${lead.stage}:${moved.stage}:${keySuffix}`;
+  await store.appendEvent(
+    owner,
+    key,
+    { type: "stage-change", actorName, leadId: moved.id, fromStage: lead.stage, toStage: moved.stage, createdAt: now() },
+    "completed",
+  );
+  await triggerRules(store, owner, moved, lead.stage, moved.stage, key, chainDepth);
+  return moved;
+}
+
 function automationFingerprint(rule: Rule): string {
   return crypto
     .createHash("sha256")
@@ -579,7 +605,7 @@ async function executeOutbox(
           ? "calls"
           : payload.action === "webhook"
             ? "integrations"
-            : ["stage", "owner", "note", "email"].includes(String(payload.action))
+            : ["stage", "owner", "note", "email", "notify"].includes(String(payload.action))
               ? "crm"
               : "tasks";
     if (
@@ -712,18 +738,7 @@ async function executeOutbox(
     if (target === lead.stage) return { skipped: true, reason: "Müşteri zaten hedef aşamada." };
     // Kurallar birbirini tetikleyebilir; sonsuz döngüyü önlemek için zincir 3 adımda kesilir.
     if (depth >= 3) return { skipped: true, reason: "Otomasyon zinciri 3 adımı aştı; döngüyü önlemek için durduruldu." };
-    const parsedStage = LeadSchema.safeParse({ ...lead, stage: target, lastActivity: now() });
-    if (!parsedStage.success) throw Object.assign(new Error("Hedef aşama geçerli değil."), { statusCode: 400 });
-    const moved = parsedStage.data;
-    await store.put("lead", moved.id, moved, owner);
-    const key = `lead-stage:${moved.id}:${lead.stage}:${moved.stage}:auto:${event.id}`;
-    await store.appendEvent(
-      owner,
-      key,
-      { type: "stage-change", actorName: "Otomasyon", leadId: moved.id, fromStage: lead.stage, toStage: moved.stage, createdAt: now() },
-      "completed",
-    );
-    await triggerRules(store, owner, moved, lead.stage, moved.stage, key, depth + 1);
+    const moved = await moveLeadByAutomation(store, owner, lead, target, `auto:${event.id}`, "Otomasyon", depth + 1);
     return { completed: true, activity: "stage", leadId: moved.id, fromStage: lead.stage, toStage: moved.stage };
   }
   if (action === "owner") {
@@ -752,6 +767,20 @@ async function executeOutbox(
     });
     await store.put("feed", post.id, post, owner);
     return { completed: true, activity: "note", leadId: lead.id, noteId: post.id };
+  }
+  if (action === "notify") {
+    const recipient = String(config.owner || "").trim() || String(lead.owner || "").trim();
+    if (!recipient) return { skipped: true, reason: "Bildirim gönderilecek kişi yok (müşterinin sorumlusu boş)." };
+    const text = renderTemplate(typeof config.template === "string" ? config.template : "", lead).trim();
+    if (!text) throw Object.assign(new Error("Bildirim kuralı için metin gerekli."), { statusCode: 400 });
+    const item = await addInboxNotification(store, owner, {
+      id: `ntf_event_${event.id}`,
+      recipient,
+      title: text.slice(0, 200),
+      body: lead.name,
+      leadId: lead.id,
+    });
+    return { completed: true, activity: "notify", leadId: lead.id, recipient, notificationId: item?.id };
   }
   if (action === "email") {
     const sent = await sendAutomationEmail(
@@ -1320,7 +1349,11 @@ export function createApp(
   // crm modunda WhatsApp by XRE (Bitrix Market uygulaması) ayrı sunucuda çalışır.
   const withConnector = appMode() !== "crm";
   const bitrixEmbed = process.env.XRE_BITRIX_EMBED?.trim() === "1";
-  const rawStore = liveNotifyStore(auditStore(webhookEmitterStore(baseStore)));
+  const rawStore = triggerStore(liveNotifyStore(auditStore(webhookEmitterStore(baseStore))));
+  // Tetikleyiciler müşteriyi taşırken aşama geçmişini yazar ve yeni aşamanın kurallarını çalıştırır.
+  setTriggerStageMover(async (target, owner, lead, targetStage, key, actorName) => {
+    await moveLeadByAutomation(target, owner, lead, targetStage, key, actorName, 1);
+  });
   const store = createPermissionStore(
     stagePolicyStore(appointmentStore(rawStore)),
   );
@@ -1704,6 +1737,7 @@ export function createApp(
   registerWebhookHubRoutes(app, store);
   registerLocalAccountRoutes(app, store);
   registerInviteAdminRoutes(app, store);
+  registerTriggerRoutes(app, store);
   registerBitrixImportRoutes(app, store, baseStore);
   registerIntegrationSettingsRoutes(app, store);
   registerEmailRoutes(app, store);

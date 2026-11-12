@@ -1,6 +1,7 @@
 import "../automation-policy.css";
 import { availablePipelines, getPipelineStages } from "../suite";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { TRIGGER_CATALOG, type AutomationTrigger } from "../../../../shared/triggers";
 import {
   Plus,
   Workflow,
@@ -16,6 +17,8 @@ import {
   Mail,
   StickyNote,
   UserCog,
+  BellRing,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Rule, Lead, lines, formatPhone } from "../data";
@@ -40,6 +43,7 @@ const actionNames = {
   owner: "Sorumluyu değiştir",
   note: "Karta not ekle",
   email: "E-posta gönder",
+  notify: "Çalışana bildirim gönder",
 };
 const icons = {
   task: CheckSquare,
@@ -50,11 +54,13 @@ const icons = {
   owner: UserCog,
   note: StickyNote,
   email: Mail,
+  notify: BellRing,
 };
 const catalogGroups = [
   { id: "customer", label: "Müşteri iletişimi", icon: MessageCircle },
   { id: "team", label: "Ekip ve görevler", icon: CheckSquare },
   { id: "record", label: "Müşteri kaydı", icon: UserCog },
+  { id: "triggers", label: "Tetikleyiciler", icon: Zap },
   { id: "systems", label: "Diğer sistemler", icon: Webhook },
 ];
 const catalogItems: { group: string; action: Rule["action"]; title: string; description: string }[] = [
@@ -65,6 +71,7 @@ const catalogItems: { group: string; action: Rule["action"]; title: string; desc
   { group: "record", action: "note", title: "Karta not ekle", description: "Müşteri kartının akışına otomatik bir not yazar." },
   { group: "customer", action: "vapi", title: "Yapay zekâ ile ara", description: "Sesli asistan müşteriyi arar, sonucu müşteri kartına yazar." },
   { group: "team", action: "task", title: "Görev oluştur", description: "Sorumlu danışmana son tarihli bir görev açar." },
+  { group: "team", action: "notify", title: "Çalışana bildirim gönder", description: "Seçtiğiniz kişinin bildirim kutusuna not bırakır; çevrimdışıysa girişte görür." },
   { group: "systems", action: "webhook", title: "Webhook gönder", description: "Müşteri bilgisini n8n gibi başka bir sisteme iletir." },
 ];
 const conditionFields: { value: AutomationConditionField; label: string }[] = [
@@ -162,6 +169,61 @@ export default function Automations() {
   const boardStages = getPipelineStages(data.pipelines, boardPipeline);
   const [catalog, setCatalog] = useState<{ stage: string; label: string; color: string } | null>(null);
   const [catalogGroup, setCatalogGroup] = useState("customer");
+  // Tetikleyiciler: bir olay olduğunda müşteriyi aşamaya taşır.
+  const [triggers, setTriggers] = useState<AutomationTrigger[]>([]);
+  const [allowBackward, setAllowBackward] = useState(false);
+  const DEMO_TRIGGERS = "xre-demo-triggers";
+  useEffect(() => {
+    if (demo) {
+      try {
+        setTriggers(JSON.parse(localStorage.getItem(DEMO_TRIGGERS) || "[]"));
+      } catch {
+        setTriggers([]);
+      }
+      return;
+    }
+    request("/api/triggers")
+      .then((r) => setTriggers(r.triggers || []))
+      .catch(() => setTriggers([]));
+  }, [demo]);
+  const storeDemoTriggers = (next: AutomationTrigger[]) => {
+    try {
+      localStorage.setItem(DEMO_TRIGGERS, JSON.stringify(next));
+    } catch {
+      /* depolama kapalı */
+    }
+  };
+  const addTrigger = async (event: AutomationTrigger["event"], title: string, stage: string) => {
+    const trigger: AutomationTrigger = {
+      id: crypto.randomUUID(),
+      name: title,
+      event,
+      pipelineId: boardPipeline,
+      targetStage: stage,
+      enabled: true,
+      allowBackward,
+    };
+    try {
+      if (!demo) await request("/api/triggers", trigger);
+      const next = [...triggers, trigger];
+      setTriggers(next);
+      if (demo) storeDemoTriggers(next);
+      toast.success("Tetikleyici eklendi.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+  const removeTrigger = async (trigger: AutomationTrigger) => {
+    try {
+      if (!demo) await request(`/api/triggers/${trigger.id}`, {}, "DELETE");
+      const next = triggers.filter((t) => t.id !== trigger.id);
+      setTriggers(next);
+      if (demo) storeDemoTriggers(next);
+      toast.success("Tetikleyici kaldırıldı.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
   const displayStages = getPipelineStages(data.pipelines, editing?.pipelineId);
   const selectedLead =
     data.leads.find((lead) => lead.id === selectedLeadId) || data.leads[0];
@@ -407,6 +469,21 @@ export default function Automations() {
                     <span>{stage.label}</span>
                     {stageRules.length > 0 && <b>{stageRules.length}</b>}
                   </header>
+                  {triggers
+                    .filter(
+                      (t) =>
+                        t.targetStage === stage.id &&
+                        (!t.pipelineId || t.pipelineId === "all" || t.pipelineId === boardPipeline),
+                    )
+                    .map((t) => (
+                      <div className="automation-trigger" key={t.id} title={t.allowBackward ? "Geri taşımaya izin verilir" : "Yalnızca ileri taşır"}>
+                        <Zap size={13} />
+                        <span>{t.name}</span>
+                        <button type="button" aria-label={`${t.name} tetikleyicisini kaldır`} onClick={() => void removeTrigger(t)}>
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
                   <button
                     type="button"
                     className="automation-stage-add"
@@ -534,6 +611,35 @@ export default function Automations() {
               ))}
             </nav>
             <ul>
+              {catalogGroup === "triggers" && (
+                <>
+                  <li className="automation-catalog-note">
+                    <label>
+                      <input type="checkbox" checked={allowBackward} onChange={(e) => setAllowBackward(e.target.checked)} />
+                      Müşteri daha ileri bir aşamadaysa geri taşımaya da izin ver
+                    </label>
+                  </li>
+                  {TRIGGER_CATALOG.map((item) => (
+                    <li key={item.event}>
+                      <div>
+                        <strong>{item.title}</strong>
+                        <p>{item.description}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        onClick={() => {
+                          const stage = catalog.stage;
+                          setCatalog(null);
+                          void addTrigger(item.event, item.title, stage);
+                        }}
+                      >
+                        Ekle
+                      </button>
+                    </li>
+                  ))}
+                </>
+              )}
               {catalogItems
                 .filter((item) => item.group === catalogGroup)
                 .map((item) => (
@@ -669,6 +775,20 @@ export default function Automations() {
                   </select>
                 </label>
               )}
+              {editing.action === "notify" && (
+                <label className="full">
+                  Bildirim gidecek kişi
+                  <select
+                    value={editing.config.owner || ""}
+                    onChange={(e) => updateEditing({ config: { ...editing.config, owner: e.target.value } })}
+                  >
+                    <option value="">Müşterinin sorumlusu</option>
+                    {data.members.map((m) => (
+                      <option key={m.id}>{m.name}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {editing.action === "owner" && (
                 <label className="full">
                   Yeni sorumlu
@@ -684,10 +804,12 @@ export default function Automations() {
                   </select>
                 </label>
               )}
-              {(["task", "whatsapp", "note", "email"] as string[]).includes(editing.action) && (
+              {(["task", "whatsapp", "note", "email", "notify"] as string[]).includes(editing.action) && (
                 <label className="full">
                   {editing.action === "task"
                     ? "Görev açıklaması"
+                    : editing.action === "notify"
+                      ? "Bildirim metni"
                     : editing.action === "note"
                       ? "Not metni"
                       : editing.action === "email"

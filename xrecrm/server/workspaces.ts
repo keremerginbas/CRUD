@@ -118,7 +118,7 @@ const TENANT_API = new Set<string>([
   "auth", "me", "identity", "state", "leads", "rules", "events", "notifications", "access", "profile", "preferences",
   "crm-workspace", "crm-import", "data-quality", "audit", "automations", "worktime", "workspaces",
   // Kullanıcının kendi posta kutusu: ortak sunucu ayarına bağlı değildir, bu yüzden yeni alanlarda da açıktır.
-  "email",
+  "email", "triggers", "inbox",
   ...suiteKinds,
 ]);
 const TENANT_BLOCKED_PATHS = [/^\/leads\/[^/]+\/analyze$/];

@@ -74,6 +74,7 @@ import "./design/mobile-fixes.css";
 import LeadDrawer from "./components/LeadDrawer";
 import { PREVIEW, WORKSPACE_SLUG, currentPath, withBase } from "./nav";
 import InviteAccept from "./components/InviteAccept";
+import { InboxList, useInbox } from "./components/InboxNotifications";
 import { SignupScreen, WorkspaceLocked, WorkspaceMissing } from "./components/Signup";
 import LoginScreen, { QrApprove, type AuthStatus } from "./components/LoginScreen";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -210,6 +211,7 @@ function Workspace() {
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifications, setNotifications] = useState(false);
+  const inbox = useInbox();
   const [help, setHelp] = useState(false);
   const [messageLead, setMessageLead] = useState<string | undefined>();
   const [profile, setProfile] = useState(false);
@@ -647,14 +649,27 @@ function Workspace() {
               <div className="notification-wrap">
                 <button
                   className={`icon-button bell ${notifications ? "selected" : ""}`}
-                  onClick={() => setNotifications(!notifications)}
-                  aria-label="Bildirimler"
+                  onClick={() => {
+                    if (!notifications) {
+                      inbox.reload();
+                      inbox.markRead();
+                    }
+                    setNotifications(!notifications);
+                  }}
+                  aria-label={inbox.unread ? `Bildirimler (${inbox.unread} okunmamış)` : "Bildirimler"}
                 >
                   <Bell size={19} />
-                  {data.events.length > 0 && <i />}
+                  {(inbox.unread > 0 || data.events.length > 0) && <i />}
                 </button>
                 {notifications && (
                   <div className="notification-panel">
+                    <InboxList
+                      items={inbox.items}
+                      onLead={(id) => {
+                        setLeadModal(data.leads.find((l) => l.id === id) || null);
+                        setNotifications(false);
+                      }}
+                    />
                     <h3>
                       Son hareketler<Badge>{data.events.length}</Badge>
                     </h3>

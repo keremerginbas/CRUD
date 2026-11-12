@@ -61,7 +61,7 @@ export const RuleSchema = z
     name: z.string().min(1).max(200),
     triggerStage: LeadStage,
     pipelineId: z.string().max(191).optional(),
-    action: z.enum(["task", "whatsapp", "vapi", "webhook", "stage", "owner", "note", "email"]),
+    action: z.enum(["task", "whatsapp", "vapi", "webhook", "stage", "owner", "note", "email", "notify"]),
     enabled: z.boolean(),
     config: z
       .object({

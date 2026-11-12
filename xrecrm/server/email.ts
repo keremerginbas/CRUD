@@ -20,6 +20,7 @@ import { simpleParser } from "mailparser";
 import type { Store } from "./db.js";
 import type { AuthContext, Lead } from "./types.js";
 import { canAccess, rawStoreOf } from "./access.js";
+import { fireTrigger } from "./triggers.js";
 import { decryptValue, encryptValue } from "./integration-settings.js";
 import { isPrivateIp } from "./security.js";
 import { listWorkspaces, workspaceState } from "./workspaces.js";
@@ -596,7 +597,10 @@ export async function syncMailbox(store: Store, owner: string, account: StoredEm
           references: mail.references,
           createdAt: mail.date,
         };
-        if ((await raw.insertIfAbsent(EMAIL_MESSAGE_KIND, id, record, owner)).inserted) imported += 1;
+        if ((await raw.insertIfAbsent(EMAIL_MESSAGE_KIND, id, record, owner)).inserted) {
+          imported += 1;
+          await fireTrigger(store, owner, leadId, "email.inbound", `email:${id}`).catch(() => null);
+        }
       }
     }
     await raw.put<SyncState>(
@@ -936,6 +940,7 @@ export function registerEmailRoutes(app: Express, store: Store) {
         createdAt: new Date().toISOString(),
       };
       await raw.put(EMAIL_MESSAGE_KIND, record.id, record, auth.ownerOpenId);
+      await fireTrigger(store, auth.ownerOpenId, lead.id, "email.outbound", `email:${record.id}`).catch(() => null);
       res.status(201).json({ message: record });
     }),
   );
