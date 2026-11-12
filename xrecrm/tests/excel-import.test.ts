@@ -34,7 +34,7 @@ function workbook(rows: string[]): Uint8Array {
   });
 }
 
-it("Dynamics 365 Excel dışa aktarımını okur: gizli sütunları atar, ad-soyadı birleştirir, alanları eşler", () => {
+it("Excel dışa aktarımını okur: gizli sütunları atar, ad-soyadı birleştirir, alanları eşler", () => {
   const bytes = workbook([
     cell("A1", "(Do Not Modify) Lead") +
       cell("B1", "(Do Not Modify) Row Checksum") +
@@ -96,7 +96,7 @@ it("Dynamics 365 Excel dışa aktarımını okur: gizli sütunları atar, ad-soy
   expect(validateImportRow("leads", row.raw)).toHaveLength(0);
 });
 
-it("Türkçe Dynamics başlıklarını ve hesap (şirket) dışa aktarımını tanır", () => {
+it("Türkçe başlıkları ve hesap (şirket) dışa aktarımını tanır", () => {
   const table = normalizeImportTable(
     parseDelimited(
       "(Değiştirmeyin) Hesap;Hesap Adı;Ana Telefon;Adres 1: Şehir;E-posta\nabc;Örnek Lojistik A.Ş.;0212 555 00 00;Ankara;info@example.test",

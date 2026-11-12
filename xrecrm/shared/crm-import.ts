@@ -353,7 +353,7 @@ const firstNameHeaders = new Set(["first name", "ad", "adı", "ilk ad", "isim"])
 const lastNameHeaders = new Set(["last name", "soyad", "soyadı", "soyadi", "soy ad"]);
 
 /**
- * Başka CRM'lerden (özellikle Dynamics 365 "Excel'e aktar") gelen tabloyu içe aktarmaya hazırlar:
+ * Başka sistemlerden dışa aktarılan tabloyu içe aktarmaya hazırlar:
  * - "(Do Not Modify) …" gizli sistem sütunlarını ve başlıksız sütunları atar,
  * - tam ad sütunu yoksa "Ad" + "Soyad" sütunlarını tek "Ad Soyad" sütununda birleştirir.
  */

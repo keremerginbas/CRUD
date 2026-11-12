@@ -47,8 +47,7 @@ const attr = (tag: string, name: string) =>
 /**
  * .xlsx dosyasının ilk sayfasını başlık + satırlar olarak okur.
  * Yalnızca metin ve sayı değerleri alınır; formül sonuçları kayıtlı değerinden okunur.
- * Dynamics 365 "Excel'e aktar" dosyalarındaki gizli sütunlar burada değil,
- * normalizeImportTable içinde ayıklanır.
+ * Gizli sistem sütunları burada değil, normalizeImportTable içinde ayıklanır.
  */
 export function parseXlsx(bytes: Uint8Array): ParsedDelimitedFile {
   if (bytes.byteLength > XLSX_MAX_BYTES)

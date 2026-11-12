@@ -413,7 +413,7 @@ export default function ImportWizard({
               {result ? "Yeni dosya seçin" : "Excel veya CSV dosyası seçin"}
             </strong>
             <span>
-              Dynamics 365, Bitrix24 veya Excel dışa aktarımı · en fazla 1.000 satır
+              Sütunlar otomatik eşlenir · en fazla 1.000 satır
             </span>
             <input
               disabled={busy}
