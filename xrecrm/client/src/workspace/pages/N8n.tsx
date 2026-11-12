@@ -24,6 +24,7 @@ import { useStore } from "../store";
 import { stages, type Stage } from "../data";
 import { PageTitle, Badge, Empty } from "../components/ui";
 import "../n8n.css";
+import "../integration-settings.css";
 
 type N8nSettings = {
   baseUrl: string;
@@ -317,9 +318,9 @@ export default function N8n({
   return (
     <div className="nx-page">
       <PageTitle
-        eyebrow="ENTEGRASYON KONTROLÜ"
-        title="n8n ile CRM olaylarını bağlayın."
-        description="Yönetim API’si yalnızca salt-okuma görünümü sağlar; üretim webhookları ayrı ve imzalı çalışır."
+        eyebrow="İŞ AKIŞLARI"
+        title="n8n iş akışları"
+        description="CRM'deki olayları n8n akışlarınıza bağlayın; akışların durumunu ve son çalışmalarını buradan izleyin."
         actions={
           <>
             {navigate && (
@@ -367,6 +368,156 @@ export default function N8n({
         </div>
       )}
 
+      <N8nSelected />
+      <section className="nx-card nx-data-card">
+        <div className="nx-card-heading nx-data-heading">
+          <div className="nx-icon nx-icon-cyan">
+            <Workflow size={19} />
+          </div>
+          <div>
+            <span className="nx-kicker">SALT-OKUMA</span>
+            <h2>n8n kaynakları</h2>
+          </div>
+          <div className="nx-tabbar" role="tablist">
+            <button
+              className={tab === "workflows" ? "active" : ""}
+              onClick={() => setTab("workflows")}
+              role="tab"
+            >
+              Workflows <b>{workflows.length}</b>
+            </button>
+            <button
+              className={tab === "executions" ? "active" : ""}
+              onClick={() => setTab("executions")}
+              role="tab"
+            >
+              Executions <b>{executions.length}</b>
+            </button>
+          </div>
+          <button
+            className="icon-button"
+            disabled={!liveOwner || busy === `load-${tab}`}
+            onClick={() => loadList(tab)}
+            aria-label="Listeyi yenile"
+          >
+            <RefreshCw
+              size={15}
+              className={busy === `load-${tab}` ? "spin" : ""}
+            />
+          </button>
+        </div>
+        {!liveOwner || !settings.configured ? (
+          <div className="nx-empty-state">
+            <ListChecks size={23} />
+            <strong>Canlı n8n listesi hazır değil.</strong>
+            <span>
+              {demo
+                ? "Demo modunda dış kaynak listesi çağrılmaz."
+                : "Base URL ve sunucu anahtarı ile bağlantıyı yapılandırın."}
+            </span>
+          </div>
+        ) : tab === "workflows" ? (
+          workflows.length ? (
+            <div className="nx-table-wrap">
+              <table className="nx-table">
+                <thead>
+                  <tr>
+                    <th>WORKFLOW</th>
+                    <th>DURUM</th>
+                    <th>WEBHOOK YOLLARI</th>
+                    <th>GÜNCELLENME</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {workflows.map((workflow) => (
+                    <tr key={workflow.id}>
+                      <td>
+                        <strong>{workflow.name}</strong>
+                        <small className="nx-mono">{workflow.id}</small>
+                      </td>
+                      <td>
+                        <Badge tone={workflow.active ? "green" : "gray"}>
+                          {workflow.active ? "Aktif" : "Pasif"}
+                        </Badge>
+                      </td>
+                      <td>
+                        {workflow.webhookPaths?.length ? (
+                          <span className="nx-path-list">
+                            {workflow.webhookPaths.join(" · ")}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>{date(workflow.updatedAt)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <Empty
+              title="Workflow listesi boş"
+              description="n8n yönetim API’si güvenli özet döndürdüğünde kayıtlar burada görünür."
+            />
+          )
+        ) : executions.length ? (
+          <div className="nx-table-wrap">
+            <table className="nx-table">
+              <thead>
+                <tr>
+                  <th>EXECUTION</th>
+                  <th>DURUM</th>
+                  <th>MOD</th>
+                  <th>BAŞLANGIÇ</th>
+                  <th>BİTİŞ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {executions.map((execution) => (
+                  <tr key={execution.id}>
+                    <td>
+                      <strong className="nx-mono">{execution.id}</strong>
+                      <small>
+                        {execution.workflowId || "Workflow bilinmiyor"}
+                      </small>
+                    </td>
+                    <td>
+                      <Badge
+                        tone={
+                          execution.status === "success"
+                            ? "green"
+                            : execution.status === "error"
+                              ? "red"
+                              : "gray"
+                        }
+                      >
+                        {execution.status || "—"}
+                      </Badge>
+                    </td>
+                    <td>{execution.mode || "—"}</td>
+                    <td>{date(execution.startedAt)}</td>
+                    <td>{date(execution.stoppedAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <Empty
+            title="Execution geçmişi boş"
+            description="n8n execution payload’ları CRM’e aktarılmaz; yalnızca güvenli özetler gösterilir."
+          />
+        )}
+      </section>
+
+
+      <details className="nx-fold">
+        <summary>
+          <strong>Bağlantı ayarları</strong>
+          <small>n8n adresi, hedef webhook ve erişim anahtarı</small>
+        </summary>
+        <div className="nx-fold-body">
       <div className="nx-status-grid">
         <section className="nx-card nx-status-card">
           <div className="nx-card-heading">
@@ -544,149 +695,15 @@ export default function N8n({
         </section>
       </div>
 
-      <N8nSelected />
-      <section className="nx-card nx-data-card">
-        <div className="nx-card-heading nx-data-heading">
-          <div className="nx-icon nx-icon-cyan">
-            <Workflow size={19} />
-          </div>
-          <div>
-            <span className="nx-kicker">SALT-OKUMA</span>
-            <h2>n8n kaynakları</h2>
-          </div>
-          <div className="nx-tabbar" role="tablist">
-            <button
-              className={tab === "workflows" ? "active" : ""}
-              onClick={() => setTab("workflows")}
-              role="tab"
-            >
-              Workflows <b>{workflows.length}</b>
-            </button>
-            <button
-              className={tab === "executions" ? "active" : ""}
-              onClick={() => setTab("executions")}
-              role="tab"
-            >
-              Executions <b>{executions.length}</b>
-            </button>
-          </div>
-          <button
-            className="icon-button"
-            disabled={!liveOwner || busy === `load-${tab}`}
-            onClick={() => loadList(tab)}
-            aria-label="Listeyi yenile"
-          >
-            <RefreshCw
-              size={15}
-              className={busy === `load-${tab}` ? "spin" : ""}
-            />
-          </button>
         </div>
-        {!liveOwner || !settings.configured ? (
-          <div className="nx-empty-state">
-            <ListChecks size={23} />
-            <strong>Canlı n8n listesi hazır değil.</strong>
-            <span>
-              {demo
-                ? "Demo modunda dış kaynak listesi çağrılmaz."
-                : "Base URL ve sunucu anahtarı ile bağlantıyı yapılandırın."}
-            </span>
-          </div>
-        ) : tab === "workflows" ? (
-          workflows.length ? (
-            <div className="nx-table-wrap">
-              <table className="nx-table">
-                <thead>
-                  <tr>
-                    <th>WORKFLOW</th>
-                    <th>DURUM</th>
-                    <th>WEBHOOK YOLLARI</th>
-                    <th>GÜNCELLENME</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {workflows.map((workflow) => (
-                    <tr key={workflow.id}>
-                      <td>
-                        <strong>{workflow.name}</strong>
-                        <small className="nx-mono">{workflow.id}</small>
-                      </td>
-                      <td>
-                        <Badge tone={workflow.active ? "green" : "gray"}>
-                          {workflow.active ? "Aktif" : "Pasif"}
-                        </Badge>
-                      </td>
-                      <td>
-                        {workflow.webhookPaths?.length ? (
-                          <span className="nx-path-list">
-                            {workflow.webhookPaths.join(" · ")}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td>{date(workflow.updatedAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <Empty
-              title="Workflow listesi boş"
-              description="n8n yönetim API’si güvenli özet döndürdüğünde kayıtlar burada görünür."
-            />
-          )
-        ) : executions.length ? (
-          <div className="nx-table-wrap">
-            <table className="nx-table">
-              <thead>
-                <tr>
-                  <th>EXECUTION</th>
-                  <th>DURUM</th>
-                  <th>MOD</th>
-                  <th>BAŞLANGIÇ</th>
-                  <th>BİTİŞ</th>
-                </tr>
-              </thead>
-              <tbody>
-                {executions.map((execution) => (
-                  <tr key={execution.id}>
-                    <td>
-                      <strong className="nx-mono">{execution.id}</strong>
-                      <small>
-                        {execution.workflowId || "Workflow bilinmiyor"}
-                      </small>
-                    </td>
-                    <td>
-                      <Badge
-                        tone={
-                          execution.status === "success"
-                            ? "green"
-                            : execution.status === "error"
-                              ? "red"
-                              : "gray"
-                        }
-                      >
-                        {execution.status || "—"}
-                      </Badge>
-                    </td>
-                    <td>{execution.mode || "—"}</td>
-                    <td>{date(execution.startedAt)}</td>
-                    <td>{date(execution.stoppedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <Empty
-            title="Execution geçmişi boş"
-            description="n8n execution payload’ları CRM’e aktarılmaz; yalnızca güvenli özetler gösterilir."
-          />
-        )}
-      </section>
+      </details>
 
+      <details className="nx-fold">
+        <summary>
+          <strong>Gelişmiş</strong>
+          <small>Statüden kural üretme, test olayı, olay günlüğü ve teknik sözleşme</small>
+        </summary>
+        <div className="nx-fold-body">
       <div className="nx-two-column">
         <section className="nx-card nx-rule-card">
           <div className="nx-card-heading">
@@ -899,6 +916,8 @@ export default function N8n({
           </div>
         </section>
       </div>
+        </div>
+      </details>
     </div>
   );
 }

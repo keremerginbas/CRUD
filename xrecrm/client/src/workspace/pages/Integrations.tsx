@@ -2,7 +2,7 @@ import type { VapiOptions } from "../components/VapiCallFields";
 import AIIntegration from "../components/AIIntegration";
 import WebhookHub from "../components/WebhookHub";
 import BitrixImport from "../components/BitrixImport";
-import IntegrationSettings from "../components/IntegrationSettings";
+import IntegrationSettings, { ProviderSettings } from "../components/IntegrationSettings";
 import { EmailPointer } from "../components/EmailConnect";
 import { useState, useEffect } from "react";
 import {
@@ -34,11 +34,11 @@ import { withBase } from "../nav";
 const providers = [
   {
     id: "meta",
-    name: "WhatsApp Cloud API",
-    caption: "Meta Business Platform",
+    name: "WhatsApp (resmî hat)",
+    caption: "Meta üzerinden onaylı işletme hattı",
     icon: MessageCircle,
     tone: "green",
-    text: "Resmî WhatsApp mesajlaşması, gelen mesajlar ve teslimat bildirimleri.",
+    text: "Şablonlu toplu mesaj ve resmî işletme hesabı için.",
     keys: [
       "META_ACCESS_TOKEN",
       "META_LINE_MAP_JSON",
@@ -49,11 +49,11 @@ const providers = [
   },
   {
     id: "evolution",
-    name: "WhatsApp QR",
-    caption: "Evolution API · Oturum sağlayıcısı",
+    name: "WhatsApp (QR ile)",
+    caption: "Telefondaki WhatsApp'ı QR okutarak bağlayın",
     icon: Radio,
     tone: "green",
-    text: "Çoklu WhatsApp cihaz oturumları, QR ile hesap eşleştirme.",
+    text: "Mevcut numaranızla hemen yazışmaya başlamak için.",
     keys: [
       "EVOLUTION_API_URL",
       "EVOLUTION_API_KEY",
@@ -63,11 +63,11 @@ const providers = [
   },
   {
     id: "netgsm",
-    name: "Netgsm & SIP",
-    caption: "OFİX PBX · Bulut PBX · FST",
+    name: "Telefon santrali",
+    caption: "Netgsm, Asterisk veya FreePBX",
     icon: Phone,
     tone: "blue",
-    text: "SIP hatları ve FST cihazları için PBX ağ geçidi entegrasyonu.",
+    text: "Müşteri kartından tek tıkla arama ve gelen arama bildirimi.",
     keys: [
       "NETGSM_SIP_HOST",
       "NETGSM_SIP_USERNAME",
@@ -79,11 +79,11 @@ const providers = [
   },
   {
     id: "vapi",
-    name: "Vapi AI",
-    caption: "Yapay zekâ arama asistanı",
+    name: "Yapay zekâ araması",
+    caption: "Vapi sesli asistan",
     icon: Sparkles,
     tone: "purple",
-    text: "AI aramaları, transkript ve arama sonucunun CRM kaydına işlenmesi.",
+    text: "Asistan müşteriyi arar, görüşme özeti karta yazılır.",
     keys: [
       "VAPI_API_KEY",
       "VAPI_ASSISTANT_ID",
@@ -94,15 +94,25 @@ const providers = [
   },
   {
     id: "webhook",
-    name: "Webhook & n8n",
-    caption: "Gelen ve giden olaylar",
+    name: "Webhook",
+    caption: "Başka sistemlerle veri alışverişi",
     icon: Webhook,
     tone: "amber",
-    text: "Statü değişimleri ve uygulama olaylarını güvenli biçimde aktarın.",
+    text: "Müşteri olaylarını n8n gibi araçlara gönderin veya onlardan alın.",
     keys: ["INBOUND_WEBHOOK_SECRET", "OUTBOUND_WEBHOOK_SECRET"],
     path: "/api/webhooks/inbound",
   },
 ];
+// Kart → ayar grubu eşlemesi (shared/integration-settings.ts içindeki grup kimlikleri).
+const settingGroupOf: Record<string, string> = {
+  meta: "meta",
+  evolution: "evolution",
+  netgsm: "pbx",
+  vapi: "vapi",
+  webhook: "legacy-webhooks",
+  bitrix: "bitrix",
+};
+
 export default function Integrations({
   webhooks = false,
   local = false,
@@ -281,16 +291,16 @@ export default function Integrations({
         onClose={() => setSelected(null)}
       >
         <div className="modal-content">
-          <div className="setup-notice">
-            <ShieldCheck size={22} />
-            <div>
-              <strong>Gizli anahtarlar tarayıcıda saklanmaz.</strong>
-              <p>
-                Değerleri bu sayfadaki "Anahtarlar ve bağlantı ayarları"
-                bölümünden girin; sunucuda şifreli saklanır.
-              </p>
-            </div>
-          </div>
+          {settingGroupOf[selected.id] && (
+            <ProviderSettings
+              groupId={settingGroupOf[selected.id]}
+              onChanged={() => {
+                if (!demo) request("/api/integrations/status").then(setStatus).catch(() => {});
+              }}
+            />
+          )}
+          <details className="integration-tech">
+            <summary>Teknik ayrıntılar</summary>
           <h4 className="setup-heading">Gerekli sunucu değişkenleri</h4>
           <div className="env-list">
             {selected.keys.map((key) => (
@@ -336,6 +346,7 @@ export default function Integrations({
               <Copy size={16} />
             </button>
           </div>
+          </details>
           {selected.id === "bitrix" && (
             <>
               <h4 className="setup-heading">İlk kurulum yolu</h4>
@@ -599,19 +610,6 @@ export default function Integrations({
         </>
       ) : (
         <>
-          <div className="integration-summary">
-            <span className="integration-summary-icon">
-              <Link2 size={23} />
-            </span>
-            <div>
-              <strong>Birleşik iletişim, güvenli altyapı.</strong>
-              <p>
-                Gizli anahtarlar sunucuda saklanır. Canlı durumlar sağlayıcı
-                yanıtıyla doğrulanır.
-              </p>
-            </div>
-            <Badge tone="green">6 entegrasyon</Badge>
-          </div>
           <div className="integration-grid">
             {providers.map((p) => (
               <article className="integration-card" key={p.id}>
@@ -623,30 +621,22 @@ export default function Integrations({
                   </span>
                   <Badge tone={status[p.id]?.connected ? "green" : "gray"}>
                     {status[p.id]?.connected
-                      ? p.id === "vapi"
-                        ? "API doğrulandı"
-                        : "Bağlı"
+                      ? "Bağlı"
                       : status[p.id]?.configured
-                        ? p.id === "vapi"
-                          ? "Anahtar kaydedildi"
-                          : "Yapılandırıldı"
-                        : "Kurulum gerekli"}
+                        ? "Bilgiler girildi"
+                        : "Bağlı değil"}
                   </Badge>
                 </div>
                 <h3>{p.name}</h3>
                 <span className="integration-caption">{p.caption}</span>
                 <p>{p.text}</p>
-                <div className="integration-features">
-                  <CheckCircle2 size={13} />
-                  CRM ile ortak müşteri bağlamı
-                </div>
                 <footer>
                   <button
                     className="btn secondary"
                     onClick={() => setSelected(p)}
                   >
                     <Settings2 size={15} />
-                    Yapılandır
+                    {status[p.id]?.connected || status[p.id]?.configured ? "Ayarlar" : "Bağla"}
                   </button>
                   <button
                     className="icon-button"
@@ -663,13 +653,6 @@ export default function Integrations({
       )}
       {!webhooks && <IntegrationSettings />}
       {!local && <AIIntegration />}
-      <div className="info-banner slim">
-        <ShieldCheck size={18} />
-        <p>
-          Mevcut CRM ve WhatsApp kaynakları korunmuştur. Eski arşivdeki gizli
-          ayarlar ve özel medya bu arayüze aktarılmamıştır.
-        </p>
-      </div>
       {selected && renderModal()}
     </>
   );

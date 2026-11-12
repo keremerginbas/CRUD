@@ -23,3 +23,22 @@
 .is-input { display: flex; gap: 6px; }
 .is-input input, .is-input textarea { flex: 1; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: transparent; color: inherit; font-size: 13px; font-family: inherit; }
 .is-group footer { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); }
+
+/* Sadeleştirilmiş entegrasyon ekranı */
+.is-group.is-inline { border: 0; background: transparent; }
+.is-group.is-inline > summary { display: none; }
+.is-group.is-inline > .is-fields { padding-inline: 0; }
+.is-group.is-inline > footer { padding-inline: 0; border-top: 0; }
+.is-panel.is-all > summary { cursor: pointer; padding: 14px 18px; font-size: 13.5px; font-weight: 600; color: var(--xre-text); }
+.is-panel.is-all:not([open]) > summary { color: var(--xre-text-soft); }
+.integration-tech { margin-top: 14px; border-top: 1px solid var(--xre-border); padding-top: 10px; }
+.integration-tech > summary { cursor: pointer; font-size: 12.5px; color: var(--xre-text-soft); padding: 4px 0; }
+.is-panel.is-all:not([open]) { padding: 0; }
+
+/* n8n sayfası: teknik bölümler kapalı gelir */
+.nx-fold { border: 1px solid var(--xre-border); border-radius: 12px; background: var(--xre-surface); }
+.nx-fold > summary { cursor: pointer; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 14px 18px; }
+.nx-fold > summary strong { font-size: 14px; color: var(--xre-text); }
+.nx-fold > summary small { font-size: 12.5px; color: var(--xre-text-soft); }
+.nx-fold[open] > summary { border-bottom: 1px solid var(--xre-border); }
+.nx-fold-body { display: grid; gap: 16px; padding: 16px; }

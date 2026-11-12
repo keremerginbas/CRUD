@@ -14,10 +14,12 @@ function GroupCard({
   group,
   status,
   onSaved,
+  open = false,
 }: {
   group: SettingGroup;
   status: Record<string, SettingStatus>;
   onSaved: (s: SettingStatus[]) => void;
+  open?: boolean;
 }) {
   const { request } = useStore();
   const [draft, setDraft] = useState<Record<string, string>>({});
@@ -53,7 +55,7 @@ function GroupCard({
   };
 
   return (
-    <details className="is-group">
+    <details className={`is-group ${open ? "is-inline" : ""}`} open={open}>
       <summary>
         <span>
           <strong>{group.title}</strong>
@@ -105,7 +107,6 @@ function GroupCard({
                 )}
               </div>
               {f.help && <small>{f.help}</small>}
-              <code>{f.key}</code>
             </div>
           );
         })}
@@ -124,6 +125,39 @@ function GroupCard({
   );
 }
 
+/** Tek bir bağlantının ayarları (Entegrasyonlar sayfasındaki "Bağla" penceresi içinde). */
+export function ProviderSettings({ groupId, onChanged }: { groupId: string; onChanged?: () => void }) {
+  const { demo, user, request } = useStore();
+  const [settings, setSettings] = useState<SettingStatus[] | null>(null);
+  const owner = !demo && Boolean(user?.isOwner);
+  const group = SETTING_GROUPS.find((g) => g.id === groupId);
+  useEffect(() => {
+    if (!owner) return;
+    request("/api/settings/integrations")
+      .then((r) => setSettings(r.settings))
+      .catch((e: Error) => toast.error(e.message));
+  }, [owner, groupId]);
+  if (!group) return null;
+  if (!owner)
+    return (
+      <p className="is-note">
+        {demo ? "Demo modunda bağlantı bilgisi girilmez. Canlı modda yönetici hesabıyla açın." : "Bağlantı bilgilerini yalnız çalışma alanı sahibi düzenleyebilir."}
+      </p>
+    );
+  if (!settings) return <p className="is-note">Yükleniyor…</p>;
+  return (
+    <GroupCard
+      group={group}
+      open
+      status={Object.fromEntries(settings.map((s) => [s.key, s]))}
+      onSaved={(next) => {
+        setSettings(next);
+        onChanged?.();
+      }}
+    />
+  );
+}
+
 /** Sahip için: tüm entegrasyon anahtarlarını arayüzden şifreli kaydetme. */
 export default function IntegrationSettings() {
   const { demo, user, request } = useStore();
@@ -138,7 +172,8 @@ export default function IntegrationSettings() {
   const status = Object.fromEntries((settings || []).map((s) => [s.key, s]));
 
   return (
-    <section className="panel is-panel">
+    <details className="panel is-panel is-all">
+      <summary>Tüm gelişmiş ayarlar (takvim, sosyal giriş, genel adres…)</summary>
       <header>
         <span className="rule-icon blue"><KeyRound size={20} /></span>
         <div>
@@ -163,6 +198,6 @@ export default function IntegrationSettings() {
           ))}
         </div>
       )}
-    </section>
+    </details>
   );
 }
