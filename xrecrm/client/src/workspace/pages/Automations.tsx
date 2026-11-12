@@ -40,6 +40,17 @@ const icons = {
   vapi: Phone,
   webhook: Webhook,
 };
+const catalogGroups = [
+  { id: "customer", label: "Müşteri iletişimi", icon: MessageCircle },
+  { id: "team", label: "Ekip ve görevler", icon: CheckSquare },
+  { id: "systems", label: "Diğer sistemler", icon: Webhook },
+];
+const catalogItems: { group: string; action: Rule["action"]; title: string; description: string }[] = [
+  { group: "customer", action: "whatsapp", title: "WhatsApp mesajı gönder", description: "Müşteriye hazırladığınız mesajı otomatik gönderir." },
+  { group: "customer", action: "vapi", title: "Yapay zekâ ile ara", description: "Sesli asistan müşteriyi arar, sonucu müşteri kartına yazar." },
+  { group: "team", action: "task", title: "Görev oluştur", description: "Sorumlu danışmana son tarihli bir görev açar." },
+  { group: "systems", action: "webhook", title: "Webhook gönder", description: "Müşteri bilgisini n8n gibi başka bir sisteme iletir." },
+];
 const conditionFields: { value: AutomationConditionField; label: string }[] = [
   { value: "city", label: "Şehir" },
   { value: "source", label: "Kaynak" },
@@ -130,6 +141,11 @@ export default function Automations() {
   const [testResult, setTestResult] = useState<DryRunResult | null>(null);
   const [selectedLeadId, setSelectedLeadId] = useState("");
   const [tab, setTab] = useState("rules");
+  const pipelines = availablePipelines(data.pipelines);
+  const [boardPipeline, setBoardPipeline] = useState(pipelines[0]?.id || "sales");
+  const boardStages = getPipelineStages(data.pipelines, boardPipeline);
+  const [catalog, setCatalog] = useState<{ stage: string; label: string; color: string } | null>(null);
+  const [catalogGroup, setCatalogGroup] = useState("customer");
   const displayStages = getPipelineStages(data.pipelines, editing?.pipelineId);
   const selectedLead =
     data.leads.find((lead) => lead.id === selectedLeadId) || data.leads[0];
@@ -287,7 +303,15 @@ export default function Automations() {
         title="Rutin işler otomatik, odağınız satış."
         description="CRM aşaması değiştiğinde doğru adımı, doğru zamanda tetikleyin."
         actions={
-          <button className="btn primary" onClick={create}>
+          <button
+            className="btn primary"
+            onClick={() => {
+              setTab("rules");
+              const first = boardStages[0];
+              if (first) setCatalog({ stage: first.id, label: first.label, color: first.color });
+              else create();
+            }}
+          >
             <Plus size={17} />
             Yeni otomasyon
           </button>
@@ -333,90 +357,93 @@ export default function Automations() {
         </button>
       </div>
       {tab === "rules" ? (
-        <div className="rule-list">
-          {data.rules.map((r) => {
-            const Icon = icons[r.action];
-            return (
-              <article className="rule-card" key={r.id}>
-                <div
-                  className={`rule-icon ${r.action === "whatsapp" ? "green" : r.action === "vapi" ? "purple" : "blue"}`}
+        <div className="automation-board-wrap">
+          <div className="automation-board-bar">
+            <label>
+              Satış hunisi
+              <select value={boardPipeline} onChange={(e) => setBoardPipeline(e.target.value)}>
+                {pipelines.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p>
+              Her aşamanın altındaki <b>+</b> ile o aşamaya gelen müşteri için yapılacak işi ekleyin.
+            </p>
+          </div>
+          <div className="automation-board" role="list">
+            {boardStages.map((stage) => {
+              const stageRules = data.rules.filter(
+                (r) =>
+                  r.triggerStage === stage.id &&
+                  (!r.pipelineId || r.pipelineId === "all" || r.pipelineId === boardPipeline),
+              );
+              return (
+                <section
+                  className="automation-stage"
+                  role="listitem"
+                  key={stage.id}
+                  style={{ ["--stage" as string]: stage.color }}
                 >
-                  <Icon size={23} />
-                </div>
-                <div className="rule-content">
-                  <h3>
-                    {r.name}
-                    <Badge tone={r.enabled ? "green" : "gray"}>
-                      {r.enabled ? "Aktif" : "Duraklatıldı"}
-                    </Badge>
-                  </h3>
-                  <div className="rule-flow">
-                    <span>
-                      {availablePipelines(data.pipelines).find(
-                        (p) => p.id === r.pipelineId,
-                      )?.name || "Tüm huniler"}{" "}
-                      · Müşteri aşaması
-                    </span>
-                    <b>
-                      {
-                        getPipelineStages(data.pipelines, r.pipelineId).find(
-                          (s) => s.id === r.triggerStage,
-                        )?.label
-                      }
-                    </b>
-                    <ArrowRight size={15} />
-                    <span>{actionNames[r.action]}</span>
-                  </div>
-                  <div className="automation-rule-policy">
-                    <Badge
-                      tone={r.policy?.conditions.length ? "amber" : "gray"}
-                    >
-                      {r.policy?.conditions.length
-                        ? `${r.policy.conditions.length} koşul · ${r.policy.mode === "all" ? "AND" : "OR"}`
-                        : "Koşulsuz"}
-                    </Badge>
-                    <span>
-                      <Clock size={13} /> {policySummary(r.policy)}
-                    </span>
-                  </div>
-                  <p>
-                    {r.config.template ||
-                      "Entegrasyon ayarlarıyla çalışır · Olay kimliği ile tekrar koruması"}
-                  </p>
-                </div>
-                <button className="text-button" onClick={() => openEditor(r)}>
-                  Düzenle
-                </button>
-                <Toggle
-                  value={r.enabled}
-                  label={`${r.name} etkinliği`}
-                  onChange={async () => {
-                    try {
-                      await saveRule({ ...r, enabled: !r.enabled });
-                      toast.success(
-                        r.enabled
-                          ? "Kural duraklatıldı."
-                          : "Kural etkinleştirildi.",
-                      );
-                    } catch (e) {
-                      toast.error((e as Error).message);
-                    }
-                  }}
-                />
-              </article>
-            );
-          })}
+                  <header title={stage.label}>
+                    <span>{stage.label}</span>
+                    {stageRules.length > 0 && <b>{stageRules.length}</b>}
+                  </header>
+                  <button
+                    type="button"
+                    className="automation-stage-add"
+                    aria-label={`${stage.label} aşamasına kural ekle`}
+                    onClick={() => setCatalog({ stage: stage.id, label: stage.label, color: stage.color })}
+                  >
+                    <Plus size={16} />
+                  </button>
+                  {stageRules.map((r) => {
+                    const Icon = icons[r.action];
+                    return (
+                      <article className={`automation-robot ${r.enabled ? "" : "paused"}`} key={r.id}>
+                        <div className="automation-robot-when">
+                          <Clock size={12} /> {policySummary(r.policy)}
+                          {r.policy?.conditions.length ? ` · ${r.policy.conditions.length} koşul` : ""}
+                        </div>
+                        <button type="button" className="automation-robot-main" onClick={() => openEditor(r)}>
+                          <span className={`automation-robot-icon ${r.action}`}>
+                            <Icon size={15} />
+                          </span>
+                          <strong>{r.name || actionNames[r.action]}</strong>
+                          <small>{actionNames[r.action]}</small>
+                        </button>
+                        <footer>
+                          <Toggle
+                            value={r.enabled}
+                            label={`${r.name} etkinliği`}
+                            onChange={async () => {
+                              try {
+                                await saveRule({ ...r, enabled: !r.enabled });
+                                toast.success(r.enabled ? "Kural duraklatıldı." : "Kural etkinleştirildi.");
+                              } catch (e) {
+                                toast.error((e as Error).message);
+                              }
+                            }}
+                          />
+                          <button type="button" className="text-button" onClick={() => openEditor(r)}>
+                            değiştir
+                          </button>
+                        </footer>
+                      </article>
+                    );
+                  })}
+                </section>
+              );
+            })}
+          </div>
           {!data.rules.length && (
             <Empty
-              title="İlk otomasyonunuzu oluşturun"
-              description="Bir CRM aşaması ve yapılacak işlemi seçin."
+              title="Henüz otomasyon yok"
+              description="Bir aşamanın altındaki + düğmesine basıp ilk kuralınızı ekleyin."
             />
           )}
-          <button className="new-rule" onClick={create}>
-            <Plus size={21} />
-            <span>Yeni bir iş akışı oluşturun</span>
-            <small>Müşteri sürecinize bir sonraki adımı ekleyin</small>
-          </button>
         </div>
       ) : (
         <section className="panel">
@@ -469,10 +496,65 @@ export default function Automations() {
             : "Dış iletişim kuralları sağlayıcı kimlik bilgileri gerektirir. Hatalar işlem günlüğüne kaydedilir."}
         </p>
       </div>
+      {catalog && (
+        <Modal
+          title="Kural ekle"
+          subtitle={`Müşteri "${catalog.label}" aşamasına geldiğinde ne yapılsın?`}
+          onClose={() => setCatalog(null)}
+          wide
+        >
+          <div className="automation-catalog">
+            <nav aria-label="Kural grupları">
+              {catalogGroups.map((group) => (
+                <button
+                  type="button"
+                  key={group.id}
+                  className={group.id === catalogGroup ? "active" : ""}
+                  onClick={() => setCatalogGroup(group.id)}
+                >
+                  <group.icon size={16} />
+                  {group.label}
+                </button>
+              ))}
+            </nav>
+            <ul>
+              {catalogItems
+                .filter((item) => item.group === catalogGroup)
+                .map((item) => (
+                  <li key={item.action}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <p>{item.description}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn secondary small"
+                      onClick={() => {
+                        const stage = catalog.stage;
+                        setCatalog(null);
+                        openEditor({
+                          id: crypto.randomUUID(),
+                          name: item.title,
+                          pipelineId: boardPipeline,
+                          triggerStage: stage as Rule["triggerStage"],
+                          action: item.action,
+                          enabled: true,
+                          config: {},
+                        });
+                      }}
+                    >
+                      Ekle
+                    </button>
+                  </li>
+                ))}
+            </ul>
+          </div>
+        </Modal>
+      )}
       {editing && (
         <Modal
           title="Otomasyon kuralı"
-          subtitle="Tetikleyiciyi, koşulları ve yapılacak işlemi belirleyin."
+          subtitle="Müşteri seçtiğiniz aşamaya geldiğinde bu işlem yapılır."
           onClose={() => {
             setEditing(null);
             setTestResult(null);
@@ -524,6 +606,143 @@ export default function Automations() {
                 </select>
               </label>
 
+
+              <label className="full">
+                Yapılacak işlem
+                <select
+                  value={editing.action}
+                  onChange={(e) =>
+                    updateEditing({ action: e.target.value as Rule["action"] })
+                  }
+                >
+                  {Object.entries(actionNames).map(([k, v]) => (
+                    <option value={k} key={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {(["task", "whatsapp"] as string[]).includes(editing.action) && (
+                <label className="full">
+                  {editing.action === "task"
+                    ? "Görev açıklaması"
+                    : "Mesaj metni"}
+                  <textarea
+                    rows={3}
+                    required
+                    value={editing.config.template || ""}
+                    onChange={(e) =>
+                      updateEditing({
+                        config: { ...editing.config, template: e.target.value },
+                      })
+                    }
+                    placeholder="Görev ya da mesaj içeriğini yazın…"
+                  />
+                </label>
+              )}
+              {editing.action === "task" && (
+                <>
+                  <label>
+                    Sorumlu
+                    <select
+                      value={editing.config.assignee || ""}
+                      onChange={(e) =>
+                        updateEditing({
+                          config: {
+                            ...editing.config,
+                            assignee: e.target.value,
+                          },
+                        })
+                      }
+                    >
+                      <option value="">Fırsatın sorumlusu</option>
+                      {data.members.map((m) => (
+                        <option key={m.id}>{m.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    Son tarih (saat sonra)
+                    <input
+                      type="number"
+                      min="1"
+                      max="720"
+                      value={editing.config.dueHours || "24"}
+                      onChange={(e) =>
+                        updateEditing({
+                          config: {
+                            ...editing.config,
+                            dueHours: e.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </label>
+                </>
+              )}
+              {editing.action === "webhook" && (
+                <label className="full">
+                  Hedef HTTPS adresi
+                  <input
+                    type="url"
+                    required
+                    value={editing.config.url || ""}
+                    onChange={(e) =>
+                      updateEditing({
+                        config: { ...editing.config, url: e.target.value },
+                      })
+                    }
+                    placeholder="https://uygulama.com/webhook"
+                  />
+                </label>
+              )}
+              {["whatsapp", "vapi"].includes(editing.action) && (
+                <label className="full">
+                  Gönderen hat
+                  <select
+                    value={editing.config.lineId || ""}
+                    required
+                    onChange={(e) =>
+                      updateEditing({
+                        config: { ...editing.config, lineId: e.target.value },
+                      })
+                    }
+                  >
+                    <option value="">Hat seçin</option>
+                    {lines
+                      .filter(
+                        (l) => editing.action !== "vapi" || l.group === "ai",
+                      )
+                      .map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {formatPhone(l.phone)}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+              {editing.action === "vapi" && (
+                <label className="full">
+                  Vapi asistan kimliği
+                  <input
+                    value={editing.config.assistantId || ""}
+                    onChange={(e) =>
+                      updateEditing({
+                        config: {
+                          ...editing.config,
+                          assistantId: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="Varsayılan asistan için boş bırakın"
+                  />
+                </label>
+              )}
+              <details className="automation-advanced full" open={Boolean(editing.policy?.conditions.length || editing.policy?.delayMinutes)}>
+                <summary>
+                  <span>Koşul ve zamanlama ekle</span>
+                  <small>İsteğe bağlı · {policySummary(editing.policy)}</small>
+                </summary>
               <section
                 className="automation-policy-panel full"
                 aria-label="Otomasyon politikası"
@@ -531,7 +750,7 @@ export default function Automations() {
                 <div className="automation-policy-heading">
                   <div>
                     <h3>Koşullar ve zamanlama</h3>
-                    <p>Eski kurallar koşulsuz ve hemen çalışmaya devam eder.</p>
+                    <p>Kural yalnızca koşullar sağlanırsa ve seçtiğiniz zamanda çalışır.</p>
                   </div>
                   <Badge>{policySummary(editing.policy)}</Badge>
                 </div>
@@ -549,7 +768,7 @@ export default function Automations() {
                       }
                       onClick={() => updatePolicy({ mode: "all" })}
                     >
-                      AND · tümü
+                      Hepsi sağlanmalı
                     </button>
                     <button
                       type="button"
@@ -558,7 +777,7 @@ export default function Automations() {
                       }
                       onClick={() => updatePolicy({ mode: "any" })}
                     >
-                      OR · biri
+                      Biri yeterli
                     </button>
                   </div>
                 </div>
@@ -791,138 +1010,7 @@ export default function Automations() {
                   </div>
                 )}
               </section>
-
-              <label className="full">
-                Yapılacak işlem
-                <select
-                  value={editing.action}
-                  onChange={(e) =>
-                    updateEditing({ action: e.target.value as Rule["action"] })
-                  }
-                >
-                  {Object.entries(actionNames).map(([k, v]) => (
-                    <option value={k} key={k}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {(["task", "whatsapp"] as string[]).includes(editing.action) && (
-                <label className="full">
-                  {editing.action === "task"
-                    ? "Görev açıklaması"
-                    : "Mesaj metni"}
-                  <textarea
-                    rows={3}
-                    required
-                    value={editing.config.template || ""}
-                    onChange={(e) =>
-                      updateEditing({
-                        config: { ...editing.config, template: e.target.value },
-                      })
-                    }
-                    placeholder="Görev ya da mesaj içeriğini yazın…"
-                  />
-                </label>
-              )}
-              {editing.action === "task" && (
-                <>
-                  <label>
-                    Sorumlu
-                    <select
-                      value={editing.config.assignee || ""}
-                      onChange={(e) =>
-                        updateEditing({
-                          config: {
-                            ...editing.config,
-                            assignee: e.target.value,
-                          },
-                        })
-                      }
-                    >
-                      <option value="">Fırsatın sorumlusu</option>
-                      {data.members.map((m) => (
-                        <option key={m.id}>{m.name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Son tarih (saat sonra)
-                    <input
-                      type="number"
-                      min="1"
-                      max="720"
-                      value={editing.config.dueHours || "24"}
-                      onChange={(e) =>
-                        updateEditing({
-                          config: {
-                            ...editing.config,
-                            dueHours: e.target.value,
-                          },
-                        })
-                      }
-                    />
-                  </label>
-                </>
-              )}
-              {editing.action === "webhook" && (
-                <label className="full">
-                  Hedef HTTPS adresi
-                  <input
-                    type="url"
-                    required
-                    value={editing.config.url || ""}
-                    onChange={(e) =>
-                      updateEditing({
-                        config: { ...editing.config, url: e.target.value },
-                      })
-                    }
-                    placeholder="https://uygulama.com/webhook"
-                  />
-                </label>
-              )}
-              {["whatsapp", "vapi"].includes(editing.action) && (
-                <label className="full">
-                  Gönderen hat
-                  <select
-                    value={editing.config.lineId || ""}
-                    required
-                    onChange={(e) =>
-                      updateEditing({
-                        config: { ...editing.config, lineId: e.target.value },
-                      })
-                    }
-                  >
-                    <option value="">Hat seçin</option>
-                    {lines
-                      .filter(
-                        (l) => editing.action !== "vapi" || l.group === "ai",
-                      )
-                      .map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {formatPhone(l.phone)}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-              )}
-              {editing.action === "vapi" && (
-                <label className="full">
-                  Vapi asistan kimliği
-                  <input
-                    value={editing.config.assistantId || ""}
-                    onChange={(e) =>
-                      updateEditing({
-                        config: {
-                          ...editing.config,
-                          assistantId: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Varsayılan asistan için boş bırakın"
-                  />
-                </label>
-              )}
+              </details>
               <div className="full toggle-row">
                 <span>Kural etkin</span>
                 <Toggle

@@ -5,6 +5,7 @@ import {
 import LeadQuickActions, { openOnlineMeeting } from "./LeadQuickActions";
 import { Video } from "lucide-react";
 import CustomerTimeline from "./CustomerTimeline";
+import { openEmailComposer } from "./EmailTimeline";
 import {
   appointmentIso,
   appointmentParts,
@@ -253,6 +254,19 @@ export default function LeadDrawer({
                   {current.email}
                 </a>
               )}
+              <button
+                type="button"
+                className="em-drawer-action"
+                onClick={() => openEmailComposer(current.id)}
+                title={
+                  current.email
+                    ? "CRM içinden e-posta yazın"
+                    : "Önce müşterinin e-posta adresini ekleyin"
+                }
+              >
+                <Send size={13} />
+                E-posta gönder
+              </button>
             </div>
             <form onSubmit={save}>
               <h4>Müşteri bilgileri</h4>

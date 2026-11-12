@@ -1,0 +1,545 @@
+/* E-posta entegrasyonu: bağlantı kartı (Profilim), müşteri kartındaki yazma kutusu ve
+   zaman akışı girdileri. Yalnız tema değişkenleri (--xre-*, --ds-*) kullanılır; beş temada
+   (açık, gece, mor cam, okyanus, orman) ve 390px genişlikte çalışır. */
+
+/* ---- Bağlantı kartı ---------------------------------------------------- */
+html .app-shell .em-card {
+  display: grid;
+  gap: var(--ds-space-4);
+  margin-top: var(--ds-space-5);
+  padding: var(--ds-space-5);
+  scroll-margin-top: var(--ds-space-6);
+  color: var(--xre-text);
+}
+html .app-shell .em-card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-3);
+}
+html .app-shell .em-card-head > div {
+  flex: 1;
+  min-width: 0;
+}
+html .app-shell .em-card-head h3 {
+  margin: 0;
+  font-size: var(--ds-text-md);
+  line-height: var(--ds-leading-md);
+  font-weight: var(--ds-weight-semibold);
+  color: var(--xre-text);
+}
+html .app-shell .em-card-head p {
+  margin: 2px 0 0;
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  color: var(--xre-text-soft);
+}
+html .app-shell .em-card-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-info-soft);
+  color: var(--ds-info);
+}
+html .app-shell .em-muted {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text-soft);
+}
+
+html .app-shell .em-connected {
+  display: grid;
+  gap: var(--ds-space-3);
+}
+html .app-shell .em-connected dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: var(--ds-space-3) var(--ds-space-4);
+  margin: 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-subtle);
+}
+html .app-shell .em-connected dt {
+  font-size: var(--ds-text-xs);
+  color: var(--xre-text-soft);
+}
+html .app-shell .em-connected dd {
+  margin: 2px 0 0;
+  font-size: var(--ds-text-base);
+  font-weight: var(--ds-weight-medium);
+  color: var(--xre-text);
+  overflow-wrap: anywhere;
+}
+
+html .app-shell .em-form {
+  display: grid;
+  gap: var(--ds-space-4);
+}
+html .app-shell .em-providers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ds-space-2);
+}
+html .app-shell .em-provider {
+  display: grid;
+  gap: 2px;
+  min-height: 56px;
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface);
+  color: var(--xre-text);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--ds-duration-fast) var(--ds-ease),
+    background-color var(--ds-duration-fast) var(--ds-ease);
+}
+html .app-shell .em-provider:hover {
+  border-color: var(--ds-border-hover);
+  background: var(--ds-hover);
+}
+html .app-shell .em-provider[aria-pressed="true"] {
+  border-color: var(--xre-accent);
+  background: var(--ds-selected);
+  box-shadow: inset 0 0 0 1px var(--xre-accent);
+}
+html .app-shell .em-provider strong {
+  font-size: var(--ds-text-base);
+  font-weight: var(--ds-weight-semibold);
+}
+html .app-shell .em-provider small {
+  font-size: var(--ds-text-xs);
+  color: var(--xre-text-soft);
+  overflow-wrap: anywhere;
+}
+
+html .app-shell .em-help {
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--ds-surface-subtle);
+  font-size: var(--ds-text-sm);
+  line-height: 1.6;
+  color: var(--xre-text-soft);
+}
+html .app-shell .em-help summary {
+  cursor: pointer;
+  font-weight: var(--ds-weight-semibold);
+  color: var(--xre-text);
+}
+html .app-shell .em-help ol {
+  margin: var(--ds-space-2) 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+html .app-shell .em-help b {
+  color: var(--xre-text);
+  font-weight: var(--ds-weight-semibold);
+}
+html .app-shell .em-help a {
+  color: var(--ds-accent-text);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+html .app-shell .em-help.em-warn {
+  border-color: var(--ds-warn-border);
+  background: var(--ds-warn-soft);
+  color: var(--xre-text);
+}
+
+html .app-shell .em-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ds-space-3) var(--ds-space-4);
+}
+html .app-shell .em-grid label {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-medium);
+  color: var(--xre-text);
+}
+html .app-shell .em-grid .em-full {
+  grid-column: 1 / -1;
+}
+html .app-shell .em-grid :is(input, select) {
+  width: 100%;
+  min-width: 0;
+}
+html .app-shell .em-grid small {
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-regular);
+  color: var(--xre-text-soft);
+}
+
+html .app-shell .em-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-2);
+}
+html .app-shell .btn.em-danger {
+  color: var(--ds-danger);
+}
+html .app-shell .em-result {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-2) var(--ds-space-3);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  color: var(--xre-text);
+}
+html .app-shell .em-result svg {
+  flex: none;
+  margin-top: 2px;
+}
+html .app-shell .em-result.good {
+  border-color: var(--ds-success-border);
+  background: var(--ds-success-soft);
+}
+html .app-shell .em-result.good svg {
+  color: var(--ds-success);
+}
+html .app-shell .em-result.bad {
+  border-color: var(--ds-danger-border);
+  background: var(--ds-danger-soft);
+}
+html .app-shell .em-result.bad svg {
+  color: var(--ds-danger);
+}
+html .app-shell .em-privacy {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  margin: 0;
+  padding-top: var(--ds-space-3);
+  border-top: 1px solid var(--ds-divider);
+  font-size: var(--ds-text-xs);
+  line-height: 1.55;
+  color: var(--xre-text-soft);
+}
+html .app-shell .em-privacy svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ds-success);
+}
+html .app-shell .em-privacy b {
+  color: var(--xre-text);
+  font-weight: var(--ds-weight-semibold);
+}
+
+/* Entegrasyonlar sayfasındaki kısa yönlendirme satırı. */
+html .app-shell .em-pointer {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-3);
+  margin: var(--ds-space-4) 0;
+  padding: var(--ds-space-3) var(--ds-space-4);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+  background: var(--xre-surface);
+  color: var(--xre-text);
+}
+html .app-shell .em-pointer > div {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+html .app-shell .em-pointer strong {
+  font-size: var(--ds-text-base);
+  overflow-wrap: anywhere;
+}
+html .app-shell .em-pointer span:not(.em-card-icon) {
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text-soft);
+}
+
+@keyframes em-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+html .app-shell .em-spin {
+  animation: em-spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  html .app-shell .em-spin {
+    animation: none;
+  }
+}
+
+/* ---- Müşteri kartı: "E-posta gönder" bağlantısı -------------------------- */
+html .app-shell .b24-detail-links .em-drawer-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-height: var(--ds-control-h-sm);
+  padding: 0 var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--ds-accent-text);
+  font: inherit;
+  font-size: var(--ds-text-base);
+  cursor: pointer;
+}
+html .app-shell .b24-detail-links .em-drawer-action:hover {
+  background: var(--ds-hover);
+}
+html .app-shell .b24-detail-links .em-drawer-action svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+/* ---- Müşteri kartı: yazma kutusu ---------------------------------------- */
+html .app-shell .em-composer {
+  display: grid;
+  gap: var(--ds-space-2);
+  padding: var(--ds-space-3);
+}
+html .app-shell .em-route {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--ds-space-4);
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text);
+  overflow-wrap: anywhere;
+}
+html .app-shell .em-route b {
+  margin-right: 4px;
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+  color: var(--xre-text-soft);
+}
+html .app-shell .em-replying {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  padding: 4px var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  background: var(--ds-info-soft);
+  color: var(--xre-text);
+  font-size: var(--ds-text-sm);
+}
+html .app-shell .em-replying span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .em-replying button {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--xre-text-soft);
+  cursor: pointer;
+}
+html .app-shell .em-replying button:hover {
+  background: var(--ds-hover);
+  color: var(--xre-text);
+}
+html .app-shell .em-composer :is(.em-subject-input, textarea) {
+  width: 100%;
+  min-width: 0;
+}
+html .app-shell .em-composer textarea {
+  min-height: 110px;
+  resize: vertical;
+  line-height: var(--ds-leading-base);
+}
+html .app-shell .em-composer > footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2) var(--ds-space-3);
+}
+html .app-shell .em-composer > footer span {
+  font-size: var(--ds-text-xs);
+  color: var(--xre-text-soft);
+}
+html .app-shell .em-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ds-space-2);
+  margin: var(--ds-space-3);
+  padding: var(--ds-space-3);
+  border: 1px dashed var(--ds-border-strong);
+  border-radius: var(--ds-radius-md);
+  font-size: var(--ds-text-sm);
+  line-height: var(--ds-leading-sm);
+  color: var(--xre-text-soft);
+}
+html .app-shell .em-hint svg {
+  flex: none;
+  margin-top: 2px;
+}
+html .app-shell .em-inline-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ds-accent-text);
+  font: inherit;
+  font-weight: var(--ds-weight-semibold);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* ---- Müşteri kartı: zaman akışı girdisi --------------------------------- */
+html .app-shell .cx-history .cx-event-dot.email {
+  background: var(--ds-info-soft);
+  color: var(--ds-info);
+}
+html .app-shell .cx-history .em-entry.inbound .cx-event-dot.email {
+  background: var(--ds-violet-soft);
+  color: var(--ds-violet);
+}
+html .app-shell .em-subject {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-2);
+  margin-top: var(--ds-space-2);
+  font-size: var(--ds-text-base);
+  color: var(--xre-text);
+}
+html .app-shell .em-subject b {
+  min-width: 0;
+  font-weight: var(--ds-weight-semibold);
+  overflow-wrap: anywhere;
+}
+html .app-shell .em-dir {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: var(--ds-radius-pill);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-medium);
+}
+html .app-shell .em-dir.in {
+  background: var(--ds-violet-soft);
+  color: var(--ds-violet);
+}
+html .app-shell .em-dir.out {
+  background: var(--ds-info-soft);
+  color: var(--ds-info);
+}
+html .app-shell .cx-history .em-entry p.em-body {
+  margin-top: var(--ds-space-2);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html .app-shell .cx-history .em-entry p.em-body.open {
+  white-space: pre-wrap;
+  max-height: 420px;
+  overflow: auto;
+}
+html .app-shell .em-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1) var(--ds-space-2);
+  margin: var(--ds-space-2) 0 0;
+  padding: 0;
+  list-style: none;
+}
+html .app-shell .em-attachments li {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-pill);
+  font-size: var(--ds-text-xs);
+  color: var(--xre-text);
+  overflow-wrap: anywhere;
+}
+html .app-shell .em-attachments li.em-muted {
+  border: 0;
+  padding-left: 0;
+  color: var(--xre-text-soft);
+}
+html .app-shell .em-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ds-space-1);
+  margin: var(--ds-space-2) calc(var(--ds-space-2) * -1) 0;
+}
+html .app-shell .em-entry-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 var(--ds-space-2);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--ds-accent-text);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-medium);
+  cursor: pointer;
+}
+html .app-shell .em-entry-actions button:hover {
+  background: var(--ds-hover);
+}
+
+/* ---- Dar ekran ----------------------------------------------------------- */
+@media (max-width: 640px) {
+  html .app-shell .em-card {
+    padding: var(--ds-space-4);
+  }
+  html .app-shell .em-card-head {
+    flex-wrap: wrap;
+  }
+  html .app-shell .em-providers,
+  html .app-shell .em-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html .app-shell .em-actions .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+  html .app-shell .em-pointer {
+    flex-wrap: wrap;
+  }
+  html .app-shell .em-pointer .btn {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+  html .app-shell .em-entry-actions button,
+  html .app-shell .b24-detail-links .em-drawer-action {
+    min-height: 44px;
+  }
+  /* "E-posta" sekmesi eklendiği için dar ekranda sekmeler alt satıra geçebilir. */
+  html .app-shell .b24-drawer .cx-timeline .cx-composer-tabs {
+    flex-wrap: wrap;
+  }
+  html .app-shell .b24-drawer .cx-timeline .cx-composer-tabs button {
+    flex: none;
+  }
+  html .app-shell .b24-drawer .cx-timeline .cx-composer-tabs button:last-child {
+    margin-left: 0;
+  }
+}

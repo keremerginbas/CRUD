@@ -2608,3 +2608,250 @@ html .app-shell .dq-import-dialog {
     padding-inline: var(--ds-space-4);
   }
 }
+
+/* ==========================================================================
+   6. MOBILE PASS  (/worktime, /reports, /automations + rule editor)
+   Every rule sits inside a width or pointer query; nothing here applies to a
+   desktop window with a mouse.
+   ========================================================================== */
+
+/* ---- 6a. Touch targets ----------------------------------------------------
+   Phone widths and touch screens: 44px for the primary action of a view,
+   40px for everything else that is tapped. */
+@media (max-width: 760px), (pointer: coarse) {
+  /* worktime: Mesai / Rapor switch, day stepper */
+  html .app-shell:not(#_) .worktime-page .worktime-heading-actions > .worktime-tab {
+    min-height: 44px;
+  }
+  html .app-shell .worktime-page :is(.worktime-report-nav > button, .worktime-icon-button) {
+    width: 40px;
+    height: 40px;
+  }
+  html .app-shell .worktime-page .worktime-actions > button {
+    min-height: 44px;
+  }
+
+  /* reports: funnel filter, downloads, date range, disclosure, panel link */
+  html .app-shell:not(#_) .b24-page-head .b24-report-select,
+  html .app-shell:not(#_) .b24-page-head:has(.b24-report-select) > div:last-child > .btn,
+  html .app-shell:not(#_) .cx-communications-report > header :is(input[type="date"], .btn) {
+    min-height: 44px;
+  }
+  html .app-shell .cx-communications-report details > summary {
+    min-height: 40px;
+    align-items: center;
+  }
+  html .app-shell:not(#_) .b24-report-panel > header .text-button {
+    min-height: 40px;
+    margin-block: -8px;
+  }
+
+  /* automations: page action, card action */
+  html .app-shell:not(#_) .page-heading:has(~ .automation-intro) .btn {
+    min-height: 44px;
+  }
+  html .app-shell:not(#_) .rule-card > .text-button {
+    min-height: 40px;
+  }
+
+  /* rule editor */
+  html .app-shell:not(#_) .automation-mode-row .automation-segmented button {
+    min-height: 36px; /* 40px with the track padding */
+    padding-inline: var(--ds-space-3);
+  }
+  html .app-shell:not(#_) .automation-policy-panel .automation-add-condition {
+    min-height: 40px;
+  }
+  html .app-shell:not(#_) .automation-remove-condition {
+    width: 40px;
+    height: 40px;
+  }
+  html .app-shell:not(#_) .automation-condition-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr) 40px;
+  }
+  html .app-shell:not(#_) .automation-test-result-heading button {
+    width: 40px;
+    height: 40px;
+    margin: -8px -12px -8px 0;
+  }
+  html .app-shell:not(#_) .automation-timing-grid .automation-checkbox-label {
+    min-height: 44px;
+    gap: var(--ds-space-3);
+  }
+  html .app-shell:not(#_) .automation-timing-grid input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* ---- 6b. Phones ------------------------------------------------------------ */
+@media (max-width: 620px) {
+  /* worktime legend: a ragged wrap of four chips becomes a small ledger —
+     swatch + label on the left, duration on the right */
+  html .app-shell .worktime-page .worktime-legend {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  html .app-shell .worktime-page .worktime-legend span {
+    display: flex;
+    min-width: 0;
+    padding-block: 6px;
+    font-size: var(--ds-text-base);
+    line-height: var(--ds-leading-base, 1.45);
+  }
+  html .app-shell .worktime-page .worktime-legend span + span {
+    border-top: 1px solid var(--ds-divider);
+  }
+  html .app-shell .worktime-page .worktime-legend b {
+    margin-left: auto;
+    padding-left: var(--ds-space-3);
+    font-variant-numeric: tabular-nums;
+  }
+  /* period rows: the duration never wraps under the label */
+  html .app-shell .worktime-page .worktime-period > :last-child {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* run history: four squeezed columns become one stacked row per event —
+     title + detail, then type · status on the left and the time on the right.
+     The column heads stay in the accessibility tree. */
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap {
+    overflow: visible;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap > table,
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap > table > tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap > table > thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap tbody tr {
+    display: grid;
+    grid-template-columns: auto auto minmax(0, 1fr);
+    align-items: center;
+    gap: var(--ds-space-2);
+    padding: var(--ds-space-3) var(--ds-space-4);
+    border-bottom: 1px solid var(--ds-divider);
+  }
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap tbody tr:last-child {
+    border-bottom: 0;
+  }
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap tbody td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+  }
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap tbody td:first-child {
+    grid-column: 1 / -1;
+    overflow-wrap: anywhere;
+  }
+  html .app-shell:not(#_) .automation-intro ~ .panel > .table-wrap tbody td:last-child {
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+/* Stacked condition (legacy stacks it below 760px): field · operator · remove on
+   the first line, the value on a full-width second line. The remove button no
+   longer hangs beside the value field with a hole above it. */
+@media (max-width: 760px) {
+  html .app-shell:not(#_) .automation-condition-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px;
+  }
+  html .app-shell:not(#_) .automation-condition-row > select:nth-of-type(1) {
+    grid-area: 1 / 1;
+  }
+  html .app-shell:not(#_) .automation-condition-row > select:nth-of-type(2) {
+    grid-area: 1 / 2;
+  }
+  html .app-shell:not(#_) .automation-condition-row > .automation-remove-condition {
+    grid-area: 1 / 3;
+  }
+  html .app-shell:not(#_) .automation-condition-row > :is(input, .automation-value-muted) {
+    grid-area: 2 / 1 / auto / -1;
+  }
+}
+
+@media (max-width: 560px) {
+  /* automations: the page action spans the column, under the thumb */
+  html .app-shell:not(#_) .page-heading:has(~ .automation-intro) .btn {
+    width: 100%;
+    justify-content: center;
+  }
+  /* rule editor sheet: 44px fields, a clear gap between two conditions (each is
+     two rows tall here), the dry run stacks its picker over a full-width button */
+  html .app-shell:not(#_) .modal:has(.automation-policy-panel) .form-grid :is(input:not([type="checkbox"]), select) {
+    min-height: 44px;
+  }
+  html .app-shell:not(#_) .automation-value-muted {
+    min-height: 44px;
+  }
+  html .app-shell:not(#_) .automation-condition-list {
+    gap: var(--ds-space-4);
+  }
+  html .app-shell:not(#_) .automation-policy-panel {
+    padding: var(--ds-space-3);
+  }
+  html .app-shell:not(#_) .automation-dry-run {
+    padding: var(--ds-space-3);
+  }
+  html .app-shell:not(#_) .automation-dry-run-actions .btn {
+    min-height: 44px;
+  }
+}
+@media (max-width: 380px) {
+  html .app-shell:not(#_) .automation-dry-run-actions {
+    flex-wrap: wrap;
+  }
+  html .app-shell:not(#_) .automation-dry-run-actions > * {
+    flex: 1 1 100%;
+  }
+}
+
+/* ---- 6c. Short landscape phones -------------------------------------------
+   The hero ring row is the tallest block on /worktime; in a 360px-high window
+   it keeps the timer and the primary action on one screen. */
+@media (max-height: 480px) and (orientation: landscape) {
+  html .app-shell .worktime-page .worktime-ring-row {
+    padding-block: var(--ds-space-3);
+  }
+  html .app-shell .worktime-page .worktime-ring {
+    width: 96px;
+    height: 96px;
+  }
+  html .app-shell .worktime-page .worktime-ring-center strong {
+    font-size: calc(20px * var(--ds-font-scale));
+  }
+}
+
+/* ---- 6d. Tablet portrait -----------------------------------------------------
+   The adviser table is ~750px wide with 16px cell gutters, a few pixels more
+   than a 768px panel: tighter gutters let all six columns fit without a scroll. */
+@media (min-width: 761px) and (max-width: 900px) {
+  html .app-shell:not(#_) .b24-report-panel .leads-table :is(th, td):not(:first-child, :last-child) {
+    padding-inline: var(--ds-space-2);
+  }
+  html .app-shell:not(#_) .b24-report-panel .leads-table :is(th, td):first-child {
+    padding-right: var(--ds-space-2);
+  }
+  html .app-shell:not(#_) .b24-report-panel .leads-table :is(th, td):last-child {
+    padding-left: var(--ds-space-2);
+  }
+}

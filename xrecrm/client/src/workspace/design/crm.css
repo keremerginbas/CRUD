@@ -1983,6 +1983,367 @@ html .app-shell .page-content {
       scroll-snap-type: none;
     }
   }
+
+  /* ------------------------------------------------------------------------
+     15. Mobile pass (phones, touch tablets, short landscape)
+     Every rule sits inside a width / height / pointer query — desktop
+     (>= 1024px with a mouse) is untouched.
+     ------------------------------------------------------------------------ */
+
+  /* 15.1 List: a next step rendered as <span class=""> (empty class
+     attribute) was not matched by span:not([class]), so on phones it shared
+     a line with the owner instead of taking its own like every other row. */
+  @media (max-width: 640px) {
+    & .b24-deal-summary ~ .panel .leads-table td:has(> span[class=""]) {
+      flex: 1 1 100%;
+      order: 1;
+      width: auto;
+      min-width: 0;
+      max-width: 100%;
+    }
+    /* long next-step texts wrap inside the card instead of running out */
+    & .b24-deal-summary ~ .panel .leads-table td:has(> span[class=""], > span:not([class]), > .b24-red) {
+      overflow-wrap: anywhere;
+    }
+    & .b24-deal-summary ~ .panel .leads-table td:nth-child(2) strong,
+    & .b24-deal-summary ~ .panel .leads-table .b24-table-person {
+      overflow-wrap: anywhere;
+    }
+  }
+
+  @media (max-width: 760px) {
+    /* 15.2 Summary strip: the three figures fit on the screen (the third
+       label, "Etkinlik bekleyen", was cut at the edge); the row still scrolls
+       sideways to the "Robotlar & kurallar" shortcut, which peeks in at the
+       faded edge. */
+    & .b24-deal-summary > span {
+      min-width: 0;
+      padding-right: var(--ds-space-3);
+    }
+    & .b24-deal-summary > span + span {
+      padding-left: var(--ds-space-3);
+    }
+    & .b24-deal-summary > button {
+      margin-left: var(--ds-space-1);
+      scroll-snap-align: end;
+    }
+    & .b24-deal-summary {
+      scroll-snap-type: x proximity;
+    }
+    & .b24-deal-summary > span:first-child {
+      scroll-snap-align: start;
+    }
+
+    /* dialogs keep clear of the notch / home indicator */
+    & .crm-personalization-backdrop {
+      padding-bottom: max(var(--ds-space-3), env(safe-area-inset-bottom, 0px));
+    }
+    & .crm-personalization-modal {
+      max-height: calc(100dvh - 2 * var(--ds-space-3) - env(safe-area-inset-bottom, 0px));
+    }
+
+    /* 15.3 Saved views row: no visible scrollbar, edge fade as the cue,
+       stops on whole controls. */
+    & .crm-personalization {
+      scrollbar-width: none;
+      scroll-snap-type: x proximity;
+      scroll-padding-inline: var(--ds-space-3);
+    }
+    & .crm-personalization::-webkit-scrollbar,
+    & .b24-deal-summary::-webkit-scrollbar,
+    & .crm-views-tabs::-webkit-scrollbar {
+      display: none;
+    }
+    & .crm-personalization-actions > *,
+    & .crm-personalization-save > * {
+      scroll-snap-align: start;
+    }
+    /* the save group is the end of the row: keep a little air after it */
+    & .crm-personalization-save {
+      padding-right: var(--ds-space-1);
+    }
+    & .crm-views-tabs {
+      scrollbar-width: none;
+    }
+
+    /* 15.4 Board: firmer snapping, a peek of the next column, and the swipe
+       does not drag the page sideways. */
+    & .kanban-board.b24-kanban {
+      scroll-snap-type: x mandatory;
+      scroll-padding-inline: var(--shell-gutter, 16px);
+      overscroll-behavior-x: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+    & .b24-kanban .kanban-column {
+      flex-basis: min(86vw, 340px);
+      width: min(86vw, 340px);
+      scroll-snap-stop: normal;
+    }
+    /* big currency totals / long stage names in a column header */
+    & .b24-kanban .kanban-column > header :is(strong, h3, b) {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    /* card texts: long Turkish titles wrap, they never push the card wider */
+    & .b24-kanban .b24-deal-card :is(.b24-deal-title, .b24-contact-link, .b24-next-activity) {
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  /* 15.5 Touch sizes: 40px controls, 44px for the primary action. Toolbar
+     controls really grow; controls inside dense cards keep their look and
+     get a larger hit area instead. */
+  @media (pointer: coarse) and (max-width: 1023px) {
+    & .crm-view-actions .btn {
+      min-height: 40px;
+    }
+    & .crm-view-actions .btn.primary {
+      min-height: 44px;
+    }
+    /* the segmented control is 40px tall with 32px segments (base.css):
+       each segment's hit area fills the control's full height */
+    & nav.crm-views-tabs > button {
+      position: relative;
+    }
+    & nav.crm-views-tabs > button::after {
+      content: "";
+      position: absolute;
+      inset: -4px 0;
+    }
+    & .b24-pipeline-select {
+      height: 44px;
+    }
+    & .b24-pipeline-select .icon-button {
+      width: 40px;
+      height: 40px;
+    }
+    & .crm-toolbar.b24-filter-bar .search-field {
+      min-height: 44px;
+    }
+    & .crm-toolbar.b24-filter-bar .search-field input {
+      min-height: 42px;
+    }
+    & .crm-toolbar.b24-filter-bar .toolbar-right :is(select, .btn) {
+      min-height: 40px;
+    }
+    /* 360px: "Tüm sorumlular" was cut — the select takes the free room, the
+       button only what its label needs */
+    & .crm-toolbar.b24-filter-bar .toolbar-right > .btn {
+      flex: 0 0 auto;
+      gap: 6px;
+      padding-inline: var(--ds-space-2);
+    }
+    & .crm-toolbar.b24-filter-bar .toolbar-right > select {
+      padding-left: 10px;
+      padding-right: 28px;
+      text-overflow: ellipsis;
+    }
+    & .crm-personalization-actions :is(select, .btn.small),
+    & .crm-personalization-save :is(input, .btn.small) {
+      height: 40px;
+      min-height: 40px;
+    }
+    & .crm-personalization-actions .icon-button {
+      width: 40px;
+      height: 40px;
+    }
+    /* 16px text in the 150px select cut "Görünüm seçin" */
+    & .crm-personalization-actions select {
+      flex-basis: 178px;
+      width: 178px;
+    }
+    & .b24-deal-summary > button {
+      min-height: 40px;
+    }
+    & .b24-bulk :is(select, .btn.small) {
+      min-height: 44px;
+    }
+    & .b24-bulk .text-button {
+      min-height: 40px;
+    }
+
+    /* board */
+    & .b24-kanban .kanban-column > header .icon-button {
+      width: 40px;
+      height: 40px;
+    }
+    & .b24-kanban .lead-card-top .icon-button {
+      position: relative;
+    }
+    & .b24-kanban .lead-card-top .icon-button::after {
+      content: "";
+      position: absolute;
+      inset: -3px;
+    }
+    & .b24-kanban .b24-deal-card > button.b24-deal-title::after {
+      inset: -3px 0 -11px;
+    }
+    & .b24-kanban .lead-card-footer select {
+      height: 40px;
+    }
+    & :is(.b24-kanban, .leads-table) .v6-quick-actions {
+      gap: var(--ds-space-1);
+    }
+    & :is(.b24-kanban, .leads-table) .v6-quick-actions button,
+    & .b24-deal-summary ~ .panel .leads-table .v6-quick-actions button {
+      min-width: 40px;
+      min-height: 40px;
+    }
+    & .b24-kanban :is(.add-card, .column-automation) {
+      min-height: 40px;
+    }
+    & .b24-kanban .b24-quick-card :is(input, .btn, button) {
+      min-height: 40px;
+    }
+
+    /* list */
+    & .b24-deal-summary ~ .panel .leads-table input[type="checkbox"]::after {
+      inset: -13px;
+    }
+    & .b24-deal-summary ~ .panel .leads-table td > .text-button {
+      min-height: 40px;
+    }
+
+    /* activities + calendar (looks come from crm-detail.css; sizes only) */
+    & .crm-contact-card-top .icon-button,
+    & .crm-calendar-head .icon-button,
+    & .crm-calendar-day-item > .icon-button {
+      width: 40px;
+      height: 40px;
+    }
+    & :is(.crm-activity-record-row, .crm-calendar-day-item) > .crm-record-check {
+      position: relative;
+    }
+    & :is(.crm-activity-record-row, .crm-calendar-day-item) > .crm-record-check::after {
+      content: "";
+      position: absolute;
+      inset: -4px;
+    }
+    & .crm-contact-card .v6-quick-actions button {
+      min-width: 40px;
+      min-height: 40px;
+    }
+    & .crm-contact-card > .crm-add-activity,
+    & .crm-calendar-head .btn.small,
+    & .crm-calendar-day > header .btn.small,
+    & .crm-calendar-day-detail > header > .btn.small {
+      min-height: 40px;
+    }
+    & :is(.crm-contact-name, .crm-linked-lead) {
+      position: relative;
+    }
+    & :is(.crm-contact-name, .crm-linked-lead)::after {
+      content: "";
+      position: absolute;
+      inset: -10px 0;
+    }
+  }
+
+  /* 15.6 Short landscape phone: the page head stops eating the whole screen —
+     title and the three actions share one row, tabs and pipeline share the
+     next one. */
+  @media (max-width: 960px) and (max-height: 500px) and (orientation: landscape) {
+    & .crm-views-heading {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--ds-space-2) var(--ds-space-3);
+      margin-bottom: var(--ds-space-2);
+    }
+    & .crm-views-heading > div:first-child {
+      flex: 1 1 200px;
+      min-width: 0;
+    }
+    & .crm-views-heading > div:last-child,
+    & .crm-view-actions {
+      flex: 0 1 auto;
+      width: auto;
+    }
+    & .crm-view-actions {
+      flex-wrap: nowrap;
+    }
+    & .crm-view-actions .btn,
+    & .crm-view-actions .btn.primary {
+      flex: 0 0 auto;
+      padding-inline: var(--ds-space-3);
+      white-space: nowrap;
+    }
+    & .crm-views-tabs {
+      float: left;
+      width: auto;
+      max-width: 60%;
+      margin-right: var(--ds-space-2);
+    }
+    & .crm-views-tabs button {
+      flex: 0 0 auto;
+    }
+    & .b24-crm-control {
+      min-width: 0;
+    }
+    & .crm-toolbar.b24-filter-bar {
+      clear: both;
+      flex-wrap: nowrap;
+    }
+    & .crm-toolbar.b24-filter-bar .search-field {
+      flex: 1 1 0;
+    }
+    & .crm-toolbar.b24-filter-bar .toolbar-right {
+      width: auto;
+    }
+    & .crm-toolbar.b24-filter-bar .toolbar-right select {
+      flex: 0 1 auto;
+    }
+    /* the docked bulk bar: two rows of [label | select | action] instead of
+       a 176px block */
+    & .b24-bulk {
+      grid-template-columns: max-content minmax(0, 1fr) max-content;
+      gap: var(--ds-space-2);
+      padding: var(--ds-space-2) var(--ds-space-3);
+    }
+    & .b24-bulk > strong {
+      grid-area: 1 / 1;
+    }
+    & .b24-bulk .text-button {
+      grid-area: 2 / 1;
+      justify-self: start;
+      margin: 0 0 0 calc(-1 * var(--ds-space-2));
+    }
+    & .b24-bulk select {
+      grid-column: 2;
+      min-height: 40px;
+    }
+    & .b24-bulk .btn.small {
+      grid-column: 3;
+      min-height: 40px;
+    }
+    &:has(> .b24-bulk) {
+      padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* "Gelişmiş filtreler" / "Kart ve liste düzeni": header + footer were
+       sticky and left ~1 row of content on a 360px-tall screen. The header
+       now scrolls away with the content and the footer is compact; the
+       actions stay pinned and reachable. */
+    & .crm-personalization-backdrop {
+      padding: var(--ds-space-2) max(var(--ds-space-3), env(safe-area-inset-right, 0px)) var(--ds-space-2)
+        max(var(--ds-space-3), env(safe-area-inset-left, 0px));
+    }
+    & .crm-personalization-modal {
+      max-height: calc(100dvh - 2 * var(--ds-space-2));
+    }
+    & .crm-personalization-modal > header {
+      position: static;
+      padding-block: var(--ds-space-3) var(--ds-space-2);
+    }
+    & .crm-personalization-modal > footer {
+      padding-block: var(--ds-space-2);
+    }
+    & :is(.crm-personalization-grid, .crm-personalization-modal fieldset) {
+      padding-block: var(--ds-space-3);
+    }
+  }
 }
 
 @keyframes crm-dialog-in {

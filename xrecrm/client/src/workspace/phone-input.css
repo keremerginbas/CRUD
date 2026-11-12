@@ -1,0 +1,125 @@
+/* Ülke kodu seçicili telefon alanı — beş temada tema değişkenleriyle çalışır. */
+.phone-input {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  min-height: 36px;
+  border: 1px solid var(--ds-field-border, var(--xre-border));
+  border-radius: 8px;
+  background: var(--xre-surface);
+  color: var(--xre-text);
+  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+.phone-input:focus-within,
+.phone-input.open {
+  border-color: var(--xre-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--xre-accent) 22%, transparent);
+}
+.phone-input-country {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 8px 0 10px;
+  border-right: 1px solid var(--xre-border);
+  border-radius: 7px 0 0 7px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--xre-text);
+  white-space: nowrap;
+}
+.phone-input-country:hover,
+.phone-input-country:focus-visible {
+  background: color-mix(in srgb, var(--xre-accent) 10%, transparent);
+  outline: none;
+}
+.phone-input-country img,
+.phone-input-menu li img {
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--xre-text) 14%, transparent);
+  object-fit: cover;
+  flex: none;
+}
+.phone-input-country svg { color: var(--xre-text-soft); }
+html .app-shell .phone-input > input,
+.phone-input > input {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  border: 0 !important;
+  outline: 0;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: inherit;
+  padding: 0 10px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.phone-input-menu {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(320px, calc(100vw - 32px));
+  background: var(--xre-surface-raised, var(--xre-surface));
+  border: 1px solid var(--xre-border);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(2, 8, 20, 0.28);
+  padding: 8px;
+}
+.phone-input-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  height: 36px;
+  border: 1px solid var(--xre-border);
+  border-radius: 8px;
+  color: var(--xre-text-soft);
+  margin-bottom: 6px;
+}
+html .app-shell .phone-input-search input,
+.phone-input-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0 !important;
+  outline: 0;
+  box-shadow: none !important;
+  background: transparent !important;
+  color: var(--xre-text);
+  font: inherit;
+  font-size: 13.5px;
+  padding: 0;
+  height: auto;
+  min-height: 0;
+}
+.phone-input-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 264px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.phone-input-menu li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: var(--xre-text);
+  cursor: pointer;
+}
+.phone-input-menu li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.phone-input-menu li.active { background: color-mix(in srgb, var(--xre-accent) 12%, transparent); }
+.phone-input-menu li.selected { color: var(--xre-accent-strong, var(--xre-accent)); font-weight: 600; }
+.phone-input-menu li.empty { color: var(--xre-text-soft); cursor: default; justify-content: center; }
+@media (max-width: 640px), (pointer: coarse) {
+  .phone-input { min-height: 44px; }
+  .phone-input > input, .phone-input-search input { font-size: 16px !important; }
+  .phone-input-menu li { padding: 12px 10px; }
+}

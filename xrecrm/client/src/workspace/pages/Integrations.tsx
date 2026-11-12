@@ -3,6 +3,7 @@ import AIIntegration from "../components/AIIntegration";
 import WebhookHub from "../components/WebhookHub";
 import BitrixImport from "../components/BitrixImport";
 import IntegrationSettings from "../components/IntegrationSettings";
+import { EmailPointer } from "../components/EmailConnect";
 import { useState, useEffect } from "react";
 import {
   MessageCircle,
@@ -488,6 +489,7 @@ export default function Integrations({
           </>
         }
       />
+      {!webhooks && <EmailPointer />}
       {webhooks ? (
         <>
           <WebhookHub />

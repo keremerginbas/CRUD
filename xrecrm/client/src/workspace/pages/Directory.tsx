@@ -1,3 +1,4 @@
+import PhoneInput from "../components/PhoneInput";
 import ImportWizard from "../components/ImportWizard";
 import ContactCard from "../components/ContactCard";
 import { useEffect, useMemo, useState } from "react";
@@ -177,12 +178,7 @@ function DirectoryEditor({
             <>
               <label className="sx-field">
                 Telefon
-                <input
-                  value={(draft as Contact).phone}
-                  onChange={(event) => update("phone", event.target.value)}
-                  placeholder="+90 555 000 00 00"
-                  inputMode="tel"
-                />
+                <PhoneInput value={(draft as Contact).phone} onChange={(v) => update("phone", v)} />
               </label>
               <label className="sx-field">
                 E-posta
@@ -254,12 +250,7 @@ function DirectoryEditor({
               </label>
               <label className="sx-field">
                 Telefon
-                <input
-                  value={(draft as Company).phone}
-                  onChange={(event) => update("phone", event.target.value)}
-                  placeholder="+90 555 000 00 00"
-                  inputMode="tel"
-                />
+                <PhoneInput value={(draft as Company).phone} onChange={(v) => update("phone", v)} />
               </label>
               <label className="sx-field">
                 E-posta

@@ -4260,3 +4260,334 @@ html .app-shell .ai-action-form {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   10. Mobile pass (phones / touch / short landscape). Every rule sits inside
+   a width, height or pointer query — nothing here reaches a desktop window.
+   ========================================================================== */
+
+/* 10a. Touch targets: the compact (36px) buttons and icon buttons of this area
+   reach 40px under a finger; the text-only links get a 40px row. */
+@media (pointer: coarse) {
+  html .app-shell :is(.inbox-title, .chat-header, .info-banner, .wh-hub, .nx-page) .btn.small,
+  html .incoming-call .btn {
+    min-height: 40px;
+  }
+  html .app-shell :is(.nx-page, .integration-card, .wh-hub, .connection-card) .icon-button,
+  html .incoming-call .icon-button {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+  }
+  html .app-shell .inbox-panel .wa-filters button {
+    min-height: 40px;
+  }
+  html .app-shell:not(#_) .wh-hub button.wh-chip {
+    min-height: 40px;
+  }
+  html .app-shell .wh-hub .wh-docs summary,
+  html .app-shell .nx-page .nx-doc-links a {
+    min-height: 40px;
+  }
+  html .app-shell .nx-page .nx-doc-links {
+    gap: 0;
+  }
+  /* touch tablets keep the desktop layout but not its 36px controls */
+  html .app-shell .inbox-panel .composer-line select,
+  html .app-shell .ai-chat-surface .ai-date-strip input {
+    min-height: 40px;
+  }
+  html .app-shell .inbox-panel .composer-input :is(.icon-button, .btn.primary),
+  html .app-shell .ai-chat-surface .ai-composer button,
+  html .app-shell .nx-page .nx-selected-top > a {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    min-height: 40px;
+  }
+}
+
+/* 10b. WhatsApp inbox on phones: the filter chips are one swipeable row that
+   snaps, with the same edge fade the wide tables use. */
+@media (max-width: 760px) {
+  html .app-shell .inbox-panel .wa-filters {
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  html .app-shell .inbox-panel .wa-filters button {
+    scroll-snap-align: start;
+  }
+  @supports (animation-timeline: scroll()) {
+    html .app-shell .inbox-panel .wa-filters {
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        #000 var(--ds-fade-start),
+        #000 calc(100% - var(--ds-fade-end)),
+        transparent
+      );
+      animation: ds-scroll-fade linear both;
+      animation-timeline: scroll(self inline);
+    }
+  }
+  /* the open chat never grows taller than the screen under the topbar, so
+     its header, the thread and the composer are on screen together */
+  html .app-shell .inbox-panel .chat-main {
+    flex: 0 0 auto; /* the legacy `flex: 1` (basis 0) made the height below a no-op */
+    height: min(
+      clamp(460px, 78dvh, 680px),
+      max(300px, calc(100dvh - var(--shell-topbar-h, 56px) - var(--ds-space-3)))
+    );
+    scroll-margin-top: calc(var(--shell-topbar-h, 56px) + var(--ds-space-2));
+  }
+  html .app-shell .inbox-panel .chat-header > div {
+    min-width: 0;
+  }
+  html .app-shell .inbox-panel .chat-header > div :is(strong, h3, p, span) {
+    overflow-wrap: anywhere;
+  }
+  html .app-shell .inbox-panel .composer {
+    padding-bottom: max(var(--ds-space-2), env(safe-area-inset-bottom));
+  }
+}
+
+/* 10c. Phone held sideways (short and wide): the stacked inbox keeps the
+   chat on one screen — the contact and its three actions share a row, the
+   sender picker and its hint share a row, the thread gets what is left. */
+@media (max-height: 480px) and (min-width: 561px) and (max-width: 960px) {
+  html .app-shell .inbox-panel .conversations {
+    max-height: 132px;
+  }
+  html .app-shell .inbox-panel .chat-header {
+    flex-wrap: nowrap;
+    padding-block: var(--ds-space-2);
+  }
+  html .app-shell .inbox-panel .chat-header > div {
+    flex: 1 1 0;
+  }
+  html .app-shell .inbox-panel .chat-header .btn {
+    flex: 0 0 auto;
+    padding-inline: var(--ds-space-3);
+  }
+  html .app-shell .inbox-panel .chat-messages {
+    padding-block: var(--ds-space-2);
+  }
+  html .app-shell .inbox-panel .composer {
+    padding-top: var(--ds-space-2);
+  }
+  html .app-shell .inbox-panel .composer-line select {
+    flex: 0 1 280px;
+  }
+  html .app-shell .inbox-panel .composer-line .badge {
+    margin-left: auto;
+  }
+}
+
+/* 10d. Line inventory on phones: the number stays in place while the other
+   columns scroll under it. */
+@media (max-width: 760px) {
+  html .app-shell:not(#_) .lines-table :is(th, td):first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--ds-surface-solid);
+    box-shadow: 1px 0 0 var(--xre-border);
+  }
+  html .app-shell:not(#_) .lines-table th:first-child {
+    z-index: 2;
+    background-color: var(--ds-surface-subtle);
+  }
+  html .app-shell .table-wrap:has(> .lines-table) {
+    --ds-fade-start-on: 0; /* the pinned column must not fade */
+  }
+  html .app-shell .lines-table td:not(:first-child) {
+    white-space: nowrap;
+  }
+  /* the pinned column takes no more than half of a 360px screen */
+  html .app-shell:not(#_) .lines-table :is(th, td):first-child {
+    padding-inline: var(--ds-space-3) var(--ds-space-2);
+  }
+  html .app-shell .lines-table .line-phone {
+    gap: var(--ds-space-2);
+  }
+}
+
+/* 10e. Webhook event log on phones: four squeezed columns become one row per
+   event — title and detail on top, type / status / time underneath. */
+@media (max-width: 640px) {
+  html .app-shell .wh-hub ~ .panel > .table-wrap {
+    overflow: visible;
+    mask-image: none;
+    animation: none;
+
+    & > table,
+    & tbody {
+      display: block;
+      width: 100%;
+      min-width: 0;
+    }
+    /* column heads are redundant once each row reads as a card */
+    & thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    & tbody tr {
+      display: grid;
+      grid-template-columns: auto auto minmax(0, 1fr);
+      align-items: center;
+      gap: var(--ds-space-2);
+      padding: var(--ds-space-3) var(--ds-space-4);
+      border-bottom: 1px solid var(--ds-divider);
+    }
+    & tbody tr:last-child {
+      border-bottom: 0;
+    }
+    & tbody td {
+      display: block;
+      min-width: 0;
+      height: auto;
+      padding: 0;
+      border: 0;
+    }
+    & tbody td:first-child,
+    & tbody td:nth-child(5) {
+      grid-column: 1 / -1;
+    }
+    & tbody td:first-child strong {
+      overflow-wrap: anywhere;
+    }
+    & tbody td:nth-child(4) {
+      text-align: right;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    & tbody td:empty {
+      display: none;
+    }
+    & .table-detail {
+      max-width: none;
+    }
+    & .text-button {
+      min-height: 40px;
+    }
+  }
+}
+
+/* 10f. Assistant on a phone held sideways. The panel is a sheet under the
+   topbar; the header, the period strip and the composer are packed so the
+   thread keeps a usable height (it had none left at 360px). */
+@media (max-height: 480px) and (max-width: 960px) {
+  html .app-shell .ai-sidepanel,
+  html .ai-sidepanel {
+    top: calc(var(--shell-topbar-h, 56px) + var(--ds-space-1));
+    right: max(var(--ds-space-2), env(safe-area-inset-right));
+    bottom: var(--ds-space-1);
+    width: min(480px, calc(100vw - 2 * var(--ds-space-2)));
+  }
+  html .app-shell .ai-center-main:not(:has(.ai-welcome)) {
+    height: max(288px, calc(100dvh - var(--shell-topbar-h, 56px) - var(--ds-space-3)));
+    scroll-margin-top: calc(var(--shell-topbar-h, 56px) + var(--ds-space-1));
+  }
+  html .app-shell .ai-center-main:has(.ai-welcome) {
+    min-height: 0;
+  }
+  html .app-shell .ai-chat-surface {
+    & .ai-chat-header {
+      padding-block: var(--ds-space-2);
+    }
+    & .ai-orb {
+      width: 32px;
+      height: 32px;
+    }
+    & .ai-orb svg {
+      width: 16px;
+      height: 16px;
+    }
+    & .ai-date-strip {
+      padding-block: 6px;
+    }
+    & .ai-chat-body {
+      padding-block: var(--ds-space-3);
+    }
+    /* one-line composer: field and send button share the row, the data note
+       sits under them */
+    & .ai-composer {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      margin-bottom: var(--ds-space-1);
+    }
+    & .ai-composer > textarea {
+      grid-area: 1 / 1;
+      min-height: 40px;
+      max-height: 88px;
+      padding-block: var(--ds-space-2);
+    }
+    & .ai-composer > div {
+      display: contents;
+    }
+    & .ai-composer > div > button {
+      grid-area: 1 / 2;
+      width: 40px;
+      height: 40px;
+      margin: var(--ds-space-1) var(--ds-space-1) var(--ds-space-1) 0;
+    }
+    & .ai-composer > div > span {
+      grid-area: 2 / 1 / 3 / 3;
+      padding: 0 14px var(--ds-space-1);
+    }
+    & .ai-chat-footnote {
+      padding-bottom: 6px;
+    }
+  }
+}
+
+/* 10g. Incoming-call card on phones: clears the home indicator, long names
+   wrap instead of pushing the close button out, the action is a full-width
+   44px button. Sideways it is a card in the corner again, never taller than
+   the screen. */
+@media (max-width: 760px) {
+  html .incoming-calls {
+    left: max(var(--ds-space-3), env(safe-area-inset-left));
+    right: max(var(--ds-space-3), env(safe-area-inset-right));
+    bottom: max(var(--ds-space-3), env(safe-area-inset-bottom));
+  }
+  html .incoming-call .incoming-body :is(strong, span, small) {
+    overflow-wrap: anywhere;
+  }
+  html .incoming-call .incoming-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-height: 44px;
+  }
+  html .incoming-call > .icon-button {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    margin: -6px -6px 0 0;
+  }
+}
+@media (max-height: 480px) and (min-width: 561px) and (max-width: 960px) {
+  html .incoming-calls {
+    right: auto;
+    width: min(400px, calc(100vw - 2 * var(--ds-space-3)));
+  }
+  /* a second ringing call does not fit under the first one: side by side */
+  html .incoming-calls:has(> .incoming-call + .incoming-call) {
+    right: max(var(--ds-space-3), env(safe-area-inset-right));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    width: auto;
+  }
+  html .incoming-call {
+    padding: var(--ds-space-3);
+  }
+  html .incoming-call .incoming-actions .btn {
+    min-height: 40px;
+  }
+}

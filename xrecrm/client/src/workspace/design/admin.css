@@ -2149,3 +2149,247 @@ html[data-xre-theme="purple-glass"] .app-shell .workspace-admin td:first-child {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   14. Mobile pass (phones / small tablets)
+   Everything below is scoped to a max-width query; desktop is untouched.
+   ========================================================================== */
+
+/* 14a. Touch targets. tokens.css lifts the control heights under
+   `(pointer: coarse)`; on a narrow screen we do not wait for that signal:
+   every control in the area is 40px, primary actions 44px. Touch tablets get
+   the same sizes. */
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1024px) {
+  .app-shell :is(.access-page, .system-page, .workspace-admin, .settings-panel) {
+    --ds-control-h: 40px;
+    --ds-control-h-sm: 40px;
+  }
+  .app-shell :is(.access-page, .system-page, .workspace-admin, .settings-panel) .btn.primary:not(.small) {
+    min-height: 44px;
+  }
+  .app-shell .access-page .status-button {
+    min-height: 40px;
+    padding-inline: var(--ds-space-3);
+  }
+  .app-shell :is(.access-page, .system-page) .text-button {
+    min-height: 40px;
+  }
+  .app-shell .access-page .access-check {
+    min-height: 40px;
+    padding: 0 12px 0 10px;
+  }
+  .app-shell .access-page .access-check input {
+    width: 17px;
+    height: 17px;
+  }
+  /* inline "copy id" link inside the profile notice: a taller hit area
+     without changing the line it sits on */
+  .app-shell .access-page .access-notice span > button {
+    position: relative;
+  }
+  .app-shell .access-page .access-notice span > button::after {
+    content: "";
+    position: absolute;
+    inset: -11px -8px;
+  }
+  /* workspaces: slug link and row actions */
+  .app-shell .workspace-admin td small a {
+    min-height: 32px;
+    padding-right: var(--ds-space-2);
+  }
+  .app-shell .workspace-admin .row-actions .btn {
+    min-height: 40px;
+  }
+  /* data quality: "İncele" row action */
+  html .app-shell .dq-page .dq-missing-list .dq-missing-row .dq-secondary-link {
+    min-height: 40px;
+  }
+}
+
+/* 14b. Access: the save action follows the thumb. With 16 modules stacked
+   the button at the top of the card was up to three screens away; it now
+   docks to the bottom edge of the viewport while the matrix is on screen and
+   comes to rest above the footnote. Skipped on short landscape screens. */
+@media (max-width: 640px) and (min-height: 481px) {
+  .app-shell .access-page .access-grant-card:has(> .access-grant-heading) {
+    display: flex;
+    flex-direction: column;
+  }
+  .app-shell .access-page .access-grant-card > .access-grant-heading {
+    display: contents;
+  }
+  .app-shell .access-page .access-grant-card > .access-grant-heading > div {
+    flex: 0 0 auto;
+    padding: var(--ds-space-4) var(--ds-space-4) var(--ds-space-3);
+    /* sticky cannot leave the card, so while only the card's top is on screen
+       the docked button would sit on the title: the title stays on top and
+       the button slides out from under it */
+    position: relative;
+    z-index: 4;
+    border-radius: var(--ds-radius-lg) var(--ds-radius-lg) 0 0;
+    background: var(--xre-surface);
+  }
+  html[data-xre-theme="purple-glass"] .app-shell .access-page .access-grant-card > .access-grant-heading > div {
+    background: var(--ds-surface-overlay);
+  }
+  .app-shell .access-page .access-grant-card > .access-grant-heading > .btn {
+    order: 2;
+    position: sticky;
+    bottom: calc(var(--ds-space-3) + env(safe-area-inset-bottom));
+    z-index: 3;
+    flex: 0 0 auto;
+    align-self: stretch;
+    margin: var(--ds-space-3);
+    /* a surface-coloured halo turns the lone button into a bar */
+    box-shadow:
+      0 0 0 var(--ds-space-3) var(--xre-surface),
+      0 -1px 0 var(--ds-space-3) var(--ds-divider),
+      0 -10px 18px -6px color-mix(in srgb, var(--xre-text) 14%, transparent);
+  }
+  html[data-xre-theme="purple-glass"] .app-shell .access-page .access-grant-card > .access-grant-heading > .btn {
+    box-shadow:
+      0 0 0 var(--ds-space-3) var(--ds-surface-overlay),
+      0 -10px 18px -6px color-mix(in srgb, #000 30%, transparent);
+  }
+  .app-shell .access-page .access-grant-card > .access-grant-note {
+    order: 3;
+    position: relative;
+    z-index: 4; /* the halo must not paint over the footnote */
+  }
+}
+
+/* 14c. Backups on tablets: the file name may wrap so "Geri yükle" is not
+   pushed out of the panel (the table scrolled 80px sideways at 768). */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .app-shell .system-list > .table-wrap td:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* 14d. Backups / login accounts on phones: roomier action row. */
+@media (max-width: 640px) {
+  .app-shell .system-list > .table-wrap td:nth-child(5) {
+    margin: var(--ds-space-1) 0 -6px -10px;
+  }
+  .app-shell td:is(.login-account-actions, .system-actions) > * + * {
+    margin-left: var(--ds-space-2);
+  }
+}
+
+/* 14e. Workspaces on phones: one card per company instead of a 920px table
+   that scrolls sideways. Head row is dropped; the two bare dates get their
+   column name back as an inline label. */
+@media (max-width: 640px) {
+  .app-shell .workspace-admin table {
+    min-width: 0;
+  }
+  .app-shell .workspace-admin :is(table, tbody) {
+    display: block;
+  }
+  .app-shell .workspace-admin thead {
+    display: none;
+  }
+  .app-shell .workspace-admin tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: var(--ds-space-2) var(--ds-space-3);
+    padding: var(--ds-space-4);
+    border-bottom: 1px solid var(--ds-divider);
+  }
+  .app-shell .workspace-admin tbody tr:last-child {
+    border-bottom: 0;
+  }
+  .app-shell .workspace-admin tbody td,
+  .app-shell .workspace-admin tbody td:first-child {
+    position: static;
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .app-shell .workspace-admin tbody td:nth-child(1) {
+    grid-area: 1 / 1;
+  }
+  .app-shell .workspace-admin tbody td:nth-child(1) strong {
+    font-size: var(--ds-text-md);
+  }
+  .app-shell .workspace-admin tbody td:nth-child(3) {
+    grid-area: 1 / 2;
+    text-align: right;
+  }
+  .app-shell .workspace-admin tbody td:nth-child(2) {
+    grid-area: 2 / 1 / auto / -1;
+  }
+  .app-shell .workspace-admin tbody td:nth-child(4) {
+    grid-area: 3 / 1 / auto / -1;
+    color: var(--xre-text-soft);
+  }
+  .app-shell .workspace-admin tbody td:is(:nth-child(2), :nth-child(4)) small {
+    display: inline;
+    margin: 0;
+  }
+  .app-shell .workspace-admin tbody td:is(:nth-child(2), :nth-child(4)) small::before {
+    content: " · ";
+  }
+  .app-shell .workspace-admin tbody td:is(:nth-child(5), :nth-child(6)) {
+    color: var(--xre-text-soft);
+    font-size: var(--ds-text-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  .app-shell .workspace-admin tbody td:nth-child(5) {
+    grid-area: 4 / 1;
+  }
+  .app-shell .workspace-admin tbody td:nth-child(6) {
+    grid-area: 4 / 2;
+    text-align: right;
+  }
+  .app-shell .workspace-admin tbody td:is(:nth-child(5), :nth-child(6))::before {
+    margin-right: 6px;
+    color: var(--xre-text-faint);
+  }
+  .app-shell .workspace-admin tbody td:nth-child(5)::before {
+    content: "Kayıt";
+  }
+  .app-shell .workspace-admin tbody td:nth-child(6)::before {
+    content: "Son giriş";
+  }
+  .app-shell .workspace-admin tbody td:nth-child(7) {
+    grid-area: 5 / 1 / auto / -1;
+  }
+  .app-shell .workspace-admin tbody td:nth-child(7):has(.row-actions:empty) {
+    display: none;
+  }
+  .app-shell .workspace-admin .row-actions {
+    gap: var(--ds-space-2);
+    margin-top: var(--ds-space-1);
+  }
+  .app-shell .workspace-admin .row-actions .btn {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+    min-height: 40px;
+    font-size: var(--ds-text-base);
+  }
+  .app-shell .workspace-admin tbody tr:hover > td:first-child {
+    background-image: none;
+  }
+}
+
+/* 14f. Employees on phones: department names are the long ones
+   ("Operasyon & İletişim"), role names are short — the department select
+   takes the larger share of the line so fewer values are cut. */
+@container employees (max-width: 420px) {
+  .app-shell .access-page .employee-row {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) auto;
+  }
+  .app-shell .access-page .employee-row select {
+    padding-left: 10px;
+    text-overflow: ellipsis;
+  }
+}

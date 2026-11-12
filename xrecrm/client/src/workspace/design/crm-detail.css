@@ -2376,3 +2376,221 @@ html .app-shell .crm-calendar-view .crm-linked-lead:hover {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   Mobile pass — customer drawer, its dialogs and the contact card
+   Everything below is inside a max-width / max-height query: desktop
+   (>= 1024px wide and tall) is not touched.
+   ========================================================================== */
+
+/* M1. Sheet chrome (<= 900px): 44px close target, fields that receive focus
+   are scrolled clear of the sticky header and the bottom action bar. */
+@media (max-width: 900px) {
+  html .app-shell .b24-drawer {
+    --cd-close: 44px;
+    height: 100dvh;
+    max-height: 100dvh;
+    scroll-padding-block: 132px 88px;
+  }
+  html .app-shell .b24-drawer-close {
+    top: var(--ds-space-2);
+    margin: var(--ds-space-2) var(--ds-space-2) calc((var(--cd-close) + var(--ds-space-2)) * -1) 0;
+  }
+  html .app-shell .b24-drawer-header {
+    padding-top: max(var(--ds-space-3), env(safe-area-inset-top));
+    padding-right: calc(var(--ds-space-2) * 2 + var(--cd-close));
+    padding-left: max(var(--cd-pad), env(safe-area-inset-left));
+  }
+  html .app-shell .b24-drawer-header :is(h2, p, strong) {
+    overflow-wrap: anywhere;
+  }
+  html .app-shell .b24-drawer-header > strong {
+    font-variant-numeric: tabular-nums;
+  }
+  /* stage strip: the cut-off stage fades out instead of ending at a hard edge */
+  html .app-shell .b24-stage-strip {
+    scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 20px), transparent);
+  }
+  html .app-shell .b24-stage-strip button {
+    min-height: var(--ds-control-h-lg);
+  }
+  html .app-shell .b24-drawer-tools {
+    padding-inline: max(var(--cd-pad), env(safe-area-inset-left)) max(var(--cd-pad), env(safe-area-inset-right));
+  }
+  html .app-shell .b24-drawer-tools :is(.v6-quick-actions button, .btn) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* 40px+ targets inside the sheet */
+  html .app-shell .b24-drawer .cx-composer-tabs button {
+    min-height: var(--ds-control-h-lg);
+  }
+  html .app-shell .b24-drawer :is(.cx-composer, .cx-todo) .btn.small {
+    min-height: var(--ds-control-h-lg);
+  }
+  html .app-shell .b24-drawer .cx-composer .btn.primary {
+    min-height: 44px;
+    padding-inline: var(--ds-space-4);
+  }
+  html .app-shell .b24-drawer .cx-composer .text-button {
+    min-width: 44px;
+    min-height: var(--ds-control-h-lg);
+    padding-inline: var(--ds-space-2);
+  }
+  html .app-shell .b24-drawer .cx-inline-dates label {
+    min-height: 44px;
+  }
+  html .app-shell .b24-drawer .cx-inline-dates input {
+    min-height: 42px;
+  }
+  html .app-shell .b24-detail-links a {
+    min-height: 44px;
+  }
+  html .app-shell .b24-drawer-info .text-button {
+    min-height: var(--ds-control-h-lg);
+  }
+  html .app-shell .b24-drawer-info > form > .btn.full-width {
+    min-height: 44px;
+  }
+}
+
+/* M2. Phones (<= 520px) */
+@media (max-width: 520px) {
+  /* composer tabs: one row that scrolls sideways instead of a ragged second
+     row; the AI action sits at the far end when there is room */
+  html .app-shell .b24-drawer .cx-composer-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  html .app-shell .b24-drawer .cx-composer-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  html .app-shell .b24-drawer .cx-composer-tabs button {
+    flex: none;
+    scroll-snap-align: start;
+  }
+  html .app-shell .b24-drawer .cx-composer-tabs button:last-child {
+    margin-left: auto;
+  }
+
+  /* to-do: the assignee avatar leaves the row so both actions fit side by side */
+  html .app-shell .b24-drawer .cx-todo {
+    position: relative;
+  }
+  html .app-shell .b24-drawer .cx-todo > .avatar {
+    position: absolute;
+    top: var(--ds-space-3);
+    right: var(--ds-space-3);
+  }
+  html .app-shell .b24-drawer .cx-todo > div {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  html .app-shell .b24-drawer .cx-todo > div > strong {
+    padding-right: 32px;
+  }
+  html .app-shell .b24-drawer .cx-todo footer {
+    flex-wrap: nowrap;
+  }
+  html .app-shell .b24-drawer .cx-todo footer .btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  /* history: long author lines wrap, the time stays whole */
+  html .app-shell .b24-drawer .cx-history header strong {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  html .app-shell .b24-drawer .cx-history header time {
+    white-space: nowrap;
+  }
+}
+
+/* M3. Small phones (<= 400px): a 12px gutter, and the bottom bar stops
+   clipping "Görev oluştur" — the status badge rides on the bar's top edge. */
+@media (max-width: 400px) {
+  html .app-shell .b24-drawer {
+    --cd-pad: var(--ds-space-3);
+  }
+  html .app-shell .b24-drawer-info {
+    padding-inline: var(--ds-space-3);
+  }
+  html .app-shell .b24-drawer-tools {
+    gap: var(--ds-space-2);
+  }
+  html .app-shell .b24-drawer-tools .v6-quick-actions {
+    gap: 6px;
+  }
+  html .app-shell .b24-drawer-tools .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding-inline: var(--ds-space-2);
+    white-space: nowrap;
+  }
+  html .app-shell .b24-drawer-tools .badge {
+    position: absolute;
+    top: 0;
+    right: var(--cd-pad);
+    margin: 0;
+    transform: translateY(-50%);
+    background-color: color-mix(in srgb, currentColor 16%, var(--cd-rail));
+    box-shadow: 0 0 0 3px var(--cd-rail);
+  }
+}
+
+/* M4. Short landscape phones: the record header scrolls away (the close
+   button stays), the bottom bar gets thinner — chrome stays under a quarter
+   of the height. */
+@media (max-width: 900px) and (max-height: 520px) {
+  html .app-shell .b24-drawer {
+    scroll-padding-block: 12px 68px;
+  }
+  html .app-shell .b24-drawer-header {
+    position: static;
+  }
+  html .app-shell .b24-drawer-close {
+    border: 1px solid var(--xre-border);
+    background: var(--cd-rail);
+    box-shadow: var(--ds-shadow-sm);
+  }
+  html .app-shell .b24-drawer-tools {
+    padding-block: var(--ds-space-2) max(var(--ds-space-2), env(safe-area-inset-bottom));
+  }
+}
+
+/* M5. Call dialog: both modes on one line, 40px segments. */
+@media (max-width: 560px) {
+  html .app-shell .v6-call-tabs button {
+    min-width: 0;
+    min-height: var(--ds-control-h-lg);
+    padding-inline: var(--ds-space-2);
+    gap: 6px;
+    white-space: nowrap;
+  }
+  html .app-shell .v6-call-tabs button svg {
+    flex: none;
+  }
+}
+@media (max-width: 380px) {
+  html .app-shell .v6-call-tabs button {
+    font-size: var(--ds-text-xs);
+  }
+}
+
+/* M6. Directory (/contacts, /companies, /team) on touch: suite.css zeroes the
+   gap of the linked-deals cell to stack its 36px targets; when the cell is a
+   single row (card layout) the count then glued to the first link
+   ("1 fırsatKadıköy"). Only the column gap is restored. */
+@media (pointer: coarse) {
+  html .app-shell .sx-table-panel .sx-table .b24-multi-deal-links {
+    column-gap: var(--ds-space-2);
+  }
+}

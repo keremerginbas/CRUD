@@ -1,3 +1,4 @@
+import PhoneInput from "./PhoneInput";
 import {
   missingStageFields,
   requiredCrmFieldLabels,
@@ -221,14 +222,7 @@ export default function LeadModal({
             </label>
             <label>
               Telefon numarası
-              <div className="input-icon">
-                <Phone size={15} />
-                <input
-                  value={form.phone}
-                  onChange={(e) => field("phone", e.target.value)}
-                  placeholder="+90 5xx xxx xx xx"
-                />
-              </div>
+              <PhoneInput value={form.phone} onChange={(v) => field("phone", v)} />
             </label>
             <label>
               E-posta

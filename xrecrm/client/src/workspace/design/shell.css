@@ -1997,3 +1997,230 @@ html .login-screen .login-tabs button:focus-visible {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   13. Mobile pass (phones, touch tablets, short landscape)
+   Everything below sits inside a width / height / pointer query. Safe-area
+   insets are 0 until the page opts in with `viewport-fit=cover`; the rules
+   are written so that they are correct either way.
+   ========================================================================== */
+
+/* 13a. Drawer: finger-sized rows and close button, clear of the notch and the
+   home indicator. */
+@media (max-width: 900px) {
+  :root {
+    --shell-nav-h: 40px;
+  }
+  html .app-shell .sidebar {
+    width: calc(var(--shell-sidebar-w) + env(safe-area-inset-left));
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    overscroll-behavior: contain;
+  }
+  html .app-shell .sidebar .sidebar-close {
+    width: 44px;
+    height: 44px;
+    margin-right: -6px;
+  }
+  html .app-shell .sidebar .sidebar-bottom {
+    padding-bottom: max(var(--ds-space-2), env(safe-area-inset-bottom));
+  }
+  html .app-shell .sidebar :is(.sidebar-status, .workspace-switch) {
+    min-height: 44px;
+  }
+  /* menu button: 40px box, 44px+ hit area (13c) */
+  html .app-shell .topbar .mobile-menu {
+    width: 40px;
+    height: 40px;
+  }
+  /* page gutter, footer and launcher respect the rounded corners / notch */
+  html .app-shell .topbar {
+    padding-left: max(var(--shell-gutter), env(safe-area-inset-left));
+    padding-right: max(var(--shell-gutter), env(safe-area-inset-right));
+  }
+  html .app-shell .page-content {
+    padding-left: max(var(--shell-gutter), env(safe-area-inset-left));
+    padding-right: max(var(--shell-gutter), env(safe-area-inset-right));
+    padding-bottom: calc(var(--ds-space-5) + env(safe-area-inset-bottom));
+  }
+  html .app-shell .ai-floating-launch {
+    bottom: calc(var(--ds-space-4) + env(safe-area-inset-bottom));
+  }
+}
+
+/* 13b. Short landscape phones: the drawer scrolls as one piece (2f); keep the
+   brand row + close button pinned so the menu can always be closed. */
+@media (max-width: 900px) and (max-height: 600px) {
+  html .app-shell .sidebar .brand {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--xre-sidebar);
+  }
+}
+
+/* 13c. Topbar on phones: the bar is 56px tall, so every action gets the full
+   44px+ of it as a hit area while the drawn button stays compact; from 400px
+   up the buttons are 40px wide as well. */
+@media (max-width: 640px) {
+  html .app-shell .topbar {
+    padding-left: max(var(--ds-space-3), env(safe-area-inset-left));
+    padding-right: max(var(--ds-space-3), env(safe-area-inset-right));
+  }
+  /* (the close button inside the search popover is an .icon-button too) */
+  html .app-shell .topbar :is(.mobile-menu, .topbar-actions .icon-button:not(.search-results *), .ai-topbar-button, .demo-switch) {
+    position: relative;
+  }
+  html .app-shell .topbar :is(.mobile-menu, .topbar-actions .icon-button:not(.search-results *), .ai-topbar-button, .demo-switch)::after {
+    content: "";
+    position: absolute;
+    inset: -8px 0;
+  }
+  html .app-shell .topbar .global-search:not(:focus-within, :has(.search-results)) > input {
+    inset: -8px 0;
+    height: auto;
+  }
+}
+@media (min-width: 400px) and (max-width: 640px) {
+  html .app-shell .topbar :is(.topbar-actions .icon-button:not(.search-results *), .ai-topbar-button, .global-search:not(:focus-within, :has(.search-results))) {
+    width: 40px;
+    min-width: 40px;
+  }
+  html .app-shell .topbar .demo-switch {
+    width: 36px;
+  }
+}
+@media (max-width: 380px) {
+  html .app-shell .topbar {
+    padding-left: max(10px, env(safe-area-inset-left));
+    padding-right: max(10px, env(safe-area-inset-right));
+  }
+  html .app-shell .topbar .mobile-menu {
+    width: 36px;
+  }
+}
+
+/* 13d. Popovers on phones: stay above the home indicator, 40px close /
+   dismiss buttons. */
+@media (max-width: 640px) {
+  html .app-shell :is(.search-results, .notification-panel, .cx-notification-panel) {
+    right: max(var(--ds-space-3), env(safe-area-inset-right));
+    left: max(var(--ds-space-3), env(safe-area-inset-left));
+    max-height: min(560px, calc(100dvh - var(--shell-topbar-h) - var(--ds-space-5) - env(safe-area-inset-bottom)));
+  }
+  html .app-shell .search-results .search-results-title .icon-button,
+  html .app-shell .cx-notification-panel :is(header > button, article > button:last-of-type) {
+    width: 40px;
+    height: 40px;
+  }
+  html .app-shell .search-results .search-results-title {
+    padding-block: 14px;
+  }
+  html .app-shell .notification-panel > .notification-footer {
+    min-height: 44px;
+  }
+}
+/* landscape phone (wider than 640px but short): same height rule */
+@media (max-height: 480px) {
+  html .app-shell :is(.search-results, .notification-panel, .cx-notification-panel) {
+    max-height: calc(100dvh - var(--shell-topbar-h) - var(--ds-space-4) - env(safe-area-inset-bottom));
+  }
+}
+
+/* 13e. Toasts: sonner goes full width below 600px; keep the stack above the
+   home indicator and give the close button a finger-sized box. */
+@media (max-width: 600px) {
+  html [data-sonner-toaster][data-y-position="bottom"] {
+    bottom: max(var(--mobile-offset-bottom, 16px), env(safe-area-inset-bottom));
+  }
+  html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-button] {
+    top: 2px;
+    width: 40px;
+    height: 40px;
+    --toast-close-button-end: 2px;
+  }
+  html [data-sonner-toaster] [data-sonner-toast][data-styled="true"]:has([data-close-button]) {
+    padding-right: 48px;
+  }
+}
+
+/* 13f. Appearance drawer */
+@media (max-width: 560px), (pointer: coarse) {
+  html .theme-panel {
+    overscroll-behavior: contain;
+  }
+  html .theme-panel .icon-button {
+    width: 40px;
+    height: 40px;
+  }
+  html .theme-panel .theme-segmented button {
+    min-height: 40px;
+  }
+  html .theme-panel .theme-panel-header {
+    padding-top: max(var(--ds-space-4), env(safe-area-inset-top));
+    padding-right: max(var(--ds-space-3), env(safe-area-inset-right));
+  }
+  html .theme-panel .theme-panel-body {
+    padding-right: max(var(--ds-space-4), env(safe-area-inset-right));
+  }
+  html .theme-panel .theme-panel-footer {
+    padding-right: max(var(--ds-space-4), env(safe-area-inset-right));
+    padding-bottom: max(var(--ds-space-3), env(safe-area-inset-bottom));
+  }
+  html .theme-panel .theme-panel-footer .btn {
+    min-height: 44px;
+  }
+}
+/* short landscape: the title scrolls away, the action row stays */
+@media (max-height: 480px) {
+  html .theme-panel .theme-panel-header {
+    position: static;
+    padding-block: var(--ds-space-3);
+  }
+  html .theme-panel .theme-panel-footer {
+    padding-block: var(--ds-space-2);
+  }
+  html .theme-panel .theme-fieldset {
+    margin-bottom: var(--ds-space-4);
+  }
+}
+
+/* 13g. Sign-in screen: 16px fields (no iOS zoom), finger-sized controls. */
+@media (max-width: 760px), (pointer: coarse) and (max-width: 1024px) {
+  html .login-screen :is(input, select, textarea) {
+    font-size: 16px;
+  }
+  html .login-screen :is(.login-demo, .login-manus, .login-signup-link) {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    padding-inline: var(--ds-space-3);
+  }
+  html .login-screen .login-tabs button {
+    min-height: 40px;
+  }
+  /* show / hide password: 40px box centred on the old 24px glyph position */
+  html .login-screen .login-password button {
+    right: 2px;
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+  }
+  html .login-screen .login-password input {
+    padding-right: 44px;
+  }
+}
+/* 360px phones: two theme cards per row leave ~140px each — tighten the card
+   so "XRE Gece" + its check mark stay on one line. */
+@media (max-width: 380px) {
+  html .theme-panel .theme-choice {
+    padding-inline: var(--ds-space-2);
+    gap: 6px;
+  }
+  html .theme-panel .theme-choice-swatches i {
+    width: 16px;
+    height: 16px;
+  }
+}

@@ -28,6 +28,7 @@ const AUDITED: Record<string, string> = {
   "webhook-out": "Giden webhook",
   "system-settings": "Entegrasyon ayarları",
   "line-inventory": "Hat envanteri",
+  "email-account": "E-posta hesabı",
 };
 const IGNORED_FIELDS = new Set(["updatedAt", "lastActivity", "stageTransitionToken", "lastUsedAt", "useCount", "lastLoginAt", "lastDeliveryAt", "lastStatus", "lastError", "successCount", "failureCount"]);
 const SECRET_FIELDS = /passwordHash|secret|token|values|apiKey|password/i;

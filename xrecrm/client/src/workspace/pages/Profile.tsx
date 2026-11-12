@@ -4,6 +4,7 @@ import { CheckCircle2, KeyRound, Save, Copy, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "../components/ui";
 import { ChangePassword } from "../components/LoginAccounts";
+import EmailConnect from "../components/EmailConnect";
 import { useStore } from "../store";
 import "../access.css";
 type ProfileData = {
@@ -232,6 +233,7 @@ export default function Profile() {
           </dl>
         </aside>
       </div>
+      {(demo || user?.canAccess !== false) && <EmailConnect />}
     </div>
   );
 }

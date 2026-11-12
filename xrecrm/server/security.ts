@@ -6,7 +6,7 @@ export class OutboundSecurityError extends Error {
   statusCode = 400;
 }
 
-function isPrivateIp(address: string): boolean {
+export function isPrivateIp(address: string): boolean {
   const version = net.isIP(address);
   if (version === 4) {
     const parts = address.split(".").map(Number);

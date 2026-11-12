@@ -1,6 +1,6 @@
 import "../login.css";
 import { useEffect, useState } from "react";
-import { KeyRound, Plus, UserCheck, UserX } from "lucide-react";
+import { Copy, KeyRound, Mail, Plus, UserCheck, UserX, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "../store";
 import { Badge, Modal } from "./ui";
@@ -14,6 +14,16 @@ interface Account {
   lastLoginAt?: string;
 }
 
+interface Invite {
+  id: string;
+  email: string;
+  name: string;
+  roleId: string;
+  createdAt: string;
+  expiresAt: string;
+}
+const emptyInvite = { email: "", name: "", roleId: "" };
+
 const emptyForm = { name: "", email: "", password: "", roleId: "", title: "", phone: "" };
 
 /** Sahip için: çalışanlara e-posta + şifre ile giriş hesabı açma. */
@@ -24,6 +34,10 @@ export default function LoginAccounts() {
   const [form, setForm] = useState<typeof emptyForm | null>(null);
   const [reset, setReset] = useState<{ account: Account; password: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [mailReady, setMailReady] = useState(true);
+  const [invite, setInvite] = useState<typeof emptyInvite | null>(null);
+  const [sentLink, setSentLink] = useState<{ email: string; link: string; sent: boolean; note: string } | null>(null);
   const owner = !demo && Boolean(user?.isOwner);
 
   const load = async () => {
@@ -32,6 +46,9 @@ export default function LoginAccounts() {
       const [a, access] = await Promise.all([request("/api/auth/accounts"), request("/api/access")]);
       setAccounts(a.accounts);
       setRoles((access.roles || []).filter((r: any) => r.id !== "owner"));
+      const pending = await request("/api/auth/invites");
+      setInvites(pending.invites || []);
+      setMailReady(Boolean(pending.mail));
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -62,6 +79,35 @@ export default function LoginAccounts() {
       setBusy(false);
     }
   };
+  const sendInvite = async () => {
+    if (!invite) return;
+    setBusy(true);
+    try {
+      const r = await request("/api/auth/invites", invite);
+      setSentLink({ email: r.invite.email, link: r.link, sent: Boolean(r.sent), note: r.mailError || "" });
+      if (r.sent) toast.success(`Davet ${r.invite.email} adresine gönderildi.`);
+      setInvite(null);
+      await load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const cancelInvite = async (item: Invite) => {
+    try {
+      await request(`/api/auth/invites/${item.id}`, {}, "DELETE");
+      toast.success("Davet iptal edildi.");
+      await load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+  const copyLink = (link: string) =>
+    navigator.clipboard
+      .writeText(link)
+      .then(() => toast.success("Davet bağlantısı kopyalandı."))
+      .catch(() => toast.error("Kopyalanamadı; bağlantıyı elle seçip kopyalayın."));
   const patch = async (account: Account, body: Record<string, unknown>, message: string) => {
     try {
       await request(`/api/auth/accounts/${account.id}`, body, "PATCH");
@@ -81,9 +127,14 @@ export default function LoginAccounts() {
             Çalışanlar e-posta + şifre, QR veya aynı e-postalı Google/Facebook/Apple hesabıyla girer. Yetkileri seçtiğiniz rolden gelir.
           </p>
         </div>
-        <button className="btn primary small" onClick={() => setForm({ ...emptyForm, roleId: roles[0]?.id || "" })}>
-          <Plus size={15} /> Hesap aç
-        </button>
+        <div className="login-account-head-actions">
+          <button className="btn secondary small" onClick={() => setForm({ ...emptyForm, roleId: roles[0]?.id || "" })}>
+            <Plus size={15} /> Hesap aç
+          </button>
+          <button className="btn primary small" onClick={() => setInvite({ ...emptyInvite, roleId: roles[0]?.id || "" })}>
+            <Mail size={15} /> E-posta ile davet et
+          </button>
+        </div>
       </header>
       <div className="table-wrap">
         <table>
@@ -122,6 +173,90 @@ export default function LoginAccounts() {
           </tbody>
         </table>
       </div>
+      {invites.length > 0 && (
+        <div className="login-invites">
+          <h4>Bekleyen davetler</h4>
+          <ul>
+            {invites.map((item) => (
+              <li key={item.id}>
+                <Mail size={15} />
+                <span>
+                  <strong>{item.email}</strong>
+                  <small>
+                    {roles.find((r) => r.id === item.roleId)?.name || "Rol"} · son gün{" "}
+                    {new Date(item.expiresAt).toLocaleDateString("tr-TR")}
+                  </small>
+                </span>
+                <button className="text-button" onClick={() => void cancelInvite(item)}>
+                  <X size={14} /> İptal et
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {invite && (
+        <Modal
+          title="Çalışan davet et"
+          subtitle="Çalışan e-postasındaki bağlantıya tıklar, adını ve şifresini kendisi belirler"
+          onClose={() => setInvite(null)}
+        >
+          <div className="modal-content">
+            <div className="form-grid">
+              <label className="full">
+                E-posta
+                <input type="email" value={invite.email} autoFocus onChange={(e) => setInvite({ ...invite, email: e.target.value })} placeholder="calisan@firma.com" />
+              </label>
+              <label>
+                Ad soyad (isteğe bağlı)
+                <input value={invite.name} onChange={(e) => setInvite({ ...invite, name: e.target.value })} />
+              </label>
+              <label>
+                Rol
+                <select value={invite.roleId} onChange={(e) => setInvite({ ...invite, roleId: e.target.value })}>
+                  {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                </select>
+              </label>
+            </div>
+            {!mailReady && (
+              <p className="muted login-invite-note">
+                Sunucuda e-posta gönderimi ayarlı değil. Davet bağlantısı oluşturulur; kopyalayıp çalışana kendiniz iletirsiniz.
+              </p>
+            )}
+          </div>
+          <footer className="modal-footer">
+            <button className="btn secondary" onClick={() => setInvite(null)}>Vazgeç</button>
+            <button className="btn primary" disabled={busy || !invite.email.includes("@") || !invite.roleId} onClick={() => void sendInvite()}>
+              {mailReady ? "Daveti gönder" : "Bağlantı oluştur"}
+            </button>
+          </footer>
+        </Modal>
+      )}
+      {sentLink && (
+        <Modal
+          title={sentLink.sent ? "Davet gönderildi" : "Davet bağlantısı hazır"}
+          subtitle={sentLink.email}
+          onClose={() => setSentLink(null)}
+        >
+          <div className="modal-content">
+            <p className="muted login-invite-note">
+              {sentLink.sent
+                ? "E-posta gönderildi. İsterseniz aynı bağlantıyı WhatsApp gibi başka bir yoldan da iletebilirsiniz."
+                : sentLink.note || "Bağlantıyı kopyalayıp çalışana iletin."}{" "}
+              Bağlantı 7 gün geçerlidir ve yalnızca şimdi görüntülenir.
+            </p>
+            <div className="login-invite-link">
+              <input readOnly value={sentLink.link} onFocus={(e) => e.target.select()} aria-label="Davet bağlantısı" />
+              <button className="btn secondary" onClick={() => void copyLink(sentLink.link)}>
+                <Copy size={15} /> Kopyala
+              </button>
+            </div>
+          </div>
+          <footer className="modal-footer">
+            <button className="btn primary" onClick={() => setSentLink(null)}>Tamam</button>
+          </footer>
+        </Modal>
+      )}
       {form && (
         <Modal title="Yeni giriş hesabı" subtitle="Çalışan kaydı ve erişim rolü birlikte oluşturulur" onClose={() => setForm(null)}>
           <div className="modal-content">

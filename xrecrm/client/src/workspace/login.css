@@ -70,3 +70,152 @@
 .login-verify-icon { color: var(--xre-accent, #168db3); }
 .login-card .text-button:disabled { opacity: 0.55; cursor: default; }
 .login-brand-logo { position: absolute; top: 36px; left: 48px; z-index: 1; height: 64px; width: auto; }
+
+/* ==========================================================================
+   Mobile pass — signed-out screens (login, first setup, QR, signup, e-mail
+   verification, workspace missing / locked, QR approve).
+   Everything below is inside a max-width / pointer:coarse / max-height query;
+   desktop (>= 1024px with a mouse) is untouched.
+   design/shell.css §13g already gives 16px fields and 44px text links; the
+   `html .login-screen .login-card` prefix is only there to win over it.
+   ========================================================================== */
+
+/* --- A. One-column layout: slim brand bar instead of no brand at all -------- */
+@media (max-width: 860px) {
+  /* dvh-safe: the layer is position:fixed/inset:0, so it already tracks the
+     visual viewport; keep momentum scroll inside it and off the page behind. */
+  .login-screen { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .login-screen:has(> .login-brand) { grid-template-rows: auto 1fr; }
+
+  /* The brand column used to vanish, leaving a logo-less form. Show it as a
+     compact header bar: logo only, static gradient (no WebGL canvas, no scrim). */
+  .login-screen > .login-brand {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 60px;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-right, 0px)) 12px max(20px, env(safe-area-inset-left, 0px));
+    background: #060c16 linear-gradient(100deg, #0f3a5c 0%, #0a1f3a 55%, #060c16 100%);
+  }
+  .login-brand > .login-fluid,
+  .login-brand::after,
+  .login-brand > .login-brand-text { display: none; }
+  .login-brand > .login-brand-logo { position: static; height: 36px; max-width: 60%; object-fit: contain; object-position: left center; }
+
+  /* Form column: 16px gutters on phones, a 440px measure on tablets / landscape
+     (inputs no longer stretch to 700px), safe-area aware. */
+  .login-screen:not(.qr-approve) > .login-card {
+    padding-block: 28px calc(28px + env(safe-area-inset-bottom, 0px));
+    padding-inline:
+      max(20px, env(safe-area-inset-left, 0px), calc((100% - 440px) / 2))
+      max(20px, env(safe-area-inset-right, 0px), calc((100% - 440px) / 2));
+  }
+  .login-card h1 { text-wrap: balance; overflow-wrap: anywhere; }
+  .login-card .login-sub { overflow-wrap: anywhere; }
+
+  /* Helper texts were 10.8px (browser <small>) and 11.5px. */
+  .login-form label small { font-size: 12px; line-height: 1.4; }
+  .login-card .login-note { font-size: 12px; line-height: 1.45; text-wrap: balance; }
+  .login-card .login-divider { font-size: 12.5px; }
+  .login-form label { font-size: 14px; }
+  .login-qr ol { font-size: 14px; gap: 6px; }
+  .login-qr small { font-size: 12.5px; }
+  .login-card .login-error { font-size: 14px; padding: 10px 12px; }
+
+  /* Signup address field: prefix at the input's size, never wider than half. */
+  /* themed inputs carry their own fill; inside the composite field it made a two-tone box */
+  html .login-screen .login-card .login-slug input { background: transparent; }
+  .login-slug > span { font-size: 16px; max-width: 50%; overflow: hidden; text-overflow: ellipsis; display: block; align-self: center; }
+
+  /* Verification code: keep six digits + tracking inside a 320px card. */
+  html .login-screen .login-form input.login-code { font-size: clamp(22px, 7vw, 26px) !important; letter-spacing: clamp(6px, 2.4vw, 10px); padding-inline: 8px; min-height: 56px; }
+
+  /* Stand-alone cards (workspace missing / locked, QR approve): real 16px
+     gutters, and auto margins instead of place-items:center so a card taller
+     than a short landscape viewport scrolls from its top instead of clipping. */
+  .login-screen.qr-approve { place-items: stretch; padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  .login-screen.qr-approve > .login-card { width: min(420px, calc(100% - 32px)); max-width: none; justify-self: center; align-self: auto; margin: auto 16px; padding: 28px 20px; box-sizing: border-box; }
+  .qr-approve .login-card .login-sub b { overflow-wrap: anywhere; }
+  /* long e-mail address on the secondary button wraps instead of overflowing */
+  .qr-approve .login-card .login-submit { white-space: normal; overflow-wrap: anywhere; text-align: center; }
+}
+
+/* --- B. Portrait tablets: room for the headline in the brand bar ------------ */
+@media (min-width: 600px) and (max-width: 860px) and (min-height: 800px) {
+  .login-screen > .login-brand { flex-direction: column; align-items: flex-start; justify-content: flex-end; gap: 20px; padding-block: calc(28px + env(safe-area-inset-top, 0px)) 28px; padding-inline: max(20px, calc((100% - 440px) / 2)); }
+  .login-brand > .login-brand-logo { height: 48px; }
+  .login-brand > .login-brand-text { display: grid; gap: 10px; }
+  .login-brand > .login-brand-text h2 { font-size: 22px; }
+  .login-brand > .login-brand-text ul { font-size: 14px; gap: 4px; }
+}
+
+/* --- C. Finger-sized controls (phones, and touch tablets up to 1024px) ------ */
+@media (max-width: 860px), (pointer: coarse) and (max-width: 1024px) {
+  html .login-screen .login-card .login-form input { min-height: 48px; }
+  html .login-screen .login-card .login-slug input { min-height: 46px; }
+  html .login-screen .login-card .login-submit { min-height: 48px; font-size: 15px; }
+  html .login-screen .login-card .login-social-btn { min-height: 46px; font-size: 14px; }
+  html .login-screen .login-card .login-tabs button { min-height: 44px; font-size: 14px; }
+  html .login-screen .login-card .login-close { top: 8px; right: max(8px, env(safe-area-inset-right, 0px)); width: 44px; height: 44px; display: grid; place-items: center; }
+  /* "Manus hesabıyla giriş" rendered at 10px, left-aligned (justify-self has no
+     effect in the flex column). */
+  html .login-screen .login-card .login-manus { align-self: center; justify-content: center; font-size: 14px; color: var(--xre-text-soft, #536477); }
+  html .login-screen .login-card :is(.login-demo, .login-signup-link) { font-size: 14px; gap: 6px; text-align: center; }
+  /* the stacked text links are each 44px tall already; drop the flex gap between
+     them so the tail of the form is not three half-empty rows */
+  html .login-screen .login-card :is(.login-signup-link, .login-manus, .login-demo) + :is(.login-demo, .login-signup-link) { margin-top: -10px; }
+  .login-qr-refresh { max-width: 100%; font-size: 14px; }
+}
+
+/* --- D. Narrow phones (<= 360px) ------------------------------------------- */
+@media (max-width: 374px) {
+  .login-screen:not(.qr-approve) > .login-card { padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
+  .login-card .login-social { gap: 6px; }
+  html .login-screen .login-card .login-social-btn { padding-inline: 6px; gap: 6px; }
+  .login-social-btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+/* --- E. Short landscape phones (e.g. 740x360) ------------------------------- */
+@media (max-height: 480px) and (max-width: 1024px) {
+  /* start at the top: a vertically centred column would hide the title behind
+     the brand bar's scroll offset and waste the first screen */
+  .login-screen:not(.qr-approve) > .login-card { justify-content: flex-start; padding-block: 16px calc(20px + env(safe-area-inset-bottom, 0px)); gap: 12px; }
+  .login-screen > .login-brand { min-height: 48px; padding-block: calc(8px + env(safe-area-inset-top, 0px)) 8px; }
+  .login-brand > .login-brand-logo { height: 30px; }
+  .login-screen.qr-approve > .login-card { padding: 20px; gap: 10px; }
+  .login-qr img { width: 180px; height: 180px; }
+}
+
+/* Çalışan daveti */
+.login-account-head-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.login-invites { border-top: 1px solid var(--xre-border); padding: 14px 20px 18px; }
+.login-invites h4 { margin: 0 0 8px; font-size: 12.5px; color: var(--xre-text-soft); font-weight: 600; }
+.login-invites ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.login-invites li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--xre-border); border-radius: 10px; color: var(--xre-text-soft); }
+.login-invites li > span { display: grid; min-width: 0; flex: 1; }
+.login-invites li strong { color: var(--xre-text); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.login-invites li small { font-size: 12px; }
+.login-invite-note { margin: 12px 0 0; font-size: 13px; line-height: 1.5; }
+.login-invite-link { display: flex; gap: 8px; margin-top: 12px; }
+.login-invite-link input { flex: 1; min-width: 0; font-size: 13px; }
+@media (max-width: 560px) { .login-invite-link { flex-direction: column; } }
+
+/* --- F. Short phones (360x640 … 375x740): a little less air so the primary
+   action and the first secondary link share the first screen ---------------- */
+@media (max-width: 860px) and (max-height: 780px) and (min-height: 481px) {
+  .login-screen:not(.qr-approve) > .login-card { padding-block: 20px calc(20px + env(safe-area-inset-bottom, 0px)); gap: 12px; }
+  .login-card .login-form { gap: 10px; }
+}
+
+/* --- G. Theme bug fix (all widths, non-light themes only; light is untouched).
+   These three used the legacy light `--border` (#e2e8ed), which on the night
+   surface drew near-white outlines next to fields that use --xre-border, and
+   left the signup address field darker than every other input. -------------- */
+html[data-xre-theme] .login-screen .login-slug { background: var(--xre-surface-raised); border-color: var(--xre-border); }
+html[data-xre-theme] .login-screen .login-slug input { background: transparent; }
+html[data-xre-theme] .login-screen .login-social-btn { border-color: var(--xre-border); }
+html[data-xre-theme] .login-screen .login-social-btn:hover:not(:disabled) { border-color: var(--xre-accent); }
+html[data-xre-theme] .login-screen .login-divider::before,
+html[data-xre-theme] .login-screen .login-divider::after { border-top-color: var(--xre-border); }
+html[data-xre-theme] .login-screen .login-qr-refresh { border-color: var(--xre-border); }

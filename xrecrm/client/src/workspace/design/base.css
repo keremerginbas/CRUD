@@ -1331,3 +1331,179 @@ html .app-shell:not(#_) .b24-report-panel > .table-wrap {
     transition: none;
   }
 }
+
+/* ==========================================================================
+   12. Mobile pass (phones / touch) — every rule sits inside a width, height
+   or pointer query; nothing here applies to a desktop window.
+   ========================================================================== */
+
+/* 12a. iOS zooms the whole page when a focused control is set below 16px.
+   Phone widths and touch tablets get 16px text in every text control (the
+   embedded ones in search boxes and composers included). `!important` because
+   page files size their own compact inputs with higher specificity. */
+@media (max-width: 760px), (pointer: coarse) and (max-width: 1024px) {
+  html .app-shell:not(#_) :is(
+      input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="hidden"], [type="submit"], [type="button"]),
+      select,
+      textarea
+    ) {
+    font-size: max(16px, var(--ds-text-base)) !important;
+  }
+}
+
+/* 12b. Dialogs become bottom sheets on phones: full width, anchored to the
+   bottom edge, own scroll, title pinned on top and the action row pinned at
+   the bottom above the home indicator. */
+@media (max-width: 560px) {
+  html .app-shell .modal-backdrop {
+    align-items: flex-end;
+    padding: max(var(--ds-space-4), env(safe-area-inset-top)) 0 0;
+  }
+  html .app-shell .modal,
+  html .app-shell .modal.wide {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - max(var(--ds-space-4), env(safe-area-inset-top)));
+    border-width: 1px 0 0;
+    border-radius: var(--ds-radius-xl) var(--ds-radius-xl) 0 0;
+    overscroll-behavior: contain;
+  }
+  html .app-shell .modal > header {
+    padding-block: var(--ds-space-4) var(--ds-space-3);
+    padding-inline: max(var(--ds-space-4), env(safe-area-inset-left)) max(var(--ds-space-3), env(safe-area-inset-right));
+  }
+  html .app-shell .modal > header h2 {
+    overflow-wrap: anywhere;
+  }
+  html .app-shell .modal > header > .icon-button {
+    width: var(--ds-control-h-lg);
+    height: var(--ds-control-h-lg);
+  }
+  html .app-shell .modal-content {
+    padding-block: var(--ds-space-4);
+  }
+  html .app-shell .modal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding-block: var(--ds-space-3) calc(var(--ds-space-3) + env(safe-area-inset-bottom));
+  }
+  html .app-shell .modal .modal-footer .btn {
+    min-height: 44px;
+  }
+  /* sheets without an action row still clear the home indicator */
+  html .app-shell .modal:not(:has(.modal-footer)) {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+@media (max-width: 560px) and (prefers-reduced-motion: no-preference) {
+  html .app-shell .modal {
+    animation-name: ds-sheet-in;
+  }
+}
+@keyframes ds-sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 12c. Short landscape phones: a pinned title plus a pinned action row would
+   leave a strip of form between them. The title scrolls away with the content,
+   the action row stays and gets tighter. */
+@media (max-height: 480px) {
+  html .app-shell .modal-backdrop {
+    padding-block: var(--ds-space-2);
+  }
+  html .app-shell .modal {
+    max-height: calc(100dvh - var(--ds-space-4));
+  }
+  html .app-shell .modal > header {
+    position: static;
+    padding-block: var(--ds-space-3);
+  }
+  html .app-shell .modal .modal-footer {
+    padding-block: var(--ds-space-2);
+  }
+}
+@media (max-height: 480px) and (max-width: 560px) {
+  html .app-shell .modal-backdrop {
+    padding-bottom: 0;
+  }
+  html .app-shell .modal {
+    max-height: calc(100dvh - var(--ds-space-2));
+  }
+}
+
+/* 12d. Dialogs opened from the store (AppointmentPrompt: "Randevu tarih ve
+   saatini seçin") are rendered next to .app-shell, not inside it, so none of
+   the `.app-shell .modal` rules reach them. On phones they get the same sheet
+   and the type / control floors here; the full restyle needs the dialog to be
+   rendered inside .app-shell. */
+@media (max-width: 560px) {
+  html .modal-backdrop:not(.app-shell *) {
+    align-items: flex-end;
+    padding: max(var(--ds-space-4), env(safe-area-inset-top)) 0 0;
+    background-color: var(--ds-backdrop);
+  }
+  html .modal-backdrop:not(.app-shell *) > .modal {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - max(var(--ds-space-4), env(safe-area-inset-top)));
+    padding-bottom: env(safe-area-inset-bottom);
+    border-width: 1px 0 0;
+    border-radius: var(--ds-radius-xl) var(--ds-radius-xl) 0 0;
+    overscroll-behavior: contain;
+    font-size: var(--ds-text-base);
+
+    & > header {
+      padding: var(--ds-space-4) var(--ds-space-3) var(--ds-space-3) var(--ds-space-4);
+    }
+    & h2 {
+      font-size: var(--ds-text-lg);
+      line-height: var(--ds-leading-lg);
+      letter-spacing: var(--ds-tracking-tight);
+    }
+    & > header p,
+    & :is(p, label, small) {
+      font-size: var(--ds-text-sm);
+      line-height: var(--ds-leading-sm);
+    }
+    & > header p {
+      margin-top: var(--ds-space-1);
+      color: var(--xre-text-soft);
+    }
+    & :is(input, select, textarea) {
+      min-height: 44px;
+      font-size: 16px;
+    }
+    & .icon-button {
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      width: 40px;
+      height: 40px;
+    }
+    & .btn {
+      flex: 1 1 auto;
+      justify-content: center;
+      min-height: 44px;
+      font-size: var(--ds-text-base);
+    }
+  }
+}
+
+/* Genuine bug, every width: the same orphan dialog keeps the legacy near-white
+   info box in the dark themes (light text on a white box). */
+html .modal-backdrop:not(.app-shell *) .cx-appointment-form .cx-info {
+  border: 1px solid var(--ds-info-border);
+  background: var(--ds-info-soft);
+  color: var(--ds-info);
+}
+html .modal-backdrop:not(.app-shell *) .cx-appointment-form .cx-info p {
+  color: var(--xre-text-soft);
+}

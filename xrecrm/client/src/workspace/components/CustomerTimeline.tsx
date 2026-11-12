@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MessageSquare,
   CalendarClock,
@@ -21,6 +21,13 @@ import {
   appointmentParts,
 } from "../../../../shared/appointments";
 import { Avatar, Badge } from "./ui";
+import { useLeadEmails } from "../email";
+import {
+  EMAIL_COMPOSE_EVENT,
+  EmailComposer,
+  EmailEntry,
+} from "./EmailTimeline";
+import type { EmailMessage } from "../../../../shared/email";
 export default function CustomerTimeline({ lead }: { lead: Lead }) {
   const { data, saveRecord, addNote, demo, request, refresh, user } =
     useStore();
@@ -31,6 +38,24 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
   const [day, setDay] = useState("");
   const [time, setTime] = useState("");
   const [editing, setEditing] = useState<Activity | null>(null);
+  // E-posta: müşteriyle yazışmalar ve yanıtlanan ileti.
+  const mail = useLeadEmails(lead);
+  const [replyTo, setReplyTo] = useState<EmailMessage | null>(null);
+  const emailById = new Map(mail.messages.map((m) => [m.id, m]));
+  const openEmail = (message: EmailMessage | null) => {
+    setReplyTo(message);
+    setTab("email");
+    document
+      .querySelector(".cx-timeline .cx-composer")
+      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  };
+  useEffect(() => {
+    const compose = (e: Event) => {
+      if ((e as CustomEvent).detail?.leadId === lead.id) openEmail(null);
+    };
+    window.addEventListener(EMAIL_COMPOSE_EVENT, compose);
+    return () => window.removeEventListener(EMAIL_COMPOSE_EVENT, compose);
+  }, [lead.id]);
   const activities = data.activities.filter(
     (a) => a.leadId === lead.id && !a.cancelled,
   );
@@ -61,6 +86,14 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
         type: "message",
         source: "",
       })),
+    ...mail.messages.map((m) => ({
+      id: m.id,
+      date: m.createdAt,
+      title: m.subject,
+      text: m.text,
+      type: "email",
+      source: "",
+    })),
     ...data.calls
       .filter((c) => c.leadId === lead.id)
       .map((c) => ({
@@ -163,11 +196,29 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
           >
             Etkinlik
           </button>
+          <button
+            className={tab === "email" ? "active" : ""}
+            onClick={() => {
+              setTab("email");
+              setEditing(null);
+            }}
+          >
+            E-posta
+          </button>
           <button onClick={analyze} disabled={busy}>
             <Sparkles size={12} />
             Görüşmeleri analiz et
           </button>
         </div>
+        {tab === "email" ? (
+          <EmailComposer
+            lead={lead}
+            mail={mail}
+            replyTo={replyTo}
+            onClearReply={() => setReplyTo(null)}
+          />
+        ) : (
+          <>
         <div
           className={`cx-compose-box ${tab === "activity" ? "activity" : ""}`}
         >
@@ -245,6 +296,8 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
           )}
           <span>İç kayıt · müşteriye gönderilmez</span>
         </footer>
+          </>
+        )}
       </div>
       <div className="cx-discuss">
         <MessageSquare size={14} />
@@ -324,7 +377,16 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
         <span>İletişim ve yorum geçmişi</span>
       </div>
       <div className="cx-history">
-        {stream.map((s) => (
+        {stream.map((s) =>
+          s.type === "email" && emailById.has(s.id) ? (
+            <EmailEntry
+              key={`email-${s.id}`}
+              message={emailById.get(s.id)!}
+              lead={lead}
+              userName={user?.name || "XRE"}
+              onReply={openEmail}
+            />
+          ) : (
           <article key={`${s.type}-${s.id}`}>
             <span className={`cx-event-dot ${s.type}`}>
               {s.type === "analysis" ? (
@@ -354,7 +416,8 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
               )}
             </div>
           </article>
-        ))}
+          ),
+        )}
         {!stream.length && (
           <div className="cx-no-todos">
             <MessageSquare size={17} />

@@ -1320,3 +1320,80 @@ html .app-shell .page-content:has(> .db-kpis) {
     min-height: 40px;
   }
 }
+
+/* ==========================================================================
+   Mobile pass — phones and small tablets
+   Everything is inside a container / coarse-pointer query except M1, which
+   is a bug fix that cannot change a layout the content already fits in.
+   ========================================================================== */
+html .app-shell .page-content:has(> .db-kpis) {
+  /* M1. Bug fix: the attention groups were a grid with an implicit auto
+     track, so one long nowrap message preview made the track wider than the
+     panel and the panel clipped every badge, timestamp and amount at its
+     right edge (360–430px). A minmax(0, 1fr) track lets the preview
+     ellipsize instead. */
+  .db-attention-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .db-attention-groups > div {
+    min-width: 0;
+  }
+
+  @container db-page (max-width: 560px) {
+    /* M2. Range switch and "Yeni müşteri" share one row: the switch takes the
+       free width in three equal segments, the primary action keeps its own.
+       (At 360px they used to wrap into two ragged, left-aligned rows.) */
+    & > .page-heading > .heading-actions {
+      flex-wrap: nowrap;
+      align-items: stretch;
+    }
+    & > .page-heading > .heading-actions > .segmented {
+      display: flex;
+      flex: 1 1 0;
+      min-width: 0;
+    }
+    & > .page-heading > .heading-actions > .segmented > button {
+      flex: 1 1 0;
+      min-width: 0;
+      padding-inline: var(--ds-space-1);
+      white-space: nowrap;
+    }
+    & > .page-heading > .heading-actions > .btn {
+      flex: 0 0 auto;
+      min-height: 44px;
+      white-space: nowrap;
+    }
+
+    /* M3. KPI label: two lines instead of "Açık fırsat değ…". */
+    .db-kpi .db-kpi-label {
+      display: -webkit-box;
+      align-self: start;
+      min-height: 28px; /* the icon chip: one-line labels stay centred on it */
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      align-content: center;
+    }
+    /* …and the tiles of a row share their three rows (subgrid), so a wrapped
+       label moves the value of its neighbour down with it. */
+    @supports (grid-template-rows: subgrid) {
+      .db-kpi {
+        grid-row: span 3;
+        grid-template-rows: subgrid;
+        row-gap: 0;
+      }
+    }
+
+    /* M4. Rows with a right-hand value: the value never shrinks, the name
+       side wraps instead of pushing it out. */
+    .db-row > span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+    .db-row > small {
+      flex: 0 0 auto;
+    }
+  }
+}

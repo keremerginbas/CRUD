@@ -233,3 +233,59 @@
     width: 100%;
   }
 }
+
+/* Aşama panosu: her satış aşaması bir sütun, kurallar altında kart olarak durur. */
+.automation-board-wrap { display: grid; gap: 14px; }
+.automation-board-bar { display: flex; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.automation-board-bar label { display: grid; gap: 4px; font-size: 12.5px; color: var(--xre-text-soft); min-width: 220px; }
+.automation-board-bar p { margin: 0 0 8px; font-size: 13px; color: var(--xre-text-soft); }
+.automation-board { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; scroll-snap-type: x proximity; align-items: flex-start; }
+.automation-stage { flex: 0 0 208px; display: grid; gap: 8px; scroll-snap-align: start; align-content: start; }
+.automation-stage > header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-height: 34px; padding: 0 22px 0 12px; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase;
+  background: color-mix(in srgb, var(--stage, var(--xre-accent)) 88%, #000);
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%);
+  border-radius: 6px 0 0 6px;
+}
+.automation-stage > header span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.automation-stage > header b { background: rgba(255, 255, 255, 0.24); border-radius: 999px; padding: 1px 7px; font-size: 11px; }
+.automation-stage-add {
+  height: 34px; border-radius: 8px; border: 1px dashed var(--xre-border); background: color-mix(in srgb, var(--stage, var(--xre-accent)) 7%, transparent);
+  color: var(--xre-text-soft); cursor: pointer; display: grid; place-items: center; transition: background 0.15s ease-out, color 0.15s ease-out, border-color 0.15s ease-out;
+}
+.automation-stage-add:hover, .automation-stage-add:focus-visible { background: color-mix(in srgb, var(--stage, var(--xre-accent)) 18%, transparent); color: var(--xre-text); border-color: var(--stage, var(--xre-accent)); outline: none; }
+.automation-robot { background: var(--xre-surface); border: 1px solid var(--xre-border); border-top: 3px solid var(--stage, var(--xre-accent)); border-radius: 10px; display: grid; }
+.automation-robot.paused { opacity: 0.62; }
+.automation-robot-when { display: flex; align-items: center; gap: 5px; padding: 8px 10px 0; font-size: 11.5px; color: var(--xre-text-soft); }
+.automation-robot-main { all: unset; cursor: pointer; display: grid; grid-template-columns: auto 1fr; column-gap: 8px; row-gap: 2px; padding: 8px 10px 10px; align-items: center; }
+.automation-robot-main:focus-visible { outline: 2px solid var(--xre-accent); outline-offset: -2px; border-radius: 8px; }
+.automation-robot-main strong { font-size: 13px; color: var(--xre-text); line-height: 1.3; overflow-wrap: anywhere; }
+.automation-robot-main small { grid-column: 2; font-size: 11.5px; color: var(--xre-text-soft); }
+.automation-robot-icon { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; grid-row: span 2; align-self: start; background: color-mix(in srgb, var(--xre-accent) 14%, transparent); color: var(--xre-accent-strong, var(--xre-accent)); }
+.automation-robot-icon.whatsapp { background: color-mix(in srgb, #22c55e 16%, transparent); color: var(--ds-success, #16a34a); }
+.automation-robot-icon.vapi { background: color-mix(in srgb, #8b5cf6 16%, transparent); color: #8b5cf6; }
+.automation-robot > footer { display: flex; align-items: center; justify-content: space-between; padding: 6px 10px; border-top: 1px solid var(--xre-border); }
+.automation-robot > footer .text-button { font-size: 12px; }
+
+/* Kural kataloğu */
+.automation-catalog { display: grid; grid-template-columns: 220px 1fr; min-height: 300px; }
+.automation-catalog nav { display: grid; align-content: start; gap: 4px; padding: 14px; border-right: 1px solid var(--xre-border); }
+.automation-catalog nav button { all: unset; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; font-size: 13.5px; color: var(--xre-text); }
+.automation-catalog nav button:hover { background: color-mix(in srgb, var(--xre-accent) 8%, transparent); }
+.automation-catalog nav button.active { background: color-mix(in srgb, var(--xre-accent) 14%, transparent); font-weight: 600; }
+.automation-catalog nav button:focus-visible { outline: 2px solid var(--xre-accent); }
+.automation-catalog ul { list-style: none; margin: 0; padding: 14px; display: grid; align-content: start; gap: 8px; }
+.automation-catalog li { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid var(--xre-border); border-radius: 12px; background: var(--xre-surface); }
+.automation-catalog li strong { font-size: 14px; color: var(--xre-text); }
+.automation-catalog li p { margin: 3px 0 0; font-size: 12.5px; color: var(--xre-text-soft); }
+.automation-advanced { border: 1px solid var(--xre-border); border-radius: 12px; }
+.automation-advanced > summary { cursor: pointer; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 12px 14px; font-size: 13.5px; font-weight: 600; color: var(--xre-text); }
+.automation-advanced > summary small { font-weight: 400; color: var(--xre-text-soft); font-size: 12px; }
+.automation-advanced > .automation-policy-panel { border: 0; border-top: 1px solid var(--xre-border); border-radius: 0 0 12px 12px; margin: 0; }
+@media (max-width: 640px) {
+  .automation-catalog { grid-template-columns: 1fr; }
+  .automation-catalog nav { grid-auto-flow: column; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--xre-border); }
+  .automation-catalog nav button { white-space: nowrap; }
+  .automation-stage { flex-basis: 78vw; }
+}

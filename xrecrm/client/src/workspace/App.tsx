@@ -72,6 +72,7 @@ import "./design/insights.css";
 import "./design/comms.css";
 import LeadDrawer from "./components/LeadDrawer";
 import { PREVIEW, WORKSPACE_SLUG, currentPath, withBase } from "./nav";
+import InviteAccept from "./components/InviteAccept";
 import { SignupScreen, WorkspaceLocked, WorkspaceMissing } from "./components/Signup";
 import LoginScreen, { QrApprove, type AuthStatus } from "./components/LoginScreen";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -375,6 +376,21 @@ function Workspace() {
   if (!PREVIEW && !dismissedSession && (loading || !authChecked))
     return <BootSplash />;
   const logout = () => void request("/api/auth/logout", {}).finally(() => location.reload());
+  const inviteToken = /^\/davet\/([A-Za-z0-9_-]{30,80})$/.exec(location.pathname)?.[1];
+  if (inviteToken && !WORKSPACE_SLUG) {
+    if (user && !demo)
+      return (
+        <div className="login-screen qr-approve">
+          <section className="login-card">
+            <h1>Zaten oturum açıksınız</h1>
+            <p className="login-sub">Daveti kabul etmek için önce bu hesaptan çıkış yapın.</p>
+            <button className="btn primary login-submit" onClick={logout}>Çıkış yap ve daveti aç</button>
+            <a className="login-signup-link" href="/">CRM'e dön</a>
+          </section>
+        </div>
+      );
+    return <InviteAccept token={inviteToken} />;
+  }
   if (!user && path === "/kayit" && !WORKSPACE_SLUG && signupConfig.signup && authStatus && !authStatus.needsSetup)
     return <SignupScreen trialDays={signupConfig.trialDays} />;
   if (!user && WORKSPACE_SLUG && !dismissedNow) {

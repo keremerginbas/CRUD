@@ -84,6 +84,7 @@ import {
 import { verifyBitrixContext } from "./bitrix.js";
 import { lines } from "../shared/lines.js";
 import { registerLocalAccountRoutes, registerLocalAuthRoutes } from "./local-auth.js";
+import { registerInviteAdminRoutes, registerInvitePublicRoutes } from "./invites.js";
 import {
   communicationAllowed,
   registerWorkspaceAdminRoutes,
@@ -103,6 +104,7 @@ import { startWaitAlerts } from "./b24-alerts.js";
 import { appMode } from "./connector-app.js";
 import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
+import { registerEmailRoutes, startEmailPoller } from "./email.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
 import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-inventory.js";
 import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
@@ -1589,6 +1591,7 @@ export function createApp(
 
   registerLocalAuthRoutes(app, store);
   registerWorkspacePublicRoutes(app, store);
+  registerInvitePublicRoutes(app, store);
   registerSocialAuthRoutes(app, store);
   // CRM'in Bitrix24 içinde uygulama olarak açılması artık varsayılan kapalıdır
   // (XRE CRM bağımsız bir üründür). Gerekirse XRE_BITRIX_EMBED=1 ile açılır.
@@ -1635,8 +1638,10 @@ export function createApp(
   registerN8nReportRoutes(app, store);
   registerWebhookHubRoutes(app, store);
   registerLocalAccountRoutes(app, store);
+  registerInviteAdminRoutes(app, store);
   registerBitrixImportRoutes(app, store, baseStore);
   registerIntegrationSettingsRoutes(app, store);
+  registerEmailRoutes(app, store);
   registerPbxRoutes(app, store);
   registerLineInventoryRoutes(app, store);
   registerAuditRoutes(app, store);
@@ -1645,6 +1650,8 @@ export function createApp(
     await loadIntegrationSettings(store);
   });
   if (options.background) startBackupScheduler(baseStore);
+  // Bağlı posta kutularının gelen kutusu yoklayıcısı (testte ve XRE_EMAIL_POLL=0 iken çalışmaz).
+  if (options.background) startEmailPoller(rawStore);
   if (options.background && withConnector) {
     startReportScheduler(baseStore);
     startLineHealthMonitor(baseStore);

@@ -88,7 +88,7 @@ describe("CRM çalışma alanı", () => {
     fireEvent.change(screen.getByPlaceholderText("Ad Soyad"), {
       target: { value: "Test Müşterisi" },
     });
-    fireEvent.change(screen.getByPlaceholderText("+90 5xx xxx xx xx"), {
+    fireEvent.change(screen.getByLabelText("Telefon numarası", { selector: "input" }), {
       target: { value: "+905551234567" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Kaydet" }));
