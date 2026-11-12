@@ -401,6 +401,9 @@ def head(page, lang, title, desc, extra=""):
     other = "en" if lang == "tr" else "tr"
     og = s.SITE_URL + getattr(s, "OG_IMAGES", {}).get(page, "assets/images/og-image.jpg")
     globe_js = ""
+    if page == "home" and BRAND_KEY == "rome":
+        globe_js = ('\n<script>document.documentElement.classList.add("intro-done")</script>'
+                    '\n<script src="assets/js/rome.js?v=__HASH_ROME_JS__" defer></script>')
     if page == "home" and BRAND_KEY == "orphion":
         globe_js = ('\n<script>setTimeout(function(){document.documentElement.classList.add("intro-done")},8000)</script>'
                     '\n<script src="assets/js/capsules.js?v=__HASH_CAPSULES_JS__" defer></script>'
@@ -1155,13 +1158,88 @@ def rome_lines(lang):
     return cap_list([(ic, esc(t), d) for t, ic, d in zip(R["line_titles"], R["line_icons"], s.BUSINESS_LINES[lang])])
 
 
+ROME_STAGE = {
+    "tr": {
+        "eyebrow": "Ankara merkezli ilaç tedarik ve danışmanlık şirketi",
+        "label": "Türkiye'nin ilaç kapısı",
+        "badge_t": "Kamu ve özel sektör", "badge_s": "Ankara, Dubai ve ABD ofisleri",
+        "pick": "İş kollarımız",
+        "cards": [("supply", "İlaç Tedariki", "Tedarik, ihale ve Yurt Dışı İlaç"), ("consult", "Danışmanlık", "Pazara giriş ve yerel temsil")],
+        "side": {"supply": "Güvenilir<br>tedarik", "consult": "Uzman<br>danışmanlık"},
+    },
+    "en": {
+        "eyebrow": "Ankara-based pharmaceutical supply and consulting company",
+        "label": "Türkiye's pharmaceutical gateway",
+        "badge_t": "Public and private sector", "badge_s": "Offices in Ankara, Dubai and the USA",
+        "pick": "Our business lines",
+        "cards": [("supply", "Pharmaceutical Supply", "Supply, tenders and named patient"), ("consult", "Consulting", "Market entry and local representation")],
+        "side": {"supply": "Reliable<br>supply", "consult": "Expert<br>consulting"},
+    },
+}
+
+
+def rome_stage(lang):
+    R = ROME[lang]
+    st = ROME_STAGE[lang]
+    lines = dict(zip(("supply", "consult"), s.BUSINESS_LINES[lang]))
+    cards = "".join(f"""
+        <button class="group w-[150px] rounded-[26px] border border-white/15 bg-white/[.06] p-4 pt-5 text-left backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[.12] aria-pressed:border-accent aria-pressed:bg-white/[.1]" type="button" data-theme-card="{key}" aria-pressed="{'true' if key == 'supply' else 'false'}">
+          <span class="mb-6 grid h-12 w-12 place-items-center rounded-2xl {'bg-[#2DCE98]' if key == 'supply' else 'bg-[#38A8F5]'} text-[#0F2A40] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110">{icon('pill' if key == 'supply' else 'handshake', 'h-6 w-6')}</span>
+          <span class="block text-[15px] font-semibold leading-tight text-white">{esc(title)}</span>
+          <span class="mt-1 block text-xs leading-snug text-on-dark">{esc(sub)}</span>
+        </button>""" for key, title, sub in st["cards"])
+    swap_side = f'data-supply="{esc(st["side"]["supply"])}" data-consult="{esc(st["side"]["consult"])}"'
+    swap_text = f'data-supply="{esc(lines["supply"])}" data-consult="{esc(lines["consult"])}"'
+    return f"""
+<section class="rome-hero relative isolate overflow-hidden text-white" data-rome-hero data-theme="supply" data-logo="assets/images/rome-logo.webp" data-label-line="{esc(st['label'])}">
+  <div class="rome-bg rome-bg-supply absolute inset-0 -z-30"></div>
+  <div class="rome-bg rome-bg-consult absolute inset-0 -z-30 opacity-0 transition-opacity duration-[1400ms]" data-bg-consult></div>
+  <div class="pointer-events-none absolute inset-0 -z-20 overflow-hidden" data-bubbles></div>
+  <div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[100svh] [&_canvas]:h-full [&_canvas]:w-full lg:h-full" data-rome-scene aria-hidden="true"></div>
+  <div class="wrap relative grid min-h-[calc(100svh-72px)] gap-10 pb-10 pt-[44svh] lg:min-h-[calc(100svh-84px)] lg:grid-cols-[1fr_auto] lg:pt-12">
+    <div class="flex flex-col gap-7">
+      <p class="m-0 text-[15px] font-semibold text-accent" data-intro>{esc(st['eyebrow'])}</p>
+      <h1 class="h-display m-0 max-w-[12ch] text-[clamp(40px,5.4vw,78px)] text-white" data-intro style="--d:.1s">{esc(R['h1'])}</h1>
+      <p class="m-0 max-w-[40ch] text-lg leading-relaxed text-on-dark" data-intro style="--d:.2s">{esc(R['lead'])}</p>
+      <a class="group inline-flex w-fit items-center gap-5 rounded-full bg-black/40 py-1.5 pl-6 pr-1.5 font-bold text-white no-underline backdrop-blur transition hover:-translate-y-0.5 hover:bg-black/60" href="{href('contact', lang, '#contact-form')}" data-intro style="--d:.3s">{esc(UI[lang]['cta'])}
+        <span class="grid h-10 w-10 place-items-center rounded-full bg-accent text-2xl font-black leading-none text-accent-on transition-transform duration-300 group-hover:rotate-90">+</span></a>
+      <div class="mt-auto flex items-center gap-4 pt-6" data-intro style="--d:.4s">
+        <span class="grid h-12 w-12 place-items-center rounded-xl border border-white/15 bg-white/5">{icon('landmark', 'h-6 w-6')}</span>
+        <span><span class="block text-xs font-semibold text-on-dark-muted">{esc(st['badge_s'])}</span><span class="block text-[15px] font-semibold">{esc(st['badge_t'])}</span></span>
+      </div>
+    </div>
+    <div class="flex flex-col items-start gap-8 lg:items-end lg:text-right">
+      <div data-intro style="--d:.3s">
+        <p class="mb-3 text-sm font-semibold text-on-dark-muted">{esc(st['pick'])}</p>
+        <div class="flex gap-3">{cards}
+        </div>
+      </div>
+      <p class="m-0 max-w-[34ch] text-[15px] leading-relaxed text-on-dark transition duration-300" data-swap {swap_text}>{esc(lines['supply'])}</p>
+      <h2 class="m-0 mt-auto text-[clamp(44px,6vw,92px)] font-bold leading-[.92] tracking-[-0.03em] text-white transition duration-300" data-swap {swap_side}>{st['side']['supply']}</h2>
+    </div>
+  </div>
+</section>"""
+
+
+def video_cta(lang, text, video):
+    return f"""
+<section class="relative isolate overflow-hidden py-28 md:py-36">
+  <video class="absolute inset-0 -z-20 h-full w-full object-cover" poster="assets/media/{video}-poster.webp" muted loop playsinline autoplay preload="metadata" aria-hidden="true">{video_sources(video)}</video>
+  <div class="absolute inset-0 -z-10 bg-gradient-to-r from-ink via-ink/85 to-ink/40"></div>
+  <div class="wrap flex flex-wrap items-center justify-between gap-x-12 gap-y-7" data-reveal>
+    <h2 class="h-section m-0 max-w-[22ch] text-white">{esc(text)}</h2>
+    <a class="btn" href="{href('contact', lang, '#contact-form')}">{esc(UI[lang]['cta'])} {icon('arrow', 'h-5 w-5')}</a>
+  </div>
+</section>"""
+
+
 def rome_home(lang):
     R = ROME[lang]
     A = r.ROME_ABOUT[lang]
     actions = (f'<a class="btn" href="{href("contact", lang, "#contact-form")}">{esc(UI[lang]["cta"])}</a>'
                f'<a class="btn btn-ghost" href="{href("about", lang)}">{esc(R["cta2"])}</a>')
     why_t = re.sub("<[^>]+>", "", A["why_t"])
-    return hero(lang, R["h1"], R["lead"], actions, R["legend"], video="pills-stethoscope") + f"""
+    return rome_stage(lang) + f"""
 
 <section class="section">
   <div class="wrap grid items-start gap-12 lg:grid-cols-[5fr_7fr] lg:gap-24">
@@ -1187,7 +1265,7 @@ def rome_home(lang):
     {offices_html(lang)}
   </div>
 </section>
-{cta_band(lang, R['cta_h'])}"""
+{video_cta(lang, R['cta_h'], 'pills-stethoscope')}"""
 
 
 def rome_about(lang):

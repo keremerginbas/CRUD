@@ -168,6 +168,21 @@
 .story-bg[data-stage="1"]::before, .story-bg[data-stage="2"]::after { opacity: 1; }
 [data-capsules] canvas { display: block; width: 100%; height: 100%; }
 
+/* Rome girişi: tema arka planları ve yükselen moleküller */
+.rome-bg-supply { background: radial-gradient(circle at 58% 48%, #1aa37f 0%, #0b5246 48%, #041b19 100%); }
+.rome-bg-consult { background: radial-gradient(circle at 58% 48%, #1b7fc2 0%, #0a3a63 48%, #03121f 100%); }
+.molecule {
+  position: absolute; bottom: -40px; border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, .55);
+  background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, .55) 0 18%, rgba(255, 255, 255, .06) 45%, transparent 70%);
+  animation-name: rise-up; animation-timing-function: linear; animation-fill-mode: forwards;
+}
+@keyframes rise-up {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  10%, 85% { opacity: .5; }
+  100% { transform: translateY(-110vh) translateX(30px); opacity: 0; }
+}
+
 /* Altbilgi kayan yazı */
 .marquee { animation: marquee 30s linear infinite; }
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }

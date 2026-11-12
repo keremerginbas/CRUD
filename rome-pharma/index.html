@@ -22,8 +22,10 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/images/fav-icon.png">
 <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/schibsted-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/css/site.css?v=180ba342">
+<link rel="stylesheet" href="assets/css/site.css?v=76430f3c">
 <script>document.documentElement.classList.add("js")</script>
+<script>document.documentElement.classList.add("intro-done")</script>
+<script src="assets/js/rome.js?v=dabe6899" defer></script>
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -77,18 +79,43 @@
   </div>
 </header>
 <main id="main">
-<section class="relative isolate overflow-hidden bg-ink text-on-dark">
-  <video class="absolute inset-0 -z-10 h-full w-full object-cover" poster="assets/media/pills-stethoscope-poster.webp" muted loop playsinline autoplay preload="auto" aria-hidden="true"><source src="assets/media/pills-stethoscope.webm" type="video/webm"><source src="assets/media/pills-stethoscope.mp4" type="video/mp4"></video>
-  <div class="absolute inset-0 -z-10 bg-gradient-to-r from-ink via-ink/85 to-ink/30"></div>
-  <div class="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-ink to-transparent"></div>
-  <div class="wrap relative flex min-h-[min(760px,88vh)] items-center">
-    <div class="py-20 lg:py-28">
-      <h1 class="h-display mb-7 text-white motion-safe:animate-[rise_.8s_ease_both] max-w-[16ch] !text-[clamp(38px,4.4vw,62px)]">Türkiye ilaç pazarına güvenilir giriş.</h1>
-      <p class="lead mb-10 max-w-[40ch] text-on-dark motion-safe:animate-[rise_.8s_.12s_ease_both]">Rome Pharma, uluslararası ilaç firmalarının Türkiye pazarına erişimini kolaylaştıran bir ilaç tedarik ve danışmanlık şirketidir. Kamu kurumlarına ve özel sektöre çözüm sunar.</p>
-      <div class="flex flex-wrap gap-3.5 motion-safe:animate-[rise_.8s_.24s_ease_both]"><a class="btn" href="contact.html#contact-form">İletişime Geçin</a><a class="btn btn-ghost" href="about.html">Hakkımızda</a></div>
+<section class="rome-hero relative isolate overflow-hidden text-white" data-rome-hero data-theme="supply" data-logo="assets/images/rome-logo.webp" data-label-line="Türkiye&#x27;nin ilaç kapısı">
+  <div class="rome-bg rome-bg-supply absolute inset-0 -z-30"></div>
+  <div class="rome-bg rome-bg-consult absolute inset-0 -z-30 opacity-0 transition-opacity duration-[1400ms]" data-bg-consult></div>
+  <div class="pointer-events-none absolute inset-0 -z-20 overflow-hidden" data-bubbles></div>
+  <div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[100svh] [&_canvas]:h-full [&_canvas]:w-full lg:h-full" data-rome-scene aria-hidden="true"></div>
+  <div class="wrap relative grid min-h-[calc(100svh-72px)] gap-10 pb-10 pt-[44svh] lg:min-h-[calc(100svh-84px)] lg:grid-cols-[1fr_auto] lg:pt-12">
+    <div class="flex flex-col gap-7">
+      <p class="m-0 text-[15px] font-semibold text-accent" data-intro>Ankara merkezli ilaç tedarik ve danışmanlık şirketi</p>
+      <h1 class="h-display m-0 max-w-[12ch] text-[clamp(40px,5.4vw,78px)] text-white" data-intro style="--d:.1s">Türkiye ilaç pazarına güvenilir giriş.</h1>
+      <p class="m-0 max-w-[40ch] text-lg leading-relaxed text-on-dark" data-intro style="--d:.2s">Rome Pharma, uluslararası ilaç firmalarının Türkiye pazarına erişimini kolaylaştıran bir ilaç tedarik ve danışmanlık şirketidir. Kamu kurumlarına ve özel sektöre çözüm sunar.</p>
+      <a class="group inline-flex w-fit items-center gap-5 rounded-full bg-black/40 py-1.5 pl-6 pr-1.5 font-bold text-white no-underline backdrop-blur transition hover:-translate-y-0.5 hover:bg-black/60" href="contact.html#contact-form" data-intro style="--d:.3s">İletişime Geçin
+        <span class="grid h-10 w-10 place-items-center rounded-full bg-accent text-2xl font-black leading-none text-accent-on transition-transform duration-300 group-hover:rotate-90">+</span></a>
+      <div class="mt-auto flex items-center gap-4 pt-6" data-intro style="--d:.4s">
+        <span class="grid h-12 w-12 place-items-center rounded-xl border border-white/15 bg-white/5"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 22h18"/><path d="M6 18v-7"/><path d="M10 18v-7"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="m12 2 8 5H4Z"/></svg></span>
+        <span><span class="block text-xs font-semibold text-on-dark-muted">Ankara, Dubai ve ABD ofisleri</span><span class="block text-[15px] font-semibold">Kamu ve özel sektör</span></span>
+      </div>
+    </div>
+    <div class="flex flex-col items-start gap-8 lg:items-end lg:text-right">
+      <div data-intro style="--d:.3s">
+        <p class="mb-3 text-sm font-semibold text-on-dark-muted">İş kollarımız</p>
+        <div class="flex gap-3">
+        <button class="group w-[150px] rounded-[26px] border border-white/15 bg-white/[.06] p-4 pt-5 text-left backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[.12] aria-pressed:border-accent aria-pressed:bg-white/[.1]" type="button" data-theme-card="supply" aria-pressed="true">
+          <span class="mb-6 grid h-12 w-12 place-items-center rounded-2xl bg-[#2DCE98] text-[#0F2A40] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg></span>
+          <span class="block text-[15px] font-semibold leading-tight text-white">İlaç Tedariki</span>
+          <span class="mt-1 block text-xs leading-snug text-on-dark">Tedarik, ihale ve Yurt Dışı İlaç</span>
+        </button>
+        <button class="group w-[150px] rounded-[26px] border border-white/15 bg-white/[.06] p-4 pt-5 text-left backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:bg-white/[.12] aria-pressed:border-accent aria-pressed:bg-white/[.1]" type="button" data-theme-card="consult" aria-pressed="false">
+          <span class="mb-6 grid h-12 w-12 place-items-center rounded-2xl bg-[#38A8F5] text-[#0F2A40] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110"><svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m11 17 2 2a1 1 0 1 0 3-3"/><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.9-3.9a3 3 0 0 0-4.2 0l-.9.9a1 1 0 1 1-3-3l2.8-2.8a5.8 5.8 0 0 1 7.1-.9l.5.3a2 2 0 0 0 1.4.2L21 4"/><path d="m21 3 1 11h-2"/><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/><path d="M3 4h8"/></svg></span>
+          <span class="block text-[15px] font-semibold leading-tight text-white">Danışmanlık</span>
+          <span class="mt-1 block text-xs leading-snug text-on-dark">Pazara giriş ve yerel temsil</span>
+        </button>
+        </div>
+      </div>
+      <p class="m-0 max-w-[34ch] text-[15px] leading-relaxed text-on-dark transition duration-300" data-swap data-supply="Doğrudan tedarik programları, devlet ihaleleri ve reçeteye dayalı programlar (Yurt Dışı İlaç Programı) için farmasötik ürünlerin tedarik edilmesi" data-consult="Türkiye ilaç pazarına girmeyi planlayan uluslararası firmalara danışmanlık verilmesi ve yerel temsilcilik yapılması">Doğrudan tedarik programları, devlet ihaleleri ve reçeteye dayalı programlar (Yurt Dışı İlaç Programı) için farmasötik ürünlerin tedarik edilmesi</p>
+      <h2 class="m-0 mt-auto text-[clamp(44px,6vw,92px)] font-bold leading-[.92] tracking-[-0.03em] text-white transition duration-300" data-swap data-supply="Güvenilir&lt;br&gt;tedarik" data-consult="Uzman&lt;br&gt;danışmanlık">Güvenilir<br>tedarik</h2>
     </div>
   </div>
-  <div class="wrap relative"><ul class="flex flex-wrap gap-x-8 gap-y-2.5 border-t border-white/15 pb-7 pt-5 text-[15px]"><li class="flex items-baseline gap-2.5"><span class="h-2.5 w-2.5 shrink-0 translate-y-[-1px] rounded-full bg-accent"></span><span><strong class="font-semibold text-white">Merkez</strong> Ankara</span></li><li class="flex items-baseline gap-2.5"><span class="h-2.5 w-2.5 shrink-0 translate-y-[-1px] rounded-full bg-white"></span><span><strong class="font-semibold text-white">Dubai</strong> ofis</span></li><li class="flex items-baseline gap-2.5"><span class="h-2.5 w-2.5 shrink-0 translate-y-[-1px] rounded-full bg-white"></span><span><strong class="font-semibold text-white">ABD</strong> irtibat ofisi</span></li></ul></div>
 </section>
 
 <section class="section">
@@ -140,7 +167,9 @@
   </div>
 </section>
 
-<section class="section bg-ink">
+<section class="relative isolate overflow-hidden py-28 md:py-36">
+  <video class="absolute inset-0 -z-20 h-full w-full object-cover" poster="assets/media/pills-stethoscope-poster.webp" muted loop playsinline autoplay preload="metadata" aria-hidden="true"><source src="assets/media/pills-stethoscope.webm" type="video/webm"><source src="assets/media/pills-stethoscope.mp4" type="video/mp4"></video>
+  <div class="absolute inset-0 -z-10 bg-gradient-to-r from-ink via-ink/85 to-ink/40"></div>
   <div class="wrap flex flex-wrap items-center justify-between gap-x-12 gap-y-7" data-reveal>
     <h2 class="h-section m-0 max-w-[22ch] text-white">Ürününüzü Türkiye pazarına taşımak için görüşelim.</h2>
     <a class="btn" href="contact.html#contact-form">İletişime Geçin <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>

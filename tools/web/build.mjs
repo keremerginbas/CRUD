@@ -35,7 +35,7 @@ for (const brand of brands) {
   await esbuild.build({
     entryPoints: brand === "orphion"
       ? { site: join(here, "src/site.js"), globe: join(here, "src/globe.js"), capsules: join(here, "src/capsules.js") }
-      : { site: join(here, "src/site.js") },
+      : { site: join(here, "src/site.js"), rome: join(here, "src/rome.js") },
     outdir: join(dir, "assets/js"),
     bundle: true,
     minify: true,
@@ -51,6 +51,7 @@ for (const brand of brands) {
     __HASH_SITE_JS__: hash(join(dir, "assets/js/site.js")),
     __HASH_GLOBE_JS__: brand === "orphion" ? hash(join(dir, "assets/js/globe.js")) : "",
     __HASH_CAPSULES_JS__: brand === "orphion" ? hash(join(dir, "assets/js/capsules.js")) : "",
+    __HASH_ROME_JS__: brand === "rome" ? hash(join(dir, "assets/js/rome.js")) : "",
   };
   for (const f of readdirSync(dir).filter((n) => n.endsWith(".html"))) {
     const p = join(dir, f);
