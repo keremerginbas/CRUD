@@ -319,7 +319,7 @@ export default function CRM({
               className="btn secondary"
               onClick={() => setImporting(true)}
             >
-              CSV içe aktar
+              İçe aktar
             </button>
             <button
               className="btn primary"

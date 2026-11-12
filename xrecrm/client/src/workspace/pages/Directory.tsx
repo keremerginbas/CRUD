@@ -482,7 +482,7 @@ export default function Directory({
                 className="btn secondary"
                 onClick={() => setImporting(true)}
               >
-                CSV içe aktar
+                İçe aktar
               </button>
             )}
             <button className="btn primary" onClick={openNew}>

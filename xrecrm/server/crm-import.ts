@@ -264,11 +264,13 @@ async function referenceIssues(
           "Şirket adı birden fazla görünür kayda karşılık geliyor.",
         ),
       );
-    } else {
+    } else if (kind !== "leads") {
+      // Müşteri (lead) kaydında şirket adı serbest metin olarak saklanabilir;
+      // kişi kaydı ise mevcut bir şirkete bağlanmak zorundadır.
       issues.push(
         issue(
           "REFERENCE_NOT_FOUND",
-          "Şirket adı görünür mevcut bir şirketle eşleşmiyor.",
+          "Şirket adı mevcut bir şirketle eşleşmiyor. Önce şirketleri içe aktarın veya bu sütunu atlayın.",
         ),
       );
     }

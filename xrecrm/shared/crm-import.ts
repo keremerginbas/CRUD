@@ -114,6 +114,7 @@ export function normalizeHeader(raw: unknown): string {
 
 const aliases: Record<ImportField, string[]> = {
   name: [
+    "tam ad", "tam adı", "adı soyadı", "müşteri adı", "ilgili kişi", "contact",
     "name",
     "müşteri",
     "musteri",
@@ -128,8 +129,8 @@ const aliases: Record<ImportField, string[]> = {
     "şirket adı",
     "şirket",
   ],
-  phone: ["phone", "telefon", "tel", "telephone", "gsm", "mobile", "cep"],
-  email: ["email", "e mail", "e posta", "e-posta", "mail", "eposta"],
+  phone: ["mobile phone", "business phone", "main phone", "cep telefonu", "iş telefonu", "ana telefon", "telefon numarası", "phone", "telefon", "tel", "telephone", "gsm", "mobile", "cep"],
+  email: ["email address", "e posta adresi", "email address 1", "email", "e mail", "e posta", "e-posta", "mail", "eposta"],
   companyId: [
     "companyid",
     "company id",
@@ -138,6 +139,7 @@ const aliases: Record<ImportField, string[]> = {
     "company_id",
   ],
   companyName: [
+    "parent customer", "üst müşteri", "account", "hesap", "firma ünvanı", "account name", "hesap adı", "firma adı", "firma",
     "companyname",
     "company name",
     "company",
@@ -147,9 +149,10 @@ const aliases: Record<ImportField, string[]> = {
     "sirket",
   ],
   contactId: ["contactid", "contact id", "kişi id", "kisi id", "contact_id"],
-  city: ["city", "şehir", "sehir", "il", "location"],
-  source: ["source", "kaynak", "lead source", "channel", "kanal"],
+  city: ["address 1: city", "adres 1: şehir", "address 1 city", "adres 1 şehir", "city (address 1)", "city", "şehir", "sehir", "il", "location"],
+  source: ["müşteri adayı kaynağı", "aday kaynağı", "kaynak kampanya", "source", "kaynak", "lead source", "channel", "kanal"],
   notes: [
+    "topic", "konu", "subject",
     "notes",
     "note",
     "not",
@@ -333,11 +336,63 @@ export function mapHeaders(
   headers: string[],
   kind: CrmImportKind,
 ): Array<ImportField | null> {
+  // Aynı alana uyan birden çok sütun varsa (ör. "İş Telefonu" ve "Cep Telefonu")
+  // otomatik eşleme yalnızca ilkini seçer; diğerleri kullanıcı seçene kadar boş kalır.
+  const taken = new Set<ImportField>();
   return headers.map((header) => {
-    const mapped = aliasToField.get(normalizeHeader(header)) || null;
-    if (kind === "companies" && mapped === "companyName") return "name";
+    let mapped = aliasToField.get(normalizeHeader(header)) || null;
+    if (kind === "companies" && mapped === "companyName") mapped = "name";
+    if (!mapped || taken.has(mapped)) return null;
+    taken.add(mapped);
     return mapped;
   });
+}
+
+const SYSTEM_COLUMN = /^\((do not modify|değiştirmeyin|degistirmeyin)\)/i;
+const firstNameHeaders = new Set(["first name", "ad", "adı", "ilk ad", "isim"]);
+const lastNameHeaders = new Set(["last name", "soyad", "soyadı", "soyadi", "soy ad"]);
+
+/**
+ * Başka CRM'lerden (özellikle Dynamics 365 "Excel'e aktar") gelen tabloyu içe aktarmaya hazırlar:
+ * - "(Do Not Modify) …" gizli sistem sütunlarını ve başlıksız sütunları atar,
+ * - tam ad sütunu yoksa "Ad" + "Soyad" sütunlarını tek "Ad Soyad" sütununda birleştirir.
+ */
+export function normalizeImportTable(parsed: ParsedDelimitedFile): ParsedDelimitedFile {
+  const keep = parsed.headers
+    .map((header, index) => ({ header: header.trim(), index }))
+    .filter(({ header }) => header && !SYSTEM_COLUMN.test(header));
+  let headers = keep.map(({ header }) => header);
+  let rows = parsed.rows.map((row) => keep.map(({ index }) => row[index] ?? ""));
+  const normalized = headers.map(normalizeHeader);
+  const first = normalized.findIndex((header) => firstNameHeaders.has(header));
+  const last = normalized.findIndex((header) => lastNameHeaders.has(header));
+  const hasFullName = normalized.some(
+    (header, index) =>
+      index !== first && index !== last && aliasToField.get(header) === "name" &&
+      !["company name", "şirket adı", "şirket", "account name", "hesap adı", "firma adı", "firma"].includes(header),
+  );
+  if (first >= 0 && last >= 0 && !hasFullName) {
+    const drop = Math.max(first, last);
+    const at = Math.min(first, last);
+    rows = rows.map((row) => {
+      const full = `${row[first] ?? ""} ${row[last] ?? ""}`.replace(/\s+/g, " ").trim();
+      const copy = row.slice();
+      copy[at] = full;
+      copy.splice(drop, 1);
+      return copy;
+    });
+    headers = headers.slice();
+    headers[at] = "Ad Soyad";
+    headers.splice(drop, 1);
+  }
+  if (!headers.length)
+    throw new ImportParseError("MISSING_HEADER", "İlk satır sütun başlıklarını içermeli.");
+  if (headers.length > IMPORT_MAX_COLUMNS)
+    throw new ImportParseError(
+      "TOO_MANY_COLUMNS",
+      `Dosya ${IMPORT_MAX_COLUMNS} sütundan fazla içeriyor.`,
+    );
+  return { ...parsed, headers, rows };
 }
 
 export function mapDelimitedRows(

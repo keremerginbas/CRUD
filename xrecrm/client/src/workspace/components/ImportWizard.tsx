@@ -16,6 +16,7 @@ import {
   normalizeName,
   normalizePhone,
   parseDelimited,
+  normalizeImportTable,
   previewImportRows,
   type CrmImportKind,
   type ImportIssue,
@@ -86,10 +87,11 @@ function localPreview(
           code: "AMBIGUOUS_REFERENCE",
           message: "Şirket adı birden fazla görünür kayda karşılık geliyor.",
         });
-      else
+      else if (kind !== "leads")
         issues.push({
           code: "REFERENCE_NOT_FOUND",
-          message: "Şirket adı görünür mevcut bir şirketle eşleşmiyor.",
+          message:
+            "Şirket adı mevcut bir şirketle eşleşmiyor. Önce şirketleri içe aktarın veya bu sütunu atlayın.",
         });
     }
     if (
@@ -232,12 +234,23 @@ export default function ImportWizard({
     setError("");
     setPreview(null);
     setFileName(file.name);
-    if (file.size > IMPORT_MAX_BYTES) {
-      setError("Dosya 1 MB sınırını aşıyor.");
+    const excel = /\.xlsx$/i.test(file.name);
+    if (/\.xls$/i.test(file.name)) {
+      setError("Eski .xls biçimi desteklenmiyor. Excel'de \"Farklı kaydet\" ile .xlsx seçin.");
+      return;
+    }
+    if (file.size > (excel ? 5_000_000 : IMPORT_MAX_BYTES)) {
+      setError(excel ? "Excel dosyası 5 MB sınırını aşıyor." : "Dosya 1 MB sınırını aşıyor.");
       return;
     }
     try {
-      const parsed = parseDelimited(await file.text());
+      const parsed = normalizeImportTable(
+        excel
+          ? (await import("../../../../shared/xlsx-read")).parseXlsx(
+              new Uint8Array(await file.arrayBuffer()),
+            )
+          : parseDelimited(await file.text()),
+      );
       if (generation !== fileGeneration.current) return;
       setParsedFile(parsed);
       setMapping(mapHeaders(parsed.headers, kind));
@@ -380,7 +393,7 @@ export default function ImportWizard({
             <span className="eyebrow">VERİ KALİTESİ</span>
             <h2 id="crm-import-title">{labels[kind]} içe aktar</h2>
             <p>
-              CSV veya TSV yükleyin. Mevcut kayıtlar değiştirilmez; yalnızca
+              Excel (.xlsx) veya CSV yükleyin. Mevcut kayıtlar değiştirilmez; yalnızca
               yeni kayıtlar eklenir.
             </p>
           </div>
@@ -397,14 +410,16 @@ export default function ImportWizard({
           <label className="dq-file-drop">
             <FileUp size={24} />
             <strong>
-              {result ? "Yeni dosya seçin" : "CSV / TSV dosyası seçin"}
+              {result ? "Yeni dosya seçin" : "Excel veya CSV dosyası seçin"}
             </strong>
-            <span>En fazla 1 MB ve 1.000 veri satırı</span>
+            <span>
+              Dynamics 365, Bitrix24 veya Excel dışa aktarımı · en fazla 1.000 satır
+            </span>
             <input
               disabled={busy}
               aria-label="CSV dosyası seç"
               type="file"
-              accept=".csv,.tsv,text/csv,text/tab-separated-values"
+              accept=".xlsx,.csv,.tsv,text/csv,text/tab-separated-values,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
               onChange={(event) => void selectFile(event.target.files?.[0])}
             />
           </label>
