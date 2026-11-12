@@ -329,7 +329,7 @@ def maps_link(o):
     return "https://www.google.com/maps/search/?api=1&query=" + quote_plus(o["maps_query"])
 
 
-def offices_html(lang, dark=False):
+def offices_html(lang, dark=False, cols=3):
     out = []
     for i, o in enumerate(s.OFFICES):
         top = "border-accent" if i == 0 else ("border-white/20" if dark else "border-line")
@@ -340,7 +340,8 @@ def offices_html(lang, dark=False):
         <h3 class="mb-2.5 text-lg {title}">{esc(o['title'][lang])}</h3>
         <address class="mb-3 not-italic"><a class="no-underline hover:underline {text}" href="{maps_link(o)}" target="_blank" rel="noopener">{'<br>'.join(esc(l) for l in o['lines'])}</a></address>{phones_html(o, dark)}
       </li>""")
-    return f'<ul class="grid gap-8 md:grid-cols-3">{"".join(out)}\n    </ul>'
+    grid = "md:grid-cols-3" if cols == 3 else ""
+    return f'<ul class="grid gap-8 {grid}">{"".join(out)}\n    </ul>'
 
 
 def footer(lang):
@@ -354,8 +355,9 @@ def footer(lang):
     links_html = "".join(f'<li><a class="font-medium text-on-dark no-underline hover:text-accent" href="{href(k, lang)}">{esc(l)}</a></li>'
                          for k, l in links)
     return f"""
-<footer class="bg-ink-deep pb-8 pt-20 text-base text-on-dark">
-  <div class="wrap">
+<footer class="overflow-hidden bg-ink-deep pb-8 text-base text-on-dark">
+  {marquee(lang)}
+  <div class="wrap pt-20">
     <div class="grid gap-12 border-b border-white/10 pb-14 lg:grid-cols-[4fr_8fr]">
       <div>
         <img class="mb-5 h-16 w-auto" src="{logo}" width="{w}" height="{h}" alt="{esc(u['logo_alt'].format(C['name']))}" loading="lazy">
@@ -382,13 +384,29 @@ def footer(lang):
 <script src="assets/js/site.js?v=__HASH_SITE_JS__" defer></script>"""
 
 
+MARQUEE = {
+    "rome": {"tr": ["Türkiye'nin ilaç kapısı", "İlaç tedariki", "Danışmanlık", "Yerel temsil"],
+             "en": ["Türkiye's pharmaceutical gateway", "Pharmaceutical supply", "Consulting", "Local representation"]},
+}
+
+
+def marquee(lang):
+    words = STORY[lang]["marquee"] if BRAND_KEY == "orphion" else MARQUEE["rome"][lang]
+    seq = "".join(f'<span class="flex items-center gap-10 px-5"><span>{esc(w)}</span><span class="h-2.5 w-2.5 rounded-full bg-accent"></span></span>' for w in words)
+    return (f'<div class="border-b border-white/10 py-6" aria-hidden="true"><div class="marquee flex w-max whitespace-nowrap text-[clamp(28px,5vw,60px)] font-medium tracking-tight text-white/90">'
+            f'{seq}{seq}</div></div>')
+
+
 def head(page, lang, title, desc, extra=""):
     other = "en" if lang == "tr" else "tr"
     og = s.SITE_URL + getattr(s, "OG_IMAGES", {}).get(page, "assets/images/og-image.jpg")
-    globe_js = ('\n<script src="assets/js/globe.js?v=__HASH_GLOBE_JS__" defer></script>'
-                if page == "home" and BRAND_KEY == "orphion" else "")
+    globe_js = ""
+    if page == "home" and BRAND_KEY == "orphion":
+        globe_js = ('\n<script>setTimeout(function(){document.documentElement.classList.add("intro-done")},8000)</script>'
+                    '\n<script src="assets/js/capsules.js?v=__HASH_CAPSULES_JS__" defer></script>'
+                    '\n<script src="assets/js/globe.js?v=__HASH_GLOBE_JS__" defer></script>')
     return f"""<!DOCTYPE html>
-<html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}">
+<html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}"{' data-smooth' if page == 'home' else ''}>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -663,6 +681,123 @@ def orphion_caps(lang, link=True):
     return cap_list(items)
 
 
+STORY = {
+    "tr": {
+        "loader": "Erişim yolları hazırlanıyor", "loader_done": "Köprü kuruldu",
+        "eyebrow": "Dubai merkezli ilaç ve hasta erişim şirketi",
+        "aside": "Dünyanın herhangi bir yerinde geliştirilen tedaviyi, Türkiye'de ona ihtiyaç duyan hastaya ulaştırıyoruz.",
+        "scroll": "Kaydırın",
+        "drop_h": "Tedavi var.\nAma hastaya ulaşmıyor.",
+        "drop_p": "Ruhsatlandırma süreçleri, geri ödeme sistemleri ve tedarik zincirleri; bilimsel olarak mevcut bir tedaviyi ona ihtiyaç duyan hastadan binlerce kilometre uzakta tutabilir.",
+        "facts": [("Hizmet alanı", "7 uzmanlık", "İsimli hasta erişiminden münhasır distribütörlüğe"),
+                  ("Ofis", "Dubai, Ankara, Ohio", "Merkez Dubai, Türkiye'de irtibat ofisi"),
+                  ("Etkinlik", "5 uluslararası kongre", "2025–2026, ABD ve Avrupa")],
+        "heart_h": "Her tedavinin arkasında\nbir hayat var.",
+        "heart_p": "Bir ilacın değeri, ihtiyaç duyan hastaya gerçekten ulaştığı anda ortaya çıkar. Bütün parçaları bu tek amaç için bir araya getiriyoruz.",
+        "heart_hint": "İmleci kalbin üzerinden geçirin",
+        "release_h": "Ve mesafe\nkısalır.",
+        "release_p": "Tıbbi inovasyon ile ona ihtiyaç duyan hasta arasında güvenilir, sürdürülebilir ve sorumlu bir köprü kuruyoruz.",
+        "marquee": ["Bridging Innovation and Life", "Hasta erişimi", "Nadir hastalıklar", "Türkiye ve ötesi"],
+    },
+    "en": {
+        "loader": "Preparing access pathways", "loader_done": "Bridge in place",
+        "eyebrow": "Dubai-headquartered pharmaceutical and patient-access company",
+        "aside": "We bring therapies developed anywhere in the world to the patients in Türkiye who need them.",
+        "scroll": "Scroll",
+        "drop_h": "The treatment exists.\nThe patient can't reach it.",
+        "drop_p": "Regulatory pathways, reimbursement systems and supply chains can leave an effective treatment thousands of miles away from the patient waiting for it.",
+        "facts": [("Capabilities", "7 areas of expertise", "From named patient access to exclusive distribution"),
+                  ("Offices", "Dubai, Ankara, Ohio", "Headquarters in Dubai, liaison office in Türkiye"),
+                  ("Events", "5 international congresses", "2025–2026, USA and Europe")],
+        "heart_h": "Behind every treatment,\na life.",
+        "heart_p": "A medicine's value is realised the moment it reaches the patient who needs it. We bring every piece together for that one purpose.",
+        "heart_hint": "Move your cursor through the heart",
+        "release_h": "And the distance\ncloses.",
+        "release_p": "We build a trusted, sustainable and responsible bridge between medical innovation and the patients who need it.",
+        "marquee": ["Bridging Innovation and Life", "Patient access", "Rare diseases", "Türkiye and beyond"],
+    },
+}
+
+
+def lines_html(text):
+    return "<br>".join(esc(x) for x in text.split("\n"))
+
+
+def loader_html(lang):
+    st = STORY[lang]
+    return f"""
+<div class="intro-loader fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-[radial-gradient(circle_at_50%_42%,#ffffff_0%,#eef2f9_45%,#d6e0ef_100%)] transition-opacity duration-500 [&.leaving]:pointer-events-none [&.leaving]:opacity-0" data-loader role="status" aria-live="polite">
+  <img class="h-14 w-auto motion-safe:animate-[rise_.7s_.1s_ease_both]" src="{LOGO['header'][0]}" alt="" width="{LOGO['header'][1]}" height="{LOGO['header'][2]}">
+  <p class="m-0 text-xs font-semibold uppercase tracking-[0.28em] text-muted motion-safe:animate-[rise_.7s_.26s_ease_both]" data-loader-status data-done="{esc(st['loader_done'])}">{esc(st['loader'])}</p>
+  <div class="h-0.5 w-[clamp(180px,32vw,280px)] overflow-hidden rounded-full bg-ink/15 motion-safe:animate-[rise_.7s_.42s_ease_both]"><div class="h-full w-0 rounded-full bg-gradient-to-r from-accent to-accent-ink shadow-[0_0_14px_rgb(var(--accent)/.6)] transition-[width] duration-500" data-loader-bar></div></div>
+  <p class="m-0 text-sm font-bold tabular-nums tracking-[0.1em] text-accent-ink motion-safe:animate-[rise_.7s_.58s_ease_both]" data-loader-num>000%</p>
+</div>"""
+
+
+def story_html(lang):
+    st = STORY[lang]
+    u = UI[lang]
+    facts = "".join(f"""
+        <li class="group rounded-[1.4rem] bg-gradient-to-b from-white/90 via-white/40 to-white/10 p-px shadow-[0_14px_40px_-12px_rgb(var(--ink)/.25)] transition-transform duration-300 hover:-translate-y-0.5">
+          <div class="relative overflow-hidden rounded-[1.35rem] bg-white/45 px-6 py-5 backdrop-blur-xl">
+            <span class="pointer-events-none absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"></span>
+            <div class="mb-2 flex items-center justify-between text-[13px] font-semibold text-muted"><span>{esc(k)}</span><span class="h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_rgb(var(--accent)/.7)]"></span></div>
+            <p class="m-0 text-lg font-semibold text-ink">{esc(v)}</p>
+            <p class="m-0 text-sm text-muted">{esc(d)}</p>
+          </div>
+        </li>""" for k, v, d in st["facts"])
+    actions = (f'<a class="btn" href="{href("contact", lang, "#contact-form")}">{esc(s.HERO[lang]["cta_partner"])}</a>'
+               f'<a class="btn bg-white/60 text-ink shadow-[inset_0_0_0_1.5px_rgb(var(--ink)/.25)] backdrop-blur hover:bg-white" href="{href("services", lang)}">{esc(s.HERO[lang]["cta_caps"])}</a>')
+    return f"""
+<div class="story-bg pointer-events-none fixed inset-0 -z-10" data-story-bg data-stage="0" aria-hidden="true"></div>
+<div class="pointer-events-none fixed inset-0 z-0 transition-opacity duration-700" data-capsules aria-hidden="true"></div>
+<div class="relative z-10" data-story>
+  <section class="pointer-events-none flex min-h-[calc(100svh-72px)] items-end lg:min-h-[calc(100svh-84px)]">
+    <div class="wrap flex flex-col justify-between gap-10 pb-12 md:flex-row md:items-end md:pb-14">
+      <div class="pointer-events-auto max-w-[760px]">
+        <p class="mb-5 text-[15px] font-semibold text-accent-ink" data-intro>{esc(st['eyebrow'])}</p>
+        <h1 class="h-display mb-8 max-w-[11ch]" lang="en" data-intro style="--d:.12s">{esc(s.TAGLINE)}</h1>
+        <div class="flex flex-wrap gap-3.5" data-intro style="--d:.24s">{actions}</div>
+      </div>
+      <div class="pointer-events-auto rounded-2xl border border-white/60 bg-white/55 p-5 shadow-[0_14px_40px_-16px_rgb(var(--ink)/.3)] backdrop-blur-xl md:w-[300px]" data-intro style="--d:.36s">
+        <p class="m-0 text-[17px] font-medium leading-snug text-ink">{esc(st['aside'])}</p>
+        <p class="mt-5 flex items-center gap-2 text-sm font-semibold text-muted motion-safe:animate-pulse">{icon('chev', 'h-4 w-4')} {esc(st['scroll'])}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pointer-events-none flex min-h-[100svh] items-center">
+    <div class="wrap grid items-start gap-10 py-28 lg:grid-cols-12 lg:gap-16">
+      <div class="pointer-events-auto lg:col-span-7">
+        <h2 class="h-section m-0 text-[clamp(38px,5.4vw,76px)] leading-[0.98]" data-reveal>{lines_html(st['drop_h'])}</h2>
+        <p class="lead mt-8 max-w-lg" data-reveal data-reveal-delay="1">{esc(st['drop_p'])}</p>
+      </div>
+      <ul class="pointer-events-auto grid gap-3.5 lg:col-span-5 lg:pt-3" data-reveal data-reveal-delay="2">{facts}
+      </ul>
+    </div>
+  </section>
+
+  <section class="pointer-events-none flex min-h-[100svh] flex-col justify-between">
+    <div class="wrap pt-28">
+      <h2 class="h-section m-0 max-w-2xl text-[clamp(38px,5.4vw,76px)] leading-[0.98]" data-reveal>{lines_html(st['heart_h'])}</h2>
+    </div>
+    <div class="wrap flex justify-end pb-28">
+      <div class="pointer-events-auto max-w-sm md:text-right">
+        <p class="text-[17px] leading-relaxed text-body" data-reveal>{esc(st['heart_p'])}</p>
+        <p class="mt-6 inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/45 px-4 py-2.5 text-sm font-semibold text-ink backdrop-blur-md" data-reveal data-reveal-delay="2">{icon('arrow', 'h-4 w-4')} {esc(st['heart_hint'])}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="pointer-events-none flex min-h-[100svh] items-center justify-center text-center">
+    <div class="wrap pointer-events-auto max-w-3xl py-28">
+      <h2 class="h-section m-0 text-[clamp(42px,6vw,88px)] leading-[0.95]" data-reveal>{lines_html(st['release_h'])}</h2>
+      <p class="lead mx-auto mt-8 max-w-md" data-reveal data-reveal-delay="1">{esc(st['release_p'])}</p>
+    </div>
+  </section>
+</div>"""
+
+
 def orphion_home(lang):
     h = HOME[lang]
     u = UI[lang]
@@ -676,8 +811,8 @@ def orphion_home(lang):
     quote_txt = quote_txt[0].upper() + quote_txt[1:]
     actions = (f'<a class="btn" href="{href("contact", lang, "#contact-form")}">{esc(s.HERO[lang]["cta_partner"])}</a>'
                f'<a class="btn btn-ghost" href="{href("services", lang)}">{esc(s.HERO[lang]["cta_caps"])}</a>')
-    return hero(lang, s.TAGLINE, s.HERO[lang]["lead"], actions, h["legend"]) + f"""
-
+    return loader_html(lang) + story_html(lang) + f"""
+<div class="relative z-10 bg-white">
 <section class="section">
   <div class="wrap grid items-start gap-12 lg:grid-cols-[5fr_7fr] lg:gap-24">
     <div class="lg:sticky lg:top-32" data-reveal>
@@ -721,13 +856,17 @@ def orphion_home(lang):
   </div>
 </section>
 
-<section class="section">
-  <div class="wrap">
-    {section_head(h['offices_h'], f'<p class="m-0">{esc(h["offices_p"])}</p>')}
-    {offices_html(lang)}
+<section class="section overflow-hidden bg-ink">
+  <div class="wrap grid items-center gap-12 lg:grid-cols-[5fr_6fr]">
+    <div>
+      {section_head(h['offices_h'], f'<p class="m-0 text-on-dark">{esc(h["offices_p"])}</p>', dark=True)}
+      {offices_html(lang, dark=True, cols=1)}
+    </div>
+    <div class="relative -mx-6 sm:mx-auto sm:w-[86%] lg:-mr-24 lg:w-[115%]" data-reveal>{globe(lang)}</div>
   </div>
 </section>
-{cta_band(lang, h['cta_h'])}"""
+{cta_band(lang, h['cta_h'], dark=False)}
+</div>"""
 
 
 def orphion_about(lang):

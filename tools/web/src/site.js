@@ -251,6 +251,32 @@
         }
     }
 
+    /* Yumuşak kaydırma (ana sayfa, fare tekerleği): ağırlıklı, akıcı bir his */
+    if (root.hasAttribute("data-smooth") && !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
+        var target = window.scrollY, current = window.scrollY, gliding = false;
+        var maxScroll = function () { return document.documentElement.scrollHeight - window.innerHeight; };
+        var glide = function () {
+            current += (target - current) * 0.09;
+            if (Math.abs(target - current) < 0.5) { current = target; gliding = false; }
+            window.scrollTo(0, current);
+            if (gliding) requestAnimationFrame(glide);
+        };
+        window.addEventListener("wheel", function (e) {
+            if (e.ctrlKey || e.defaultPrevented || document.body.classList.contains("menu-open")) return;
+            var el = e.target;
+            while (el && el !== document.body) {  // kendi kaydırması olan alanlara karışma
+                if (el.scrollHeight > el.clientHeight && /(auto|scroll)/.test(getComputedStyle(el).overflowY)) return;
+                el = el.parentElement;
+            }
+            e.preventDefault();
+            var delta = e.deltaY * (e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? window.innerHeight : 1);
+            if (!gliding) { target = current = window.scrollY; }
+            target = Math.max(0, Math.min(maxScroll(), target + delta));
+            if (!gliding) { gliding = true; requestAnimationFrame(glide); }
+        }, { passive: false });
+        window.addEventListener("scroll", function () { if (!gliding) target = current = window.scrollY; }, { passive: true });
+    }
+
     /* Telif yılı */
     $$("[data-current-year]").forEach(function (el) { el.textContent = new Date().getFullYear(); });
 })();
