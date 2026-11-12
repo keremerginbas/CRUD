@@ -8,7 +8,7 @@
 // ------------------------------------------------------------------
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, readdirSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as esbuild from "esbuild";
@@ -27,6 +27,7 @@ for (const brand of brands) {
 
   console.log(`[${brand}] Tailwind CSS derleniyor`);
   mkdirSync(join(dir, "assets/css"), { recursive: true });
+  rmSync(join(dir, "assets/js"), { recursive: true, force: true });
   execFileSync(join(here, "node_modules/.bin/tailwindcss"),
     ["-c", "tailwind.config.cjs", "-i", "src/site.css", "-o", join(dir, "assets/css/site.css"), "--minify"],
     { cwd: here, stdio: "inherit", env: { ...process.env, SITE_DIR: dir } });
@@ -39,7 +40,9 @@ for (const brand of brands) {
     outdir: join(dir, "assets/js"),
     bundle: true,
     minify: true,
-    format: "iife",
+    format: "esm",          // ortak Three.js parçası tek dosyada, bir kez indirilir
+    splitting: true,
+    chunkNames: "chunk-[hash]",
     target: ["es2018"],
     legalComments: "none",
     loader: { ".json": "json" },

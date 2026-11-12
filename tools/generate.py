@@ -381,7 +381,7 @@ def footer(lang):
   <p class="mb-3">{u['cookie_text']}</p>
   <div class="flex gap-2.5"><button class="accept min-h-[42px] flex-1 rounded-md bg-ink px-4 font-semibold text-white" type="button">{esc(u['cookie_accept'])}</button><button class="reject min-h-[42px] flex-1 rounded-md border border-ink px-4 font-semibold text-ink" type="button">{esc(u['cookie_reject'])}</button></div>
 </div>
-<script src="assets/js/site.js?v=__HASH_SITE_JS__" defer></script>"""
+<script type="module" src="assets/js/site.js?v=__HASH_SITE_JS__"></script>"""
 
 
 MARQUEE = {
@@ -403,11 +403,11 @@ def head(page, lang, title, desc, extra=""):
     globe_js = ""
     if page == "home" and BRAND_KEY == "rome":
         globe_js = ('\n<script>document.documentElement.classList.add("intro-done")</script>'
-                    '\n<script src="assets/js/rome.js?v=__HASH_ROME_JS__" defer></script>')
+                    '\n<script type="module" src="assets/js/rome.js?v=__HASH_ROME_JS__"></script>')
     if page == "home" and BRAND_KEY == "orphion":
         globe_js = ('\n<script>setTimeout(function(){document.documentElement.classList.add("intro-done")},8000)</script>'
-                    '\n<script src="assets/js/capsules.js?v=__HASH_CAPSULES_JS__" defer></script>'
-                    '\n<script src="assets/js/globe.js?v=__HASH_GLOBE_JS__" defer></script>')
+                    '\n<script type="module" src="assets/js/capsules.js?v=__HASH_CAPSULES_JS__"></script>'
+                    '\n<script type="module" src="assets/js/globe.js?v=__HASH_GLOBE_JS__"></script>')
     return f"""<!DOCTYPE html>
 <html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}"{' data-smooth' if page == 'home' else ''}>
 <head>
