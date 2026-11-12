@@ -110,6 +110,7 @@ import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-
 import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
 import { registerBackupRoutes, startBackupScheduler } from "./backup.js";
 import { liveNotifyStore } from "./live-notify.js";
+import { registerSmsRoutes, sendLeadSms, smsConfigured } from "./sms.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
@@ -389,6 +390,7 @@ function integrationSettings() {
     netgsm: { configured: providerConfigured("netgsm"), browserSip: false },
     bitrix: { configured: providerConfigured("bitrix") },
     webhook: { configured: providerConfigured("webhook") },
+    sms: { configured: smsConfigured() },
   };
 }
 
@@ -605,7 +607,7 @@ async function executeOutbox(
           ? "calls"
           : payload.action === "webhook"
             ? "integrations"
-            : ["stage", "owner", "note", "email", "notify"].includes(String(payload.action))
+            : ["stage", "owner", "note", "email", "notify", "sms"].includes(String(payload.action))
               ? "crm"
               : "tasks";
     if (
@@ -799,6 +801,17 @@ async function executeOutbox(
       skipped: true,
       reason: "Bu çalışma alanında iletişim otomasyonları henüz açık değil.",
     };
+  if (action === "sms") {
+    const sent = await sendLeadSms(
+      store,
+      owner,
+      lead,
+      renderTemplate(typeof config.template === "string" ? config.template : "", lead),
+      "Otomasyon",
+      `sms-event-${event.id}`,
+    );
+    return { completed: true, activity: "sms", leadId: lead.id, ...sent };
+  }
   if (action === "whatsapp") {
     const text = renderTemplate(
       typeof config.template === "string"
@@ -1738,6 +1751,7 @@ export function createApp(
   registerLocalAccountRoutes(app, store);
   registerInviteAdminRoutes(app, store);
   registerTriggerRoutes(app, store);
+  registerSmsRoutes(app, store);
   registerBitrixImportRoutes(app, store, baseStore);
   registerIntegrationSettingsRoutes(app, store);
   registerEmailRoutes(app, store);

@@ -7,6 +7,7 @@ import { EmailPointer } from "../components/EmailConnect";
 import { useState, useEffect } from "react";
 import {
   MessageCircle,
+  Smartphone,
   Phone,
   Sparkles,
   Webhook,
@@ -62,6 +63,16 @@ const providers = [
     path: "/api/webhooks/evolution",
   },
   {
+    id: "sms",
+    name: "SMS (Turkcell)",
+    caption: "Turkcell Mesajüssü hesabı",
+    icon: Smartphone,
+    tone: "blue",
+    text: "Müşteri kartından ve otomasyonlardan SMS gönderin.",
+    keys: ["TURKCELL_SMS_USERNAME", "TURKCELL_SMS_PASSWORD", "TURKCELL_SMS_SENDER"],
+    path: "",
+  },
+  {
     id: "netgsm",
     name: "Telefon santrali",
     caption: "Netgsm, Asterisk veya FreePBX",
@@ -108,6 +119,7 @@ const settingGroupOf: Record<string, string> = {
   meta: "meta",
   evolution: "evolution",
   netgsm: "pbx",
+  sms: "sms",
   vapi: "vapi",
   webhook: "legacy-webhooks",
   bitrix: "bitrix",

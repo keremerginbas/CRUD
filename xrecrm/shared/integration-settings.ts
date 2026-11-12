@@ -63,6 +63,20 @@ export const SETTING_GROUPS: SettingGroup[] = [
     ],
   },
   {
+    id: "sms",
+    title: "SMS (Turkcell Mesajüssü)",
+    description: "Turkcell Mesajüssü hesabınızla müşterilere SMS gönderin.",
+    test: "sms",
+    fields: [
+      { key: "TURKCELL_SMS_USERNAME", label: "Mesajüssü kullanıcı adı", placeholder: "5xxxxxxxxx", help: "Mesajüssü'ne giriş yaptığınız numara veya kullanıcı adı. Hesapta API (entegrasyon) izni açık olmalı." },
+      { key: "TURKCELL_SMS_PASSWORD", label: "Mesajüssü şifresi", secret: true },
+      { key: "TURKCELL_SMS_SENDER", label: "Gönderici başlığı", placeholder: "XREYAZILIM", help: "Turkcell'de onaylı başlığınız; SMS bu adla gider." },
+      { key: "TURKCELL_SMS_COMMERCIAL", label: "Ticari ileti (İYS)", placeholder: "0", help: "0: bilgilendirme iletisi (varsayılan). 1: reklam/kampanya iletisi; yalnız İYS izni olan numaralara gider." },
+      { key: "TURKCELL_SMS_NUMBER_FORMAT", label: "Numara biçimi", placeholder: "10", help: "10: 5xxxxxxxxx (varsayılan). 90: 905xxxxxxxxx. Gönderim reddedilirse diğerini deneyin." },
+      { key: "TURKCELL_SMS_BASE_URL", label: "Servis adresi (isteğe bağlı)", placeholder: "https://mesajussu.turkcell.com.tr/api/api/integration/v1", help: "Turkcell farklı bir adres verdiyse buraya yazın." },
+    ],
+  },
+  {
     id: "meta",
     title: "WhatsApp Cloud API (Meta)",
     description: "Resmî WhatsApp Business API.",

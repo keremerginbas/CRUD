@@ -31,6 +31,9 @@ export function requireModulePermissions(
     /^\/email(?:\/|$)/.test(path) ||
     // Tetikleyici ve bildirim kutusu uçları kendi yetki kontrollerini yapar.
     /^\/(triggers|inbox)(?:\/|$)/.test(path) ||
+    // SMS uçları kendi yetki kontrollerini yapar.
+    /^\/sms(?:\/|$)/.test(path) ||
+    path === "/integrations/sms/test" ||
     path === "/pbx/me" ||
     path === "/lines" ||
     path === "/audit" ||

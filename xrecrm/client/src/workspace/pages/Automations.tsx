@@ -19,6 +19,7 @@ import {
   UserCog,
   BellRing,
   Zap,
+  Smartphone,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Rule, Lead, lines, formatPhone } from "../data";
@@ -44,6 +45,7 @@ const actionNames = {
   note: "Karta not ekle",
   email: "E-posta gönder",
   notify: "Çalışana bildirim gönder",
+  sms: "SMS gönder",
 };
 const icons = {
   task: CheckSquare,
@@ -55,6 +57,7 @@ const icons = {
   note: StickyNote,
   email: Mail,
   notify: BellRing,
+  sms: Smartphone,
 };
 const catalogGroups = [
   { id: "customer", label: "Müşteri iletişimi", icon: MessageCircle },
@@ -65,6 +68,7 @@ const catalogGroups = [
 ];
 const catalogItems: { group: string; action: Rule["action"]; title: string; description: string }[] = [
   { group: "customer", action: "whatsapp", title: "WhatsApp mesajı gönder", description: "Müşteriye hazırladığınız mesajı otomatik gönderir." },
+  { group: "customer", action: "sms", title: "SMS gönder", description: "Müşterinin telefonuna Turkcell üzerinden SMS gönderir." },
   { group: "customer", action: "email", title: "E-posta gönder", description: "Müşteriye, sorumlusunun bağlı posta kutusundan e-posta gönderir." },
   { group: "record", action: "stage", title: "Aşamayı değiştir", description: "Müşteriyi seçtiğiniz aşamaya taşır." },
   { group: "record", action: "owner", title: "Sorumluyu değiştir", description: "Müşteriyi seçtiğiniz çalışana devreder." },
@@ -804,10 +808,12 @@ export default function Automations() {
                   </select>
                 </label>
               )}
-              {(["task", "whatsapp", "note", "email", "notify"] as string[]).includes(editing.action) && (
+              {(["task", "whatsapp", "note", "email", "notify", "sms"] as string[]).includes(editing.action) && (
                 <label className="full">
                   {editing.action === "task"
                     ? "Görev açıklaması"
+                    : editing.action === "sms"
+                      ? "SMS metni"
                     : editing.action === "notify"
                       ? "Bildirim metni"
                     : editing.action === "note"

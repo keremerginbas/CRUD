@@ -1,3 +1,4 @@
+import SmsCompose from "./SmsCompose";
 import {
   missingStageFields,
   requiredCrmFieldLabels,
@@ -267,6 +268,7 @@ export default function LeadDrawer({
                 <Send size={13} />
                 E-posta gönder
               </button>
+              <SmsCompose leadId={current.id} phone={current.phone} name={current.name} />
             </div>
             <form onSubmit={save}>
               <h4>Müşteri bilgileri</h4>
