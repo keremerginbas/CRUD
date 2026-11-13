@@ -176,6 +176,24 @@ export default function Projects() {
   const live = useMemo(() => activeInventory(store.projects, store.units), [store.projects, store.units]);
   const stats = useMemo(() => projectStatsMap(store.units), [store.units]);
   const archivedProjects = useMemo(() => store.projects.filter((p) => p.archived), [store.projects]);
+  const shownAll = showArchived ? archivedProjects : live.projects;
+  // Galeride önce satıştaki projeler, sonra yakında başlayacaklar, en sonda tamamlananlar görünür.
+  const [statusFilter, setStatusFilter] = useState<"hepsi" | Project["status"]>("hepsi");
+  const statusOrder: Record<Project["status"], number> = { "satışta": 0, "yakında": 1, "tamamlandı": 2 };
+  const shown = useMemo(
+    () =>
+      shownAll
+        .filter((p) => statusFilter === "hepsi" || p.status === statusFilter)
+        .slice()
+        .sort(
+          (a, b) =>
+            statusOrder[a.status] - statusOrder[b.status] ||
+            Number(b.images.length > 0) - Number(a.images.length > 0) ||
+            a.name.localeCompare(b.name, "tr"),
+        ),
+    [shownAll, statusFilter],
+  );
+  const statusCount = (status: Project["status"]) => shownAll.filter((p) => p.status === status).length;
   const project = store.projects.find((p) => p.id === projectId);
   const archivedUnits = useMemo(() => (projectId ? store.units.filter((u) => u.projectId === projectId && u.archived) : []), [store.units, projectId]);
   const openUnit = store.units.find((u) => u.id === unitOpen);
@@ -385,7 +403,6 @@ export default function Projects() {
     );
   }
 
-  const shown = showArchived ? archivedProjects : live.projects;
   return (
     <div className="pj-page">
       <PageTitle
@@ -403,6 +420,24 @@ export default function Projects() {
             Daire bul ({live.units.length.toLocaleString("tr-TR")})
           </button>
         </div>
+        {view === "gallery" && shownAll.length > 0 && (
+          <div className="pj-seg pj-status-filter" role="group" aria-label="Proje durumu">
+            <button type="button" aria-pressed={statusFilter === "hepsi"} onClick={() => setStatusFilter("hepsi")}>
+              Tümü
+            </button>
+            <button type="button" aria-pressed={statusFilter === "satışta"} onClick={() => setStatusFilter("satışta")}>
+              Devam eden ({statusCount("satışta")})
+            </button>
+            {statusCount("yakında") > 0 && (
+              <button type="button" aria-pressed={statusFilter === "yakında"} onClick={() => setStatusFilter("yakında")}>
+                Yakında ({statusCount("yakında")})
+              </button>
+            )}
+            <button type="button" aria-pressed={statusFilter === "tamamlandı"} onClick={() => setStatusFilter("tamamlandı")}>
+              Tamamlanan ({statusCount("tamamlandı")})
+            </button>
+          </div>
+        )}
         {view === "gallery" && archivedProjects.length > 0 && (
           <button type="button" className="pj-link" aria-pressed={showArchived} onClick={() => setShowArchived((v) => !v)}>
             <Archive size={14} /> {showArchived ? "Etkin projelere dön" : `Arşiv (${archivedProjects.length})`}
