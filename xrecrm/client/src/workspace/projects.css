@@ -257,10 +257,14 @@ html .app-shell select.pj-status-select.pj-tone-sold:not(#_) {
   align-items: center;
   justify-content: center;
   aspect-ratio: 16 / 10;
+  overflow: hidden;
   background: var(--xre-surface-muted);
   color: var(--xre-text-faint);
 }
+/* Görselin kendi oranı kartın yüksekliğini değiştirmesin: kapak alanını doldurur, taşan kısım kırpılır. */
 .pj-card-cover img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1160,3 +1164,5 @@ th[aria-sort="descending"] .pj-sort {
     flex-wrap: wrap;
   }
 }
+.pj-file-button { cursor: pointer; position: relative; }
+.pj-file-button input { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }

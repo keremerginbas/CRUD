@@ -127,6 +127,50 @@ export default function Projects() {
   const [unitEdit, setUnitEdit] = useState<{ unit: Unit; isNew: boolean } | null>(null);
   const [unitOpen, setUnitOpen] = useState("");
   const [importing, setImporting] = useState(false);
+  const [listBusy, setListBusy] = useState(false);
+  // Hazır proje listesi (ör. firmanın web sitesinden derlenmiş .json) tek seferde yüklenir;
+  // aynı adlı proje varsa atlanır. Daireler ayrıca Excel'den içe aktarılır.
+  const importProjectList = async (file: File) => {
+    setListBusy(true);
+    try {
+      if (file.size > 2_000_000) throw new Error("Dosya 2 MB sınırını aşıyor.");
+      const parsed: unknown = JSON.parse(await file.text());
+      if (!Array.isArray(parsed)) throw new Error("Dosya bir proje listesi içermiyor.");
+      const clean = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
+      const existing = new Set(store.projects.map((p) => p.name.trim().toLocaleLowerCase("tr-TR")));
+      let added = 0;
+      let skipped = 0;
+      let failed = 0;
+      for (const raw of parsed.slice(0, 200) as Record<string, unknown>[]) {
+        const name = clean(raw?.name, 200);
+        if (!name) continue;
+        if (existing.has(name.toLocaleLowerCase("tr-TR"))) {
+          skipped += 1;
+          continue;
+        }
+        const list = (value: unknown, max: number) => (Array.isArray(value) ? value.map((v) => clean(v, 80)).filter(Boolean).slice(0, max) : []);
+        const location = list(raw.locationAdvantages, 20);
+        const description = [clean(raw.description, 4000), location.length ? `Lokasyon: ${location.join(" · ")}` : ""].filter(Boolean).join("\n\n");
+        const images = (Array.isArray(raw.images) ? raw.images : [])
+          .filter((img): img is { url: string; kind?: string } => Boolean(img) && typeof (img as any).url === "string" && /^https:\/\//i.test((img as any).url))
+          .slice(0, 24)
+          .map((img) => ({ id: crypto.randomUUID(), url: img.url, kind: (img.kind === "gerçek" ? "gerçek" : "render") as ProjectImageKind, caption: "" }));
+        const status = (["satışta", "yakında", "tamamlandı"] as const).find((x) => x === raw.status) || "satışta";
+        try {
+          await store.saveProject({ ...blankProject(), name, city: clean(raw.city, 120), district: clean(raw.district, 120), description: description.slice(0, 5000), status, amenities: list(raw.amenities, 40), images });
+          existing.add(name.toLocaleLowerCase("tr-TR"));
+          added += 1;
+        } catch {
+          failed += 1;
+        }
+      }
+      toast.success(`${added} proje eklendi${skipped ? ` · ${skipped} zaten vardı` : ""}${failed ? ` · ${failed} eklenemedi` : ""}.`);
+    } catch (error) {
+      toast.error(error instanceof SyntaxError ? "Dosya okunamadı: geçerli bir .json değil." : (error as Error).message);
+    } finally {
+      setListBusy(false);
+    }
+  };
   const [budget, setBudget] = useState(false);
 
   const live = useMemo(() => activeInventory(store.projects, store.units), [store.projects, store.units]);
@@ -178,6 +222,21 @@ export default function Projects() {
           <button type="button" className="btn secondary pj-touch" onClick={() => setImporting(true)} disabled={!live.projects.length}>
             <FileSpreadsheet size={16} /> İçe aktar
           </button>
+          {!project && (
+            <label className="btn secondary pj-touch pj-file-button" title="Hazır proje listesi dosyasını (.json) yükleyin">
+              <Building2 size={16} /> {listBusy ? "Yükleniyor…" : "Proje listesi yükle"}
+              <input
+                type="file"
+                accept=".json,application/json"
+                disabled={listBusy}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) void importProjectList(file);
+                }}
+              />
+            </label>
+          )}
           {project && !project.archived ? (
             <button type="button" className="btn primary pj-touch" onClick={() => setUnitEdit({ unit: blankUnit(project.id), isNew: true })}>
               <Plus size={16} /> Yeni daire
