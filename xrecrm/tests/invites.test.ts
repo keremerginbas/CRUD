@@ -125,3 +125,30 @@ it("kayıtla açılan firmanın daveti çalışanı o firmanın alanına alır, 
   expect(state.leads.map((l: any) => l.id)).not.toContain("lead_xre");
   expect((await send(base, "/api/auth/local-login", { email: "usta@firma.test", password: "Deneme1234" })).status).toBe(401);
 });
+
+it("sahip bir hesabı siler: kişi giremez, açık oturumu düşer; kendi hesabını ve başka firmanınkini silemez", async () => {
+  const { base } = await start();
+  const owner = await setup(base);
+  const roleId = await roleOf(base, owner);
+  const created = await send(base, "/api/auth/accounts", { name: "Silinecek Kişi", email: "silinecek@firma.test", password: "Deneme1234", roleId }, owner);
+  expect(created.status).toBe(201);
+  const { account } = await created.json();
+  const login = await send(base, "/api/auth/local-login", { email: "silinecek@firma.test", password: "Deneme1234" });
+  const session = cookieOf(login);
+  expect((await send(base, "/api/me", undefined, session)).status).toBe(200);
+  // Çalışan başkasını silemez.
+  expect((await send(base, `/api/auth/accounts/${account.id}`, {}, session, "DELETE")).status).toBe(403);
+  // Sahip kendi hesabını silemez.
+  const accounts = (await (await send(base, "/api/auth/accounts", undefined, owner)).json()).accounts as { id: string; email: string }[];
+  const own = accounts.find((a) => a.email === "sahip@xre.test")!;
+  expect((await send(base, `/api/auth/accounts/${own.id}`, {}, owner, "DELETE")).status).toBe(400);
+  expect((await send(base, "/api/auth/accounts/olmayan", {}, owner, "DELETE")).status).toBe(404);
+
+  expect((await send(base, `/api/auth/accounts/${account.id}`, {}, owner, "DELETE")).status).toBe(200);
+  // Açık oturum anında geçersiz; yeniden giriş de olmaz; listede yok.
+  expect((await send(base, "/api/state", undefined, session)).status).toBeGreaterThanOrEqual(401);
+  expect((await send(base, "/api/auth/local-login", { email: "silinecek@firma.test", password: "Deneme1234" })).status).toBe(401);
+  expect(((await (await send(base, "/api/auth/accounts", undefined, owner)).json()).accounts as { email: string }[]).some((a) => a.email === "silinecek@firma.test")).toBe(false);
+  // Aynı e-posta ile yeniden hesap açılabilir.
+  expect((await send(base, "/api/auth/accounts", { name: "Yeni Kişi", email: "silinecek@firma.test", password: "Deneme1234", roleId }, owner)).status).toBe(201);
+});

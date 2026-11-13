@@ -1,6 +1,6 @@
 import "../login.css";
 import { useEffect, useState } from "react";
-import { Copy, KeyRound, Mail, Plus, UserCheck, UserX, X } from "lucide-react";
+import { Copy, KeyRound, Mail, Plus, Trash2, UserCheck, UserX, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "../store";
 import { Badge, Modal } from "./ui";
@@ -108,6 +108,21 @@ export default function LoginAccounts() {
       .writeText(link)
       .then(() => toast.success("Davet bağlantısı kopyalandı."))
       .catch(() => toast.error("Kopyalanamadı; bağlantıyı elle seçip kopyalayın."));
+  const removeAccount = async (account: Account) => {
+    if (
+      !window.confirm(
+        `${account.name} (${account.email}) hesabı kalıcı olarak silinsin mi?\n\nKişi sisteme giremez. Müşteri, görev ve geçmiş kayıtları silinmez. Yalnızca geçici olarak kapatmak istiyorsanız "pasifleştir" düğmesini kullanın.`,
+      )
+    )
+      return;
+    try {
+      await request(`/api/auth/accounts/${account.id}`, {}, "DELETE");
+      toast.success("Hesap silindi.");
+      await load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
   const patch = async (account: Account, body: Record<string, unknown>, message: string) => {
     try {
       await request(`/api/auth/accounts/${account.id}`, body, "PATCH");
@@ -158,6 +173,16 @@ export default function LoginAccounts() {
                   <button className="text-button" onClick={() => setReset({ account: a, password: "" })}>
                     Şifre sıfırla
                   </button>
+                  {user?.openId !== `local:${a.id}` && (
+                    <button
+                      className="icon-button danger"
+                      aria-label={`${a.name} hesabını sil`}
+                      title="Hesabı kalıcı olarak sil"
+                      onClick={() => void removeAccount(a)}
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
                   {user?.openId !== `local:${a.id}` && (
                     <button
                       className="icon-button"

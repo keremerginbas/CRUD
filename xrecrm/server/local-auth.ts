@@ -383,6 +383,30 @@ export function registerLocalAccountRoutes(app: Express, store: Store) {
     }
   });
 
+  // Hesabı kalıcı olarak siler: giriş hesabı ve çalışan kaydı kaldırılır, açık oturumları hemen düşer.
+  // Müşteri, görev ve geçmiş kayıtları silinmez; sorumlu adı olarak kalır.
+  app.delete("/api/auth/accounts/:id", async (req, res) => {
+    const auth = ownerOnly(req, res);
+    if (!auth) return;
+    try {
+      const owner = auth.ownerOpenId;
+      const account = (await raw.get<LocalAccount>(ACCOUNT_KIND, String(req.params.id), owner))?.payload;
+      if (!account) return res.status(404).json({ error: "NOT_FOUND", message: "Hesap bulunamadı." });
+      if (account.openId === auth.user.openId)
+        return res.status(400).json({ error: "SELF_DELETE", message: "Kendi hesabınızı silemezsiniz." });
+      if (account.openId === owner)
+        return res.status(400).json({ error: "OWNER_DELETE", message: "Çalışma alanı sahibinin hesabı silinemez." });
+      // Önce çalışan kaydı: erişim bu kayıt üzerinden verildiği için silinince oturum anında geçersiz olur.
+      const employees = await raw.list<AccessEmployee>("employee", owner);
+      for (const row of employees)
+        if (row.payload.openId === account.openId || row.id === account.employeeId) await raw.delete("employee", row.id, owner);
+      await raw.delete(ACCOUNT_KIND, account.id, owner);
+      res.json({ ok: true });
+    } catch (error) {
+      fail(res, error);
+    }
+  });
+
   app.post("/api/auth/password", async (req, res) => {
     const auth = authOf(req);
     try {
