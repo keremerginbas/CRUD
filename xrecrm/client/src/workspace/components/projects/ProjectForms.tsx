@@ -1,6 +1,6 @@
 // Proje ve daire oluşturma/düzenleme pencereleri ile daire ayrıntı penceresi.
 import { useRef, useState } from "react";
-import { ImagePlus, Pencil, Trash2 } from "lucide-react";
+import { FileSignature, ImagePlus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   PROJECT_IMAGE_KINDS,
@@ -328,7 +328,7 @@ export function UnitEditor({ unit, isNew, projects, store, onClose }: { unit: Un
 }
 
 export function UnitDetail({
-  unit, project, canWrite, onClose, onEdit, onArchive,
+  unit, project, canWrite, onClose, onEdit, onArchive, onQuote,
 }: {
   unit: Unit;
   project?: Project;
@@ -336,6 +336,8 @@ export function UnitDetail({
   onClose: () => void;
   onEdit: () => void;
   onArchive: () => void;
+  /** Doluysa "Teklif hazırla" düğmesi gösterilir (teklif yetkisi olan kullanıcı, satılmamış daire). */
+  onQuote?: () => void;
 }) {
   const perM2 = pricePerM2(unit);
   const facts: [string, string][] = [
@@ -374,13 +376,20 @@ export function UnitDetail({
         {unit.notes && <p className="pj-text">{unit.notes}</p>}
         {unit.floorPlanImageUrl && <img className="pj-plan-preview" src={unit.floorPlanImageUrl} alt="Kat planı" />}
       </div>
-      {canWrite && (
+      {(canWrite || onQuote) && (
         <div className="sx-modal-footer pj-detail-foot">
-          <button type="button" className="btn secondary pj-touch" onClick={onArchive}>Arşivle</button>
+          {canWrite ? <button type="button" className="btn secondary pj-touch" onClick={onArchive}>Arşivle</button> : <span />}
           <div className="sx-actions">
-            <button type="button" className="btn primary pj-touch" onClick={onEdit}>
-              <Pencil size={15} /> Düzenle
-            </button>
+            {canWrite && (
+              <button type="button" className={`btn ${onQuote ? "secondary" : "primary"} pj-touch`} onClick={onEdit}>
+                <Pencil size={15} /> Düzenle
+              </button>
+            )}
+            {onQuote && (
+              <button type="button" className="btn primary pj-touch" onClick={onQuote}>
+                <FileSignature size={15} /> Teklif hazırla
+              </button>
+            )}
           </div>
         </div>
       )}

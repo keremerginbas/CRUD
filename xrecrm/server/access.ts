@@ -641,7 +641,10 @@ function safePermissionMap(value: unknown): PermissionMap {
     value && typeof value === "object" ? (value as Record<string, any>) : {};
   const grants = emptyPermissionMap();
   for (const module of ACCESS_MODULES) {
-    const item = input[module];
+    let item = input[module];
+    // "Teklifler" modülünden önce kaydedilmiş rol: CRM yetkisinden türetilir (yönetici yetkisi verilmez).
+    if (!item && module === "quotes" && input.crm && typeof input.crm === "object")
+      item = { read: input.crm.read, write: false, scope: input.crm.scope };
     if (!item || typeof item !== "object") continue;
     grants[module] = {
       read: Boolean(item.read),

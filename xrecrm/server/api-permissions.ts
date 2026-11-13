@@ -33,6 +33,8 @@ export function requireModulePermissions(
     /^\/(triggers|inbox)(?:\/|$)/.test(path) ||
     // SMS uçları kendi yetki kontrollerini yapar.
     /^\/sms(?:\/|$)/.test(path) ||
+    // Teklif uçları (onay, oranlar, para maliyeti) kendi yetki kontrollerini yapar.
+    /^\/quotes(?:\/|$)/.test(path) ||
     path === "/integrations/sms/test" ||
     path === "/pbx/me" ||
     path === "/lines" ||

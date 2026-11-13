@@ -67,7 +67,8 @@ function bodyOf(req: Request): Record<string, unknown> {
 // Aynı alanda eşzamanlı yazmalar sıraya alınır: (blok, daire no) tekilliği "oku-sonra-yaz"
 // ile denetlendiği için iki istek aynı anda aynı daireyi oluşturamamalı.
 const queues = new Map<string, Promise<unknown>>();
-function serial<T>(owner: string, task: () => Promise<T>): Promise<T> {
+// Teklif modülü (server/quotes.ts) daire durumunu değiştirirken aynı sırayı kullanır.
+export function serial<T>(owner: string, task: () => Promise<T>): Promise<T> {
   const next = (queues.get(owner) || Promise.resolve()).then(task, task);
   const settled = next.catch(() => undefined);
   queues.set(owner, settled);

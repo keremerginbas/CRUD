@@ -39,6 +39,8 @@ import {
   CheckSquare,
   Building2,
   Building,
+  FileSignature,
+  Percent,
   MessagesSquare,
   BarChart3,
   ContactRound,
@@ -76,6 +78,7 @@ import LeadDrawer from "./components/LeadDrawer";
 import { PREVIEW, WORKSPACE_SLUG, currentPath, withBase } from "./nav";
 import InviteAccept from "./components/InviteAccept";
 import { InboxList, useInbox } from "./components/InboxNotifications";
+import { usePendingQuotes } from "./quotes";
 import { SignupScreen, WorkspaceLocked, WorkspaceMissing } from "./components/Signup";
 import LoginScreen, { QrApprove, type AuthStatus } from "./components/LoginScreen";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -94,6 +97,8 @@ const Lines = lazy(() => import("./pages/Lines"));
 const Integrations = lazy(() => import("./pages/Integrations"));
 const Directory = lazy(() => import("./pages/Directory"));
 const Projects = lazy(() => import("./pages/Projects"));
+const Quotes = lazy(() => import("./pages/Quotes"));
+const CostOfMoney = lazy(() => import("./pages/CostOfMoney"));
 const Work = lazy(() => import("./pages/Work"));
 const Feed = lazy(() => import("./pages/Feed"));
 const Reports = lazy(() => import("./pages/Reports"));
@@ -115,6 +120,8 @@ const navGroups = [
       ["/feed", "Akış", MessagesSquare],
       ["/kanban", "CRM", Columns3],
       ["/projects", "Projeler", Building],
+      ["/quotes", "Teklifler", FileSignature],
+      ["/cost-of-money", "Para maliyeti", Percent],
       ["/activities", "Etkinlikler", CalendarDays],
       ["/contacts", "Kişiler", ContactRound],
       ["/companies", "Şirketler", Building2],
@@ -162,6 +169,8 @@ function Workspace() {
     "/kanban": "crm",
     "/leads": "crm",
     "/projects": "crm",
+    "/quotes": "quotes",
+    "/cost-of-money": "quotes",
     "/activities": "crm",
     "/contacts": "contacts",
     "/companies": "companies",
@@ -191,6 +200,8 @@ function Workspace() {
     tenant && tenantHidden.has(url) ? false :
     url === "/workspaces" ? Boolean(!demo && user?.isOwner && workspace?.isDefault) :
     ownerOnly.has(url) ? Boolean(user?.isOwner) :
+    // Para maliyeti yalnız yöneticiye (Teklifler: yazma) açıktır.
+    url === "/cost-of-money" ? Boolean(demo || user?.isOwner || user?.permissions?.quotes?.write) :
     (url === "/data-quality" &&
       Boolean(
         user?.permissions?.crm?.read ||
@@ -216,6 +227,7 @@ function Workspace() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const inbox = useInbox();
+  const pendingQuotes = usePendingQuotes();
   // Telefonda menü açıkken arkadaki sayfa kaymasın (CSS'te kök :has() yerine sınıf kullanılır).
   useEffect(() => {
     document.documentElement.classList.toggle("xre-drawer-open", sidebar);
@@ -480,6 +492,11 @@ function Workspace() {
                               (m) => m.direction === "inbound",
                             ).length
                           }
+                        </b>
+                      )}
+                      {url === "/quotes" && pendingQuotes.pending > 0 && (
+                        <b className="nav-count" title={pendingQuotes.manager ? "Onay bekleyen teklifler" : "Onay bekleyen teklifleriniz"}>
+                          {pendingQuotes.pending}
                         </b>
                       )}
                       {url === "/tasks" && (
@@ -800,6 +817,10 @@ function Workspace() {
               />
             ) : path === "/projects" ? (
               <Projects />
+            ) : path === "/quotes" ? (
+              <Quotes />
+            ) : path === "/cost-of-money" ? (
+              <CostOfMoney />
             ) : path === "/tasks" ? (
               <Work onLead={setLeadModal} />
             ) : path === "/feed" ? (

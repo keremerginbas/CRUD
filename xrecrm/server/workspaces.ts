@@ -121,6 +121,8 @@ const TENANT_API = new Set<string>([
   "email", "triggers", "inbox",
   // Proje ve daire envanteri: kayıtlar ve görseller alanın kendi kapsamında tutulur.
   "projects", "units", "project-images",
+  // Teklifler, onay, PDF, para maliyeti ve prim: alanın kendi kayıtlarıyla çalışır.
+  "quotes",
   ...suiteKinds,
 ]);
 const TENANT_BLOCKED_PATHS = [/^\/leads\/[^/]+\/analyze$/];

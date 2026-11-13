@@ -15,6 +15,8 @@ export const ACCESS_MODULES = [
   "access",
   "departments",
   "worktime",
+  // Gayrimenkul teklifleri: okuma = modülü kullanır, yazma = yönetici (onay, oranlar, para maliyeti).
+  "quotes",
 ] as const;
 
 export type AccessModule = (typeof ACCESS_MODULES)[number];
@@ -76,6 +78,7 @@ export const ACCESS_MODULE_LABELS: Record<AccessModule, string> = {
   access: "Erişim ve roller",
   departments: "Departmanlar",
   worktime: "Mesai",
+  quotes: "Teklifler (yazma: onay, oranlar, para maliyeti)",
 };
 
 function grants(
@@ -132,6 +135,7 @@ export const DEFAULT_ROLES: readonly AccessRole[] = [
       users: { read: true, write: true, scope: "all" },
       departments: { read: true, write: true, scope: "all" },
       worktime: { read: true, write: true, scope: "all" },
+      quotes: { read: true, write: true, scope: "all" },
     }),
   },
   {
@@ -151,6 +155,7 @@ export const DEFAULT_ROLES: readonly AccessRole[] = [
       ai: { read: true, write: true, scope: "own" },
       reports: { read: true, write: false, scope: "own" },
       worktime: { read: true, write: true, scope: "own" },
+      quotes: { read: true, write: false, scope: "own" },
     }),
   },
   {

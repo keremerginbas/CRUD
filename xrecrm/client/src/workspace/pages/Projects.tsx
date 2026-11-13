@@ -1,5 +1,5 @@
 // Projeler: proje galerisi, proje ayrıntısı ve daire (bağımsız bölüm) gezgini.
-// Gayrimenkul satış modülünün 1. fazı — yalnız envanter; ödeme planı, teklif vb. sonraki fazlardadır.
+// Gayrimenkul satış modülünün 1. fazı — envanter. Daire ayrıntısındaki "Teklif hazırla" 2. faza (Teklifler) bağlanır.
 import { useEffect, useMemo, useState } from "react";
 import { Archive, ArchiveRestore, ArrowLeft, Building2, CalendarClock, FileSpreadsheet, MapPin, Pencil, Plus, Wallet } from "lucide-react";
 import { toast } from "sonner";
@@ -15,13 +15,36 @@ import {
   type UnitStatus,
 } from "../../../../shared/real-estate";
 import { Empty, PageTitle } from "../components/ui";
-import { useInventory } from "../projects";
+import { useInventory, type InventoryStore } from "../projects";
+import { useStore } from "../store";
+import { goTo, useQuotes } from "../quotes";
+import { withBase } from "../nav";
+import QuoteEditor from "../components/quotes/QuoteEditor";
 import UnitExplorer, { statusLabel } from "../components/projects/UnitExplorer";
 import BudgetFinder from "../components/projects/BudgetFinder";
 import UnitImport from "../components/projects/UnitImport";
 import { ProjectEditor, UnitDetail, UnitEditor, blankProject, blankUnit, imageKindLabel, projectStatusLabel } from "../components/projects/ProjectForms";
 import "../suite-pages.css";
 import "../projects.css";
+import "../quotes.css";
+
+/** Daireden teklif: teklif verisi yalnız düğmeye basılınca yüklenir. */
+function UnitQuote({ unit, inventory, onClose }: { unit: Unit; inventory: InventoryStore; onClose: () => void }) {
+  const quotes = useQuotes(inventory);
+  if (quotes.loading) return null;
+  return (
+    <QuoteEditor
+      store={quotes}
+      unit={unit}
+      project={inventory.projects.find((p) => p.id === unit.projectId)}
+      onClose={onClose}
+      onSaved={() => {
+        onClose();
+        goTo("/quotes", withBase);
+      }}
+    />
+  );
+}
 
 const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const deliveryLabel = (date: string) => {
@@ -120,6 +143,10 @@ function Gallery({ project }: { project: Project }) {
 export default function Projects() {
   const store = useInventory();
   const { canWrite } = store;
+  const { demo, user } = useStore();
+  const quotePerm = user?.permissions?.quotes;
+  const canQuote = Boolean(demo || user?.isOwner || quotePerm?.write || (quotePerm?.read && user?.permissions?.crm?.write));
+  const [quoteUnit, setQuoteUnit] = useState("");
   const [view, setView] = useState<"gallery" | "explorer">("gallery");
   const [projectId, setProjectId] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -284,8 +311,17 @@ export default function Projects() {
             setUnitOpen("");
           }}
           onArchive={() => archiveUnit(openUnit)}
+          onQuote={
+            canQuote && !openUnit.archived && openUnit.status !== "satıldı" && openUnit.listPrice > 0
+              ? () => {
+                  setQuoteUnit(openUnit.id);
+                  setUnitOpen("");
+                }
+              : undefined
+          }
         />
       )}
+      {quoteUnit && store.units.some((u) => u.id === quoteUnit) && <UnitQuote unit={store.units.find((u) => u.id === quoteUnit)!} inventory={store} onClose={() => setQuoteUnit("")} />}
       {importing && <UnitImport projects={live.projects} units={store.units} initialProjectId={project && !project.archived ? project.id : ""} store={store} onClose={() => setImporting(false)} />}
       {budget && (
         <BudgetFinder
