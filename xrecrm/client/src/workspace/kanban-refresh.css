@@ -344,3 +344,10 @@ html[data-xre-theme="night"] .b24-kanban .b24-next-activity.overdue { color: #ff
 .kanban-column > header:hover .icon-button.stage-edit, .kanban-column > header .icon-button.stage-edit:focus-visible { opacity: 1; }
 .kanban-column > header .stage-description { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-top: 4px; font-size: 12px; line-height: 1.35; color: var(--xre-text-soft); }
 @media (pointer: coarse) { .kanban-column > header .icon-button.stage-edit { opacity: 1; width: 36px; height: 36px; min-width: 36px; } }
+
+/* Kartta silme düğmesi: yalnız kartın üzerine gelince belirir; dokunmatik ekranda hep görünür. */
+.lead-card .icon-button.lead-delete { opacity: 0; color: var(--ds-danger, #dc2626); transition: opacity 0.15s ease-out; }
+.lead-card:hover .icon-button.lead-delete, .lead-card .icon-button.lead-delete:focus-visible { opacity: 1; }
+@media (pointer: coarse) { .lead-card .icon-button.lead-delete { opacity: 1; } }
+.btn.danger { color: var(--ds-danger, #dc2626); }
+.add-card.column-more { font-weight: 600; color: var(--xre-accent-strong, var(--xre-accent)); border-style: solid; }

@@ -55,6 +55,7 @@ interface Store {
   refresh: () => Promise<void>;
   saveLead: (l: Lead) => Promise<void>;
   moveLead: (id: string, stage: Stage) => Promise<void>;
+  deleteLead: (id: string) => Promise<void>;
   saveRule: (r: Rule) => Promise<void>;
   sendMessage: (id: string, line: string, text: string) => Promise<void>;
   saveRecord: <T extends SuiteRecord>(
@@ -335,6 +336,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       };
     });
   };
+  // Müşteriyi ve ona bağlı görev, etkinlik ve notları kalıcı olarak siler.
+  const deleteLead = async (id: string) => {
+    if (!demo) {
+      await api(`/api/leads/${id}`, {}, "DELETE");
+      await refresh();
+      return;
+    }
+    setData((d) => ({
+      ...d,
+      leads: d.leads.filter((l) => l.id !== id),
+      tasks: d.tasks.filter((t) => t.leadId !== id),
+      activities: d.activities.filter((a) => a.leadId !== id),
+      feed: d.feed.filter((p) => p.leadId !== id),
+    }));
+  };
   const moveLead = async (id: string, stage: Stage) => {
     const l = data.leads.find((x) => x.id === id);
     if (!l || l.stage === stage) return;
@@ -484,6 +500,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         refresh,
         saveLead,
         moveLead,
+        deleteLead,
         saveRule,
         sendMessage,
         saveRecord,

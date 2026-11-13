@@ -169,3 +169,20 @@ it("bildirim kuralı çalışanın kutusuna kalıcı not bırakır; yalnız o ki
   expect((await call("POST", "/api/inbox/read", {})).status).toBe(200);
   expect((await (await call("GET", "/api/inbox")).json()).unread).toBe(0);
 });
+
+it("müşteri silinir: bağlı görev ve notlar da gider; başka firmanın müşterisi silinemez", async () => {
+  const { store, call } = await start();
+  const owner = (await store.resolveOwner())!;
+  await call("POST", "/api/leads", { lead: { id: "lead_del", name: "Silinecek Müşteri", phone: "+905550000021" } });
+  await call("POST", "/api/leads", { lead: { id: "lead_keep", name: "Kalacak Müşteri", phone: "+905550000022" } });
+  const stamp = new Date().toISOString();
+  const task = (id: string, leadId: string) => ({ id, title: "Ara", description: "", status: "todo", priority: "normal", assignee: "", leadId, dueAt: stamp, createdAt: stamp, updatedAt: stamp });
+  expect((await call("POST", "/api/tasks", task("task_del", "lead_del"))).status).toBeLessThan(300);
+  expect((await call("POST", "/api/tasks", task("task_keep", "lead_keep"))).status).toBeLessThan(300);
+  expect((await call("DELETE", "/api/leads/yok", {})).status).toBe(404);
+  expect((await call("DELETE", "/api/leads/lead_del", {})).status).toBe(200);
+  const state = await (await call("GET", "/api/state")).json();
+  expect(state.leads.map((l: any) => l.id)).toEqual(["lead_keep"]);
+  expect((await store.list<any>("tasks", owner)).map((r) => r.id)).toEqual(["task_keep"]);
+  expect((await call("DELETE", "/api/leads/lead_del", {})).status).toBe(404);
+});

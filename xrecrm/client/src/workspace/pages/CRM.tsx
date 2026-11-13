@@ -8,7 +8,7 @@ import {
   type CrmWorkspaceFilters,
   type CrmWorkspaceAppearance,
 } from "../../../../shared/crm-workspace";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Search,
@@ -29,6 +29,7 @@ import {
   Check,
   Bookmark,
   Pencil,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Modal } from "../components/ui";
@@ -73,7 +74,7 @@ export default function CRM({
   navigate?: (p: string) => void;
   onMessage?: (id: string) => void;
 }) {
-  const { data, moveLead, saveLead, demo, user, saveRecord } = useStore();
+  const { data, moveLead, saveLead, deleteLead, demo, user, saveRecord } = useStore();
   const [localView, setLocalView] = useState<CRMView>(
     kanban ? "kanban" : "list",
   );
@@ -209,18 +210,40 @@ export default function CRM({
       ...data.leads.map((l) => l.owner),
     ]),
   ];
-  const next = (l: Lead) => nextOpenRecord(l.id, data.tasks, data.activities);
-  const leads = data.leads.filter((l) =>
-    matchesCrmWorkspaceFilters(
-      {
-        ...l,
-        pipelineId: l.pipelineId || "sales",
-        nextActivityAt: next(l)?.date,
-        hasActivity: !!next(l),
-      },
-      workspaceFilters,
-    ),
+  // Binlerce müşteride her kart için tüm görev ve etkinlikleri taramamak adına
+  // "sıradaki iş" müşteri başına bir kez hesaplanıp saklanır.
+  const nextByLead = useMemo(() => {
+    const tasksOf = new Map<string, typeof data.tasks>();
+    const activitiesOf = new Map<string, typeof data.activities>();
+    for (const t of data.tasks) if (t.leadId) (tasksOf.get(t.leadId) || tasksOf.set(t.leadId, []).get(t.leadId)!).push(t);
+    for (const a of data.activities) if (a.leadId) (activitiesOf.get(a.leadId) || activitiesOf.set(a.leadId, []).get(a.leadId)!).push(a);
+    const map = new Map<string, ReturnType<typeof nextOpenRecord>>();
+    for (const id of new Set([...tasksOf.keys(), ...activitiesOf.keys()]))
+      map.set(id, nextOpenRecord(id, tasksOf.get(id) || [], activitiesOf.get(id) || []));
+    return map;
+  }, [data.tasks, data.activities]);
+  const next = (l: Lead) => nextByLead.get(l.id) || nextOpenRecord(l.id, [], []);
+  const leads = useMemo(
+    () =>
+      data.leads.filter((l) => {
+        const upcoming = nextByLead.get(l.id);
+        return matchesCrmWorkspaceFilters(
+          {
+            ...l,
+            pipelineId: l.pipelineId || "sales",
+            nextActivityAt: upcoming?.date,
+            hasActivity: !!upcoming,
+          },
+          workspaceFilters,
+        );
+      }),
+    [data.leads, nextByLead, workspaceFilters],
   );
+  // Sütun başına ekrana çizilen kart sayısı sınırlıdır; sayılar ve tutarlar yine tüm müşterileri kapsar.
+  const COLUMN_PAGE = 40;
+  const [columnLimit, setColumnLimit] = useState<Record<string, number>>({});
+  const LIST_PAGE = 100;
+  const [listLimit, setListLimit] = useState(LIST_PAGE);
   const open = leads.filter((l) => l.stage !== "won" && l.stage !== "lost");
   const openValue = open.reduce((n, l) => n + l.value, 0);
   const forecast = open.reduce(
@@ -269,6 +292,32 @@ export default function CRM({
       toast.error((e as Error).message);
     }
   };
+  // Tek müşteri ya da seçilenler kalıcı olarak silinir (onay sorulur).
+  async function removeLeads(ids: string[]) {
+    if (!ids.length) return;
+    const names = ids.map((id) => data.leads.find((l) => l.id === id)?.name).filter(Boolean);
+    const label = ids.length === 1 ? `"${names[0] || "Müşteri"}"` : `${ids.length} müşteri`;
+    if (
+      !window.confirm(
+        `${label} kalıcı olarak silinsin mi?\n\nMüşteriye bağlı görevler, etkinlikler ve notlar da silinir. Bu işlem geri alınamaz.`,
+      )
+    )
+      return;
+    setBusy(true);
+    let done = 0;
+    try {
+      for (const id of ids) {
+        await deleteLead(id);
+        done += 1;
+      }
+      toast.success(done === 1 ? "Müşteri silindi." : `${done} müşteri silindi.`);
+    } catch (e) {
+      toast.error(`${done ? `${done} müşteri silindi; ` : ""}${(e as Error).message}`);
+    } finally {
+      setSelected((current) => current.filter((id) => !ids.includes(id)));
+      setBusy(false);
+    }
+  }
   async function bulk(kind: "stage" | "owner") {
     setBusy(true);
     let done = 0;
@@ -529,6 +578,9 @@ export default function CRM({
           >
             Sorumlu ata
           </button>
+          <button className="btn secondary small danger" disabled={busy} onClick={() => void removeLeads(selected)}>
+            <Trash2 size={14} /> Seçilenleri sil
+          </button>
           <button className="text-button" onClick={() => setSelected([])}>
             Seçimi kaldır
           </button>
@@ -680,7 +732,7 @@ export default function CRM({
                       </div>
                     </form>
                   )}
-                  {items.map((l) => {
+                  {items.slice(0, columnLimit[s.id] || COLUMN_PAGE).map((l) => {
                     const upcoming = next(l);
                     const overdue = upcoming && isOverdue(upcoming.date);
                     return (
@@ -730,6 +782,15 @@ export default function CRM({
                             onClick={() => onLead(l)}
                           >
                             <MoreHorizontal size={16} />
+                          </button>
+                          <button
+                            className="icon-button lead-delete"
+                            aria-label={`${l.name} müşterisini sil`}
+                            title="Müşteriyi sil"
+                            disabled={busy}
+                            onClick={() => void removeLeads([l.id])}
+                          >
+                            <Trash2 size={14} />
                           </button>
                         </div>
                         <button
@@ -844,6 +905,17 @@ export default function CRM({
                       </article>
                     );
                   })}
+                  {items.length > (columnLimit[s.id] || COLUMN_PAGE) && (
+                    <button
+                      type="button"
+                      className="add-card column-more"
+                      onClick={() =>
+                        setColumnLimit((current) => ({ ...current, [s.id]: (current[s.id] || COLUMN_PAGE) + COLUMN_PAGE * 2 }))
+                      }
+                    >
+                      {(items.length - (columnLimit[s.id] || COLUMN_PAGE)).toLocaleString("tr-TR")} müşteri daha · göster
+                    </button>
+                  )}
                   <button
                     className="add-card"
                     onClick={() => {
@@ -908,7 +980,7 @@ export default function CRM({
                 </tr>
               </thead>
               <tbody>
-                {leads.map((l) => (
+                {leads.slice(0, listLimit).map((l) => (
                   <tr key={l.id}>
                     <td>
                       <input
@@ -996,6 +1068,11 @@ export default function CRM({
                 ))}
               </tbody>
             </table>
+            {leads.length > listLimit && (
+              <button type="button" className="add-card column-more" onClick={() => setListLimit((n) => n + LIST_PAGE * 2)}>
+                {(leads.length - listLimit).toLocaleString("tr-TR")} müşteri daha · göster
+              </button>
+            )}
             {!leads.length && (
               <Empty
                 title="Bu hunide müşteri yok"

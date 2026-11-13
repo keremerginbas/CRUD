@@ -1965,6 +1965,26 @@ export function createApp(
     }
   });
 
+  // Müşteriyi kalıcı olarak siler; ona bağlı görev, etkinlik, not ve e-postalar da silinir.
+  // WhatsApp ve arama kayıtları telefon numarasına bağlı kaldığı için "kayıtsız" olarak durur.
+  app.delete("/api/leads/:id", async (req, res) => {
+    try {
+      const owner = ownerOf(req);
+      // Yetki kapsamı (yalnız kendi müşterileri vb.) depo katmanında uygulanır.
+      const existing = await findLead(store, owner, req.params.id);
+      if (!existing)
+        return res.status(404).json({ error: "NOT_FOUND", message: "Müşteri bulunamadı." });
+      await store.delete("lead", existing.id, owner);
+      for (const kind of ["tasks", "activities", "feed", "email-message"] as const) {
+        for (const row of await rawStore.list<{ leadId?: string }>(kind, owner))
+          if (row.payload?.leadId === existing.id) await rawStore.delete(kind, row.id, owner);
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+
   app.post("/api/rules", async (req, res) => {
     try {
       const input = req.body?.rule ?? req.body;
