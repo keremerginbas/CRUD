@@ -111,6 +111,7 @@ import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
 import { registerBackupRoutes, startBackupScheduler } from "./backup.js";
 import { liveNotifyStore } from "./live-notify.js";
 import { registerSmsRoutes, sendLeadSms, smsConfigured } from "./sms.js";
+import { registerProjectRoutes } from "./projects.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
@@ -1752,6 +1753,7 @@ export function createApp(
   registerInviteAdminRoutes(app, store);
   registerTriggerRoutes(app, store);
   registerSmsRoutes(app, store);
+  registerProjectRoutes(app, store);
   registerBitrixImportRoutes(app, store, baseStore);
   registerIntegrationSettingsRoutes(app, store);
   registerEmailRoutes(app, store);

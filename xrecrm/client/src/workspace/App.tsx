@@ -38,6 +38,7 @@ import {
   CalendarDays,
   CheckSquare,
   Building2,
+  Building,
   MessagesSquare,
   BarChart3,
   ContactRound,
@@ -92,6 +93,7 @@ const Automations = lazy(() => import("./pages/Automations"));
 const Lines = lazy(() => import("./pages/Lines"));
 const Integrations = lazy(() => import("./pages/Integrations"));
 const Directory = lazy(() => import("./pages/Directory"));
+const Projects = lazy(() => import("./pages/Projects"));
 const Work = lazy(() => import("./pages/Work"));
 const Feed = lazy(() => import("./pages/Feed"));
 const Reports = lazy(() => import("./pages/Reports"));
@@ -112,6 +114,7 @@ const navGroups = [
       ["/", "Genel bakış", LayoutDashboard],
       ["/feed", "Akış", MessagesSquare],
       ["/kanban", "CRM", Columns3],
+      ["/projects", "Projeler", Building],
       ["/activities", "Etkinlikler", CalendarDays],
       ["/contacts", "Kişiler", ContactRound],
       ["/companies", "Şirketler", Building2],
@@ -158,6 +161,7 @@ function Workspace() {
     "/feed": "feed",
     "/kanban": "crm",
     "/leads": "crm",
+    "/projects": "crm",
     "/activities": "crm",
     "/contacts": "contacts",
     "/companies": "companies",
@@ -794,6 +798,8 @@ function Workspace() {
                 onLead={setLeadModal}
                 navigate={navigate}
               />
+            ) : path === "/projects" ? (
+              <Projects />
             ) : path === "/tasks" ? (
               <Work onLead={setLeadModal} />
             ) : path === "/feed" ? (

@@ -4,6 +4,7 @@ export const RESERVED_SLUGS = new Set(
   `api assets b24 bitrix health static public admin www app login logout signup kayit giris kurulum qr-onay davet
    feed kanban leads activities contacts companies tasks calendar team employees structure worktime access audit system
    profile reports data-quality ai whatsapp calls lines automations n8n webhooks integrations apps settings workspaces
+   projects projeler units project-images
    firmalar demo test destek support yardim help xre-system favicon robots`.split(/\s+/),
 );
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,28})[a-z0-9]$/;

@@ -119,6 +119,8 @@ const TENANT_API = new Set<string>([
   "crm-workspace", "crm-import", "data-quality", "audit", "automations", "worktime", "workspaces",
   // Kullanıcının kendi posta kutusu: ortak sunucu ayarına bağlı değildir, bu yüzden yeni alanlarda da açıktır.
   "email", "triggers", "inbox",
+  // Proje ve daire envanteri: kayıtlar ve görseller alanın kendi kapsamında tutulur.
+  "projects", "units", "project-images",
   ...suiteKinds,
 ]);
 const TENANT_BLOCKED_PATHS = [/^\/leads\/[^/]+\/analyze$/];

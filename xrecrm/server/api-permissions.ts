@@ -89,6 +89,8 @@ export function requireModulePermissions(
     action = "write";
   } else if (/^\/leads\/[^/]+\/analyze$/.test(path)) module = "ai";
   else if (/^\/leads(?:\/|$)/.test(path)) module = "crm";
+  // Proje ve daire envanteri (gayrimenkul satış modülü) CRM yetkisine bağlıdır.
+  else if (/^\/(projects|units|project-images)(?:\/|$)/.test(path)) module = "crm";
   else if (/^\/contacts(?:\/|$)/.test(path)) module = "contacts";
   else if (/^\/companies(?:\/|$)/.test(path)) module = "companies";
   else if (/^\/tasks(?:\/|$)/.test(path)) module = "tasks";
