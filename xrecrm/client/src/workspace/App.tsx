@@ -212,6 +212,11 @@ function Workspace() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [notifications, setNotifications] = useState(false);
   const inbox = useInbox();
+  // Telefonda menü açıkken arkadaki sayfa kaymasın (CSS'te kök :has() yerine sınıf kullanılır).
+  useEffect(() => {
+    document.documentElement.classList.toggle("xre-drawer-open", sidebar);
+    return () => document.documentElement.classList.remove("xre-drawer-open");
+  }, [sidebar]);
   const [help, setHelp] = useState(false);
   const [messageLead, setMessageLead] = useState<string | undefined>();
   const [profile, setProfile] = useState(false);

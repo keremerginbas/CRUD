@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
 import { api } from "../store";
-import PhoneInput from "./PhoneInput";
+import PhoneInput from "./PhoneField";
 import FluidBackdrop from "./FluidBackdrop";
 import "../login.css";
 

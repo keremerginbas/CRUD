@@ -83,6 +83,9 @@ export async function start(): Promise<void> {
         index: "index.html",
         setHeaders: (res, file) => {
           if (file.endsWith(".html")) noCache(res);
+          // Adında içerik özeti olan derleme dosyaları değişmez; tarayıcı bir yıl saklar.
+          else if (/[\\/]assets[\\/]/.test(file))
+            res.setHeader("cache-control", "public, max-age=31536000, immutable");
         },
       }),
     );

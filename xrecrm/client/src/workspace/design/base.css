@@ -54,7 +54,8 @@ html .app-shell ::selection {
 }
 
 /* Thin, themed scrollbars (page scrollbar included). */
-html:has(.app-shell) {
+/* Kök seviyede :has() kullanılmaz: her DOM değişikliğinde tüm sayfanın stilini yeniden hesaplatır. */
+html {
   scrollbar-color: color-mix(in srgb, var(--xre-text-faint) 55%, transparent) transparent;
 }
 html .app-shell * {

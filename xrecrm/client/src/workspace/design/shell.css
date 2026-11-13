@@ -510,7 +510,8 @@ html .app-shell .sidebar .sidebar-close:hover {
     backdrop-filter: blur(2px);
   }
   /* page behind an open drawer does not scroll */
-  html:has(.app-shell .sidebar.open) {
+  /* Sınıfı App.tsx ekler (kök seviyede :has() pahalıdır). */
+  html.xre-drawer-open {
     overflow: hidden;
   }
 }
@@ -1294,15 +1295,6 @@ html .app-shell .workspace-footer :is(.amber-dot, .green-dot) {
 }
 /* keep the right-hand footer text clear of the assistant launcher (only when
    the launcher is shown — see section 7) */
-html .app-shell:has(> .ai-floating-launch):not(:has(.topbar .ai-topbar-button)) .workspace-footer {
-  padding-right: 52px;
-}
-@media (max-width: 640px) {
-  html .app-shell:has(> .ai-floating-launch):not(:has(.topbar .ai-topbar-button)) .workspace-footer {
-    min-height: 60px;
-    align-content: flex-start;
-  }
-}
 
 /* --------------------------------------------------------------------------
    7. Floating assistant launcher
@@ -1315,7 +1307,8 @@ html .app-shell:has(> .ai-floating-launch):not(:has(.topbar .ai-topbar-button)) 
    button: the footer reserves room, the label appears on hover / focus, and
    it stacks below the drawer scrim, popovers and dialogs.
    -------------------------------------------------------------------------- */
-html .app-shell:has(.topbar .ai-topbar-button) > .ai-floating-launch {
+/* Üst çubuktaki "Asistan" düğmesi her zaman vardır; yüzen kopya gösterilmez. */
+html .app-shell > .ai-floating-launch {
   display: none;
 }
 html .app-shell .ai-floating-launch {
@@ -1481,10 +1474,6 @@ html [data-sonner-toaster] [data-sonner-toast][data-styled="true"] [data-close-b
   opacity: 1;
 }
 /* lift the stack above the assistant launcher while it is shown */
-html:has(.app-shell > .ai-floating-launch):not(:has(.app-shell .topbar .ai-topbar-button))
-  [data-sonner-toaster][data-y-position="bottom"] {
-  bottom: 72px;
-}
 
 /* --------------------------------------------------------------------------
    9. Appearance drawer (ThemePreferences.tsx — also outside .app-shell, so the
