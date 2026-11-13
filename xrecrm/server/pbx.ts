@@ -14,6 +14,8 @@ import type { AuthContext, Lead } from "./types.js";
 import { canAccess, ownsLead, rawStoreOf } from "./access.js";
 import { fetchWithTimeout, normalizePhone } from "./security.js";
 import { lines } from "../shared/lines.js";
+import { decryptValue, encryptValue } from "./integration-settings.js";
+import type { WebphoneConfig, WebphoneIceServer } from "../shared/webphone.js";
 
 const EXT_KIND = "pbx-extension";
 const env = (k: string) => process.env[k]?.trim() || "";
@@ -393,8 +395,77 @@ export function startPbxSupervisor(store: Store, logCall: CallLogger, intervalMs
   supervisor.unref?.();
 }
 
+/** Dinleyiciyi ve denetçiyi durdurur (testler ve kapanış için). */
+export function stopPbxSupervisor() {
+  if (supervisor) clearInterval(supervisor);
+  supervisor = null;
+  listener?.client.close();
+  listener = null;
+}
+
 export function pbxListenerConnected() {
   return Boolean(listener);
+}
+
+// ---------------------------------------------------------------------------
+// Tarayıcı telefonu (webphone): SIP.js için WSS, SIP ve ICE bilgileri
+// ---------------------------------------------------------------------------
+
+interface ExtensionRecord {
+  ext: string;
+  openId?: string;
+  updatedAt?: string;
+  /** Santraldeki SIP kullanıcı adı dahiliden farklıysa (ör. Netgsm 850xxxxxxx-101). */
+  sipUser?: string;
+  sipPasswordEnc?: string;
+}
+
+const splitList = (value: string) => value.split(/[\s,]+/).map((v) => v.trim()).filter(Boolean);
+
+export function webphoneServer(): { wssUrl: string; domain: string } | null {
+  const wssUrl = env("WEBPHONE_WSS_URL");
+  let host = "";
+  try {
+    const url = new URL(wssUrl);
+    if (url.protocol !== "wss:" && url.protocol !== "ws:") return null;
+    host = url.hostname;
+  } catch {
+    return null;
+  }
+  return { wssUrl, domain: env("WEBPHONE_SIP_DOMAIN") || host };
+}
+
+/**
+ * STUN/TURN listesi. TURN için coturn "use-auth-secret" kipinde süreli (varsayılan
+ * 1 saat) kimlik üretilir; kalıcı TURN şifresi tarayıcıya gönderilmez. Paylaşılan
+ * sır yoksa sabit kullanıcı adı/şifre kullanılır.
+ */
+export function webphoneIceServers(userId: string, nowMs = Date.now()): WebphoneIceServer[] {
+  const servers: WebphoneIceServer[] = [];
+  const stunRaw = env("WEBPHONE_STUN_URLS");
+  const stun = stunRaw.toLowerCase() === "none" ? [] : splitList(stunRaw || "stun:stun.l.google.com:19302");
+  if (stun.length) servers.push({ urls: stun });
+  const turn = splitList(env("WEBPHONE_TURN_URLS"));
+  if (turn.length) {
+    const secret = env("WEBPHONE_TURN_SECRET");
+    if (secret) {
+      const ttl = Math.min(86_400, Math.max(300, Number(env("WEBPHONE_TURN_TTL")) || 3600));
+      const username = `${Math.floor(nowMs / 1000) + ttl}:${userId.replace(/[^\w.-]/g, "").slice(0, 60) || "crm"}`;
+      servers.push({ urls: turn, username, credential: crypto.createHmac("sha1", secret).update(username).digest("base64") });
+    } else if (env("WEBPHONE_TURN_USERNAME") && env("WEBPHONE_TURN_PASSWORD")) {
+      servers.push({ urls: turn, username: env("WEBPHONE_TURN_USERNAME"), credential: env("WEBPHONE_TURN_PASSWORD") });
+    }
+  }
+  return servers;
+}
+
+function sipPasswordOf(record: ExtensionRecord | undefined): string {
+  if (!record?.sipPasswordEnc) return "";
+  try {
+    return decryptValue(record.sipPasswordEnc);
+  } catch {
+    return "";
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -404,25 +475,120 @@ export function pbxListenerConnected() {
 export function registerPbxRoutes(app: Express, store: Store) {
   const raw = rawStoreOf(store);
   const authOf = (req: Request) => (req as Request & { auth: AuthContext }).auth;
-  const extensionOf = async (auth: AuthContext) =>
-    (await raw.get<{ ext: string }>(EXT_KIND, auth.user.openId, auth.ownerOpenId))?.payload?.ext || "";
+  const recordOf = async (auth: AuthContext) =>
+    (await raw.get<ExtensionRecord>(EXT_KIND, auth.user.openId, auth.ownerOpenId))?.payload;
+  const extensionOf = async (auth: AuthContext) => (await recordOf(auth))?.ext || "";
 
   app.get("/api/pbx/me", async (req, res) => {
     const auth = authOf(req);
+    const record = await recordOf(auth);
     res.json({
       driver: pbxDriver(),
-      extension: await extensionOf(auth),
+      extension: record?.ext || "",
       listener: pbxListenerConnected(),
+      webphone: {
+        configured: Boolean(webphoneServer()),
+        sipUser: record?.sipUser || "",
+        hasPassword: Boolean(record?.sipPasswordEnc),
+      },
     });
   });
 
   app.put("/api/pbx/me", async (req, res) => {
     const auth = authOf(req);
-    const ext = String(req.body?.extension || "").trim();
+    const current = await recordOf(auth);
+    const body = req.body || {};
+    const ext = body.extension === undefined ? current?.ext || "" : String(body.extension || "").trim();
     if (ext && !/^\d{2,6}$/.test(ext))
       return res.status(400).json({ error: "INVALID_EXTENSION", message: "Dahili 2-6 haneli sayı olmalı." });
-    await raw.put(EXT_KIND, auth.user.openId, { ext, openId: auth.user.openId, updatedAt: new Date().toISOString() }, auth.ownerOpenId);
-    res.json({ extension: ext });
+    const sipUser = body.sipUser === undefined ? current?.sipUser || "" : String(body.sipUser || "").trim();
+    if (sipUser && !/^[\w.+-]{1,64}$/.test(sipUser))
+      return res.status(400).json({ error: "INVALID_SIP_USER", message: "SIP kullanıcı adı yalnız harf, rakam ve . _ + - içerebilir." });
+    let sipPasswordEnc = current?.sipPasswordEnc;
+    if (body.sipPassword !== undefined) {
+      const password = String(body.sipPassword || "");
+      if (password.length > 128 || /[\r\n]/.test(password))
+        return res.status(400).json({ error: "INVALID_SIP_PASSWORD", message: "SIP şifresi en fazla 128 karakter olabilir." });
+      sipPasswordEnc = password ? encryptValue(password) : undefined;
+    }
+    await raw.put(
+      EXT_KIND,
+      auth.user.openId,
+      { ext, sipUser: sipUser || undefined, sipPasswordEnc, openId: auth.user.openId, updatedAt: new Date().toISOString() },
+      auth.ownerOpenId,
+    );
+    res.json({ extension: ext, webphone: { configured: Boolean(webphoneServer()), sipUser, hasPassword: Boolean(sipPasswordEnc) } });
+  });
+
+  // Tarayıcı telefonunun bağlanma bilgileri. SIP şifresi yalnız sahibine döner.
+  app.get("/api/pbx/webphone", async (req, res) => {
+    const auth = authOf(req);
+    res.setHeader("cache-control", "no-store");
+    const server = webphoneServer();
+    if (!server) return res.json({ enabled: false, reason: "not-configured" } satisfies WebphoneConfig);
+    const record = await recordOf(auth);
+    const authUser = record?.sipUser || record?.ext || "";
+    const password = sipPasswordOf(record);
+    if (!authUser || !password) return res.json({ enabled: false, reason: "no-credentials" } satisfies WebphoneConfig);
+    res.json({
+      enabled: true,
+      wssUrl: server.wssUrl,
+      domain: server.domain,
+      extension: record?.ext || "",
+      authUser,
+      password,
+      displayName: (auth.displayName || auth.user.name || "").slice(0, 60),
+      dialPrefix: env("PBX_DIAL_PREFIX"),
+      iceServers: webphoneIceServers(auth.user.openId),
+      serverLogsCalls: pbxListenerConnected(),
+    } satisfies WebphoneConfig);
+  });
+
+  // Tarayıcıdan yapılan/karşılanan görüşmenin kaydı. Asterisk dinleyicisi bağlıyken
+  // CDR zaten yazıldığından çift kayıt olmaması için atlanır.
+  app.post("/api/pbx/webphone/log", async (req, res) => {
+    const auth = authOf(req);
+    if (pbxListenerConnected()) return res.json({ ok: true, skipped: true });
+    const body = req.body || {};
+    const phone = normalizePhone(body.phone);
+    if (phone.length < 10) return res.json({ ok: true, skipped: true });
+    const sessionId = String(body.sessionId || "").replace(/[^\w.:-]/g, "").slice(0, 80);
+    if (!sessionId) return res.status(400).json({ error: "INVALID_SESSION", message: "Görüşme kimliği gerekli." });
+    const leadId = String(body.leadId || "");
+    let lead = leadId ? (await store.get<Lead>("lead", leadId, auth.ownerOpenId))?.payload || null : null;
+    if (lead && normalizePhone(lead.phone) !== phone) lead = null;
+    if (!lead) lead = await leadByPhone(store, auth.ownerOpenId, phone);
+    if (lead && !auth.isOwner && auth.permissions?.calls.scope === "own" && !(await ownsLead(raw, auth, lead.id))) lead = null;
+    const iso = (value: unknown, fallback: string) => {
+      const time = Date.parse(String(value || ""));
+      return Number.isFinite(time) ? new Date(time).toISOString() : fallback;
+    };
+    const stamp = new Date().toISOString();
+    const id = `pbx-web-${auth.user.openId.replace(/[^\w-]/g, "").slice(0, 40)}-${sessionId}`;
+    const existing = (await store.get<any>("call", id, auth.ownerOpenId))?.payload;
+    const duration = Math.min(86_400, Math.max(0, Math.round(Number(body.durationSeconds) || 0)));
+    await store.put(
+      "call",
+      id,
+      {
+        ...(existing || {}),
+        id,
+        leadId: lead?.id || null,
+        lineId: null,
+        provider: "webphone",
+        direction: body.direction === "inbound" ? "inbound" : "outbound",
+        status: body.answered === true ? "ended" : "missed",
+        phone,
+        agent: (await extensionOf(auth)) || auth.displayName || auth.user.name || null,
+        durationSeconds: duration,
+        startedAt: iso(body.startedAt, existing?.startedAt || stamp),
+        endedAt: iso(body.endedAt, stamp),
+        createdAt: existing?.createdAt || stamp,
+        updatedAt: stamp,
+      },
+      auth.ownerOpenId,
+    );
+    res.json({ ok: true, callId: id, leadId: lead?.id || null });
   });
 
   app.post("/api/pbx/call", async (req, res) => {

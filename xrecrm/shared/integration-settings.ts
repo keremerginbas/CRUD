@@ -48,6 +48,21 @@ export const SETTING_GROUPS: SettingGroup[] = [
     ],
   },
   {
+    id: "webphone",
+    title: "Tarayıcı telefonu (Webphone / SIP.js)",
+    description: "Çalışanlar CRM sekmesinden kulaklıkla arar ve aramayı karşılar. Santralin WebRTC (WSS) ucu gerekir; her çalışan dahili şifresini telefon panelinden girer.",
+    fields: [
+      { key: "WEBPHONE_WSS_URL", label: "Santral WebSocket adresi", placeholder: "wss://santral.xre.com.tr:8089/ws", help: "Asterisk/FreePBX için varsayılan yol :8089/ws. Geçerli SSL sertifikası şarttır." },
+      { key: "WEBPHONE_SIP_DOMAIN", label: "SIP alan adı (opsiyonel)", placeholder: "santral.xre.com.tr", help: "Boşsa WebSocket adresindeki sunucu adı kullanılır." },
+      { key: "WEBPHONE_STUN_URLS", label: "STUN sunucuları", placeholder: "stun:stun.l.google.com:19302", help: "Virgülle ayırın. Boşsa Google STUN kullanılır; kapatmak için none yazın." },
+      { key: "WEBPHONE_TURN_URLS", label: "TURN sunucuları", placeholder: "turn:turn.xre.com.tr:3478,turns:turn.xre.com.tr:5349", help: "Kurumsal ağ/4G arkasında ses gelmiyorsa gerekir (coturn)." },
+      { key: "WEBPHONE_TURN_SECRET", label: "TURN paylaşılan sırrı (coturn use-auth-secret)", secret: true, help: "Girilirse her oturum için 1 saatlik geçici TURN kimliği üretilir (önerilen)." },
+      { key: "WEBPHONE_TURN_USERNAME", label: "TURN kullanıcı adı (sabit kimlik)" },
+      { key: "WEBPHONE_TURN_PASSWORD", label: "TURN şifresi (sabit kimlik)", secret: true },
+      { key: "PBX_DIAL_PREFIX", label: "Dış hat ön eki", placeholder: "9", help: "Santraliniz dış aramada ön ek istiyorsa." },
+    ],
+  },
+  {
     id: "evolution",
     title: "WhatsApp QR (Evolution API)",
     description: "Çoklu WhatsApp cihaz oturumu, QR eşleştirme ve medya.",

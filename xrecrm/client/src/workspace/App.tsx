@@ -6,6 +6,7 @@ import WorktimeMini from "./components/WorktimeMini";
 import type { AccessModule } from "../../../shared/access";
 import AppointmentNotifications from "./components/AppointmentNotifications";
 import IncomingCall from "./components/IncomingCall";
+import Webphone from "./components/Webphone";
 import { useState, useEffect, lazy, Suspense } from "react";
 import {
   LayoutDashboard,
@@ -647,6 +648,11 @@ function Workspace() {
                 }
               />
               <IncomingCall
+                onLead={(id) =>
+                  setLeadModal(data.leads.find((l) => l.id === id) || null)
+                }
+              />
+              <Webphone
                 onLead={(id) =>
                   setLeadModal(data.leads.find((l) => l.id === id) || null)
                 }

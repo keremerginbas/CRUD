@@ -9,6 +9,7 @@ import {
   extensionFromChannel,
   parseAmiBlock,
   resetPbxClients,
+  stopPbxSupervisor,
 } from "../server/pbx";
 
 const savedEnv = { ...process.env };
@@ -20,6 +21,7 @@ beforeEach(() => {
   process.env.XRE_SESSION_SECRET = "pbx-test-secret-0123456789abcdef";
 });
 afterEach(() => {
+  stopPbxSupervisor();
   resetPbxClients();
   for (const s of servers.splice(0)) s.close();
   for (const key of Object.keys(process.env)) if (!(key in savedEnv)) delete process.env[key];
@@ -178,5 +180,115 @@ describe("Santral entegrasyonu", () => {
       call = (await (await fetch(`${base}/api/state`, { headers })).json()).calls.find((c: any) => c.id === "pbx-1700.9");
     }
     expect(call).toMatchObject({ leadId: "lead-pbx", status: "missed", direction: "inbound" });
+  });
+});
+
+describe("Tarayıcı telefonu (webphone)", () => {
+  it("numaraları santral biçimine ve SIP adresine çevirir", async () => {
+    const { sipDialNumber, sipTargetUri, comparablePhone, formatCallDuration } = await import("../shared/webphone");
+    expect(sipDialNumber("+90 555 300 00 07")).toBe("05553000007");
+    expect(sipDialNumber("0555 300 00 07")).toBe("05553000007");
+    expect(sipDialNumber("5553000007", "9")).toBe("905553000007");
+    expect(sipDialNumber("0212 555 00 00")).toBe("02125550000");
+    expect(sipDialNumber("+44 20 7946 0000")).toBe("442079460000");
+    expect(sipDialNumber("102", "9")).toBe("102");
+    expect(sipDialNumber("*72")).toBe("*72");
+    expect(sipDialNumber("abc")).toBe("");
+    expect(sipTargetUri("0555 300 00 07", "pbx.xre.test")).toBe("sip:05553000007@pbx.xre.test");
+    expect(sipTargetUri("", "pbx.xre.test")).toBe("");
+    expect(comparablePhone("05553000007")).toBe("905553000007");
+    expect(formatCallDuration(65)).toBe("01:05");
+    expect(formatCallDuration(3725)).toBe("1:02:05");
+  });
+
+  it("STUN/TURN listesini ve süreli TURN kimliğini üretir", async () => {
+    const { webphoneIceServers, webphoneServer } = await import("../server/pbx");
+    const crypto = await import("node:crypto");
+    for (const k of ["WEBPHONE_WSS_URL", "WEBPHONE_SIP_DOMAIN", "WEBPHONE_STUN_URLS", "WEBPHONE_TURN_URLS", "WEBPHONE_TURN_SECRET", "WEBPHONE_TURN_USERNAME", "WEBPHONE_TURN_PASSWORD"]) delete process.env[k];
+    expect(webphoneServer()).toBeNull();
+    process.env.WEBPHONE_WSS_URL = "https://pbx.xre.test/ws";
+    expect(webphoneServer()).toBeNull();
+    process.env.WEBPHONE_WSS_URL = "wss://pbx.xre.test:8089/ws";
+    expect(webphoneServer()).toEqual({ wssUrl: "wss://pbx.xre.test:8089/ws", domain: "pbx.xre.test" });
+    process.env.WEBPHONE_SIP_DOMAIN = "sip.xre.test";
+    expect(webphoneServer()?.domain).toBe("sip.xre.test");
+
+    expect(webphoneIceServers("u1")).toEqual([{ urls: ["stun:stun.l.google.com:19302"] }]);
+    process.env.WEBPHONE_STUN_URLS = "none";
+    expect(webphoneIceServers("u1")).toEqual([]);
+    Object.assign(process.env, { WEBPHONE_TURN_URLS: "turn:turn.xre.test:3478, turns:turn.xre.test:5349", WEBPHONE_TURN_SECRET: "paylasilan" });
+    const [turn] = webphoneIceServers("kullanici-1", 1_800_000_000_000);
+    expect(turn.urls).toEqual(["turn:turn.xre.test:3478", "turns:turn.xre.test:5349"]);
+    expect(turn.username).toBe("1800003600:kullanici-1");
+    expect(turn.credential).toBe(crypto.createHmac("sha1", "paylasilan").update(turn.username!).digest("base64"));
+    delete process.env.WEBPHONE_TURN_SECRET;
+    expect(webphoneIceServers("u1")).toEqual([]);
+    Object.assign(process.env, { WEBPHONE_TURN_USERNAME: "crm", WEBPHONE_TURN_PASSWORD: "sabit" });
+    expect(webphoneIceServers("u1")).toEqual([{ urls: turn.urls, username: "crm", credential: "sabit" }]);
+  });
+
+  it("SIP şifresini şifreli saklar, yalnız sahibine verir ve görüşmeyi kaydeder", async () => {
+    delete process.env.WEBPHONE_WSS_URL;
+    const { store, base, headers } = await startApp();
+    const get = async (path: string) => (await fetch(`${base}${path}`, { headers })).json();
+    const put = (body: unknown) => fetch(`${base}/api/pbx/me`, { method: "PUT", headers, body: JSON.stringify(body) });
+
+    expect(await get("/api/pbx/webphone")).toEqual({ enabled: false, reason: "not-configured" });
+    process.env.WEBPHONE_WSS_URL = "wss://pbx.xre.test:8089/ws";
+    process.env.WEBPHONE_STUN_URLS = "none";
+    expect(await get("/api/pbx/webphone")).toEqual({ enabled: false, reason: "no-credentials" });
+
+    expect((await put({ sipUser: "kötü kullanıcı" })).status).toBe(400);
+    expect((await put({ sipPassword: "x".repeat(129) })).status).toBe(400);
+    expect(await (await put({ extension: "101", sipPassword: "çok-gizli" })).json()).toEqual({ extension: "101", webphone: { configured: true, sipUser: "", hasPassword: true } });
+
+    // Şifre düz metin olarak saklanmaz ve /pbx/me yanıtında yer almaz.
+    const owner = (await store.resolveOwner())!;
+    const [record] = await store.list<any>("pbx-extension", owner);
+    expect(JSON.stringify(record.payload)).not.toContain("çok-gizli");
+    expect(record.payload.sipPasswordEnc).toBeTruthy();
+    const me = await get("/api/pbx/me");
+    expect(JSON.stringify(me)).not.toContain("çok-gizli");
+    expect(me).toMatchObject({ extension: "101", webphone: { configured: true, hasPassword: true } });
+
+    const response = await fetch(`${base}/api/pbx/webphone`, { headers });
+    expect(response.headers.get("cache-control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      enabled: true,
+      wssUrl: "wss://pbx.xre.test:8089/ws",
+      domain: "pbx.xre.test",
+      extension: "101",
+      authUser: "101",
+      password: "çok-gizli",
+      displayName: "Santral Sahibi",
+      dialPrefix: "",
+      iceServers: [],
+      serverLogsCalls: false,
+    });
+
+    // Yalnız dahiliyi değiştirmek şifreyi silmez; SIP kullanıcı adı dahilinin önüne geçer.
+    await put({ extension: "102", sipUser: "8501234567-102" });
+    expect(await get("/api/pbx/webphone")).toMatchObject({ enabled: true, extension: "102", authUser: "8501234567-102", password: "çok-gizli" });
+
+    expect((await fetch(`${base}/api/pbx/webphone`)).status).toBe(401);
+
+    const log = (body: unknown) => fetch(`${base}/api/pbx/webphone/log`, { method: "POST", headers, body: JSON.stringify(body) });
+    expect((await log({ phone: "05553000007", direction: "outbound", answered: true })).status).toBe(400);
+    const logged = await (await log({ sessionId: "s-1", phone: "0555 300 00 07", direction: "outbound", answered: true, durationSeconds: 42.4, startedAt: "2026-11-13T10:00:00Z", endedAt: "2026-11-13T10:00:50Z" })).json();
+    expect(logged).toMatchObject({ ok: true, leadId: "lead-pbx" });
+    // Aynı görüşme ikinci kez gönderilirse yeni kayıt açılmaz.
+    await log({ sessionId: "s-1", phone: "05553000007", direction: "outbound", answered: true, durationSeconds: 42 });
+    await log({ sessionId: "s-2", phone: "05559998877", direction: "inbound", answered: false, leadId: "lead-pbx" });
+    expect(await (await log({ sessionId: "s-3", phone: "102", direction: "outbound", answered: true })).json()).toEqual({ ok: true, skipped: true });
+    const calls = (await get("/api/state")).calls.filter((c: any) => c.provider === "webphone");
+    expect(calls).toHaveLength(2);
+    expect(calls.find((c: any) => c.id === logged.callId)).toMatchObject({ leadId: "lead-pbx", direction: "outbound", status: "ended", durationSeconds: 42, startedAt: "2026-11-13T10:00:00.000Z" });
+    const stored = (await store.list<any>("call", owner)).find((r) => r.id === logged.callId)!.payload;
+    expect(stored).toMatchObject({ phone: "905553000007", agent: "102", provider: "webphone" });
+    // Başka numaradan gelen aramaya yanlış müşteri bağlanmaz.
+    expect(calls.find((c: any) => c.direction === "inbound")).toMatchObject({ leadId: null, status: "missed", durationSeconds: 0 });
+
+    await put({ sipPassword: "" });
+    expect(await get("/api/pbx/webphone")).toEqual({ enabled: false, reason: "no-credentials" });
   });
 });
