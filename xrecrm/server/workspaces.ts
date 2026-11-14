@@ -123,6 +123,8 @@ const TENANT_API = new Set<string>([
   "projects", "units", "project-images",
   // Teklifler, onay, PDF, para maliyeti ve prim: alanın kendi kayıtlarıyla çalışır.
   "quotes",
+  // Bayiler ve müşteri kaydı koruması.
+  "dealers",
   ...suiteKinds,
 ]);
 const TENANT_BLOCKED_PATHS = [/^\/leads\/[^/]+\/analyze$/];

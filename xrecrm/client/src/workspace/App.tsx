@@ -42,6 +42,7 @@ import {
   FileSignature,
   Percent,
   ScrollText,
+  Store,
   MessagesSquare,
   BarChart3,
   ContactRound,
@@ -101,6 +102,7 @@ const Projects = lazy(() => import("./pages/Projects"));
 const Quotes = lazy(() => import("./pages/Quotes"));
 const CostOfMoney = lazy(() => import("./pages/CostOfMoney"));
 const Senets = lazy(() => import("./pages/Senets"));
+const Dealers = lazy(() => import("./pages/Dealers"));
 const Work = lazy(() => import("./pages/Work"));
 const Feed = lazy(() => import("./pages/Feed"));
 const Reports = lazy(() => import("./pages/Reports"));
@@ -125,6 +127,7 @@ const navGroups = [
       ["/quotes", "Teklifler", FileSignature],
       ["/senets", "Senetler", ScrollText],
       ["/cost-of-money", "Para maliyeti", Percent],
+      ["/dealers", "Bayiler", Store],
       ["/activities", "Etkinlikler", CalendarDays],
       ["/contacts", "Kişiler", ContactRound],
       ["/companies", "Şirketler", Building2],
@@ -175,6 +178,7 @@ function Workspace() {
     "/quotes": "quotes",
     "/cost-of-money": "quotes",
     "/senets": "quotes",
+    "/dealers": "crm",
     "/activities": "crm",
     "/contacts": "contacts",
     "/companies": "companies",
@@ -827,6 +831,8 @@ function Workspace() {
               <CostOfMoney />
             ) : path === "/senets" ? (
               <Senets />
+            ) : path === "/dealers" ? (
+              <Dealers />
             ) : path === "/tasks" ? (
               <Work onLead={setLeadModal} />
             ) : path === "/feed" ? (

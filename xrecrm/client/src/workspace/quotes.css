@@ -795,3 +795,85 @@ html .app-shell .modal.wide.qt-modal {
     justify-content: center;
   }
 }
+
+/* ---- Bayiler ---- */
+.dl-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.dl-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  align-content: start;
+}
+.dl-card.dl-main {
+  border-color: var(--xre-accent, #38bdf8);
+}
+.dl-card.dl-off {
+  opacity: 0.6;
+}
+.dl-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.dl-register {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.2fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+.dl-lead {
+  position: relative;
+  align-self: start;
+}
+.dl-picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+}
+.dl-matches {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  border: 1px solid var(--line, rgba(128, 128, 128, 0.3));
+  border-radius: 10px;
+  display: grid;
+  gap: 2px;
+}
+.dl-matches button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: inherit;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.dl-matches button:hover,
+.dl-matches button:focus-visible {
+  background: rgba(128, 128, 128, 0.16);
+}
+.dl-members {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 4px 12px;
+  max-height: 220px;
+  overflow: auto;
+}
+.dl-days {
+  width: 90px;
+}
+@media (max-width: 900px) {
+  .dl-register {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

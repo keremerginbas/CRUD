@@ -35,6 +35,8 @@ export function requireModulePermissions(
     /^\/sms(?:\/|$)/.test(path) ||
     // Teklif uçları (onay, oranlar, para maliyeti) kendi yetki kontrollerini yapar.
     /^\/quotes(?:\/|$)/.test(path) ||
+    // Bayi uçları kendi yetki kontrollerini yapar.
+    /^\/dealers(?:\/|$)/.test(path) ||
     path === "/integrations/sms/test" ||
     path === "/pbx/me" ||
     path === "/lines" ||
