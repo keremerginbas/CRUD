@@ -104,6 +104,38 @@ export async function fetchWithTimeout(
   }
 }
 
+/**
+ * Dış servisin hata gövdesinden okunabilir bir neden çıkarır. WhatsApp sunucusu (Evolution API)
+ * nedeni `response.message` içinde verir; bu okunmazsa kullanıcı yalnızca "HTTP 400" görür.
+ */
+export function describeProviderError(body: any, status: number): string {
+  const text = (value: unknown): string =>
+    typeof value === "string"
+      ? value
+      : Array.isArray(value)
+        ? value.map(text).filter(Boolean).join("; ")
+        : value && typeof value === "object"
+          ? text((value as any).message ?? (value as any).error ?? (value as any).description ?? "")
+          : "";
+  // Evolution: numara WhatsApp'ta yoksa {response:{message:[{exists:false,number}]}} döner.
+  const items = Array.isArray(body?.response?.message) ? body.response.message : [];
+  const missing = items.find((item: any) => item && typeof item === "object" && item.exists === false);
+  if (missing) return `Bu numara WhatsApp'ta kayıtlı değil: ${String(missing.number || missing.jid || "").replace(/@.*/, "")}`.trim();
+  const detail = (
+    text(body?.response?.message) ||
+    text(body?.error?.message) ||
+    text(body?.message) ||
+    text(typeof body?.error === "string" && !/^bad request$/i.test(body.error) ? body.error : "") ||
+    text(body?.raw)
+  )
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
+  if (/connection closed|not connected|instance .*does not exist|is not connected/i.test(detail))
+    return `WhatsApp hattının bağlantısı kopmuş; hattı yeniden bağlayın (QR). (${detail})`;
+  return detail ? `Dış servis HTTP ${status}: ${detail}` : `Dış servis HTTP ${status}`;
+}
+
 export async function readJsonResponse(response: Response): Promise<any> {
   const text = await response.text();
   let body: any = {};
@@ -113,11 +145,7 @@ export async function readJsonResponse(response: Response): Promise<any> {
     body = { raw: text.slice(0, 4000) };
   }
   if (!response.ok) {
-    const error = new Error(
-      body?.error?.message ||
-        body?.message ||
-        `Dış servis HTTP ${response.status}`,
-    ) as Error & {
+    const error = new Error(describeProviderError(body, response.status)) as Error & {
       statusCode?: number;
       providerStatus?: number;
       body?: unknown;
