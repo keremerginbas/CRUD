@@ -60,6 +60,11 @@ const statusTone: Record<Task["status"], string> = {
   done: "green",
 };
 
+/** Müşteriyi kimliğinden bulmak için dizin; binlerce müşteride her satır için tüm listeyi taramayı önler. */
+function useLeadIndex<T extends { id: string }>(leads: T[]) {
+  return useMemo(() => new Map(leads.map((lead) => [lead.id, lead] as const)), [leads]);
+}
+
 function emptyTask(leadId = "", assignee = ""): Task {
   const now = nowIso();
   const due = new Date();
@@ -633,6 +638,7 @@ function TaskBoard({
   onEdit: (task: Task) => void;
   onStatus: (task: Task, status: Task["status"]) => void;
 }) {
+  const leadIndex = useLeadIndex(data.leads);
   const [over, setOver] = useState<Task["status"] | null>(null);
   return (
     <div className="sx-kanban-board">
@@ -666,7 +672,7 @@ function TaskBoard({
                 <TaskCard
                   key={task.id}
                   task={task}
-                  lead={data.leads.find((lead) => lead.id === task.leadId)}
+                  lead={leadIndex.get(task.leadId)}
                   onLead={onLead}
                   onEdit={() => onEdit(task)}
                   onStatus={(next) => onStatus(task, next)}
@@ -695,6 +701,7 @@ function TaskList({
   onEdit: (task: Task) => void;
   onStatus: (task: Task, status: Task["status"]) => void;
 }) {
+  const leadIndex = useLeadIndex(data.leads);
   if (!tasks.length)
     return (
       <section className="panel">
@@ -720,7 +727,7 @@ function TaskList({
           </thead>
           <tbody>
             {tasks.map((task) => {
-              const lead = data.leads.find((item) => item.id === task.leadId);
+              const lead = leadIndex.get(task.leadId);
               const overdue = isOverdue(task.dueAt, task.status === "done");
               return (
                 <tr key={task.id} className={overdue ? "is-overdue" : ""}>
@@ -823,6 +830,7 @@ function CalendarView({
   onToggleActivity: (activity: Activity) => void;
   onToggleTask: (task: Task) => void;
 }) {
+  const leadIndex = useLeadIndex(data.leads);
   const [month, setMonth] = useState(() => {
     const date = new Date();
     return new Date(date.getFullYear(), date.getMonth(), 1);
@@ -844,13 +852,33 @@ function CalendarView({
     },
   );
   const selectedKey = dayKey(selected);
-  const dayActivities = data.activities
-    .filter((a) => !a.cancelled)
-    .filter((activity) => dayKey(activity.startAt) === selectedKey)
-    .sort((a, b) => a.startAt.localeCompare(b.startAt));
-  const dayTasks = data.tasks
-    .filter((task) => task.dueAt && dayKey(task.dueAt) === selectedKey)
-    .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  // Kayıtlar güne göre bir kez dizinlenir; her takvim hücresi tüm listeyi yeniden taramaz.
+  const activitiesByDay = useMemo(() => {
+    const map = new Map<string, Activity[]>();
+    for (const activity of data.activities) {
+      if (activity.cancelled) continue;
+      const key = dayKey(activity.startAt);
+      const list = map.get(key);
+      if (list) list.push(activity);
+      else map.set(key, [activity]);
+    }
+    return map;
+  }, [data.activities]);
+  const tasksByDay = useMemo(() => {
+    const map = new Map<string, Task[]>();
+    for (const task of data.tasks) {
+      if (!task.dueAt) continue;
+      const key = dayKey(task.dueAt);
+      const list = map.get(key);
+      if (list) list.push(task);
+      else map.set(key, [task]);
+    }
+    return map;
+  }, [data.tasks]);
+  const NO_ACTIVITIES: Activity[] = [];
+  const NO_TASKS: Task[] = [];
+  const dayActivities = [...(activitiesByDay.get(selectedKey) || NO_ACTIVITIES)].sort((a, b) => a.startAt.localeCompare(b.startAt));
+  const dayTasks = [...(tasksByDay.get(selectedKey) || NO_TASKS)].sort((a, b) => a.dueAt.localeCompare(b.dueAt));
   return (
     <div className="sx-calendar-layout">
       <section className="panel sx-calendar-panel">
@@ -905,11 +933,7 @@ function CalendarView({
               >
                 <strong>{date.getDate()}</strong>
                 <div className="sx-calendar-events">
-                  {data.activities
-                    .filter((a) => !a.cancelled)
-                    .filter(
-                      (activity) => dayKey(activity.startAt) === dayKey(date),
-                    )
+                  {(activitiesByDay.get(dayKey(date)) || NO_ACTIVITIES)
                     .slice(0, 3)
                     .map((activity) => (
                       <span
@@ -919,11 +943,7 @@ function CalendarView({
                         {activity.title || "Etkinlik"}
                       </span>
                     ))}
-                  {data.tasks
-                    .filter(
-                      (task) =>
-                        task.dueAt && dayKey(task.dueAt) === dayKey(date),
-                    )
+                  {(tasksByDay.get(dayKey(date)) || NO_TASKS)
                     .slice(0, 2)
                     .map((task) => (
                       <span key={task.id} className="sx-calendar-event task">
@@ -971,7 +991,7 @@ function CalendarView({
             description="Takvime planlama kaydı ekleyin."
           />
         )}
-        {dayActivities.map((activity) => (
+        {dayActivities.slice(0, 150).map((activity) => (
           <div
             className={`sx-day-item ${activity.type} ${activity.completed ? "completed" : ""}`}
             key={activity.id}
@@ -995,17 +1015,17 @@ function CalendarView({
               </span>
               {activity.description && <p>{activity.description}</p>}
               {activity.leadId &&
-                data.leads.find((lead) => lead.id === activity.leadId) && (
+                leadIndex.get(activity.leadId) && (
                   <button
                     className="sx-linked-lead"
                     onClick={() =>
                       onLead(
-                        data.leads.find((lead) => lead.id === activity.leadId)!,
+                        leadIndex.get(activity.leadId)!,
                       )
                     }
                   >
                     {
-                      data.leads.find((lead) => lead.id === activity.leadId)
+                      leadIndex.get(activity.leadId)
                         ?.name
                     }{" "}
                     ↗
@@ -1021,7 +1041,7 @@ function CalendarView({
             </button>
           </div>
         ))}
-        {dayTasks.map((task) => (
+        {dayTasks.slice(0, 150).map((task) => (
           <div
             className={`sx-day-item task ${task.status === "done" ? "completed" : ""}`}
             key={task.id}
@@ -1070,6 +1090,7 @@ export default function Work({
 }) {
   const { data, saveRecord, user } = useStore();
   const defaultAssignee = user?.name || data.members[0]?.name || "";
+  const leadIndex = useLeadIndex(data.leads);
   const [view, setView] = useState<"list" | "kanban">("list");
   const [query, setQuery] = useState("");
   const [assignee, setAssignee] = useState("all");
@@ -1097,7 +1118,7 @@ export default function Work({
   );
   const filteredTasks = data.tasks.filter((task) => {
     const search =
-      `${task.title} ${task.description} ${task.assignee} ${data.leads.find((lead) => lead.id === task.leadId)?.name || ""}`.toLocaleLowerCase(
+      `${task.title} ${task.description} ${task.assignee} ${leadIndex.get(task.leadId)?.name || ""}`.toLocaleLowerCase(
         "tr",
       );
     return (

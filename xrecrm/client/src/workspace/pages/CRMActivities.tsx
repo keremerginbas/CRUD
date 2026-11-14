@@ -86,6 +86,20 @@ export default function CRMActivities({
       ),
     [data.leads, owner, pipeline, query, source, suppliedLeads],
   );
+  // Binlerce müşteride her kart için tüm görev ve etkinlikleri taramamak adına kayıtlar müşteri başına dizinlenir.
+  const byLead = useMemo(() => {
+    const tasks = new Map<string, typeof data.tasks>();
+    const activities = new Map<string, typeof data.activities>();
+    for (const t of data.tasks) if (t.leadId) (tasks.get(t.leadId) || tasks.set(t.leadId, []).get(t.leadId)!).push(t);
+    for (const a of data.activities) if (a.leadId) (activities.get(a.leadId) || activities.set(a.leadId, []).get(a.leadId)!).push(a);
+    return { tasks, activities };
+  }, [data.tasks, data.activities]);
+  const NONE_T: typeof data.tasks = [];
+  const NONE_A: typeof data.activities = [];
+  const tasksFor = (id: string) => byLead.tasks.get(id) || NONE_T;
+  const activitiesFor = (id: string) => byLead.activities.get(id) || NONE_A;
+  const BUCKET_PAGE = 60;
+  const [bucketLimit, setBucketLimit] = useState<Record<string, number>>({});
   const addActivity = (leadId?: string) =>
     onActivity ? onActivity(leadId) : setEditor({ leadId });
   const editRecord = (record: CrmOpenRecord) => {
@@ -120,14 +134,15 @@ export default function CRMActivities({
     const grouped = new Map<CrmActivityBucket, Lead[]>();
     bucketOrder.forEach((bucket) => grouped.set(bucket, []));
     leads.forEach((lead) => {
-      const record = next(lead.id, data.tasks, data.activities);
+      const record = next(lead.id, tasksFor(lead.id), activitiesFor(lead.id));
       const bucket = activityBucket(record);
       grouped.get(bucket)!.push(lead);
     });
+    const nextOf = new Map(leads.map((lead) => [lead.id, next(lead.id, tasksFor(lead.id), activitiesFor(lead.id))] as const));
     grouped.forEach((items) =>
       items.sort((left, right) => {
-        const leftNext = next(left.id, data.tasks, data.activities);
-        const rightNext = next(right.id, data.tasks, data.activities);
+        const leftNext = nextOf.get(left.id);
+        const rightNext = nextOf.get(right.id);
         if (leftNext && rightNext) {
           const difference =
             Date.parse(leftNext.date) - Date.parse(rightNext.date);
@@ -137,9 +152,9 @@ export default function CRMActivities({
       }),
     );
     return grouped;
-  }, [data.activities, data.tasks, leads]);
+  }, [byLead, leads]);
   const totalOpen = leads.reduce(
-    (total, lead) => total + openCount(lead.id, data.tasks, data.activities),
+    (total, lead) => total + openCount(lead.id, tasksFor(lead.id), activitiesFor(lead.id)),
     0,
   );
 
@@ -173,14 +188,10 @@ export default function CRMActivities({
               <span className="crm-group-line" />
             </header>
             <div className="crm-activity-cards">
-              {items.map((lead) => {
-                const record = next(lead.id, data.tasks, data.activities);
-                const records = openRecordsForLead(
-                  lead.id,
-                  data.tasks,
-                  data.activities,
-                );
-                const count = openCount(lead.id, data.tasks, data.activities);
+              {items.slice(0, bucketLimit[bucket] || BUCKET_PAGE).map((lead) => {
+                const record = next(lead.id, tasksFor(lead.id), activitiesFor(lead.id));
+                const records = openRecordsForLead(lead.id, tasksFor(lead.id), activitiesFor(lead.id));
+                const count = openCount(lead.id, tasksFor(lead.id), activitiesFor(lead.id));
                 return (
                   <CRMContactCard
                     key={lead.id}
@@ -193,7 +204,7 @@ export default function CRMActivities({
                     navigate={navigate}
                   >
                     {!record &&
-                      data.tasks
+                      tasksFor(lead.id)
                         .filter(
                           (t) =>
                             t.leadId === lead.id &&
@@ -276,6 +287,15 @@ export default function CRMActivities({
                   </CRMContactCard>
                 );
               })}
+              {items.length > (bucketLimit[bucket] || BUCKET_PAGE) && (
+                <button
+                  type="button"
+                  className="add-card column-more"
+                  onClick={() => setBucketLimit((c) => ({ ...c, [bucket]: (c[bucket] || BUCKET_PAGE) + BUCKET_PAGE }))}
+                >
+                  {items.length - (bucketLimit[bucket] || BUCKET_PAGE)} müşteri daha · göster
+                </button>
+              )}
             </div>
           </section>
         );

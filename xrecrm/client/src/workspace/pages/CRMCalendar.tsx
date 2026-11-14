@@ -136,7 +136,9 @@ export default function CRMCalendar({
     const map = new Map<string, CalendarItem[]>();
     items.forEach((item) => {
       const key = istanbulDateKey(item.date);
-      map.set(key, [...(map.get(key) || []), item]);
+      const list = map.get(key);
+      if (list) list.push(item);
+      else map.set(key, [item]);
     });
     return map;
   }, [items]);
@@ -309,7 +311,7 @@ export default function CRMCalendar({
             />
           )}
           <div className="crm-calendar-day-items">
-            {selectedItems.map((item) => {
+            {selectedItems.slice(0, 150).map((item) => {
               const completed =
                 item.kind === "activity"
                   ? item.record.completed
