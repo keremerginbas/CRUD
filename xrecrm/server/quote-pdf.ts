@@ -20,7 +20,7 @@ export interface QuotePdfInput {
 const here = path.dirname(fileURLToPath(import.meta.url));
 let fontCache: { regular: Buffer; bold: Buffer } | null = null;
 /** Yazı tipleri geliştirmede public/fonts, derlenmiş kurulumda dist/public/fonts altındadır. */
-function fonts(): { regular: Buffer; bold: Buffer } {
+export function fonts(): { regular: Buffer; bold: Buffer } {
   if (fontCache) return fontCache;
   const dirs = [
     process.env.XRE_FONT_DIR?.trim() || "",

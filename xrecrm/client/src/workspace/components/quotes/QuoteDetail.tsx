@@ -24,6 +24,7 @@ import {
   type VisibleQuote,
 } from "../../../../../shared/quotes";
 import type { QuoteStore } from "../../quotes";
+import { SaleDocuments } from "./SaleDocuments";
 
 export const quoteTone: Record<QuoteStatus, string> = {
   taslak: "sold",
@@ -371,6 +372,8 @@ export default function QuoteDetail({
         {!manager && quote.commission != null && quote.status !== "satışa döndü" && <p className="pj-muted">Prim, teklif satışa döndüğünde hak edilir.</p>}
         {!manager && quote.note && <p className="pj-text">Yöneticiye not: {quote.note}</p>}
       </section>
+
+      {APPROVED_STATUSES.includes(quote.status) && !expired && <SaleDocuments quote={quote} store={store} />}
 
       <div className="qt-detail-cols">
         <section className="pj-panel qt-section">

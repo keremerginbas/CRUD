@@ -113,6 +113,7 @@ import { liveNotifyStore } from "./live-notify.js";
 import { registerSmsRoutes, sendLeadSms, smsConfigured } from "./sms.js";
 import { registerProjectRoutes } from "./projects.js";
 import { registerQuoteRoutes } from "./quotes.js";
+import { registerSaleRoutes } from "./sales.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
@@ -1755,6 +1756,7 @@ export function createApp(
   registerTriggerRoutes(app, store);
   registerSmsRoutes(app, store);
   registerProjectRoutes(app, store);
+  registerSaleRoutes(app, store);
   registerQuoteRoutes(app, store);
   registerBitrixImportRoutes(app, store, baseStore);
   registerIntegrationSettingsRoutes(app, store);
