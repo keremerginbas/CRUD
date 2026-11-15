@@ -21,7 +21,12 @@ import {
 } from "../shared/assistant.js";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const DEFAULT_MODEL = "gpt-4.1-mini";
+const FALLBACK_MODEL = "gpt-4.1-mini";
+/** Kullanılacak model: Entegrasyonlar ekranından (XRE_OPENAI_MODEL) değiştirilebilir. */
+export const assistantModel = () => {
+  const chosen = (process.env.XRE_OPENAI_MODEL || "").trim();
+  return /^[A-Za-z0-9._:-]{2,80}$/.test(chosen) ? chosen : FALLBACK_MODEL;
+};
 const MAX_CONTEXT_ROWS = 200;
 const MAX_HISTORY = 40;
 const MAX_ACTIONS = 20;
@@ -939,7 +944,7 @@ async function callOpenAI(
           authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: DEFAULT_MODEL,
+          model: assistantModel(),
           max_completion_tokens: 3500,
           store: false,
           response_format: { type: "json_object" },
@@ -1065,7 +1070,7 @@ async function generateResponse(
     answer,
     actions: actionResult.actions,
     ...(report ? { report } : {}),
-    model: DEFAULT_MODEL,
+    model: assistantModel(),
     mode: "live",
     sources: sourceResult,
     generatedAt: nowIso(),
@@ -1193,7 +1198,7 @@ export function registerAssistantRoutes(app: Express, store: Store): void {
     }
     return res.json({
       configured: Boolean(process.env.XRE_OPENAI_API_KEY?.trim()),
-      model: DEFAULT_MODEL,
+      model: assistantModel(),
       provider: "OpenAI",
     });
   });
@@ -1296,4 +1301,4 @@ export function registerAssistantRoutes(app: Express, store: Store): void {
   });
 }
 
-export { DEFAULT_MODEL as ASSISTANT_MODEL, OPENAI_URL as ASSISTANT_OPENAI_URL };
+export { FALLBACK_MODEL as ASSISTANT_MODEL, OPENAI_URL as ASSISTANT_OPENAI_URL };

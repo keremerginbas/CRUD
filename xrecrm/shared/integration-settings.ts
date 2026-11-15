@@ -120,6 +120,7 @@ export const SETTING_GROUPS: SettingGroup[] = [
     description: "CRM asistanı (OpenAI) ve n8n Public API.",
     fields: [
       { key: "XRE_OPENAI_API_KEY", label: "OpenAI API anahtarı", secret: true },
+      { key: "XRE_OPENAI_MODEL", label: "Model (isteğe bağlı)", placeholder: "gpt-4.1-mini", help: "Boş bırakılırsa gpt-4.1-mini kullanılır. Daha güçlü yanıtlar için gpt-4.1 yazabilirsiniz; daha pahalıdır. OpenAI hesabınızda açık olan başka bir sohbet modelinin adını da yazabilirsiniz." },
       { key: "N8N_API_KEY", label: "n8n API anahtarı", secret: true },
     ],
   },

@@ -32,7 +32,7 @@ export default function AI({
     <>
       <div className="b24-page-head ai-page-heading">
         <div>
-          <span className="ai-eyebrow">XRE INTELLIGENCE</span>
+          <span className="ai-eyebrow">YAPAY ZEKÂ ASİSTANI</span>
           <h1>CRM’nize sor. Sonraki adımı birlikte atın.</h1>
           <p>
             Satış bağlamınızı bilen asistanınız: raporlar, müşteri takibi ve

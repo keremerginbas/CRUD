@@ -12,9 +12,9 @@ import {
   type ConversationKind,
   type ConversationAnalysisMetadata,
 } from "../shared/conversation.js";
+import { assistantModel } from "./assistant.js";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const MODEL = "gpt-4.1-mini";
 const MAX_TRANSCRIPT_CHARS = 12_000;
 const MAX_THREAD_MESSAGES = 20;
 const MAX_THREAD_CHARS = 12_000;
@@ -449,7 +449,7 @@ async function callOpenAI(snapshot: Snapshot): Promise<ConversationAnalysis> {
         authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: MODEL,
+        model: assistantModel(),
         max_completion_tokens: 1800,
         store: false,
         response_format: {
