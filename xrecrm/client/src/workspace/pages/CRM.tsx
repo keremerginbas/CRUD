@@ -9,7 +9,7 @@ import {
   type CrmWorkspaceFilters,
   type CrmWorkspaceAppearance,
 } from "../../../../shared/crm-workspace";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Search,
@@ -288,6 +288,24 @@ export default function CRM({
     0,
   );
   const dragLead = dragId ? data.leads.find((l) => l.id === dragId) : null;
+  // Kartı bıraktıktan hemen sonra bir otomasyon kuralı müşteriyi başka aşamaya taşırsa kart "kendiliğinden"
+  // yer değiştirmiş görünür; nedenini kullanıcıya söyleriz.
+  const movedByMe = useRef<{ id: string; stage: string; name: string; at: number } | null>(null);
+  useEffect(() => {
+    const mine = movedByMe.current;
+    if (!mine) return;
+    if (Date.now() - mine.at > 30_000) return void (movedByMe.current = null);
+    const now = data.leads.find((l) => l.id === mine.id);
+    if (!now || now.stage === mine.stage) return;
+    movedByMe.current = null;
+    const from = stages.find((x) => x.id === mine.stage)?.label || mine.stage;
+    const to = stages.find((x) => x.id === now.stage)?.label || now.stage;
+    toast.info(`${mine.name} az önce “${to}” aşamasına taşındı.`, {
+      description: `Bunu siz yapmadınız: büyük olasılıkla “${from}” aşamasına bağlı bir otomasyon kuralı çalıştı. Kuralı Otomasyonlar sayfasından görebilir veya kapatabilirsiniz.`,
+      duration: 12000,
+      action: navigate ? { label: "Kurallara git", onClick: () => navigate("/automations") } : undefined,
+    });
+  }, [data.leads]); // eslint-disable-line react-hooks/exhaustive-deps
   const move = async (id: string, s: Stage, beforeId: string | null = null) => {
     const lead = data.leads.find((l) => l.id === id);
     if (!lead) return;
@@ -295,7 +313,10 @@ export default function CRM({
       // Elle sıralamada kart bırakıldığı yere yerleşir; diğer sıralamalarda yerini sıralama belirler.
       const rank = sortMode === "manual" ? rankForDrop((byStage.get(s) || []).filter((l) => l.id !== id), beforeId) : undefined;
       await moveLead(id, s, rank);
-      if (lead.stage !== s) toast.success("Müşteri aşaması güncellendi.");
+      if (lead.stage !== s) {
+        toast.success("Müşteri aşaması güncellendi.");
+        movedByMe.current = { id, stage: s, name: lead.name, at: Date.now() };
+      }
     } catch (e) {
       toast.error((e as Error).message);
     }
