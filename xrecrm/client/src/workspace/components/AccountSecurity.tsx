@@ -94,9 +94,10 @@ export default function AccountSecurity({ email, onEmailChanged }: { email: stri
           Giriş yaparken kullandığınız adres: <strong>{email || "—"}</strong>
         </p>
         <form onSubmit={changeEmail}>
+          <input className="acc-hidden-user" type="text" name="username" autoComplete="username" value={email} readOnly tabIndex={-1} aria-hidden="true" />
           <label>
             Yeni e-posta
-            <input type="email" required maxLength={320} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} autoComplete="email" placeholder="ad@firma.com" />
+            <input type="email" required maxLength={320} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} autoComplete="off" name="yeni-eposta" placeholder="ad@firma.com" />
           </label>
           <Secret label="Mevcut şifreniz" value={emailPw} onChange={setEmailPw} autoComplete="current-password" />
           <small className="muted">Değişiklikten sonra diğer cihazlardaki oturumlarınız kapanır; bu cihazda açık kalırsınız.</small>
@@ -111,6 +112,7 @@ export default function AccountSecurity({ email, onEmailChanged }: { email: stri
         </h3>
         <p className="muted">En az 8 karakter; harf ve rakam içermeli, kolay tahmin edilen bir şifre olmamalı.</p>
         <form onSubmit={changePassword}>
+          <input className="acc-hidden-user" type="text" name="username" autoComplete="username" value={email} readOnly tabIndex={-1} aria-hidden="true" />
           <Secret label="Mevcut şifre" value={current} onChange={setCurrent} autoComplete="current-password" />
           <Secret label="Yeni şifre" value={next} onChange={setNext} autoComplete="new-password" />
           {problem && <small className="acc-bad">{problem}</small>}

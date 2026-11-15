@@ -481,7 +481,7 @@ function Workspace() {
             className="workspace-switch"
             onClick={() => setProfile(!profile)}
           >
-            <span className="workspace-avatar">{tenant ? (workspace?.name || "?").slice(0, 1).toUpperCase() : "X"}</span>
+            <span className="workspace-avatar">{((tenant ? workspace?.name : branding.name) || "X").slice(0, 1).toLocaleUpperCase("tr-TR")}</span>
             <span>
               <strong>{tenant ? workspace?.name : branding.name || "XRE Real Estate"}</strong>
               <small>Çalışma alanı</small>
@@ -596,6 +596,12 @@ function Workspace() {
                   }}
                   onFocus={() => setSearchOpen(true)}
                   placeholder="Her yerde ara…"
+                  // Tarayıcının şifre yöneticisi bu kutuyu kullanıcı adı alanı sanıp e-posta yazmasın.
+                  type="search"
+                  name="xre-arama"
+                  autoComplete="off"
+                  data-lpignore="true"
+                  data-1p-ignore
                 />
                 <kbd>⌘ K</kbd>
                 {searchOpen && (
