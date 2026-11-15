@@ -3470,3 +3470,45 @@ td:first-child {
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line, #e3e9ee);
 }
+
+/* ---- Kanban sürükle-bırak (fare, dokunma, klavye) ---- */
+.kanban-board .lead-card {
+  cursor: grab;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.kanban-board .lead-card.is-dragging {
+  opacity: 0.35;
+}
+.kanban-board .lead-card:focus-visible {
+  outline: 2px solid var(--xre-accent, #0e7490);
+  outline-offset: 2px;
+}
+.kanban-column.drag-over {
+  outline: 2px dashed var(--stage, var(--xre-accent, #0e7490));
+  outline-offset: -3px;
+  background-image: linear-gradient(color-mix(in srgb, var(--stage, #0e7490) 9%, transparent), transparent 70%);
+}
+.lead-card.kanban-drag-ghost {
+  display: grid;
+  gap: 4px;
+  width: 260px;
+  padding: 12px 14px;
+  cursor: grabbing;
+  transform: rotate(2deg);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+.lead-card.kanban-drag-ghost span {
+  font-size: 12px;
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lead-card.kanban-drag-ghost {
+    transform: none;
+  }
+}

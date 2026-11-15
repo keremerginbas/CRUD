@@ -148,15 +148,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [data, demo]);
   const locked = workspace?.state === "expired" || workspace?.state === "suspended";
   const stateTag = useRef("");
+  const mutationSeq = useRef(0);
+  const pendingSaves = useRef(0);
   // soft: 15 saniyelik otomatik yenileme. Kullanıcının kendi işlemlerinden sonraki yenileme her zaman tam yapılır.
   const refresh = useCallback(async (soft = false) => {
     if (demo || locked) return;
     try {
       // Veri değişmediyse sunucu boş yanıt (204) döner: indirme, ayrıştırma ve ekranın yeniden çizimi atlanır.
+      const seq = mutationSeq.current;
       const r = await fetch("/api/state", { credentials: "include", headers: soft === true && stateTag.current ? { "x-xre-state": stateTag.current } : {} });
       if (r.status === 204) return;
       const state = await r.json().catch(() => ({ error: "Sunucu yanıtı okunamadı." }));
       if (!r.ok) throw new Error(state.message || state.error || "İşlem tamamlanamadı.");
+      // İstek sürerken kullanıcı bir şey değiştirdiyse bu yanıt eskidir; ekrana yazılmaz, yenisi istenir.
+      if (pendingSaves.current > 0) return; // kayıt sürüyor; bittiğinde zaten yenilenecek
+      if (seq !== mutationSeq.current) return void refresh();
       stateTag.current = r.headers.get("x-xre-state") || "";
       if (Array.isArray(state?.lines)) setLineInventory(state.lines);
       setData({ ...emptyState, ...state });
@@ -255,14 +261,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     )
       validateAppointment(l.appointmentAt);
     if (!demo) {
-      await api(
-        data.leads.some((x) => x.id === l.id)
-          ? `/api/leads/${l.id}`
-          : "/api/leads",
-        data.leads.some((x) => x.id === l.id) ? l : { lead: l },
-        data.leads.some((x) => x.id === l.id) ? "PATCH" : "POST",
-      );
-      await refresh();
+      // Anında tepki: ekran hemen güncellenir, kayıt arkada yapılır; sunucu reddederse eski hâline döner.
+      const exists = data.leads.some((x) => x.id === l.id);
+      const saved = l;
+      mutationSeq.current++;
+      setData((d) => ({ ...d, leads: exists ? d.leads.map((x) => (x.id === saved.id ? saved : x)) : [saved, ...d.leads] }));
+      pendingSaves.current++;
+      try {
+        await api(exists ? `/api/leads/${l.id}` : "/api/leads", exists ? l : { lead: l }, exists ? "PATCH" : "POST");
+        pendingSaves.current--;
+      } catch (error) {
+        pendingSaves.current--;
+        mutationSeq.current++;
+        setData((d) => ({ ...d, leads: exists && old ? d.leads.map((x) => (x.id === saved.id ? old : x)) : d.leads.filter((x) => x.id !== saved.id) }));
+        throw error;
+      }
+      // Otomasyonların ürettiği görev ve hareketler arkada alınır; kullanıcı bekletilmez.
+      void refresh();
       return;
     }
     setData((d) => {
@@ -417,13 +432,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     record: T,
   ) => {
     if (!demo) {
-      const exists = data[kind].some((x) => x.id === record.id);
-      await api(
-        exists ? `/api/${kind}/${record.id}` : `/api/${kind}`,
-        record,
-        exists ? "PATCH" : "POST",
-      );
-      await refresh();
+      const before = (data[kind] as SuiteRecord[]).find((x) => x.id === record.id);
+      const exists = Boolean(before);
+      mutationSeq.current++;
+      setData((d) => ({ ...d, [kind]: exists ? (d[kind] as SuiteRecord[]).map((x) => (x.id === record.id ? record : x)) : [record, ...(d[kind] as SuiteRecord[])] }));
+      pendingSaves.current++;
+      try {
+        await api(exists ? `/api/${kind}/${record.id}` : `/api/${kind}`, record, exists ? "PATCH" : "POST");
+        pendingSaves.current--;
+      } catch (error) {
+        pendingSaves.current--;
+        mutationSeq.current++;
+        setData((d) => ({ ...d, [kind]: before ? (d[kind] as SuiteRecord[]).map((x) => (x.id === record.id ? before : x)) : (d[kind] as SuiteRecord[]).filter((x) => x.id !== record.id) }));
+        throw error;
+      }
+      void refresh();
       return;
     }
     if (kind === "contacts") {

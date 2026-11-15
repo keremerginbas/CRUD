@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { Modal } from "../components/ui";
 import { useStore } from "../store";
 import { Lead, Stage, money } from "../data";
+import { KanbanBoard, KanbanCard, KanbanColumn } from "../components/KanbanDnd";
 import {
   availablePipelines,
   getPipelineStages,
@@ -112,7 +113,7 @@ export default function CRM({
   };
   const showColumn = (name: (typeof appearance.listColumns)[number]) =>
     appearance.listColumns.includes(name);
-  const [over, setOver] = useState<Stage | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string[]>([]);
   const [bulkStage, setBulkStage] = useState<Stage>("contacted");
   const [bulkOwner, setBulkOwner] = useState("");
@@ -255,6 +256,7 @@ export default function CRM({
         100,
     0,
   );
+  const dragLead = dragId ? data.leads.find((l) => l.id === dragId) : null;
   const move = async (id: string, s: Stage) => {
     try {
       await moveLead(id, s);
@@ -262,7 +264,6 @@ export default function CRM({
     } catch (e) {
       toast.error((e as Error).message);
     }
-    setOver(null);
   };
   const add = async (s: Stage) => {
     if (!quickName.trim()) return;
@@ -658,23 +659,33 @@ export default function CRM({
           onEditTask={editTask}
         />
       ) : activeView === "kanban" ? (
-        <div className="kanban-board b24-kanban">
+        <KanbanBoard
+          className="kanban-board b24-kanban"
+          activeId={dragId}
+          onStart={setDragId}
+          onCancel={() => setDragId(null)}
+          onMove={(id, stage) => {
+            setDragId(null);
+            void move(id, stage as Stage);
+          }}
+          overlay={
+            dragLead && (
+              <article className={`lead-card b24-deal-card kanban-drag-ghost crm-card-profile-${appearance.cardProfile}`}>
+                <strong>{dragLead.name}</strong>
+                <span>{[dragLead.company, dragLead.phone].filter(Boolean).join(" · ") || dragLead.source}</span>
+                <b>{money(dragLead.value)}</b>
+              </article>
+            )
+          }
+        >
           {stages.map((s) => {
             const items = leads.filter((l) => l.stage === s.id);
             return (
-              <section
+              <KanbanColumn
                 key={s.id}
-                className={`kanban-column ${over === s.id ? "drag-over" : ""}`}
+                id={s.id}
+                className="kanban-column"
                 style={{ ["--stage" as string]: s.color } as React.CSSProperties}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setOver(s.id);
-                }}
-                onDragLeave={() => setOver(null)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  move(e.dataTransfer.getData("text/plain"), s.id);
-                }}
               >
                 <header style={{ background: s.color, borderColor: s.color }}>
                   <div>
@@ -736,13 +747,10 @@ export default function CRM({
                     const upcoming = next(l);
                     const overdue = upcoming && isOverdue(upcoming.date);
                     return (
-                      <article
+                      <KanbanCard
                         key={l.id}
+                        id={l.id}
                         className={`lead-card b24-deal-card crm-card-profile-${appearance.cardProfile}`}
-                        draggable
-                        onDragStart={(e) =>
-                          e.dataTransfer.setData("text/plain", l.id)
-                        }
                         // Kartın boş bir yerine çift tıklamak müşteri kartını açar;
                         // düğme, seçim kutusu ve açılır listeler kendi işini yapmaya devam eder.
                         onDoubleClick={(e) => {
@@ -902,7 +910,7 @@ export default function CRM({
                             ))}
                           </select>
                         </div>
-                      </article>
+                      </KanbanCard>
                     );
                   })}
                   {items.length > (columnLimit[s.id] || COLUMN_PAGE) && (
@@ -945,10 +953,10 @@ export default function CRM({
                   otomasyon kuralı
                   <ChevronDown size={11} />
                 </button>
-              </section>
+              </KanbanColumn>
             );
           })}
-        </div>
+        </KanbanBoard>
       ) : (
         <section className="panel">
           <div className="table-wrap">
