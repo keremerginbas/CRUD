@@ -141,7 +141,7 @@ export async function addInboxNotification(
   if (!inserted.inserted) return inserted.record?.payload || null;
   pushNotice(
     { id: item.id, kind: "task", title: item.title, body: item.body, leadId: item.leadId, at: item.createdAt },
-    { module: "crm", assigneeName: recipient },
+    { module: "crm", assigneeName: recipient, owner },
   );
   // Kişi başına en yeni kayıtlar tutulur; eskiler silinir.
   const mine = (await raw.list<InboxNotification>(INBOX_KIND, owner))

@@ -688,6 +688,11 @@ export async function resolveAuthContext(
       item.payload.openId === user.openId && item.payload.active === true,
   );
   if (!employeeRecord || !employeeRecord.payload.roleId) return null;
+  // Yerel giriş hesabı pasife alınmışsa, çalışan kaydı yeniden açılsa bile eski oturum geçmez.
+  if (user.openId.startsWith("local:")) {
+    const accounts = await raw.list<{ openId?: string; active?: boolean }>("local-account", ownership.ownerOpenId);
+    if (accounts.some((row) => row.payload.openId === user.openId && row.payload.active === false)) return null;
+  }
   const storedRole = (
     await raw.get<AccessRole>(
       "role",

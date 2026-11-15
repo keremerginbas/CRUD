@@ -50,6 +50,8 @@ import {
   handleLogin,
   requireAuth,
   verifyRequestSession,
+  cookieValue,
+  SESSION_COOKIE,
   verifySessionIdentity,
 } from "./auth.js";
 import {
@@ -116,6 +118,7 @@ import { registerQuoteRoutes } from "./quotes.js";
 import { registerSaleRoutes } from "./sales.js";
 import { phoneProblem } from "../shared/phone.js";
 import { registerDealerRoutes } from "./dealers.js";
+import { registerLiveRoutes } from "./live.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
@@ -1378,6 +1381,30 @@ export function createApp(
   );
   const app = express();
   app.disable("x-powered-by");
+  // Kurulumda sunucunun önünde tek bir ara sunucu (Caddy) vardır; istemci adresi ondan alınır.
+  // Böylece giriş deneme sınırı herkesi tek adres sayıp ortak kilitlemez.
+  const trustProxy = process.env.XRE_TRUST_PROXY?.trim();
+  if (trustProxy ? trustProxy !== "0" : process.env.NODE_ENV === "production") app.set("trust proxy", Number(trustProxy) || 1);
+  // Başka bir siteden, kullanıcının oturum çereziyle gönderilen değişiklik istekleri reddedilir (CSRF).
+  // Dış servis bildirimleri (webhook) çerez ve Origin taşımadığı için etkilenmez.
+  app.use((req, res, next) => {
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS" || !req.path.startsWith("/api/")) return next();
+    const origin = String(req.headers.origin || "");
+    if (!origin || !cookieValue(req, SESSION_COOKIE)) return next();
+    let originHost = "";
+    try {
+      originHost = new URL(origin).host.toLowerCase();
+    } catch {
+      /* "null" veya bozuk değer: aşağıda reddedilir */
+    }
+    const allowed = new Set(
+      [String(req.headers["x-forwarded-host"] || "").split(",")[0].trim(), String(req.headers.host || ""), (() => { try { return new URL(process.env.PUBLIC_ORIGIN || "").host; } catch { return ""; } })()]
+        .map((h) => h.toLowerCase())
+        .filter(Boolean),
+    );
+    if (allowed.has(originHost) || (process.env.NODE_ENV !== "production" && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(originHost))) return next();
+    res.status(403).json({ error: "CROSS_SITE_REQUEST", message: "Bu istek başka bir siteden geldiği için reddedildi." });
+  });
   // Express 4 does not catch rejected async route handlers by itself.
   for (const method of ["get", "post", "put", "patch", "delete"] as const) {
     const original = (app[method] as any).bind(app);
@@ -1452,7 +1479,7 @@ export function createApp(
   app.get("/api/auth/callback", (req, res) => {
     void handleCallback(req, res, store);
   });
-  app.post("/api/auth/logout", (req, res) => clearSession(req, res));
+  app.post("/api/auth/logout", (req, res) => void clearSession(req, res, store));
 
   app.get("/api/webhooks/meta", (req, res) => {
     const token = process.env.META_VERIFY_TOKEN;
@@ -1759,6 +1786,7 @@ export function createApp(
   registerTriggerRoutes(app, store);
   registerSmsRoutes(app, store);
   registerProjectRoutes(app, store);
+  registerLiveRoutes(app);
   registerSaleRoutes(app, store);
   registerDealerRoutes(app, store);
   registerQuoteRoutes(app, store);

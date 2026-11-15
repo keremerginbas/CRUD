@@ -148,6 +148,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   }, [data, demo]);
   const locked = workspace?.state === "expired" || workspace?.state === "suspended";
   const stateTag = useRef("");
+  const signedIn = useRef(false);
+  signedIn.current = Boolean(user) && !demo;
   const mutationSeq = useRef(0);
   const pendingSaves = useRef(0);
   // soft: 15 saniyelik otomatik yenileme. Kullanıcının kendi işlemlerinden sonraki yenileme her zaman tam yapılır.
@@ -158,6 +160,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const seq = mutationSeq.current;
       const r = await fetch("/api/state", { credentials: "include", headers: soft === true && stateTag.current ? { "x-xre-state": stateTag.current } : {} });
       if (r.status === 204) return;
+      // Oturum bitmiş, başka cihazdan çıkış yapılmış veya hesap kapatılmış: eski veriler ekranda
+      // kalmasın, giriş ekranına dönülsün. Yalnız girişli kullanıcıda yapılır (giriş ekranında döngü olmasın).
+      if (r.status === 401) {
+        if (signedIn.current) {
+          signedIn.current = false;
+          setData(emptyState);
+          window.location.reload();
+        }
+        return;
+      }
       const state = await r.json().catch(() => ({ error: "Sunucu yanıtı okunamadı." }));
       if (!r.ok) throw new Error(state.message || state.error || "İşlem tamamlanamadı.");
       // İstek sürerken kullanıcı bir şey değiştirdiyse bu yanıt eskidir; ekrana yazılmaz, yenisi istenir.
@@ -167,7 +179,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       if (Array.isArray(state?.lines)) setLineInventory(state.lines);
       setData({ ...emptyState, ...state });
     } catch (e) {
-      toast.error((e as Error).message);
+      // Arka plan yenilemesindeki geçici hata (sunucu yeniden başlıyor, bağlantı koptu) kullanıcıyı rahatsız etmez.
+      if (soft !== true) toast.error((e as Error).message);
     }
   }, [demo, locked]);
   const setDemo = (v: boolean) => {
@@ -191,13 +204,47 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  // Canlı güncelleme: sunucu "değişti" dediğinde hemen yenilenir. Akış kurulamazsa (eski tarayıcı,
+  // ara sunucu engeli) 15 saniyelik yenileme devam eder; akış açıkken yedek olarak 60 saniyede bir yenilenir.
   useEffect(() => {
-    if (demo || !user) return;
+    if (demo || !user || locked) return;
+    let live = false;
+    let debounce: number | undefined;
+    let source: EventSource | null = null;
+    const soon = () => {
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(() => {
+        if (document.visibilityState === "visible") void refresh(true);
+      }, 250);
+    };
+    if (typeof EventSource !== "undefined") {
+      source = new EventSource("/api/live", { withCredentials: true });
+      source.onopen = () => {
+        live = true;
+        soon(); // bağlantı koptuysa arada kaçan değişiklikler alınır
+      };
+      source.onerror = () => {
+        live = false;
+        soon(); // akış kapandıysa oturum bitmiş olabilir; hemen doğrulanır
+      };
+      source.addEventListener("changed", soon);
+    }
+    let ticks = 0;
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void refresh(true);
+      ticks++;
+      if (document.visibilityState !== "visible") return;
+      if (!live || ticks % 4 === 0) void refresh(true);
     }, 15000);
-    return () => clearInterval(timer);
-  }, [demo, user, refresh]);
+    // Sekmeye geri dönüldüğünde beklemeden güncellenir.
+    const onVisible = () => document.visibilityState === "visible" && soon();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(timer);
+      window.clearTimeout(debounce);
+      document.removeEventListener("visibilitychange", onVisible);
+      source?.close();
+    };
+  }, [demo, user, locked, refresh]);
   const event = (
     title: string,
     detail: string,

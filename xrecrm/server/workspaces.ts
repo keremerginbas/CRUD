@@ -125,6 +125,8 @@ const TENANT_API = new Set<string>([
   "quotes",
   // Bayiler ve müşteri kaydı koruması.
   "dealers",
+  // Canlı güncelleme akışı: yalnız "değişti" işareti taşır.
+  "live",
   ...suiteKinds,
 ]);
 const TENANT_BLOCKED_PATHS = [/^\/leads\/[^/]+\/analyze$/];
@@ -141,8 +143,10 @@ export function workspaceGuard(store: Store) {
       return res.status(403).json({ error: "WORKSPACE_SUSPENDED", message: "Bu çalışma alanı askıya alınmış. Lütfen bizimle iletişime geçin." });
     if (state === "expired")
       return res.status(402).json({ error: "TRIAL_EXPIRED", message: "Deneme süreniz doldu. Verileriniz saklanıyor; devam etmek için bizimle iletişime geçin." });
-    const first = req.path.split("/")[1] || "";
-    if (!TENANT_API.has(first) || TENANT_BLOCKED_PATHS.some((re) => re.test(req.path)))
+    // Yol, Express'in eşlediği gibi karşılaştırılır (harf büyüklüğü ve sondaki eğik çizgi fark etmez).
+    const normalized = req.path.replace(/\/+$/, "").toLowerCase() || "/";
+    const first = normalized.split("/")[1] || "";
+    if (!TENANT_API.has(first) || TENANT_BLOCKED_PATHS.some((re) => re.test(normalized)))
       return res.status(403).json({ error: "FEATURE_UNAVAILABLE", message: "Bu özellik çalışma alanınızda henüz açık değil." });
     next();
   };

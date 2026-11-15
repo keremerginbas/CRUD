@@ -225,6 +225,7 @@ export async function originateCall(input: { ext: string; phone: string; lineId?
 
 interface StreamClient {
   res: Response;
+  owner: string;
   openId: string;
   ext: string;
   canCalls: boolean;
@@ -243,10 +244,12 @@ export interface LiveNotice {
 }
 
 /** Canlı bildirim gönderir: modül yetkisi olanlara, isim verilirse yalnız o kişiye. */
-export function pushNotice(notice: LiveNotice, filter: { module: string; assigneeName?: string }): number {
+export function pushNotice(notice: LiveNotice, filter: { module: string; assigneeName?: string; owner?: string }): number {
   let delivered = 0;
   const assignee = filter.assigneeName?.trim().toLocaleLowerCase("tr-TR");
   for (const client of clients) {
+    // Bildirim yalnız kaydın ait olduğu çalışma alanının oturumlarına gider.
+    if (filter.owner && client.owner !== filter.owner) continue;
     if (!client.modules.has(filter.module)) continue;
     if (assignee && !client.names.includes(assignee)) continue;
     client.res.write(`event: notice\ndata: ${JSON.stringify(notice)}\n\n`);
@@ -493,6 +496,7 @@ export function registerPbxRoutes(app: Express, store: Store) {
     res.write(": bağlandı\n\n");
     const client: StreamClient = {
       res,
+      owner: auth.ownerOpenId,
       openId: auth.user.openId,
       ext: await extensionOf(auth),
       canCalls: auth.isOwner || canAccess(auth, "calls", "read"),

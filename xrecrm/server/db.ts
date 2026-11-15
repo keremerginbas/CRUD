@@ -8,6 +8,7 @@ import fs from "node:fs/promises";
 import fsSync from "node:fs";
 import path from "node:path";
 import type { StoredEvent, StoredRecord, UserIdentity } from "./types.js";
+import { emitStoreChange } from "./live.js";
 
 export interface Store {
   init(): Promise<void>;
@@ -299,6 +300,7 @@ export class MysqlStore implements Store {
     );
     const value = await this.get<T>(kind, id, ownerOpenId);
     if (!value) throw new Error("Kayıt yazıldıktan sonra okunamadı.");
+    emitStoreChange(ownerOpenId, kind);
     return value;
   }
 
@@ -314,6 +316,7 @@ export class MysqlStore implements Store {
       [ownerOpenId, kind, id, JSON.stringify(payload)],
     );
     const inserted = Number(result.affectedRows) > 0;
+    if (inserted) emitStoreChange(ownerOpenId, kind);
     return {
       inserted,
       record: inserted ? await this.get<T>(kind, id, ownerOpenId) : null,
@@ -326,6 +329,7 @@ export class MysqlStore implements Store {
       "DELETE FROM xre_records WHERE owner_open_id = ? AND kind = ? AND id = ?",
       [ownerOpenId, kind, id],
     );
+    emitStoreChange(ownerOpenId, kind);
   }
 
   async appendEvent(
@@ -354,6 +358,7 @@ export class MysqlStore implements Store {
     );
     if (!rows[0]) throw new Error("Olay kaydı okunamadı.");
     const event = rowEvent(rows[0]);
+    if (Number((insertResult as ResultSetHeader).affectedRows || 0) > 0) emitStoreChange(ownerOpenId, "event");
     return {
       inserted: Number((insertResult as ResultSetHeader).affectedRows || 0) > 0,
       event,
@@ -593,6 +598,7 @@ export class MemoryStore implements Store {
     };
     this.records.set(this.key(ownerOpenId, kind, id), row);
     this.bucket(ownerOpenId, kind, true)!.set(id, row);
+    emitStoreChange(ownerOpenId, kind);
     return structuredClone(row);
   }
   async insertIfAbsent<T = unknown>(
@@ -612,6 +618,7 @@ export class MemoryStore implements Store {
   async delete(kind: string, id: string, ownerOpenId: string) {
     this.records.delete(this.key(ownerOpenId, kind, id));
     this.bucket(ownerOpenId, kind)?.delete(id);
+    emitStoreChange(ownerOpenId, kind);
   }
   async appendEvent(
     ownerOpenId: string,
@@ -638,6 +645,7 @@ export class MemoryStore implements Store {
     };
     this.events.set(event.id, event);
     this.eventKeys().set(`${ownerOpenId}\u0000${eventKey}`, event.id);
+    emitStoreChange(ownerOpenId, "event");
     return { inserted: true, event: structuredClone(event) };
   }
   async getEvent(id: string, ownerOpenId: string) {

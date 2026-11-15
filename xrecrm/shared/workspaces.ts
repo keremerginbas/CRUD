@@ -5,6 +5,7 @@ export const RESERVED_SLUGS = new Set(
    feed kanban leads activities contacts companies tasks calendar team employees structure worktime access audit system
    profile reports data-quality ai whatsapp calls lines automations n8n webhooks integrations apps settings workspaces
    projects projeler units project-images quotes teklifler cost-of-money para-maliyeti
+   senets senetler dealers bayiler live canli
    firmalar demo test destek support yardim help xre-system favicon robots`.split(/\s+/),
 );
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,28})[a-z0-9]$/;

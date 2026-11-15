@@ -85,6 +85,8 @@ export interface UserIdentity {
   email?: string;
   /** Oturumun ait olduğu çalışma alanının sahibi; boşsa varsayılan alan. */
   workspace?: string;
+  /** Oturum belirtecinin verildiği an (saniye); oturum iptali denetiminde kullanılır. */
+  issuedAt?: number;
 }
 
 export interface AuthContext {

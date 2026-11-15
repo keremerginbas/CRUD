@@ -16,21 +16,21 @@ export function liveNotifyStore(base: Store): Store {
       const name = (await leadName(owner, next.leadId)) || next.contactName || (next.phone ? `+${next.phone}` : "Yeni kişi");
       pushNotice(
         { id: crypto.randomUUID(), kind: "message", title: `${name} mesaj gönderdi`, body: String(next.text || "").slice(0, 140), leadId: next.leadId, at },
-        { module: "whatsapp" },
+        { module: "whatsapp", owner },
       );
     }
     if (kind === "call" && next.status === "missed" && old?.status !== "missed") {
       const name = (await leadName(owner, next.leadId)) || (next.phone ? `+${next.phone}` : "Bilinmeyen numara");
       pushNotice(
         { id: crypto.randomUUID(), kind: "missed-call", title: `Cevapsız arama · ${name}`, body: "Geri aramayı unutmayın.", leadId: next.leadId, at },
-        { module: "calls" },
+        { module: "calls", owner },
       );
     }
     if (kind === "tasks" && next.assignee && next.status !== "done" && (!old || old.assignee !== next.assignee)) {
       const name = await leadName(owner, next.leadId);
       pushNotice(
         { id: crypto.randomUUID(), kind: "task", title: `Size görev atandı: ${next.title}`, body: [name, next.dueAt ? `Son tarih ${new Date(next.dueAt).toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}` : ""].filter(Boolean).join(" · "), leadId: next.leadId || null, at },
-        { module: "tasks", assigneeName: next.assignee },
+        { module: "tasks", assigneeName: next.assignee, owner },
       );
     }
   };

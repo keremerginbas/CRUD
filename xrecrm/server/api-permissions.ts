@@ -13,7 +13,9 @@ export function requireModulePermissions(
 ) {
   const auth = (req as Request & { auth: AuthContext }).auth;
   if (auth.isOwner) return next();
-  const path = req.originalUrl.split("?")[0].replace(/^\/api/, "");
+  // Express yolları büyük/küçük harfe ve sondaki eğik çizgiye duyarsız eşler; yetki denetimi de aynı
+  // biçimde eşlemeli, yoksa "/analyze/" veya "/Analyze" denetimi atlar.
+  const path = req.originalUrl.split("?")[0].replace(/^\/api/i, "").replace(/\/+$/, "").toLowerCase();
   const writing = !["GET", "HEAD", "OPTIONS"].includes(req.method);
   if (
     [
@@ -37,6 +39,7 @@ export function requireModulePermissions(
     /^\/quotes(?:\/|$)/.test(path) ||
     // Bayi uçları kendi yetki kontrollerini yapar.
     /^\/dealers(?:\/|$)/.test(path) ||
+    path === "/live" ||
     path === "/integrations/sms/test" ||
     path === "/pbx/me" ||
     path === "/lines" ||

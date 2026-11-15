@@ -18,6 +18,7 @@ import {
   cookieHeader,
   createSessionToken,
   publicHttps,
+  revokeSessions,
 } from "./auth.js";
 
 const scrypt = promisify(crypto.scrypt) as (
@@ -133,6 +134,9 @@ function tooManyAttempts(key: string): boolean {
   return entry.count >= 10;
 }
 function recordFailure(key: string) {
+  // Bellek sınırsız büyümesin: süresi geçmiş kayıtlar ara sıra temizlenir.
+  if (attempts.size > 5000) for (const [k, v] of attempts) if (Date.now() - v.first > 15 * 60_000) attempts.delete(k);
+  if (attempts.size > 20000) attempts.clear();
   const entry = attempts.get(key);
   if (!entry || Date.now() - entry.first > 15 * 60_000)
     attempts.set(key, { count: 1, first: Date.now() });
@@ -251,7 +255,8 @@ export function registerLocalAuthRoutes(app: Express, store: Store) {
         recordFailure(key);
         return res.status(401).json({ error: "INVALID_CREDENTIALS", message: "E-posta veya şifre hatalı." });
       }
-      if (!account.active)
+      const linked = account.employeeId ? (await raw.get<AccessEmployee>("employee", account.employeeId, owner))?.payload : null;
+      if (!account.active || (linked && linked.active === false))
         return res.status(403).json({ error: "ACCOUNT_DISABLED", message: "Hesabınız pasif. Yöneticinize başvurun." });
       attempts.delete(key);
       const updated = { ...account, lastLoginAt: now() };
@@ -362,6 +367,8 @@ export function registerLocalAccountRoutes(app: Express, store: Store) {
         updatedAt: now(),
       };
       await raw.put(ACCOUNT_KIND, account.id, next, owner);
+      // Şifresi değiştirilen veya pasife alınan hesabın açık oturumları kapanır.
+      if (input.password || input.active === false) await revokeSessions(store, account.openId);
       if (account.employeeId && (input.active !== undefined || input.name)) {
         const employee = (await raw.get<AccessEmployee>("employee", account.employeeId, owner))?.payload;
         if (employee)
@@ -401,6 +408,7 @@ export function registerLocalAccountRoutes(app: Express, store: Store) {
       for (const row of employees)
         if (row.payload.openId === account.openId || row.id === account.employeeId) await raw.delete("employee", row.id, owner);
       await raw.delete(ACCOUNT_KIND, account.id, owner);
+      await revokeSessions(store, account.openId);
       res.json({ ok: true });
     } catch (error) {
       fail(res, error);
@@ -425,6 +433,9 @@ export function registerLocalAccountRoutes(app: Express, store: Store) {
         { ...account, passwordHash: await hashPassword(input.next), updatedAt: now() },
         auth.ownerOpenId,
       );
+      // Diğer cihazlardaki oturumlar kapanır; bu cihaz yeni belirteçle açık kalır.
+      await revokeSessions(store, account.openId);
+      await setSession(req, res, account, { workspace: auth.user.workspace });
       res.json({ ok: true });
     } catch (error) {
       fail(res, error);

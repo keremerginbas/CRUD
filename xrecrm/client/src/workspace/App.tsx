@@ -1039,9 +1039,9 @@ function Workspace() {
                 <button
                   className="text-button"
                   onClick={() =>
-                    void request("/api/auth/logout", {}).then(() =>
-                      location.reload(),
-                    )
+                    void request("/api/auth/logout", {})
+                      .catch(() => undefined)
+                      .finally(() => location.reload())
                   }
                 >
                   Güvenli çıkış

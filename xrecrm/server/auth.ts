@@ -1,3 +1,4 @@
+import { dropLiveClients } from "./live.js";
 import crypto from "node:crypto";
 import { jwtVerify, SignJWT } from "jose";
 import type { Request, Response, NextFunction } from "express";
@@ -14,7 +15,7 @@ import type { AccessModule } from "../shared/access.js";
 export const SESSION_COOKIE = "webdev_app_session";
 const STATE_COOKIE = "xre_oauth_state";
 
-function cookieValue(req: Request, name: string): string | undefined {
+export function cookieValue(req: Request, name: string): string | undefined {
   const header = req.headers.cookie || "";
   for (const part of header.split(";")) {
     const [key, ...rest] = part.trim().split("=");
@@ -180,7 +181,7 @@ export async function verifySessionIdentity(
     if (claimedAppId !== appId) return null;
     const user = identityFromClaims(payload as Record<string, unknown>);
     if (!user) return null;
-    return user;
+    return { ...user, issuedAt: typeof payload.iat === "number" ? payload.iat : 0 };
   } catch {
     return null;
   }
@@ -193,6 +194,9 @@ export async function verifyRequestSession(
     const user = await verifySessionIdentity(req);
     if (!user) return null;
     const raw = rawStoreOf(store);
+    // Çıkış, şifre değişikliği veya hesabın kapatılmasından önce verilmiş belirteç artık geçmez.
+    const floor = (await raw.get<{ after: number }>(SESSION_FLOOR_KIND, user.openId, SESSION_SYSTEM_OWNER))?.payload?.after || 0;
+    if (floor && (user.issuedAt || 0) < floor) return null;
     // Kayıtla açılan çalışma alanı: sahip, imzalı oturum belirtecinden gelir.
     if (user.workspace) {
       // Belirteçteki alan kayıtlı değilse (silinmiş ya da başka kurulumdan) oturum geçersizdir.
@@ -392,7 +396,25 @@ export async function handleCallback(
   }
 }
 
-export function clearSession(req: Request, res: Response): void {
+const SESSION_FLOOR_KIND = "session-floor";
+const SESSION_SYSTEM_OWNER = "xre-system";
+
+/**
+ * Kullanıcının o ana kadar verilmiş bütün oturum belirteçlerini geçersiz kılar (tüm cihazlar).
+ * Belirteçler sunucuda tutulmadığı için "bu andan önce verilenler geçmez" eşiği kaydedilir.
+ */
+export async function revokeSessions(store: Store, openId: string): Promise<void> {
+  if (!openId) return;
+  await rawStoreOf(store).put(SESSION_FLOOR_KIND, openId, { after: Math.floor(Date.now() / 1000) }, SESSION_SYSTEM_OWNER);
+  dropLiveClients(openId);
+}
+
+/** Çıkış: çerez silinir ve kopyalanmış olabilecek belirteçler de geçersiz kılınır. */
+export async function clearSession(req: Request, res: Response, store?: Store): Promise<void> {
+  if (store) {
+    const user = await verifySessionIdentity(req).catch(() => null);
+    if (user) await revokeSessions(store, user.openId).catch(() => undefined);
+  }
   res.setHeader("Set-Cookie", clearCookie(req, SESSION_COOKIE));
   res.status(204).end();
 }
