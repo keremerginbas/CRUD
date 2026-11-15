@@ -1,5 +1,6 @@
 // Teklifler: ödeme planlı satış teklifleri, yönetici onay kuyruğu ve teklif ayrıntısı.
 // Gayrimenkul satış modülünün 2. fazı. Her teklif müşteriye verilmeden önce yönetici onayından geçer.
+import { toast } from "sonner";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 import { activeInventory, formatPrice, type Unit } from "../../../../shared/real-estate";
@@ -31,7 +32,8 @@ const fold = (value: string) => value.toLocaleLowerCase("tr-TR");
 
 /** Yeni teklif için daire seçimi (Projeler sayfasına gitmeden). */
 function UnitPicker({ units, projects, onPick, onClose }: { units: Unit[]; projects: { id: string; name: string }[]; onPick: (unit: Unit) => void; onClose: () => void }) {
-  const [projectId, setProjectId] = useState(projects[0]?.id || "");
+  const withUnits = projects.filter((p) => units.some((u) => u.projectId === p.id && u.status !== "satıldı" && u.listPrice > 0));
+  const [projectId, setProjectId] = useState((withUnits[0] || projects[0])?.id || "");
   const list = units.filter((u) => u.projectId === projectId && u.status !== "satıldı" && u.listPrice > 0).sort((a, b) => a.listPrice - b.listPrice);
   return (
     <Modal title="Yeni teklif" subtitle="Teklif hazırlanacak daireyi seçin" onClose={onClose}>
@@ -39,7 +41,7 @@ function UnitPicker({ units, projects, onPick, onClose }: { units: Unit[]; proje
         <label className="sx-field">
           Proje
           <select className="pj-input" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-            {projects.map((p) => (
+            {(withUnits.length ? withUnits : projects).map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
@@ -93,6 +95,8 @@ export default function Quotes() {
   }, []);
 
   const live = useMemo(() => activeInventory(inventory.projects, inventory.units), [inventory.projects, inventory.units]);
+  // Teklif hazırlanabilecek daireler: satılmamış ve liste fiyatı girilmiş.
+  const sellable = useMemo(() => live.units.filter((u) => u.status !== "satıldı" && u.listPrice > 0), [live.units]);
   const pendingCount = quotes.filter((q) => q.status === "onay bekliyor").length;
   // Yönetici onay kuyruğuyla, çalışan tüm teklifleriyle başlar.
   const activeTab: Tab = tab ?? (manager && pendingCount > 0 ? "bekleyen" : "hepsi");
@@ -181,7 +185,12 @@ export default function Quotes() {
               </button>
             )}
             {store.canCreate && (
-              <button type="button" className="btn primary pj-touch" onClick={() => setPicking(true)} disabled={!live.units.length}>
+              <button type="button" className="btn primary pj-touch" onClick={() => {
+                  if (!store.settings) return void toast.error(manager ? "Önce oranları girin: Para maliyeti → Oranlar." : "Önce yöneticinin oranları (vade farkı, para maliyeti, prim) girmesi gerekir.", { duration: 8000 });
+                  if (!sellable.length) return void toast.error("Teklif için önce projeye daire ekleyin: Projeler → projeyi açın → “Yeni daire” (fiyatıyla birlikte) veya Excel’den içe aktarın.", { duration: 9000 });
+                  setPicking(true);
+                }}
+              >
                 <Plus size={16} /> Yeni teklif
               </button>
             )}
@@ -198,6 +207,14 @@ export default function Quotes() {
               Oranları belirle
             </button>
           )}
+        </p>
+      )}
+      {!store.loading && !inventory.loading && sellable.length === 0 && (
+        <p className="pj-note">
+          Teklif hazırlayabilmek için projelerde <strong>fiyatı girilmiş daire</strong> olmalı. Şu an {live.units.length ? "satılabilir daire yok" : "hiç daire eklenmemiş"}; proje tanıtımı (resim, açıklama) tek başına yeterli değildir.{" "}
+          <button type="button" className="pj-link" onClick={() => goTo("/projects", withBase)}>
+            Projelere git ve daire ekle
+          </button>
         </p>
       )}
       <div className="qt-toolbar">
