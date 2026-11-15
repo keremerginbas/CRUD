@@ -42,6 +42,7 @@ export function requireModulePermissions(
     path === "/live" ||
     path === "/branding" ||
     path === "/integrations/sms/test" ||
+    path === "/integrations/mail/test" ||
     path === "/pbx/me" ||
     path === "/lines" ||
     path === "/audit" ||

@@ -45,6 +45,7 @@ import type {
   AssistantResponse,
 } from "../../../../shared/assistant";
 import "../assistant.css";
+import { useBranding } from "../branding";
 export type ChatItem = {
   id: string;
   role: "user" | "assistant";
@@ -530,6 +531,7 @@ export function ChatSurface({
   onLead?: (id: string) => void;
 }) {
   const { data, demo } = useStore();
+  const assistantName = useBranding().name ? "Asistan" : "XRE Asistan";
   const ai = useAssistant();
   const [text, setText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
@@ -558,7 +560,7 @@ export function ChatSurface({
         </span>
         <div>
           <h3>
-            XRE Asistan{" "}
+            {assistantName}{" "}
             <Badge tone={demo ? "amber" : "blue"}>{demo ? "Demo" : "AI"}</Badge>
           </h3>
           <p>
@@ -650,7 +652,7 @@ export function ChatSurface({
               {m.role === "assistant" ? (
                 <>
                   <Sparkles size={14} />
-                  XRE Asistan
+                  {assistantName}
                 </>
               ) : (
                 <>Siz</>

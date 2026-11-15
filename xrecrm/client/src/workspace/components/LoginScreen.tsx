@@ -98,7 +98,7 @@ function QrPanel({ onDone }: { onDone: () => void }) {
         </button>
       )}
       <ol>
-        <li>Telefonunuzda XRE CRM'i açın ve giriş yapın.</li>
+        <li>Telefonunuzda CRM'i açın ve giriş yapın.</li>
         <li>Telefon kamerasıyla bu kodu okutun.</li>
         <li>Açılan sayfada <b>Girişi onayla</b>'ya dokunun.</li>
       </ol>

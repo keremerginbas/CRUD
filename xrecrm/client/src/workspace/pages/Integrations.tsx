@@ -7,6 +7,7 @@ import { EmailPointer } from "../components/EmailConnect";
 import { useState, useEffect } from "react";
 import {
   MessageCircle,
+  Mail,
   Smartphone,
   Phone,
   Sparkles,
@@ -73,6 +74,16 @@ const providers = [
     path: "",
   },
   {
+    id: "mail",
+    name: "Sistem e-postası",
+    caption: "Davet ve doğrulama e-postaları",
+    icon: Mail,
+    tone: "blue",
+    text: "Çalışan davetleri, doğrulama kodları ve şifre sıfırlama e-postaları bu hesaptan gider.",
+    keys: ["SMTP_HOST", "SMTP_USER", "SMTP_PASS"],
+    path: "",
+  },
+  {
     id: "netgsm",
     name: "Telefon santrali",
     caption: "Netgsm, Asterisk veya FreePBX",
@@ -120,6 +131,7 @@ const settingGroupOf: Record<string, string> = {
   evolution: "evolution",
   netgsm: "pbx",
   sms: "sms",
+  mail: "mail",
   vapi: "vapi",
   webhook: "legacy-webhooks",
   bitrix: "bitrix",

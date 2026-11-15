@@ -77,6 +77,19 @@ export const SETTING_GROUPS: SettingGroup[] = [
     ],
   },
   {
+    id: "mail",
+    title: "Sistem e-postası (SMTP)",
+    description: "Davet, doğrulama kodu ve şifre sıfırlama e-postaları bu hesaptan gönderilir.",
+    test: "mail",
+    fields: [
+      { key: "SMTP_HOST", label: "Posta sunucusu", placeholder: "smtp.gmail.com", help: "Gmail: smtp.gmail.com · Microsoft 365: smtp.office365.com · Kendi alan adınız: posta sağlayıcınızın verdiği adres." },
+      { key: "SMTP_PORT", label: "Kapı", placeholder: "465", help: "465 (SSL) veya 587 (STARTTLS)." },
+      { key: "SMTP_USER", label: "Kullanıcı adı (e-posta)", placeholder: "bilgi@firma.com" },
+      { key: "SMTP_PASS", label: "Şifre / uygulama şifresi", secret: true, help: "Gmail ve Microsoft'ta normal şifre değil, hesap ayarlarından oluşturulan uygulama şifresi gerekir." },
+      { key: "SMTP_FROM", label: "Gönderen (isteğe bağlı)", placeholder: "Firma Adı <bilgi@firma.com>" },
+    ],
+  },
+  {
     id: "meta",
     title: "WhatsApp Cloud API (Meta)",
     description: "Resmî WhatsApp Business API.",

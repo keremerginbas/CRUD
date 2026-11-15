@@ -128,3 +128,35 @@ describe("e-posta değiştirme", () => {
     expect((await send("/api/auth/email", { current: "Yonetici123", email: "x@y.test" })).status).toBe(401);
   });
 });
+
+describe("firma kimliği ve sistem e-postası", () => {
+  it("ad ve logo oturumsuz okunur, yalnız sahip değiştirir; deneme e-postası sahibin adresine gider", async () => {
+    const { setMailSender } = await import("../server/mailer");
+    const mails: { to: string; subject: string }[] = [];
+    setMailSender(async (mail) => void mails.push(mail));
+    try {
+      const { send, owner } = await boot();
+      expect(await (await send("/api/branding")).json()).toEqual({ name: "", logoUrl: null });
+      const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+      expect((await send("/api/branding", { name: "TR Invest", logoBase64: png.toString("base64") }, {}, "PUT")).status).toBe(401);
+      expect((await send("/api/branding", { name: "TR Invest", logoBase64: Buffer.from("resim değil").toString("base64") }, { cookie: owner }, "PUT")).status).toBe(400);
+      const saved = await send("/api/branding", { name: "TR Invest", logoBase64: png.toString("base64") }, { cookie: owner }, "PUT");
+      expect(saved.status).toBe(200);
+      const info = await (await send("/api/branding")).json();
+      expect(info.name).toBe("TR Invest");
+      const logo = await send(info.logoUrl);
+      expect(logo.headers.get("content-type")).toBe("image/png");
+      expect(Buffer.from(await logo.arrayBuffer()).equals(png)).toBe(true);
+      // Yalnız ad değişince logo korunur; boş logo kaldırır.
+      expect((await (await send("/api/branding", { name: "TR Invest Holding" }, { cookie: owner }, "PUT")).json()).logoUrl).toBeTruthy();
+      expect((await (await send("/api/branding", { name: "TR Invest Holding", logoBase64: "" }, { cookie: owner }, "PUT")).json()).logoUrl).toBeNull();
+
+      const test = await send("/api/integrations/mail/test", {}, { cookie: owner });
+      expect(test.status).toBe(200);
+      expect(mails).toHaveLength(1);
+      expect(mails[0].to).toBe("sahip@xre.test");
+    } finally {
+      setMailSender(null as never);
+    }
+  });
+});

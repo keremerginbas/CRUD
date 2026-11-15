@@ -4,7 +4,7 @@
 # istekleri bu makinenin 3000 numaralı kapısına yönlendirir.
 #
 # Kullanım (root olarak, temiz bir Debian 12 / Ubuntu 22.04+ makinede):
-#   İlk kurulum : bash kur.sh crm.firma.com.tr
+#   İlk kurulum : bash kur.sh crm.firma.com.tr "Firma Adı"
 #   Güncelleme  : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --guncelle
 #   Yedek al    : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --yedek
 #   Durum       : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --durum
@@ -105,6 +105,7 @@ if [ ! -f "$ENVFILE" ]; then
   {
     echo "PUBLIC_ORIGIN=https://$DOMAIN"
     echo "XRE_SESSION_SECRET=$(openssl rand -hex 48)"
+    if [ -n "${2:-}" ]; then echo "XRE_BRAND_NAME=$2"; fi
   } > "$ENVFILE"
 else
   sed -i "s|^PUBLIC_ORIGIN=.*|PUBLIC_ORIGIN=https://$DOMAIN|" "$ENVFILE"

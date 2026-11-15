@@ -19,8 +19,18 @@ function cached(): Branding {
   }
   return DEFAULT;
 }
+/** Sekme başlığı ve sekme simgesi firmanın kimliğini taşır. */
+function applyToDocument(b: Branding) {
+  if (typeof document === "undefined") return;
+  if (b.name) document.title = `${b.name} · CRM`;
+  if (b.logoUrl) {
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (icon) icon.href = b.logoUrl;
+  }
+}
 let current: Branding = typeof localStorage === "undefined" ? DEFAULT : cached();
 let requested = false;
+applyToDocument(current);
 
 export function setBranding(next: Branding) {
   current = next;
@@ -29,7 +39,7 @@ export function setBranding(next: Branding) {
   } catch {
     /* depolama kapalı */
   }
-  if (next.name) document.title = `${next.name} · CRM`;
+  applyToDocument(next);
   window.dispatchEvent(new Event(CHANGED));
 }
 

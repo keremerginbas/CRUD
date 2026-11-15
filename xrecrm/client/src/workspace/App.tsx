@@ -483,7 +483,7 @@ function Workspace() {
           >
             <span className="workspace-avatar">{tenant ? (workspace?.name || "?").slice(0, 1).toUpperCase() : "X"}</span>
             <span>
-              <strong>{tenant ? workspace?.name : "XRE Real Estate"}</strong>
+              <strong>{tenant ? workspace?.name : branding.name || "XRE Real Estate"}</strong>
               <small>Çalışma alanı</small>
             </span>
             <ChevronDown size={15} />
@@ -501,7 +501,7 @@ function Workspace() {
                       onClick={() => navigate(url)}
                     >
                       <Icon size={18} />
-                      <span>{label}</span>
+                      <span>{branding.name ? label.replace(/^XRE /, "") : label}</span>
                       {url === "/whatsapp" && (
                         <b className="nav-count">
                           {
@@ -948,7 +948,11 @@ function Workspace() {
             )}
             <footer className="workspace-footer">
               <span>
-                © 2026 XRE CRM <i /> Bağlantıdan fırsata.
+                {branding.name ? `© 2026 ${branding.name}` : (
+                  <>
+                    © 2026 XRE CRM <i /> Bağlantıdan fırsata.
+                  </>
+                )}
               </span>
               <span>
                 <span className={demo ? "amber-dot" : "green-dot"} />
@@ -1013,7 +1017,7 @@ function Workspace() {
                   ? "Kimliği doğrulanmış oturum"
                   : "Demo modunda örnek verileri görüntülüyorsunuz."}
               </p>
-              <Badge tone="green">XRE Real Estate</Badge>
+              <Badge tone="green">{branding.name || "XRE Real Estate"}</Badge>
               <WorktimeMini
                 navigate={(p) => {
                   setProfile(false);

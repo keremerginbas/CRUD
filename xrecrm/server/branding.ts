@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Store } from "./db.js";
 import type { AuthContext } from "./types.js";
 import { rawStoreOf } from "./access.js";
+import { mailConfigured, sendMail } from "./mailer.js";
 
 const KIND = "branding";
 const ID = "branding";
@@ -43,7 +44,8 @@ export async function brandLogo(store: Store, ownerOpenId?: string): Promise<Buf
 }
 
 const publicInfo = (b: Branding | null) => ({
-  name: b?.name || "",
+  // Kurulumda verilen ad (XRE_BRAND_NAME), arayüzden bir ad kaydedilene kadar kullanılır.
+  name: b?.name || process.env.XRE_BRAND_NAME?.trim().slice(0, 80) || "",
   logoUrl: b?.logoBase64 ? `/api/branding/logo?v=${crypto.createHash("sha1").update(b.updatedAt).digest("hex").slice(0, 10)}` : null,
 });
 
@@ -71,6 +73,21 @@ export function registerBrandingAdminRoutes(app: Express, store: Store): void {
     /** Verilmezse mevcut logo korunur; boş dize logoyu kaldırır. */
     logoBase64: z.string().max(Math.ceil(LOGO_MAX_BYTES * 1.4)).optional(),
   });
+  // Entegrasyonlar ekranındaki "Bağlantıyı test et": sahibin kendi adresine deneme e-postası gönderir.
+  app.post("/api/integrations/mail/test", async (req: Request, res) => {
+    const auth = (req as Request & { auth: AuthContext }).auth;
+    if (!auth?.isOwner) return void res.status(403).json({ error: "FORBIDDEN", message: "Bağlantıyı yalnız çalışma alanı sahibi test edebilir." });
+    if (!mailConfigured()) return void res.status(503).json({ error: "MAIL_NOT_CONFIGURED", message: "Posta sunucusu, kullanıcı adı ve şifre girilmeli." });
+    const to = String(auth.user.email || "").trim();
+    if (!to) return void res.status(400).json({ error: "NO_EMAIL", message: "Hesabınızda e-posta adresi yok; deneme e-postası gönderilemedi." });
+    try {
+      await sendMail({ to, subject: "Deneme e-postası", text: "Sistem e-postası ayarlarınız çalışıyor. Bu iletiyi siz istediniz; yanıtlamanız gerekmez." });
+      res.json({ provider: "mail", configured: true, connected: true, message: `Deneme e-postası ${to} adresine gönderildi.` });
+    } catch (error) {
+      res.status(502).json({ error: "MAIL_FAILED", message: `E-posta gönderilemedi: ${(error as Error).message}`.slice(0, 300) });
+    }
+  });
+
   app.put("/api/branding", async (req: Request, res) => {
     const auth = (req as Request & { auth: AuthContext }).auth;
     const owner = await raw.resolveOwner().catch(() => undefined);

@@ -42,5 +42,5 @@ export async function sendMail(mail: Mail): Promise<void> {
   if (override) return override(mail);
   if (!mailConfigured()) throw new Error("E-posta gönderimi yapılandırılmamış (SMTP_HOST, SMTP_USER, SMTP_PASS).");
   const from = mailFrom();
-  await transport().sendMail({ from: from.includes("<") ? from : `XRE CRM <${from}>`, ...mail });
+  await transport().sendMail({ from: from.includes("<") ? from : `${process.env.XRE_BRAND_NAME?.trim() || "XRE CRM"} <${from}>`, ...mail });
 }
