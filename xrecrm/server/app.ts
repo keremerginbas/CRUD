@@ -146,6 +146,7 @@ import {
 } from "./suite.js";
 
 const leadPatchSchema = LeadSchema.partial();
+const STATE_EVENT_LIMIT = 1000;
 const createLeadEnvelope = z.object({
   lead: z.record(z.string(), z.unknown()),
 });
@@ -1807,13 +1808,14 @@ export function createApp(
       const allowed = await allowedPhones(store, (req as Request & { auth?: AuthContext }).auth);
       const phonesByLine = allowed ? await linePhones(store, owner) : new Map<string, string>();
       const since = Date.now() - 400 * 86_400_000;
-      res.json({
+      const statePayload = {
         leads: leads.map((r) => r.payload),
         rules: rules.map((r) => r.payload),
         messages: messages
           .filter((r) => lineAllowed(allowed, phonesByLine, (r.payload as any)?.lineId) || !(r.payload as any)?.lineId)
           .map((r) => publicMessage(r.payload as Record<string, unknown>)),
-        events: events.map(publicEvent),
+        // Yalnız en yeni hareketler gönderilir; binlerce eski hareket her yenilemede taşınmaz.
+        events: events.slice(0, STATE_EVENT_LIMIT).map(publicEvent),
         connections: connections.map((r) =>
           publicConnection(r.payload as Record<string, unknown>),
         ),
@@ -1827,7 +1829,14 @@ export function createApp(
           .map((r) => r.payload)
           .filter((h) => visibleLeads.has(h.leadId) && Date.parse(h.at) >= since),
         settings: {},
-      });
+      };
+      // Arayüz 15 saniyede bir yeniler. Veri değişmediyse gövde gönderilmez; tarayıcı da ekranı yeniden çizmez.
+      const stateBody = JSON.stringify(statePayload);
+      const stateTag = crypto.createHash("sha1").update(stateBody).digest("base64url");
+      res.setHeader("x-xre-state", stateTag);
+      res.setHeader("cache-control", "no-store");
+      if (req.get("x-xre-state") === stateTag) return void res.status(204).end();
+      res.type("application/json").send(stateBody);
     } catch (error) {
       sendError(res, error);
     }

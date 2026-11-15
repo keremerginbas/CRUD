@@ -147,10 +147,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (demo) localStorage.setItem("xre-demo-v2", JSON.stringify(data));
   }, [data, demo]);
   const locked = workspace?.state === "expired" || workspace?.state === "suspended";
-  const refresh = useCallback(async () => {
+  const stateTag = useRef("");
+  // soft: 15 saniyelik otomatik yenileme. Kullanıcının kendi işlemlerinden sonraki yenileme her zaman tam yapılır.
+  const refresh = useCallback(async (soft = false) => {
     if (demo || locked) return;
     try {
-      const state = await api("/api/state");
+      // Veri değişmediyse sunucu boş yanıt (204) döner: indirme, ayrıştırma ve ekranın yeniden çizimi atlanır.
+      const r = await fetch("/api/state", { credentials: "include", headers: soft === true && stateTag.current ? { "x-xre-state": stateTag.current } : {} });
+      if (r.status === 204) return;
+      const state = await r.json().catch(() => ({ error: "Sunucu yanıtı okunamadı." }));
+      if (!r.ok) throw new Error(state.message || state.error || "İşlem tamamlanamadı.");
+      stateTag.current = r.headers.get("x-xre-state") || "";
       if (Array.isArray(state?.lines)) setLineInventory(state.lines);
       setData({ ...emptyState, ...state });
     } catch (e) {
@@ -176,12 +183,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     else setData(emptyState);
   };
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
   useEffect(() => {
     if (demo || !user) return;
     const timer = setInterval(() => {
-      if (document.visibilityState === "visible") void refresh();
+      if (document.visibilityState === "visible") void refresh(true);
     }, 15000);
     return () => clearInterval(timer);
   }, [demo, user, refresh]);

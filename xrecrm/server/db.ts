@@ -509,6 +509,36 @@ export class MemoryStore implements Store {
   protected records = new Map<string, StoredRecord>();
   protected events = new Map<string, StoredEvent>();
   protected nextEventId = 1;
+  // Dizinler: her listelemede tüm kayıtları taramamak için sahip+tür ve olay anahtarı bazında tutulur.
+  // Kayıtlar toplu yüklendiğinde (dosyadan okuma, geri yükleme) null yapılır ve ilk kullanımda yeniden kurulur.
+  protected kindIndex: Map<string, Map<string, StoredRecord>> | null = null;
+  protected eventKeyIndex: Map<string, string> | null = null;
+  protected bucket(owner: string, kind: string, create = false) {
+    if (!this.kindIndex) {
+      this.kindIndex = new Map();
+      for (const r of this.records.values()) {
+        const k = `${r.ownerOpenId}\u0000${r.kind}`;
+        let b = this.kindIndex.get(k);
+        if (!b) this.kindIndex.set(k, (b = new Map()));
+        b.set(r.id, r);
+      }
+    }
+    const k = `${owner}\u0000${kind}`;
+    let b = this.kindIndex.get(k);
+    if (!b && create) this.kindIndex.set(k, (b = new Map()));
+    return b;
+  }
+  protected eventKeys() {
+    if (!this.eventKeyIndex) {
+      this.eventKeyIndex = new Map();
+      for (const e of this.events.values()) this.eventKeyIndex.set(`${e.ownerOpenId}\u0000${e.eventKey}`, e.id);
+    }
+    return this.eventKeyIndex;
+  }
+  protected dropIndexes() {
+    this.kindIndex = null;
+    this.eventKeyIndex = null;
+  }
   async init() {
     /* Test-only store: deliberately not used by production. */
   }
@@ -533,8 +563,7 @@ export class MemoryStore implements Store {
     return `${owner}\u0000${kind}\u0000${id}`;
   }
   async list<T = unknown>(kind: string, ownerOpenId: string) {
-    return [...this.records.values()]
-      .filter((r) => r.ownerOpenId === ownerOpenId && r.kind === kind)
+    return [...(this.bucket(ownerOpenId, kind)?.values() || [])]
       .sort(
         (a, b) =>
           Date.parse(String(b.createdAt || "")) -
@@ -563,6 +592,7 @@ export class MemoryStore implements Store {
       updatedAt: now,
     };
     this.records.set(this.key(ownerOpenId, kind, id), row);
+    this.bucket(ownerOpenId, kind, true)!.set(id, row);
     return structuredClone(row);
   }
   async insertIfAbsent<T = unknown>(
@@ -581,6 +611,7 @@ export class MemoryStore implements Store {
 
   async delete(kind: string, id: string, ownerOpenId: string) {
     this.records.delete(this.key(ownerOpenId, kind, id));
+    this.bucket(ownerOpenId, kind)?.delete(id);
   }
   async appendEvent(
     ownerOpenId: string,
@@ -589,9 +620,8 @@ export class MemoryStore implements Store {
     status: StoredEvent["status"] = "pending",
     scheduledAt?: string | null,
   ) {
-    const old = [...this.events.values()].find(
-      (e) => e.ownerOpenId === ownerOpenId && e.eventKey === eventKey,
-    );
+    const oldId = this.eventKeys().get(`${ownerOpenId}\u0000${eventKey}`);
+    const old = oldId ? this.events.get(oldId) : undefined;
     if (old) return { inserted: false, event: structuredClone(old) };
     const event: StoredEvent = {
       id: String(this.nextEventId++),
@@ -607,6 +637,7 @@ export class MemoryStore implements Store {
       payload: structuredClone(payload),
     };
     this.events.set(event.id, event);
+    this.eventKeys().set(`${ownerOpenId}\u0000${eventKey}`, event.id);
     return { inserted: true, event: structuredClone(event) };
   }
   async getEvent(id: string, ownerOpenId: string) {
@@ -691,6 +722,7 @@ export class MemoryStore implements Store {
     assertDump(dump);
     this.records.clear();
     this.events.clear();
+    this.dropIndexes();
     for (const r of dump.records)
       this.records.set(this.key(r.ownerOpenId, r.kind, r.id), structuredClone(r));
     for (const e of dump.events) this.events.set(String(e.id), structuredClone(e));
@@ -719,6 +751,7 @@ export class FileStore extends MemoryStore {
         this.records.set(`${record.ownerOpenId}\u0000${record.kind}\u0000${record.id}`, record);
       for (const event of data.events || []) this.events.set(String(event.id), event);
       this.nextEventId = Number(data.nextEventId) || this.events.size + 1;
+      this.dropIndexes();
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
@@ -746,7 +779,8 @@ export class FileStore extends MemoryStore {
       fs.writeFile(tmp, this.snapshot())
         .then(() => fs.rename(tmp, this.file))
         .catch((error) => console.error("Yerel veritabanı yazılamadı:", error));
-    }, 250);
+      // Dosyanın tamamı yazıldığı için art arda kayıtlar (toplu içe aktarma) tek yazımda toplanır.
+    }, 1000);
   }
   flushSync() {
     if (this.timer) clearTimeout(this.timer);
