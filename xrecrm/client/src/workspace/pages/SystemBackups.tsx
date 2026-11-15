@@ -15,6 +15,66 @@ interface Backup {
 const reasonLabel: Record<string, string> = { otomatik: "Otomatik", elle: "Elle", oncesi: "Geri yükleme öncesi" };
 const size = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
+interface SystemStatus {
+  checkedAt: string;
+  startedAt: string;
+  uptimeSeconds: number;
+  memory: { appBytes: number; totalBytes: number; freeBytes: number };
+  cpu: { cores: number; load1: number };
+  disk: { totalBytes: number; freeBytes: number } | null;
+  records: { leads: number; employees: number; quotes: number; units: number };
+  lastBackup: { name: string; createdAt: string; size: number } | null;
+  storage: string;
+}
+const gb = (bytes: number) => `${(bytes / 1024 ** 3).toLocaleString("tr-TR", { maximumFractionDigits: 1 })} GB`;
+const mb = (bytes: number) => `${Math.round(bytes / 1024 ** 2).toLocaleString("tr-TR")} MB`;
+function uptimeText(seconds: number) {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  return d ? `${d} gün ${h} saat` : h ? `${h} saat ${m} dk` : `${m} dk`;
+}
+
+/** Sunucunun anlık durumu: çalışıyor mu, yer var mı, yedek güncel mi. */
+function StatusCards({ status }: { status: SystemStatus }) {
+  const diskUsed = status.disk ? 1 - status.disk.freeBytes / status.disk.totalBytes : 0;
+  const memUsed = 1 - status.memory.freeBytes / status.memory.totalBytes;
+  const backupAgeH = status.lastBackup ? (Date.now() - Date.parse(status.lastBackup.createdAt)) / 3600_000 : Infinity;
+  const busy = status.cpu.load1 / Math.max(1, status.cpu.cores);
+  const tone = (bad: boolean, warn: boolean) => (bad ? "bad" : warn ? "warn" : "ok");
+  const cards: [string, string, string, string][] = [
+    ["Sunucu", "Çalışıyor", `Kesintisiz çalışma süresi: ${uptimeText(status.uptimeSeconds)} · son başlangıç ${new Date(status.startedAt).toLocaleString("tr-TR")}`, "ok"],
+    [
+      "Disk",
+      status.disk ? `${gb(status.disk.freeBytes)} boş` : "Bilinmiyor",
+      status.disk ? `Toplam ${gb(status.disk.totalBytes)} · %${Math.round(diskUsed * 100)} dolu` : "Disk bilgisi okunamadı",
+      tone(diskUsed > 0.92, diskUsed > 0.8),
+    ],
+    ["Bellek", `%${Math.round(memUsed * 100)} kullanımda`, `CRM ${mb(status.memory.appBytes)} · toplam ${gb(status.memory.totalBytes)}`, tone(memUsed > 0.95, memUsed > 0.85)],
+    ["İşlemci yükü", busy < 0.7 ? "Rahat" : busy < 1.2 ? "Yoğun" : "Çok yoğun", `${status.cpu.cores} çekirdek · son 1 dk yük ${status.cpu.load1.toLocaleString("tr-TR")}`, tone(busy >= 1.2, busy >= 0.7)],
+    [
+      "Son yedek",
+      status.lastBackup ? (backupAgeH < 1 ? "Az önce" : backupAgeH < 48 ? `${Math.round(backupAgeH)} saat önce` : `${Math.round(backupAgeH / 24)} gün önce`) : "Henüz yok",
+      status.lastBackup ? new Date(status.lastBackup.createdAt).toLocaleString("tr-TR") : "İlk yedek sunucu açıldıktan kısa süre sonra alınır",
+      tone(backupAgeH > 72, backupAgeH > 30),
+    ],
+    ["Kayıtlar", `${status.records.leads.toLocaleString("tr-TR")} müşteri`, `${status.records.units.toLocaleString("tr-TR")} daire · ${status.records.quotes.toLocaleString("tr-TR")} teklif · ${status.records.employees.toLocaleString("tr-TR")} çalışan`, "ok"],
+  ];
+  return (
+    <section className="sys-status" aria-label="Sunucu durumu">
+      {cards.map(([label, value, detail, t]) => (
+        <div className={`sys-card sys-${t}`} key={label}>
+          <span className="sys-label">
+            <i aria-hidden /> {label}
+          </span>
+          <strong>{value}</strong>
+          <small>{detail}</small>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export default function SystemBackups() {
   const { demo, user, request } = useStore();
   const [info, setInfo] = useState<{ backups: Backup[]; directory: string; keep: number; storage: string } | null>(null);
@@ -22,10 +82,13 @@ export default function SystemBackups() {
   const [restore, setRestore] = useState<{ backup: Backup; confirm: string } | null>(null);
   const owner = !demo && Boolean(user?.isOwner);
 
-  const load = () =>
-    request("/api/system/backups")
+  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const load = () => {
+    request("/api/system/status").then(setStatus).catch(() => setStatus(null));
+    return request("/api/system/backups")
       .then(setInfo)
       .catch((e: Error) => toast.error(e.message));
+  };
   useEffect(() => {
     if (owner) void load();
   }, [owner]);
@@ -60,8 +123,8 @@ export default function SystemBackups() {
     <div className="system-page">
       <PageTitle
         eyebrow="SİSTEM"
-        title="Yedekler"
-        description="CRM verileriniz her gün otomatik yedeklenir. İstediğiniz an yedek alın, indirin veya geri yükleyin."
+        title="Sunucu durumu ve yedekler"
+        description="Sunucunun anlık durumu burada görünür. CRM verileriniz her gün otomatik yedeklenir. İstediğiniz an yedek alın, indirin veya geri yükleyin."
         actions={
           owner && (
             <button className="btn primary" disabled={busy} onClick={() => void backupNow()}>
@@ -77,6 +140,7 @@ export default function SystemBackups() {
         />
       ) : (
         <>
+          {status && <StatusCards status={status} />}
           <div className="system-note">
             <ShieldCheck size={18} />
             <p>

@@ -139,7 +139,7 @@ const navGroups = [
       ["/worktime", "XRE Mesai", Clock],
       ["/access", "Erişim izinleri", ShieldCheck],
       ["/audit", "Denetim günlüğü", History],
-      ["/system", "Yedekler", DatabaseBackup],
+      ["/system", "Sunucu & yedekler", DatabaseBackup],
       ["/profile", "Profilim", ContactRound],
       ["/reports", "CRM analitiği", BarChart3],
       ["/data-quality", "Veri kalitesi", ShieldCheck],

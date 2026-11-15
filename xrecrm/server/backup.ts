@@ -1,6 +1,7 @@
 // Otomatik ve elle yedekleme / geri yükleme.
 // Yedekler data/backups altında sıkıştırılmış JSON (.json.gz) olarak tutulur.
 import fs from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
 import { promisify } from "node:util";
@@ -130,6 +131,37 @@ export function registerBackupRoutes(app: Express, baseStore: Store, afterRestor
         directory: backupDir(),
         keep: keepCount(),
         storage: process.env.DATABASE_URL?.trim() ? "mysql" : "dosya",
+      });
+    } catch (error) {
+      fail(res, error);
+    }
+  });
+
+  // Sunucunun durumu: çalışma süresi, bellek, disk, kayıt sayıları ve son yedek.
+  app.get("/api/system/status", async (req, res) => {
+    try {
+      const auth = ownerOnly(req);
+      const dataDir = path.resolve(process.env.XRE_DATA_DIR?.trim() || "data");
+      const disk = await fs.statfs(dataDir).catch(() => null);
+      const [backups, leads, employees, quotes, units] = await Promise.all([
+        listBackups().catch(() => []),
+        baseStore.list("lead", auth.ownerOpenId),
+        baseStore.list("employee", auth.ownerOpenId),
+        baseStore.list("re_quote", auth.ownerOpenId),
+        baseStore.list("re_unit", auth.ownerOpenId),
+      ]);
+      const last = [...backups].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] || null;
+      res.json({
+        checkedAt: new Date().toISOString(),
+        startedAt: new Date(Date.now() - process.uptime() * 1000).toISOString(),
+        uptimeSeconds: Math.round(process.uptime()),
+        memory: { appBytes: process.memoryUsage().rss, totalBytes: os.totalmem(), freeBytes: os.freemem() },
+        cpu: { cores: os.cpus().length, load1: Math.round(os.loadavg()[0] * 100) / 100 },
+        disk: disk ? { totalBytes: disk.blocks * disk.bsize, freeBytes: disk.bavail * disk.bsize } : null,
+        records: { leads: leads.length, employees: employees.length, quotes: quotes.length, units: units.length },
+        lastBackup: last ? { name: last.name, createdAt: last.createdAt, size: last.size } : null,
+        storage: process.env.DATABASE_URL?.trim() ? "mysql" : "dosya",
+        node: process.version,
       });
     } catch (error) {
       fail(res, error);
