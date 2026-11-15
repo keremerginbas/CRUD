@@ -581,7 +581,7 @@ function Workspace() {
             <div className="breadcrumb">
               <span>Çalışma alanı</span>
               <span>/</span>
-              <strong>{current}</strong>
+              <strong>{branding.name ? String(current).replace(/^XRE /, "") : current}</strong>
             </div>
             <div className="topbar-actions">
               <ThemeButton />
