@@ -71,7 +71,7 @@ async function twoWorkspaces() {
   const signup = await fetch(`${ctx.base}/api/workspaces/signup`, {
     method: "POST",
     headers: json,
-    body: JSON.stringify({ company: "Örnek Yapı", slug: "ornek-yapi", name: "Deniz Örnek", email: "deniz@ornek.test", password: "Deneme1234" }),
+    body: JSON.stringify({ company: "Örnek Yapı", slug: "ornek-yapi", name: "Deniz Örnek", email: "deniz@ornek.test", password: "Guvenli-4321" }),
   });
   expect(signup.status).toBe(201);
   const cookieA = cookieOf(setup);

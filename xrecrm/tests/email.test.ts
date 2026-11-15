@@ -378,7 +378,7 @@ describe("E-posta: bağlantı, gönderim ve gelen iletiler", () => {
 });
 
 describe("E-posta: sahiplik ve erişim sınırları", () => {
-  const firma = { company: "Ahmet İnşaat", slug: "ahmet", name: "Ahmet Yılmaz", email: "ahmet@example.test", password: "Deneme1234" };
+  const firma = { company: "Ahmet İnşaat", slug: "ahmet", name: "Ahmet Yılmaz", email: "ahmet@example.test", password: "Guvenli-4321" };
 
   it("çalışma alanları birbirinin posta kutusunu ve iletilerini göremez", async () => {
     const { call, cookieOf, owner, ownerId, store } = await start();

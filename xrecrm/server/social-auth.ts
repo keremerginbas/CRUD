@@ -214,6 +214,9 @@ interface QrSession {
   createdAt: number;
   approvedAccountId?: string;
   approvedBy?: string;
+  /** Onaylayan kullanıcının çalışma alanı: hesap bu alanda aranır. */
+  approvedOwner?: string;
+  approvedWorkspace?: string;
   consumed?: boolean;
 }
 const qrSessions = new Map<string, QrSession>();
@@ -304,14 +307,15 @@ export function registerSocialAuthRoutes(app: Express, store: Store) {
     if (sha(String(req.body?.pollSecret || "")) !== session.pollSecretHash)
       return res.status(401).json({ error: "UNAUTHORIZED" });
     if (!session.approvedAccountId) return res.json({ status: "pending" });
-    const owner = await raw.resolveOwner();
+    // Hesap, onayı veren kullanıcının çalışma alanında aranır (sonradan açılan firmalar dahil).
+    const owner = session.approvedOwner || (await raw.resolveOwner());
     const account = owner
       ? (await raw.get<LocalAccount>(ACCOUNT_KIND, session.approvedAccountId, owner))?.payload
       : undefined;
     session.consumed = true;
     qrSessions.delete(session.id);
     if (!account || !account.active) return res.json({ status: "expired" });
-    await setSession(req, res, account);
+    await setSession(req, res, account, { workspace: session.approvedWorkspace });
     res.json({ status: "approved", user: publicAccount(account) });
   });
 }
@@ -332,6 +336,8 @@ export function registerQrApproveRoute(app: Express, store: Store) {
       return res.status(400).json({ error: "NOT_LOCAL", message: "QR onayı için yerel CRM hesabıyla giriş yapmış olmalısınız." });
     session.approvedAccountId = account.id;
     session.approvedBy = auth.user.openId;
+    session.approvedOwner = auth.ownerOpenId;
+    session.approvedWorkspace = auth.user.workspace;
     res.json({ ok: true });
   });
 }

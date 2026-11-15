@@ -54,7 +54,8 @@ interface Store {
   setDemo: (v: boolean) => void;
   refresh: () => Promise<void>;
   saveLead: (l: Lead) => Promise<void>;
-  moveLead: (id: string, stage: Stage) => Promise<void>;
+  /** rank verilirse kart sütunda o sıraya yerleşir (elle sıralama). */
+  moveLead: (id: string, stage: Stage, rank?: number) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
   saveRule: (r: Rule) => Promise<void>;
   sendMessage: (id: string, line: string, text: string) => Promise<void>;
@@ -420,10 +421,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       feed: d.feed.filter((p) => p.leadId !== id),
     }));
   };
-  const moveLead = async (id: string, stage: Stage) => {
+  const moveLead = async (id: string, stage: Stage, rank?: number) => {
     const l = data.leads.find((x) => x.id === id);
-    if (!l || l.stage === stage) return;
-    await saveLead({ ...l, stage, lastActivity: new Date().toISOString() });
+    if (!l) return;
+    const placed = rank === undefined ? {} : { rank };
+    // Aynı sütunda yalnız sıra değişir; aşama değişmediği için "son hareket" tarihi oynatılmaz.
+    if (l.stage === stage) {
+      if (rank !== undefined && rank !== l.rank) await saveLead({ ...l, ...placed });
+      return;
+    }
+    await saveLead({ ...l, ...placed, stage, lastActivity: new Date().toISOString() });
   };
   const saveRule = async (r: Rule) => {
     if (!demo) {

@@ -101,7 +101,7 @@ it("otomasyon kuralı SMS gönderir; kayıtla açılan firma ortak SMS hesabın�
   for (let i = 0; i < 5 && (await processOutboxOnce(store)); i++);
   expect(sent.map((s) => [s.body.messageText, s.body.receivers])).toEqual([["Merhaba Ayşe Deneme, talebiniz alındı.", [5550001030]]]);
 
-  const signup = await fetch(`${base}/api/workspaces/signup`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ company: "Ahmet İnşaat", slug: "ahmet", name: "Ahmet Yılmaz", email: "ahmet@firma.test", password: "Deneme1234" }) });
+  const signup = await fetch(`${base}/api/workspaces/signup`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ company: "Ahmet İnşaat", slug: "ahmet", name: "Ahmet Yılmaz", email: "ahmet@firma.test", password: "Guvenli-4321" }) });
   expect(signup.status).toBe(201);
   const tenant = make((signup.headers.get("set-cookie") || "").split(";")[0]);
   await tenant("POST", "/api/leads", { lead: { id: "lead_t", name: "Kiracı Müşterisi", phone: "0555 000 10 40" } });

@@ -69,15 +69,15 @@ it("sahip davet gönderir; çalışan bağlantıdan kendi hesabını açar ve ba
   expect((await send(base, "/api/auth/invite/" + "x".repeat(43))).status).toBe(404);
   expect(await (await send(base, `/api/auth/invite/${token}`)).json()).toMatchObject({ email: "yeni@firma.test", name: "Yeni Çalışan" });
   expect((await send(base, `/api/auth/invite/${token}`, { name: "Yeni Çalışan", password: "kisa" })).status).toBe(400);
-  const accepted = await send(base, `/api/auth/invite/${token}`, { name: "Yeni Çalışan", password: "Deneme1234", phone: "+90 555 000 00 01" });
+  const accepted = await send(base, `/api/auth/invite/${token}`, { name: "Yeni Çalışan", password: "Guvenli-4321", phone: "+90 555 000 00 01" });
   expect(accepted.status).toBe(201);
   const me = await (await send(base, "/api/me", undefined, cookieOf(accepted))).json();
   expect(me.user).toMatchObject({ email: "yeni@firma.test", isOwner: false });
 
   // İkinci kullanım ve çalışanın davet yönetimi reddedilir.
-  expect((await send(base, `/api/auth/invite/${token}`, { name: "Başkası", password: "Deneme1234" })).status).toBe(410);
+  expect((await send(base, `/api/auth/invite/${token}`, { name: "Başkası", password: "Guvenli-4321" })).status).toBe(410);
   expect((await send(base, "/api/auth/invites", { email: "x@firma.test", roleId }, cookieOf(accepted))).status).toBe(403);
-  expect((await send(base, "/api/auth/local-login", { email: "yeni@firma.test", password: "Deneme1234" })).status).toBe(200);
+  expect((await send(base, "/api/auth/local-login", { email: "yeni@firma.test", password: "Guvenli-4321" })).status).toBe(200);
   expect((await (await send(base, "/api/auth/invites", undefined, owner)).json()).invites).toHaveLength(0);
 });
 
@@ -96,7 +96,7 @@ it("iptal edilen ve süresi dolan davet kullanılamaz; e-posta ayarsızsa bağla
 
   const [record] = await store.list<any>(INVITE_KIND, WORKSPACE_SYSTEM_OWNER);
   await store.put(INVITE_KIND, record.id, { ...record.payload, expiresAt: new Date(Date.now() - 1000).toISOString() }, WORKSPACE_SYSTEM_OWNER);
-  expect((await send(base, `/api/auth/invite/${token}`, { name: "Geç Kalan", password: "Deneme1234" })).status).toBe(410);
+  expect((await send(base, `/api/auth/invite/${token}`, { name: "Geç Kalan", password: "Guvenli-4321" })).status).toBe(410);
 
   const third = await (await send(base, "/api/auth/invites", { email: "b@firma.test", roleId }, owner)).json();
   expect((await send(base, `/api/auth/invites/${third.invite.id}`, {}, owner, "DELETE")).status).toBe(200);
@@ -109,31 +109,31 @@ it("kayıtla açılan firmanın daveti çalışanı o firmanın alanına alır, 
   const { base } = await start();
   const owner = await setup(base);
   await send(base, "/api/leads", { lead: { id: "lead_xre", name: "XRE Müşterisi", phone: "+905550000001" } }, owner);
-  const signup = await send(base, "/api/workspaces/signup", { company: "Ahmet İnşaat", slug: "ahmet", name: "Ahmet Yılmaz", email: "ahmet@firma.test", password: "Deneme1234" });
+  const signup = await send(base, "/api/workspaces/signup", { company: "Ahmet İnşaat", slug: "ahmet", name: "Ahmet Yılmaz", email: "ahmet@firma.test", password: "Guvenli-4321" });
   expect(signup.status).toBe(201);
   const tenant = cookieOf(signup);
   const roleId = await roleOf(base, tenant);
   const { link } = await (await send(base, "/api/auth/invites", { email: "usta@firma.test", roleId }, tenant)).json();
   // Başka firmanın sahibi bu daveti göremez ve iptal edemez.
   expect((await (await send(base, "/api/auth/invites", undefined, owner)).json()).invites).toHaveLength(0);
-  const accepted = await send(base, `/api/auth/invite/${link.split("/davet/")[1]}`, { name: "Usta Çalışan", password: "Deneme1234" });
+  const accepted = await send(base, `/api/auth/invite/${link.split("/davet/")[1]}`, { name: "Usta Çalışan", password: "Guvenli-4321" });
   expect(accepted.status).toBe(201);
   expect((await accepted.json()).workspace).toBe("ahmet");
   const me = await (await send(base, "/api/me", undefined, cookieOf(accepted))).json();
   expect(me.workspace).toMatchObject({ slug: "ahmet", isDefault: false });
   const state = await (await send(base, "/api/state", undefined, cookieOf(accepted))).json();
   expect(state.leads.map((l: any) => l.id)).not.toContain("lead_xre");
-  expect((await send(base, "/api/auth/local-login", { email: "usta@firma.test", password: "Deneme1234" })).status).toBe(401);
+  expect((await send(base, "/api/auth/local-login", { email: "usta@firma.test", password: "Guvenli-4321" })).status).toBe(401);
 });
 
 it("sahip bir hesabı siler: kişi giremez, açık oturumu düşer; kendi hesabını ve başka firmanınkini silemez", async () => {
   const { base } = await start();
   const owner = await setup(base);
   const roleId = await roleOf(base, owner);
-  const created = await send(base, "/api/auth/accounts", { name: "Silinecek Kişi", email: "silinecek@firma.test", password: "Deneme1234", roleId }, owner);
+  const created = await send(base, "/api/auth/accounts", { name: "Silinecek Kişi", email: "silinecek@firma.test", password: "Guvenli-4321", roleId }, owner);
   expect(created.status).toBe(201);
   const { account } = await created.json();
-  const login = await send(base, "/api/auth/local-login", { email: "silinecek@firma.test", password: "Deneme1234" });
+  const login = await send(base, "/api/auth/local-login", { email: "silinecek@firma.test", password: "Guvenli-4321" });
   const session = cookieOf(login);
   expect((await send(base, "/api/me", undefined, session)).status).toBe(200);
   // Çalışan başkasını silemez.
@@ -147,8 +147,8 @@ it("sahip bir hesabı siler: kişi giremez, açık oturumu düşer; kendi hesab�
   expect((await send(base, `/api/auth/accounts/${account.id}`, {}, owner, "DELETE")).status).toBe(200);
   // Açık oturum anında geçersiz; yeniden giriş de olmaz; listede yok.
   expect((await send(base, "/api/state", undefined, session)).status).toBeGreaterThanOrEqual(401);
-  expect((await send(base, "/api/auth/local-login", { email: "silinecek@firma.test", password: "Deneme1234" })).status).toBe(401);
+  expect((await send(base, "/api/auth/local-login", { email: "silinecek@firma.test", password: "Guvenli-4321" })).status).toBe(401);
   expect(((await (await send(base, "/api/auth/accounts", undefined, owner)).json()).accounts as { email: string }[]).some((a) => a.email === "silinecek@firma.test")).toBe(false);
   // Aynı e-posta ile yeniden hesap açılabilir.
-  expect((await send(base, "/api/auth/accounts", { name: "Yeni Kişi", email: "silinecek@firma.test", password: "Deneme1234", roleId }, owner)).status).toBe(201);
+  expect((await send(base, "/api/auth/accounts", { name: "Yeni Kişi", email: "silinecek@firma.test", password: "Guvenli-4321", roleId }, owner)).status).toBe(201);
 });

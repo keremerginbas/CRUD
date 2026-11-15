@@ -20,6 +20,7 @@ import {
   publicHttps,
   revokeSessions,
 } from "./auth.js";
+import { passwordProblem } from "../shared/password.js";
 
 const scrypt = promisify(crypto.scrypt) as (
   password: string,
@@ -86,9 +87,11 @@ export function ensureSessionSecret(projectRoot: string): string {
 
 const passwordSchema = z
   .string()
-  .min(8, "Şifre en az 8 karakter olmalı.")
   .max(200)
-  .refine((v) => /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(v) && /\d/.test(v), "Şifre harf ve rakam içermeli.");
+  .superRefine((v, ctx) => {
+    const problem = passwordProblem(v);
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+  });
 const emailSchema = z
   .string()
   .trim()
@@ -425,8 +428,15 @@ export function registerLocalAccountRoutes(app: Express, store: Store) {
       const account = (await accounts(auth.ownerOpenId)).find((a) => a.openId === auth.user.openId);
       if (!account)
         return res.status(400).json({ error: "NOT_LOCAL", message: "Bu oturum yerel bir hesaba ait değil." });
-      if (!(await verifyPassword(input.current, account.passwordHash)))
+      // Açık kalmış bir oturumdan mevcut şifre deneme yanılmayla bulunamasın.
+      const guessKey = `pw|${auth.user.openId}`;
+      if (tooManyAttempts(guessKey))
+        return res.status(429).json({ error: "TOO_MANY_ATTEMPTS", message: "Çok fazla hatalı deneme. 15 dakika sonra tekrar deneyin." });
+      if (!(await verifyPassword(input.current, account.passwordHash))) {
+        recordFailure(guessKey);
         return res.status(400).json({ error: "WRONG_PASSWORD", message: "Mevcut şifre hatalı." });
+      }
+      attempts.delete(guessKey);
       await raw.put(
         ACCOUNT_KIND,
         account.id,

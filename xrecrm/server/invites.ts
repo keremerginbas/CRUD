@@ -11,7 +11,8 @@ import { allRoles, rawStoreOf } from "./access.js";
 import { forwardedOrigin } from "./auth.js";
 import { ACCOUNT_KIND, hashPassword, publicAccount, setSession, type LocalAccount } from "./local-auth.js";
 import { mailConfigured, sendMail } from "./mailer.js";
-import { WORKSPACE_SYSTEM_OWNER, workspaceByOwner } from "./workspaces.js";
+import { WORKSPACE_SYSTEM_OWNER, workspaceByOwner, workspaceState } from "./workspaces.js";
+import { passwordProblem } from "../shared/password.js";
 
 export const INVITE_KIND = "employee-invite";
 const INVITE_DAYS = 7;
@@ -41,9 +42,11 @@ const emailSchema = z.string().trim().toLowerCase().email("Geçerli bir e-posta 
 const nameSchema = z.string().trim().min(2, "Ad soyad gerekli.").max(200);
 const passwordSchema = z
   .string()
-  .min(8, "Şifre en az 8 karakter olmalı.")
   .max(200)
-  .refine((v) => /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(v) && /\d/.test(v), "Şifre harf ve rakam içermeli.");
+  .superRefine((v, ctx) => {
+    const problem = passwordProblem(v);
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+  });
 
 class HttpError extends Error {
   constructor(
@@ -151,6 +154,10 @@ export function registerInvitePublicRoutes(app: Express, store: Store) {
         })
         .parse(req.body);
       const owner = invite.ownerOpenId;
+      // Askıya alınmış firmaya yeni hesap açılamaz.
+      const inviteWs = await workspaceByOwner(store, owner);
+      if (inviteWs && workspaceState(inviteWs).state === "suspended")
+        throw new HttpError(403, "WORKSPACE_SUSPENDED", "Bu çalışma alanı askıya alınmış; davet şu an kabul edilemiyor.");
       const existing = (await raw.list<LocalAccount>(ACCOUNT_KIND, owner)).map((r) => r.payload);
       if (existing.some((a) => a.email === invite.email))
         throw new HttpError(409, "EMAIL_EXISTS", "Bu e-posta ile bir hesap zaten var. Giriş ekranından oturum açın.");

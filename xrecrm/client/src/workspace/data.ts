@@ -8,6 +8,8 @@ export type Stage =
   | "won"
   | "lost";
 export interface Lead {
+  /** Kanban sütunundaki elle sıra (küçük olan üstte). */
+  rank?: number;
   stageTransitionToken?: string;
   city?: string;
   appointmentAt?: string;

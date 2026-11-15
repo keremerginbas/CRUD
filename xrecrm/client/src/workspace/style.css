@@ -3512,3 +3512,42 @@ td:first-child {
     transform: none;
   }
 }
+
+/* Kartın bırakılacağı yer: hedef kartın üstünde boşluk açılır ve çizgi görünür */
+.kanban-board .lead-card {
+  transition: margin-top 0.14s ease, box-shadow 0.14s ease, opacity 0.14s ease;
+}
+.kanban-board .lead-card.drop-before {
+  margin-top: 46px;
+  box-shadow: 0 -26px 0 -22px var(--stage, var(--xre-accent, #0e7490));
+}
+.kanban-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--xre-text-soft, inherit);
+}
+.kanban-sort select {
+  min-height: 32px;
+  padding: 4px 28px 4px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 500;
+}
+@media (max-width: 720px) {
+  .kanban-sort {
+    margin-left: 0;
+    width: 100%;
+  }
+  .kanban-sort select {
+    flex: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kanban-board .lead-card {
+    transition: none;
+  }
+}

@@ -16,6 +16,7 @@ import { ACCOUNT_KIND, hashPassword, setSession, type LocalAccount } from "./loc
 import { suiteKinds } from "./suite.js";
 import { mailConfigured, sendMail } from "./mailer.js";
 import { RESERVED_SLUGS, SLUG_PATTERN, type WorkspaceInfo } from "../shared/workspaces.js";
+import { passwordProblem } from "../shared/password.js";
 
 export const WORKSPACE_KIND = "workspace";
 /** Alan kayıtlarının sahibi: hiçbir kullanıcıya ait olmayan sistem kapsamı. */
@@ -194,9 +195,11 @@ export function registerWorkspacePublicRoutes(app: Express, store: Store) {
         email: z.string().trim().toLowerCase().email("Geçerli bir e-posta girin.").max(320),
         password: z
           .string()
-          .min(8, "Şifre en az 8 karakter olmalı.")
           .max(200)
-          .refine((v) => /[A-Za-zÇĞİÖŞÜçğıöşü]/.test(v) && /\d/.test(v), "Şifre harf ve rakam içermeli."),
+          .superRefine((v, ctx) => {
+            const problem = passwordProblem(v);
+            if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+          }),
       })
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "INVALID", message: parsed.error.issues[0]?.message || "Geçersiz istek." });

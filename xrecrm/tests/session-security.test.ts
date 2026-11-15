@@ -85,3 +85,27 @@ describe("oturum güvenliği", () => {
     }
   });
 });
+
+describe("şifre kuralı ve deneme sınırı", () => {
+  it("basit ve yaygın şifreler reddedilir", async () => {
+    const { passwordProblem } = await import("../shared/password");
+    expect(passwordProblem("aaaaaaa1")).toMatch(/basit/);
+    expect(passwordProblem("Password123")).toMatch(/yaygın/);
+    expect(passwordProblem("kısa1")).toMatch(/8 karakter/);
+    expect(passwordProblem("sadeceharfler")).toMatch(/rakam/);
+    expect(passwordProblem("Yonetici123")).toBeNull();
+    expect(passwordProblem("Güçlü-Şifre-2026")).toBeNull();
+  });
+
+  it("şifre değiştirirken mevcut şifre için deneme sınırı vardır", async () => {
+    const { send, owner } = await boot();
+    let last = 0;
+    for (let i = 0; i < 11; i++) last = (await send("/api/auth/password", { current: `yanlis${i}`, next: "YeniSifre456" }, { cookie: owner })).status;
+    expect(last).toBe(429);
+    // Sınır dolunca doğru şifre de kabul edilmez (15 dakika).
+    expect((await send("/api/auth/password", { current: "Yonetici123", next: "YeniSifre456" }, { cookie: owner })).status).toBe(429);
+    const weak = await boot();
+    const res = await weak.send("/api/auth/password", { current: "Yonetici123", next: "aaaaaaa1" }, { cookie: weak.owner });
+    expect(res.status).toBe(400);
+  });
+});

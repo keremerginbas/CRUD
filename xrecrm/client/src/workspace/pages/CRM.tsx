@@ -36,6 +36,7 @@ import { Modal } from "../components/ui";
 import { useStore } from "../store";
 import { Lead, Stage, money } from "../data";
 import { KanbanBoard, KanbanCard, KanbanColumn } from "../components/KanbanDnd";
+import { KANBAN_SORTS, rankForDrop, sortLeads, type KanbanSort } from "../../../../shared/kanban-order";
 import {
   availablePipelines,
   getPipelineStages,
@@ -240,6 +241,33 @@ export default function CRM({
       }),
     [data.leads, nextByLead, workspaceFilters],
   );
+  // Kart sırası: elle (bırakılan yer), tarih, tutar veya ad. Seçim bu tarayıcıda hatırlanır.
+  const [sortMode, setSortMode] = useState<KanbanSort>(() => {
+    try {
+      const saved = localStorage.getItem("xre-kanban-sort") as KanbanSort | null;
+      return saved && KANBAN_SORTS.some(([key]) => key === saved) ? saved : "manual";
+    } catch {
+      return "manual";
+    }
+  });
+  const chooseSort = (mode: KanbanSort) => {
+    setSortMode(mode);
+    try {
+      localStorage.setItem("xre-kanban-sort", mode);
+    } catch {
+      /* depolama kapalı */
+    }
+  };
+  const byStage = useMemo(() => {
+    const map = new Map<string, Lead[]>();
+    for (const l of leads) {
+      const list = map.get(l.stage);
+      if (list) list.push(l);
+      else map.set(l.stage, [l]);
+    }
+    for (const [stage, list] of map) map.set(stage, sortLeads(list, sortMode));
+    return map;
+  }, [leads, sortMode]);
   // Sütun başına ekrana çizilen kart sayısı sınırlıdır; sayılar ve tutarlar yine tüm müşterileri kapsar.
   const COLUMN_PAGE = 40;
   const [columnLimit, setColumnLimit] = useState<Record<string, number>>({});
@@ -257,10 +285,14 @@ export default function CRM({
     0,
   );
   const dragLead = dragId ? data.leads.find((l) => l.id === dragId) : null;
-  const move = async (id: string, s: Stage) => {
+  const move = async (id: string, s: Stage, beforeId: string | null = null) => {
+    const lead = data.leads.find((l) => l.id === id);
+    if (!lead) return;
     try {
-      await moveLead(id, s);
-      toast.success("Müşteri aşaması güncellendi.");
+      // Elle sıralamada kart bırakıldığı yere yerleşir; diğer sıralamalarda yerini sıralama belirler.
+      const rank = sortMode === "manual" ? rankForDrop((byStage.get(s) || []).filter((l) => l.id !== id), beforeId) : undefined;
+      await moveLead(id, s, rank);
+      if (lead.stage !== s) toast.success("Müşteri aşaması güncellendi.");
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -535,6 +567,18 @@ export default function CRM({
           Etkinlik bekleyen
           <strong>{open.filter((l) => !next(l)).length}</strong>
         </span>
+        {activeView === "kanban" && (
+          <label className="kanban-sort">
+            Sıralama
+            <select value={sortMode} onChange={(e) => chooseSort(e.target.value as KanbanSort)} aria-label="Kart sıralaması">
+              {KANBAN_SORTS.map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <button onClick={() => navigate?.("/automations")}>
           <Workflow size={15} />
           Robotlar & kurallar
@@ -664,9 +708,9 @@ export default function CRM({
           activeId={dragId}
           onStart={setDragId}
           onCancel={() => setDragId(null)}
-          onMove={(id, stage) => {
+          onMove={(id, stage, beforeId) => {
             setDragId(null);
-            void move(id, stage as Stage);
+            if (stage) void move(id, stage as Stage, beforeId);
           }}
           overlay={
             dragLead && (
@@ -679,7 +723,7 @@ export default function CRM({
           }
         >
           {stages.map((s) => {
-            const items = leads.filter((l) => l.stage === s.id);
+            const items = byStage.get(s.id) || [];
             return (
               <KanbanColumn
                 key={s.id}
@@ -750,6 +794,7 @@ export default function CRM({
                       <KanbanCard
                         key={l.id}
                         id={l.id}
+                        stage={s.id}
                         className={`lead-card b24-deal-card crm-card-profile-${appearance.cardProfile}`}
                         // Kartın boş bir yerine çift tıklamak müşteri kartını açar;
                         // düğme, seçim kutusu ve açılır listeler kendi işini yapmaya devam eder.

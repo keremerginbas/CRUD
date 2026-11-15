@@ -3,6 +3,7 @@ import http from "node:http";
 import { createApp, processOutboxOnce } from "../server/app";
 import { createMemoryStore } from "../server/db";
 import { setMailSender, type Mail } from "../server/mailer";
+import { peekQrCode, resetQrSessions } from "../server/social-auth";
 import { resetSignupAttempts, slugProblem, workspaceBySlug, WORKSPACE_KIND, WORKSPACE_SYSTEM_OWNER } from "../server/workspaces";
 
 const savedEnv = { ...process.env };
@@ -40,7 +41,7 @@ async function setupDefault(base: string) {
   expect(res.status).toBe(201);
   return cookieOf(res);
 }
-const ahmet = { company: "Ahmet İnşaat", slug: "ahmet", name: "Ahmet Yılmaz", email: "ahmet@firma.test", password: "Deneme1234" };
+const ahmet = { company: "Ahmet İnşaat", slug: "ahmet", name: "Ahmet Yılmaz", email: "ahmet@firma.test", password: "Guvenli-4321" };
 const lead = (id: string, name: string) => ({ lead: { id, name, phone: "+905550000001" } });
 
 describe("Çalışma alanları", () => {
@@ -259,5 +260,40 @@ describe("Çalışma alanları", () => {
     await post(base, "/api/workspaces/ahmet", { status: "active" }, owner);
     expect((await get(base, "/api/state", tenant)).status).toBe(200);
     expect((await (await get(base, "/api/me", tenant)).json()).workspace).toMatchObject({ state: "active", daysLeft: null });
+  });
+
+  it("sonradan açılan firmada karekodla giriş çalışır ve kullanıcı kendi alanına girer", async () => {
+    process.env.XRE_SIGNUP = "1";
+    resetQrSessions();
+    const { base } = await start();
+    await setupDefault(base);
+    const tenant = cookieOf(await post(base, "/api/workspaces/signup", ahmet));
+    const qr = await (await post(base, "/api/auth/qr/start", {})).json();
+    expect((await post(base, "/api/auth/qr/approve", { code: peekQrCode(qr.id) }, tenant)).status).toBe(200);
+    const poll = await post(base, "/api/auth/qr/poll", { id: qr.id, pollSecret: qr.pollSecret });
+    const body = await poll.json();
+    expect(body.status).toBe("approved");
+    const me = await (await get(base, "/api/me", cookieOf(poll))).json();
+    expect(me.user.email).toBe("ahmet@firma.test");
+    expect(me.workspace.slug).toBe("ahmet");
+  });
+
+  it("askıya alınmış firmanın daveti kabul edilemez", async () => {
+    process.env.XRE_SIGNUP = "1";
+    const { base } = await start();
+    const owner = await setupDefault(base);
+    const tenant = cookieOf(await post(base, "/api/workspaces/signup", ahmet));
+    const roles = await (await get(base, "/api/access", tenant)).json();
+    const roleId = (roles.roles || []).find((r: any) => r.id !== "owner")?.id || "sales";
+    const created = await post(base, "/api/auth/invites", { email: "yeni@firma.test", roleId }, tenant);
+    expect(created.status).toBe(201);
+    const token = (await created.json()).link.split("/davet/")[1];
+    expect((await post(base, "/api/workspaces/ahmet", { status: "suspended" }, owner)).status).toBeLessThan(300);
+    const blocked = await post(base, `/api/auth/invite/${token}`, { name: "Yeni Kişi", password: "Guvenli-4321" });
+    expect(blocked.status).toBe(403);
+    expect((await blocked.json()).error).toBe("WORKSPACE_SUSPENDED");
+    // Firma yeniden açılınca aynı davet kullanılabilir.
+    expect((await post(base, "/api/workspaces/ahmet", { status: "active" }, owner)).status).toBeLessThan(300);
+    expect((await post(base, `/api/auth/invite/${token}`, { name: "Yeni Kişi", password: "Guvenli-4321" })).status).toBeLessThan(300);
   });
 });
