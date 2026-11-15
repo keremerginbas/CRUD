@@ -33,6 +33,7 @@ import "../suite-pages.css";
 import "../projects.css";
 import "../quotes.css";
 import { Guide, COST_GUIDE } from "../components/quotes/Guide";
+import { cleanPhoneInput } from "../../../../shared/phone";
 
 type View = "teklifler" | "proje" | "ay" | "primler" | "oranlar";
 
@@ -215,7 +216,7 @@ function SettingsForm({ store }: { store: QuoteStore }) {
         </label>
         <label className="sx-field">
           Firma telefonu
-          <input className="pj-input" value={company.phone} maxLength={60} onChange={(e) => setCompany({ ...company, phone: e.target.value })} />
+          <input className="pj-input" value={company.phone} maxLength={60} inputMode="tel" onChange={(e) => setCompany({ ...company, phone: cleanPhoneInput(e.target.value) })} />
         </label>
         <label className="sx-field sx-span-2">
           Firma adresi

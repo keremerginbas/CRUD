@@ -42,6 +42,8 @@ import {
 } from "../suite";
 import { useStore } from "../store";
 import { Avatar, Badge } from "./ui";
+import { cleanPhoneInput } from "../../../../shared/phone";
+
 const TaskEditor = lazy(() =>
   import("../pages/Work").then((m) => ({ default: m.TaskEditor })),
 );
@@ -321,8 +323,11 @@ export default function LeadDrawer({
               <label>
                 Telefon
                 <input
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="0532 123 45 67"
                   value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  onChange={(e) => setForm({ ...form, phone: cleanPhoneInput(e.target.value) })}
                 />
               </label>
               <label>
@@ -341,7 +346,7 @@ export default function LeadDrawer({
                     min="0"
                     value={form.value}
                     onChange={(e) =>
-                      setForm({ ...form, value: Number(e.target.value) })
+                      setForm({ ...form, value: Math.max(0, Number(e.target.value) || 0) })
                     }
                   />
                 </label>

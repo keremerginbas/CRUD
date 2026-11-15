@@ -7,6 +7,7 @@ import { formatDay, formatMoney, formatPct, type VisibleQuote } from "../../../.
 import { lateInterest, summarizeSenets, type SaleParties } from "../../../../../shared/senet";
 import type { QuoteStore } from "../../quotes";
 import { useSale } from "../../sales";
+import { cleanPhoneInput } from "../../../../../shared/phone";
 
 const emptyParties = (quote: VisibleQuote, today: string): SaleParties => ({
   buyerName: quote.customer.name || "",
@@ -110,7 +111,7 @@ export function SaleDocuments({ quote, store }: { quote: VisibleQuote; store: Qu
             </label>
             <label className="sx-field">
               <span>Telefon</span>
-              <input className="pj-input" maxLength={60} value={form.buyerPhone} onChange={set("buyerPhone")} />
+              <input className="pj-input" maxLength={60} inputMode="tel" value={form.buyerPhone} onChange={(e) => setForm((f) => ({ ...f, buyerPhone: cleanPhoneInput(e.target.value) }))} />
             </label>
             <label className="sx-field">
               <span>E-posta</span>

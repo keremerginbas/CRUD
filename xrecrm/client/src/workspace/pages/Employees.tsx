@@ -21,6 +21,7 @@ import {
   type AccessRole,
 } from "../../../../shared/access";
 import "../access.css";
+import { cleanPhoneInput } from "../../../../shared/phone";
 
 type AccessPayload = {
   roles: AccessRole[];
@@ -429,7 +430,7 @@ export default function Employees({
                 <input
                   value={form.phone}
                   onChange={(event) =>
-                    setForm({ ...form, phone: event.target.value })
+                    setForm({ ...form, phone: cleanPhoneInput(event.target.value) })
                   }
                 />
               </label>

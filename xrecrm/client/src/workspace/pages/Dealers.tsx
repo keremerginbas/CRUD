@@ -12,6 +12,7 @@ import "../suite-pages.css";
 import "../projects.css";
 import "../quotes.css";
 import { DEALER_GUIDE, Guide } from "../components/quotes/Guide";
+import { cleanPhoneInput } from "../../../../shared/phone";
 
 const fold = (value: string) => value.toLocaleLowerCase("tr-TR");
 const tone: Record<DealerRegistration["status"], string> = { aktif: "ok", satıldı: "info", "ana bayiye devredildi": "hold" };
@@ -42,7 +43,7 @@ function DealerEditor({ dealer, employees, onSave, onClose }: { dealer: Dealer; 
         </label>
         <label className="sx-field">
           <span>Telefon</span>
-          <input className="pj-input" maxLength={60} value={draft.phone} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+          <input className="pj-input" maxLength={60} value={draft.phone} inputMode="tel" onChange={(e) => setDraft({ ...draft, phone: cleanPhoneInput(e.target.value) })} />
         </label>
         <label className="qt-check">
           <input type="checkbox" checked={draft.main} onChange={(e) => setDraft({ ...draft, main: e.target.checked })} />

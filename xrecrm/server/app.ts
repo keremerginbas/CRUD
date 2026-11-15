@@ -114,6 +114,7 @@ import { registerSmsRoutes, sendLeadSms, smsConfigured } from "./sms.js";
 import { registerProjectRoutes } from "./projects.js";
 import { registerQuoteRoutes } from "./quotes.js";
 import { registerSaleRoutes } from "./sales.js";
+import { phoneProblem } from "../shared/phone.js";
 import { registerDealerRoutes } from "./dealers.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
@@ -1878,6 +1879,8 @@ export function createApp(
         tags: Array.isArray(input.tags) ? input.tags.map(String) : [],
       };
       const lead = LeadSchema.parse(candidate);
+      const leadIssue = phoneProblem(lead.phone) || (lead.value < 0 ? "Tutar eksi olamaz." : null);
+      if (leadIssue) return res.status(400).json({ error: "INVALID_LEAD", message: leadIssue });
       const existing = await findLead(store, ownerOf(req), lead.id);
       if (existing)
         return res.status(409).json({
@@ -1929,6 +1932,11 @@ export function createApp(
       delete patch.id;
       delete patch.createdAt;
       const changedStage = patch.stage && patch.stage !== existing.stage;
+      // Yalnız değiştirilen alan denetlenir; eski hatalı kayıtlar başka alanları düzenlenirken engellenmez.
+      const patchIssue =
+        (patch.phone !== undefined && patch.phone !== existing.phone ? phoneProblem(patch.phone) : null) ||
+        (typeof patch.value === "number" && patch.value !== existing.value && patch.value < 0 ? "Tutar eksi olamaz." : null);
+      if (patchIssue) return res.status(400).json({ error: "INVALID_LEAD", message: patchIssue });
       const updated: Lead = LeadSchema.parse({
         ...existing,
         ...patch,

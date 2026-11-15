@@ -7,6 +7,7 @@ import { ChangePassword } from "../components/LoginAccounts";
 import EmailConnect from "../components/EmailConnect";
 import { useStore } from "../store";
 import "../access.css";
+import { cleanPhoneInput } from "../../../../shared/phone";
 type ProfileData = {
   name: string;
   email: string;
@@ -170,7 +171,8 @@ export default function Profile() {
                 <input
                   maxLength={80}
                   value={profile.phone}
-                  onChange={(e) => change("phone", e.target.value)}
+                  inputMode="tel"
+                  onChange={(e) => change("phone", cleanPhoneInput(e.target.value))}
                 />
               </label>
               <label className="full">
