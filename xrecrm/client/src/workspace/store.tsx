@@ -318,6 +318,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         await api(exists ? `/api/leads/${l.id}` : "/api/leads", exists ? l : { lead: l }, exists ? "PATCH" : "POST");
         pendingSaves.current--;
+        // Kayıt sürerken başlamış bir yenileme eski veriyi getirebilir; sayaç artınca o yanıt ekrana yazılmaz.
+        mutationSeq.current++;
       } catch (error) {
         pendingSaves.current--;
         mutationSeq.current++;
@@ -494,6 +496,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       try {
         await api(exists ? `/api/${kind}/${record.id}` : `/api/${kind}`, record, exists ? "PATCH" : "POST");
         pendingSaves.current--;
+        // Kayıt sürerken başlamış bir yenileme eski veriyi getirebilir; sayaç artınca o yanıt ekrana yazılmaz.
+        mutationSeq.current++;
       } catch (error) {
         pendingSaves.current--;
         mutationSeq.current++;

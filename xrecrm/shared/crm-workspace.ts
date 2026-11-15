@@ -422,23 +422,41 @@ export function matchesCrmWorkspaceFilters(
   input: CrmWorkspaceFilters | Partial<CrmWorkspaceFilters>,
   options: { now?: Date } = {},
 ): boolean {
-  if (!isRecord(record)) return false;
+  return matchSafeFilters(record, safeCrmWorkspaceFilters(input), options.now?.getTime() ?? Date.now());
+}
+
+/**
+ * Binlerce kayıt için: süzgeç bir kez doğrulanır, dönen işlev her kayıtta yalnız karşılaştırma yapar.
+ */
+export function createCrmWorkspaceMatcher(
+  input: CrmWorkspaceFilters | Partial<CrmWorkspaceFilters>,
+  options: { now?: Date } = {},
+): (record: unknown) => boolean {
   const filters = safeCrmWorkspaceFilters(input);
-  const lowered = [
-    record.name,
-    record.dealTitle,
-    record.company,
-    record.phone,
-    record.email,
-    record.city,
-    record.notes,
-    record.source,
-    record.owner,
-    record.stage,
-  ]
-    .map(text)
-    .join(" ");
-  if (filters.query && !lowered.includes(text(filters.query))) return false;
+  const now = options.now?.getTime() ?? Date.now();
+  return (record) => matchSafeFilters(record, filters, now);
+}
+
+function matchSafeFilters(record: unknown, filters: CrmWorkspaceFilters, now: number): boolean {
+  if (!isRecord(record)) return false;
+  // Arama metni yoksa on alanı küçük harfe çevirip birleştirmeye gerek yoktur.
+  if (filters.query) {
+    const lowered = [
+      record.name,
+      record.dealTitle,
+      record.company,
+      record.phone,
+      record.email,
+      record.city,
+      record.notes,
+      record.source,
+      record.owner,
+      record.stage,
+    ]
+      .map(text)
+      .join(" ");
+    if (!lowered.includes(text(filters.query))) return false;
+  }
   const equalsFilter = (filter: string, value: unknown) =>
     !filter || filter === "all" || text(filter) === text(value);
   if (!equalsFilter(filters.owner, record.owner)) return false;
@@ -454,11 +472,7 @@ export function matchesCrmWorkspaceFilters(
   if (filters.city && !text(record.city).includes(text(filters.city)))
     return false;
   if (
-    !activityMatches(
-      record,
-      filters.activity,
-      options.now?.getTime() ?? Date.now(),
-    )
+    !activityMatches(record, filters.activity, now)
   )
     return false;
   const created = Date.parse(recordDate(record));

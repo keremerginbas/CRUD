@@ -3,6 +3,7 @@ import ImportWizard from "../components/ImportWizard";
 import {
   CRM_WORKSPACE_FILTER_DEFAULTS,
   CRM_WORKSPACE_DEFAULT_APPEARANCE,
+  createCrmWorkspaceMatcher,
   matchesCrmWorkspaceFilters,
   safeCrmWorkspaceFilters,
   type CrmWorkspaceFilters,
@@ -95,14 +96,11 @@ export default function CRM({
     listColumns: [...CRM_WORKSPACE_DEFAULT_APPEARANCE.listColumns],
   });
   const [importing, setImporting] = useState(false);
-  const workspaceFilters = {
-    ...advanced,
-    query,
-    pipeline,
-    owner,
-    source,
-    activity,
-  };
+  // Süzgeç nesnesi yalnız bir değeri değişince yenilenir; yoksa her çizimde tüm müşteriler yeniden süzülür.
+  const workspaceFilters = useMemo(
+    () => ({ ...advanced, query, pipeline, owner, source, activity }),
+    [advanced, query, pipeline, owner, source, activity],
+  );
   const applyWorkspaceFilters = (value: CrmWorkspaceFilters) => {
     setAdvanced(value);
     setQuery(value.query);
@@ -214,31 +212,36 @@ export default function CRM({
   ];
   // Binlerce müşteride her kart için tüm görev ve etkinlikleri taramamak adına
   // "sıradaki iş" müşteri başına bir kez hesaplanıp saklanır.
+  const openCounts = useMemo(() => new Map<string, number>(), [data.tasks, data.activities]);
   const nextByLead = useMemo(() => {
     const tasksOf = new Map<string, typeof data.tasks>();
     const activitiesOf = new Map<string, typeof data.activities>();
     for (const t of data.tasks) if (t.leadId) (tasksOf.get(t.leadId) || tasksOf.set(t.leadId, []).get(t.leadId)!).push(t);
     for (const a of data.activities) if (a.leadId) (activitiesOf.get(a.leadId) || activitiesOf.set(a.leadId, []).get(a.leadId)!).push(a);
     const map = new Map<string, ReturnType<typeof nextOpenRecord>>();
-    for (const id of new Set([...tasksOf.keys(), ...activitiesOf.keys()]))
+    for (const id of new Set([...tasksOf.keys(), ...activitiesOf.keys()])) {
       map.set(id, nextOpenRecord(id, tasksOf.get(id) || [], activitiesOf.get(id) || []));
+      openCounts.set(id, openCount(id, tasksOf.get(id) || [], activitiesOf.get(id) || []));
+    }
     return map;
   }, [data.tasks, data.activities]);
+  // Kart başına açık etkinlik sayısı: her çizimde tüm görev ve etkinlikler yeniden taranmaz.
+  const openCountOf = (id: string) => openCounts.get(id) || 0;
   const next = (l: Lead) => nextByLead.get(l.id) || nextOpenRecord(l.id, [], []);
   const leads = useMemo(
     () =>
-      data.leads.filter((l) => {
-        const upcoming = nextByLead.get(l.id);
-        return matchesCrmWorkspaceFilters(
-          {
+      (() => {
+        const matches = createCrmWorkspaceMatcher(workspaceFilters);
+        return data.leads.filter((l) => {
+          const upcoming = nextByLead.get(l.id);
+          return matches({
             ...l,
             pipelineId: l.pipelineId || "sales",
             nextActivityAt: upcoming?.date,
             hasActivity: !!upcoming,
-          },
-          workspaceFilters,
-        );
-      }),
+          });
+        });
+      })(),
     [data.leads, nextByLead, workspaceFilters],
   );
   // Kart sırası: elle (bırakılan yer), tarih, tutar veya ad. Seçim bu tarayıcıda hatırlanır.
@@ -269,7 +272,7 @@ export default function CRM({
     return map;
   }, [leads, sortMode]);
   // Sütun başına ekrana çizilen kart sayısı sınırlıdır; sayılar ve tutarlar yine tüm müşterileri kapsar.
-  const COLUMN_PAGE = 40;
+  const COLUMN_PAGE = 20;
   const [columnLimit, setColumnLimit] = useState<Record<string, number>>({});
   const LIST_PAGE = 100;
   const [listLimit, setListLimit] = useState(LIST_PAGE);
@@ -823,11 +826,11 @@ export default function CRM({
                           </span>
                           <span
                             className="crm-open-count"
-                            title={`${l.name} için açık etkinlik sayısı: ${openCount(l.id, data.tasks, data.activities)}`}
-                            aria-label={`${l.name} için açık etkinlik sayısı: ${openCount(l.id, data.tasks, data.activities)}`}
+                            title={`${l.name} için açık etkinlik sayısı: ${openCountOf(l.id)}`}
+                            aria-label={`${l.name} için açık etkinlik sayısı: ${openCountOf(l.id)}`}
                           >
                             <CalendarClock size={12} />{" "}
-                            {openCount(l.id, data.tasks, data.activities)}
+                            {openCountOf(l.id)}
                           </span>
                           <button
                             className="icon-button"
@@ -1107,7 +1110,7 @@ export default function CRM({
                           title="Açık etkinlik sayısı"
                           className="crm-open-count"
                         >
-                          {openCount(l.id, data.tasks, data.activities)}
+                          {openCountOf(l.id)}
                         </span>
                         <CRMLeadActions
                           lead={l}
