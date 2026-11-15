@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useStore } from "../store";
 import { Badge, Empty, Modal, PageTitle } from "../components/ui";
 import "../system.css";
+import { setBranding, useBranding } from "../branding";
 
 interface Backup {
   name: string;
@@ -14,6 +15,61 @@ interface Backup {
 
 const reasonLabel: Record<string, string> = { otomatik: "Otomatik", elle: "Elle", oncesi: "Geri yükleme öncesi" };
 const size = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+/** Firma adı ve logosu: yan menüde, giriş ekranında ve teklif PDF'inde görünür. */
+function BrandingCard() {
+  const branding = useBranding();
+  const [name, setName] = useState(branding.name);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => setName(branding.name), [branding.name]);
+  const save = async (logoBase64?: string) => {
+    setBusy(true);
+    try {
+      const r = await fetch("/api/branding", { method: "PUT", credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify({ name, ...(logoBase64 === undefined ? {} : { logoBase64 }) }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.message || "Kaydedilemedi.");
+      setBranding({ name: d.name || "", logoUrl: d.logoUrl || null });
+      toast.success("Firma kimliği kaydedildi.");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    if (!/^image\/(png|jpeg)$/.test(file.type)) return void toast.error("Logo PNG veya JPG dosyası olmalı.");
+    if (file.size > 400_000) return void toast.error("Logo en fazla 400 KB olabilir.");
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    await save(btoa(binary));
+  };
+  return (
+    <section className="sys-brand">
+      <div className="sys-brand-preview">{branding.logoUrl ? <img src={branding.logoUrl} alt="Firma logosu" /> : <span>Logo yok</span>}</div>
+      <div className="sys-brand-form">
+        <strong>Firma logosu ve adı</strong>
+        <small>Yan menüde, giriş ekranında ve teklif PDF’inde görünür. Logo: PNG veya JPG, en fazla 400 KB; kare logo en iyi sonucu verir.</small>
+        <div className="sys-brand-row">
+          <input value={name} maxLength={80} placeholder="Firma adı (ör. TR Invest)" onChange={(e) => setName(e.target.value)} aria-label="Firma adı" />
+          <button className="btn secondary" disabled={busy} onClick={() => void save()}>
+            Adı kaydet
+          </button>
+          <label className={`btn primary ${busy ? "disabled" : ""}`}>
+            Logo yükle
+            <input type="file" accept="image/png,image/jpeg" hidden disabled={busy} onChange={(e) => (void pick(e.target.files?.[0]), (e.target.value = ""))} />
+          </label>
+          {branding.logoUrl && (
+            <button className="btn secondary" disabled={busy} onClick={() => void save("")}>
+              Logoyu kaldır
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 interface SystemStatus {
   checkedAt: string;
@@ -141,6 +197,7 @@ export default function SystemBackups() {
       ) : (
         <>
           {status && <StatusCards status={status} />}
+          <BrandingCard />
           <div className="system-note">
             <ShieldCheck size={18} />
             <p>

@@ -40,6 +40,7 @@ export function requireModulePermissions(
     // Bayi uçları kendi yetki kontrollerini yapar.
     /^\/dealers(?:\/|$)/.test(path) ||
     path === "/live" ||
+    path === "/branding" ||
     path === "/integrations/sms/test" ||
     path === "/pbx/me" ||
     path === "/lines" ||

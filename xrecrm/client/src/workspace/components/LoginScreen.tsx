@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { api } from "../store";
 import FluidBackdrop from "./FluidBackdrop";
 import "../login.css";
+import { useBranding } from "../branding";
 
 export interface AuthStatus {
   needsSetup: boolean;
@@ -166,11 +167,16 @@ export default function LoginScreen({
     { id: "apple", label: "Apple / iCloud", icon: <AppleIcon /> },
   ] as const;
 
+  const branding = useBranding();
   return (
     <div className="login-screen" role="dialog" aria-modal="true" aria-label="XRE CRM giriş">
       <section className="login-brand">
         <FluidBackdrop />
-        <img className="login-brand-logo" src="/xre-crm-logo-white.png" alt="XRE CRM" />
+        {branding.logoUrl ? (
+          <img className="login-brand-logo login-brand-custom" src={branding.logoUrl} alt={branding.name || "Firma logosu"} />
+        ) : (
+          <img className="login-brand-logo" src="/xre-crm-logo-white.png" alt="XRE CRM" />
+        )}
         <div className="login-brand-text">
         <h2>Müşterileriniz, aramalarınız ve ekibiniz tek ekranda.</h2>
         <ul>
@@ -193,7 +199,7 @@ export default function LoginScreen({
             ? "İlk kurulum: çalışma alanının yönetici hesabını oluşturun. Bu hesap tüm yetkilere sahip olur."
             : workspace
               ? `${workspace.name} çalışma alanına giriş yapın.`
-              : "XRE CRM hesabınızla devam edin."}
+              : `${branding.name || "XRE CRM"} hesabınızla devam edin.`}
         </p>
         {status.database === false && (
           <p className="login-error">Veritabanına ulaşılamıyor. Sunucu kayıtlarını kontrol edin.</p>

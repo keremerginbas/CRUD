@@ -119,6 +119,7 @@ import { registerSaleRoutes } from "./sales.js";
 import { phoneProblem } from "../shared/phone.js";
 import { registerDealerRoutes } from "./dealers.js";
 import { registerLiveRoutes } from "./live.js";
+import { registerBrandingAdminRoutes, registerBrandingPublicRoutes } from "./branding.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
@@ -1735,6 +1736,7 @@ export function createApp(
 
   registerLocalAuthRoutes(app, store);
   registerWorkspacePublicRoutes(app, store);
+  registerBrandingPublicRoutes(app, store);
   registerInvitePublicRoutes(app, store);
   registerSocialAuthRoutes(app, store);
   // CRM'in Bitrix24 içinde uygulama olarak açılması artık varsayılan kapalıdır
@@ -1787,6 +1789,7 @@ export function createApp(
   registerSmsRoutes(app, store);
   registerProjectRoutes(app, store);
   registerLiveRoutes(app);
+  registerBrandingAdminRoutes(app, store);
   registerSaleRoutes(app, store);
   registerDealerRoutes(app, store);
   registerQuoteRoutes(app, store);

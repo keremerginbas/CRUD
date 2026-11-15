@@ -15,6 +15,8 @@ export interface QuotePdfInput {
   project?: Pick<Project, "name" | "city" | "district" | "address" | "deliveryDate"> | null;
   /** Onaylanmamış teklifin iç önizlemesi: her sayfaya filigran basılır. */
   watermark?: boolean;
+  /** Firma logosu (PNG/JPEG); varsa başlıkta firma adının solunda yer alır. */
+  logo?: Buffer | null;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -135,12 +137,22 @@ export function buildQuotePdf(input: QuotePdfInput): Promise<Buffer> {
 
     // Başlık: solda firma, sağda belge bilgisi
     const metaX = margin + width - 190;
-    text(content.company.name || "Satış Ofisi", margin, y, { font: "b", size: 15, width: width - 200, lineBreak: true });
+    let logoW = 0;
+    if (input.logo) {
+      try {
+        doc.image(input.logo, margin, y - 2, { fit: [54, 54] });
+        logoW = 64;
+      } catch {
+        /* okunamayan logo belgeyi engellemez */
+      }
+    }
+    text(content.company.name || "Satış Ofisi", margin + logoW, y, { font: "b", size: 15, width: width - 200 - logoW, lineBreak: true });
     let leftY = doc.y + 3;
     for (const line of [content.company.address, content.company.phone && `Tel: ${content.company.phone}`].filter(Boolean) as string[]) {
-      text(line, margin, leftY, { size: 8.5, color: SOFT, width: width - 210, lineBreak: true });
+      text(line, margin + logoW, leftY, { size: 8.5, color: SOFT, width: width - 210 - logoW, lineBreak: true });
       leftY = doc.y + 1;
     }
+    if (logoW) leftY = Math.max(leftY, y + 56);
     text(content.title, metaX, y, { font: "b", size: 13, width: 190, align: "right" });
     let rightY = y + 20;
     for (const [label, value] of content.meta) {

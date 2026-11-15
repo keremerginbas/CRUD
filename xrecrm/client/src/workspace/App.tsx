@@ -81,6 +81,7 @@ import { PREVIEW, WORKSPACE_SLUG, currentPath, withBase } from "./nav";
 import InviteAccept from "./components/InviteAccept";
 import { InboxList, useInbox } from "./components/InboxNotifications";
 import { usePendingQuotes } from "./quotes";
+import { useBranding } from "./branding";
 import { SignupScreen, WorkspaceLocked, WorkspaceMissing } from "./components/Signup";
 import LoginScreen, { QrApprove, type AuthStatus } from "./components/LoginScreen";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -236,6 +237,7 @@ function Workspace() {
   const [notifications, setNotifications] = useState(false);
   const inbox = useInbox();
   const pendingQuotes = usePendingQuotes();
+  const branding = useBranding();
   // Telefonda menü açıkken arkadaki sayfa kaymasın (CSS'te kök :has() yerine sınıf kullanılır).
   useEffect(() => {
     document.documentElement.classList.toggle("xre-drawer-open", sidebar);
@@ -455,11 +457,18 @@ function Workspace() {
             role="button"
             tabIndex={0}
           >
-            <img
-              src="/xre-crm-logo-white.png"
-              alt="XRE CRM"
-              className="cx-brand-logo"
-            />
+            {branding.logoUrl ? (
+              <span className="brand-custom">
+                <img src={branding.logoUrl} alt={branding.name || "Firma logosu"} />
+                {branding.name && <strong>{branding.name}</strong>}
+              </span>
+            ) : (
+              <img
+                src="/xre-crm-logo-white.png"
+                alt="XRE CRM"
+                className="cx-brand-logo"
+              />
+            )}
             <button
               className="sidebar-close icon-button"
               onClick={() => setSidebar(false)}

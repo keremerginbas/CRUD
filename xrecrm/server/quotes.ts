@@ -17,6 +17,7 @@ import { allRoles, canAccess, ownsLead, permissionFor, rawStoreOf } from "./acce
 import { serial } from "./projects.js";
 import { addInboxNotification } from "./triggers.js";
 import { buildQuotePdf } from "./quote-pdf.js";
+import { brandLogo } from "./branding.js";
 import type { AccessEmployee } from "../shared/access.js";
 import { PROJECT_KIND, UNIT_KIND, type Project, type Unit, type UnitStatus } from "../shared/real-estate.js";
 import {
@@ -488,7 +489,7 @@ export function registerQuoteRoutes(app: Express, store: Store): void {
       const settings = (await getQuoteSettings(store, ctx.owner)) || { companyName: "", companyAddress: "", companyPhone: "" };
       const project = (await raw.get<Project>(PROJECT_KIND, quote.projectId, ctx.owner))?.payload;
       // Müşteriye verilemeyecek her belge (iç önizleme) filigranlıdır.
-      const pdf = await buildQuotePdf({ quote, settings, project, watermark: !deliverable });
+      const pdf = await buildQuotePdf({ quote, settings, project, watermark: !deliverable, logo: await brandLogo(store, ctx.owner).catch(() => null) });
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `inline; filename="${quote.quoteNo}${deliverable ? "" : "-onizleme"}.pdf"`);
       res.setHeader("Cache-Control", "no-store");
