@@ -160,3 +160,47 @@ describe("firma kimliği ve sistem e-postası", () => {
     }
   });
 });
+
+describe("şifremi unuttum", () => {
+  it("bağlantı e-postayla gelir, bir kez kullanılır; eski şifre ve eski oturum geçmez, hesap var/yok belli olmaz", async () => {
+    const { setMailSender } = await import("../server/mailer");
+    const { resetPasswordResetLimits } = await import("../server/password-reset");
+    resetPasswordResetLimits();
+    const { send, owner } = await boot();
+    // Posta ayarı yokken açıkça söylenir.
+    expect((await send("/api/auth/forgot", { email: "sahip@xre.test" })).status).toBe(503);
+    const mails: { to: string; text?: string }[] = [];
+    setMailSender(async (mail) => void mails.push(mail));
+    try {
+      const unknown = await send("/api/auth/forgot", { email: "yok@xre.test" });
+      const known = await send("/api/auth/forgot", { email: "Sahip@XRE.test" });
+      expect(unknown.status).toBe(200);
+      expect(await unknown.json()).toEqual(await known.json());
+      expect(mails).toHaveLength(1);
+      expect(mails[0].to).toBe("sahip@xre.test");
+      const token = /\/sifre-sifirla\/([A-Za-z0-9_-]+)/.exec(mails[0].text || "")![1];
+
+      const view = await send(`/api/auth/reset/${token}`);
+      expect(view.status).toBe(200);
+      expect((await view.json()).email).toBe("sa•••@xre.test");
+      expect((await send(`/api/auth/reset/${token}`, { password: "aaaaaaa1" })).status).toBe(400);
+      expect((await send(`/api/auth/reset/${"x".repeat(43)}`, { password: "YepYeni-2026" })).status).toBe(410);
+      await wait(1100);
+      expect((await send(`/api/auth/reset/${token}`, { password: "YepYeni-2026" })).status).toBe(200);
+      // Bağlantı tek kullanımlık.
+      expect((await send(`/api/auth/reset/${token}`, { password: "Baska-Sifre-9" })).status).toBe(410);
+      expect((await send("/api/state", undefined, { cookie: owner })).status).toBe(401);
+      expect((await send("/api/auth/local-login", { email: "sahip@xre.test", password: "Yonetici123" })).status).toBe(401);
+      expect((await send("/api/auth/local-login", { email: "sahip@xre.test", password: "YepYeni-2026" })).status).toBe(200);
+      // Yeni istek eski bağlantıyı geçersiz kılar.
+      await send("/api/auth/forgot", { email: "sahip@xre.test" });
+      const first = /\/sifre-sifirla\/([A-Za-z0-9_-]+)/.exec(mails[1].text || "")![1];
+      await send("/api/auth/forgot", { email: "sahip@xre.test" });
+      expect((await send(`/api/auth/reset/${first}`)).status).toBe(410);
+      // E-posta başına istek sınırı.
+      expect((await send("/api/auth/forgot", { email: "sahip@xre.test" })).status).toBe(429);
+    } finally {
+      setMailSender(null as never);
+    }
+  });
+});

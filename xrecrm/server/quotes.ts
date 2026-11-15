@@ -93,6 +93,24 @@ export async function getQuoteSettings(store: Store, ownerOpenId: string): Promi
   return (await rawStoreOf(store).get<QuoteSettings>(QUOTE_SETTINGS_KIND, QUOTE_SETTINGS_ID, ownerOpenId))?.payload || null;
 }
 
+/** Yöneticilerin görünen adları: alan sahibi + rolü "Teklifler: yazma" veren etkin çalışanlar. */
+export async function quoteManagerNames(store: Store, owner: string): Promise<string[]> {
+  const raw = rawStoreOf(store);
+  const names = new Map<string, string>();
+  const add = (name: unknown) => {
+    const clean = String(name ?? "").trim();
+    if (clean) names.set(fold(clean), clean);
+  };
+  const account = (await raw.list<{ openId?: string; name?: string }>("local-account", owner)).find((r) => r.payload?.openId === owner);
+  add(account?.payload?.name);
+  add((await raw.get<{ name?: string }>(QUOTE_META_KIND, "owner", owner))?.payload?.name);
+  if (!names.size) add((await raw.get<{ name?: string }>("profile", owner, owner))?.payload?.name);
+  const roles = new Map((await allRoles(raw, owner)).map((role) => [role.id, role]));
+  for (const row of await raw.list<AccessEmployee>("employee", owner))
+    if (row.payload.active && roles.get(row.payload.roleId)?.grants?.quotes?.write) add(row.payload.name);
+  return [...names.values()];
+}
+
 export function registerQuoteRoutes(app: Express, store: Store): void {
   const raw = rawStoreOf(store);
 
@@ -153,22 +171,7 @@ export function registerQuoteRoutes(app: Express, store: Store): void {
       )
       .catch(() => undefined);
 
-  /** Yöneticilerin görünen adları: alan sahibi + rolü "Teklifler: yazma" veren etkin çalışanlar. */
-  const managerNames = async (owner: string): Promise<string[]> => {
-    const names = new Map<string, string>();
-    const add = (name: unknown) => {
-      const clean = String(name ?? "").trim();
-      if (clean) names.set(fold(clean), clean);
-    };
-    const account = (await raw.list<{ openId?: string; name?: string }>("local-account", owner)).find((r) => r.payload?.openId === owner);
-    add(account?.payload?.name);
-    add((await raw.get<{ name?: string }>(QUOTE_META_KIND, "owner", owner))?.payload?.name);
-    if (!names.size) add((await raw.get<{ name?: string }>("profile", owner, owner))?.payload?.name);
-    const roles = new Map((await allRoles(raw, owner)).map((role) => [role.id, role]));
-    for (const row of await raw.list<AccessEmployee>("employee", owner))
-      if (row.payload.active && roles.get(row.payload.roleId)?.grants?.quotes?.write) add(row.payload.name);
-    return [...names.values()];
-  };
+  const managerNames = (owner: string) => quoteManagerNames(store, owner);
   const notify = async (owner: string, recipients: string[], actor: QuoteActor, quote: Quote, title: string, body: string) => {
     for (const recipient of recipients) {
       if (fold(recipient) === fold(actor.name)) continue;

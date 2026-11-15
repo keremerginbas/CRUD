@@ -119,6 +119,8 @@ import { registerSaleRoutes } from "./sales.js";
 import { phoneProblem } from "../shared/phone.js";
 import { registerDealerRoutes } from "./dealers.js";
 import { registerLiveRoutes } from "./live.js";
+import { registerPasswordResetRoutes } from "./password-reset.js";
+import { startSenetReminders } from "./senet-reminders.js";
 import { registerBrandingAdminRoutes, registerBrandingPublicRoutes } from "./branding.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
@@ -1738,6 +1740,7 @@ export function createApp(
   registerWorkspacePublicRoutes(app, store);
   registerBrandingPublicRoutes(app, store);
   registerInvitePublicRoutes(app, store);
+  registerPasswordResetRoutes(app, store);
   registerSocialAuthRoutes(app, store);
   // CRM'in Bitrix24 içinde uygulama olarak açılması artık varsayılan kapalıdır
   // (XRE CRM bağımsız bir üründür). Gerekirse XRE_BITRIX_EMBED=1 ile açılır.
@@ -1804,6 +1807,7 @@ export function createApp(
     await loadIntegrationSettings(store);
   });
   if (options.background) startBackupScheduler(baseStore);
+  if (options.background) startSenetReminders(rawStore);
   // Bağlı posta kutularının gelen kutusu yoklayıcısı (testte ve XRE_EMAIL_POLL=0 iken çalışmaz).
   if (options.background) startEmailPoller(rawStore);
   if (options.background && withConnector) {

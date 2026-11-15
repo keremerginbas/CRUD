@@ -129,6 +129,8 @@ export default function LoginScreen({
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [show, setShow] = useState(false);
+  const [forgot, setForgot] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(() => new URLSearchParams(location.search).get("login_error") || "");
 
@@ -217,6 +219,40 @@ export default function LoginScreen({
         {mode === "qr" && !setup && !workspace ? (
           <QrPanel onDone={finish} />
         ) : (
+          forgot ? (
+            <form
+              className="login-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setError("");
+                setForgotMessage("");
+                setBusy(true);
+                try {
+                  const r = await api("/api/auth/forgot", { email, workspace: workspace?.slug });
+                  setForgotMessage(r.message || "Bağlantı gönderildi.");
+                } catch (err) {
+                  setError((err as Error).message);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <p className="login-sub">Hesabınızın e-postasını yazın; şifrenizi sıfırlamanız için bir bağlantı gönderelim.</p>
+              <label>
+                E-posta
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required autoFocus />
+              </label>
+              {error && <p className="login-error" role="alert">{error}</p>}
+              {forgotMessage && <p className="login-ok" role="status">{forgotMessage}</p>}
+              <button className="btn primary login-submit" disabled={busy || Boolean(forgotMessage)}>
+                {busy ? <Loader2 size={16} className="spin" /> : <ArrowRight size={16} />}
+                Sıfırlama bağlantısı gönder
+              </button>
+              <button type="button" className="login-signup-link login-link-button" onClick={() => (setForgot(false), setError(""), setForgotMessage(""))}>
+                Giriş ekranına dön
+              </button>
+            </form>
+          ) : (
           <form onSubmit={submit} className="login-form">
             {setup && (
               <label>
@@ -255,7 +291,13 @@ export default function LoginScreen({
               {busy ? <Loader2 size={16} className="spin" /> : <ArrowRight size={16} />}
               {setup ? "Hesabı oluştur ve başla" : "Giriş yap"}
             </button>
+            {!setup && (
+              <button type="button" className="login-signup-link login-link-button" onClick={() => (setForgot(true), setError(""))}>
+                Şifremi unuttum
+              </button>
+            )}
           </form>
+          )
         )}
         {!setup && !workspace && (
           <>

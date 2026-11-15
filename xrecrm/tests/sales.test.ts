@@ -11,6 +11,7 @@ import { resetSignupAttempts } from "../server/workspaces";
 import { senetText } from "../server/senet-pdf";
 import { buildDocx } from "../shared/docx-fill";
 import type { Sale } from "../shared/senet";
+import { runSenetReminders, senetStage } from "../server/senet-reminders";
 
 const savedEnv = { ...process.env };
 const servers: http.Server[] = [];
@@ -77,7 +78,7 @@ async function setup() {
   const created = await member("POST", "/api/quotes", { unitId: "u1", leadId: "lead-m", salePrice: 4_000_000, downPayment: 1_000_000, months: 60, balloons: [], startDate: today(), note: "" });
   expect(created.status).toBe(201);
   const id = (await created.json()).quote.id as string;
-  return { owner, member, member2, id };
+  return { owner, member, member2, id, store };
 }
 
 describe("Satış belgeleri — sözleşme ve senet", () => {
@@ -149,5 +150,40 @@ describe("Satış belgeleri — sözleşme ve senet", () => {
     expect((await owner("DELETE", "/api/quotes/contract-template", {})).status).toBe(200);
     expect((await (await member("GET", "/api/quotes/contract-template")).json()).template.custom).toBe(false);
     expect((await member("GET", "/api/quotes/contract-template/file")).status).toBe(200);
+  });
+
+  it("vadesi yaklaşan, bugün dolan ve geciken senetler için danışmana ve yöneticiye bir kez bildirim düşer", async () => {
+    expect(senetStage({ dueDate: "2026-03-10", status: "bekliyor" }, "2026-03-06")).toBeNull();
+    expect(senetStage({ dueDate: "2026-03-10", status: "bekliyor" }, "2026-03-08")).toEqual({ key: "yaklasiyor", daysLeft: 2 });
+    expect(senetStage({ dueDate: "2026-03-10", status: "bekliyor" }, "2026-03-10")?.key).toBe("bugun");
+    expect(senetStage({ dueDate: "2026-03-10", status: "bekliyor" }, "2026-03-12")?.key).toBe("gecikti-0");
+    expect(senetStage({ dueDate: "2026-03-10", status: "bekliyor" }, "2026-03-19")?.key).toBe("gecikti-1");
+    expect(senetStage({ dueDate: "2026-03-10", status: "ödendi" }, "2026-03-12")).toBeNull();
+
+    const { owner, member, member2, id, store } = await setup();
+    await member("POST", `/api/quotes/${id}/submit`, {});
+    await owner("POST", `/api/quotes/${id}/approve`, {});
+    const sale = (await (await member("PUT", `/api/quotes/${id}/sale`, PARTIES)).json()).sale as Sale;
+    const due = sale.senets[0].dueDate;
+    const shift = (days: number) => new Date(Date.parse(`${due}T00:00:00Z`) + days * 86_400_000).toISOString().slice(0, 10);
+    const inbox = async (as: typeof owner) => ((await (await as("GET", "/api/inbox")).json()).notifications as { title: string }[]).filter((n) => n.title.startsWith("Senet"));
+    const before = { member: (await inbox(member)).length, owner: (await inbox(owner)).length };
+
+    expect(await runSenetReminders(store, shift(-10))).toBe(0);
+    expect(await runSenetReminders(store, shift(-2))).toBe(2); // danışman + sahip
+    expect(await runSenetReminders(store, shift(-2))).toBe(0); // aynı gün yinelenmez
+    expect(await runSenetReminders(store, shift(-1))).toBe(0); // aynı aşama yinelenmez
+    expect(await runSenetReminders(store, shift(0))).toBe(2);
+    expect(await runSenetReminders(store, shift(3))).toBe(2);
+    const mine = await inbox(member);
+    expect(mine.length - before.member).toBe(3);
+    expect(mine.some((n) => n.title.includes("2 gün sonra") && n.title.includes("Şükrü Müşteri") && n.title.includes("83.333,33 TL"))).toBe(true);
+    expect(mine.some((n) => n.title.includes("vadesi bugün"))).toBe(true);
+    expect(mine.some((n) => n.title.includes("3 gündür gecikmiş"))).toBe(true);
+    expect((await inbox(owner)).length - before.owner).toBe(3);
+    expect(await inbox(member2)).toHaveLength(0);
+    // Ödenen senet için hatırlatma kesilir.
+    await member("POST", `/api/quotes/${id}/sale/senets/1`, { paid: true });
+    expect(await runSenetReminders(store, shift(12))).toBe(0);
   });
 });

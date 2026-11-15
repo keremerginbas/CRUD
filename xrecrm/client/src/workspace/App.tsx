@@ -82,6 +82,7 @@ import InviteAccept from "./components/InviteAccept";
 import { InboxList, useInbox } from "./components/InboxNotifications";
 import { usePendingQuotes } from "./quotes";
 import { useBranding } from "./branding";
+import PasswordReset from "./components/PasswordReset";
 import { SignupScreen, WorkspaceLocked, WorkspaceMissing } from "./components/Signup";
 import LoginScreen, { QrApprove, type AuthStatus } from "./components/LoginScreen";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -410,6 +411,9 @@ function Workspace() {
   if (!PREVIEW && !dismissedSession && (loading || !authChecked))
     return <BootSplash />;
   const logout = () => void request("/api/auth/logout", {}).finally(() => location.reload());
+  // E-postadaki şifre sıfırlama bağlantısı: oturum açık olsa da olmasa da bu sayfa açılır.
+  const resetToken = /^\/sifre-sifirla\/([A-Za-z0-9_-]{30,80})$/.exec(location.pathname)?.[1];
+  if (resetToken) return <PasswordReset token={resetToken} />;
   const inviteToken = /^\/davet\/([A-Za-z0-9_-]{30,80})$/.exec(location.pathname)?.[1];
   if (inviteToken && !WORKSPACE_SLUG) {
     if (user && !demo)
