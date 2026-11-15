@@ -107,6 +107,11 @@ export default function QuoteEditor({
   const save = async (submit: boolean) => {
     if (!draft || !plan) return;
     if (!leadId) return void toast.error("Müşteri seçin.");
+    // Yanlış yazılmış tutara karşı: satış bedeli liste fiyatının yarısından azsa sorulur.
+    if (unit.listPrice > 0 && draft.salePrice < unit.listPrice * 0.5) {
+      const pct = ((draft.salePrice / unit.listPrice) * 100).toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+      if (!window.confirm(`Satış bedeli liste fiyatının yalnız %${pct}'i. Tutarı eksik yazmış olabilirsiniz. Yine de devam edilsin mi?`)) return;
+    }
     setSaving(true);
     try {
       const saved = await store.save(draft, { id: quote?.id, submit });

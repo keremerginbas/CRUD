@@ -939,3 +939,151 @@ html .app-shell .modal.wide.qt-modal {
   font-size: 13px;
   opacity: 0.85;
 }
+
+/* ==== Satış ekranları: görsel düzen iyileştirmeleri ==== */
+
+/* Daire ayrıntısı penceresi: alt çubuk kenara yapışmasın, yatay kaydırma çıkmasın */
+/* Genel form alt çubuğu, dolgulu form içinde durmak üzere eksi kenar boşluğu taşır;
+   bu pencerede alt çubuk doğrudan pencerenin içinde olduğundan sıfırlanır. */
+html .app-shell .modal .pj-detail-foot.sx-modal-footer:not(#_) {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: var(--ds-space-3) var(--ds-space-5);
+  background: var(--ds-surface-subtle, transparent);
+  border-top: 1px solid var(--xre-border);
+  flex-wrap: wrap;
+}
+.pj-detail-price {
+  padding-bottom: var(--ds-space-3);
+  border-bottom: 1px solid var(--ds-divider, var(--xre-border));
+}
+.pj-detail-body .pj-facts {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: var(--ds-space-3);
+}
+.pj-facts > div {
+  border: 1px solid var(--ds-divider, transparent);
+  padding: var(--ds-space-3);
+}
+.pj-facts dt {
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: var(--ds-weight-semibold);
+}
+
+/* Sayfa bölümleri arasında düzenli boşluk */
+.qt-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+.qt-page > * {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+/* "Nasıl çalışır" kutusu: sakin, renkli şeritli yardım paneli */
+.gd-box {
+  margin: 0;
+  border-color: var(--ds-accent-border, var(--xre-border));
+  border-left: 4px solid var(--xre-accent, #0e7490);
+  background: var(--ds-notice-bg, var(--xre-surface));
+  box-shadow: none;
+}
+.gd-box > summary {
+  list-style: none;
+  padding: 12px 18px;
+  color: var(--xre-text);
+  border-radius: inherit;
+}
+.gd-box > summary::-webkit-details-marker {
+  display: none;
+}
+.gd-box > summary svg {
+  color: var(--xre-accent, #0e7490);
+  flex: none;
+}
+.gd-box > summary small {
+  margin-left: auto;
+  opacity: 0.6;
+}
+.gd-box > summary:focus-visible {
+  outline: 2px solid var(--xre-accent, #0e7490);
+  outline-offset: 2px;
+}
+.gd-steps {
+  padding: 4px 18px 16px;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  counter-reset: none;
+}
+.gd-steps li {
+  padding: 10px 12px;
+  border-radius: var(--ds-radius-md, 10px);
+  background: var(--xre-surface);
+  border: 1px solid var(--ds-divider, var(--xre-border));
+}
+.gd-steps li > b {
+  flex-basis: 24px;
+  height: 24px;
+  font-size: 12px;
+  background: var(--xre-accent, #0e7490);
+  color: var(--xre-accent-contrast, #fff);
+}
+.gd-steps li span {
+  opacity: 1;
+  color: var(--xre-text-soft);
+}
+
+/* Özet kartları: rakam öne çıksın, kartlar eşit dursun */
+.qt-kpis {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--ds-space-4);
+  align-items: stretch;
+}
+.qt-kpi {
+  gap: 4px;
+  padding: var(--ds-space-4) var(--ds-space-5);
+  border-left: 4px solid var(--xre-border);
+}
+.qt-kpi strong {
+  font-size: var(--ds-text-2xl, 26px);
+  line-height: 1.2;
+  letter-spacing: var(--ds-tracking-tight, -0.02em);
+  margin: 2px 0;
+}
+.qt-kpi-rate {
+  border-left-color: var(--xre-accent, #0e7490);
+}
+.qt-kpi .qt-neg,
+.qt-kpi .qt-pos {
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--ds-divider, var(--xre-border));
+  font-weight: var(--ds-weight-semibold);
+}
+
+/* Tablolar: daha ferah satırlar, okunaklı başlık */
+.qt-page .pj-table th {
+  padding: 11px 12px;
+  position: sticky;
+  top: 0;
+}
+.qt-page .pj-table td {
+  padding: 12px 12px;
+  vertical-align: middle;
+}
+.qt-page .pj-panel > .pj-table-wrap {
+  border-radius: inherit;
+}
+.qt-cell-sub {
+  margin-top: 2px;
+}
+
+/* Uyarı satırı: simge alanı ve net çerçeve */
+.qt-page > .pj-note {
+  border-left: 4px solid var(--ds-warning, #d97706);
+  line-height: 1.5;
+}
