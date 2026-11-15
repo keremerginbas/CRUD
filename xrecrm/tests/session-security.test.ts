@@ -109,3 +109,22 @@ describe("şifre kuralı ve deneme sınırı", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("e-posta değiştirme", () => {
+  it("mevcut şifreyle doğrulanır; yeni adresle giriş yapılır, eski adres ve eski oturum geçmez", async () => {
+    const { send, cookieOf, owner } = await boot();
+    expect((await send("/api/auth/email", { current: "yanlis", email: "yeni@xre.test" }, { cookie: owner })).status).toBe(400);
+    expect((await send("/api/auth/email", { current: "Yonetici123", email: "gecersiz" }, { cookie: owner })).status).toBe(400);
+    expect((await send("/api/auth/email", { current: "Yonetici123", email: "sahip@xre.test" }, { cookie: owner })).status).toBe(400);
+    await wait(1100);
+    const changed = await send("/api/auth/email", { current: "Yonetici123", email: "Yeni@XRE.test" }, { cookie: owner });
+    expect(changed.status).toBe(200);
+    expect((await changed.json()).email).toBe("yeni@xre.test");
+    const fresh = cookieOf(changed);
+    expect((await send("/api/state", undefined, { cookie: owner })).status).toBe(401);
+    expect((await send("/api/state", undefined, { cookie: fresh })).status).toBe(200);
+    expect((await send("/api/auth/local-login", { email: "sahip@xre.test", password: "Yonetici123" })).status).toBe(401);
+    expect((await send("/api/auth/local-login", { email: "yeni@xre.test", password: "Yonetici123" })).status).toBe(200);
+    expect((await send("/api/auth/email", { current: "Yonetici123", email: "x@y.test" })).status).toBe(401);
+  });
+});

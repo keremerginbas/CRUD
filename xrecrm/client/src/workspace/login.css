@@ -219,3 +219,18 @@ html[data-xre-theme] .login-screen .login-social-btn:hover:not(:disabled) { bord
 html[data-xre-theme] .login-screen .login-divider::before,
 html[data-xre-theme] .login-screen .login-divider::after { border-top-color: var(--xre-border); }
 html[data-xre-theme] .login-screen .login-qr-refresh { border-color: var(--xre-border); }
+
+/* ---- Profil: e-posta ve şifre değiştirme ---- */
+.acc-security-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin: 16px 0; align-items: start; }
+.acc-security { padding: 20px 22px; display: grid; gap: 10px; margin: 16px 0; }
+.acc-security-grid .acc-security { margin: 0; }
+.acc-security h3 { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.acc-security .muted { color: var(--xre-text-soft, var(--muted)); font-size: 12.5px; line-height: 1.5; }
+.acc-security form { display: grid; gap: 12px; margin-top: 4px; }
+.acc-security label { display: grid; gap: 6px; font-size: 12.5px; font-weight: 600; }
+.acc-security input { min-height: 40px; padding: 8px 12px; border-radius: 9px; border: 1px solid var(--xre-border, #cbd5e1); background: transparent; color: inherit; font: inherit; font-weight: 400; width: 100%; box-sizing: border-box; }
+.acc-secret { position: relative; display: block; }
+.acc-secret input { padding-right: 42px; }
+.acc-secret .icon-button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+.acc-security .btn { justify-self: start; }
+.acc-bad { color: #dc2626; font-size: 12.5px; font-weight: 600; }

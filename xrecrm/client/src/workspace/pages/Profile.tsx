@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { CheckCircle2, KeyRound, Save, Copy, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { PageTitle } from "../components/ui";
-import { ChangePassword } from "../components/LoginAccounts";
+import AccountSecurity from "../components/AccountSecurity";
 import EmailConnect from "../components/EmailConnect";
 import { useStore } from "../store";
 import "../access.css";
@@ -111,7 +111,6 @@ export default function Profile() {
         title="Profilim"
         description="Kişisel bilgilerinizi güncelleyin. Erişim rolü ve doğrulanmış kimlik buradan değiştirilemez."
       />
-      <ChangePassword />
       {demo && (
         <div className="access-notice">
           Örnek profil · düzenleme gerçek bir kullanıcı veya yetki oluşturmaz.
@@ -235,6 +234,7 @@ export default function Profile() {
           </dl>
         </aside>
       </div>
+      <AccountSecurity email={profile.email || user?.email || ""} onEmailChanged={(email) => setProfile((p) => ({ ...p, email }))} />
       {(demo || user?.canAccess !== false) && <EmailConnect />}
     </div>
   );

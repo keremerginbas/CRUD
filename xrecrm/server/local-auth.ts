@@ -418,6 +418,42 @@ export function registerLocalAccountRoutes(app: Express, store: Store) {
     }
   });
 
+  // Giriş e-postasını değiştirme: mevcut şifreyle doğrulanır; çalışan kaydındaki e-posta da güncellenir.
+  app.post("/api/auth/email", async (req, res) => {
+    const auth = authOf(req);
+    try {
+      const input = parse(z.object({ current: z.string().min(1, "Mevcut şifre gerekli."), email: emailSchema }), req.body);
+      const owner = auth.ownerOpenId;
+      const account = (await accounts(owner)).find((a) => a.openId === auth.user.openId);
+      if (!account)
+        return res.status(400).json({ error: "NOT_LOCAL", message: "Bu oturum yerel bir hesaba ait değil." });
+      const guessKey = `pw|${auth.user.openId}`;
+      if (tooManyAttempts(guessKey))
+        return res.status(429).json({ error: "TOO_MANY_ATTEMPTS", message: "Çok fazla hatalı deneme. 15 dakika sonra tekrar deneyin." });
+      if (!(await verifyPassword(input.current, account.passwordHash))) {
+        recordFailure(guessKey);
+        return res.status(400).json({ error: "WRONG_PASSWORD", message: "Mevcut şifre hatalı." });
+      }
+      attempts.delete(guessKey);
+      if (input.email === account.email) return res.status(400).json({ error: "SAME_EMAIL", message: "Yeni e-posta mevcut e-postayla aynı." });
+      const taken = (await accounts(owner)).find((a) => a.email === input.email);
+      if (taken && taken.id !== account.id)
+        return res.status(409).json({ error: "EMAIL_EXISTS", message: "Bu e-posta başka bir hesapta kullanılıyor." });
+      const updated = { ...account, email: input.email, updatedAt: now() };
+      await raw.put(ACCOUNT_KIND, account.id, updated, owner);
+      if (account.employeeId) {
+        const employee = (await raw.get<AccessEmployee>("employee", account.employeeId, owner))?.payload;
+        if (employee) await raw.put("employee", employee.id, { ...employee, email: input.email, updatedAt: now() }, owner);
+      }
+      // E-posta oturum belirtecinde de yer alır: eski oturumlar kapanır, bu cihaz yeni belirteçle açık kalır.
+      await revokeSessions(store, account.openId);
+      await setSession(req, res, updated, { workspace: auth.user.workspace });
+      res.json({ ok: true, email: input.email });
+    } catch (error) {
+      fail(res, error);
+    }
+  });
+
   app.post("/api/auth/password", async (req, res) => {
     const auth = authOf(req);
     try {

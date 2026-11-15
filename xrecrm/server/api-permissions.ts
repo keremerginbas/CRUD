@@ -27,7 +27,7 @@ export function requireModulePermissions(
     ].includes(path) ||
     /^\/notifications\/[^/]+\/read$/.test(path) ||
     // Hesap/şifre/QR uçları kendi sahiplik kontrollerini yapar.
-    /^\/auth\/(accounts|password|qr\/approve)(?:\/|$)/.test(path) ||
+    /^\/auth\/(accounts|password|email|qr\/approve)(?:\/|$)/.test(path) ||
     path === "/settings/integrations" ||
     // E-posta uçları kendi sahiplik ve müşteri erişim kontrollerini yapar.
     /^\/email(?:\/|$)/.test(path) ||
