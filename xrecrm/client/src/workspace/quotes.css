@@ -877,3 +877,65 @@ html .app-shell .modal.wide.qt-modal {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- Nasıl çalışır kutusu ---- */
+.gd-box {
+  border: 1px solid var(--xre-border, rgba(128, 128, 128, 0.3));
+  border-radius: 12px;
+  background: var(--xre-surface, transparent);
+  margin: 0 0 16px;
+}
+.gd-box > summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+}
+.gd-box > summary small {
+  font-size: 12px;
+  opacity: 0.65;
+}
+.gd-steps {
+  list-style: none;
+  margin: 0;
+  padding: 2px 16px 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px 18px;
+}
+.gd-steps li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.gd-steps li > b {
+  flex: 0 0 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  background: var(--xre-accent, #38bdf8);
+  color: #04202c;
+}
+.gd-steps li > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.gd-steps li strong {
+  font-size: 13.5px;
+}
+.gd-steps li span {
+  font-size: 13px;
+  line-height: 1.45;
+  opacity: 0.85;
+}
+.gd-note {
+  margin: 0;
+  padding: 0 16px 14px;
+  font-size: 13px;
+  opacity: 0.85;
+}

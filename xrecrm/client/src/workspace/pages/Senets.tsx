@@ -12,6 +12,7 @@ import { withBase } from "../nav";
 import "../suite-pages.css";
 import "../projects.css";
 import "../quotes.css";
+import { Guide, SENET_GUIDE } from "../components/quotes/Guide";
 
 type Filter = "acik" | "geciken" | "buay" | "odenen" | "hepsi";
 const FILTERS: [Filter, string][] = [
@@ -106,6 +107,7 @@ export default function Senets() {
           </button>
         }
       />
+      <Guide id="senets" title="Senetler neye göre oluşur?" steps={SENET_GUIDE} />
       {book.error && <p className="pj-note">{book.error}</p>}
       <div className="qt-kpis">
         {totals.length === 0 && (

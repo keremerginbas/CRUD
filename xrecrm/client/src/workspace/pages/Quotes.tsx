@@ -14,6 +14,7 @@ import QuoteDetail, { StatusChip } from "../components/quotes/QuoteDetail";
 import "../suite-pages.css";
 import "../projects.css";
 import "../quotes.css";
+import { Guide, QUOTE_GUIDE } from "../components/quotes/Guide";
 
 type Tab = "bekleyen" | "hepsi" | QuoteStatus;
 const TABS: [Tab, string][] = [
@@ -77,6 +78,19 @@ export default function Quotes() {
   const [openId, setOpenId] = useState("");
   const [editor, setEditor] = useState<{ unit: Unit; quote?: VisibleQuote; seed?: QuoteEditorSeed } | null>(null);
   const [picking, setPicking] = useState(false);
+  // Müşteri kartındaki "Teklif hazırla" düğmesinden gelindiyse müşteri hazır seçilir.
+  const [seedLead, setSeedLead] = useState("");
+  useEffect(() => {
+    try {
+      const id = sessionStorage.getItem("xre-quote-lead");
+      if (!id) return;
+      sessionStorage.removeItem("xre-quote-lead");
+      setSeedLead(id);
+      setPicking(true);
+    } catch {
+      /* depolama kapalı */
+    }
+  }, []);
 
   const live = useMemo(() => activeInventory(inventory.projects, inventory.units), [inventory.projects, inventory.units]);
   const pendingCount = quotes.filter((q) => q.status === "onay bekliyor").length;
@@ -174,6 +188,7 @@ export default function Quotes() {
           </>
         }
       />
+      <Guide id="quotes" title="Teklif nasıl hazırlanır ve gönderilir?" steps={QUOTE_GUIDE} />
       {store.demo && <p className="pj-note">Demo modu: teklifler yalnız bu tarayıcıda saklanır, bildirim gönderilmez ve PDF üretilmez. Üstteki düğmeyle yönetici ve satış danışmanı görünümü arasında geçebilirsiniz.</p>}
       {!store.loading && !store.settings && (
         <p className="pj-note">
@@ -326,7 +341,8 @@ export default function Quotes() {
           onClose={() => setPicking(false)}
           onPick={(unit) => {
             setPicking(false);
-            setEditor({ unit });
+            setEditor({ unit, seed: seedLead ? { leadId: seedLead } : undefined });
+            setSeedLead("");
           }}
         />
       )}

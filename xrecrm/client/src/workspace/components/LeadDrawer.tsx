@@ -4,7 +4,8 @@ import {
   requiredCrmFieldLabels,
 } from "../../../../shared/crm-stage-policy";
 import LeadQuickActions, { openOnlineMeeting } from "./LeadQuickActions";
-import { Video } from "lucide-react";
+import { FileSignature, Video } from "lucide-react";
+import { withBase } from "../nav";
 import CustomerTimeline from "./CustomerTimeline";
 import { openEmailComposer } from "./EmailTimeline";
 import {
@@ -56,7 +57,7 @@ export default function LeadDrawer({
   onClose: () => void;
   onMessage: (id: string) => void;
 }) {
-  const { data, saveLead, moveLead, addNote, demo, saveRecord } = useStore();
+  const { data, saveLead, moveLead, addNote, demo, saveRecord, user } = useStore();
   const current = data.leads.find((l) => l.id === lead.id) || lead;
   const [form, setForm] = useState<Lead>({ ...current });
   const [tab, setTab] = useState("timeline");
@@ -231,6 +232,25 @@ export default function LeadDrawer({
             <CheckSquare size={14} />
             Görev oluştur
           </button>
+          {(demo || user?.isOwner || user?.permissions?.quotes?.read) && (
+            <button
+              className="btn secondary small"
+              title="Bu müşteri için ödeme planlı satış teklifi hazırla"
+              onClick={() => {
+                try {
+                  sessionStorage.setItem("xre-quote-lead", current.id);
+                } catch {
+                  /* depolama kapalı */
+                }
+                onClose();
+                history.pushState({}, "", withBase("/quotes"));
+                window.dispatchEvent(new PopStateEvent("popstate"));
+              }}
+            >
+              <FileSignature size={14} />
+              Teklif hazırla
+            </button>
+          )}
           <Badge tone={demo ? "amber" : "green"}>{demo ? "Demo" : "CRM"}</Badge>
         </div>
         <div className="b24-drawer-content">

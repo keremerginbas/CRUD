@@ -32,6 +32,7 @@ import { quoteTone } from "../components/quotes/QuoteDetail";
 import "../suite-pages.css";
 import "../projects.css";
 import "../quotes.css";
+import { Guide, COST_GUIDE } from "../components/quotes/Guide";
 
 type View = "teklifler" | "proje" | "ay" | "primler" | "oranlar";
 
@@ -285,6 +286,7 @@ export default function CostOfMoney() {
           </>
         }
       />
+      <Guide id="cost" title="Para maliyeti nedir, neye göre hesaplanır?" steps={COST_GUIDE} />
       <div className="qt-kpis">
         <div className="pj-panel qt-kpi qt-kpi-rate">
           <span className="qt-compare-label">Güncel aylık para maliyeti oranı</span>

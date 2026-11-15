@@ -11,6 +11,7 @@ import { useStore } from "../store";
 import "../suite-pages.css";
 import "../projects.css";
 import "../quotes.css";
+import { DEALER_GUIDE, Guide } from "../components/quotes/Guide";
 
 const fold = (value: string) => value.toLocaleLowerCase("tr-TR");
 const tone: Record<DealerRegistration["status"], string> = { aktif: "ok", satıldı: "info", "ana bayiye devredildi": "hold" };
@@ -170,6 +171,7 @@ export default function Dealers() {
           )
         }
       />
+      <Guide id="dealers" title="Bayi koruması nasıl çalışır?" steps={DEALER_GUIDE} />
       {store.error && <p className="pj-note">{store.error}</p>}
       {!store.loading && dealers.length === 0 && <p className="pj-note">{manager ? "Henüz bayi tanımlanmadı. “Yeni bayi” ile önce ana bayiyi, sonra alt bayileri ekleyin." : "Henüz bayi tanımlanmadı. Yöneticinizden bayileri tanımlamasını isteyin."}</p>}
 
