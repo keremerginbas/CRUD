@@ -398,7 +398,7 @@ export default function Lines({
       <div className="info-banner slim">
         <ShieldCheck size={18} />
         <p>
-          SIP ses trafiği tarayıcıdan doğrudan sonlandırılmaz. Netgsm/FST için
+          Tarayıcıdan görüşme için Entegrasyonlar → Tarayıcı telefonu (Webphone) ayarını yapın. Netgsm/FST için
           PBX ağ geçidi; Vapi için ayrı sağlayıcı hat eşleştirmesi gerekir.
         </p>
       </div>

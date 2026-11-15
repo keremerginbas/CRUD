@@ -5,6 +5,7 @@ import VapiCallFields, {
 import { useEffect, useRef, useState } from "react";
 import {
   Phone,
+  Headset,
   MessageCircle,
   CalendarPlus,
   Video,
@@ -15,6 +16,7 @@ import { toast } from "sonner";
 import type { Lead } from "../data";
 import { lines, formatPhone } from "../data";
 import { useStore } from "../store";
+import { dialWithWebphone } from "../webphone";
 import { Modal } from "./ui";
 
 export function openOnlineMeeting(leadId?: string) {
@@ -83,9 +85,13 @@ export default function LeadQuickActions({
     </div>
   );
 }
-function PbxCallBox({ leadId, onDone }: { leadId: string; onDone: () => void }) {
+function PbxCallBox({ leadId, phone, onDone }: { leadId: string; phone: string; onDone: () => void }) {
   const { request, refresh } = useStore();
-  const [info, setInfo] = useState<{ driver: string; extension: string } | null>(null);
+  const [info, setInfo] = useState<{
+    driver: string;
+    extension: string;
+    webphone?: { configured: boolean; hasPassword: boolean };
+  } | null>(null);
   const [ext, setExt] = useState("");
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -96,7 +102,8 @@ function PbxCallBox({ leadId, onDone }: { leadId: string; onDone: () => void }) 
       })
       .catch(() => setInfo(null));
   }, []);
-  if (!info?.driver) return null;
+  const browserPhone = Boolean(info?.webphone?.configured);
+  if (!info || (!info.driver && !browserPhone)) return null;
   const call = async () => {
     setBusy(true);
     try {
@@ -114,6 +121,25 @@ function PbxCallBox({ leadId, onDone }: { leadId: string; onDone: () => void }) 
       setBusy(false);
     }
   };
+  const browserCall = () => {
+    if (!info.webphone?.hasPassword)
+      toast.info("Önce üst çubuktaki telefon simgesinden dahili şifrenizi girin.");
+    dialWithWebphone(phone, leadId);
+    onDone();
+  };
+  if (!info.driver)
+    return (
+      <div className="pbx-call">
+        <strong>Tarayıcıdan ara</strong>
+        <div className="pbx-call-row">
+          <button className="btn primary" onClick={browserCall}>
+            <Headset size={16} />
+            Kulaklıkla ara
+          </button>
+        </div>
+        <small>Görüşme bu sekmede, kulaklığınız ve mikrofonunuzla yapılır.</small>
+      </div>
+    );
   return (
     <div className="pbx-call">
       <strong>Santralden ara</strong>
@@ -131,6 +157,12 @@ function PbxCallBox({ leadId, onDone }: { leadId: string; onDone: () => void }) 
           <Phone size={16} />
           {busy ? "Bağlanıyor…" : "Dahilimi çaldır ve ara"}
         </button>
+        {browserPhone && (
+          <button className="btn secondary" onClick={browserCall}>
+            <Headset size={16} />
+            Tarayıcıdan ara
+          </button>
+        )}
       </div>
       <small>
         Önce masanızdaki/softphone'daki dahili çalar; açınca müşteri aranır ve
@@ -211,7 +243,7 @@ export function CustomerCallDialog({
         </div>
         {mode === "phone" ? (
           <>
-            {!demo && <PbxCallBox leadId={leadId} onDone={onClose} />}
+            {!demo && <PbxCallBox leadId={leadId} phone={lead.phone} onDone={onClose} />}
             <p>
               Alternatif: bilgisayarınızdaki veya telefonunuzdaki arama
               uygulamasıyla arayın.
