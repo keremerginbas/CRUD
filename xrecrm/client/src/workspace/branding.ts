@@ -44,12 +44,13 @@ export function setBranding(next: Branding) {
 }
 
 /** Son bilinen kimlik hemen döner (açılışta logo titremez); sunucudan gelen güncel değer arkadan uygulanır. */
-export function useBranding(): Branding {
+export function useBranding(load = true): Branding {
   const [value, setValue] = useState(current);
   useEffect(() => {
     const sync = () => setValue(current);
     window.addEventListener(CHANGED, sync);
-    if (!requested && typeof fetch !== "undefined") {
+    // load=false: yalnız bilinen değeri okur (uygulama kabuğu zaten bir kez sunucudan alır).
+    if (load && !requested && typeof fetch !== "undefined") {
       requested = true;
       fetch("/api/branding")
         .then((r) => (r.ok ? r.json() : null))
@@ -57,6 +58,6 @@ export function useBranding(): Branding {
         .catch(() => undefined);
     }
     return () => window.removeEventListener(CHANGED, sync);
-  }, []);
+  }, [load]);
   return value;
 }

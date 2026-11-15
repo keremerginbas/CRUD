@@ -531,7 +531,7 @@ export function ChatSurface({
   onLead?: (id: string) => void;
 }) {
   const { data, demo } = useStore();
-  const assistantName = useBranding().name ? "Asistan" : "XRE Asistan";
+  const assistantName = useBranding(false).name ? "Asistan" : "XRE Asistan";
   const ai = useAssistant();
   const [text, setText] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
