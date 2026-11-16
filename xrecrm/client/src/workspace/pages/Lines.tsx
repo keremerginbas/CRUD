@@ -6,18 +6,14 @@ import VapiCallFields, {
 } from "../components/VapiCallFields";
 import { useState, useRef } from "react";
 import {
-  Search,
   Phone,
   Sparkles,
   Server,
   Cloud,
   ArrowUpRight,
   Copy,
-  SlidersHorizontal,
   ShieldCheck,
   Download,
-  Radio,
-  Play,
   Settings2,
   Pencil,
 } from "lucide-react";
@@ -26,6 +22,7 @@ import { lines, groupNames, formatPhone } from "../data";
 import { formatLineText, parseLineText, setLineInventory } from "../../../../shared/lines";
 import { useStore } from "../store";
 import { PageTitle, Badge, Modal, Empty } from "../components/ui";
+import LinePanel from "../components/LinePanel";
 export default function Lines({
   calls = false,
   navigate,
@@ -51,7 +48,6 @@ export default function Lines({
     }
   };
   const [group, setGroup] = useState("all");
-  const [query, setQuery] = useState("");
   const [detail, setDetail] = useState<string | null>(null);
   const [callOpen, setCallOpen] = useState(false);
   const [leadId, setLeadId] = useState(data.leads[0]?.id || "");
@@ -60,11 +56,6 @@ export default function Lines({
   const [busy, setBusy] = useState(false);
   const callLock = useRef(false);
   const options = useVapiOptions(callOpen);
-  const filtered = lines.filter(
-    (l) =>
-      (group === "all" || l.group === group) &&
-      `${l.phone} ${l.iccid || ""}`.includes(query.replace(/\s/g, "")),
-  );
   const selected = lines.find((l) => l.id === detail);
   const canEdit = !demo && Boolean(user?.isOwner);
   const [form, setForm] = useState<{ phone: string; iccid: string; label: string } | null>(null);
@@ -296,104 +287,13 @@ export default function Lines({
           </section>
         </>
       ) : (
-        <>
-          <div className="crm-toolbar">
-            <div className="search-field">
-              <Search size={17} />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Telefon numarası veya ICCID ara…"
-              />
-            </div>
-            <div className="toolbar-right">
-              {!demo && user?.isOwner && (
-                <button
-                  className="btn secondary small"
-                  onClick={() => setEditor(formatLineText(lines))}
-                >
-                  <Pencil size={14} />
-                  Toplu düzenle
-                </button>
-              )}
-              <span className="muted">{filtered.length} hat</span>
-              <select
-                value={group}
-                onChange={(e) => setGroup(e.target.value)}
-                aria-label="Hat grubu"
-              >
-                <option value="all">Tüm hizmet grupları</option>
-                {Object.entries(groupNames).map(([g, n]) => (
-                  <option key={g} value={g}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <section className="panel">
-            <div className="table-wrap">
-              <table className="lines-table">
-                <thead>
-                  <tr>
-                    <th>TELEFON NUMARASI</th>
-                    <th>HİZMET GRUBU</th>
-                    <th>SİM KART NUMARASI (ICCID)</th>
-                    <th>BAĞLANTI TÜRÜ</th>
-                    <th>DURUM</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((l) => (
-                    <tr key={l.id} onClick={() => openDetail(l.id)}>
-                      <td>
-                        <span className="line-phone">
-                          <span className="line-icon">
-                            <Phone size={14} />
-                          </span>
-                          {formatPhone(l.phone)}
-                          {l.label && <small className="muted"> · {l.label}</small>}
-                        </span>
-                      </td>
-                      <td>
-                        <Badge
-                          tone={
-                            l.group === "ai"
-                              ? "purple"
-                              : l.group === "office"
-                                ? "blue"
-                                : "green"
-                          }
-                        >
-                          {groupNames[l.group]}
-                        </Badge>
-                      </td>
-                      <td className="mono iccid">{l.iccid || "—"}</td>
-                      <td>
-                        {l.group === "ai"
-                          ? "Vapi · SIP"
-                          : l.group === "office"
-                            ? "FST · SIP"
-                            : "Netgsm · Bulut SIP"}
-                      </td>
-                      <td>
-                        <Badge tone="gray">Doğrulanmadı</Badge>
-                      </td>
-                      <td>
-                        <ArrowUpRight size={15} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="table-footer">
-              47 hat · 13 ICCID eşleşmesi
-              <span>Sağlanan envanter · Canlı SIP durumu henüz alınmadı</span>
-            </div>
-          </section>
-        </>
+        <LinePanel
+          group={group}
+          onGroup={setGroup}
+          canEditInventory={!demo && Boolean(user?.isOwner)}
+          onBulkEdit={() => setEditor(formatLineText(lines))}
+          onDetail={openDetail}
+        />
       )}
       <div className="info-banner slim">
         <ShieldCheck size={18} />

@@ -1,3 +1,4 @@
+import { onlyAllowedLines, withoutRestrictedLines } from "./line-access.js";
 import { getStoredN8nReports } from "./n8n-reports.js";
 import crypto from "node:crypto";
 import type { Express, Request, Response } from "express";
@@ -444,10 +445,13 @@ async function loadContext(
   const [leads, rules, messages, calls, events, suite] = await Promise.all([
     store.list("lead", owner),
     store.list("rule", owner),
-    store.list("message", owner),
+    store.list("message", owner).then((rows) => onlyAllowedLines(store, rows)),
     store.list("call", owner),
     store.listEvents(owner),
-    getSuiteState(store, owner),
+    getSuiteState(store, owner).then(async (state) => ({
+      ...state,
+      feed: await withoutRestrictedLines(store, state.feed),
+    })),
   ]);
   const leadRows = leads.map((row) => row.payload);
   if (

@@ -96,7 +96,8 @@ import {
 } from "./workspaces.js";
 import { registerQrApproveRoute, registerSocialAuthRoutes } from "./social-auth.js";
 import { registerBitrixAppRoutes } from "./bitrix-app.js";
-import { allowedPhones, lineAccessGuard, lineAllowed, linePhones } from "./line-access.js";
+import { lineAccess, lineAccessGuard, lineStaffMap, onlyAllowedLines, ruleLineAllowed, withoutRestrictedLines } from "./line-access.js";
+import { noteLineReply, registerLinePanelRoutes } from "./line-panel.js";
 import { handleConnectorEvolution, isConnectorInstance, registerB24ConnectorRoutes } from "./b24-connector.js";
 import { startReportScheduler } from "./b24-live.js";
 import { startLineHealthMonitor } from "./b24-connector.js";
@@ -249,6 +250,10 @@ function publicCall(call: Record<string, unknown>) {
     "updatedAt",
   ]);
 }
+const RULE_LINE_FORBIDDEN = {
+  error: "LINE_FORBIDDEN",
+  message: "Bu WhatsApp hattında yetkiniz olmadığı için bu hattan mesaj gönderen bir kural kaydedemezsiniz.",
+};
 function publicConnection(connection: Record<string, unknown>) {
   return publicFields(connection, [
     "id",
@@ -258,6 +263,7 @@ function publicConnection(connection: Record<string, unknown>) {
     "connected",
     "phone",
     "profileName",
+    "connectedAt",
     "updatedAt",
   ]);
 }
@@ -1055,6 +1061,10 @@ async function processEvolutionWebhook(
           ...(open && data?.profileName
             ? { profileName: String(data.profileName).slice(0, 120) }
             : {}),
+          // Bağlantı tarihi her yeni bağlantıda yenilenir, hat bağlı kaldıkça korunur.
+          connectedAt: open
+            ? (previous.status === "connected" && previous.connectedAt) || now()
+            : previous.connectedAt,
           updatedAt: now(),
         },
         owner,
@@ -1063,7 +1073,19 @@ async function processEvolutionWebhook(
     if (eventName === "connection.update" || !data?.key) return;
   }
   const key = data?.key || data?.message?.key || {};
-  if (key.fromMe) return;
+  if (key.fromMe) {
+    // Telefondan yazılan yanıt sohbete kaydedilmez; yalnız "yanıtlandı" bilgisi tutulur ki
+    // Hat yönetimindeki "bekliyor" sayısı telefondan cevaplanan sohbetleri saymasın.
+    const jid = String(key.remoteJid || "");
+    const lineId = String(body?.instance || "");
+    if (lineId && data?.message && /^(messages[._]upsert|send[._]message)$/.test(eventName) && jid.endsWith("@s.whatsapp.net")) {
+      const sentAt = Number(data?.messageTimestamp) * 1000;
+      // Geçmiş eşitlemesinde gelen eski mesajlar kendi saatleriyle not edilir.
+      const at = sentAt && Date.now() - sentAt > 600_000 ? sentAt : Date.now();
+      await noteLineReply(store, owner, lineId, normalizePhone(jid.split("@")[0]), at).catch(() => undefined);
+    }
+    return;
+  }
   const remoteJid = String(key.remoteJid || data?.remoteJid || "");
   const phone = remoteJid.split("@")[0];
   if (!phone) return;
@@ -1784,7 +1806,10 @@ export function createApp(
   app.use(express.json({ limit: "1mb" }));
   app.use("/api", requireAuth(store), workspaceGuard(store), requireModulePermissions);
   registerWorkspaceAdminRoutes(app, store);
-  app.use(["/api/messages", "/api/whatsapp/send"], lineAccessGuard(store));
+  app.use(
+    ["/api/messages", "/api/whatsapp/send", "/api/whatsapp/template", "/api/whatsapp/check"],
+    lineAccessGuard(store),
+  );
   if (withConnector) registerBillingAdminRoutes(app, baseStore);
   registerSuiteRoutes(app, store);
   registerPreferenceRoutes(app, rawStore);
@@ -1839,6 +1864,7 @@ export function createApp(
       guardOutbound(store, owner, { lineId, phone, provider }),
   });
   registerWhatsappChatRoutes(app, store, { ensureLead: ensureInboundLead });
+  registerLinePanelRoutes(app, store);
   registerQrApproveRoute(app, store);
 
   app.get("/api/state", async (req, res) => {
@@ -1856,26 +1882,33 @@ export function createApp(
           rawStoreOf(store).list<any>(STAGE_KIND, owner),
         ]);
       const visibleLeads = new Set(leads.map((r) => r.id));
-      const allowed = await allowedPhones(store, (req as Request & { auth?: AuthContext }).auth);
-      const phonesByLine = allowed ? await linePhones(store, owner) : new Map<string, string>();
+      const visibleMessages = await onlyAllowedLines(store, messages);
+      // Yetkili olunmayan hattın bağlı WhatsApp hesabı (numara, profil adı) ve o hattan üretilen
+      // sohbet özetleri de gönderilmez. Numara envanteri telefon santraliyle ortaktır, o yüzden kalır.
+      const access = await lineAccess(store, (req as Request & { auth?: AuthContext }).auth);
+      const visibleConnections = access ? connections.filter((r) => access.allows(r.id)) : connections;
+      const commsAllowed = await communicationAllowed(store, owner);
+      const staffLists = commsAllowed ? [...(await lineStaffMap(store, owner))].sort() : [];
       const since = Date.now() - 400 * 86_400_000;
       const statePayload = {
         leads: leads.map((r) => r.payload),
         rules: rules.map((r) => r.payload),
-        messages: messages
-          .filter((r) => lineAllowed(allowed, phonesByLine, (r.payload as any)?.lineId) || !(r.payload as any)?.lineId)
+        messages: visibleMessages
           .map((r) => publicMessage(r.payload as Record<string, unknown>)),
         // Yalnız en yeni hareketler gönderilir; binlerce eski hareket her yenilemede taşınmaz.
         events: events.slice(0, STATE_EVENT_LIMIT).map(publicEvent),
-        connections: connections.map((r) =>
+        connections: visibleConnections.map((r) =>
           publicConnection(r.payload as Record<string, unknown>),
         ),
         calls: calls.map((r) =>
           publicCall(r.payload as Record<string, unknown>),
         ),
         ...suite,
+        feed: await withoutRestrictedLines(store, suite.feed),
         // Hat envanteri varsayılan alana aittir; diğer firmalara gösterilmez.
-        lines: (await communicationAllowed(store, owner)) ? lines : [],
+        lines: commsAllowed ? lines : [],
+        // Hatların yetkili personeli değişince açık ekranlar hat özetini yeniden okur.
+        lineStaffVersion: crypto.createHash("sha1").update(JSON.stringify(staffLists)).digest("base64url").slice(0, 12),
         stageHistory: stages
           .map((r) => r.payload)
           .filter((h) => visibleLeads.has(h.leadId) && Date.parse(h.at) >= since),
@@ -2071,6 +2104,8 @@ export function createApp(
         ...(parsed.data as any),
         id: String((parsed.data as any).id || id("rule")),
       });
+      if (!(await ruleLineAllowed(store, (req as Request & { auth?: AuthContext }).auth, rule)))
+        return res.status(403).json(RULE_LINE_FORBIDDEN);
       const saved = await store.put("rule", rule.id, rule, ownerOf(req));
       res.status(201).json(saved.payload);
     } catch (error) {
@@ -2097,6 +2132,8 @@ export function createApp(
         ...parsed.data,
         id: req.params.id,
       });
+      if (!(await ruleLineAllowed(store, (req as Request & { auth?: AuthContext }).auth, rule)))
+        return res.status(403).json(RULE_LINE_FORBIDDEN);
       const saved = await store.put("rule", rule.id, rule, ownerOf(req));
       res.json(saved.payload);
     } catch (error) {

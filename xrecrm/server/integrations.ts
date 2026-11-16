@@ -60,6 +60,14 @@ export function resolveLineId(
   return remote;
 }
 
+/** Meta'dan gelen mesajlar hattı Meta numara kimliğiyle taşır; CRM'deki hat kimliğine çevirir. */
+export function logicalLineId(lineId: string): string {
+  if (!lineId || /^[a-z]+-\d{1,3}$/.test(lineId)) return lineId;
+  for (const [logical, remote] of Object.entries(lineMap("META_LINE_MAP_JSON")))
+    if (remote === lineId) return logical;
+  return lineId;
+}
+
 export function configuredLineCount(provider: "meta" | "vapi"): number {
   return Object.keys(
     lineMap(provider === "meta" ? "META_LINE_MAP_JSON" : "VAPI_LINE_MAP_JSON"),
@@ -191,9 +199,13 @@ export async function getEvolutionQr(instance: string, extraEvents: string[] = [
       { statusCode: 503 },
     );
   let existing = false;
+  let alreadyOpen = false;
   try {
-    await evolutionConnectionState(instance);
+    const current = await evolutionConnectionState(instance);
     existing = true;
+    alreadyOpen = ["open", "connected"].includes(
+      String(current?.instance?.state || current?.state || "").toLowerCase(),
+    );
   } catch (error) {
     if (Number((error as any)?.providerStatus) !== 404) throw error;
   }
@@ -234,12 +246,17 @@ export async function getEvolutionQr(instance: string, extraEvents: string[] = [
     !candidate.trim() ||
     (!/^data:image\//i.test(candidate) && candidate.length < 100)
   )
-    throw Object.assign(
-      new Error(
-        "Evolution sağlayıcısı gerçek QR görüntüsü döndürmedi; QR gösterilmedi.",
-      ),
-      { statusCode: 502 },
-    );
+    throw alreadyOpen
+      ? Object.assign(
+          new Error(
+            "Bu hat zaten bağlı ve çalışıyor; bu yüzden yeni QR kodu verilmedi. Başka bir telefona bağlamak için önce telefondaki WhatsApp’ta Ayarlar → Bağlı cihazlar bölümünden bu bağlantıyı kaldırın, sonra “QR kodunu yenile”ye basın.",
+          ),
+          { statusCode: 409 },
+        )
+      : Object.assign(
+          new Error("WhatsApp şu anda QR kodu vermedi. Birkaç saniye sonra “QR kodunu yenile”ye basın."),
+          { statusCode: 502 },
+        );
   return /^data:image\//i.test(candidate)
     ? candidate
     : `data:image/png;base64,${candidate}`;

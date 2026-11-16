@@ -1,6 +1,7 @@
 // WhatsApp medya: gönderme (Evolution / Meta), gelen medyayı diske kaydetme ve
 // yetkili kullanıcılara sunma. Dosyalar data/media altında, meta bilgisi
 // "media" kayıtlarında tutulur; büyük base64 içerik kayıtlara yazılmaz.
+import { onlyAllowedLines } from "./line-access.js";
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -419,7 +420,10 @@ export function registerMediaRoutes(
     const record = (await raw.get<MediaRecord>(MEDIA_KIND, id, auth.ownerOpenId))?.payload;
     if (!record) return res.status(404).json({ error: "NOT_FOUND" });
     // Kendi kapsamındaki kullanıcı yalnız erişebildiği mesajlardaki medyayı görebilir.
-    const visible = (await store.list<any>("message", auth.ownerOpenId)).some((m) => m.payload?.mediaId === id);
+    // Yetkili olmadığı hattın medyasını da göremez.
+    const visible = (await onlyAllowedLines(store, await store.list<any>("message", auth.ownerOpenId))).some(
+      (m) => m.payload?.mediaId === id,
+    );
     if (!visible && !auth.isOwner) return res.status(404).json({ error: "NOT_FOUND" });
     try {
       const buffer = await fs.readFile(path.join(mediaDir(), id));

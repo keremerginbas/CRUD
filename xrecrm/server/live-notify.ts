@@ -4,20 +4,48 @@ import crypto from "node:crypto";
 import type { Store } from "./db.js";
 import type { Lead } from "./types.js";
 import { pushNotice } from "./pbx.js";
+import { rawStoreOf } from "./access.js";
+import { lineAudience } from "./line-access.js";
 
 const WATCHED = new Set(["message", "call", "tasks"]);
 
 export function liveNotifyStore(base: Store): Store {
   const leadName = async (owner: string, leadId?: string | null) =>
     leadId ? (await base.get<Lead>("lead", leadId, owner))?.payload?.name || "" : "";
+  /**
+   * Hatta yetkili personel seçilmişse gelen mesaj bildirimi yalnız o kişilere ve sahibe gider.
+   * Kısıt yoksa null döner. Kişi, oturumundaki e-posta (yoksa ad) ile hedeflenir.
+   */
+  const messageRecipients = async (owner: string, lineId: unknown): Promise<string[] | null> => {
+    const audience = await lineAudience(base, owner, lineId);
+    if (!audience) return null;
+    const raw = rawStoreOf(base);
+    // Oturum kimliği → kişi: giriş yapmış kullanıcı kaydı, yoksa yerel giriş hesabı.
+    const users = new Map<string, any>();
+    for (const row of await raw.list<any>("local-account", owner))
+      if (row.payload?.openId) users.set(String(row.payload.openId), row.payload);
+    for (const row of await raw.list<any>("user", owner)) {
+      const account = users.get(row.id) || {};
+      users.set(row.id, { email: row.payload?.email || account.email, name: row.payload?.name || account.name });
+    }
+    const target = (openId: unknown, fallback?: any) => {
+      const user = users.get(String(openId || "")) || {};
+      return String(user.email || fallback?.email || user.name || fallback?.name || "").trim();
+    };
+    const targets = new Set<string>();
+    for (const employee of audience) targets.add(target(employee.openId, employee));
+    targets.add(target(owner));
+    targets.delete("");
+    return [...targets];
+  };
   const notify = async (kind: string, old: any, next: any, owner: string) => {
     const at = new Date().toISOString();
     if (kind === "message" && !old && (next.direction === "inbound" || next.direction === "in")) {
       const name = (await leadName(owner, next.leadId)) || next.contactName || (next.phone ? `+${next.phone}` : "Yeni kişi");
-      pushNotice(
-        { id: crypto.randomUUID(), kind: "message", title: `${name} mesaj gönderdi`, body: String(next.text || "").slice(0, 140), leadId: next.leadId, at },
-        { module: "whatsapp", owner },
-      );
+      const notice = { id: crypto.randomUUID(), kind: "message" as const, title: `${name} mesaj gönderdi`, body: String(next.text || "").slice(0, 140), leadId: next.leadId, at };
+      const recipients = await messageRecipients(owner, next.lineId);
+      if (!recipients) pushNotice(notice, { module: "whatsapp", owner });
+      else for (const assigneeName of recipients) pushNotice(notice, { module: "whatsapp", assigneeName, owner });
     }
     if (kind === "call" && next.status === "missed" && old?.status !== "missed") {
       const name = (await leadName(owner, next.leadId)) || (next.phone ? `+${next.phone}` : "Bilinmeyen numara");

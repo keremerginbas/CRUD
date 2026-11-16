@@ -156,6 +156,8 @@ export const FeedPostSchema = z.object({
   leadId: safeString(191).default(""),
   likes: z.array(safeString(191)).max(10000).default([]),
   comments: z.array(commentSchema).max(1000).default([]),
+  // Sohbet özeti gönderilerinde: özetin çıkarıldığı WhatsApp hatları. Beğeni ve yorumda korunur.
+  lineIds: z.array(safeString(191)).max(50).optional(),
   createdAt: isoDate,
   updatedAt: isoDate,
 });
@@ -266,6 +268,7 @@ function parsePatch(
   delete patch.id;
   delete patch.createdAt;
   delete patch.updatedAt;
+  delete patch.lineIds; // hat bilgisi yalnız sunucu tarafından yazılır
   return schemas[kind].parse({
     ...old,
     ...patch,

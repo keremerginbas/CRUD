@@ -134,3 +134,10 @@ export function formatLineText(list: Line[]): string {
     .map((l) => [l.phone, l.group, l.iccid || "", l.label || ""].join(";").replace(/;+$/, ""))
     .join("\n");
 }
+
+/** Hattın ekranda görünen adı: verilen ad (etiket), yoksa grup ve sıra numarası. */
+export function lineDisplayName(line: Line): string {
+  if (line.label?.trim()) return line.label.trim();
+  const group = line.group === "ai" ? "AI" : line.group === "office" ? "Ofis" : "Bulut";
+  return `XRE ${group} ${line.id.split("-")[1] || ""}`.trim();
+}

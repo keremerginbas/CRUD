@@ -42,6 +42,8 @@ export interface ConversationAnalysisMetadata {
   status: ConversationAnalysisStatus;
   analysis?: ConversationAnalysis;
   feedId?: string;
+  /** Özetin çıkarıldığı WhatsApp hatları (hat yetkisi olmayanlara gösterilmez). */
+  lineIds?: string[];
   error?: string;
   createdAt: string;
   updatedAt: string;
@@ -58,6 +60,7 @@ export interface ConversationAnalysisFeedPost {
   sourceKind: ConversationKind;
   sourceId: string;
   analysis: ConversationAnalysis;
+  lineIds?: string[];
   likes: string[];
   comments: [];
   createdAt: string;

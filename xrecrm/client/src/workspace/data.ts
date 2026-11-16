@@ -64,6 +64,8 @@ export interface AppState extends SuiteState {
   messages: Message[];
   events: EventItem[];
   connections: any[];
+  /** Hatların yetkili personeli değişince değişen kısa imza (hat özetini yenilemek için). */
+  lineStaffVersion?: string;
   calls: any[];
   stageHistory?: { id: string; leadId: string; from: string | null; to: string; at: string; actor: string }[];
   settings: Record<string, unknown>;

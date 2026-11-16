@@ -8,6 +8,8 @@ import type { AuthContext } from "./types.js";
 const STATE_KINDS = new Set([
   "lead", "rule", "message", "connection", "call", "stage-history", "event",
   "contacts", "companies", "pipelines", "tasks", "activities", "feed", "members", "employee",
+  // Hat yetkisi değişince personelin gördüğü sohbetler değişir; envanter değişince hat listesi.
+  "line-staff", "line-inventory",
 ]);
 const DEBOUNCE_MS = 350;
 const MAX_STREAMS_PER_USER = 6;

@@ -4,7 +4,7 @@ import type { AuthContext } from "./types.js";
 import { rawStoreOf } from "./access.js";
 import fs from "node:fs";
 import path from "node:path";
-import { lines, parseLineInventory, setLineInventory } from "../shared/lines.js";
+import { lines, parseLineInventory, setLineInventory, type Line } from "../shared/lines.js";
 
 /**
  * Gerçek hat envanterini Git dışındaki kaynaktan yükler:
@@ -62,8 +62,17 @@ export async function loadLineInventoryFromStore(store: Store): Promise<number> 
   return lines.length;
 }
 
+/**
+ * Envanteri kaydeder. Hatta seçilmiş yetkili personel listesi hat kimliğinde kalır:
+ * bağlı WhatsApp hesabı, bağlantı kaydı ve mesajlar da aynı kimlikle tutulur. Toplu düzenlemede
+ * numaraların sırası değişse ya da hat listeden çıkarılsa bile liste, koruduğu sohbetlerle birlikte durur.
+ */
+export async function saveLineInventory(store: Store, owner: string, next: Line[], updatedBy: string): Promise<void> {
+  await rawStoreOf(store).put(KIND, ID, { id: ID, lines: next, updatedAt: new Date().toISOString(), updatedBy }, owner);
+  setLineInventory(next);
+}
+
 export function registerLineInventoryRoutes(app: Express, store: Store) {
-  const raw = rawStoreOf(store);
   app.put("/api/lines", async (req: Request, res) => {
     const auth = (req as Request & { auth: AuthContext }).auth;
     if (!auth?.isOwner)
@@ -72,8 +81,7 @@ export function registerLineInventoryRoutes(app: Express, store: Store) {
       const next = parseLineInventory(req.body?.lines);
       if (!next.length) return res.status(400).json({ error: "EMPTY", message: "En az bir hat gerekli." });
       if (next.length > 1000) return res.status(400).json({ error: "TOO_MANY", message: "En fazla 1000 hat." });
-      await raw.put(KIND, ID, { id: ID, lines: next, updatedAt: new Date().toISOString(), updatedBy: auth.user.openId }, auth.ownerOpenId);
-      setLineInventory(next);
+      await saveLineInventory(store, auth.ownerOpenId, next, auth.user.openId);
       res.json({ lines: next });
     } catch (error) {
       res.status(400).json({ error: "INVALID_LINES", message: (error as Error).message });

@@ -150,6 +150,56 @@ function authValues(auth: AuthContext): Set<string> {
   );
 }
 
+const OWN_KEYS = [
+  "ownerOpenId",
+  "assignedOpenId",
+  "assigneeOpenId",
+  "createdByOpenId",
+  "userOpenId",
+  "actorOpenId",
+  "employeeId",
+  "assignee",
+  "assignedTo",
+  "owner",
+  "createdBy",
+];
+
+/**
+ * Çok sayıda mesajı tek geçişte süzmek için isOwnRecord ile aynı kuralı uygulayan hızlı denetim:
+ * çalışan listesi ve müşteriler bir kez okunur, her kayıt için yeniden sorgu yapılmaz.
+ * Kayıt, kullanıcının kendisine aitse ya da kullanıcıya ait bir müşteriye bağlıysa görünür.
+ */
+export async function ownMessageMatcher(
+  store: Store,
+  auth: AuthContext,
+): Promise<(payload: Record<string, any>) => boolean> {
+  if (auth.isOwner) return () => true;
+  const raw = rawStoreOf(store);
+  const values = authValues(auth);
+  const mine = new Set(values);
+  for (const row of await raw.list<AccessEmployee>("employee", auth.ownerOpenId)) {
+    const employee = row.payload;
+    if (!employee || !values.has(employee.openId)) continue;
+    for (const value of [employee.openId, employee.id, employee.name])
+      if (typeof value === "string" && value.trim()) mine.add(value);
+  }
+  const direct = (payload: Record<string, any>) => {
+    for (const key of OWN_KEYS) {
+      const value = payload[key];
+      if (typeof value === "string" && mine.has(value)) return true;
+    }
+    return Boolean(payload.openId && values.has(String(payload.openId)));
+  };
+  const ownLeads = new Set<string>();
+  for (const row of await raw.list<any>("lead", auth.ownerOpenId))
+    if (direct(payloadOf(row))) ownLeads.add(row.id);
+  return (payload) => {
+    if (direct(payload)) return true;
+    const leadId = payload.leadId || payload.entityLeadId || payload.sourceLeadId;
+    return Boolean(leadId && ownLeads.has(String(leadId)));
+  };
+}
+
 async function knownEmployee(
   store: Store,
   ownerOpenId: string,
@@ -184,20 +234,7 @@ async function isOwnRecord(
   if (auth.isOwner) return true;
   const payload = payloadOf(record);
   const values = authValues(auth);
-  const ownKeys = [
-    "ownerOpenId",
-    "assignedOpenId",
-    "assigneeOpenId",
-    "createdByOpenId",
-    "userOpenId",
-    "actorOpenId",
-    "employeeId",
-    "assignee",
-    "assignedTo",
-    "owner",
-    "createdBy",
-  ];
-  for (const key of ownKeys) {
+  for (const key of OWN_KEYS) {
     const value = payload[key];
     if (typeof value === "string" && values.has(value)) return true;
     const employee = await knownEmployee(store, ownerOpenId, auth, value);

@@ -1,0 +1,509 @@
+/* ==========================================================================
+   Hat yönetimi — WhatsApp hat panosu (components/LinePanel.tsx)
+   --------------------------------------------------------------------------
+   Sayfaların sarmalayıcı sınıfı olmadığı için kurallar `html .app-shell .lp…`
+   üzerinden yazılır; genel kontrol kurallarını aşması gereken yerlerde
+   projedeki `:not(#_)` yükseltmesi kullanılır. Renkler yalnız --xre-* / --ds-*
+   değişkenlerinden gelir; açık ve koyu temalarda aynı kurallar çalışır.
+   ========================================================================== */
+
+html .app-shell .lp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+  min-width: 0;
+}
+
+/* ---- Sayaç şeridi -------------------------------------------------------- */
+html .app-shell .lp-board {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--ds-space-6);
+  padding: var(--ds-space-4) var(--ds-space-5);
+  background: var(--xre-surface);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+}
+html .app-shell .lp-count {
+  display: flex;
+  flex-direction: column;
+  white-space: nowrap;
+}
+html .app-shell .lp-count strong {
+  font-size: calc(30px * var(--ds-font-scale));
+  line-height: 1.1;
+  font-weight: var(--ds-weight-bold);
+  color: var(--xre-text);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .lp-count small {
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-medium);
+  color: var(--xre-text-faint);
+}
+html .app-shell .lp-count span {
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text-soft);
+}
+html .app-shell .lp-cells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+html .app-shell .lp-cell {
+  width: 14px;
+  height: 28px;
+  border-radius: 4px;
+  background: var(--xre-border);
+}
+html .app-shell .lp-cell.ok {
+  background: var(--ds-success);
+}
+
+/* ---- Araç çubuğu --------------------------------------------------------- */
+html .app-shell .lp-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-space-3);
+}
+html .app-shell .lp-search {
+  display: flex;
+  align-items: center;
+  gap: var(--ds-space-2);
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 360px;
+  height: var(--ds-control-h);
+  padding: 0 var(--ds-space-3);
+  background: var(--xre-surface-raised);
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius-md);
+  color: var(--xre-text-faint);
+}
+html .app-shell .lp-search:focus-within {
+  border-color: var(--xre-accent);
+}
+html .app-shell .lp-search input:not(#_) {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  background: transparent;
+  color: var(--xre-text);
+  font-size: var(--ds-text-base);
+}
+html .app-shell .lp-view {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--ds-track);
+  border-radius: var(--ds-radius-md);
+}
+html .app-shell .lp-view button:not(#_) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 var(--ds-space-3);
+  border: 0;
+  border-radius: var(--ds-radius-sm);
+  background: transparent;
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-semibold);
+  cursor: pointer;
+}
+html .app-shell .lp-view button[aria-pressed="true"]:not(#_) {
+  background: var(--ds-thumb);
+  color: var(--ds-accent-text);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--xre-text) 14%, transparent);
+}
+html .app-shell .lp-bar select:not(#_) {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+}
+html .app-shell .lp-total {
+  margin-left: auto;
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text-soft);
+  white-space: nowrap;
+}
+html .app-shell .lp-hint,
+html .app-shell .lp-footnote {
+  margin: 0;
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text-soft);
+}
+
+/* ---- Ortak parçalar ------------------------------------------------------ */
+html .app-shell .lp-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--ds-radius-pill);
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-semibold);
+  white-space: nowrap;
+  color: var(--ds-warn);
+  background: var(--ds-warn-soft);
+}
+html .app-shell .lp-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+html .app-shell .lp-status.ok {
+  color: var(--ds-success);
+  background: var(--ds-success-soft);
+}
+html .app-shell .lp-late {
+  color: var(--ds-danger);
+  font-weight: var(--ds-weight-bold);
+}
+html .app-shell .lp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+html .app-shell .lp-chip {
+  max-width: 100%;
+  padding: 2px 9px;
+  border-radius: var(--ds-radius-pill);
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-semibold);
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .lp-chip.none {
+  background: var(--xre-surface-muted);
+  color: var(--xre-text-soft);
+}
+
+/* ---- Kart görünümü ------------------------------------------------------- */
+html .app-shell .lp-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr));
+  gap: var(--ds-space-4);
+}
+html .app-shell .lp-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--xre-surface);
+  border: 1px solid var(--xre-border);
+  border-top: 3px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+}
+html .app-shell .lp-card.ok {
+  border-top-color: var(--ds-success);
+}
+html .app-shell .lp-card > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-space-2);
+  padding: 14px var(--ds-space-4) 0;
+}
+html .app-shell .lp-card h3:not(#_) {
+  margin: 0;
+  min-width: 0;
+  font-size: var(--ds-text-md);
+  font-weight: var(--ds-weight-semibold);
+  color: var(--xre-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .lp-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: var(--ds-space-3) var(--ds-space-4);
+  padding: 10px var(--ds-space-3);
+  background: var(--xre-surface-muted);
+  border-radius: var(--ds-radius-md);
+  min-width: 0;
+}
+html .app-shell .lp-avatar {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--xre-accent-soft);
+  color: var(--ds-accent-text);
+  font-size: 13px;
+  font-weight: var(--ds-weight-bold);
+}
+html .app-shell .lp-profile > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+html .app-shell .lp-profile b {
+  font-size: var(--ds-text-base);
+  font-weight: var(--ds-weight-semibold);
+  color: var(--xre-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .lp-profile span:not(.lp-avatar) {
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text-soft);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .lp-facts:not(#_) {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px var(--ds-space-3);
+  margin: 0 var(--ds-space-4);
+  padding: 0;
+  font-size: var(--ds-text-base);
+}
+html .app-shell .lp-facts dt:not(#_) {
+  margin: 0;
+  color: var(--xre-text-soft);
+  font-weight: var(--ds-weight-regular);
+}
+html .app-shell .lp-facts dd:not(#_) {
+  margin: 0;
+  text-align: right;
+  color: var(--xre-text);
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .lp-card .lp-chips {
+  margin: var(--ds-space-3) var(--ds-space-4) 0;
+}
+html .app-shell .lp-card > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: auto;
+  padding: 14px var(--ds-space-4);
+}
+html .app-shell .lp-card > footer .btn:not(#_) {
+  flex: 1 1 120px;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* ---- Liste görünümü ------------------------------------------------------ */
+html .app-shell .lp-list {
+  /* Satır düzeni ekran genişliğine değil listenin kendi genişliğine göre seçilir (yan menü açıkken de sığsın). */
+  container-type: inline-size;
+  container-name: lp-list;
+  background: var(--xre-surface);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-lg);
+  overflow: hidden;
+}
+html .app-shell .lp-row {
+  display: grid;
+  grid-template-columns:
+    minmax(120px, 1.2fr) minmax(130px, 1.1fr) 104px 88px minmax(120px, 0.9fr)
+    minmax(90px, 0.8fr) minmax(100px, 1fr) 232px;
+  align-items: center;
+  gap: var(--ds-space-3);
+  padding: 10px var(--ds-space-4);
+  border-top: 1px solid var(--ds-divider);
+  font-size: var(--ds-text-base);
+  color: var(--xre-text);
+}
+html .app-shell .lp-row > span {
+  min-width: 0;
+}
+html .app-shell .lp-row.head {
+  border-top: 0;
+  background: var(--ds-surface-subtle);
+  color: var(--xre-text-soft);
+  font-size: var(--ds-text-xs);
+  font-weight: var(--ds-weight-semibold);
+  letter-spacing: var(--ds-tracking-caps);
+  text-transform: uppercase;
+}
+html .app-shell .lp-row b {
+  display: block;
+  font-weight: var(--ds-weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .lp-row small {
+  display: block;
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+html .app-shell .lp-num {
+  font-variant-numeric: tabular-nums;
+}
+html .app-shell .lp-acts {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* ---- Ayarlar penceresi --------------------------------------------------- */
+html .app-shell .lp-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-space-4);
+}
+html .app-shell .lp-settings > label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-semibold);
+  color: var(--xre-text-soft);
+}
+html .app-shell .lp-settings fieldset:not(#_) {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+html .app-shell .lp-settings legend:not(#_) {
+  padding: 0;
+  font-size: var(--ds-text-sm);
+  font-weight: var(--ds-weight-semibold);
+  color: var(--xre-text-soft);
+}
+html .app-shell .lp-settings-note {
+  margin: 4px 0 var(--ds-space-2);
+  font-size: var(--ds-text-sm);
+  color: var(--xre-text-soft);
+}
+html .app-shell .lp-staff-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr));
+  gap: 2px var(--ds-space-3);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: var(--ds-space-2);
+  border: 1px solid var(--xre-border);
+  border-radius: var(--ds-radius-md);
+  background: var(--xre-surface-muted);
+}
+html .app-shell .lp-staff-item:not(#_) {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--ds-space-2);
+  min-height: 34px;
+  padding: 0 var(--ds-space-2);
+  border-radius: var(--ds-radius-sm);
+  font-size: var(--ds-text-base);
+  font-weight: var(--ds-weight-regular);
+  color: var(--xre-text);
+  cursor: pointer;
+}
+html .app-shell .lp-staff-item:hover {
+  background: var(--ds-hover);
+}
+html .app-shell .lp-staff-item input[type="checkbox"]:not(#_) {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--xre-accent);
+}
+html .app-shell .lp-staff-item span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Liste dar kalınca: satırlar alt alta ---------------------------------
+   Tek satır düzeni en az 1100px ister (sütunlar 984 + boşluklar 84 + kenar 32). */
+@container lp-list (max-width: 1099px) {
+  html .app-shell .lp-row.head {
+    display: none;
+  }
+  html .app-shell .lp-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--ds-space-2) var(--ds-space-4);
+    padding: var(--ds-space-3) var(--ds-space-4);
+  }
+  html .app-shell .lp-row:nth-child(2) {
+    border-top: 0;
+  }
+  html .app-shell .lp-row > span[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 2px;
+    font-size: var(--ds-text-xs);
+    color: var(--xre-text-faint);
+  }
+  html .app-shell .lp-row > span[data-label="Yetkili personel"] {
+    grid-column: 1 / -1;
+  }
+  html .app-shell .lp-acts {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 640px) {
+  html .app-shell .lp-board {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--ds-space-3);
+    padding: var(--ds-space-4);
+  }
+  html .app-shell .lp-count {
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--ds-space-2);
+  }
+  html .app-shell .lp-search {
+    flex-basis: 100%;
+    max-width: none;
+  }
+  html .app-shell .lp-view {
+    flex: 1 1 auto;
+  }
+  html .app-shell .lp-view button:not(#_) {
+    flex: 1;
+    justify-content: center;
+  }
+  html .app-shell .lp-bar select:not(#_) {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  html .app-shell .lp-total {
+    margin-left: 0;
+  }
+  html .app-shell .lp-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html .app-shell .lp-acts .btn:not(#_),
+  html .app-shell .lp-card > footer .btn:not(#_) {
+    flex: 1 1 130px;
+    justify-content: center;
+  }
+}

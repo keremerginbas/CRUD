@@ -23,7 +23,7 @@ import {
   sendMetaText,
 } from "./integrations.js";
 import { lines } from "../shared/lines.js";
-import { allowedPhones, lineAllowed, linePhones } from "./line-access.js";
+import { lineAccess } from "./line-access.js";
 
 const env = (k: string) => process.env[k]?.trim() || "";
 const DAY = 86_400_000;
@@ -207,10 +207,9 @@ export function registerWhatsappChatRoutes(app: Express, store: Store, deps: Wha
         };
       }),
     );
-    const allowed = await allowedPhones(store, authOf(req));
-    const phones = allowed ? await linePhones(store, owner) : new Map<string, string>();
+    const access = await lineAccess(store, authOf(req));
     res.json({
-      lines: result.filter((l) => l.provider && lineAllowed(allowed, phones, l.lineId)),
+      lines: result.filter((l) => l.provider && (!access || access.allows(l.lineId))),
       autoLead: env("WHATSAPP_AUTO_LEAD") === "1",
       dailyNewContacts: Number(env("WHATSAPP_DAILY_NEW_CONTACTS") || 40),
       templatesAvailable: Boolean(env("META_WABA_ID") && env("META_ACCESS_TOKEN")),
@@ -241,6 +240,9 @@ export function registerWhatsappChatRoutes(app: Express, store: Store, deps: Wha
             connected: open,
             ...(open && info.phone ? { phone: info.phone } : {}),
             ...(open && info.profileName ? { profileName: info.profileName.slice(0, 120) } : {}),
+            connectedAt: open
+              ? (previous.status === "connected" && previous.connectedAt) || new Date().toISOString()
+              : previous.connectedAt,
             updatedAt: new Date().toISOString(),
           },
           owner,

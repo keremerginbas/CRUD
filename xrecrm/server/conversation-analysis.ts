@@ -1,3 +1,5 @@
+import { onlyAllowedLines, withoutRestrictedLines } from "./line-access.js";
+import { logicalLineId } from "./integrations.js";
 import crypto from "node:crypto";
 import type { Express, Request, Response as ExpressResponse } from "express";
 import type { Store } from "./db.js";
@@ -58,6 +60,8 @@ type Snapshot = {
   threadSize?: number;
   threadWasTrimmed?: boolean;
   textWasTrimmed?: boolean;
+  /** WhatsApp hatları: özet, bu hatlarda yetkisi olmayan personele gösterilmez. */
+  lineIds?: string[];
   promptContext: AnyRecord;
 };
 
@@ -308,7 +312,7 @@ async function loadSnapshot(
     };
   }
 
-  const allMessages = await store.list<AnyRecord>("message", owner);
+  const allMessages = await onlyAllowedLines(store, await store.list<AnyRecord>("message", owner));
   const related = allMessages
     .map((message) => message.payload)
     .filter(
@@ -337,6 +341,13 @@ async function loadSnapshot(
     ),
     text,
     ...links,
+    lineIds: [
+      ...new Set(
+        related
+          .map((message) => (typeof message.lineId === "string" ? logicalLineId(message.lineId) : ""))
+          .filter(Boolean),
+      ),
+    ],
     threadSize: rendered.size,
     threadWasTrimmed: rendered.trimmed,
     textWasTrimmed: rendered.trimmed,
@@ -537,7 +548,7 @@ async function saveMetadata(
   owner: string,
   snapshot: Pick<
     Snapshot,
-    "kind" | "sourceId" | "fingerprint" | "leadId" | "contactId"
+    "kind" | "sourceId" | "fingerprint" | "leadId" | "contactId" | "lineIds"
   >,
   patch: {
     status: ConversationAnalysisStatus;
@@ -575,6 +586,7 @@ async function saveMetadata(
     status: patch.status,
     ...(patch.analysis ? { analysis: patch.analysis } : {}),
     ...(patch.feedId ? { feedId: patch.feedId } : {}),
+    ...(snapshot.lineIds?.length ? { lineIds: snapshot.lineIds } : {}),
     ...(patch.error
       ? { error: redactConversationSecrets(patch.error, 500) }
       : {}),
@@ -815,6 +827,7 @@ export async function processConversationAnalysisEvent(
     sourceKind: payload.kind,
     sourceId: payload.sourceId,
     analysis,
+    ...(snapshot.lineIds?.length ? { lineIds: snapshot.lineIds } : {}),
     likes: [],
     comments: [],
     createdAt,
@@ -960,8 +973,9 @@ export function registerConversationAnalysisRoutes(
         "conversation_analysis",
         owner,
       );
-      const annotations = rows
-        .map((row) => safeAnnotation(row.payload))
+      // Yetkili olunmayan hattın sohbetinden çıkarılan özetler gösterilmez.
+      const annotations = (await withoutRestrictedLines(store, rows.map((row) => row.payload)))
+        .map((payload) => safeAnnotation(payload))
         .filter((row): row is ConversationAnalysisAnnotation =>
           Boolean(
             row && (!requestedLeadId || row.sourceLeadId === requestedLeadId),
@@ -1019,7 +1033,7 @@ export function registerConversationAnalysisRoutes(
       } else {
         const [calls, messages] = await Promise.all([
           store.list<AnyRecord>("call", owner),
-          store.list<AnyRecord>("message", owner),
+          store.list<AnyRecord>("message", owner).then((rows) => onlyAllowedLines(store, rows)),
         ]);
         const leadCalls = calls
           .map((row) => row.payload)
