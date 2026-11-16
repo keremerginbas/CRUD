@@ -70,11 +70,14 @@
       'İsim': clean(r.sellerName), 'Telefon Numarası': phoneOf(r), 'İl': clean(loc.city), 'İlçe': clean(loc.district), 'Mahalle': clean(loc.neighborhood),
       'Takas': detail(r, 'Takas', 'Takaslı'), 'RESMİ İLAN LİNKİ': r.url, 'Sorumlu Kişi': '', 'Kaynak': sites().name(r.source),
       'Açıklama': [(r.phones || []).length > 1 ? 'Diğer telefonlar: ' + r.phones.slice(1).join(', ') : '', String(r.description || '').trim().slice(0, 3000)].filter(Boolean).join('\n')};
+    // XRE Auto flow reads these exact headers (AD SOYAD, TELEFON, ŞEHİR, …); fields it has no Bitrix slot for go into AÇIKLAMA.
+    const extra = [['Yakıt', detail(r, 'Yakıt Tipi', 'Yakıt')], ['Vites', detail(r, 'Vites Tipi', 'Vites')], ['Renk', detail(r, 'Renk')], ['Kasa', detail(r, 'Kasa Tipi')]]
+      .filter(([, v]) => v).map(([k, v]) => k + ': ' + v).join(' · ');
     return {...base,
-      'İlan No': clean(r.listingId), 'İlan Başlığı': clean(r.title), 'Fiyat': num(r.price), 'Marka': detail(r, 'Marka'), 'Seri': detail(r, 'Seri'),
-      'Model': detail(r, 'Model'), 'Yıl': detail(r, 'Yıl', 'Model Yılı'), 'KM': detail(r, 'KM', 'Kilometre'), 'Yakıt Tipi': detail(r, 'Yakıt Tipi', 'Yakıt'),
-      'Vites Tipi': detail(r, 'Vites Tipi', 'Vites'), 'Renk': detail(r, 'Renk'), 'İl': clean(loc.city), 'İlçe': clean(loc.district),
-      'İsim': clean(r.sellerName), 'Telefon': phoneOf(r), 'İlan Linki': r.url, 'Kaynak': sites().name(r.source), 'Açıklama': note(r)};
+      'AD SOYAD': clean(r.sellerName), 'TELEFON': (r.phones || []).join(', '), 'ŞEHİR': clean(loc.city), 'İLÇE': clean(loc.district),
+      'MARKA': detail(r, 'Marka'), 'SERİ': detail(r, 'Seri'), 'MODEL': detail(r, 'Model'), 'YIL': detail(r, 'Yıl', 'Model Yılı'), 'KM': detail(r, 'KM', 'Kilometre'),
+      'FİYAT': num(r.price), 'TRAMER': detail(r, 'Tramer', 'Tramer Tutarı'), 'İLAN NO': clean(r.listingId), 'İLAN LİNKİ': r.url,
+      'AÇIKLAMA': [`${sites().name(r.source)}: ${clean(r.title)}`, extra, String(r.description || '').trim().slice(0, 3000)].filter(Boolean).join('\n')};
   }
   const payload = (targetId, records) => ({source: 'ilan5', target: targetId, sentAt: new Date().toISOString(), rows: records.map((r, i) => rowFor(targetId, r, i))});
 

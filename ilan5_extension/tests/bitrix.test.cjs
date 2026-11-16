@@ -68,3 +68,11 @@ test('database: setBitrix marks the record and a later crawl keeps the mark', as
   const saved = await db.get(arsa.id);
   assert.equal(saved.bitrix.arsa.dealId, '55501'); assert.equal(saved.price, 6000000);
 });
+test('auto row uses the XRE Auto sheet headers (AD SOYAD, TELEFON, MARKA …) with every phone', () => {
+  const car = core.normalizeRecord({url: 'https://www.arabam.com/ilan/sahibinden-satilik-renault-clio/temiz/44985286', title: 'Temiz Clio', price: 850000, phones: ['0530 850 11 22', '0532 111 22 33'],
+    sellerName: 'Mehmet Kaya', location: {city: 'İzmir', district: 'Bornova'}, rawDetails: {Marka: 'Renault', Seri: 'Clio', Model: '1.5 dCi', Yıl: '2018', Kilometre: '120.000 km', 'Vites Tipi': 'Manuel'}});
+  const row = B.rowFor('auto', car, 0);
+  assert.equal(row['AD SOYAD'], 'Mehmet Kaya'); assert.equal(row['TELEFON'], '905308501122, 905321112233'); assert.equal(row['ŞEHİR'], 'İzmir');
+  assert.equal(row['MARKA'], 'Renault'); assert.equal(row['SERİ'], 'Clio'); assert.equal(row['YIL'], '2018'); assert.equal(row['KM'], '120.000 km');
+  assert.equal(row['İLAN NO'], '44985286'); assert.equal(row['İLAN LİNKİ'], car.url); assert.match(row['AÇIKLAMA'], /Vites: Manuel/);
+});

@@ -1,4 +1,4 @@
-# İlan5 3.1.2 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
+# İlan5 3.1.3 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,7 +7,7 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.1.2** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.1.3** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
@@ -18,7 +18,7 @@ Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize
 İlanlar tablosunda ilanları seçip **Bitrix'e yükle → XRE Arsa / XRE Barter / XRE Auto** deyin. Seçilen ilanlar n8n akışınıza gider; akış Bitrix'te kişiyi bulur veya açar, kartı açar ve sonucu geri döner. Yüklenen ilanda **Bitrix #Deal ID** etiketi görünür. Bitrix'te aynı ilan numarasıyla kart varsa ilan **atlanır** (etikette mevcut kartın numarası görünür). İki kez basmak mükerrer kart açmaz.
 
 **Kurulum (bir kez):**
-1. n8n'de **Import from file** ile size gönderilen `ilan5_bitrix_xre_arsa.json` ve `ilan5_bitrix_xre_barter.json` akışlarını içe aktarın. Bunlar mevcut akışlarınızın kopyasıdır; eski Google Sheets akışlarınız olduğu gibi kalır.
+1. n8n'de **Import from file** ile size gönderilen `ilan5_bitrix_xre_arsa.json`, `ilan5_bitrix_xre_barter.json` ve `ilan5_bitrix_xre_auto.json` akışlarını içe aktarın. Bunlar mevcut akışlarınızın kopyasıdır; eski Google Sheets akışlarınız olduğu gibi kalır.
 2. Her akışı açın, sağ üstten **Active** yapın. **İlan5 Webhook** düğümüne tıklayın, **Production URL**'yi kopyalayın.
 3. İlan5 panelinde **Ayarlar ve yedek → Bitrix aktarımı (n8n)** bölümüne adresleri yapıştırın, **Kaydet** deyin. Chrome bu adrese erişim izni ister; **İzin ver** deyin.
 4. Her hattın yanındaki **Dene** düğmesi Bitrix'e dokunmadan bağlantıyı kontrol eder.
@@ -26,7 +26,7 @@ Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize
 **Hangi bilgiler gider:**
 - **XRE Arsa:** ad soyad, telefon, il, ilçe, mahalle, ada, parsel, m², m² fiyatı, KAKS/emsal, tapu durumu, ilan tarihi, ilan no, fiyat. Açıklama kısmına ilan linki, başlık, ek telefonlar ve ilan açıklaması yazılır.
 - **XRE Barter:** ilan no, başlık, fiyat, ada/parsel, m², m² fiyatı, tapu, isim, telefon, il/ilçe/mahalle, takas, resmi ilan linki, kaynak site. Sorumlu kişi sırası (Hatice → Yiğitcan → Aleyna) gönderimler arasında devam eder.
-- **XRE Auto:** eklenti hazır; araç akışınızı gönderdiğinizde n8n tarafı aynı şekilde hazırlanacak.
+- **XRE Auto (3.1.3):** ad soyad, bütün telefonlar, şehir, ilçe, marka, seri, model, yıl, km, fiyat, tramer, ilan no, ilan linki. Yakıt, vites, renk ve ilan başlığı açıklama alanına yazılır. Kişi telefonla bulunursa kartındaki mükerrer numaralar temizlenir, eksik numaralar eklenir (mevcut Auto akışınızdaki gibi); sorumlu Enes Can Yıldırım.
 
 **Notlar:** Bitrix anahtarınız eklentiye girmez, yalnız n8n'de durur. Telefonu olmayan ilanda kişi telefonsuz açılır; önce telefonu tamamlamanız önerilir. **Filtreler → Öne çıkanlar → Bitrix'e yüklenmemiş** ile henüz yüklenmeyen ilanları bulabilirsiniz.
 

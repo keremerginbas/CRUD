@@ -1,3 +1,7 @@
+# İlan5 3.1.3 — Doğrulama notları
+
+16 Kasım 2026 (3.1.3): XRE Auto aktarımı. Auto akışının “Deal Verisi Hazırla” kodu ad soyadı yalnız `AD SOYAD` başlığından okuduğu için eklentinin Auto satırı akıştaki başlıklarla birebir aynı yapıldı (AD SOYAD, TELEFON, ŞEHİR, İLÇE, MARKA, SERİ, MODEL, YIL, KM, FİYAT, TRAMER, İLAN NO, İLAN LİNKİ, AÇIKLAMA). Akış kopyası kontrol edildi (bağlantılar, düğüm referansları, Sheets düğümü kalmaması) ve kod İlan5 satırıyla çalıştırıldı: başlık, ad/soyad, iki telefon, marka/seri/model, yıl (2018-01-01), km (120000), fiyat, şehir/ilçe, ilan no, link ve mükerrer sorgusu doğru. `npm test` 18/18, panel e2e geçti. Gerçek n8n/Bitrix ile canlı deneme yapılmadı.
+
 # İlan5 3.1.2 — Doğrulama notları
 
 16 Kasım 2026 (3.1.2): Tek tuşla Bitrix aktarımı. `tests/bitrix.test.cjs`: Arsa ve Barter satırlarının sütun adları ve değerleri (ada/parsel ayırma, m² fiyatı, telefon, açıklama), n8n adres doğrulaması (https, Bitrix adresinin reddi), 5'erli gönderim, ilan numarasına göre sonuç eşleştirme, hata bildirimi, bağlantı testi, Bitrix işaretinin sonraki taramada korunması. `npm test` 18/18. Panel e2e: adres kaydında Chrome izni istenir, Dene ile test, iki ilan seçilip yüklenir, “eklendi” ve “zaten vardı” sonuçları Bitrix etiketi olarak görünür. Kullanıcının n8n akışlarından üretilen kopyalarda düğüm bağlantıları ve düğüm adı referansları kontrol edildi; akışların “Verisi Hazırla” kodu İlan5 satırıyla çalıştırıldı ve Bitrix alanlarına doğru değerlerin yazıldığı görüldü. Gerçek n8n ve Bitrix ile canlı deneme yapılmadı.
