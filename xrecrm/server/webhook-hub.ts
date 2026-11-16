@@ -26,6 +26,7 @@ import {
   type OutboundEvent,
   type OutboundHookView,
 } from "../shared/webhook-hub.js";
+import { isStageId } from "../shared/stages.js";
 
 const IN_KIND = "webhook-in";
 const OUT_KIND = "webhook-out";
@@ -594,8 +595,8 @@ export async function runInboundAction(
     case "lead.stage": {
       const lead = await requireLead(store, owner, input);
       const stage = String(input.stage || input.toStage || "");
-      if (!["new", "contacted", "qualified", "proposal", "won", "lost"].includes(stage))
-        throw statusError(400, "stage: new, contacted, qualified, proposal, won veya lost olmalı.");
+      if (!isStageId(stage))
+        throw statusError(400, "stage: new, contacted, qualified, proposal, won, lost veya huniye özel bir aşama kimliği olmalı.");
       await deps.processInboundWebhook(store, owner, {
         type: "stage.changed",
         lead: {

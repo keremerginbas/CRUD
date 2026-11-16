@@ -10,10 +10,11 @@ import type { AuthContext, Lead } from "./types.js";
 import { canAccess, rawStoreOf } from "./access.js";
 import { pushNotice } from "./pbx.js";
 import { TRIGGER_EVENTS, type TriggerEvent, type AutomationTrigger, type InboxNotification } from "../shared/triggers.js";
+import { BUILT_IN_STAGES, STAGE_ID_PATTERN } from "../shared/stages.js";
 
 export const TRIGGER_KIND = "trigger";
 export const INBOX_KIND = "inbox-notification";
-const STAGES = ["new", "contacted", "qualified", "proposal", "won", "lost"] as const;
+const STAGES: readonly string[] = BUILT_IN_STAGES;
 const MAX_TRIGGERS = 200;
 const INBOX_KEEP = 200;
 
@@ -25,7 +26,7 @@ const TriggerSchema = z.object({
   name: z.string().trim().min(1, "Tetikleyici adı gerekli.").max(200),
   event: z.enum(TRIGGER_EVENTS),
   pipelineId: z.string().max(191).optional(),
-  targetStage: z.enum(STAGES),
+  targetStage: z.string().regex(STAGE_ID_PATTERN, "Geçersiz aşama."),
   enabled: z.boolean(),
   allowBackward: z.boolean().default(false),
 });
@@ -55,10 +56,13 @@ export async function fireTrigger(store: Store, owner: string, leadId: string | 
   const lead = (await raw.get<Lead>("lead", leadId, owner))?.payload;
   if (!lead) return null;
   if (lead.stage === "won" || lead.stage === "lost") return null;
-  const current = STAGES.indexOf(lead.stage as (typeof STAGES)[number]);
+  // Aşama sırası müşterinin hunisinden alınır (özel aşamalar dahil); huni kayıtlı değilse yerleşik sıra.
+  const pipeline = (await raw.get<{ stages?: { id: string }[] }>("pipelines", lead.pipelineId || "sales", owner))?.payload;
+  const order = pipeline?.stages?.length ? pipeline.stages.map((s) => s.id) : STAGES;
+  const current = order.indexOf(lead.stage);
   const eligible = triggers
     .filter((t) => pipelineMatches(t, lead))
-    .map((t) => ({ t, index: STAGES.indexOf(t.targetStage as (typeof STAGES)[number]) }))
+    .map((t) => ({ t, index: order.indexOf(t.targetStage) }))
     .filter(({ t, index }) => index >= 0 && index !== current && (t.allowBackward || index > current))
     .sort((a, b) => b.index - a.index);
   const chosen = eligible[0]?.t;

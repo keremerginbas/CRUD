@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BUILT_IN_STAGES, STAGE_ID_PATTERN } from "./stages.js";
 export const requiredCrmFields = [
   "phone",
   "email",
@@ -18,8 +19,8 @@ export const requiredCrmFieldLabels: Record<RequiredCrmField, string> = {
   contactId: "Bağlı kişi",
   companyId: "Bağlı şirket",
 };
-export const StagePolicySchema = z.partialRecord(
-  z.enum(["new", "contacted", "qualified", "proposal", "won", "lost"]),
+export const StagePolicySchema = z.record(
+  z.string().regex(STAGE_ID_PATTERN),
   z
     .array(z.enum(requiredCrmFields))
     .max(7)
@@ -28,12 +29,7 @@ export const StagePolicySchema = z.partialRecord(
       "Zorunlu alan bir kez seçilebilir.",
     ),
 );
-export type StagePolicy = Partial<
-  Record<
-    "new" | "contacted" | "qualified" | "proposal" | "won" | "lost",
-    RequiredCrmField[]
-  >
->;
+export type StagePolicy = Partial<Record<string, RequiredCrmField[]>>;
 export interface PipelineWithPolicy {
   id: string;
   name?: string;
@@ -57,6 +53,11 @@ export function validateStagePolicy(
   lead: Record<string, unknown>,
   pipelines: PipelineWithPolicy[],
 ): void {
+  // Aşama, müşterinin hunisinde tanımlı olmalı: özel aşama başka huniye ya da silinmiş aşamaya taşınamaz.
+  const own = pipelines.find((p) => p.id === (lead.pipelineId || "sales"));
+  const known = own?.stages?.length ? own.stages.map((s) => s.id) : [...BUILT_IN_STAGES];
+  if (!known.includes(String(lead.stage)))
+    throw Object.assign(new Error("Bu aşama müşterinin satış hunisinde yok."), { statusCode: 400 });
   const missing = missingStageFields(lead, pipelines);
   if (!missing.length) return;
   const p = pipelines.find((p) => p.id === (lead.pipelineId || "sales"));

@@ -20,7 +20,14 @@ import {
 
 const INTERACTIVE = "button, a, input, select, textarea, label, [contenteditable]";
 /** Düğme, seçim kutusu veya açılır listeden başlayan hareket sürükleme sayılmaz. */
-const fromControl = (target: EventTarget | null) => Boolean((target as HTMLElement | null)?.closest?.(INTERACTIVE));
+// Müşteri adı bir düğmedir ama kartın büyük kısmını kapladığı için oradan da sürüklenebilir;
+// kısa tıklama yine kartı açar (sürükleme ancak fare birkaç piksel oynayınca başlar).
+const DRAGGABLE_CONTROL = ".b24-deal-title";
+const fromControl = (target: EventTarget | null) => {
+  const el = target as HTMLElement | null;
+  if (el?.closest?.(DRAGGABLE_CONTROL)) return false;
+  return Boolean(el?.closest?.(INTERACTIVE));
+};
 
 class CardPointerSensor extends PointerSensor {
   static activators = [

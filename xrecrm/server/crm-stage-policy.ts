@@ -38,6 +38,15 @@ export function stagePolicyStore(base: Store): Store {
             payload.requiredFieldsByStage !== undefined
           )
             StagePolicySchema.parse(payload.requiredFieldsByStage);
+          // Hunide içinde müşteri olan bir aşama kaldırılamaz: o müşteriler hiçbir sütunda görünmez olurdu.
+          if (kind === "pipelines" && Array.isArray(payload.stages)) {
+            const kept = new Set(payload.stages.map((stage: { id?: string }) => stage?.id));
+            const stranded = (await target.list<any>("lead", owner)).filter(
+              (row) => (row.payload?.pipelineId || "sales") === id && !kept.has(row.payload?.stage),
+            ).length;
+            if (stranded)
+              throw Object.assign(new Error(`Kaldırılan aşamada ${stranded} müşteri var. Önce onları başka bir aşamaya taşıyın.`), { statusCode: 409 });
+          }
           return key === "insertIfAbsent"
             ? target.insertIfAbsent(kind, id, payload, owner)
             : target.put(kind, id, payload, owner);

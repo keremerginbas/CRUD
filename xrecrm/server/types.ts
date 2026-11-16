@@ -2,15 +2,11 @@ import { z } from "zod";
 import type { PermissionMap } from "../shared/access.js";
 import { AutomationPolicySchema } from "../shared/automation-policy.js";
 import type { AutomationPolicy } from "../shared/automation-policy.js";
+import { STAGE_ID_PATTERN } from "../shared/stages.js";
 
-export const LeadStage = z.enum([
-  "new",
-  "contacted",
-  "qualified",
-  "proposal",
-  "won",
-  "lost",
-]);
+// Altı yerleşik aşama veya huniye özel aşama ("s_…"). Aşamanın müşterinin hunisinde bulunduğu
+// depo katmanında (crm-stage-policy) denetlenir.
+export const LeadStage = z.string().regex(STAGE_ID_PATTERN, "Geçersiz aşama.");
 export type LeadStage = z.infer<typeof LeadStage>;
 
 export const LeadSchema = z

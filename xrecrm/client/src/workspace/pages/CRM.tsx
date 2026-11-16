@@ -38,6 +38,7 @@ import { useStore } from "../store";
 import { Lead, Stage, money } from "../data";
 import { KanbanBoard, KanbanCard, KanbanColumn } from "../components/KanbanDnd";
 import { useInventory } from "../projects";
+import { MAX_PIPELINE_STAGES, isBuiltInStage, newStageId } from "../../../../shared/stages";
 import { cleanPhoneInput, phoneProblem } from "../../../../shared/phone";
 import { KANBAN_SORTS, rankForDrop, sortLeads, type KanbanSort } from "../../../../shared/kanban-order";
 import {
@@ -181,7 +182,8 @@ export default function CRM({
   const current = pipelines.find((p) => p.id === pipeline) || pipelines[0];
   // "Tüm satış hunileri" görünümünde de varsayılan huninin düzenlenmiş aşama adları kullanılır.
   const stages = current?.stages || getPipelineStages(data.pipelines, pipeline);
-  const [stageEdit, setStageEdit] = useState<{ id: string; label: string; description: string; color: string } | null>(null);
+  // id boşsa yeni aşama eklenir; insertAfter hangi aşamanın sağına ekleneceğini söyler.
+  const [stageEdit, setStageEdit] = useState<{ id: string; label: string; description: string; color: string; insertAfter?: string } | null>(null);
   const [stageBusy, setStageBusy] = useState(false);
   const saveStage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,16 +195,33 @@ export default function CRM({
     }
     setStageBusy(true);
     try {
-      await saveRecord("pipelines", {
-        ...current,
-        stages: current.stages.map((s) =>
-          s.id === stageEdit.id
-            ? { ...s, label, color: stageEdit.color, description: stageEdit.description.trim() }
-            : s,
-        ),
-        updatedAt: new Date().toISOString(),
-      });
-      toast.success("Aşama güncellendi.");
+      const edited = { label, color: stageEdit.color, description: stageEdit.description.trim() };
+      let nextStages = current.stages.map((s) => (s.id === stageEdit.id ? { ...s, ...edited } : s));
+      if (!stageEdit.id) {
+        if (current.stages.length >= MAX_PIPELINE_STAGES) throw new Error(`Bir hunide en fazla ${MAX_PIPELINE_STAGES} aşama olabilir.`);
+        const at = current.stages.findIndex((s) => s.id === stageEdit.insertAfter);
+        nextStages = [...current.stages];
+        nextStages.splice(at < 0 ? nextStages.length : at + 1, 0, { id: newStageId(), ...edited });
+      }
+      await saveRecord("pipelines", { ...current, stages: nextStages, updatedAt: new Date().toISOString() });
+      toast.success(stageEdit.id ? "Aşama güncellendi." : `“${label}” aşaması eklendi.`);
+      setStageEdit(null);
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setStageBusy(false);
+    }
+  };
+  // Yalnız sonradan eklenen aşamalar silinebilir; içinde müşteri varsa sunucu izin vermez.
+  const removeStage = async () => {
+    if (!stageEdit?.id || !current || isBuiltInStage(stageEdit.id)) return;
+    const inside = data.leads.filter((l) => (l.pipelineId || "sales") === current.id && l.stage === stageEdit.id).length;
+    if (inside) return void toast.error(`Bu aşamada ${inside} müşteri var. Önce onları başka bir aşamaya taşıyın.`);
+    if (!window.confirm(`“${stageEdit.label}” aşaması silinsin mi?`)) return;
+    setStageBusy(true);
+    try {
+      await saveRecord("pipelines", { ...current, stages: current.stages.filter((s) => s.id !== stageEdit.id), updatedAt: new Date().toISOString() });
+      toast.success("Aşama silindi.");
       setStageEdit(null);
     } catch (error) {
       toast.error((error as Error).message);
@@ -675,7 +694,7 @@ export default function CRM({
       )}
       {stageEdit && (
         <Modal
-          title="Aşamayı düzenle"
+          title={stageEdit.id ? "Aşamayı düzenle" : "Yeni aşama"}
           subtitle={`${current?.name || "Satış hunisi"} · bu hunideki tüm kullanıcılar için geçerlidir`}
           onClose={() => setStageEdit(null)}
         >
@@ -711,11 +730,16 @@ export default function CRM({
               </label>
             </div>
             <footer className="modal-footer">
+              {stageEdit.id && !isBuiltInStage(stageEdit.id) && (
+                <button type="button" className="btn secondary danger" style={{ marginRight: "auto" }} disabled={stageBusy} onClick={() => void removeStage()}>
+                  Aşamayı sil
+                </button>
+              )}
               <button type="button" className="btn secondary" onClick={() => setStageEdit(null)}>
                 Vazgeç
               </button>
               <button className="btn primary" disabled={stageBusy}>
-                Kaydet
+                {stageEdit.id ? "Kaydet" : "Aşamayı ekle"}
               </button>
             </footer>
           </form>
@@ -774,6 +798,16 @@ export default function CRM({
                 style={{ ["--stage" as string]: s.color } as React.CSSProperties}
               >
                 <header style={{ background: s.color, borderColor: s.color }}>
+                  {/* Bitrix'teki gibi: başlığın sağ kenarına gelince çıkan "+" bu aşamanın sağına yeni aşama ekler. */}
+                  <button
+                    type="button"
+                    className="stage-insert"
+                    aria-label={`${s.label} aşamasının sağına yeni aşama ekle`}
+                    title="Sağına yeni aşama ekle"
+                    onClick={() => setStageEdit({ id: "", label: "", description: "", color: "#38bdf8", insertAfter: s.id })}
+                  >
+                    <Plus size={12} />
+                  </button>
                   <div>
                     <h3 title={s.description || undefined}>{s.label}</h3>
                     <button

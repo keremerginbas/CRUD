@@ -521,3 +521,40 @@ html .app-shell .b24-kanban .column-automation:not(#_) { font-size: 11px; paddin
 /* Kenardaki kaydırma oku: gölge şeridi kaldırıldı, yalnız ok kaldı */
 html .app-shell .kanban-edge:not(#_) { background: none; width: 44px; padding: 0; justify-content: center; }
 html .app-shell .kanban-edge button:not(#_) { box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14); width: 30px; height: 52px; opacity: 0.9; }
+
+/* Yeni aşama ekleme: sütun başlığının sağ kenarında, üzerine gelince görünen "+" */
+html .app-shell .b24-kanban .kanban-column > header:not(#_) { position: relative; }
+html .app-shell .b24-kanban .stage-insert:not(#_) {
+  position: absolute;
+  /* Üstteki "müşteri ekle" artısıyla karışmasın diye başlığın sağ alt köşesinde durur */
+  top: auto;
+  bottom: 6px;
+  right: 6px;
+  transform: scale(0.7);
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  background: var(--xre-accent);
+  color: var(--xre-accent-contrast, #fff);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+  opacity: 0;
+  z-index: 4;
+  transition: opacity 0.12s, transform 0.12s, background 0.12s;
+}
+html .app-shell .b24-kanban .kanban-column > header:hover .stage-insert:not(#_),
+html .app-shell .b24-kanban .stage-insert:focus-visible:not(#_) { opacity: 1; transform: scale(1); }
+html .app-shell .b24-kanban .stage-insert:hover:not(#_) { background: var(--xre-accent); color: var(--xre-accent-contrast, #fff); border-color: transparent; }
+@media (hover: none) {
+  html .app-shell .b24-kanban .stage-insert:not(#_) { opacity: 0.85; transform: scale(0.9); }
+}
+
+/* Görünmeyen seçim kutusu tıklamayı ve sürüklemeyi engellemesin */
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > input[type="checkbox"] { pointer-events: none; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_):hover .lead-card-top > input[type="checkbox"],
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > input[type="checkbox"]:checked { pointer-events: auto; }

@@ -1,12 +1,7 @@
 import { SuiteState, emptySuite, makeSuiteDemo } from "./suite";
 import type { AutomationPolicy } from "../../../shared/automation-policy";
-export type Stage =
-  | "new"
-  | "contacted"
-  | "qualified"
-  | "proposal"
-  | "won"
-  | "lost";
+/** Aşama kimliği: altı yerleşik aşama ya da huniye özel aşama ("s_…"). */
+export type Stage = string;
 export interface Lead {
   /** Kanban sütunundaki elle sıra (küçük olan üstte). */
   rank?: number;

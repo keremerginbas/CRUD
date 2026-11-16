@@ -4,6 +4,7 @@ import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import type { Store } from "./db.js";
 import { normalizePhone } from "./security.js";
+import { MAX_PIPELINE_STAGES, STAGE_ID_PATTERN, stageListProblem } from "../shared/stages.js";
 
 export const suiteKinds = [
   "contacts",
@@ -16,15 +17,7 @@ export const suiteKinds = [
 ] as const;
 export type SuiteKind = (typeof suiteKinds)[number];
 
-const stages = [
-  "new",
-  "contacted",
-  "qualified",
-  "proposal",
-  "won",
-  "lost",
-] as const;
-export type SuiteStage = (typeof stages)[number];
+export type SuiteStage = string;
 
 const nonEmptySafeString = (max: number) => z.string().trim().min(1).max(max);
 const safeString = (max: number) => z.string().max(max);
@@ -50,7 +43,7 @@ const commentSchema = z.object({
   createdAt: isoDate,
 });
 const stageSchema = z.object({
-  id: z.enum(stages),
+  id: z.string().regex(STAGE_ID_PATTERN, "Aşama kimliği geçersiz."),
   label: nonEmptySafeString(120),
   description: safeString(500).optional(),
   color: z
@@ -59,13 +52,13 @@ const stageSchema = z.object({
 });
 const pipelineStagesSchema = z
   .array(stageSchema)
-  .length(6)
-  .refine(
-    (items) =>
-      new Set(items.map((item) => item.id)).size === 6 &&
-      stages.every((stage) => items.some((item) => item.id === stage)),
-    "Pipeline tüm altı aşamayı birer kez içermeli.",
-  );
+  .min(6)
+  .max(MAX_PIPELINE_STAGES)
+  // Yerleşik altı aşama her hunide bulunur; araya huniye özel aşamalar eklenebilir.
+  .superRefine((items, ctx) => {
+    const problem = stageListProblem(items);
+    if (problem) ctx.addIssue({ code: z.ZodIssueCode.custom, message: problem });
+  });
 
 export const ContactSchema = z.object({
   id: idString,

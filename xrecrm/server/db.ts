@@ -689,7 +689,8 @@ export class MemoryStore implements Store {
         Date.parse(e.updatedAt) < now - 600_000
       ) {
         e.status = "failed";
-        e.nextAttemptAt = new Date().toISOString();
+        // Aynı an kullanılır: saat bir milisaniye ilerlerse olay bu turda "zamanı gelmemiş" sayılmasın.
+        e.nextAttemptAt = new Date(now).toISOString();
         e.lastError = "Yarım kalan gelen webhook yeniden işlenecek.";
       }
       if (
