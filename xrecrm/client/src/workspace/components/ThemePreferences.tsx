@@ -34,6 +34,8 @@ export const DEMO_PREFERENCES_STORAGE_KEY = "xre-preferences-demo-v1";
 type SaveState = "idle" | "saving" | "error";
 
 type ThemeContextValue = {
+  /** Duvar kâğıdının saklandığı kimlik (kullanıcıya göre). */
+  identity: string;
   open: boolean;
   setOpen: (open: boolean) => void;
   draft: Preferences;
@@ -63,6 +65,50 @@ function readDemoPreferences(): Preferences {
   } catch {
     return DEFAULT_PREFERENCES;
   }
+}
+
+// Kullanıcının kendi görseli tarayıcıda saklanır (sunucuya gönderilmez); kimliğe göre ayrılır.
+const wallpaperKey = (identity: string) => `xre-wallpaper-v1:${identity}`;
+export function readWallpaper(identity: string): string {
+  try {
+    const value = window.localStorage.getItem(wallpaperKey(identity)) || "";
+    return value.startsWith("data:image/") ? value : "";
+  } catch {
+    return "";
+  }
+}
+function applyWallpaper(dataUrl: string) {
+  if (typeof document === "undefined") return;
+  if (dataUrl) document.documentElement.style.setProperty("--xre-custom-wallpaper", `url("${dataUrl}")`);
+  else document.documentElement.style.removeProperty("--xre-custom-wallpaper");
+}
+/** Seçilen görseli en çok 1920 piksele küçültüp JPEG olarak saklar; büyük fotoğraflar depolamayı doldurmasın. */
+export async function storeWallpaper(identity: string, file: File): Promise<string> {
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type)) throw new Error("Görsel PNG, JPG veya WEBP olmalı.");
+  if (file.size > 15_000_000) throw new Error("Görsel en fazla 15 MB olabilir.");
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  let dataUrl = canvas.toDataURL("image/jpeg", 0.82);
+  if (dataUrl.length > 1_400_000) dataUrl = canvas.toDataURL("image/jpeg", 0.6);
+  try {
+    window.localStorage.setItem(wallpaperKey(identity), dataUrl);
+  } catch {
+    throw new Error("Görsel tarayıcıya kaydedilemedi (depolama dolu). Daha küçük bir görsel deneyin.");
+  }
+  applyWallpaper(dataUrl);
+  return dataUrl;
+}
+export function clearWallpaper(identity: string) {
+  try {
+    window.localStorage.removeItem(wallpaperKey(identity));
+  } catch {
+    /* depolama kapalı */
+  }
+  applyWallpaper("");
 }
 
 function applyRootPreferences(preferences: Preferences) {
@@ -112,6 +158,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setSaved(DEFAULT_PREFERENCES);
     setDraft(DEFAULT_PREFERENCES);
     applyRootPreferences(DEFAULT_PREFERENCES);
+    applyWallpaper(readWallpaper(identity));
 
     if (identity === "demo") {
       const next = readDemoPreferences();
@@ -222,6 +269,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<ThemeContextValue>(
     () => ({
+      identity,
       open,
       setOpen,
       draft,
@@ -234,7 +282,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       saving: saveState === "saving",
       error,
     }),
-    [apply, cancel, draft, error, open, saveState, update],
+    [apply, cancel, draft, error, identity, open, saveState, update],
   );
 
   return (
@@ -344,7 +392,13 @@ export function ThemePanel() {
     cancel,
     saving,
     error,
+    identity,
   } = useThemePreferences();
+  const [wallpaper, setWallpaper] = useState("");
+  const [wallpaperError, setWallpaperError] = useState("");
+  useEffect(() => {
+    if (open) setWallpaper(readWallpaper(identity));
+  }, [open, identity]);
 
   useEffect(() => {
     if (!open) return;
@@ -438,25 +492,62 @@ export function ThemePanel() {
 
           <fieldset className="theme-fieldset">
             <legend>Çalışma alanı fonu</legend>
-            <div
-              className="theme-segmented theme-backgrounds"
-              role="radiogroup"
-              aria-label="Çalışma alanı fonu"
-            >
-              {PREFERENCE_BACKGROUNDS.map((background) => (
+            <div className="theme-wallpapers" role="radiogroup" aria-label="Çalışma alanı fonu">
+              {PREFERENCE_BACKGROUNDS.filter((background) => background !== "custom" || wallpaper).map((background) => (
                 <button
                   key={background}
                   type="button"
                   role="radio"
                   aria-checked={draft.background === background}
-                  className={`background-choice background-${background} ${draft.background === background ? "selected" : ""}`}
+                  className={`wp-${background} ${draft.background === background ? "selected" : ""}`}
                   onClick={() => setBackground(background)}
                 >
-                  <span aria-hidden="true" />
+                  <span aria-hidden="true" style={background === "custom" && wallpaper ? { backgroundImage: `url("${wallpaper}")` } : undefined} />
                   {PREFERENCE_BACKGROUND_LABELS[background]}
                 </button>
               ))}
             </div>
+            <div className="theme-wallpaper-actions">
+              <label className="btn secondary small">
+                {wallpaper ? "Görseli değiştir" : "Bilgisayardan görsel ekle"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  hidden
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    if (!file) return;
+                    setWallpaperError("");
+                    void storeWallpaper(identity, file)
+                      .then((dataUrl) => {
+                        setWallpaper(dataUrl);
+                        setBackground("custom");
+                      })
+                      .catch((reason: Error) => setWallpaperError(reason.message));
+                  }}
+                />
+              </label>
+              {wallpaper && (
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={() => {
+                    clearWallpaper(identity);
+                    setWallpaper("");
+                    if (draft.background === "custom") setBackground("plain");
+                  }}
+                >
+                  Görselimi kaldır
+                </button>
+              )}
+              <small>Kendi görseliniz yalnız bu tarayıcıda saklanır; başka cihazda yeniden eklemeniz gerekir.</small>
+            </div>
+            {wallpaperError && (
+              <p className="theme-error" role="alert">
+                {wallpaperError}
+              </p>
+            )}
           </fieldset>
 
           {error && (

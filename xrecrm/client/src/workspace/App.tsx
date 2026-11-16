@@ -679,17 +679,20 @@ function Workspace() {
                   Deneme: {workspace.daysLeft} gün kaldı
                 </span>
               )}
-              <button
-                className="demo-switch"
-                onClick={() => {
-                  if (demo && !user) login();
-                  else setDemo(!demo);
-                }}
-              >
-                <span className={demo ? "amber-dot" : "green-dot"} />
-                {demo ? "Demo modu" : "Canlı CRM"}
-                <ChevronDown size={12} />
-              </button>
+              {/* Giriş yapmış kullanıcıda veri modu düğmesi gösterilmez: gerçek veriyle çalışırken demo
+                  görünümüne geçmek kafa karıştırıyordu. Yalnız demo gezilirken "çıkış" olarak görünür. */}
+              {demo && (
+                <button
+                  className="demo-switch"
+                  onClick={() => {
+                    if (!user) login();
+                    else setDemo(false);
+                  }}
+                >
+                  <span className="amber-dot" />
+                  {user ? "Demo modu · gerçek veriye dön" : "Demo modu · giriş yap"}
+                </button>
+              )}
               <AppointmentNotifications
                 onLead={(id) =>
                   setLeadModal(data.leads.find((l) => l.id === id) || null)
@@ -903,6 +906,7 @@ function Workspace() {
                   description="Çalışma modunuzu ve güvenli entegrasyon ayarlarınızı yönetin."
                 />
                 <section className="panel settings-panel">
+                  {demo && (
                   <div className="setting-row">
                     <div>
                       <h3>Veri modu</h3>
@@ -919,6 +923,7 @@ function Workspace() {
                       <ArrowUpRight size={15} />
                     </button>
                   </div>
+                  )}
                   <div className="setting-row">
                     <div>
                       <h3>Güvenli entegrasyonlar</h3>

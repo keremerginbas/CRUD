@@ -351,3 +351,27 @@ html[data-xre-theme="night"] .b24-kanban .b24-next-activity.overdue { color: #ff
 @media (pointer: coarse) { .lead-card .icon-button.lead-delete { opacity: 1; } }
 .btn.danger { color: var(--ds-danger, #dc2626); }
 .add-card.column-more { font-weight: 600; color: var(--xre-accent-strong, var(--xre-accent)); border-style: solid; }
+
+/* --- Daha derli toplu kartlar: aynı bilgi, daha az boşluk ------------------
+   Tasarım katmanındaki kurallar daha özgül olduğu için seçiciler :not(#_) ile güçlendirilmiştir. */
+html .app-shell .b24-kanban .kanban-cards:not(#_) { gap: 7px; padding: 7px; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(#_) { padding: 8px 10px 6px 12px; border-radius: 10px; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(#_)::before { top: 8px; bottom: 8px; }
+html .app-shell .b24-kanban .lead-card-top:not(#_) { margin-bottom: 1px; min-height: 0; }
+html .app-shell .b24-kanban .b24-card-source:not(#_) { font-size: 10px; }
+html .app-shell .b24-kanban .crm-open-count:not(#_) { font-size: 10.5px; padding: 0 6px; min-height: 20px; }
+html .app-shell .b24-kanban .lead-card-top .icon-button:not(#_) { width: 24px; height: 24px; min-height: 24px; }
+html .app-shell .b24-kanban .b24-deal-title:not(#_) { font-size: 13.5px; line-height: 1.25; min-height: 0; }
+html .app-shell .b24-kanban .b24-card-secondary:not(#_) { font-size: 11px; margin-top: 0; line-height: 1.3; }
+html .app-shell .b24-kanban .b24-deal-value:not(#_) { font-size: 14px; margin: 3px 0 3px; line-height: 1.25; }
+html .app-shell .b24-kanban .b24-contact-link:not(#_) { font-size: 11.5px; padding: 0; margin-bottom: 4px; min-height: 0; gap: 6px; }
+html .app-shell .b24-kanban .b24-contact-link .avatar:not(#_) { width: 20px; height: 20px; font-size: 9px; }
+html .app-shell .b24-kanban .b24-card-tags:not(#_) { margin: 0 0 4px; }
+html .app-shell .b24-kanban .b24-card-tags span:not(#_),
+html .app-shell .b24-kanban .b24-card-tags .badge:not(#_) { font-size: 10px; padding: 0 6px; line-height: 16px; }
+html .app-shell .b24-kanban .b24-next-activity:not(#_) { margin-top: 0; padding: 5px 0 3px; font-size: 11.5px; min-height: 0; }
+html .app-shell .b24-kanban .crm-lead-actions:not(#_) { margin-bottom: 3px; gap: 2px; }
+html .app-shell .b24-kanban .crm-lead-actions :is(button, a):not(#_) { font-size: 11.5px; padding: 2px 5px; min-height: 24px; }
+html .app-shell .b24-kanban .lead-card-footer:not(#_) { margin-top: 0; padding: 5px 0 0; min-height: 0; }
+html .app-shell .b24-kanban .lead-card-footer > span:not(#_) { font-size: 11px; }
+html .app-shell .b24-kanban .lead-card-footer select:not(#_) { font-size: 10.5px; padding: 2px 18px 2px 6px; min-height: 24px; height: 24px; }

@@ -744,3 +744,69 @@ html[data-xre-theme] .modal-footer {
   background: var(--xre-surface);
   border-color: var(--xre-border);
 }
+
+
+/* ==== Duvar kâğıtları ====
+   Fon, temanın zemin rengiyle hafifçe örtülür: görsel belirgin kalır ama başlık ve yazılar her temada okunur. */
+html[data-xre-background="sunset"] { --xre-wallpaper: linear-gradient(135deg, #ff9a56 0%, #ff6a88 38%, #b65fcf 70%, #4b6cb7 100%); }
+html[data-xre-background="ocean-deep"] { --xre-wallpaper: radial-gradient(ellipse at 20% 10%, #38d5f7 0%, transparent 45%), radial-gradient(ellipse at 85% 80%, #1a6dff 0%, transparent 50%), linear-gradient(160deg, #0b3a82, #062a5c 60%, #031b3d); }
+html[data-xre-background="nebula"] { --xre-wallpaper: radial-gradient(circle at 25% 30%, #a45bff 0%, transparent 42%), radial-gradient(circle at 75% 25%, #ff5fa8 0%, transparent 38%), radial-gradient(circle at 60% 85%, #3fb6ff 0%, transparent 45%), linear-gradient(140deg, #1a1040, #2a1458); }
+html[data-xre-background="forest-mist"] { --xre-wallpaper: radial-gradient(ellipse at 30% 0%, #c9f2c7 0%, transparent 50%), linear-gradient(170deg, #7fc49a 0%, #3f9070 45%, #1f5a4a 100%); }
+html[data-xre-background="sakura"] { --xre-wallpaper: radial-gradient(circle at 80% 15%, #ffd1e8 0%, transparent 45%), radial-gradient(circle at 15% 85%, #c8e7ff 0%, transparent 50%), linear-gradient(135deg, #ffe3ef, #f7c6dd 50%, #c9b8f0); }
+html[data-xre-background="sand"] { --xre-wallpaper: radial-gradient(ellipse at 70% 0%, #fff3d6 0%, transparent 55%), linear-gradient(165deg, #f1d9a7 0%, #dcb777 50%, #b98a4e 100%); }
+html[data-xre-background="steel"] { --xre-wallpaper: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.07) 0 2px, transparent 2px 46px), linear-gradient(150deg, #8fa3b8 0%, #5b6f86 45%, #2f3e52 100%); }
+html[data-xre-background="custom"] { --xre-wallpaper: var(--xre-custom-wallpaper, linear-gradient(135deg, #8fa3b8, #2f3e52)); }
+
+html:is([data-xre-background="sunset"], [data-xre-background="ocean-deep"], [data-xre-background="nebula"], [data-xre-background="forest-mist"], [data-xre-background="sakura"], [data-xre-background="sand"], [data-xre-background="steel"], [data-xre-background="custom"]) .workspace-main {
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--xre-bg) 52%, transparent), color-mix(in srgb, var(--xre-bg) 52%, transparent)),
+    var(--xre-wallpaper);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* Fon seçici: küçük resim ızgarası */
+.theme-wallpapers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.theme-wallpapers button {
+  display: grid;
+  gap: 5px;
+  padding: 5px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background: transparent;
+  color: var(--xre-text-soft);
+  font: inherit;
+  font-size: 11.5px;
+  line-height: 1.2;
+  cursor: pointer;
+  text-align: center;
+}
+.theme-wallpapers button:hover { background: var(--xre-surface-muted); }
+.theme-wallpapers button.selected { border-color: var(--xre-accent); color: var(--xre-text); font-weight: 600; }
+.theme-wallpapers button > span {
+  display: block;
+  aspect-ratio: 16 / 10;
+  border-radius: 7px;
+  border: 1px solid var(--xre-border);
+  background: var(--xre-bg);
+  background-size: cover;
+  background-position: center;
+}
+.theme-wallpapers .wp-mesh > span { background-image: radial-gradient(circle at 20% 20%, color-mix(in srgb, var(--xre-accent) 40%, transparent), transparent 45%), radial-gradient(circle at 85% 70%, color-mix(in srgb, var(--xre-accent) 30%, transparent), transparent 45%); }
+.theme-wallpapers .wp-aurora > span { background-image: linear-gradient(120deg, color-mix(in srgb, var(--xre-accent) 40%, transparent), transparent 55%), linear-gradient(300deg, rgba(142, 114, 220, 0.45), transparent 55%); }
+.theme-wallpapers .wp-grid > span { background-image: linear-gradient(color-mix(in srgb, var(--xre-text-faint) 30%, transparent) 1px, transparent 1px), linear-gradient(90deg, color-mix(in srgb, var(--xre-text-faint) 30%, transparent) 1px, transparent 1px); background-size: 9px 9px; }
+.theme-wallpapers .wp-sunset > span { background-image: linear-gradient(135deg, #ff9a56 0%, #ff6a88 38%, #b65fcf 70%, #4b6cb7 100%); }
+.theme-wallpapers .wp-ocean-deep > span { background-image: radial-gradient(ellipse at 20% 10%, #38d5f7 0%, transparent 45%), radial-gradient(ellipse at 85% 80%, #1a6dff 0%, transparent 50%), linear-gradient(160deg, #0b3a82, #031b3d); }
+.theme-wallpapers .wp-nebula > span { background-image: radial-gradient(circle at 25% 30%, #a45bff 0%, transparent 42%), radial-gradient(circle at 75% 25%, #ff5fa8 0%, transparent 38%), radial-gradient(circle at 60% 85%, #3fb6ff 0%, transparent 45%), linear-gradient(140deg, #1a1040, #2a1458); }
+.theme-wallpapers .wp-forest-mist > span { background-image: radial-gradient(ellipse at 30% 0%, #c9f2c7 0%, transparent 50%), linear-gradient(170deg, #7fc49a 0%, #3f9070 45%, #1f5a4a 100%); }
+.theme-wallpapers .wp-sakura > span { background-image: radial-gradient(circle at 80% 15%, #ffd1e8 0%, transparent 45%), radial-gradient(circle at 15% 85%, #c8e7ff 0%, transparent 50%), linear-gradient(135deg, #ffe3ef, #f7c6dd 50%, #c9b8f0); }
+.theme-wallpapers .wp-sand > span { background-image: radial-gradient(ellipse at 70% 0%, #fff3d6 0%, transparent 55%), linear-gradient(165deg, #f1d9a7 0%, #dcb777 50%, #b98a4e 100%); }
+.theme-wallpapers .wp-steel > span { background-image: repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.12) 0 1px, transparent 1px 9px), linear-gradient(150deg, #8fa3b8 0%, #5b6f86 45%, #2f3e52 100%); }
+.theme-wallpapers .wp-custom > span { display: grid; place-items: center; font-size: 18px; color: var(--xre-text-faint); border-style: dashed; }
+.theme-wallpaper-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+.theme-wallpaper-actions small { color: var(--xre-text-faint); font-size: 12px; line-height: 1.4; flex: 1 1 200px; }

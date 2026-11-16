@@ -15,6 +15,16 @@ export const PREFERENCE_BACKGROUNDS = [
   "mesh",
   "aurora",
   "grid",
+  // Duvar kâğıtları: görsel dosyası gerektirmeyen, CSS ile çizilen fonlar.
+  "sunset",
+  "ocean-deep",
+  "nebula",
+  "forest-mist",
+  "sakura",
+  "sand",
+  "steel",
+  // Kullanıcının kendi bilgisayarından yüklediği görsel (tarayıcıda saklanır).
+  "custom",
 ] as const;
 export type PreferenceBackground = (typeof PREFERENCE_BACKGROUNDS)[number];
 
@@ -62,6 +72,14 @@ export const PREFERENCE_BACKGROUND_LABELS: Record<
   mesh: "Yumuşak ağ",
   aurora: "Aurora",
   grid: "İnce ızgara",
+  sunset: "Gün batımı",
+  "ocean-deep": "Derin deniz",
+  nebula: "Nebula",
+  "forest-mist": "Orman sisi",
+  sakura: "Bahar",
+  sand: "Kum",
+  steel: "Çelik",
+  custom: "Kendi görselim",
 };
 
 export const PREFERENCE_DENSITY_LABELS: Record<PreferenceDensity, string> = {

@@ -341,9 +341,12 @@ export default function LoginScreen({
             Firmanız için ücretsiz deneyin <ArrowRight size={14} />
           </a>
         )}
-        <button className="text-button login-demo" onClick={onDemo}>
-          Giriş yapmadan demoyu incele
-        </button>
+        {/* Firmaya özel kurulumda (firma kimliği tanımlı) örnek verili demo sunulmaz. */}
+        {!branding.name && (
+          <button className="text-button login-demo" onClick={onDemo}>
+            Giriş yapmadan demoyu incele
+          </button>
+        )}
       </section>
     </div>
   );
