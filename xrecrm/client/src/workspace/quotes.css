@@ -1087,3 +1087,11 @@ html .app-shell .modal .pj-detail-foot.sx-modal-footer:not(#_) {
   border-left: 4px solid var(--ds-warning, #d97706);
   line-height: 1.5;
 }
+
+/* Senetler: faiz hesaplayıcı */
+.sn-calc { padding: 0; margin: 12px 0; }
+.sn-calc-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 12px 14px; background: none; border: 0; font: inherit; font-weight: 600; color: inherit; cursor: pointer; text-align: left; }
+.sn-calc-head .pj-muted { font-weight: 400; margin-left: 6px; }
+.sn-calc-body { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; padding: 0 14px 14px; }
+.sn-calc-body label { display: grid; gap: 4px; font-size: 13px; }
+.sn-calc-result { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: baseline; padding-top: 4px; }

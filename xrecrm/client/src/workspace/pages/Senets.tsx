@@ -1,9 +1,9 @@
 // Senet takibi: tüm satışların senetleri, vadesi geçenler ve gecikme faizi; yönetici için sözleşme şablonu.
 import { useMemo, useRef, useState } from "react";
-import { Check, Download, RotateCcw, Trash2, Upload } from "lucide-react";
+import { Calculator, Check, Download, RotateCcw, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { formatDay, formatMoney, formatPct } from "../../../../shared/quotes";
-import { lateInterest } from "../../../../shared/senet";
+import { lateInterest, senetCsv } from "../../../../shared/senet";
 import { PageTitle } from "../components/ui";
 import { useInventory } from "../projects";
 import { goTo, useQuotes } from "../quotes";
@@ -82,6 +82,16 @@ export default function Senets() {
       toast.error((error as Error).message);
     }
   };
+  // Muhasebe için: ekranda süzülmüş senetler Excel'de açılan dosya olarak iner.
+  const exportCsv = () => {
+    if (!shown.length) return void toast.info("Aktarılacak senet yok.");
+    const csv = senetCsv(shown.map((x) => ({ ...x.row, senet: x.senet })), today);
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    link.download = `senetler-${today}.csv`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+  };
   const upload = async (file: File | undefined) => {
     if (!file) return;
     try {
@@ -102,9 +112,14 @@ export default function Senets() {
         title="Senetler"
         description="Satışların senet dökümü: vadesi gelenler, gecikenler ve gecikme faizi. Senetler, onaylı teklifin “Sözleşme ve senetler” bölümünden oluşturulur."
         actions={
-          <button type="button" className="btn secondary pj-touch" onClick={() => goTo("/quotes", withBase)}>
-            Teklifler
-          </button>
+          <>
+            <button type="button" className="btn secondary pj-touch" onClick={exportCsv}>
+              <Download size={15} /> Excel'e aktar
+            </button>
+            <button type="button" className="btn secondary pj-touch" onClick={() => goTo("/quotes", withBase)}>
+              Teklifler
+            </button>
+          </>
         }
       />
       <Guide id="senets" title="Senetler neye göre oluşur?" steps={SENET_GUIDE} />
@@ -129,6 +144,8 @@ export default function Senets() {
           </div>
         ))}
       </div>
+
+      <InterestCalculator today={today} />
 
       <div className="qt-tabs" role="tablist">
         {FILTERS.map(([f, label]) => (
@@ -269,6 +286,64 @@ export default function Senets() {
             </div>
           </details>
         </section>
+      )}
+    </div>
+  );
+}
+
+/** Faiz hesaplayıcı: herhangi bir tutar için gecikme faizi (senet ekranındaki hesapla aynı formül). */
+function InterestCalculator({ today }: { today: string }) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [payDate, setPayDate] = useState(today);
+  const [pct, setPct] = useState("");
+  const value = Number(amount.replace(/\./g, "").replace(",", "."));
+  const rate = Number(pct.replace(",", "."));
+  const ready = value > 0 && rate >= 0 && pct !== "" && /^\d{4}-\d{2}-\d{2}$/.test(dueDate) && /^\d{4}-\d{2}-\d{2}$/.test(payDate);
+  const result = ready ? lateInterest({ amount: value, dueDate, status: "bekliyor", paidAt: null }, payDate, rate) : null;
+  const money = (n: number) => n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (
+    <div className="pj-panel sn-calc">
+      <button type="button" className="sn-calc-head" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Calculator size={16} /> Faiz hesapla
+        <span className="pj-muted">Herhangi bir tutar için gecikme faizini hesaplayın</span>
+      </button>
+      {open && (
+        <div className="sn-calc-body">
+          <label>
+            Tutar
+            <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="100.000,00" />
+          </label>
+          <label>
+            Vade tarihi
+            <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          </label>
+          <label>
+            Ödeme (hesap) tarihi
+            <input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+          </label>
+          <label>
+            Aylık faiz %
+            <input inputMode="decimal" value={pct} onChange={(e) => setPct(e.target.value.replace(/[^\d.,]/g, ""))} placeholder="3" />
+          </label>
+          <div className="sn-calc-result" aria-live="polite">
+            {result ? (
+              result.daysLate ? (
+                <>
+                  <span>{result.daysLate} gün gecikme</span>
+                  <strong>Faiz: {money(result.interest)}</strong>
+                  <strong>Toplam: {money(result.total)}</strong>
+                  <span className="pj-muted">Tutar × aylık oran × gün ÷ 30 (basit faiz)</span>
+                </>
+              ) : (
+                <span>Gecikme yok; faiz işlemez.</span>
+              )
+            ) : (
+              <span className="pj-muted">Tutar, tarihler ve oranı girin.</span>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

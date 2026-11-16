@@ -311,3 +311,36 @@ export function contractData(
   };
   return { fields, tables };
 }
+
+/** Muhasebe dökümü satırı (Excel'de açılan CSV için). */
+export interface SenetExportRow {
+  quoteNo: string;
+  customer: string;
+  phone: string;
+  projectName: string;
+  unitLabel: string;
+  employee: string;
+  lateInterestMonthlyPct: number;
+  senet: Senet;
+}
+const csvCell = (value: unknown) => {
+  let text = String(value ?? "");
+  // Excel'in hücreyi formül olarak çalıştırmasını engelle.
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+const csvNumber = (value: number) => value.toFixed(2).replace(".", ",");
+
+/** Senet dökümünü Türkçe Excel'in doğrudan açtığı biçimde (noktalı virgül, virgüllü kuruş) üretir. */
+export function senetCsv(rows: SenetExportRow[], today: string): string {
+  const head = ["Teklif no", "Müşteri", "Telefon", "Proje", "Bağımsız bölüm", "Senet no", "Tür", "Vade", "Tutar", "Para birimi", "Durum", "Ödeme tarihi", "Gecikme (gün)", "Aylık faiz %", "Gecikme faizi", "Faiz dahil toplam", "Satış temsilcisi"];
+  const lines = rows.map((row) => {
+    const s = row.senet;
+    const late = lateInterest(s, today, row.lateInterestMonthlyPct);
+    const status = s.status === "ödendi" ? "Ödendi" : s.dueDate < today ? "Vadesi geçti" : "Bekliyor";
+    return [row.quoteNo, row.customer, row.phone, row.projectName, row.unitLabel, `${s.no}/${s.of}`, s.kind, s.dueDate, csvNumber(s.amount), s.currency, status, s.paidAt ? s.paidAt.slice(0, 10) : "", late.daysLate, csvNumber(row.lateInterestMonthlyPct), csvNumber(late.interest), csvNumber(late.total), row.employee]
+      .map(csvCell)
+      .join(";");
+  });
+  return `﻿${[head.join(";"), ...lines].join("\r\n")}\r\n`;
+}
