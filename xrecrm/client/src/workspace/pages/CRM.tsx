@@ -1002,7 +1002,7 @@ export default function CRM({
                           navigate={navigate}
                         />
                         <div className="lead-card-footer">
-                          <span>
+                          <span title={`Sorumlu: ${l.owner}`}>
                             <Avatar name={l.owner} size={21} />
                             {l.owner}
                           </span>

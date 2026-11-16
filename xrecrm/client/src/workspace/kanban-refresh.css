@@ -375,3 +375,149 @@ html .app-shell .b24-kanban .crm-lead-actions :is(button, a):not(#_) { font-size
 html .app-shell .b24-kanban .lead-card-footer:not(#_) { margin-top: 0; padding: 5px 0 0; min-height: 0; }
 html .app-shell .b24-kanban .lead-card-footer > span:not(#_) { font-size: 11px; }
 html .app-shell .b24-kanban .lead-card-footer select:not(#_) { font-size: 10.5px; padding: 2px 18px 2px 6px; min-height: 24px; height: 24px; }
+
+
+/* === Bitrix24 benzeri sıkı kart düzeni ===========================================
+   Solda ad, tutar, kaynak ve sıradaki etkinlik; sağda alt alta küçük işlem simgeleri; sağ altta sorumlu.
+   "Ayrıntılı" kart profili seçilirse eski geniş kart kullanılır (Düzen düğmesinden). */
+html .app-shell .b24-kanban .kanban-column:not(#_) { min-width: 214px; width: 214px; flex: 0 0 214px; border-radius: 12px; }
+html .app-shell .b24-kanban .kanban-column > header:not(#_) { padding: 8px 10px; }
+html .app-shell .b24-kanban .kanban-column > header h3:not(#_) { font-size: 12.5px; }
+html .app-shell .b24-kanban .kanban-column > header strong:not(#_) { font-size: 13px; }
+html .app-shell .b24-kanban .kanban-cards:not(#_) { gap: 6px; padding: 6px; }
+
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px;
+  /* Simge sütunu soldaki üç satırdan uzunsa fazla boşluk kaynak satırının altına gider */
+  grid-template-rows: min-content min-content 1fr min-content;
+  column-gap: 6px;
+  row-gap: 1px;
+  align-items: start;
+  padding: 7px 7px 6px 11px;
+  border-radius: 8px;
+}
+/* Üst satırın parçaları ayrı ayrı yerleştirilir */
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top { display: contents; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > input[type="checkbox"] {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  opacity: 0;
+  z-index: 2;
+  background: var(--xre-surface);
+  transition: opacity 0.12s;
+}
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_):hover .lead-card-top > input[type="checkbox"],
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > input[type="checkbox"]:checked,
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > input[type="checkbox"]:focus-visible { opacity: 1; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > .crm-open-count,
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > .icon-button:not(.lead-delete) { display: none; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > .b24-card-source {
+  grid-column: 1;
+  grid-row: 3;
+  font-size: 10px;
+  line-height: 1.3;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  color: var(--xre-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > .lead-delete {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  padding: 0;
+  opacity: 0;
+  z-index: 3;
+  background: var(--xre-surface);
+  border-radius: 6px;
+}
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_):hover .lead-card-top > .lead-delete,
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > .lead-delete:focus-visible { opacity: 1; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-deal-title {
+  grid-column: 1;
+  grid-row: 1;
+  font-size: 12.5px;
+  line-height: 1.25;
+  font-weight: 650;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-deal-value { grid-column: 1; grid-row: 2; font-size: 12px; font-weight: 600; margin: 1px 0 0; line-height: 1.3; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-card-secondary,
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-contact-link,
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-card-tags { display: none; }
+/* Sağdaki işlem simgeleri: alt alta, yalnız simge */
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .crm-lead-actions { grid-column: 2; grid-row: 1 / span 3; margin: 0; padding: 0; min-width: 0; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .v6-quick-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+}
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .v6-quick-actions button {
+  width: 22px;
+  height: 17px;
+  min-height: 17px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--xre-text-faint);
+  font-size: 0;
+}
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .v6-quick-actions button span { display: none; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .v6-quick-actions button svg { width: 13px; height: 13px; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .v6-quick-actions button:hover:not(:disabled) { color: var(--xre-accent-strong); background: var(--xre-accent-soft); }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-next-activity {
+  grid-column: 1;
+  grid-row: 4;
+  margin: 3px 0 0;
+  padding: 0;
+  border: 0;
+  font-size: 10.5px;
+  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  color: var(--xre-text-faint);
+}
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-next-activity svg { width: 11px; height: 11px; flex: none; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-next-activity > span { display: flex; gap: 5px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-next-activity > span small { font-size: 10px; opacity: 0.85; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-next-activity button { font-size: 10.5px; padding: 0; min-height: 0; color: inherit; display: inline-flex; align-items: center; gap: 3px; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .b24-next-activity button:hover { color: var(--xre-accent-strong); }
+/* Sağ altta sorumlunun küçük resmi; adı üzerine gelince görünür */
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-footer {
+  grid-column: 2;
+  grid-row: 4;
+  margin: 2px 0 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  justify-content: center;
+  min-height: 0;
+}
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-footer > span { font-size: 0; display: flex; gap: 0; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-footer > span .avatar { width: 18px; height: 18px; font-size: 8px; }
+html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-footer select { display: none; }
+html .app-shell .b24-kanban .add-card:not(#_) { font-size: 11.5px; padding: 6px; min-height: 0; }
+html .app-shell .b24-kanban .column-automation:not(#_) { font-size: 11px; padding: 6px 10px; }
+
+/* Kenardaki kaydırma oku: gölge şeridi kaldırıldı, yalnız ok kaldı */
+html .app-shell .kanban-edge:not(#_) { background: none; width: 44px; padding: 0; justify-content: center; }
+html .app-shell .kanban-edge button:not(#_) { box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14); width: 30px; height: 52px; opacity: 0.9; }
