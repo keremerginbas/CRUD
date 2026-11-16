@@ -43,7 +43,19 @@ export function allowedPrivateHosts(): string[] {
     .filter(Boolean);
 }
 
-export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
+export interface OutboundOptions {
+  /**
+   * Yalnız adı tam olarak verilen genel sunucu için düz HTTP'ye izin verir
+   * (ör. sağlayıcının HTTPS sunmadığı sabit API adresi). Özel ağ ve DNS
+   * denetimleri bu durumda da uygulanır.
+   */
+  allowHttpHost?: string;
+}
+
+export async function assertSafeOutboundUrl(
+  raw: string,
+  options: OutboundOptions = {},
+): Promise<URL> {
   let url: URL;
   try {
     url = new URL(raw);
@@ -60,7 +72,11 @@ export async function assertSafeOutboundUrl(raw: string): Promise<URL> {
     allowedPrivateHosts().includes(host)
   )
     return url;
-  if (url.protocol !== "https:")
+  const plainHttpAllowed =
+    url.protocol === "http:" &&
+    Boolean(options.allowHttpHost) &&
+    host === options.allowHttpHost!.toLowerCase();
+  if (url.protocol !== "https:" && !plainHttpAllowed)
     throw new OutboundSecurityError("Dış istekler yalnızca HTTPS olabilir.");
   if (
     host === "localhost" ||
@@ -89,8 +105,9 @@ export async function fetchWithTimeout(
   rawUrl: string,
   init: RequestInit = {},
   timeoutMs = 8000,
+  options: OutboundOptions = {},
 ): Promise<Response> {
-  const url = await assertSafeOutboundUrl(rawUrl);
+  const url = await assertSafeOutboundUrl(rawUrl, options);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {

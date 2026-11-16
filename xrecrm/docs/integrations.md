@@ -47,6 +47,8 @@ Meta'nın 24 saatlik müşteri iletişim penceresi, onaylı template gereksinimi
 
 Vapi için `VAPI_API_KEY`, `VAPI_ASSISTANT_ID`, `VAPI_LINE_MAP_JSON`, `VAPI_WEBHOOK_SECRET` gerekir. `POST /api/calls`, seçili müşteri ve AI hat kimliğiyle gerçek `POST /call` isteği yapar. Yapılandırılmış, etkin Vapi otomasyon kuralı da ilgili statüye geçişte kuyruğa girer. Arama sonucu `/api/webhooks/vapi` üzerindeki `end-of-call-report` olayından CRM kaydına bağlanır; transkript ve özet saklanır. Asistanın AI olduğunu bildirmesi ve uygun müşteri iletişim izni sağlanmalıdır.
 
+Netgsm Netsantral (bulut santral) ile tek tıkla arama, gelen arama bildirimi ve görüşme kaydı için bkz. [netsantral.md](netsantral.md).
+
 Netgsm için `NETGSM_SIP_HOST`, `NETGSM_SIP_USERNAME`, `NETGSM_SIP_PASSWORD`, `PBX_GATEWAY_URL`, `PBX_GATEWAY_TOKEN` gerekir. Bu sürüm PBX ağ geçidinin sağlık yanıtını kontrol eder ve hat envanterini yönetir. **SIP trunk, FST cihazları, dahili yönlendirme, RTP ses akışı ve canlı PBX arama/CDR senkronizasyonu mevcut PBX üzerinde ayrıca yapılandırılmalıdır.** Tarayıcıda raw SIP sonlandırıldığı veya gerçek PBX bağlantısının kurulduğu iddia edilmez. Netgsm hatları Vapi'ye SIP/BYO telephony üzerinden sağlayıcı tarafında bağlanmalıdır.
 
 ## Statü otomasyonları ve webhooklar

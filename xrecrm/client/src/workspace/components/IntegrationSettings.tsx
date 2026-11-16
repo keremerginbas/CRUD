@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, KeyRound, RefreshCw, Save, ShieldCheck, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, KeyRound, RefreshCw, Save, ShieldCheck, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "../store";
 import { Badge } from "./ui";
@@ -9,6 +9,46 @@ import {
   type SettingStatus,
 } from "../../../../shared/integration-settings";
 import "../integration-settings.css";
+
+/** Netsantral paneline yapıştırılacak bildirim adresi (API şifresi tarayıcıya gelmez). */
+function NetsantralWebhook({ refreshKey }: { refreshKey: string }) {
+  const { request } = useStore();
+  const [info, setInfo] = useState<{ webhookUrl: string; missing: string[]; active: boolean; portalPath: string } | null>(null);
+  useEffect(() => {
+    request("/api/pbx/netsantral")
+      .then(setInfo)
+      .catch(() => setInfo(null));
+  }, [refreshKey]);
+  if (!info) return null;
+  const copy = () =>
+    navigator.clipboard
+      .writeText(info.webhookUrl)
+      .then(() => toast.success("Adres kopyalandı."))
+      .catch(() => toast.error("Kopyalanamadı; adresi elle seçip kopyalayın."));
+  return (
+    <div className="is-webhook">
+      <label htmlFor="is-netsantral-webhook">Netsantral'a yapıştırılacak bildirim adresi</label>
+      {info.webhookUrl ? (
+        <div className="is-input">
+          <input id="is-netsantral-webhook" readOnly value={info.webhookUrl} onFocus={(e) => e.currentTarget.select()} />
+          <button className="btn secondary small" onClick={() => void copy()}>
+            <Copy size={14} /> Kopyala
+          </button>
+        </div>
+      ) : (
+        <small>Adres oluşturulamadı. Önce "Genel" bölümüne CRM genel adresini yazın.</small>
+      )}
+      <small>
+        Netsantral panelinde {info.portalPath} bölümüne bu adresi yapıştırıp etkinleştirin. Gelen aramalar ve görüşme
+        kayıtları CRM'e bu adresten gelir. Adres gizlidir; kimseyle paylaşmayın.
+      </small>
+      {info.missing.length > 0 && <small>Eksik alanlar: {info.missing.join(", ")}.</small>}
+      {!info.active && info.missing.length === 0 && (
+        <small>Şu an başka bir santral sürücüsü seçili. Netsantral'ı kullanmak için "Santral" bölümündeki Sürücü alanına netsantral yazın.</small>
+      )}
+    </div>
+  );
+}
 
 function GroupCard({
   group,
@@ -44,8 +84,9 @@ function GroupCard({
     if (!group.test) return;
     setBusy("test");
     try {
-      const url = group.test === "pbx" ? "/api/pbx/test" : `/api/integrations/${group.test}/test`;
-      const r = await request(url, {});
+      const pbx = group.test === "pbx" || group.test === "netsantral";
+      const url = pbx ? "/api/pbx/test" : `/api/integrations/${group.test}/test`;
+      const r = await request(url, group.test === "netsantral" ? { driver: "netsantral" } : {});
       toast.success(r.message || "Bağlantı başarılı.");
     } catch (e) {
       toast.error((e as Error).message);
@@ -111,6 +152,9 @@ function GroupCard({
           );
         })}
       </div>
+      {group.id === "netsantral" && (
+        <NetsantralWebhook refreshKey={group.fields.map((f) => status[f.key]?.preview || "").join("|")} />
+      )}
       <footer>
         {group.test && (
           <button className="btn secondary small" disabled={!!busy} onClick={() => void test()}>

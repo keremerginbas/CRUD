@@ -91,6 +91,23 @@ export async function loadIntegrationSettings(store: Store): Promise<number> {
   return Object.keys(stored?.values || {}).length;
 }
 
+/**
+ * Gizli bir ayar boşsa rastgele değer üretip şifreli kaydeder ve değeri döndürür
+ * (ör. webhook adresine gömülen sır). Dolu ise mevcut değere dokunmaz.
+ */
+export async function ensureGeneratedSecret(store: Store, ownerOpenId: string, k: string): Promise<string> {
+  const current = process.env[k]?.trim();
+  if (current) return current;
+  if (!SECRET_KEYS.has(k)) throw new Error(`${k} üretilebilir bir gizli ayar değil.`);
+  const raw = rawStoreOf(store);
+  const stored = (await raw.get<StoredSettings>(KIND, ID, ownerOpenId))?.payload;
+  const value = crypto.randomBytes(24).toString("base64url");
+  const values = { ...(stored?.values || {}), [k]: encryptValue(value) };
+  await raw.put(KIND, ID, { id: ID, values, updatedAt: new Date().toISOString(), updatedBy: stored?.updatedBy }, ownerOpenId);
+  applyValues(values);
+  return value;
+}
+
 function preview(k: string, value: string): string {
   if (!SECRET_KEYS.has(k)) return value.length > 120 ? `${value.slice(0, 117)}…` : value;
   return value.length > 8 ? `••••${value.slice(-4)}` : "••••";

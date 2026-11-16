@@ -28,4 +28,12 @@ describe("Dış bağlantı hedef güvenliği", () => {
   ])("güvensiz hedefi engeller: %s", async (url) => {
     await expect(assertSafeOutboundUrl(url)).rejects.toThrow();
   });
+  it("düz HTTP'ye yalnız adı açıkça verilen genel sunucu için izin verir", async () => {
+    const options = { allowHttpHost: "crmsntrl.netgsm.com.tr" };
+    expect((await assertSafeOutboundUrl("http://crmsntrl.netgsm.com.tr:9111/x", options)).port).toBe("9111");
+    await expect(assertSafeOutboundUrl("http://baska.example", options)).rejects.toThrow();
+    await expect(assertSafeOutboundUrl("http://crmsntrl.netgsm.com.tr.kotu.example", options)).rejects.toThrow();
+    await expect(assertSafeOutboundUrl("http://rebinding.example", { allowHttpHost: "rebinding.example" })).rejects.toThrow();
+    await expect(assertSafeOutboundUrl("http://127.0.0.1", { allowHttpHost: "127.0.0.1" })).rejects.toThrow();
+  });
 });

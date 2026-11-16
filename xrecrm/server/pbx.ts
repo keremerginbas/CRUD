@@ -4,8 +4,10 @@
 // Sürücüler:
 //  - asterisk: Asterisk / FreePBX / Issabel AMI (TCP 5038). Originate ile arama
 //    başlatır; DialBegin olaylarıyla çalan dahiliye kart açar; Cdr olaylarını kaydeder.
-//  - http: Netgsm Netsantral gibi URL tabanlı santraller. Tıkla-ara için URL şablonu
-//    çağrılır; çalma/CDR bilgisi Webhook merkezindeki call.ringing / call.log ile gelir.
+//  - http: URL tabanlı santraller. Tıkla-ara için URL şablonu çağrılır; çalma/CDR
+//    bilgisi Webhook merkezindeki call.ringing / call.log ile gelir.
+//  - netsantral: Netgsm Netsantral bulut santrali (bkz. netsantral.ts). Tıkla-ara
+//    Netgsm API'siyle yapılır; olaylar /api/webhooks/netsantral adresine gelir.
 import crypto from "node:crypto";
 import net from "node:net";
 import type { Express, Request, Response } from "express";
@@ -14,18 +16,30 @@ import type { AuthContext, Lead } from "./types.js";
 import { canAccess, ownsLead, rawStoreOf } from "./access.js";
 import { fetchWithTimeout, normalizePhone } from "./security.js";
 import { lines } from "../shared/lines.js";
-import { decryptValue, encryptValue } from "./integration-settings.js";
+import { decryptValue, encryptValue, ensureGeneratedSecret } from "./integration-settings.js";
+import { forwardedOrigin } from "./auth.js";
+import {
+  NETSANTRAL_PORTAL_PATH,
+  NETSANTRAL_PROVIDER,
+  netsantralConfigured,
+  netsantralEventsActive,
+  netsantralMissing,
+  netsantralOriginate,
+  netsantralWebhookUrl,
+} from "./netsantral.js";
 import type { WebphoneConfig, WebphoneIceServer } from "../shared/webphone.js";
 
 const EXT_KIND = "pbx-extension";
 const env = (k: string) => process.env[k]?.trim() || "";
 
-export function pbxDriver(): "asterisk" | "http" | "" {
+export function pbxDriver(): "asterisk" | "http" | "netsantral" | "" {
   const d = env("PBX_DRIVER").toLowerCase();
   if (d === "asterisk" || d === "ami") return "asterisk";
   if (d === "http") return "http";
+  if (d === "netsantral" || d === "netgsm") return "netsantral";
   if (env("AMI_HOST") && env("AMI_USERNAME")) return "asterisk";
   if (env("PBX_CLICK_TO_CALL_URL")) return "http";
+  if (netsantralConfigured()) return "netsantral";
   return "";
 }
 
@@ -174,7 +188,13 @@ export function dialNumber(phone: string): string {
   return `${prefix}${local}`;
 }
 
-export async function originateCall(input: { ext: string; phone: string; lineId?: string; leadId?: string; callId: string }) {
+export async function originateCall(input: {
+  ext: string;
+  phone: string;
+  lineId?: string;
+  leadId?: string;
+  callId: string;
+}): Promise<{ driver: string; message: string; providerCallId?: string }> {
   const driver = pbxDriver();
   const number = dialNumber(input.phone);
   if (!number) throw Object.assign(new Error("Geçerli müşteri telefonu yok."), { statusCode: 400 });
@@ -217,6 +237,10 @@ export async function originateCall(input: { ext: string; phone: string; lineId?
     if (!response.ok)
       throw Object.assign(new Error(`Santral HTTP ${response.status}: ${text}`), { statusCode: 502 });
     return { driver, message: text || `HTTP ${response.status}` };
+  }
+  if (driver === "netsantral") {
+    const result = await netsantralOriginate({ ext: input.ext, number, callId: input.callId });
+    return { driver, message: result.message, providerCallId: result.providerCallId || undefined };
   }
   throw Object.assign(new Error("Santral sürücüsü yapılandırılmamış. Entegrasyonlar → Santral ayarlarını girin."), { statusCode: 503 });
 }
@@ -406,6 +430,15 @@ export function stopPbxSupervisor() {
   listener = null;
 }
 
+/**
+ * Görüşmeleri sunucu kendisi kaydediyor mu? (Asterisk dinleyicisi bağlıyken ya da
+ * Netsantral bildirimleri gelirken.) Öyleyse tarayıcı telefonu aynı görüşmeyi
+ * ikinci kez yazmaz.
+ */
+export function pbxServerLogsCalls() {
+  return pbxListenerConnected() || (pbxDriver() === "netsantral" && netsantralEventsActive());
+}
+
 export function pbxListenerConnected() {
   return Boolean(listener);
 }
@@ -497,6 +530,31 @@ export function registerPbxRoutes(app: Express, store: Store) {
     });
   });
 
+  // Netsantral kurulum bilgisi: eksik alanlar ve Netsantral paneline yapıştırılacak
+  // bildirim adresi. API şifresi tarayıcıya hiçbir zaman gönderilmez.
+  const netsantralInfo = async (req: Request) => {
+    const auth = authOf(req);
+    const secret = await ensureGeneratedSecret(store, auth.ownerOpenId, "NETSANTRAL_WEBHOOK_SECRET");
+    const origin = (env("PUBLIC_ORIGIN") || forwardedOrigin(req)).replace(/\/$/, "");
+    return {
+      active: pbxDriver() === "netsantral",
+      missing: [...netsantralMissing(), ...(secret.length < 16 ? ["Bildirim adresi anahtarı (en az 16 karakter; silip boş bırakın)"] : [])],
+      webhookUrl: origin && secret.length >= 16 ? netsantralWebhookUrl(origin, secret) : "",
+      portalPath: NETSANTRAL_PORTAL_PATH,
+    };
+  };
+
+  app.get("/api/pbx/netsantral", async (req, res) => {
+    if (!authOf(req).isOwner) return res.status(403).json({ error: "OWNER_REQUIRED", message: "Bu bilgiyi yalnız çalışma alanı sahibi görebilir." });
+    res.setHeader("cache-control", "no-store");
+    try {
+      res.json(await netsantralInfo(req));
+    } catch (error) {
+      const status = Number((error as any)?.statusCode) || 500;
+      res.status(status).json({ error: "NETSANTRAL_INFO_FAILED", message: status === 500 ? "Netsantral bilgisi okunamadı." : (error as Error).message });
+    }
+  });
+
   app.put("/api/pbx/me", async (req, res) => {
     const auth = authOf(req);
     const current = await recordOf(auth);
@@ -543,15 +601,16 @@ export function registerPbxRoutes(app: Express, store: Store) {
       displayName: (auth.displayName || auth.user.name || "").slice(0, 60),
       dialPrefix: env("PBX_DIAL_PREFIX"),
       iceServers: webphoneIceServers(auth.user.openId),
-      serverLogsCalls: pbxListenerConnected(),
+      serverLogsCalls: pbxServerLogsCalls(),
     } satisfies WebphoneConfig);
   });
 
   // Tarayıcıdan yapılan/karşılanan görüşmenin kaydı. Asterisk dinleyicisi bağlıyken
-  // CDR zaten yazıldığından çift kayıt olmaması için atlanır.
+  // ya da Netsantral bildirimleri gelirken görüşme zaten yazıldığından çift kayıt
+  // olmaması için atlanır.
   app.post("/api/pbx/webphone/log", async (req, res) => {
     const auth = authOf(req);
-    if (pbxListenerConnected()) return res.json({ ok: true, skipped: true });
+    if (pbxServerLogsCalls()) return res.json({ ok: true, skipped: true });
     const body = req.body || {};
     const phone = normalizePhone(body.phone);
     if (phone.length < 10) return res.json({ ok: true, skipped: true });
@@ -607,27 +666,65 @@ export function registerPbxRoutes(app: Express, store: Store) {
         return res.status(403).json({ error: "FORBIDDEN", message: "Bu müşteri kayıt kapsamınızda değil." });
       const phone = lead?.phone || String(req.body?.phone || "");
       const callId = `pbx-orig-${crypto.randomUUID()}`;
-      const result = await originateCall({ ext, phone, lineId: req.body?.lineId, leadId: lead?.id, callId });
+      const owner = auth.ownerOpenId;
       const stamp = new Date().toISOString();
-      await store.put(
-        "call",
-        callId,
-        {
-          id: callId,
-          leadId: lead?.id || null,
-          lineId: req.body?.lineId || null,
-          provider: result.driver === "asterisk" ? "asterisk" : "pbx",
-          direction: "outbound",
-          status: "queued",
-          phone: normalizePhone(phone),
-          agent: ext,
-          startedAt: stamp,
-          createdAt: stamp,
-          updatedAt: stamp,
-        },
-        auth.ownerOpenId,
-      );
-      res.json({ ok: true, callId, message: "Dahili telefonunuz çalıyor; açınca müşteri aranacak." });
+      const netsantral = pbxDriver() === "netsantral";
+      const queued: Record<string, any> = {
+        id: callId,
+        leadId: lead?.id || null,
+        lineId: req.body?.lineId || null,
+        provider: NETSANTRAL_PROVIDER,
+        direction: "outbound",
+        status: "queued",
+        phone: normalizePhone(phone),
+        agent: ext,
+        startedAt: stamp,
+        createdAt: stamp,
+        updatedAt: stamp,
+      };
+      // Netsantral'da kayıt istekten ÖNCE yazılır: santralin ilk olayı tıkla-ara
+      // yanıtından önce gelse bile bu kayda işlenir, ikinci bir kayıt açılmaz.
+      if (netsantral) await store.put("call", callId, queued, owner);
+      let result: Awaited<ReturnType<typeof originateCall>>;
+      try {
+        result = await originateCall({ ext, phone, lineId: req.body?.lineId, leadId: lead?.id, callId });
+      } catch (error) {
+        if (netsantral) await store.delete("call", callId, owner).catch(() => undefined);
+        throw error;
+      }
+      let recordId = callId;
+      if (netsantral) {
+        // Arada gelen olaylar kaydı ilerletmiş olabilir; güncel hâli korunur.
+        const current = (await store.get<any>("call", callId, owner))?.payload || queued;
+        const uid = result.providerCallId || "";
+        // Olay yine de santral kimliğiyle ayrı bir kayıt açtıysa (numara eşleşmediyse) o kayıt kullanılır.
+        const early = uid ? (await store.get<any>("call", `pbx-${uid}`, owner))?.payload : null;
+        if (early) {
+          recordId = early.id;
+          await store.put(
+            "call",
+            recordId,
+            { ...early, leadId: lead?.id || early.leadId || null, lineId: req.body?.lineId || early.lineId || null, direction: "outbound", agent: ext, providerCallId: uid, updatedAt: stamp },
+            owner,
+          );
+          await store.delete("call", callId, owner).catch(() => undefined);
+        } else if (uid && current.providerCallId !== uid) {
+          // Santralin döndürdüğü kimlik kayda yazılır; olaylar başka bir kimlikle
+          // geldiyse (aynı aramanın diğer bacağı) ikisi de aynı kayda bağlanır.
+          const altIds: string[] = Array.isArray(current.providerMeta?.altIds) ? current.providerMeta.altIds : [];
+          await store.put(
+            "call",
+            callId,
+            current.providerCallId
+              ? { ...current, providerMeta: { ...(current.providerMeta || {}), altIds: altIds.includes(uid) ? altIds : [...altIds, uid].slice(-8) } }
+              : { ...current, providerCallId: uid },
+            owner,
+          );
+        }
+      } else {
+        await store.put("call", callId, { ...queued, provider: result.driver === "asterisk" ? "asterisk" : "pbx" }, owner);
+      }
+      res.json({ ok: true, callId: recordId, message: "Dahili telefonunuz çalıyor; açınca müşteri aranacak." });
     } catch (error) {
       const status = Number((error as any)?.statusCode) || 502;
       res.status(status).json({ error: "PBX_CALL_FAILED", message: (error as Error).message });
@@ -638,6 +735,25 @@ export function registerPbxRoutes(app: Express, store: Store) {
     if (!authOf(req).isOwner) return res.status(403).json({ error: "OWNER_REQUIRED", message: "Yalnız sahip test edebilir." });
     try {
       const driver = pbxDriver();
+      if (driver === "netsantral" || String(req.body?.driver || "").toLowerCase() === "netsantral") {
+        const info = await netsantralInfo(req);
+        if (info.missing.length)
+          return res.status(503).json({
+            error: "NOT_CONFIGURED",
+            message: `Netsantral ayarları eksik: ${info.missing.join(", ")}. Alanları doldurup kaydedin, sonra yeniden deneyin.`,
+          });
+        // Netgsm zararsız bir "deneme" isteği belgelemediği için burada santrale istek gönderilmez.
+        return res.json({
+          ok: true,
+          webhookUrl: info.webhookUrl,
+          message:
+            "Netsantral ayarları tamam. Buradan gerçek arama yapılmaz; ilk denemeyi bir müşteri kartındaki Ara düğmesiyle yapın. " +
+            (info.webhookUrl
+              ? `Gelen aramaların ve görüşme kayıtlarının CRM'e düşmesi için Netsantral panelinde ${NETSANTRAL_PORTAL_PATH} bölümüne şu adresi yapıştırın: ${info.webhookUrl}`
+              : "Bildirim adresi oluşturulamadı: Entegrasyonlar → Genel bölümüne CRM genel adresini yazın.") +
+            (info.active ? "" : " Not: şu an başka bir santral sürücüsü seçili; Netsantral'ı kullanmak için Santral bölümündeki Sürücü alanına netsantral yazın."),
+        });
+      }
       if (driver === "asterisk") {
         const ping = await withAmi((ami) => ami.send({ Action: "Ping" }));
         return res.json({ ok: true, message: `Asterisk AMI bağlantısı başarılı (${ping.Ping || ping.Response}).${pbxListenerConnected() ? " Olay dinleyicisi aktif." : ""}` });

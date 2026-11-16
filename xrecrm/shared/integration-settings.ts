@@ -31,10 +31,10 @@ export const SETTING_GROUPS: SettingGroup[] = [
   {
     id: "pbx",
     title: "Santral (Asterisk / FreePBX / Netgsm)",
-    description: "Tıkla-ara ve gelen aramada müşteri kartı. Asterisk AMI veya URL tabanlı santral.",
+    description: "Tıkla-ara ve gelen aramada müşteri kartı. Asterisk AMI veya URL tabanlı santral. Netgsm Netsantral için aşağıdaki ayrı bölümü kullanın.",
     test: "pbx",
     fields: [
-      { key: "PBX_DRIVER", label: "Sürücü", placeholder: "asterisk veya http", help: "asterisk: AMI ile arama başlatır ve gelen aramaları dinler. http: santralin tıkla-ara URL'sini çağırır." },
+      { key: "PBX_DRIVER", label: "Sürücü", placeholder: "asterisk, http veya netsantral", help: "asterisk: AMI ile arama başlatır ve gelen aramaları dinler. http: santralin tıkla-ara URL'sini çağırır. netsantral: Netgsm bulut santrali (ayarları Netsantral bölümünde). Boş bırakılırsa doldurduğunuz bölüme göre kendiliğinden seçilir." },
       { key: "AMI_HOST", label: "AMI sunucusu", placeholder: "10.0.0.10" },
       { key: "AMI_PORT", label: "AMI portu", placeholder: "5038" },
       { key: "AMI_USERNAME", label: "AMI kullanıcı adı", placeholder: "xrecrm" },
@@ -45,6 +45,22 @@ export const SETTING_GROUPS: SettingGroup[] = [
       { key: "PBX_CLICK_TO_CALL_TOKEN", label: "Tıkla-ara anahtarı (http)", secret: true, help: "Authorization: Bearer başlığı olarak gönderilir." },
       { key: "PBX_GATEWAY_URL", label: "PBX ağ geçidi URL", placeholder: "https://pbx.example.com" },
       { key: "PBX_GATEWAY_TOKEN", label: "PBX ağ geçidi anahtarı", secret: true },
+    ],
+  },
+  {
+    id: "netsantral",
+    title: "Netsantral (Netgsm bulut santrali)",
+    description: "Müşteri kartından tek tıkla arama, gelen aramada müşteri kartı ve görüşme kayıtları. Kurulum adımları: docs/netsantral.md",
+    test: "netsantral",
+    fields: [
+      { key: "NETSANTRAL_USERCODE", label: "API kullanıcı adı", placeholder: "8500000000", help: "Netgsm hesabınızda API yetkisi tanımlı alt kullanıcının adı. Bilmiyorsanız Netgsm destekten \"Netsantral için API yetkili alt kullanıcı\" isteyin; size bir kullanıcı adı ve şifre verirler." },
+      { key: "NETSANTRAL_PASSWORD", label: "API şifresi", secret: true, help: "Yukarıdaki API kullanıcısının şifresi. Panele giriş şifreniz değil, alt kullanıcıya verdiğiniz şifredir." },
+      { key: "NETSANTRAL_PBX_NUMBER", label: "Santral numarası", placeholder: "8500000000", help: "Netsantral'a bağlı ana numaranız (genelde 0850 ile başlar). Başında 0 olmadan, boşluksuz yazın." },
+      { key: "NETSANTRAL_TRUNK", label: "Dış hat numarası (isteğe bağlı)", placeholder: "8500000000", help: "Müşteriyi ararken görünecek numara. Tek numaranız varsa boş bırakın; santral numarası kullanılır." },
+      { key: "NETSANTRAL_RING_TIMEOUT", label: "Çalma süresi (saniye)", placeholder: "20", help: "Telefon kaç saniye çalsın. Boş bırakılırsa 20 saniye." },
+      { key: "NETSANTRAL_ORIGINATE_ORDER", label: "Arama sırası", placeholder: "if", help: "if: önce sizin dahili telefonunuz çalar, açınca müşteri aranır (önerilen). of: önce müşteri aranır, açınca dahiliniz çalar." },
+      { key: "NETSANTRAL_API_URL", label: "Servis adresi (isteğe bağlı)", placeholder: "http://crmsntrl.netgsm.com.tr:9111", help: "Boş bırakın. Yalnız Netgsm size farklı bir adres verirse buraya yazın." },
+      { key: "NETSANTRAL_WEBHOOK_SECRET", label: "Bildirim adresi anahtarı", secret: true, help: "Boş bırakın; CRM kendisi üretir. Netsantral'a yapıştıracağınız adres aşağıda gösterilir. Bu anahtarı silerseniz adres değişir ve Netsantral panelinde yeniden yapıştırmanız gerekir." },
     ],
   },
   {

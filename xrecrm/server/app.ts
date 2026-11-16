@@ -109,6 +109,11 @@ import { registerBitrixImportRoutes } from "./bitrix-import.js";
 import { registerIntegrationSettingsRoutes } from "./integration-settings.js";
 import { registerEmailRoutes, sendAutomationEmail, startEmailPoller } from "./email.js";
 import { registerPbxRoutes, startPbxSupervisor } from "./pbx.js";
+import {
+  NETSANTRAL_PROVIDER,
+  registerNetsantralWebhook,
+  replayNetsantralEvent,
+} from "./netsantral.js";
 import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-inventory.js";
 import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
 import { registerBackupRoutes, startBackupScheduler } from "./backup.js";
@@ -662,6 +667,8 @@ async function executeOutbox(
       await processVapiWebhook(store, owner, body);
     else if (payload.provider === "inbound")
       await processInboundWebhook(store, owner, body);
+    else if (payload.provider === NETSANTRAL_PROVIDER)
+      await replayNetsantralEvent(store, owner, body);
     return { replayed: true, provider: payload.provider };
   }
   const lead = payload.leadId
@@ -1795,6 +1802,13 @@ export function createApp(
       scheduleConversationAnalysis(target, owner, "call", callId),
   };
   registerHookInboundRoute(app, store, hubDeps);
+  // Netgsm Netsantral olayları (gelen arama, cevap, görüşme sonu kaydı).
+  const netsantralHook = { id: "netsantral", name: "Netsantral" };
+  registerNetsantralWebhook(app, store, {
+    ownerScope,
+    logCall: (owner, input) => runInboundAction(store, owner, netsantralHook, "call.log", input, hubDeps),
+    ring: (owner, input) => runInboundAction(store, owner, netsantralHook, "call.ringing", input, hubDeps),
+  });
   if (options.background)
     startPbxSupervisor(store, (target, owner, input) =>
       runInboundAction(

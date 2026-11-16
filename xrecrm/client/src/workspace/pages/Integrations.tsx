@@ -355,6 +355,15 @@ export default function Integrations({
               }}
             />
           )}
+          {selected.id === "netgsm" && (
+            <>
+              <h4 className="setup-heading">Netsantral (Netgsm bulut santrali)</h4>
+              <p className="setup-footnote">
+                Netgsm Netsantral kullanıyorsanız yalnız bu bölümü doldurun; yukarıdaki alanları boş bırakın.
+              </p>
+              <ProviderSettings groupId="netsantral" />
+            </>
+          )}
           <details className="integration-tech">
             <summary>Teknik ayrıntılar</summary>
           <h4 className="setup-heading">Gerekli sunucu değişkenleri</h4>
