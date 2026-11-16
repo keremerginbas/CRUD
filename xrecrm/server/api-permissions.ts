@@ -43,6 +43,7 @@ export function requireModulePermissions(
     path === "/branding" ||
     path === "/integrations/sms/test" ||
     path === "/integrations/mail/test" ||
+    path === "/integrations/telegram/test" ||
     path === "/pbx/me" ||
     path === "/lines" ||
     path === "/audit" ||

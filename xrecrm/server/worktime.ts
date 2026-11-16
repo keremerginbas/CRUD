@@ -829,6 +829,74 @@ async function transition(
   });
 }
 
+export interface WorktimeMoveEvent {
+  name: string;
+  action: "start" | "pause" | "resume" | "finish";
+  pauseType?: string;
+  at: string;
+  periods: WorktimePeriod[];
+  netMs: number;
+  breakMs: number;
+}
+type WorktimeListener = (ownerOpenId: string, move: WorktimeMoveEvent) => Promise<void>;
+let listener: WorktimeListener | null = null;
+/** Mesai hareketi kaydedildikten sonra çağrılacak işlev (bildirimler için). */
+export const setWorktimeListener = (fn: WorktimeListener | null) => void (listener = fn);
+
+export interface WorktimeDayRow {
+  userOpenId: string;
+  name: string;
+  open: boolean;
+  activeType: WorktimePeriodType | null;
+  activeSince: string | null;
+  netMs: number;
+  breakMs: number;
+  byType: Record<WorktimePeriodType, number>;
+  count: Record<WorktimePeriodType, number>;
+  firstStartAt: string | null;
+  lastEndAt: string | null;
+  lastSeenAt: string | null;
+}
+/** Bir günün ekip özeti: çalışanların süreleri ve o gün hiç kaydı olmayan etkin çalışanlar. */
+export async function worktimeDaySnapshot(store: Store, ownerOpenId: string, day: string, now = Date.now()): Promise<{ rows: WorktimeDayRow[]; absent: string[] }> {
+  const raw = rawStoreOf(store);
+  const collection = await loadStateCollection(raw, ownerOpenId);
+  const [users, employees] = await Promise.all([raw.list<any>("user", ownerOpenId), raw.list<any>("employee", ownerOpenId)]);
+  const names = new Map<string, string>(users.map((row) => [row.id, profileName(row.payload, row.id)]));
+  for (const row of employees) if (row.payload?.openId && row.payload?.name) names.set(String(row.payload.openId), String(row.payload.name));
+  const rows: WorktimeDayRow[] = [];
+  const seen = new Set<string>();
+  for (const [userOpenId, days] of collection.states) {
+    const state = days.get(day);
+    if (!state || !state.periods.length) continue;
+    seen.add(userOpenId);
+    const totals = totalsForState(state, now);
+    const active = state.periods.find((period) => period.endAt === null) || null;
+    const count: Record<WorktimePeriodType, number> = { work: 0, need: 0, meal: 0, appointment: 0 };
+    for (const period of state.periods) count[period.type] += 1;
+    rows.push({
+      userOpenId,
+      name: names.get(userOpenId) || userOpenId,
+      open: Boolean(active),
+      activeType: active?.type || null,
+      activeSince: active?.startAt || null,
+      netMs: totals.netMs,
+      breakMs: totals.breakMs,
+      byType: totals.byType,
+      count,
+      firstStartAt: totals.firstStartAt,
+      lastEndAt: totals.lastEndAt,
+      lastSeenAt: totals.lastEndAt || active?.startAt || null,
+    });
+  }
+  const absent = employees
+    .map((row) => row.payload)
+    .filter((e) => e?.active !== false && e?.openId && e?.name && !seen.has(String(e.openId)))
+    .map((e) => String(e.name))
+    .sort((a, b) => a.localeCompare(b, "tr"));
+  return { rows, absent };
+}
+
 export function registerWorktimeRoutes(app: Express, store: Store): void {
   let persistence = rawStoreOf(store);
   while ((persistence as any).__rawStore)
@@ -859,7 +927,21 @@ export function registerWorktimeRoutes(app: Express, store: Store): void {
       try {
         const auth = authOf(req);
         const input = transitionSchema.parse(req.body);
-        res.json(await transition(persistence, auth, input));
+        const result = await transition(persistence, auth, input);
+        res.json(result);
+        // Bildirim (ör. Telegram) yanıtı bekletmez; hatası mesai kaydını etkilemez.
+        if (listener && !result.duplicate) {
+          const state = result.state as ReturnType<typeof publicState>;
+          void listener(auth.ownerOpenId, {
+            name: auth.displayName || auth.user.name || "Çalışan",
+            action: input.action,
+            pauseType: input.pauseType,
+            at: (result as { serverAt?: string }).serverAt || nowIso(),
+            periods: state.periods,
+            netMs: state.totals.netMs,
+            breakMs: state.totals.breakMs,
+          }).catch((error) => console.warn("Mesai bildirimi gönderilemedi:", error instanceof Error ? error.message : error));
+        }
       } catch (error) {
         errorResponse(
           res,

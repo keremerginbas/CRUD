@@ -20,6 +20,7 @@ import {
   BellRing,
   Zap,
   Smartphone,
+  Send,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Rule, Lead, lines, formatPhone } from "../data";
@@ -46,6 +47,7 @@ const actionNames = {
   email: "E-posta gönder",
   notify: "Çalışana bildirim gönder",
   sms: "SMS gönder",
+  telegram: "Telegram grubuna yaz",
 };
 const icons = {
   task: CheckSquare,
@@ -58,6 +60,7 @@ const icons = {
   email: Mail,
   notify: BellRing,
   sms: Smartphone,
+  telegram: Send,
 };
 const catalogGroups = [
   { id: "customer", label: "Müşteri iletişimi", icon: MessageCircle },
@@ -75,6 +78,7 @@ const catalogItems: { group: string; action: Rule["action"]; title: string; desc
   { group: "record", action: "note", title: "Karta not ekle", description: "Müşteri kartının akışına otomatik bir not yazar." },
   { group: "customer", action: "vapi", title: "Yapay zekâ ile ara", description: "Sesli asistan müşteriyi arar, sonucu müşteri kartına yazar." },
   { group: "team", action: "task", title: "Görev oluştur", description: "Sorumlu danışmana son tarihli bir görev açar." },
+  { group: "team", action: "telegram", title: "Telegram grubuna yaz", description: "Ekibin Telegram grubuna müşteri adıyla birlikte mesaj atar (Entegrasyonlar → Telegram)." },
   { group: "team", action: "notify", title: "Çalışana bildirim gönder", description: "Seçtiğiniz kişinin bildirim kutusuna not bırakır; çevrimdışıysa girişte görür." },
   { group: "systems", action: "webhook", title: "Webhook gönder", description: "Müşteri bilgisini n8n gibi başka bir sisteme iletir." },
 ];
@@ -808,12 +812,14 @@ export default function Automations() {
                   </select>
                 </label>
               )}
-              {(["task", "whatsapp", "note", "email", "notify", "sms"] as string[]).includes(editing.action) && (
+              {(["task", "whatsapp", "note", "email", "notify", "sms", "telegram"] as string[]).includes(editing.action) && (
                 <label className="full">
                   {editing.action === "task"
                     ? "Görev açıklaması"
                     : editing.action === "sms"
                       ? "SMS metni"
+                    : editing.action === "telegram"
+                      ? "Telegram mesajı"
                     : editing.action === "notify"
                       ? "Bildirim metni"
                     : editing.action === "note"

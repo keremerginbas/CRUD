@@ -28,6 +28,26 @@ import {
   EmailEntry,
 } from "./EmailTimeline";
 import type { EmailMessage } from "../../../../shared/email";
+const CALL_STATUS: Record<string, string> = {
+  answered: "Görüşüldü",
+  ended: "Görüşüldü",
+  completed: "Görüşüldü",
+  "no-answer": "Cevap yok",
+  missed: "Cevapsız",
+  busy: "Meşgul",
+  failed: "Bağlanamadı",
+  queued: "Arama başlatıldı",
+  ringing: "Çalıyor",
+};
+/** Arama kaydını kartta okunur tek satıra çevirir: sonuç · süre · dahili · not. */
+export function callLine(c: { status?: string; durationSeconds?: number; agent?: string | null; summary?: string; recordingUrl?: string }): string {
+  const seconds = Math.max(0, Math.round(Number(c.durationSeconds) || 0));
+  const parts = [CALL_STATUS[String(c.status || "")] || String(c.status || "Arama")];
+  if (seconds) parts.push(seconds >= 60 ? `${Math.floor(seconds / 60)} dk ${seconds % 60} sn` : `${seconds} sn`);
+  if (c.agent) parts.push(/^\d{2,6}$/.test(String(c.agent)) ? `Dahili ${c.agent}` : String(c.agent));
+  return [parts.join(" · "), c.summary].filter(Boolean).join(" — ");
+}
+
 export default function CustomerTimeline({ lead }: { lead: Lead }) {
   const { data, saveRecord, addNote, demo, request, refresh, user } =
     useStore();
@@ -99,8 +119,8 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
       .map((c) => ({
         id: c.id,
         date: c.createdAt,
-        title: "Telefon görüşmesi",
-        text: c.summary || c.status,
+        title: c.direction === "inbound" ? "Gelen arama" : "Giden arama",
+        text: callLine(c),
         type: "call",
         source: "",
       })),

@@ -8,6 +8,7 @@
 #   Güncelleme  : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --guncelle
 #   Yedek al    : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --yedek
 #   Durum       : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --durum
+#   WhatsApp aç : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --whatsapp
 set -euo pipefail
 
 REPO_URL="https://github.com/keremerginbas/CRUD.git"
@@ -49,6 +50,70 @@ veritabani() {
   echo "HATA: veritabanı açılmadı. Kayıtlar: docker logs --tail 50 $DB_NAME"; return 1
 }
 
+# WhatsApp (QR ile bağlanan hat): Evolution API + Redis. "kur.sh --whatsapp" ile bir kez açılır,
+# sonraki güncellemelerde kendiliğinden yeniden başlar. Dışarıya kapı açılmaz; yalnız CRM konuşur.
+WA_NAME=xrecrm-evolution
+WA_REDIS=xrecrm-redis
+WA_IMAGE=evoapicloud/evolution-api:v2.3.7
+whatsapp_acik() { grep -q '^EVOLUTION_API_KEY=' "$ENVFILE" 2>/dev/null; }
+whatsapp() {
+  whatsapp_acik || return 0
+  local pw key
+  pw=$(grep '^XRE_DB_PASSWORD=' "$ENVFILE" | cut -d= -f2-)
+  key=$(grep '^EVOLUTION_API_KEY=' "$ENVFILE" | cut -d= -f2-)
+  # WhatsApp oturumları CRM veritabanından ayrı bir veritabanında durur (aynı PostgreSQL).
+  docker exec "$DB_NAME" psql -U xrecrm -d xrecrm -tAc "SELECT 1 FROM pg_database WHERE datname='evolution'" | grep -q 1 \
+    || docker exec "$DB_NAME" psql -U xrecrm -d xrecrm -c "CREATE DATABASE evolution" >/dev/null
+  if ! docker ps -a --format '{{.Names}}' | grep -qx "$WA_REDIS"; then
+    docker run -d --name "$WA_REDIS" --restart always --network "$NET" --memory 256m \
+      -v xrecrm_redis:/data redis:7-alpine >/dev/null
+  fi
+  docker start "$WA_REDIS" >/dev/null 2>&1 || true
+  if ! docker ps -a --format '{{.Names}}' | grep -qx "$WA_NAME"; then
+    docker run -d --name "$WA_NAME" --restart always --network "$NET" --memory 1g \
+      -e SERVER_URL="http://$WA_NAME:8080" -e AUTHENTICATION_API_KEY="$key" \
+      -e DATABASE_ENABLED=true -e DATABASE_PROVIDER=postgresql \
+      -e DATABASE_CONNECTION_URI="postgresql://xrecrm:$pw@$DB_NAME:5432/evolution" \
+      -e DATABASE_SAVE_DATA_INSTANCE=true -e DATABASE_SAVE_DATA_NEW_MESSAGE=false \
+      -e CACHE_REDIS_ENABLED=true -e CACHE_REDIS_URI="redis://$WA_REDIS:6379/6" -e CACHE_LOCAL_ENABLED=false \
+      -e CONFIG_SESSION_PHONE_CLIENT="${XRE_WA_CLIENT_NAME:-CRM}" -e CONFIG_SESSION_PHONE_NAME=Chrome -e LANGUAGE=tr \
+      -v xrecrm_evolution:/evolution/instances \
+      "$WA_IMAGE" >/dev/null
+  fi
+  docker start "$WA_NAME" >/dev/null 2>&1 || true
+}
+whatsapp_kur() {
+  [ -f "$ENVFILE" ] || { echo "Kurulum bulunamadı. Önce ilk kurulumu yapın."; exit 1; }
+  if ! whatsapp_acik; then
+    umask 077
+    {
+      echo "EVOLUTION_API_KEY=$(openssl rand -hex 24)"
+      echo "EVOLUTION_WEBHOOK_SECRET=$(openssl rand -hex 24)"
+      echo "EVOLUTION_API_URL=http://$WA_NAME:8080"
+      echo "EVOLUTION_WEBHOOK_URL=http://$NAME:3000/api/webhooks/evolution"
+      echo "OUTBOUND_ALLOW_PRIVATE_HOSTS=$WA_NAME"
+    } >> "$ENVFILE"
+  fi
+  echo "1/3 WhatsApp sunucusu indiriliyor (ilk seferde birkaç dakika sürebilir)..."
+  docker pull -q "$WA_IMAGE" >/dev/null
+  docker pull -q redis:7-alpine >/dev/null
+  echo "2/3 Başlatılıyor..."
+  calistir
+  echo "3/3 Kontrol ediliyor..."
+  bekle || { echo "HATA: CRM açılmadı. Kayıtlar: docker logs --tail 60 $NAME"; exit 1; }
+  local ok=0
+  for _ in $(seq 1 45); do
+    if docker exec "$NAME" node -e "fetch('http://$WA_NAME:8080/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))" 2>/dev/null; then ok=1; break; fi
+    sleep 2
+  done
+  if [ "$ok" = 1 ]; then
+    echo "== WhatsApp hazır =="
+    echo "CRM'de WhatsApp sayfasını açıp 'Hat ekle' ile QR kodu telefondan okutun."
+  else
+    echo "HATA: WhatsApp sunucusu açılmadı. Kayıtlar: docker logs --tail 60 $WA_NAME"; exit 1
+  fi
+}
+
 yedek() {
   mkdir -p "$BACKUPS"
   # Veritabanı dökümü (geri yükleme: gunzip -c dosya | docker exec -i xrecrm-db psql -U xrecrm -d xrecrm)
@@ -69,6 +134,7 @@ yedek() {
 
 calistir() {
   veritabani
+  whatsapp
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   # Bellek sınırı: aşırı yükte bütün makine değil yalnız CRM yeniden başlar.
   docker run -d --name "$NAME" --restart always --network "$NET" --memory 2g \
@@ -90,8 +156,10 @@ bekle() {
 
 case "${1:-}" in
   --yedek) yedek; exit 0 ;;
+  --whatsapp) whatsapp_kur; exit 0 ;;
   --durum)
     docker ps --filter "name=^${NAME}$" --format 'Konteyner: {{.Names}}  {{.Status}}'
+    if whatsapp_acik; then docker ps --filter "name=^${WA_NAME}$" --format 'WhatsApp:  {{.Names}}  {{.Status}}'; fi
     curl -fsS "http://127.0.0.1:$PORT/health" >/dev/null 2>&1 && echo "Sunucu yanıt veriyor (kapı $PORT)." || echo "Sunucu YANIT VERMİYOR. Kayıtlar: docker logs --tail 50 $NAME"
     ls -1t "$BACKUPS" 2>/dev/null | head -3 | sed 's/^/Son yedek: /' || true
     exit 0 ;;

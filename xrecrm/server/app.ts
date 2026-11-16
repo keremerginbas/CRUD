@@ -121,6 +121,7 @@ import { registerDealerRoutes } from "./dealers.js";
 import { registerLiveRoutes } from "./live.js";
 import { registerPasswordResetRoutes } from "./password-reset.js";
 import { startSenetReminders } from "./senet-reminders.js";
+import { escapeHtml, registerTelegram, sendTelegram, startTelegramScheduler } from "./telegram.js";
 import { registerBrandingAdminRoutes, registerBrandingPublicRoutes } from "./branding.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
 import { guardOutbound, lineProvider, registerWhatsappChatRoutes } from "./whatsapp-chat.js";
@@ -619,7 +620,7 @@ async function executeOutbox(
           ? "calls"
           : payload.action === "webhook"
             ? "integrations"
-            : ["stage", "owner", "note", "email", "notify", "sms"].includes(String(payload.action))
+            : ["stage", "owner", "note", "email", "notify", "sms", "telegram"].includes(String(payload.action))
               ? "crm"
               : "tasks";
     if (
@@ -795,6 +796,19 @@ async function executeOutbox(
       leadId: lead.id,
     });
     return { completed: true, activity: "notify", leadId: lead.id, recipient, notificationId: item?.id };
+  }
+  if (action === "telegram") {
+    const text = renderTemplate(typeof config.template === "string" ? config.template : "", lead).trim();
+    if (!text) throw Object.assign(new Error("Telegram kuralı için metin gerekli."), { statusCode: 400 });
+    // Bot kurulumun sahibine aittir; kayıtla açılan başka çalışma alanları bu gruba yazamaz.
+    if (owner !== (await rawStoreOf(store).resolveOwner().catch(() => undefined)))
+      return { skipped: true, reason: "Telegram bildirimi bu çalışma alanında kullanılamıyor." };
+    const delivered = await sendTelegram(
+      `🔔 <b>${escapeHtml(lead.name)}</b>${lead.phone ? ` · ${escapeHtml(lead.phone)}` : ""}\n${escapeHtml(text)}`,
+      String(config.chatId || "").trim() || undefined,
+    );
+    if (!delivered) return { skipped: true, reason: "Telegram ayarlanmamış (Entegrasyonlar → Telegram)." };
+    return { completed: true, activity: "telegram", leadId: lead.id };
   }
   if (action === "email") {
     const sent = await sendAutomationEmail(
@@ -1792,6 +1806,7 @@ export function createApp(
   registerSmsRoutes(app, store);
   registerProjectRoutes(app, store);
   registerLiveRoutes(app);
+  registerTelegram(app, store);
   registerBrandingAdminRoutes(app, store);
   registerSaleRoutes(app, store);
   registerDealerRoutes(app, store);
@@ -1808,6 +1823,7 @@ export function createApp(
   });
   if (options.background) startBackupScheduler(baseStore);
   if (options.background) startSenetReminders(rawStore);
+  if (options.background) startTelegramScheduler(rawStore);
   // Bağlı posta kutularının gelen kutusu yoklayıcısı (testte ve XRE_EMAIL_POLL=0 iken çalışmaz).
   if (options.background) startEmailPoller(rawStore);
   if (options.background && withConnector) {

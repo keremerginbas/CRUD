@@ -92,6 +92,19 @@ export const SETTING_GROUPS: SettingGroup[] = [
     ],
   },
   {
+    id: "telegram",
+    title: "Telegram bildirimleri",
+    description: "Mesai hareketleri, günlük mesai raporu, hatırlatmalar ve otomasyon mesajları Telegram grubunuza gelir.",
+    test: "telegram",
+    fields: [
+      { key: "TELEGRAM_BOT_TOKEN", label: "Bot anahtarı", secret: true, help: "Telegram'da @BotFather ile /newbot yazıp bir bot oluşturun; verdiği anahtarı buraya yapıştırın." },
+      { key: "TELEGRAM_CHAT_ID", label: "Grup kimliği", placeholder: "-1001234567890", help: "Botu gruba ekleyin. Kimlik genelde -100 ile başlar; grupta @RawDataBot veya @getidsbot ile öğrenilir." },
+      { key: "TELEGRAM_WORKTIME_MOVES", label: "Mesai hareketleri (isteğe bağlı)", placeholder: "acik", help: "Giriş, mola, dönüş ve çıkışlar gruba yazılır. Kapatmak için: kapali" },
+      { key: "TELEGRAM_DAILY_REPORT", label: "Günlük rapor saati (isteğe bağlı)", placeholder: "20:00", help: "Her akşam bu saatte günün mesai raporu gelir. Kapatmak için: kapali" },
+      { key: "TELEGRAM_WORKTIME_REMINDER", label: "Mesaiyi kapat hatırlatması (isteğe bağlı)", placeholder: "18:05", help: "Bu saatte mesaisi hâlâ açık olanlar gruba yazılır. Kapatmak için: kapali" },
+    ],
+  },
+  {
     id: "mail",
     title: "Sistem e-postası (SMTP)",
     description: "Davet, doğrulama kodu ve şifre sıfırlama e-postaları bu hesaptan gönderilir.",

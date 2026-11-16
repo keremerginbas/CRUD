@@ -35,7 +35,7 @@ export interface Rule {
   id: string;
   name: string;
   triggerStage: Stage;
-  action: "task" | "whatsapp" | "vapi" | "webhook" | "stage" | "owner" | "note" | "email" | "notify" | "sms";
+  action: "task" | "whatsapp" | "vapi" | "webhook" | "stage" | "owner" | "note" | "email" | "notify" | "sms" | "telegram";
   enabled: boolean;
   config: Record<string, string>;
   policy?: AutomationPolicy;

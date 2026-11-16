@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import {
   MessageCircle,
   Mail,
+  Send,
   Smartphone,
   Phone,
   Sparkles,
@@ -74,6 +75,16 @@ const providers = [
     path: "",
   },
   {
+    id: "telegram",
+    name: "Telegram",
+    caption: "Mesai ve otomasyon bildirimleri",
+    icon: Send,
+    tone: "blue",
+    text: "Mesai giriş-çıkışları, günlük rapor ve otomasyon mesajları Telegram grubunuza gelir.",
+    keys: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID"],
+    path: "",
+  },
+  {
     id: "mail",
     name: "Sistem e-postası",
     caption: "Davet ve doğrulama e-postaları",
@@ -132,6 +143,7 @@ const settingGroupOf: Record<string, string> = {
   netgsm: "pbx",
   sms: "sms",
   mail: "mail",
+  telegram: "telegram",
   vapi: "vapi",
   webhook: "legacy-webhooks",
   bitrix: "bitrix",
