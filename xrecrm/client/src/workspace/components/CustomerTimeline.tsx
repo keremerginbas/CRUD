@@ -39,6 +39,8 @@ const CALL_STATUS: Record<string, string> = {
   queued: "Arama başlatıldı",
   ringing: "Çalıyor",
 };
+/** Ses kaydı bağlantısı yalnız güvenli (https) adresse oynatıcıya verilir. */
+export const recordingUrl = (value: unknown): string => (typeof value === "string" && /^https:\/\//i.test(value) ? value : "");
 /** Arama kaydını kartta okunur tek satıra çevirir: sonuç · süre · dahili · not. */
 export function callLine(c: { status?: string; durationSeconds?: number; agent?: string | null; summary?: string; recordingUrl?: string }): string {
   const seconds = Math.max(0, Math.round(Number(c.durationSeconds) || 0));
@@ -123,6 +125,7 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
         text: callLine(c),
         type: "call",
         source: "",
+        recording: recordingUrl(c.recording),
       })),
     ...activities
       .filter((a) => a.completed)
@@ -425,6 +428,11 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
                 <time>{dateTimeLabel(s.date)}</time>
               </header>
               <p>{s.text}</p>
+              {"recording" in s && s.recording && (
+                <audio className="cx-call-recording" controls preload="none" src={s.recording as string}>
+                  <a href={s.recording as string} target="_blank" rel="noreferrer">Ses kaydını aç</a>
+                </audio>
+              )}
               {s.type === "analysis" && (
                 <small className="cx-ai-caption">
                   Yapay zekâ yorumu ·{" "}

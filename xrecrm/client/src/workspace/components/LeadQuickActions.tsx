@@ -1,3 +1,4 @@
+import { openCallWindow } from "./CallWindow";
 import { useEffect, useState } from "react";
 import {
   Phone,
@@ -106,7 +107,9 @@ function PbxCallBox({ leadId, phone, onDone }: { leadId: string; phone: string; 
         setInfo({ ...info, extension: ext });
       }
       const r = await request("/api/pbx/call", { leadId });
-      toast.success(r.message);
+      // Arama penceresi durumu zaten gösterir; ayrıca bildirim çıkarılmaz.
+      if (r.callId) openCallWindow({ callId: r.callId, leadId, phone });
+      else toast.success(r.message);
       await refresh();
       onDone();
     } catch (e) {

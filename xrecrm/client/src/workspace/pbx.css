@@ -18,3 +18,24 @@
 .message-media img, video.message-media { width: 100%; display: block; border-radius: 10px; }
 audio.message-media { width: 240px; }
 .message-file { display: inline-flex; gap: 6px; align-items: center; font-weight: 600; margin-bottom: 4px; text-decoration: underline; }
+
+/* Arama penceresi (tıkla-ara sonrası) */
+html .app-shell .call-window:not(#_), .call-window { position: fixed; right: 20px; bottom: 20px; z-index: 160; width: min(340px, calc(100vw - 32px)); display: grid; gap: 10px; padding: 14px; border-radius: 14px; background: var(--xre-surface-raised, #fff); color: var(--xre-text, #14202b); border: 1px solid var(--xre-border, rgba(127, 127, 127, 0.3)); border-top: 3px solid var(--xre-accent, #168db3); box-shadow: 0 16px 40px rgba(0, 0, 0, 0.32); }
+.call-window.live { border-top-color: #2aa876; }
+.call-window.missed { border-top-color: #d9675f; }
+.call-window header { display: flex; align-items: center; gap: 10px; }
+.call-window header div { flex: 1; min-width: 0; display: grid; }
+.call-window header strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.call-window header small, .call-window-hint { opacity: 0.7; font-size: 12px; }
+.call-window-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--xre-accent, #168db3); color: #fff; flex: none; }
+.call-window.live .call-window-icon { background: #2aa876; }
+.call-window.missed .call-window-icon { background: #d9675f; }
+.call-window.wait .call-window-icon { animation: call-pulse 1.4s ease-in-out infinite; }
+.call-window-state { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.call-window-state span { font-variant-numeric: tabular-nums; opacity: 0.8; }
+.call-window textarea { width: 100%; resize: vertical; border-radius: 8px; border: 1px solid var(--xre-border, rgba(127, 127, 127, 0.35)); background: transparent; color: inherit; padding: 8px 10px; font: inherit; font-size: 13px; }
+.call-window footer { display: flex; gap: 8px; justify-content: flex-end; }
+@keyframes call-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .call-window.wait .call-window-icon { animation: none; } }
+/* Müşteri kartında ses kaydı */
+.cx-call-recording { display: block; width: 100%; max-width: 420px; height: 34px; margin-top: 6px; }

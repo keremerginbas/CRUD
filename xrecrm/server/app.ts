@@ -254,6 +254,9 @@ function publicCall(call: Record<string, unknown>) {
     "endedAt",
     "createdAt",
     "updatedAt",
+    "phone",
+    "agent",
+    "recording",
   ]);
 }
 const RULE_LINE_FORBIDDEN = {

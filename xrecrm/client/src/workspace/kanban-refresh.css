@@ -432,7 +432,8 @@ html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detai
 html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > .lead-delete {
   position: absolute;
   top: 3px;
-  right: 3px;
+  /* Sağdaki hızlı işlem sütununun (ara, WhatsApp…) soluna: arama düğmesinin üstünü kapatmaz. */
+  right: 28px;
   width: 20px;
   height: 20px;
   min-height: 20px;
