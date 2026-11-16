@@ -37,6 +37,8 @@ import { Modal } from "../components/ui";
 import { useStore } from "../store";
 import { Lead, Stage, money } from "../data";
 import { KanbanBoard, KanbanCard, KanbanColumn } from "../components/KanbanDnd";
+import { useInventory } from "../projects";
+import { cleanPhoneInput, phoneProblem } from "../../../../shared/phone";
 import { KANBAN_SORTS, rankForDrop, sortLeads, type KanbanSort } from "../../../../shared/kanban-order";
 import {
   availablePipelines,
@@ -120,6 +122,10 @@ export default function CRM({
   const [editing, setEditing] = useState<Pipeline | undefined | null>(null);
   const [quick, setQuick] = useState<Stage | null>(null);
   const [quickName, setQuickName] = useState("");
+  const [quickPhone, setQuickPhone] = useState("");
+  const [quickProject, setQuickProject] = useState("");
+  const inventory = useInventory();
+  const quickProjects = useMemo(() => inventory.projects.filter((p) => !p.archived).sort((a, b) => a.name.localeCompare(b.name, "tr")), [inventory.projects]);
   const [activityEditor, setActivityEditor] = useState<{
     activity?: Activity;
     leadId?: string;
@@ -322,12 +328,22 @@ export default function CRM({
     }
   };
   const add = async (s: Stage) => {
-    if (!quickName.trim()) return;
+    // Hızlı eklemede ad soyad, telefon ve proje zorunludur: eksik kartlar sonradan tamamlanmıyor.
+    const name = quickName.trim();
+    if (name.length < 2) return void toast.error("Ad soyad yazın.");
+    const phoneIssue = quickPhone.trim() ? phoneProblem(quickPhone) : "Telefon numarası yazın.";
+    if (phoneIssue) return void toast.error(phoneIssue);
+    const chosen = quickProjects.find((p) => p.id === quickProject);
+    const projectName = (chosen?.name || (quickProjects.length ? "" : quickProject)).trim();
+    if (!projectName) return void toast.error("Proje seçin.");
     const stamp = new Date().toISOString();
     const l: Lead = {
       id: crypto.randomUUID(),
-      name: quickName.trim(),
-      phone: "",
+      name,
+      phone: quickPhone.trim(),
+      // Proje, kartta ad altında görünür; bayi kaydı ve teklif de bu bilgiyi kullanır.
+      dealTitle: projectName,
+      ...({ projectId: chosen?.id || "", projectName } as object),
       email: "",
       company: "",
       stage: s,
@@ -344,7 +360,9 @@ export default function CRM({
       await saveLead(l);
       setQuick(null);
       setQuickName("");
-      toast.success("Müşteri eklendi. Karttan ayrıntıları tamamlayın.");
+      setQuickPhone("");
+      setQuickProject("");
+      toast.success("Müşteri eklendi.");
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -794,11 +812,34 @@ export default function CRM({
                     >
                       <input
                         autoFocus
-                        placeholder="Müşteri adı"
+                        placeholder="Ad soyad *"
+                        aria-label="Ad soyad"
                         value={quickName}
                         onChange={(e) => setQuickName(e.target.value)}
                         required
+                        minLength={2}
                       />
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        placeholder="Telefon * (0532 123 45 67)"
+                        aria-label="Telefon"
+                        value={quickPhone}
+                        onChange={(e) => setQuickPhone(cleanPhoneInput(e.target.value))}
+                        required
+                      />
+                      {quickProjects.length > 0 ? (
+                        <select aria-label="Proje" value={quickProject} onChange={(e) => setQuickProject(e.target.value)} required>
+                          <option value="">Proje seçin *</option>
+                          {quickProjects.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input placeholder="Proje adı *" aria-label="Proje adı" value={quickProject} onChange={(e) => setQuickProject(e.target.value)} required maxLength={200} />
+                      )}
                       <div>
                         <button className="btn primary small">Ekle</button>
                         <button

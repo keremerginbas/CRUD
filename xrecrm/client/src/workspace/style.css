@@ -3767,3 +3767,8 @@ td:first-child {
     transition: none;
   }
 }
+
+/* Hızlı müşteri ekleme: ad, telefon ve proje alt alta */
+.b24-quick-card { display: grid; gap: 8px; }
+.b24-quick-card input,
+.b24-quick-card select { width: 100%; box-sizing: border-box; min-height: 36px; }
