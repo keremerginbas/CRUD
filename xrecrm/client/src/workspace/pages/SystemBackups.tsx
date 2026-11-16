@@ -247,7 +247,7 @@ export default function SystemBackups() {
           <div className="system-note">
             <ShieldCheck size={18} />
             <p>
-              Veritabanı: <strong>{info?.storage === "mysql" ? "MySQL" : "yerel dosya"}</strong> · Son {info?.keep} otomatik yedek saklanır
+              Veritabanı: <strong>{info?.storage === "postgresql" ? "PostgreSQL" : info?.storage === "mysql" ? "MySQL" : "yerel dosya"}</strong> · Son {info?.keep} otomatik yedek saklanır
               (elle alınanlar silinmez). Klasör: <code>{info?.directory}</code>. Yedekleri düzenli olarak başka bir diske veya
               buluta da indirin. WhatsApp medya dosyaları (<code>data/media</code>) bu yedeğe dahil değildir.
             </p>

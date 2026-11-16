@@ -7,7 +7,7 @@ import zlib from "node:zlib";
 import { promisify } from "node:util";
 import type { Express, Request } from "express";
 import type { Store, StoreDump } from "./db.js";
-import { assertDump } from "./db.js";
+import { assertDump, storageKind } from "./db.js";
 import type { AuthContext } from "./types.js";
 
 const gzip = promisify(zlib.gzip);
@@ -130,7 +130,7 @@ export function registerBackupRoutes(app: Express, baseStore: Store, afterRestor
         backups: await listBackups(),
         directory: backupDir(),
         keep: keepCount(),
-        storage: process.env.DATABASE_URL?.trim() ? "mysql" : "dosya",
+        storage: storageKind(),
       });
     } catch (error) {
       fail(res, error);
@@ -160,7 +160,7 @@ export function registerBackupRoutes(app: Express, baseStore: Store, afterRestor
         disk: disk ? { totalBytes: disk.blocks * disk.bsize, freeBytes: disk.bavail * disk.bsize } : null,
         records: { leads: leads.length, employees: employees.length, quotes: quotes.length, units: units.length },
         lastBackup: last ? { name: last.name, createdAt: last.createdAt, size: last.size } : null,
-        storage: process.env.DATABASE_URL?.trim() ? "mysql" : "dosya",
+        storage: storageKind(),
         node: process.version,
       });
     } catch (error) {

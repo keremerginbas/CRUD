@@ -164,7 +164,7 @@ export default function Employees({
           )
         }
       />
-      {!structure && <LoginAccounts />}
+      {!structure && <LoginAccounts onChanged={() => void load()} />}
       {demo && (
         <div className="access-notice">
           Örnek ekip yapısı · gerçek çalışan hesabı veya erişim oluşturulmaz.

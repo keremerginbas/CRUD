@@ -9,6 +9,7 @@ import fsSync from "node:fs";
 import path from "node:path";
 import type { StoredEvent, StoredRecord, UserIdentity } from "./types.js";
 import { emitStoreChange } from "./live.js";
+import { PgStore } from "./pg-store.js";
 
 export interface Store {
   init(): Promise<void>;
@@ -834,8 +835,20 @@ export class FileStore extends MemoryStore {
   }
 }
 
+/** Kullanılan depo türü: "postgresql" | "mysql" | "dosya" (yedekleme ekranı ve sağlık kontrolü için). */
+export function storageKind(): "postgresql" | "mysql" | "dosya" {
+  const dsn = process.env.DATABASE_URL?.trim() || "";
+  if (/^postgres(ql)?:\/\//i.test(dsn)) return "postgresql";
+  return dsn ? "mysql" : "dosya";
+}
+
 export function createStore(): Store {
-  if (process.env.DATABASE_URL?.trim()) return new MysqlStore();
+  const kind = storageKind();
+  if (kind === "postgresql") {
+    console.log("Veritabanı: PostgreSQL (DATABASE_URL).");
+    return new PgStore();
+  }
+  if (kind === "mysql") return new MysqlStore();
   const file = path.resolve(
     process.env.XRE_DATA_DIR || "data",
     "xrecrm-data.json",

@@ -27,7 +27,8 @@ const emptyInvite = { email: "", name: "", roleId: "" };
 const emptyForm = { name: "", email: "", password: "", roleId: "", title: "", phone: "" };
 
 /** Sahip için: çalışanlara e-posta + şifre ile giriş hesabı açma. */
-export default function LoginAccounts() {
+/** onChanged: hesap açma/silme/pasifleştirme sonrası sayfadaki çalışan listesinin de yenilenmesi için. */
+export default function LoginAccounts({ onChanged }: { onChanged?: () => void } = {}) {
   const { demo, user, request } = useStore();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
@@ -73,6 +74,7 @@ export default function LoginAccounts() {
       toast.success(`${form.name} için giriş hesabı açıldı. Şifreyi kişiye güvenli iletin.`);
       setForm(null);
       await load();
+      onChanged?.();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -88,6 +90,7 @@ export default function LoginAccounts() {
       if (r.sent) toast.success(`Davet ${r.invite.email} adresine gönderildi.`);
       setInvite(null);
       await load();
+      onChanged?.();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -99,6 +102,7 @@ export default function LoginAccounts() {
       await request(`/api/auth/invites/${item.id}`, {}, "DELETE");
       toast.success("Davet iptal edildi.");
       await load();
+      onChanged?.();
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -119,6 +123,7 @@ export default function LoginAccounts() {
       await request(`/api/auth/accounts/${account.id}`, {}, "DELETE");
       toast.success("Hesap silindi.");
       await load();
+      onChanged?.();
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -128,6 +133,7 @@ export default function LoginAccounts() {
       await request(`/api/auth/accounts/${account.id}`, body, "PATCH");
       toast.success(message);
       await load();
+      onChanged?.();
     } catch (e) {
       toast.error((e as Error).message);
     }
