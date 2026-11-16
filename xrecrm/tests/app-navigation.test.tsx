@@ -33,7 +33,9 @@ describe("Ortak CRM kabuğu", () => {
     expect(
       await screen.findByRole("heading", { name: "Ekip yapısı" }),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Profilim" }));
+    // Profil artık kenar çubuğunda değil, sağ üstteki hesap menüsünde.
+    fireEvent.click(screen.getByRole("button", { name: "Hesap menüsü" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Profilimi düzenle" }));
     expect(
       await screen.findByRole("heading", { name: "Profilim" }),
     ).toBeTruthy();

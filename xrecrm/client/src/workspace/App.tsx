@@ -124,29 +124,23 @@ const navGroups = [
     label: "ÇALIŞMA ALANI",
     items: [
       ["/", "Genel bakış", LayoutDashboard],
-      ["/feed", "Akış", MessagesSquare],
       ["/kanban", "CRM", Columns3],
+      ["/activities", "Etkinlikler", CalendarDays],
+      ["/tasks", "Görevler & projeler", CheckSquare],
+      ["/calendar", "Takvim", CalendarDays],
+      ["/contacts", "Kişiler", ContactRound],
+      ["/companies", "Şirketler", Building2],
+      ["/feed", "Akış", MessagesSquare],
+    ],
+  },
+  {
+    label: "SATIŞ",
+    items: [
       ["/projects", "Projeler", Building],
       ["/quotes", "Teklifler", FileSignature],
       ["/senets", "Senetler", ScrollText],
       ["/cost-of-money", "Para maliyeti", Percent],
       ["/dealers", "Bayiler", Store],
-      ["/activities", "Etkinlikler", CalendarDays],
-      ["/contacts", "Kişiler", ContactRound],
-      ["/companies", "Şirketler", Building2],
-      ["/tasks", "Görevler & projeler", CheckSquare],
-      ["/calendar", "Takvim", CalendarDays],
-      ["/team", "Ekip dizini", Users],
-      ["/employees", "Çalışanlar", Users],
-      ["/structure", "Şirket yapısı", Building2],
-      ["/worktime", "XRE Mesai", Clock],
-      ["/access", "Erişim izinleri", ShieldCheck],
-      ["/audit", "Denetim günlüğü", History],
-      ["/system", "Sunucu & yedekler", DatabaseBackup],
-      ["/profile", "Profilim", ContactRound],
-      ["/reports", "CRM analitiği", BarChart3],
-      ["/data-quality", "Veri kalitesi", ShieldCheck],
-      ["/ai", "XRE Asistan", Sparkles],
     ],
   },
   {
@@ -158,12 +152,37 @@ const navGroups = [
     ],
   },
   {
+    label: "EKİP",
+    items: [
+      ["/worktime", "XRE Mesai", Clock],
+      ["/employees", "Çalışanlar", Users],
+      ["/team", "Ekip dizini", Users],
+      ["/structure", "Şirket yapısı", Building2],
+    ],
+  },
+  {
+    label: "RAPORLAR",
+    items: [
+      ["/reports", "CRM analitiği", BarChart3],
+      ["/data-quality", "Veri kalitesi", ShieldCheck],
+      ["/ai", "XRE Asistan", Sparkles],
+    ],
+  },
+  {
     label: "İŞ AKIŞLARI",
     items: [
       ["/automations", "Otomasyonlar", Workflow],
       ["/n8n", "n8n iş akışları", Workflow],
       ["/webhooks", "Webhooklar", Webhook],
       ["/integrations", "Entegrasyonlar", Link2],
+    ],
+  },
+  {
+    label: "YÖNETİM",
+    items: [
+      ["/access", "Erişim izinleri", ShieldCheck],
+      ["/audit", "Denetim günlüğü", History],
+      ["/system", "Sunucu & yedekler", DatabaseBackup],
       ["/workspaces", "Firmalar", Building2],
     ],
   },
@@ -303,7 +322,7 @@ function Workspace() {
           (["/leads", "/activities", "/calendar"].includes(path)
             ? "/kanban"
             : path),
-      )?.[1] || "Ayarlar";
+      )?.[1] || (path === "/profile" ? "Profilim" : "Ayarlar");
   // Bitrix içinde her zaman canlı veri gösterilir.
   useEffect(() => {
     if (EMBED && user && demo) setDemo(false);
@@ -494,7 +513,7 @@ function Workspace() {
             <ChevronDown size={15} />
           </button>
           <nav aria-label="Çalışma alanı menüsü">
-            {navGroups.map((g) => (
+            {navGroups.filter((g) => g.items.some(([url]) => permitted(url))).map((g) => (
               <div className="nav-group" key={g.label}>
                 <div className="nav-label">{g.label}</div>
                 {g.items
