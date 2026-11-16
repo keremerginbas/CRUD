@@ -112,9 +112,9 @@ export function KanbanBoard({
     if (!el) return;
     el.scrollBy({ left: (side === "right" ? 1 : -1) * Math.max(280, el.clientWidth * 0.7), behavior: "smooth" });
   };
-  const hold = (side: "left" | "right") => {
+  const hold = (side: "left" | "right", speed = 22) => {
     release();
-    holdTimer.current = window.setInterval(() => boardRef.current?.scrollBy({ left: side === "right" ? 22 : -22 }), 16);
+    holdTimer.current = window.setInterval(() => boardRef.current?.scrollBy({ left: side === "right" ? speed : -speed }), 16);
   };
   const start = (event: DragStartEvent) => onStart(String(event.active.id));
   const end = (event: DragEndEvent) => {
@@ -138,14 +138,24 @@ export function KanbanBoard({
   );
 }
 
-function EdgeScroller({ side, dragging, onStep, onHold, onRelease }: { side: "left" | "right"; dragging: boolean; onStep: (side: "left" | "right") => void; onHold: (side: "left" | "right") => void; onRelease: () => void }) {
-  const held = useRef(false);
+function EdgeScroller({ side, dragging, onStep, onHold, onRelease }: { side: "left" | "right"; dragging: boolean; onStep: (side: "left" | "right") => void; onHold: (side: "left" | "right", speed?: number) => void; onRelease: () => void }) {
+  const longPress = useRef(false);
+  const over = useRef(false);
   const pressTimer = useRef<number | null>(null);
-  const clear = () => {
+  const hoverTimer = useRef<number | null>(null);
+  const stopTimers = () => {
     if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
-    pressTimer.current = null;
-    onRelease();
+    if (hoverTimer.current !== null) window.clearTimeout(hoverTimer.current);
+    pressTimer.current = hoverTimer.current = null;
   };
+  // Ok kaybolurken (kaydıracak yer kalmadı) zamanlayıcılar ve kaydırma durur.
+  useEffect(
+    () => () => {
+      stopTimers();
+      onRelease();
+    },
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   return (
     <div
       className={`kanban-edge kanban-edge-${side} ${dragging ? "is-dragging" : ""}`}
@@ -157,19 +167,34 @@ function EdgeScroller({ side, dragging, onStep, onHold, onRelease }: { side: "le
         type="button"
         aria-label={side === "right" ? "Sağa kaydır" : "Sola kaydır"}
         title={side === "right" ? "Sağdaki aşamaları göster" : "Soldaki aşamaları göster"}
-        // Kısa tıklama bir ekran kaydırır; basılı tutmak sürekli kaydırır.
+        // Fare okun üzerine gelince (tıklamadan) tahta o yöne akıcı biçimde kayar; çekilince durur.
+        onMouseEnter={() => {
+          over.current = true;
+          if (dragging) return;
+          hoverTimer.current = window.setTimeout(() => over.current && onHold(side, 11), 140);
+        }}
+        onMouseLeave={() => {
+          over.current = false;
+          stopTimers();
+          onRelease();
+        }}
+        // Basılı tutmak daha hızlı kaydırır; kısa tıklama bir ekran atlar.
         onPointerDown={() => {
-          held.current = false;
+          longPress.current = false;
           pressTimer.current = window.setTimeout(() => {
-            held.current = true;
-            onHold(side);
+            longPress.current = true;
+            onHold(side, 26);
           }, 260);
         }}
-        onPointerUp={clear}
-        onPointerLeave={clear}
+        onPointerUp={() => {
+          if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
+          pressTimer.current = null;
+          // Fare hâlâ okun üzerindeyse yavaş kaydırma sürer.
+          if (longPress.current) (over.current && !dragging ? onHold(side, 11) : onRelease());
+        }}
         onClick={() => {
-          if (!held.current) onStep(side);
-          held.current = false;
+          if (!longPress.current) onStep(side);
+          longPress.current = false;
         }}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
