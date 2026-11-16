@@ -168,6 +168,95 @@ export function registerBackupRoutes(app: Express, baseStore: Store, afterRestor
     }
   });
 
+  // Deneme verisi: kanbanı ve raporları dolu görmek için örnek müşteri üretir. Kayıtların kimliği
+  // "testveri-" ile başlar ve "test-veri" etiketi taşır; tek tuşla tamamı silinir. Otomasyon tetiklemez.
+  app.post("/api/system/test-data", async (req, res) => {
+    try {
+      const auth = ownerOnly(req);
+      const count = Math.floor(Number(req.body?.count));
+      if (!Number.isFinite(count) || count < 1 || count > 20000)
+        throw Object.assign(new Error("Sayı 1 ile 20.000 arasında olmalı."), { statusCode: 400 });
+      const owner = auth.ownerOpenId;
+      const employees = (await baseStore.list<{ name?: string; active?: boolean }>("employee", owner)).map((r) => r.payload).filter((e) => e.active !== false && e.name);
+      const owners = [auth.displayName || auth.user.name || "Yönetici", ...employees.map((e) => String(e.name))];
+      const pick = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)];
+      const FIRST = ["Ahmet", "Mehmet", "Ayşe", "Fatma", "Mustafa", "Zeynep", "Emre", "Elif", "Burak", "Selin", "Can", "Deniz", "Hakan", "Merve", "Oğuz", "Ebru", "Serkan", "Gizem", "Tolga", "Derya", "Kerem", "Esra", "Volkan", "Pınar", "Onur", "Seda", "Murat", "Büşra", "Cem", "Nur"];
+      const LAST = ["Yılmaz", "Kaya", "Demir", "Çelik", "Şahin", "Yıldız", "Öztürk", "Aydın", "Arslan", "Doğan", "Kılıç", "Aslan", "Çetin", "Kara", "Koç", "Kurt", "Özdemir", "Şimşek", "Polat", "Erdoğan", "Güneş", "Aksoy", "Bulut", "Tekin", "Korkmaz"];
+      const CITIES = ["İstanbul", "Ankara", "İzmir", "Antalya", "Bursa", "Eskişehir", "Kocaeli", "Muğla", "Adana", "Konya"];
+      const SOURCES = ["Telefon", "WhatsApp", "Web sitesi", "Instagram", "Referans", "Sahibinden", "Fuar"];
+      // Aşama dağılımı gerçek bir satış hunisine benzer: başta çok, sonda az.
+      const STAGES = ["new", "new", "new", "new", "contacted", "contacted", "contacted", "qualified", "qualified", "proposal", "proposal", "won", "lost"] as const;
+      const batch = Date.now().toString(36);
+      const now = Date.now();
+      for (let i = 0; i < count; i++) {
+        const id = `testveri-${batch}-${i}`;
+        const created = new Date(now - Math.floor(Math.random() * 90 * 86_400_000)).toISOString();
+        const last = new Date(Math.min(now, Date.parse(created) + Math.floor(Math.random() * 20 * 86_400_000))).toISOString();
+        const name = `${pick(FIRST)} ${pick(LAST)}`;
+        const leadOwner = pick(owners);
+        await baseStore.put(
+          "lead",
+          id,
+          {
+            id,
+            name,
+            phone: `+90 5${30 + Math.floor(Math.random() * 30)} ${String(100 + Math.floor(Math.random() * 900))} ${String(10 + Math.floor(Math.random() * 90))} ${String(10 + Math.floor(Math.random() * 90))}`,
+            email: "",
+            company: "",
+            stage: pick(STAGES),
+            owner: leadOwner,
+            value: (15 + Math.floor(Math.random() * 105)) * 100_000,
+            source: pick(SOURCES),
+            city: pick(CITIES),
+            notes: "Deneme verisi",
+            tags: ["test-veri"],
+            pipelineId: "sales",
+            createdAt: created,
+            lastActivity: last,
+          },
+          owner,
+        );
+        // Her üç müşteriden birine planlı bir görüşme, her beşte birine bir görev.
+        if (i % 3 === 0) {
+          const start = new Date(now + Math.floor((Math.random() * 14 - 3) * 86_400_000)).toISOString();
+          await baseStore.put(
+            "activities",
+            `${id}-a`,
+            { id: `${id}-a`, leadId: id, type: "call", title: "Müşteriyle görüşün", description: "", assignee: leadOwner, startAt: start, endAt: new Date(Date.parse(start) + 1_800_000).toISOString(), completed: false, createdAt: created, updatedAt: created },
+            owner,
+          );
+        }
+        if (i % 5 === 0)
+          await baseStore.put(
+            "tasks",
+            `${id}-t`,
+            { id: `${id}-t`, leadId: id, title: `${name} için teklif hazırla`, description: "", assignee: leadOwner, priority: pick(["low", "medium", "high"] as const), status: "todo", dueAt: new Date(now + Math.floor((Math.random() * 10 - 2) * 86_400_000)).toISOString(), checklist: [], createdAt: created, updatedAt: created },
+            owner,
+          );
+      }
+      res.status(201).json({ created: count });
+    } catch (error) {
+      fail(res, error);
+    }
+  });
+
+  app.delete("/api/system/test-data", async (req, res) => {
+    try {
+      const auth = ownerOnly(req);
+      const owner = auth.ownerOpenId;
+      let removed = 0;
+      for (const kind of ["lead", "activities", "tasks"] as const)
+        for (const row of await baseStore.list(kind, owner))
+          if (row.id.startsWith("testveri-")) {
+            await baseStore.delete(kind, row.id, owner);
+            if (kind === "lead") removed++;
+          }
+      res.json({ removed });
+    } catch (error) {
+      fail(res, error);
+    }
+  });
+
   app.post("/api/system/backups", async (req, res) => {
     try {
       ownerOnly(req);

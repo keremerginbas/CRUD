@@ -71,6 +71,51 @@ function BrandingCard() {
   );
 }
 
+/** Deneme verisi: kanbanı dolu görmek için örnek müşteri üretir; tek tuşla tamamı silinir. */
+function TestDataCard({ total, onChanged }: { total: number; onChanged: () => void }) {
+  const { refresh } = useStore();
+  const [count, setCount] = useState("2000");
+  const [busy, setBusy] = useState(false);
+  const run = async (method: "POST" | "DELETE") => {
+    const n = Number(count);
+    if (method === "POST" && (!Number.isInteger(n) || n < 1 || n > 20000)) return void toast.error("Sayı 1 ile 20.000 arasında olmalı.");
+    if (method === "DELETE" && !window.confirm("Bütün deneme müşterileri ve onlara bağlı görev/etkinlikler silinsin mi? Gerçek kayıtlara dokunulmaz.")) return;
+    setBusy(true);
+    try {
+      const r = await fetch("/api/system/test-data", { method, credentials: "include", headers: { "content-type": "application/json" }, body: JSON.stringify(method === "POST" ? { count: n } : {}) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.message || "İşlem tamamlanamadı.");
+      toast.success(method === "POST" ? `${d.created.toLocaleString("tr-TR")} deneme müşterisi eklendi.` : `${d.removed.toLocaleString("tr-TR")} deneme müşterisi silindi.`);
+      await refresh();
+      onChanged();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="sys-brand">
+      <div className="sys-brand-form">
+        <strong>Deneme verisi</strong>
+        <small>
+          Kanbanı, raporları ve hızı dolu veriyle görmek için örnek müşteri üretir (rastgele ad, telefon, tutar, aşama; bir kısmına görev ve görüşme). Hepsi “test-veri” etiketi taşır ve tek tuşla silinir; gerçek
+          kayıtlarınıza dokunulmaz. Şu an toplam {total.toLocaleString("tr-TR")} müşteri var.
+        </small>
+        <div className="sys-brand-row">
+          <input value={count} inputMode="numeric" onChange={(e) => setCount(e.target.value.replace(/\D/g, "").slice(0, 5))} aria-label="Eklenecek müşteri sayısı" style={{ flex: "0 0 120px" }} />
+          <button className="btn primary" disabled={busy} onClick={() => void run("POST")}>
+            {busy ? "Çalışıyor…" : "Deneme müşterisi ekle"}
+          </button>
+          <button className="btn secondary" disabled={busy} onClick={() => void run("DELETE")}>
+            Deneme verisini sil
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 interface SystemStatus {
   checkedAt: string;
   startedAt: string;
@@ -198,6 +243,7 @@ export default function SystemBackups() {
         <>
           {status && <StatusCards status={status} />}
           <BrandingCard />
+          <TestDataCard total={status?.records.leads ?? 0} onChanged={() => void load()} />
           <div className="system-note">
             <ShieldCheck size={18} />
             <p>
