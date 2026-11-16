@@ -1,6 +1,6 @@
 // Kanban sürükle-bırak: fare, dokunmatik ekran (telefon/tablet) ve klavye ile çalışır.
 // Tarayıcının yerleşik sürüklemesi dokunmayla çalışmadığı için @dnd-kit kullanılır.
-import type { CSSProperties, HTMLAttributes, ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type HTMLAttributes, type ReactNode } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -75,6 +75,47 @@ export function KanbanBoard({
     useSensor(CardTouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
     useSensor(KeyboardSensor),
   );
+  // Yatay kaydırma okları: tahta sağa/sola taşıyorsa kenarda ok görünür. Tıklayınca bir ekran kayar,
+  // basılı tutunca ya da kart sürüklerken üzerine gelince sürekli kayar.
+  const boardRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const holdTimer = useRef<number | null>(null);
+  const updateEdges = () => {
+    const el = boardRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const next = { left: el.scrollLeft > 8, right: el.scrollLeft < max - 8 };
+    setEdges((prev) => (prev.left === next.left && prev.right === next.right ? prev : next));
+  };
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateEdges, { passive: true });
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateEdges) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", updateEdges);
+    return () => {
+      el.removeEventListener("scroll", updateEdges);
+      observer?.disconnect();
+      window.removeEventListener("resize", updateEdges);
+    };
+  }, []);
+  // Sütun sayısı değişince (huni değişimi, süzme) okların gerekip gerekmediği yeniden ölçülür.
+  useEffect(updateEdges);
+  const release = () => {
+    if (holdTimer.current !== null) window.clearInterval(holdTimer.current);
+    holdTimer.current = null;
+  };
+  useEffect(() => release, []);
+  const step = (side: "left" | "right") => {
+    const el = boardRef.current;
+    if (!el) return;
+    el.scrollBy({ left: (side === "right" ? 1 : -1) * Math.max(280, el.clientWidth * 0.7), behavior: "smooth" });
+  };
+  const hold = (side: "left" | "right") => {
+    release();
+    holdTimer.current = window.setInterval(() => boardRef.current?.scrollBy({ left: side === "right" ? 22 : -22 }), 16);
+  };
   const start = (event: DragStartEvent) => onStart(String(event.active.id));
   const end = (event: DragEndEvent) => {
     const id = String(event.active.id);
@@ -85,9 +126,57 @@ export function KanbanBoard({
   };
   return (
     <DndContext sensors={sensors} collisionDetection={collision} onDragStart={start} onDragEnd={end} onDragCancel={onCancel} autoScroll={{ threshold: { x: 0.12, y: 0.18 } }}>
-      <div className={className}>{children}</div>
+      <div className="kanban-scroll-wrap">
+        <div className={className} ref={boardRef}>
+          {children}
+        </div>
+        {edges.left && <EdgeScroller side="left" dragging={Boolean(activeId)} onStep={step} onHold={hold} onRelease={release} />}
+        {edges.right && <EdgeScroller side="right" dragging={Boolean(activeId)} onStep={step} onHold={hold} onRelease={release} />}
+      </div>
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(0.2, 0, 0, 1)" }}>{activeId ? overlay : null}</DragOverlay>
     </DndContext>
+  );
+}
+
+function EdgeScroller({ side, dragging, onStep, onHold, onRelease }: { side: "left" | "right"; dragging: boolean; onStep: (side: "left" | "right") => void; onHold: (side: "left" | "right") => void; onRelease: () => void }) {
+  const held = useRef(false);
+  const pressTimer = useRef<number | null>(null);
+  const clear = () => {
+    if (pressTimer.current !== null) window.clearTimeout(pressTimer.current);
+    pressTimer.current = null;
+    onRelease();
+  };
+  return (
+    <div
+      className={`kanban-edge kanban-edge-${side} ${dragging ? "is-dragging" : ""}`}
+      // Kart sürüklenirken kenar şeridinin üzerine gelmek tahtayı o yöne kaydırır.
+      onMouseEnter={() => dragging && onHold(side)}
+      onMouseLeave={() => dragging && onRelease()}
+    >
+      <button
+        type="button"
+        aria-label={side === "right" ? "Sağa kaydır" : "Sola kaydır"}
+        title={side === "right" ? "Sağdaki aşamaları göster" : "Soldaki aşamaları göster"}
+        // Kısa tıklama bir ekran kaydırır; basılı tutmak sürekli kaydırır.
+        onPointerDown={() => {
+          held.current = false;
+          pressTimer.current = window.setTimeout(() => {
+            held.current = true;
+            onHold(side);
+          }, 260);
+        }}
+        onPointerUp={clear}
+        onPointerLeave={clear}
+        onClick={() => {
+          if (!held.current) onStep(side);
+          held.current = false;
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d={side === "right" ? "M9 6l6 6-6 6" : "M15 6l-6 6 6 6"} />
+        </svg>
+      </button>
+    </div>
   );
 }
 
