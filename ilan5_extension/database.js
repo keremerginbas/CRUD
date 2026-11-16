@@ -79,6 +79,7 @@
           // Lists are additive labels: a record keeps every list it was ever collected into.
           if(old&&!result.crm?.status&&!result.crm?.note&&(old.crm?.status||old.crm?.note))result.crm=old.crm;
           if(old?.messagedAt&&!result.messagedAt)result.messagedAt=old.messagedAt;
+          if(old?.bitrix&&Object.keys(old.bitrix).length)result.bitrix={...old.bitrix,...(result.bitrix||{})};
           if(old||listId)result.lists=[...new Set([...(old?.lists||[]),...(result.lists||[]),...(listId?[listId]:[])])];
           if(crawl){
             const priorMarket=core().normalizeMarket(old?.market),pending=[];
@@ -135,6 +136,8 @@
       tx.oncomplete=()=>{if(changed)notifyChanged();resolve({changed});};tx.onerror=()=>reject(tx.error);
     });
   }
+  // Records that a listing was uploaded to (or already existed in) a Bitrix pipeline.
+  function setBitrix(id,target,info){return mutate(id,record=>({...record,bitrix:core().normalizeBitrix({...(record.bitrix||{}),[target]:{...info,at:now()}})}));}
   function setCrm(id,patch){return mutate(id,record=>({...record,crm:core().normalizeCrm({...record.crm,...patch,updatedAt:now()})}));}
   // Moves (toId) or removes (toId empty) a list label on every record. Records themselves are never deleted.
   async function relabelList(fromId,toId=''){
@@ -255,6 +258,6 @@
       tx.oncomplete=()=>{changed();resolve({saved:normalized.length,added,existing:normalized.length-added});};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||Error('Hareket yedeği kaydedilemedi.'));
     });
   }
-  root.IlanDB={getAll,get,getMany,markSeen,addToList,upsertMany,setCategory,setDeleted,setCrm,relabelList,patchMonitoring,getEvents,importEvents,getMessageTemplates,saveMessageTemplate,getMessageQueue,createMessageQueue,updateMessageItem,deleteMessageItem,clearMessageQueue,getNextMessageItem};
+  root.IlanDB={setBitrix,getAll,get,getMany,markSeen,addToList,upsertMany,setCategory,setDeleted,setCrm,relabelList,patchMonitoring,getEvents,importEvents,getMessageTemplates,saveMessageTemplate,getMessageQueue,createMessageQueue,updateMessageItem,deleteMessageItem,clearMessageQueue,getNextMessageItem};
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanDB;
 })(globalThis);

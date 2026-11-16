@@ -20,7 +20,7 @@ function mockChrome() {
   window.sent = [];
   window.store = store;
   window.chrome = {
-    runtime: {id: 'test', getURL: s => s, getManifest: () => ({version: '3.1.1'}), onMessage: {addListener() {}},
+    runtime: {id: 'test', getURL: s => s, getManifest: () => ({version: '3.1.2'}), onMessage: {addListener() {}},
       async sendMessage(m) {
         window.sent.push(m);
         if (m.type === 'ILAN_SAFETY_CONFIG') safety = {...safety, ...m.safety};
@@ -32,6 +32,7 @@ function mockChrome() {
         if (m.type === 'ILAN_TELEGRAM_STATUS') return {ok: true, telegram: {configured: true, verified: true, chatId: '-100', chatTitle: 'DÜŞEN İLAN', counts: {sent: 12}}};
         return {ok: true, job: null};
       }},
+    permissions: {async request(p) { window.permissionRequests = (window.permissionRequests || []).concat(p.origins); return true; }, async contains() { return true; }},
     storage: {local: {async get(k) { return Array.isArray(k) ? Object.fromEntries(k.map(x => [x, store[x]])) : {[k]: store[k]}; }, async set(o) { Object.assign(store, o); }},
       onChanged: {addListener(l) { listeners.push(l); }}},
   };
@@ -65,10 +66,17 @@ async function seed(page) {
 
 (async () => {
   fs.mkdirSync(out, {recursive: true});
+  const n8nCalls = [];
   const browser = await chromium.launch({headless: true, args: ['--no-sandbox']});
   const context = await browser.newContext({viewport: {width: 1440, height: 1000}, acceptDownloads: true});
   await context.route('**/*', route => {
     const url = new URL(route.request().url());
+    if (url.hostname === 'n8n.test') {
+      // Stands in for the İlan5 → Bitrix n8n flow: test ping, then one answer item per row.
+      const body = JSON.parse(route.request().postData() || '{}'); n8nCalls.push(body);
+      if (body.test) return route.fulfill({contentType: 'application/json', body: JSON.stringify({ok: true, flow: body.target})});
+      return route.fulfill({contentType: 'application/json', body: JSON.stringify(body.rows.map((r, i) => i === 0 ? {'İlan No': r['İLAN NO'], Durum: 'Eklendi ✅', 'Deal ID': '880' + i} : {'İlan No': r['İLAN NO'], Durum: 'Zaten Var (Atlandı)', 'Deal ID': '12345'}))});
+    }
     if (url.hostname !== 'panel.test') return route.abort();
     const file = path.resolve(root, '.' + decodeURIComponent(url.pathname));
     if (!file.startsWith(root) || !fs.existsSync(file)) return route.fulfill({status: 404, body: ''});
@@ -96,7 +104,7 @@ async function seed(page) {
   assert.match(await page.locator('[data-testid="priorities"]').innerText(), /Görüşülecek|Fiyat %/);
   assert.match(await page.locator('[role="img"][aria-label^="Veri skoru"]').getAttribute('aria-label'), /Veri skoru \d+ \/ 100/);
   assert.match(await page.locator('[data-testid="bell"]').getAttribute('aria-label'), /Öncelikli işler: \d+/);
-  assert.equal(await page.locator('[data-testid="version"]').innerText(), 'Sürüm 3.1.1');
+  assert.equal(await page.locator('[data-testid="version"]').innerText(), 'Sürüm 3.1.2');
   assert.ok(await page.evaluate(() => document.documentElement.classList.contains('dark')), 'dark by default');
   await page.screenshot({path: path.join(out, 'dashboard-dark.png'), fullPage: true});
 
@@ -167,6 +175,34 @@ async function seed(page) {
   await page.locator('[data-testid="safety-phone"]').press('Enter');
   await page.waitForTimeout(200);
   assert.equal((await page.evaluate(() => window.sent.filter(m => m.type === 'ILAN_SAFETY_CONFIG').at(-1))).safety.phoneDailyLimit, 90);
+
+  // Bitrix transfer: save the n8n address (asks Chrome for access), test it, upload two listings
+  await page.locator('[data-testid="bitrix-url-arsa"]').fill('https://n8n.test/webhook/ilan5-arsa-test');
+  await page.locator('[data-testid="bitrix-save"]').click();
+  await page.waitForTimeout(300);
+  assert.deepEqual(await page.evaluate(() => window.permissionRequests), ['https://n8n.test/*']);
+  assert.equal((await page.evaluate(() => window.store['ilan5.bitrix.v1'])).targets.arsa.url, 'https://n8n.test/webhook/ilan5-arsa-test');
+  await page.locator('[data-testid="bitrix-test-arsa"]').click();
+  await page.waitForTimeout(300);
+  assert.equal(n8nCalls.at(-1).test, true);
+  await page.getByRole('button', {name: 'İlanlar'}).first().click();
+  await page.waitForSelector('[data-record]');
+  const clear = page.getByRole('button', {name: 'Filtreleri temizle'});
+  if (await clear.count()) await clear.first().click();
+  await page.locator('[data-category="arsa"]').click();
+  await page.waitForTimeout(200);
+  await page.locator('[data-record]').nth(0).getByRole('checkbox').click();
+  await page.locator('[data-record]').nth(1).getByRole('checkbox').click();
+  await page.locator('[data-testid="bulk-bitrix"]').click();
+  await page.locator('[data-testid="bitrix-to-arsa"]').click();
+  await page.locator('[data-confirm="ok"]').click();
+  await page.waitForSelector('[data-testid="badge-bitrix"]');
+  const sent = n8nCalls.at(-1);
+  assert.equal(sent.target, 'arsa'); assert.equal(sent.rows.length, 2); assert.ok(sent.rows[0]['İLAN NO'] && sent.rows[0]['ŞEHİR'] && 'TELEFON' in sent.rows[0]);
+  assert.equal(await page.locator('[data-testid="badge-bitrix"]').count(), 2);
+  assert.match(await page.locator('[data-testid="badge-bitrix"]').allInnerTexts().then(t => t.join(' ')), /Bitrix #8800.*Bitrix #12345|Bitrix #12345.*Bitrix #8800/);
+  await page.screenshot({path: path.join(out, 'bitrix-dark.png')});
+  await page.getByRole('button', {name: 'Ayarlar ve yedek'}).click();
 
   // Other views render
   for (const name of ['İlan hareketleri', 'Mesaj kampanyası', 'Takip ve Telegram']) {

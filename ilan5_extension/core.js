@@ -166,8 +166,11 @@
       sourceSearchUrl:safeUrl(options.sourceSearchUrl||raw.sourceSearchUrl||raw.search_url),collectionCategory:options.targetCategory||raw.collectionCategory||null,
       lists:unique((Array.isArray(raw.lists)?raw.lists:[]).map(id=>clean(id).slice(0,100))),
       messagedAt:raw.messagedAt&&Number.isFinite(Date.parse(raw.messagedAt))?new Date(raw.messagedAt).toISOString():null,
+      bitrix:normalizeBitrix(raw.bitrix),
       crm:normalizeCrm(raw.crm?.status||raw.crm?.note?raw.crm:{status:get(raw,'Takip Durumu'),note:get(raw,'Not')})};
   }
+  // Bitrix transfers per pipeline: {arsa: {dealId, status: added|duplicate, at}}. Errors are not stored.
+  function normalizeBitrix(value){const out={};for(const [key,v] of Object.entries(plain(value))){if(!/^[a-z0-9_-]{1,30}$/.test(key))continue;const dealId=String(v?.dealId??'').replace(/\D/g,'').slice(0,20);if(!dealId)continue;out[key]={dealId,status:v.status==='duplicate'?'duplicate':'added',at:Number.isFinite(Date.parse(v.at))?new Date(v.at).toISOString():new Date().toISOString()};}return out;}
   function filterRecords(records, filters={}) {
     const cat=filters.category||'all',q=norm(filters.query),min=parseNumber(filters.minPrice),max=parseNumber(filters.maxPrice);
     return records.filter(r=>{
@@ -226,6 +229,6 @@
     record.sites[site]={pages:Number(s.pages)||0,phones:used+1};await saveDaily(api,record);
     return {allowed:true,limit:settings.phoneDailyLimit,count:used+1};
   }
-  root.IlanCore=Object.freeze({CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,takePhoneSlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
+  root.IlanCore=Object.freeze({normalizeBitrix,CRM_STATUSES,normalizeCrm,pricePerArea,marketStats,sellerCounts,sellerListingCount,SAFETY_KEY,DAILY_KEY,SAFETY_DEFAULTS,normalizeSafety,safetySettings,openWorkTab,takeDailySlot,takePhoneSlot,dayKey,CATEGORIES,clean,norm,safeUrl,canonicalUrl,sourceFor,listingIdFromUrl,parseNumber,normalizePhone,phonesFrom,detailGet,categoryValue,urlEvidence,normalizeMonitoring,normalizeMarket,normalizeMarketEvent,normalizeRecord,filterRecords,formatMoney});
   if(typeof module!=='undefined'&&module.exports)module.exports=root.IlanCore;
 })(globalThis);

@@ -1,5 +1,5 @@
 import * as React from 'react';
-import {Upload, Download, ShieldCheck, HardDriveDownload, PanelsTopLeft, Info} from 'lucide-react';
+import {Upload, Download, ShieldCheck, HardDriveDownload, PanelsTopLeft, Info, Send, PlugZap} from 'lucide-react';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {Button, buttonVariants} from '@/components/ui/button';
 import {Input, Label, Hint} from '@/components/ui/input';
@@ -8,6 +8,7 @@ import {toast} from '@/components/ui/toast';
 import {confirmDialog} from '@/components/ui/confirm';
 import {PageHeader} from '@/components/common';
 import {formatDate, num, runtime, Sites} from '@/lib/ext';
+import {Bitrix, loadBitrixConfig, requestAccess, saveBitrixConfig, testTarget, type TargetId} from '@/lib/bitrix';
 import {applySafetyResult, importArchive, runBackup, setAutoBackup, useStore} from '@/lib/store';
 
 export function ImportButton({icon = <Upload />}: {icon?: React.ReactNode}) {
@@ -69,6 +70,51 @@ export function SafetySettings({compact = false}: {compact?: boolean}) {
   );
 }
 
+/** n8n webhook addresses for the one-click Bitrix transfer. Bitrix keys stay in n8n. */
+export function BitrixSettings() {
+  const [urls, setUrls] = React.useState<Record<string, string>>({});
+  const [busy, setBusy] = React.useState('');
+  React.useEffect(() => { loadBitrixConfig().then(c => setUrls(Object.fromEntries(Object.entries(c.targets).map(([k, v]) => [k, v.url])))).catch(() => {}); }, []);
+  function save() {
+    let clean: Record<string, string>;
+    try { clean = Object.fromEntries(Bitrix().TARGETS.map(t => [t.id, Bitrix().webhookUrl(urls[t.id] || '')])); }
+    catch (error) { toast((error as Error).message, true); return; }
+    // Chrome only shows the permission prompt for a call made directly from the click.
+    requestAccess(Object.values(clean)).then(async granted => {
+      await saveBitrixConfig({targets: Object.fromEntries(Object.entries(clean).map(([k, url]) => [k, {url}])) as never});
+      toast(granted ? 'Bitrix aktarım adresleri kaydedildi.' : 'Adresler kaydedildi, fakat Chrome erişim izni verilmedi; gönderim için izni onaylamanız gerekir.', !granted);
+    }).catch(error => toast((error as Error).message, true));
+  }
+  async function test(id: TargetId) {
+    setBusy(id);
+    try { await testTarget(id, Bitrix().webhookUrl(urls[id] || '')); toast(`${Bitrix().TARGETS.find(t => t.id === id)?.name}: n8n akışı cevap verdi, bağlantı hazır.`); }
+    catch (error) { toast((error as Error).message, true); } finally { setBusy(''); }
+  }
+  return (
+    <Card data-testid="bitrix-settings">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2"><Send className="size-4 text-primary" />Bitrix aktarımı (n8n)</CardTitle>
+        <CardDescription>İlanlar tablosunda seçtiğiniz ilanlar tek tuşla n8n akışınıza gider; akış Bitrix'te kişi ve kartı açar. Bitrix anahtarınız eklentiye girmez, n8n'de kalır.</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        {Bitrix().TARGETS.map(t => (
+          <Label key={t.id}>{t.name} — n8n webhook adresi
+            <div className="flex gap-2">
+              <Input type="url" value={urls[t.id] || ''} onChange={e => setUrls(u => ({...u, [t.id]: e.target.value}))} placeholder="https://…/webhook/ilan5-…" autoComplete="off" data-testid={'bitrix-url-' + t.id} />
+              <Button type="button" variant="outline" disabled={!urls[t.id] || busy === t.id} onClick={() => test(t.id)} data-testid={'bitrix-test-' + t.id}><PlugZap />Dene</Button>
+            </div>
+            <Hint>{t.hint}</Hint>
+          </Label>
+        ))}
+        <div className="flex flex-wrap items-center gap-3 border-t pt-3">
+          <Button onClick={save} data-testid="bitrix-save">Kaydet</Button>
+          <Hint>n8n'de akışı açıp “Active” yapın; Webhook düğümündeki <b>Production URL</b>'yi buraya yapıştırın. Kaydet'e basınca Chrome bu adrese erişim izni ister.</Hint>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function SettingsView() {
   const backup = useStore(s => s.backup);
   const version = useStore(s => s.version);
@@ -78,6 +124,7 @@ export function SettingsView() {
       <PageHeader eyebrow="Ayarlar" title="Ayarlar ve yedek" description="Tarama güvenliği, yedekleme ve taşıma." />
       <div className="grid items-start gap-6 lg:grid-cols-2">
         <SafetySettings />
+        <BitrixSettings />
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><HardDriveDownload className="size-4 text-primary" />Yedek ve taşıma</CardTitle>

@@ -1,3 +1,7 @@
+# İlan5 3.1.2 — Doğrulama notları
+
+16 Kasım 2026 (3.1.2): Tek tuşla Bitrix aktarımı. `tests/bitrix.test.cjs`: Arsa ve Barter satırlarının sütun adları ve değerleri (ada/parsel ayırma, m² fiyatı, telefon, açıklama), n8n adres doğrulaması (https, Bitrix adresinin reddi), 5'erli gönderim, ilan numarasına göre sonuç eşleştirme, hata bildirimi, bağlantı testi, Bitrix işaretinin sonraki taramada korunması. `npm test` 18/18. Panel e2e: adres kaydında Chrome izni istenir, Dene ile test, iki ilan seçilip yüklenir, “eklendi” ve “zaten vardı” sonuçları Bitrix etiketi olarak görünür. Kullanıcının n8n akışlarından üretilen kopyalarda düğüm bağlantıları ve düğüm adı referansları kontrol edildi; akışların “Verisi Hazırla” kodu İlan5 satırıyla çalıştırıldı ve Bitrix alanlarına doğru değerlerin yazıldığı görüldü. Gerçek n8n ve Bitrix ile canlı deneme yapılmadı.
+
 # İlan5 3.1.1 — Doğrulama notları
 
 12 Kasım 2026 (3.1.1): Yayından kalkma kontrolü ve Telegram kalkma bildirimi dört siteye açıldı (önceden kontrol Sahibinden/Hepsiemlak, bildirim yalnız Sahibinden). Yeni testler: Emlakjet, arabam.com ve Hepsiemlak detayları kontrol listesine girer, arama sayfaları ve yabancı alan adları girmez; üç sitenin kalkma bildirimi kuyruğa alınır, yabancı adres reddedilir. `npm test` 17/17, panel e2e geçti. Emlakjet ve arabam.com'un “ilan kaldırıldı” sayfaları canlı denenmedi: sayfadaki metin tanınmazsa durum “doğrulanmadı” kalır, ilan yanlışlıkla kalkmış sayılmaz.

@@ -35,6 +35,7 @@ export interface ListingRecord {
   lists?: string[];
   crm?: {status: CrmStatus; note: string; updatedAt?: string};
   messagedAt?: string | null;
+  bitrix?: Record<string, {dealId: string; status: 'added' | 'duplicate'; at: string}>;
 }
 export interface Monitoring {
   status?: 'active' | 'suspected' | 'removed' | 'unknown' | 'blocked' | 'error';
@@ -68,6 +69,7 @@ interface DbApi {
   setCategory(id: string, category: Category): Promise<ListingRecord>;
   setDeleted(id: string, deleted: boolean): Promise<ListingRecord>;
   setCrm(id: string, patch: {status?: string; note?: string}): Promise<ListingRecord>;
+  setBitrix(id: string, target: string, info: {dealId: string; status: string}): Promise<ListingRecord>;
   relabelList(fromId: string, toId?: string): Promise<{changed: number}>;
   addToList(ids: string[], listId: string): Promise<{changed: number}>;
   getEvents(options?: Record<string, unknown>): Promise<MarketEvent[]>;

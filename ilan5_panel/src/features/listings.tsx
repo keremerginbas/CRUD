@@ -3,7 +3,7 @@ import {
   flexRender, getCoreRowModel, getPaginationRowModel, getSortedRowModel, useReactTable,
   type ColumnDef, type RowSelectionState, type SortingState, type VisibilityState,
 } from '@tanstack/react-table';
-import {ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Columns3, Download, FileSpreadsheet, FolderCog, ListPlus, Search, SlidersHorizontal, Tag, Trash2, Undo2, X, Inbox, Upload, DownloadCloud} from 'lucide-react';
+import {ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight, Columns3, Download, FileSpreadsheet, FolderCog, ListPlus, Search, SlidersHorizontal, Tag, Trash2, Undo2, X, Inbox, Upload, DownloadCloud, Send} from 'lucide-react';
 import {AnimatePresence, motion} from 'motion/react';
 import {Button} from '@/components/ui/button';
 import {Badge} from '@/components/ui/badge';
@@ -20,6 +20,7 @@ import {CATEGORY_LABELS, Core, DB, Sites, formatPhone, formatShortDate, isDelete
 import {allLists, createList, exportRecords, listName, refresh, useStore, type ListInfo} from '@/lib/store';
 import {navigate, openDetail, resetFilters, setFilters, useUi, type ListingFilters} from '@/lib/ui';
 import {ListManageDialog} from './list-manage';
+import {Bitrix, sendToBitrix, type TargetId} from '@/lib/bitrix';
 import {ImportButton} from './settings';
 
 const CATEGORY_TABS: [string, string][] = [['all', 'Tümü'], ['arsa', 'Arsa'], ['arac', 'Araç'], ['konut', 'Konut'], ['isyeri', 'İşyeri'], ['diger', 'Diğer'], ['review', 'İnceleme'], ['trash', 'Çöp kutusu']];
@@ -39,6 +40,8 @@ export function useFilteredRecords(filters: ListingFilters) {
     if (filters.insight === 'opportunity') rows = rows.filter(r => stats.get(r.id)?.opportunity);
     if (filters.insight === 'multi') rows = rows.filter(r => sellerCount(r) >= 3);
     if (filters.insight === 'single') rows = rows.filter(r => sellerCount(r) === 1);
+    if (filters.insight === 'bitrix-none') rows = rows.filter(r => !Object.keys(r.bitrix || {}).length);
+    if (filters.insight === 'bitrix-sent') rows = rows.filter(r => Object.keys(r.bitrix || {}).length > 0);
     return {base, rows, currencyRequired, min, max};
   }, [records, stats, sellers, filters]);
 }
@@ -92,6 +95,7 @@ export function Listings() {
             <SourceBadge source={r.source} /><span className="tabular-nums">{String(r.listingId || r.id).replace(/^[a-z]+:/, '')}</span>
             {r.crm?.status && <Badge variant="info">{Core().CRM_STATUSES[r.crm.status as keyof ReturnType<typeof Core>['CRM_STATUSES']]}</Badge>}
             {r.messagedAt && <Badge variant="muted">Mesaj gönderildi</Badge>}
+            {Object.entries(r.bitrix || {}).map(([target, b]) => <Tooltip key={target} content={`${Bitrix()?.TARGETS.find(t => t.id === target)?.name || target} · ${b.status === 'duplicate' ? 'Bitrix\'te zaten vardı' : 'Bitrix\'e yüklendi'} · ${formatShortDate(b.at)}`}><span tabIndex={0}><Badge variant="success" data-testid="badge-bitrix">Bitrix #{b.dealId}</Badge></span></Tooltip>)}
           </div>
           <AvailabilityBadge record={r} />
         </div>
@@ -152,6 +156,23 @@ export function Listings() {
   const filterActive = filters.excludeList !== 'none' || filters.crm !== 'all' || filters.insight !== 'all' || Boolean(filters.query) || filters.source !== 'all' || filters.currency !== 'all' || filters.city !== 'all' || min !== null || max !== null || filters.quality !== 'all' || filters.availability !== 'all';
   const moreActive = filters.excludeList !== 'none' || filters.crm !== 'all' || filters.insight !== 'all' || filters.currency !== 'all' || min !== null || max !== null || filters.quality !== 'all' || filters.availability !== 'all';
   const columnLabels: Record<string, string> = {price: 'Fiyat', ppa: 'm² fiyatı', location: 'Konum', spec: 'Alan / kategori', phone: 'Telefon', seller: 'Satıcı', quality: 'Veri durumu', capturedAt: 'Eklenme'};
+
+  const [bitrixProgress, setBitrixProgress] = React.useState('');
+  async function toBitrix(target: TargetId) {
+    const name = Bitrix().TARGETS.find(t => t.id === target)?.name || target;
+    const items = selectedRecords.filter(r => !isDeleted(r));
+    if (!items.length) return;
+    const noPhone = items.filter(r => !(r.phones || []).length).length, already = items.filter(r => r.bitrix?.[target]).length;
+    const notes = [noPhone ? `${noPhone} ilanda telefon yok; kişi telefonsuz açılır.` : '', already ? `${already} ilan bu hatta daha önce yüklenmiş; Bitrix'te aynı ilan no varsa atlanır.` : 'Bitrix\'te aynı ilan numarasıyla kart varsa ilan atlanır.'].filter(Boolean).join(' ');
+    if (!await confirmDialog({title: `${items.length} ilan ${name} hattına yüklensin mi?`, description: notes, confirmLabel: 'Bitrix\'e yükle'})) return;
+    setBitrixProgress(`0/${items.length}`);
+    try {
+      const summary = await sendToBitrix(target, items, (done, total) => setBitrixProgress(`${done}/${total}`));
+      const parts = [`${summary.added} ilan eklendi`, summary.duplicate ? `${summary.duplicate} ilan zaten vardı` : '', summary.errors.length ? `${summary.errors.length} ilan yüklenemedi (${summary.errors[0].message})` : ''].filter(Boolean);
+      toast(`${name}: ${parts.join(', ')}.`, summary.errors.length > 0 && !summary.added && !summary.duplicate);
+      setSelection({}); await refresh();
+    } catch (error) { toast((error as Error).message, true); } finally { setBitrixProgress(''); }
+  }
 
   async function bulk(action: 'trash' | 'restore' | 'crm' | 'list', value = '') {
     if (!selectedIds.length) return;
@@ -243,7 +264,7 @@ export function Listings() {
               <motion.div initial={{height: 0, opacity: 0}} animate={{height: 'auto', opacity: 1}} exit={{height: 0, opacity: 0}} transition={{duration: 0.2}} className="overflow-hidden">
                 <div className="grid grid-cols-2 gap-3 pt-1 md:grid-cols-4 xl:grid-cols-8">
                   <Label>Öne çıkanlar<NativeSelect value={filters.insight} onChange={e => setFilters({insight: e.target.value})} data-testid="filter-insight">
-                    <option value="all">Hepsi</option><option value="opportunity">Fırsat (m² fiyatı %20+ altında)</option><option value="multi">Çok ilanlı satıcı (3+)</option><option value="single">Tek ilanlı satıcı</option>
+                    <option value="all">Hepsi</option><option value="opportunity">Fırsat (m² fiyatı %20+ altında)</option><option value="multi">Çok ilanlı satıcı (3+)</option><option value="single">Tek ilanlı satıcı</option><option value="bitrix-none">Bitrix'e yüklenmemiş</option><option value="bitrix-sent">Bitrix'e yüklenmiş</option>
                   </NativeSelect></Label>
                   <Label>Takip durumu<NativeSelect value={filters.crm} onChange={e => setFilters({crm: e.target.value})} data-testid="filter-crm">
                     <option value="all">Tüm durumlar</option><option value="none">Durum girilmemiş</option>
@@ -297,6 +318,13 @@ export function Listings() {
                     <DropdownMenuSeparator /><DropdownMenuItem onClick={() => bulk('crm', '')}>Durumu kaldır</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {Bitrix() && <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button size="sm" variant="outline" disabled={Boolean(bitrixProgress)} data-testid="bulk-bitrix"><Send />{bitrixProgress ? `Bitrix'e yükleniyor ${bitrixProgress}` : "Bitrix'e yükle"}</Button>} />
+                  <DropdownMenuContent>
+                    <DropdownMenuLabel>Hangi hatta yüklensin?</DropdownMenuLabel>
+                    {Bitrix().TARGETS.map(t => <DropdownMenuItem key={t.id} onClick={() => toBitrix(t.id as TargetId)} data-testid={'bitrix-to-' + t.id}>{t.name}</DropdownMenuItem>)}
+                  </DropdownMenuContent>
+                </DropdownMenu>}
                 <Button size="sm" variant="outline" onClick={() => exportRecords('exportXlsx', selectedRecords)}><FileSpreadsheet />Seçilenleri Excel'e aktar</Button>
                 {filters.category === 'trash'
                   ? <Button size="sm" variant="outline" onClick={() => bulk('restore')}><Undo2 />Arşive geri al</Button>
