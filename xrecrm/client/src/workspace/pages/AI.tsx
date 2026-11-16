@@ -17,6 +17,7 @@ import {
   todayTurkey,
 } from "../components/Assistant";
 import { Badge } from "../components/ui";
+import AssistantInstructions from "../components/AssistantInstructions";
 import { money } from "../data";
 export default function AI({
   navigate,
@@ -52,6 +53,7 @@ export default function AI({
           <ChatSurface full navigate={navigate} onLead={onLead} />
         </div>
         <aside className="ai-center-sidebar">
+          <AssistantInstructions />
           <section className="panel ai-context-card">
             <header>
               <Sparkles size={18} />

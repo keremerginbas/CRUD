@@ -917,3 +917,10 @@
 /* "Dediklerimi doğrudan yap" seçeneği */
 .ai-auto-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer; white-space: nowrap; margin-left: auto; margin-right: 10px; opacity: 0.85; }
 .ai-auto-toggle input { accent-color: var(--xre-accent, #168db3); }
+
+/* Asistan talimatları kartı */
+.ai-instructions textarea { width: 100%; resize: vertical; min-height: 150px; border-radius: 10px; border: 1px solid var(--xre-border, rgba(127, 127, 127, 0.35)); background: transparent; color: inherit; padding: 10px 12px; font: inherit; font-size: 13px; line-height: 1.5; }
+.ai-instructions textarea[readonly] { opacity: 0.8; }
+.ai-instructions-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.ai-instructions-foot small, .ai-instructions-meta { opacity: 0.7; font-size: 12px; }
+.ai-instructions-meta { display: block; margin-top: 6px; }

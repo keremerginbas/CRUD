@@ -200,6 +200,13 @@ describe("assistant server contract", () => {
     process.env.XRE_OPENAI_API_KEY = "test-provider-key";
     for (let i = 0; i < 260; i++) await store.put("lead", `dolgu-${i}`, { ...lead, id: `dolgu-${i}`, name: `Dolgu Kayıt ${i}`, phone: `0555${1000000 + i}` }, "assistant-owner");
     await store.put("lead", lead.id, lead, "assistant-owner");
+    // Talimatlar: sahip kaydeder, gizli bilgi ve aşırı uzun metin reddedilir.
+    const put = (text: unknown) => fetch(`${base}/api/assistant/instructions`, { method: "PUT", headers, body: JSON.stringify({ text }) });
+    expect((await put("  Müşteriye siz diye hitap et.\r\n ")).status).toBe(200);
+    expect((await put("x".repeat(6001))).status).toBe(400);
+    expect((await put(123)).status).toBe(400);
+    expect((await put("anahtarımız sk-proj-abcdefghijklmnopqrstuvwxyz012345")).status).toBe(400);
+    expect(await (await fetch(`${base}/api/assistant/instructions`, { headers })).json()).toMatchObject({ text: "Müşteriye siz diye hitap et.", canEdit: true, max: 6000 });
     let prompt: any = null;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       if (String(input) !== "https://api.openai.com/v1/chat/completions") return originalFetch(input, init);
@@ -243,6 +250,7 @@ describe("assistant server contract", () => {
       expect(prompt.leads[0].id).toBe("lead-1");
       expect(prompt.crmSummary.leads.total).toBe(261);
       expect(prompt.workSummary).toMatchObject({ overdueActivities: 0 });
+      expect(prompt.companyInstructions).toBe("Müşteriye siz diye hitap et.");
     } finally {
       server.close();
     }
