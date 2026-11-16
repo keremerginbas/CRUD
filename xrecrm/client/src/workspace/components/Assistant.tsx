@@ -1,3 +1,4 @@
+import { ASSISTANT_AUTO_KINDS } from "../../../../shared/assistant";
 import React, {
   createContext,
   useContext,
@@ -46,6 +47,14 @@ import type {
 } from "../../../../shared/assistant";
 import "../assistant.css";
 import { useBranding } from "../branding";
+/** Öneri kartının alanlarını uygulama biçimine açar (patch ve config üst düzeye alınır). */
+function actionValues(a: AssistantAction): Record<string, any> {
+  return {
+    ...a.payload,
+    ...(a.payload.patch && typeof a.payload.patch === "object" ? a.payload.patch : {}),
+    ...(a.payload.config && typeof a.payload.config === "object" ? a.payload.config : {}),
+  };
+}
 export type ChatItem = {
   id: string;
   role: "user" | "assistant";
@@ -71,6 +80,8 @@ type AIContext = {
   send: (text: string, report?: boolean) => Promise<void>;
   clear: () => void;
   review: (a: AssistantAction) => void;
+  autoApply: boolean;
+  setAutoApply: (on: boolean) => void;
   context: { path: string; leadId?: string };
 };
 const Context = createContext<AIContext>(null!);
@@ -149,6 +160,21 @@ export function AssistantProvider({
   const [editing, setEditing] = useState<AssistantAction | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
   const [applying, setApplying] = useState(false);
+  const [autoApply, setAutoApplyState] = useState(() => {
+    try {
+      return localStorage.getItem("xre-assistant-auto") !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const setAutoApply = (on: boolean) => {
+    setAutoApplyState(on);
+    try {
+      localStorage.setItem("xre-assistant-auto", on ? "1" : "0");
+    } catch {
+      /* tercih yalnız bu oturumda geçerli olur */
+    }
+  };
   const session = useRef(0);
   const activeRef = useRef(false);
   const applyingRef = useRef(false);
@@ -246,6 +272,22 @@ export function AssistantProvider({
               : input,
           );
       if (current !== session.current) return;
+      // Kullanıcının açıkça istediği güvenli işler onay beklemeden uygulanır; mesaj, arama ve
+      // otomasyon kuralı her zaman kart olarak onaya kalır.
+      const applied: string[] = [];
+      const failed: string[] = [];
+      if (!demo && autoApply)
+        for (const action of result.actions || []) {
+          if (!action.auto || !(ASSISTANT_AUTO_KINDS as readonly string[]).includes(action.kind)) continue;
+          try {
+            await applyAssistantAction(action, actionValues(action), store);
+            applied.push(action.id);
+          } catch (e) {
+            failed.push(`${action.summary}: ${(e as Error).message}`);
+          }
+        }
+      if (applied.length) toast.success(applied.length === 1 ? "Asistan işlemi yaptı." : `Asistan ${applied.length} işlemi yaptı.`);
+      if (failed.length) toast.error(`Yapılamadı — ${failed[0]}`, { description: "Kartı açıp düzelterek uygulayabilirsiniz." });
       setItems((x) => [
         ...x,
         {
@@ -254,6 +296,7 @@ export function AssistantProvider({
           content: result.answer,
           createdAt: result.generatedAt || new Date().toISOString(),
           actions: result.actions || [],
+          applied,
           report: result.report,
           sources: result.sources || [],
         },
@@ -270,15 +313,7 @@ export function AssistantProvider({
   };
   const review = (a: AssistantAction) => {
     setEditing(a);
-    setValues({
-      ...a.payload,
-      ...(a.payload.patch && typeof a.payload.patch === "object"
-        ? a.payload.patch
-        : {}),
-      ...(a.payload.config && typeof a.payload.config === "object"
-        ? a.payload.config
-        : {}),
-    });
+    setValues(actionValues(a));
   };
   const apply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -449,6 +484,8 @@ export function AssistantProvider({
           setError("");
         },
         review,
+        autoApply,
+        setAutoApply,
         context: { path, leadId },
       }}
     >
@@ -784,6 +821,12 @@ export function ChatSurface({
               ? "Örnek veriyle yanıtlanır"
               : "Verileriniz sunucudan, yetkili kapsamda okunur"}
           </span>
+          {!demo && (
+            <label className="ai-auto-toggle" title="Açıkken 'not ekle', 'görev aç' gibi açık isteklerinizi asistan sizin adınıza hemen yapar. WhatsApp mesajı, arama ve otomasyon kuralı her zaman onayınıza sunulur.">
+              <input type="checkbox" checked={ai.autoApply} onChange={(e) => ai.setAutoApply(e.target.checked)} />
+              Dediklerimi doğrudan yap
+            </label>
+          )}
           <button
             aria-label="Asistana gönder"
             disabled={ai.busy || !text.trim()}

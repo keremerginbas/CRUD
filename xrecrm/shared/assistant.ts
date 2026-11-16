@@ -19,7 +19,11 @@ export interface AssistantAction {
   recordId?: string;
   summary: string;
   payload: Record<string, unknown>;
+  /** Kullanıcı bu işi açıkça istediyse ve tür güvenliyse onay beklemeden uygulanır. */
+  auto?: boolean;
 }
+/** Onaysız uygulanabilen türler: CRM içi kayıtlar. Mesaj, arama ve otomasyon kuralı her zaman onay ister. */
+export const ASSISTANT_AUTO_KINDS = ["lead", "task", "activity", "note", "contact", "company"] as const;
 
 export interface AssistantSource {
   kind: string;

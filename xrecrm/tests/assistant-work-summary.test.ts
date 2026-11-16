@@ -60,3 +60,24 @@ it("müşteri, mesaj ve arama sayıları tüm kayıtlardan özetlenir", async ()
   expect(s.messages).toEqual({ total: 5, inbound: 3, outbound: 2, inboundToday: 1, outboundToday: 1, conversations: 3, waitingReply: 1 });
   expect(s.calls).toMatchObject({ total: 3, today: 1, inbound: 1, outbound: 2, answered: 1, missed: 1, totalMinutes: 3, byAgent: { "101": 2 } });
 });
+
+it("mesajda adı ya da telefonu geçen müşteri binlerce kayıt içinde bulunur", async () => {
+  const { findMentionedLeads } = await import("../server/assistant");
+  const leads = [
+    ...Array.from({ length: 3000 }, (_, i) => ({ id: `x${i}`, name: `Kayıt Sahibi ${i}`, phone: `0555${String(1000000 + i)}` })),
+    { id: "a", name: "Ahmet Yılmaz", phone: "+90 555 000 00 01" },
+    { id: "b", name: "Ahmet Kaya", phone: "05550000002" },
+    { id: "c", name: "ŞÜKRÜ IŞIK", phone: "05550000003" },
+    { id: "d", name: "Zeynep", phone: "" },
+  ];
+  const ids = (text: string) => findMentionedLeads([text], leads).map((row: any) => row.id);
+  expect(ids("Ahmet Yılmaz'ın son notu ne?")).toEqual(["a"]);
+  expect(ids("ahmet yilmaza yarın 14:00 için görev aç")).toEqual(["a"]);
+  expect(ids("şükrü ışık hangi aşamada")).toEqual(["c"]);
+  expect(ids("0555 000 00 02 numaralı müşteriye not ekle")).toEqual(["b"]);
+  expect(ids("Zeynep ile görüşme planla")).toEqual(["d"]);
+  // Yalnız ad yetmez (çok kişi olabilir), sayı sorusu kimseyi seçmez.
+  expect(ids("Ahmet kimdi")).toEqual([]);
+  expect(ids("kaç geciken etkinlik var")).toEqual([]);
+  expect(findMentionedLeads([""], leads)).toEqual([]);
+});

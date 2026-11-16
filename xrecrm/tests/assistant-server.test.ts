@@ -195,6 +195,59 @@ describe("assistant server contract", () => {
     }
   });
 
+  it("açık emirde güvenli işler 'doğrudan yap' olarak işaretlenir; mesaj işaretlenemez; adı geçen müşteri öne alınır", async () => {
+    const { server, store, base, headers } = await start();
+    process.env.XRE_OPENAI_API_KEY = "test-provider-key";
+    for (let i = 0; i < 260; i++) await store.put("lead", `dolgu-${i}`, { ...lead, id: `dolgu-${i}`, name: `Dolgu Kayıt ${i}`, phone: `0555${1000000 + i}` }, "assistant-owner");
+    await store.put("lead", lead.id, lead, "assistant-owner");
+    let prompt: any = null;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      if (String(input) !== "https://api.openai.com/v1/chat/completions") return originalFetch(input, init);
+      const body = JSON.parse(String(init?.body));
+      prompt = JSON.parse(body.messages[body.messages.length - 1].content).crmContext;
+      return new Response(
+        JSON.stringify({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  answer: "Ada Lead için not eklendi.",
+                  actions: [
+                    { id: "n1", kind: "note", operation: "create", summary: "Not", auto: true, payload: { leadId: "lead-1", text: "Cumartesi aranacak." } },
+                    { id: "n2", kind: "note", operation: "create", summary: "Not 2", auto: "evet", payload: { leadId: "lead-1", text: "İkinci not." } },
+                    { id: "m1", kind: "message", operation: "create", summary: "Mesaj", auto: true, payload: { leadId: "lead-1", lineId: "cloud-1", text: "Merhaba" } },
+                  ],
+                  sources: [],
+                }),
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    });
+    try {
+      const response = await fetch(`${base}/api/assistant/chat`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ message: "Ada Lead'e not ekle: Cumartesi aranacak.", history: [], context: { path: "/ai" }, clientMessageId: "client-auto" }),
+      });
+      expect(response.status).toBe(200);
+      const json = await response.json();
+      const notes = json.actions.filter((a: any) => a.kind === "note");
+      expect(notes[0]).toMatchObject({ auto: true, payload: { leadId: "lead-1" } });
+      expect(notes[1].auto).toBeUndefined();
+      expect(json.actions.filter((a: any) => a.kind !== "note").every((a: any) => a.auto === undefined)).toBe(true);
+      // 260 dolgu kayıt arasında adı geçen müşteri sohbete giden listenin başında.
+      expect(prompt.focusLeadIds).toEqual(["lead-1"]);
+      expect(prompt.leads[0].id).toBe("lead-1");
+      expect(prompt.crmSummary.leads.total).toBe(261);
+      expect(prompt.workSummary).toMatchObject({ overdueActivities: 0 });
+    } finally {
+      server.close();
+    }
+  });
+
   it("never invents historical counts at the UTC+3 day boundaries", () => {
     const report = buildReport(
       {
