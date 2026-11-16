@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "../store";
+import { useBranding } from "../branding";
 import { stages, type Stage } from "../data";
 import { PageTitle, Badge, Empty } from "../components/ui";
 import "../n8n.css";
@@ -56,7 +57,8 @@ const emptySettings: N8nSettings = {
   configured: false,
   apiKeyConfigured: false,
 };
-const DEFAULT_N8N_BASE_URL = "https://xre111.shop";
+// Varsayılan adres yok: her kurulum kendi n8n adresini girer.
+const DEFAULT_N8N_BASE_URL = "";
 const eventExample = `{
   "eventId": "xre-event-123",
   "type": "lead.updated",
@@ -97,6 +99,9 @@ export default function N8n({
   const [workflows, setWorkflows] = useState<WorkflowSummary[]>([]);
   const [executions, setExecutions] = useState<ExecutionSummary[]>([]);
   const [tab, setTab] = useState<"workflows" | "executions">("workflows");
+  // Firmaya özel (kendi adıyla çalışan) kurulumda XRE'nin kendi akışları gösterilmez.
+  const whiteLabel = Boolean(useBranding(false).name);
+  const [connOpen, setConnOpen] = useState(true);
   const [busy, setBusy] = useState("");
   const [token, setToken] = useState("");
   const [tokenVisible, setTokenVisible] = useState(false);
@@ -368,15 +373,26 @@ export default function N8n({
         </div>
       )}
 
-      <N8nSelected />
+      {!whiteLabel && <N8nSelected />}
+      {liveOwner && !settings.configured && (
+        <section className="nx-card nx-start">
+          <h2>n8n'i 3 adımda bağlayın</h2>
+          <ol>
+            <li><b>Adres:</b> aşağıdaki "Bağlantı ayarları"na n8n adresinizi yazın (ör. https://n8n.firmaniz.com).</li>
+            <li><b>Anahtar:</b> Entegrasyonlar → "Yapay zekâ asistanı ve n8n" bölümüne n8n API anahtarını girin.</li>
+            <li><b>Dene:</b> sağ üstteki "Bağlantıyı test et" düğmesine basın. Yeşil olunca akışlarınız burada listelenir.</li>
+          </ol>
+        </section>
+      )}
+      {liveOwner && settings.configured && (
       <section className="nx-card nx-data-card">
         <div className="nx-card-heading nx-data-heading">
           <div className="nx-icon nx-icon-cyan">
             <Workflow size={19} />
           </div>
           <div>
-            <span className="nx-kicker">SALT-OKUMA</span>
-            <h2>n8n kaynakları</h2>
+            <span className="nx-kicker">YALNIZ GÖRÜNTÜLEME</span>
+            <h2>n8n akışlarınız</h2>
           </div>
           <div className="nx-tabbar" role="tablist">
             <button
@@ -384,14 +400,14 @@ export default function N8n({
               onClick={() => setTab("workflows")}
               role="tab"
             >
-              Workflows <b>{workflows.length}</b>
+              Akışlar <b>{workflows.length}</b>
             </button>
             <button
               className={tab === "executions" ? "active" : ""}
               onClick={() => setTab("executions")}
               role="tab"
             >
-              Executions <b>{executions.length}</b>
+              Çalışmalar <b>{executions.length}</b>
             </button>
           </div>
           <button
@@ -510,61 +526,15 @@ export default function N8n({
           />
         )}
       </section>
+      )}
 
 
-      <details className="nx-fold">
+      <details className="nx-fold" open={connOpen} onToggle={(event) => setConnOpen(event.currentTarget.open)}>
         <summary>
           <strong>Bağlantı ayarları</strong>
           <small>n8n adresi, hedef webhook ve erişim anahtarı</small>
         </summary>
         <div className="nx-fold-body">
-      <div className="nx-status-grid">
-        <section className="nx-card nx-status-card">
-          <div className="nx-card-heading">
-            <div className="nx-icon nx-icon-cyan">
-              <Activity size={20} />
-            </div>
-            <div>
-              <span className="nx-kicker">SUNUCU DURUMU</span>
-              <h2>Bağlantı görünümü</h2>
-            </div>
-            <Badge tone={connectionTone}>{connectionLabel}</Badge>
-          </div>
-          <div className="nx-status-lines">
-            <div>
-              <span>Management API</span>
-              <strong>
-                {settings.apiKeyConfigured
-                  ? "Sunucu anahtarı hazır"
-                  : "Anahtar yapılandırılmamış"}
-              </strong>
-            </div>
-            <div>
-              <span>Salt-okuma erişimi</span>
-              <strong>
-                {settings.connected === true ? "Doğrulandı" : "Test bekliyor"}
-              </strong>
-            </div>
-            <div>
-              <span>Workflow değişikliği</span>
-              <strong>Bu uygulamadan kapalı</strong>
-            </div>
-          </div>
-        </section>
-        <section className="nx-card nx-contract-card">
-          <div className="nx-contract-mark">
-            <CheckCircle2 size={22} />
-          </div>
-          <div>
-            <span className="nx-kicker">SÖZLEŞME</span>
-            <h2>Güvenli ayrım</h2>
-            <p>
-              n8n Public API anahtarı yönetim çağrılarında kullanılır. Webhook
-              Bearer tokenı farklıdır ve API anahtarı değildir.
-            </p>
-          </div>
-        </section>
-      </div>
 
       <div className="nx-two-column">
         <section className="nx-card nx-config-card">
@@ -574,12 +544,12 @@ export default function N8n({
             </div>
             <div>
               <span className="nx-kicker">BAĞLANTI AYARLARI</span>
-              <h2>Sunucu ve üretim hedefi</h2>
+              <h2>n8n adresi</h2>
             </div>
           </div>
           <form onSubmit={saveSettings} className="nx-form">
             <label>
-              n8n base URL
+              n8n adresi
               <input
                 type="url"
                 value={draft.baseUrl}
@@ -595,7 +565,7 @@ export default function N8n({
               </small>
             </label>
             <label>
-              Üretim webhook hedefi
+              CRM olaylarının gideceği n8n webhook adresi
               <input
                 type="url"
                 value={draft.webhookUrl}
@@ -635,8 +605,8 @@ export default function N8n({
               <KeyRound size={19} />
             </div>
             <div>
-              <span className="nx-kicker">INBOUND AUTH</span>
-              <h2>Webhook tokenı</h2>
+              <span className="nx-kicker">n8n → CRM</span>
+              <h2>n8n'in CRM'e yazma anahtarı</h2>
             </div>
           </div>
           <p className="nx-card-intro">

@@ -4,7 +4,8 @@ import WebhookHub from "../components/WebhookHub";
 import BitrixImport from "../components/BitrixImport";
 import IntegrationSettings, { ProviderSettings } from "../components/IntegrationSettings";
 import { EmailPointer } from "../components/EmailConnect";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { stages } from "../data";
 import {
   MessageCircle,
   Mail,
@@ -149,6 +150,19 @@ const settingGroupOf: Record<string, string> = {
   bitrix: "bitrix",
 };
 
+const EVENT_TYPE_LABELS: Record<string, string> = {
+  "stage-change": "Aşama",
+  "rule-action": "Otomasyon",
+  webhook: "Webhook",
+  "connection.update": "Bağlantı",
+};
+/** Günlükteki teknik aşama kodlarını ("won → proposal") ekrandaki aşama adlarına çevirir. */
+function readableDetail(detail: string, names: Map<string, string>): string {
+  const match = /^(\S+) → (\S+)$/.exec(detail.trim());
+  if (!match) return detail;
+  return `${names.get(match[1]) || match[1]} → ${names.get(match[2]) || match[2]}`;
+}
+
 export default function Integrations({
   webhooks = false,
   local = false,
@@ -157,6 +171,12 @@ export default function Integrations({
   local?: boolean;
 }) {
   const { data, demo, user, request, refresh } = useStore();
+  const stageNames = useMemo(() => {
+    const map = new Map<string, string>(stages.map((stage) => [stage.id, stage.label]));
+    for (const pipeline of ((data as any).pipelines || []) as { stages?: { id: string; label: string }[] }[])
+      for (const stage of pipeline.stages || []) if (stage?.id && stage.label) map.set(stage.id, stage.label);
+    return map;
+  }, [data]);
   const [selected, setSelected] = useState<(typeof providers)[number] | null>(
     null,
   );
@@ -571,11 +591,12 @@ export default function Integrations({
                 <tbody>
                   {data.events
                     .filter((e) => filter === "all" || e.status === filter)
+                    .slice(0, 200)
                     .map((e) => (
                       <tr key={e.id}>
                         <td>
                           <strong>{e.title}</strong>
-                          <p className="table-detail">{e.detail}</p>
+                          <p className="table-detail">{readableDetail(String(e.detail || ""), stageNames)}</p>
                           {(e as any).payload?.scheduledAt && (
                             <small>
                               Plan:{" "}
@@ -588,7 +609,7 @@ export default function Integrations({
                           )}
                         </td>
                         <td>
-                          <Badge>{e.type}</Badge>
+                          <Badge>{EVENT_TYPE_LABELS[e.type] || e.type}</Badge>
                         </td>
                         <td>
                           <Badge

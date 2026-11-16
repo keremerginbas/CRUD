@@ -731,3 +731,8 @@
     font-size: 19px;
   }
 }
+
+/* İlk kurulum: 3 adım */
+.nx-start { padding: 16px 18px; }
+.nx-start h2 { margin: 0 0 8px; font-size: 16px; }
+.nx-start ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; line-height: 1.5; }
