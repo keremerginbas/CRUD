@@ -1,0 +1,784 @@
+{
+  "name": "XRE ANKAPORT HİSSE | 04 Potansiyel Arama",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## ANKAPORT HİSSE | 04 Potansiyel Arama\n**Sheet** → Bitrix'te **ANKAPORT HİSSE POTANSİYEL MÜŞTERİLER** statüsüne yüklenir.\n\n- Her 2 dk (tek dakikalar), 09:30–19:00, her gün: boş hatlar sırayla arar → lead **ARANIYOR**'a geçer\n- Randevu → **RANDEVU OLUŞTURANLAR**, satışçılara sırayla atanır (kişi kartı da)\n- İlgilenmiyor / aranmak istemiyor / yanlış kişi → **OLUMSUZ**, bir daha aranmaz\n- Açmadı / meşgul / \"sonra arayın\" → **ULAŞILAMADI**, ertesi gün tekrar (en çok MAX_DENEME kez)\n- 30 dk'dan uzun ARANIYOR'da kalan → ULAŞILAMADI\n- Randevular anında, gün sonu raporu 19:10'da Telegram'a\n\n**Vapi:** asistan \"ANKAPORT HİSSE - POTANSİYEL\" → Server URL ve randevu_olustur aracı URL'i:\n`https://xre111.shop/webhook/ankaport-hisse-potansiyel`\nAsistan ID'sini AYARLAR → VAPI_ASISTAN_ID'ye yazın.",
+        "height": 520,
+        "width": 600
+      },
+      "id": "4969257a-38c8-4fb5-9018-c269cb089eed",
+      "name": "Not",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -260,
+        -620
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "1-59/2 * * * *"
+            }
+          ]
+        }
+      },
+      "id": "d20e30d8-7c27-4739-9e42-76193881492c",
+      "name": "Her 2 Dakikada",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ankaport-hisse-potansiyel",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "537dcfe3-17af-466f-98b4-a20a7f8fe8a2",
+      "name": "Vapi Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "b5eace8e-fc95-437a-a7b1-9e6baa9d4ce9"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "10 19 * * *"
+            }
+          ]
+        }
+      },
+      "id": "520ec841-6a2e-46ab-984e-6683ccadfb06",
+      "name": "Gün Sonu 19:10",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        600
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================================================================\n//  ANKAPORT HİSSE | 04 POTANSİYEL ARAMA — AYARLAR\n//  Değiştirmeniz gereken her şey burada.\n// ================================================================\nconst AYARLAR = {\n  PROJE_ADI: 'Ankaport Hisse Potansiyel',\n  BITRIX_WEBHOOK: 'https://xre.bitrix24.com.tr/rest/1/YOUR_WEBHOOK/', // sonu \"/\" ile bitmeli\n\n  // Vapi'de bu akış için açılan asistanın ID'si (\"ANKAPORT HİSSE - POTANSİYEL\").\n  // Asistanın Server URL'i ve randevu_olustur aracının URL'i: https://xre111.shop/webhook/ankaport-hisse-potansiyel\n  VAPI_ASISTAN_ID: 'BURAYA_ASISTAN_ID',\n\n  // Ankaport hatları (01 Form akışı çift dakikalarda, bu akış tek dakikalarda arar; çakışmaz)\n  HATLAR: [\n    { id: '568b0026-0667-4372-a075-f4c268ff2e7e', numara: '0533 743 59 66' },\n    { id: '23c707db-ba33-45ab-a2bc-38df030b620d', numara: '0533 743 59 65' },\n    { id: '43add8d3-ea51-4ca5-83c0-237557f5f617', numara: '0533 743 67 16' },\n  ],\n\n  STATU: {\n    POTANSIYEL: 'UC_91EBLI', // ANKAPORT HİSSE POTANSİYEL MÜŞTERİLER → sheet buraya yüklenir\n    ARANIYOR: 'UC_0T194T', // ANKAPORT HİSSE ARANIYOR\n    OLUMSUZ: 'UC_PX5DIZ', // ANKAPORT HİSSE OLUMSUZ → bir daha aranmaz\n    ULASILAMADI: 'UC_36TBZ8', // ANKAPORT HİSSE ULAŞILAMADI → ertesi gün tekrar aranır\n    RANDEVU: 'UC_WK3LVR', // RANDEVU OLUŞTURANLAR\n  },\n\n  // Arama saatleri (Türkiye saati). 1=Pazartesi … 7=Pazar\n  ARAMA_SAATLERI: { GUNLER: [1, 2, 3, 4, 5, 6, 7], BASLA: '09:30', BITIS: '19:00' },\n\n  // Ulaşılamayan bir kişi toplam en fazla kaç kez aranır (ilk arama dahil). Sonra ULAŞILAMADI'da kalır.\n  MAX_DENEME: 3,\n\n  // Randevu oluşunca lead (ve kişi kartı) bu satışçılara SIRAYLA atanır\n  SATIS_SORUMLU_IDLERI: [17984, 22186, 26120, 26352, 1174, 116, 25258, 5778, 11690],\n\n  // Telegram: randevu bildirimi + 19:10 gün sonu raporu\n  TELEGRAM: { CHAT_ID: '-4907631457' },\n};\nreturn [{ json: AYARLAR }];\n"
+      },
+      "id": "b0025e7b-09ec-4f8b-81e9-6f9dbd420fc5",
+      "name": "AYARLAR",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "5ee73f05-c48d-462e-a4ef-92a2539dd4e0",
+                    "leftValue": "={{ $('Vapi Webhook').isExecuted }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Vapi"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c8363c46-951b-4f84-beb7-24c13b8968dd",
+                    "leftValue": "={{ $('Gün Sonu 19:10').isExecuted }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Rapor"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Kuyruk"
+        }
+      },
+      "id": "6e6513f5-53a5-4020-86f5-37cbb33d7672",
+      "name": "Tetikleyen",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        480,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://api.vapi.ai/call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "createdAtGt",
+              "value": "={{ new Date(Date.now() - 30*60000).toISOString() }}"
+            },
+            {
+              "name": "limit",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "2cfdd0c5-3077-458e-a70b-e069c93eb106",
+      "name": "Vapi: Son Çağrılar",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        740,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      },
+      "alwaysOutputData": true,
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===================== ORTAK YARDIMCILAR =====================\nconst TR_OFFSET_MS = 3 * 3600e3;\nconst GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];\nconst pad2 = (n) => String(n).padStart(2, '0');\nfunction trParcalar(date) {\n  const d = new Date(date.getTime() + TR_OFFSET_MS);\n  return { yil: d.getUTCFullYear(), ay: d.getUTCMonth() + 1, gun: d.getUTCDate(), saat: d.getUTCHours(), dakika: d.getUTCMinutes(), haftaGunu: d.getUTCDay() };\n}\nfunction trIso(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}T${pad2(p.saat)}:${pad2(p.dakika)}:00+03:00`; }\nfunction trMetin(date) { const p = trParcalar(date); return `${pad2(p.gun)}.${pad2(p.ay)}.${p.yil} ${GUN_ADLARI[p.haftaGunu]} ${pad2(p.saat)}:${pad2(p.dakika)}`; }\nfunction trGun(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}`; }\nfunction trGunBasi(date) { const p = trParcalar(date); return new Date(Date.UTC(p.yil, p.ay - 1, p.gun) - TR_OFFSET_MS); }\nconst saatDakikaya = (s) => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };\nfunction pencereIcinde(date, P) {\n  const p = trParcalar(date); const g = p.haftaGunu === 0 ? 7 : p.haftaGunu;\n  if (!P.GUNLER.includes(g)) return false;\n  const dk = p.saat * 60 + p.dakika;\n  return dk >= saatDakikaya(P.BASLA) && dk < saatDakikaya(P.BITIS);\n}\nfunction pencereyeTasi(date, P) {\n  if (pencereIcinde(date, P)) return date;\n  let gb = trGunBasi(date).getTime();\n  for (let i = 0; i < 9; i++) {\n    const aday = new Date(gb + saatDakikaya(P.BASLA) * 60000);\n    if (aday > date && pencereIcinde(aday, P)) return aday;\n    gb += 864e5;\n  }\n  return date;\n}\nfunction telefonNormalize(raw) {\n  let s = String(raw || '').trim().replace(/[^\\d+]/g, '');\n  const yabanci = s.startsWith('+') || s.startsWith('00');\n  s = s.replace(/^\\+/, '').replace(/^00/, '');\n  if (s.length === 10 && /^[2-58]/.test(s)) s = '90' + s;\n  else if (s.length === 11 && s.startsWith('0')) s = '9' + s;\n  if (/^90[2-58]\\d{9}$/.test(s)) return '+' + s;\n  if (yabanci && !s.startsWith('90') && /^[1-9]\\d{7,14}$/.test(s)) return '+' + s;\n  return null;\n}\nfunction leadTelefonu(lead) {\n  for (const p of Array.isArray(lead && lead.PHONE) ? lead.PHONE : []) { const n = telefonNormalize(p && p.VALUE); if (n) return n; }\n  return null;\n}\nfunction isimDuzelt(s) {\n  return String(s || '').trim().toLocaleLowerCase('tr-TR').split(/\\s+/).filter(Boolean)\n    .map((k) => k.charAt(0).toLocaleUpperCase('tr-TR') + k.slice(1)).join(' ');\n}\nfunction adSoyadBol(s) {\n  const p = String(s || '').trim().split(/\\s+/).filter(Boolean);\n  if (p.length < 2) return { NAME: p[0] || '', LAST_NAME: '' };\n  return { NAME: p.slice(0, -1).join(' '), LAST_NAME: p[p.length - 1] };\n}\nfunction kisalt(s, n) { s = String(s || '').replace(/\\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }\nfunction sureMetni(sn) { sn = Math.round(Number(sn) || 0); return sn >= 60 ? `${Math.floor(sn / 60)} dk ${sn % 60} sn` : `${sn} sn`; }\nconst htmlKacis = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n// Bitrix 4 baytlık karakterleri (emoji) bozuyor → temizle\nfunction bitrixMetni(s) { return String(s).replace(/[\\u{10000}-\\u{10FFFF}]️?/gu, '').replace(/ {2,}/g, ' '); }\nfunction argumanCoz(a) {\n  if (typeof a === 'string') { try { return JSON.parse(a); } catch (e) { return {}; } }\n  return a && typeof a === 'object' ? a : {};\n}\nconst bekle = (ms) => new Promise((r) => setTimeout(r, ms));\n// Bitrix çağrısı: 503 / QUERY_LIMIT_EXCEEDED gelirse bekleyip tekrar dener\nasync function bitrix(ctx, A, metod, body) {\n  let son;\n  for (let i = 0; i < 4; i++) {\n    try {\n      const r = await ctx.helpers.httpRequest({ method: 'POST', url: `${A.BITRIX_WEBHOOK}${metod}.json`, body, json: true });\n      if (r && r.error) {\n        son = new Error(`Bitrix ${metod}: ${r.error_description || r.error}`);\n        if (/QUERY_LIMIT|OVERLOAD/i.test(String(r.error)) && i < 3) { await bekle(1500 * (i + 1)); continue; }\n        throw son;\n      }\n      return r;\n    } catch (e) {\n      son = e;\n      if (i < 3 && /503|429|QUERY_LIMIT|ECONNRESET|ETIMEDOUT|socket hang up/i.test(String((e && e.message) || e))) { await bekle(1500 * (i + 1)); continue; }\n      throw e;\n    }\n  }\n  throw son;\n}\nasync function bitrixBatch(ctx, A, cmd) {\n  if (!Object.keys(cmd).length) return {};\n  const r = await bitrix(ctx, A, 'batch', { halt: 0, cmd });\n  return (r && r.result) || {};\n}\nfunction bitrixKomut(metod, params) {\n  const qs = (obj, onEk) => {\n    const out = [];\n    for (const [k, v] of Object.entries(obj)) {\n      if (v === undefined) continue;\n      const key = onEk ? `${onEk}[${k}]` : k;\n      if (v !== null && typeof v === 'object') { const ic = qs(v, key); if (ic) out.push(ic); }\n      else out.push(`${encodeURIComponent(key)}=${encodeURIComponent(v === null ? '' : typeof v === 'string' ? bitrixMetni(v) : String(v))}`);\n    }\n    return out.join('&');\n  };\n  return `${metod}?${qs(params)}`;\n}\nfunction gunlukSayac(sd, alan) {\n  const g = trGun(new Date());\n  sd.gunluk = sd.gunluk || {};\n  for (const k of Object.keys(sd.gunluk)) if (k < trGun(new Date(Date.now() - 14 * 864e5))) delete sd.gunluk[k];\n  sd.gunluk[g] = sd.gunluk[g] || {};\n  sd.gunluk[g][alan] = (sd.gunluk[g][alan] || 0) + 1;\n}\n\nconst ULASILAMADI_NEDEN_RE = /did-not-answer|customer-busy|voicemail|no-answer|failed-to-connect|unanswered|declined|rejected|not-reachable|unavailable/i;\nconst HAT_HATASI_RE = /^call\\.in-progress\\.error-|sip-5\\d\\d|vapifault|pipeline-error|providerfault/i;\nconst OPERATOR_ANONS_RE = /ulaşılamıyor|ulasilamiyor|şu an kapalı|telefonu kapalı|kapsama alanı|meşgul|sesli mesaj|sinyal sesinden|tekrar deneyiniz|kullanılmamaktadır|abonesine/i;\nconst TEKRAR_ARA_RE = /sonra ara|daha sonra|müsait değil|musait degil|şu an konuşamam|şimdi konuşamam|toplantıdayım|araba kullanıyorum|işteyim|meşgulüm|akşam ara|yarın ara/i;\n\n// Vapi sunucu mesajını tek tip nesneye çevirir\nfunction vapiMesajCoz(body) {\n  const msg = (body && body.message) || {};\n  const call = msg.call || {};\n  const vv = (call.assistantOverrides && call.assistantOverrides.variableValues) || {};\n  const artifact = msg.artifact || {};\n  const toolCalls = (msg.toolCallList || msg.toolCalls || []).map((tc) => ({\n    id: tc.id, ad: (tc.function && tc.function.name) || tc.name || '',\n    arg: argumanCoz(tc.function ? tc.function.arguments : tc.arguments),\n  }));\n  const mesajlar = artifact.messages || msg.messages || [];\n  let kullanici = mesajlar.filter((m) => m && m.role === 'user' && String(m.message || '').trim()).map((m) => String(m.message).trim());\n  const transkript = artifact.transcript || msg.transcript || '';\n  if (!kullanici.length && transkript) {\n    kullanici = transkript.split('\\n').filter((l) => /^(user|customer)\\s*:/i.test(l)).map((l) => l.replace(/^[^:]+:\\s*/, '').trim()).filter(Boolean);\n  }\n  const aracCagrildi = mesajlar.some((m) => m && (m.role === 'tool_calls' || m.role === 'tool_call_result') &&\n    JSON.stringify(m).includes('randevu_olustur'));\n  let yapi = {};\n  const sd = msg.analysis && msg.analysis.structuredData;\n  if (sd && typeof sd === 'object') Object.assign(yapi, sd);\n  const so = artifact.structuredOutputs || (call.artifact && call.artifact.structuredOutputs) || msg.structuredOutputs;\n  if (so && typeof so === 'object') {\n    for (const v of Object.values(so)) {\n      if (!v) continue;\n      if (v.result && typeof v.result === 'object' && !Array.isArray(v.result)) Object.assign(yapi, v.result);\n      else if (v.name && v.result !== undefined) yapi[v.name] = v.result;\n    }\n  }\n  let sure = Number(msg.durationSeconds);\n  if (!sure && msg.startedAt && msg.endedAt) sure = (new Date(msg.endedAt) - new Date(msg.startedAt)) / 1000;\n  const kayit = artifact.recordingUrl || msg.recordingUrl ||\n    (artifact.recording && artifact.recording.mono && artifact.recording.mono.combinedUrl) || (artifact.recording && artifact.recording.stereoUrl) || '';\n  const endedReason = msg.endedReason || call.endedReason || '';\n  const anlamli = kullanici.filter((t) => !OPERATOR_ANONS_RE.test(t));\n  return {\n    tip: msg.type || '',\n    callId: call.id || '',\n    leadId: String(vv.lead_id || (call.metadata && call.metadata.lead_id) || '').replace(/\\D/g, ''),\n    telefon: telefonNormalize((call.customer && call.customer.number) || (msg.customer && msg.customer.number)),\n    toolCalls, endedReason, aracCagrildi,\n    sure: Math.round(sure || 0),\n    ozet: (typeof yapi.ozet === 'string' && yapi.ozet.trim()) || (msg.analysis && msg.analysis.summary) || msg.summary || '',\n    sonuc: String(yapi.sonuc || yapi.arama_sonucu || '').toLowerCase().trim(),\n    yapi, kayit,\n    kullaniciMetni: anlamli.join(' | '),\n    ulasildi: !ULASILAMADI_NEDEN_RE.test(endedReason) && anlamli.length > 0,\n    hatHatasi: HAT_HATASI_RE.test(endedReason) && !anlamli.length,\n  };\n}\n\n// Randevu: lead RANDEVU OLUŞTURANLAR'a geçer, sıradaki satışçıya atanır, kişi kartı da aynı satışçıya.\nasync function randevuIsle(ctx, A, sd, lead, arg, m) {\n  const id = String(lead.ID);\n  const liste = (A.SATIS_SORUMLU_IDLERI || []).map(String).filter(Boolean);\n  let sorumlu = String(lead.ASSIGNED_BY_ID || '');\n  if (liste.length) {\n    const i = (Number(sd.rr) || 0) % liste.length;\n    sorumlu = liste[i];\n    sd.rr = i + 1;\n  }\n  const ad = isimDuzelt((arg && arg.ad_soyad) || [lead.NAME, lead.LAST_NAME].filter(Boolean).join(' '));\n  const detay = [\n    `${A.PROJE_ADI} — yapay zeka aramasında RANDEVU oluşturuldu. Danışman müşteriyi arayıp gün/saat belirleyecek.`,\n    ad ? `Müşteri: ${ad}` : '',\n    m.telefon ? `Telefon: ${m.telefon}` : '',\n    arg && arg.ilgilendigi_hisse ? `İlgilendiği hisse: ${arg.ilgilendigi_hisse}` : '',\n    arg && (arg.randevu_tarihi || arg.randevu_saati) ? `Müşterinin söylediği zaman: ${[arg.randevu_tarihi, arg.randevu_saati].filter(Boolean).join(' ')}` : '',\n    arg && arg.not ? `Not: ${kisalt(arg.not, 500)}` : '',\n    m.callId ? `Vapi Call ID: ${m.callId}` : '',\n  ].filter(Boolean);\n  const alanlar = { STATUS_ID: A.STATU.RANDEVU, ASSIGNED_BY_ID: sorumlu || undefined };\n  if (ad && !String(lead.NAME || '').trim()) Object.assign(alanlar, adSoyadBol(ad));\n  const cmd = {\n    upd: bitrixKomut('crm.lead.update', { id, fields: alanlar }),\n    not: bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: detay.join('\\n') } }),\n  };\n  if (sorumlu && lead.CONTACT_ID && String(lead.CONTACT_ID) !== '0') {\n    cmd.kisi = bitrixKomut('crm.contact.update', { id: String(lead.CONTACT_ID), fields: { ASSIGNED_BY_ID: sorumlu } });\n  }\n  if (sorumlu) {\n    cmd.todo = bitrixKomut('crm.activity.todo.add', {\n      ownerTypeId: 1, ownerId: id,\n      deadline: trIso(pencereyeTasi(new Date(Date.now() + 15 * 60000), A.ARAMA_SAATLERI)),\n      title: kisalt(`Ankaport Hisse randevu — müşteriyi arayın — ${ad || m.telefon || ''}`, 250),\n      description: detay.join('\\n'), responsibleId: sorumlu, pingOffsets: [0],\n    });\n  }\n  const r = await bitrixBatch(ctx, A, cmd);\n  const hata = (r.result_error && r.result_error.upd) || null;\n  if (hata) throw new Error('Bitrix randevu kaydı: ' + JSON.stringify(hata));\n  gunlukSayac(sd, 'randevu');\n  let sorumluAdi = sorumlu ? `ID ${sorumlu}` : 'Atanmadı';\n  try {\n    const u = await bitrix(ctx, A, 'user.get', { ID: sorumlu });\n    const k = u && u.result && u.result[0];\n    if (k) sorumluAdi = [k.NAME, k.LAST_NAME].filter(Boolean).join(' ') || sorumluAdi;\n  } catch (e) {}\n  const telegram = [\n    `📅 <b>ANKAPORT HİSSE — YENİ RANDEVU</b> (potansiyel arama)`,\n    `👤 Müşteri: ${htmlKacis(ad || '-')} · ${htmlKacis(m.telefon || '-')}`,\n    `👩‍💼 Atanan satışçı: ${htmlKacis(sorumluAdi)}`,\n    arg && arg.not ? `📝 Not: ${htmlKacis(kisalt(arg.not, 300))}` : '',\n    `🔗 https://xre.bitrix24.com.tr/crm/lead/details/${id}/`,\n  ].filter(Boolean).join('\\n');\n  return { sorumlu, telegram };\n}\n// =================== /ORTAK YARDIMCILAR ===================\n\n// Her 2 dakikada (tek dakikalarda) çalışır:\n//  1) 30 dk'dan uzun süredir ARANIYOR'da kalan (sonucu gelmemiş) lead'leri ULAŞILAMADI'ya alır\n//  2) Arama saatindeyse boş hatlara kişi dağıtır: önce bugün sırası gelen ULAŞILAMADI'lar, sonra POTANSİYEL'ler\nconst A = $('AYARLAR').first().json;\nif (!/^[0-9a-f-]{36}$/i.test(String(A.VAPI_ASISTAN_ID))) throw new Error('AYARLAR → VAPI_ASISTAN_ID girilmemiş.');\nconst ctx = this;\nconst simdi = new Date();\nconst sd = $getWorkflowStaticData('global');\nsd.deneme = sd.deneme || {}; sd.sonArama = sd.sonArama || {}; sd.hatSon = sd.hatSon || {};\nfor (const [k, v] of Object.entries(sd.sonArama)) if (Date.now() - v > 90 * 864e5) { delete sd.sonArama[k]; delete sd.deneme[k]; }\n\n// 1) Takılı kalanlar\nconst takili = await bitrix(ctx, A, 'crm.lead.list', {\n  filter: { STATUS_ID: A.STATU.ARANIYOR, '<DATE_MODIFY': trIso(new Date(Date.now() - 30 * 60000)) },\n  select: ['ID'], order: { ID: 'ASC' },\n});\nconst tcmd = {};\nfor (const l of (takili.result || []).slice(0, 25)) {\n  tcmd[`u${l.ID}`] = bitrixKomut('crm.lead.update', { id: l.ID, fields: { STATUS_ID: A.STATU.ULASILAMADI } });\n  tcmd[`c${l.ID}`] = bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: l.ID, ENTITY_TYPE: 'lead', COMMENT: `${A.PROJE_ADI}: arama sonucu gelmedi, ULAŞILAMADI'ya alındı (tekrar aranacak).` } });\n}\nawait bitrixBatch(ctx, A, tcmd);\n\n// 2) Arama\nif (!pencereIcinde(simdi, A.ARAMA_SAATLERI)) return [];\nconst cagrilar = $input.all().map((i) => i.json).flatMap((v) => (Array.isArray(v) ? v : [v])).filter((c) => c && c.id);\nconst mesgul = new Set(cagrilar.filter((c) => c.status && c.status !== 'ended').map((c) => c.phoneNumberId));\nconst bosHatlar = A.HATLAR.filter((h) => !mesgul.has(h.id) && !(sd.hatSon[h.id] && Date.now() - sd.hatSon[h.id] < 90e3));\nif (!bosHatlar.length) return [];\n\nconst bugun = trGun(simdi);\nconst gunBasi = trIso(trGunBasi(simdi));\nconst secilen = [];\nconst notlar = {};\nconst MAX = Math.max(1, Number(A.MAX_DENEME) || 1);\n\nasync function tara(statu, ekFiltre, uygunMu) {\n  let start = 0;\n  for (let sayfa = 0; sayfa < 10 && secilen.length < bosHatlar.length; sayfa++) {\n    const r = await bitrix(ctx, A, 'crm.lead.list', {\n      filter: Object.assign({ STATUS_ID: statu }, ekFiltre),\n      select: ['ID', 'NAME', 'LAST_NAME', 'PHONE', 'DATE_MODIFY'], order: { ID: 'ASC' }, start,\n    });\n    for (const lead of r.result || []) {\n      if (secilen.length >= bosHatlar.length) break;\n      const id = String(lead.ID);\n      if (secilen.some((s) => s.id === id) || !uygunMu(lead)) continue;\n      const telefon = leadTelefonu(lead);\n      if (!telefon) {\n        sd.deneme[id] = MAX; sd.sonArama[id] = Date.now();\n        notlar[`u${id}`] = bitrixKomut('crm.lead.update', { id, fields: { STATUS_ID: A.STATU.ULASILAMADI } });\n        notlar[`c${id}`] = bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: `${A.PROJE_ADI}: geçerli telefon numarası yok, aranamadı.` } });\n        continue;\n      }\n      secilen.push({ id, telefon, ad: isimDuzelt([lead.NAME, lead.LAST_NAME].filter(Boolean).join(' ')) });\n    }\n    if (r.next === undefined || !(r.result || []).length) break;\n    start = r.next;\n  }\n}\n\n// Önce dünden kalan ULAŞILAMADI'lar (bugün henüz aranmamış ve deneme hakkı olanlar)\nawait tara(A.STATU.ULASILAMADI, { '<DATE_MODIFY': gunBasi }, (lead) => {\n  const id = String(lead.ID);\n  if ((Number(sd.deneme[id]) || 1) >= MAX) return false;\n  const son = sd.sonArama[id];\n  return !son || trGun(new Date(son)) < bugun;\n});\n// Sonra yeni POTANSİYEL'ler\nawait tara(A.STATU.POTANSIYEL, {}, () => true);\nawait bitrixBatch(ctx, A, notlar);\n\nreturn secilen.map((s, i) => {\n  const hat = bosHatlar[i];\n  sd.hatSon[hat.id] = Date.now();\n  const deneme = (Number(sd.deneme[s.id]) || 0) + 1;\n  sd.deneme[s.id] = deneme;\n  sd.sonArama[s.id] = Date.now();\n  return { json: {\n    leadId: s.id, ad: s.ad, telefon: s.telefon, hat: hat.numara, deneme,\n    vapiBody: {\n      assistantId: A.VAPI_ASISTAN_ID,\n      phoneNumberId: hat.id,\n      customer: { number: s.telefon, name: s.ad || undefined },\n      name: kisalt(`Ankaport Potansiyel #${s.id} ${s.ad || s.telefon}`, 40),\n      assistantOverrides: { variableValues: { lead_id: s.id, musteri_adi: s.ad } },\n      metadata: { lead_id: s.id, kaynak: 'ankaport-potansiyel', deneme },\n    },\n  } };\n});\n"
+      },
+      "id": "5ad59050-693a-48c6-a9a5-0684cd94c33a",
+      "name": "Arama Kuyruğu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        980,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.vapi.ai/call",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.vapiBody) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "36b30a4b-532f-41f6-97e1-8348fdd0a9d1",
+      "name": "Vapi: Aramayı Başlat",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1220,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "5Pl6muHFf8RtSDsb",
+          "name": "efas ntepe vapi"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===================== ORTAK YARDIMCILAR =====================\nconst TR_OFFSET_MS = 3 * 3600e3;\nconst GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];\nconst pad2 = (n) => String(n).padStart(2, '0');\nfunction trParcalar(date) {\n  const d = new Date(date.getTime() + TR_OFFSET_MS);\n  return { yil: d.getUTCFullYear(), ay: d.getUTCMonth() + 1, gun: d.getUTCDate(), saat: d.getUTCHours(), dakika: d.getUTCMinutes(), haftaGunu: d.getUTCDay() };\n}\nfunction trIso(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}T${pad2(p.saat)}:${pad2(p.dakika)}:00+03:00`; }\nfunction trMetin(date) { const p = trParcalar(date); return `${pad2(p.gun)}.${pad2(p.ay)}.${p.yil} ${GUN_ADLARI[p.haftaGunu]} ${pad2(p.saat)}:${pad2(p.dakika)}`; }\nfunction trGun(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}`; }\nfunction trGunBasi(date) { const p = trParcalar(date); return new Date(Date.UTC(p.yil, p.ay - 1, p.gun) - TR_OFFSET_MS); }\nconst saatDakikaya = (s) => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };\nfunction pencereIcinde(date, P) {\n  const p = trParcalar(date); const g = p.haftaGunu === 0 ? 7 : p.haftaGunu;\n  if (!P.GUNLER.includes(g)) return false;\n  const dk = p.saat * 60 + p.dakika;\n  return dk >= saatDakikaya(P.BASLA) && dk < saatDakikaya(P.BITIS);\n}\nfunction pencereyeTasi(date, P) {\n  if (pencereIcinde(date, P)) return date;\n  let gb = trGunBasi(date).getTime();\n  for (let i = 0; i < 9; i++) {\n    const aday = new Date(gb + saatDakikaya(P.BASLA) * 60000);\n    if (aday > date && pencereIcinde(aday, P)) return aday;\n    gb += 864e5;\n  }\n  return date;\n}\nfunction telefonNormalize(raw) {\n  let s = String(raw || '').trim().replace(/[^\\d+]/g, '');\n  const yabanci = s.startsWith('+') || s.startsWith('00');\n  s = s.replace(/^\\+/, '').replace(/^00/, '');\n  if (s.length === 10 && /^[2-58]/.test(s)) s = '90' + s;\n  else if (s.length === 11 && s.startsWith('0')) s = '9' + s;\n  if (/^90[2-58]\\d{9}$/.test(s)) return '+' + s;\n  if (yabanci && !s.startsWith('90') && /^[1-9]\\d{7,14}$/.test(s)) return '+' + s;\n  return null;\n}\nfunction leadTelefonu(lead) {\n  for (const p of Array.isArray(lead && lead.PHONE) ? lead.PHONE : []) { const n = telefonNormalize(p && p.VALUE); if (n) return n; }\n  return null;\n}\nfunction isimDuzelt(s) {\n  return String(s || '').trim().toLocaleLowerCase('tr-TR').split(/\\s+/).filter(Boolean)\n    .map((k) => k.charAt(0).toLocaleUpperCase('tr-TR') + k.slice(1)).join(' ');\n}\nfunction adSoyadBol(s) {\n  const p = String(s || '').trim().split(/\\s+/).filter(Boolean);\n  if (p.length < 2) return { NAME: p[0] || '', LAST_NAME: '' };\n  return { NAME: p.slice(0, -1).join(' '), LAST_NAME: p[p.length - 1] };\n}\nfunction kisalt(s, n) { s = String(s || '').replace(/\\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }\nfunction sureMetni(sn) { sn = Math.round(Number(sn) || 0); return sn >= 60 ? `${Math.floor(sn / 60)} dk ${sn % 60} sn` : `${sn} sn`; }\nconst htmlKacis = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n// Bitrix 4 baytlık karakterleri (emoji) bozuyor → temizle\nfunction bitrixMetni(s) { return String(s).replace(/[\\u{10000}-\\u{10FFFF}]️?/gu, '').replace(/ {2,}/g, ' '); }\nfunction argumanCoz(a) {\n  if (typeof a === 'string') { try { return JSON.parse(a); } catch (e) { return {}; } }\n  return a && typeof a === 'object' ? a : {};\n}\nconst bekle = (ms) => new Promise((r) => setTimeout(r, ms));\n// Bitrix çağrısı: 503 / QUERY_LIMIT_EXCEEDED gelirse bekleyip tekrar dener\nasync function bitrix(ctx, A, metod, body) {\n  let son;\n  for (let i = 0; i < 4; i++) {\n    try {\n      const r = await ctx.helpers.httpRequest({ method: 'POST', url: `${A.BITRIX_WEBHOOK}${metod}.json`, body, json: true });\n      if (r && r.error) {\n        son = new Error(`Bitrix ${metod}: ${r.error_description || r.error}`);\n        if (/QUERY_LIMIT|OVERLOAD/i.test(String(r.error)) && i < 3) { await bekle(1500 * (i + 1)); continue; }\n        throw son;\n      }\n      return r;\n    } catch (e) {\n      son = e;\n      if (i < 3 && /503|429|QUERY_LIMIT|ECONNRESET|ETIMEDOUT|socket hang up/i.test(String((e && e.message) || e))) { await bekle(1500 * (i + 1)); continue; }\n      throw e;\n    }\n  }\n  throw son;\n}\nasync function bitrixBatch(ctx, A, cmd) {\n  if (!Object.keys(cmd).length) return {};\n  const r = await bitrix(ctx, A, 'batch', { halt: 0, cmd });\n  return (r && r.result) || {};\n}\nfunction bitrixKomut(metod, params) {\n  const qs = (obj, onEk) => {\n    const out = [];\n    for (const [k, v] of Object.entries(obj)) {\n      if (v === undefined) continue;\n      const key = onEk ? `${onEk}[${k}]` : k;\n      if (v !== null && typeof v === 'object') { const ic = qs(v, key); if (ic) out.push(ic); }\n      else out.push(`${encodeURIComponent(key)}=${encodeURIComponent(v === null ? '' : typeof v === 'string' ? bitrixMetni(v) : String(v))}`);\n    }\n    return out.join('&');\n  };\n  return `${metod}?${qs(params)}`;\n}\nfunction gunlukSayac(sd, alan) {\n  const g = trGun(new Date());\n  sd.gunluk = sd.gunluk || {};\n  for (const k of Object.keys(sd.gunluk)) if (k < trGun(new Date(Date.now() - 14 * 864e5))) delete sd.gunluk[k];\n  sd.gunluk[g] = sd.gunluk[g] || {};\n  sd.gunluk[g][alan] = (sd.gunluk[g][alan] || 0) + 1;\n}\n\nconst ULASILAMADI_NEDEN_RE = /did-not-answer|customer-busy|voicemail|no-answer|failed-to-connect|unanswered|declined|rejected|not-reachable|unavailable/i;\nconst HAT_HATASI_RE = /^call\\.in-progress\\.error-|sip-5\\d\\d|vapifault|pipeline-error|providerfault/i;\nconst OPERATOR_ANONS_RE = /ulaşılamıyor|ulasilamiyor|şu an kapalı|telefonu kapalı|kapsama alanı|meşgul|sesli mesaj|sinyal sesinden|tekrar deneyiniz|kullanılmamaktadır|abonesine/i;\nconst TEKRAR_ARA_RE = /sonra ara|daha sonra|müsait değil|musait degil|şu an konuşamam|şimdi konuşamam|toplantıdayım|araba kullanıyorum|işteyim|meşgulüm|akşam ara|yarın ara/i;\n\n// Vapi sunucu mesajını tek tip nesneye çevirir\nfunction vapiMesajCoz(body) {\n  const msg = (body && body.message) || {};\n  const call = msg.call || {};\n  const vv = (call.assistantOverrides && call.assistantOverrides.variableValues) || {};\n  const artifact = msg.artifact || {};\n  const toolCalls = (msg.toolCallList || msg.toolCalls || []).map((tc) => ({\n    id: tc.id, ad: (tc.function && tc.function.name) || tc.name || '',\n    arg: argumanCoz(tc.function ? tc.function.arguments : tc.arguments),\n  }));\n  const mesajlar = artifact.messages || msg.messages || [];\n  let kullanici = mesajlar.filter((m) => m && m.role === 'user' && String(m.message || '').trim()).map((m) => String(m.message).trim());\n  const transkript = artifact.transcript || msg.transcript || '';\n  if (!kullanici.length && transkript) {\n    kullanici = transkript.split('\\n').filter((l) => /^(user|customer)\\s*:/i.test(l)).map((l) => l.replace(/^[^:]+:\\s*/, '').trim()).filter(Boolean);\n  }\n  const aracCagrildi = mesajlar.some((m) => m && (m.role === 'tool_calls' || m.role === 'tool_call_result') &&\n    JSON.stringify(m).includes('randevu_olustur'));\n  let yapi = {};\n  const sd = msg.analysis && msg.analysis.structuredData;\n  if (sd && typeof sd === 'object') Object.assign(yapi, sd);\n  const so = artifact.structuredOutputs || (call.artifact && call.artifact.structuredOutputs) || msg.structuredOutputs;\n  if (so && typeof so === 'object') {\n    for (const v of Object.values(so)) {\n      if (!v) continue;\n      if (v.result && typeof v.result === 'object' && !Array.isArray(v.result)) Object.assign(yapi, v.result);\n      else if (v.name && v.result !== undefined) yapi[v.name] = v.result;\n    }\n  }\n  let sure = Number(msg.durationSeconds);\n  if (!sure && msg.startedAt && msg.endedAt) sure = (new Date(msg.endedAt) - new Date(msg.startedAt)) / 1000;\n  const kayit = artifact.recordingUrl || msg.recordingUrl ||\n    (artifact.recording && artifact.recording.mono && artifact.recording.mono.combinedUrl) || (artifact.recording && artifact.recording.stereoUrl) || '';\n  const endedReason = msg.endedReason || call.endedReason || '';\n  const anlamli = kullanici.filter((t) => !OPERATOR_ANONS_RE.test(t));\n  return {\n    tip: msg.type || '',\n    callId: call.id || '',\n    leadId: String(vv.lead_id || (call.metadata && call.metadata.lead_id) || '').replace(/\\D/g, ''),\n    telefon: telefonNormalize((call.customer && call.customer.number) || (msg.customer && msg.customer.number)),\n    toolCalls, endedReason, aracCagrildi,\n    sure: Math.round(sure || 0),\n    ozet: (typeof yapi.ozet === 'string' && yapi.ozet.trim()) || (msg.analysis && msg.analysis.summary) || msg.summary || '',\n    sonuc: String(yapi.sonuc || yapi.arama_sonucu || '').toLowerCase().trim(),\n    yapi, kayit,\n    kullaniciMetni: anlamli.join(' | '),\n    ulasildi: !ULASILAMADI_NEDEN_RE.test(endedReason) && anlamli.length > 0,\n    hatHatasi: HAT_HATASI_RE.test(endedReason) && !anlamli.length,\n  };\n}\n\n// Randevu: lead RANDEVU OLUŞTURANLAR'a geçer, sıradaki satışçıya atanır, kişi kartı da aynı satışçıya.\nasync function randevuIsle(ctx, A, sd, lead, arg, m) {\n  const id = String(lead.ID);\n  const liste = (A.SATIS_SORUMLU_IDLERI || []).map(String).filter(Boolean);\n  let sorumlu = String(lead.ASSIGNED_BY_ID || '');\n  if (liste.length) {\n    const i = (Number(sd.rr) || 0) % liste.length;\n    sorumlu = liste[i];\n    sd.rr = i + 1;\n  }\n  const ad = isimDuzelt((arg && arg.ad_soyad) || [lead.NAME, lead.LAST_NAME].filter(Boolean).join(' '));\n  const detay = [\n    `${A.PROJE_ADI} — yapay zeka aramasında RANDEVU oluşturuldu. Danışman müşteriyi arayıp gün/saat belirleyecek.`,\n    ad ? `Müşteri: ${ad}` : '',\n    m.telefon ? `Telefon: ${m.telefon}` : '',\n    arg && arg.ilgilendigi_hisse ? `İlgilendiği hisse: ${arg.ilgilendigi_hisse}` : '',\n    arg && (arg.randevu_tarihi || arg.randevu_saati) ? `Müşterinin söylediği zaman: ${[arg.randevu_tarihi, arg.randevu_saati].filter(Boolean).join(' ')}` : '',\n    arg && arg.not ? `Not: ${kisalt(arg.not, 500)}` : '',\n    m.callId ? `Vapi Call ID: ${m.callId}` : '',\n  ].filter(Boolean);\n  const alanlar = { STATUS_ID: A.STATU.RANDEVU, ASSIGNED_BY_ID: sorumlu || undefined };\n  if (ad && !String(lead.NAME || '').trim()) Object.assign(alanlar, adSoyadBol(ad));\n  const cmd = {\n    upd: bitrixKomut('crm.lead.update', { id, fields: alanlar }),\n    not: bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: detay.join('\\n') } }),\n  };\n  if (sorumlu && lead.CONTACT_ID && String(lead.CONTACT_ID) !== '0') {\n    cmd.kisi = bitrixKomut('crm.contact.update', { id: String(lead.CONTACT_ID), fields: { ASSIGNED_BY_ID: sorumlu } });\n  }\n  if (sorumlu) {\n    cmd.todo = bitrixKomut('crm.activity.todo.add', {\n      ownerTypeId: 1, ownerId: id,\n      deadline: trIso(pencereyeTasi(new Date(Date.now() + 15 * 60000), A.ARAMA_SAATLERI)),\n      title: kisalt(`Ankaport Hisse randevu — müşteriyi arayın — ${ad || m.telefon || ''}`, 250),\n      description: detay.join('\\n'), responsibleId: sorumlu, pingOffsets: [0],\n    });\n  }\n  const r = await bitrixBatch(ctx, A, cmd);\n  const hata = (r.result_error && r.result_error.upd) || null;\n  if (hata) throw new Error('Bitrix randevu kaydı: ' + JSON.stringify(hata));\n  gunlukSayac(sd, 'randevu');\n  let sorumluAdi = sorumlu ? `ID ${sorumlu}` : 'Atanmadı';\n  try {\n    const u = await bitrix(ctx, A, 'user.get', { ID: sorumlu });\n    const k = u && u.result && u.result[0];\n    if (k) sorumluAdi = [k.NAME, k.LAST_NAME].filter(Boolean).join(' ') || sorumluAdi;\n  } catch (e) {}\n  const telegram = [\n    `📅 <b>ANKAPORT HİSSE — YENİ RANDEVU</b> (potansiyel arama)`,\n    `👤 Müşteri: ${htmlKacis(ad || '-')} · ${htmlKacis(m.telefon || '-')}`,\n    `👩‍💼 Atanan satışçı: ${htmlKacis(sorumluAdi)}`,\n    arg && arg.not ? `📝 Not: ${htmlKacis(kisalt(arg.not, 300))}` : '',\n    `🔗 https://xre.bitrix24.com.tr/crm/lead/details/${id}/`,\n  ].filter(Boolean).join('\\n');\n  return { sorumlu, telegram };\n}\n// =================== /ORTAK YARDIMCILAR ===================\n\n// Arama başladıysa lead ARANIYOR'a geçer; başlamadıysa ULAŞILAMADI'ya (ertesi gün tekrar denenir).\nconst A = $('AYARLAR').first().json;\nconst sd = $getWorkflowStaticData('global');\nconst kuyruk = $('Arama Kuyruğu').all();\nconst yanitlar = $input.all();\nconst MAX = Math.max(1, Number(A.MAX_DENEME) || 1);\nconst cmd = {};\nkuyruk.forEach((k, i) => {\n  const q = k.json; const r = (yanitlar[i] && yanitlar[i].json) || {};\n  if (r.id) {\n    gunlukSayac(sd, 'arandi');\n    cmd[`u${i}`] = bitrixKomut('crm.lead.update', { id: q.leadId, fields: { STATUS_ID: A.STATU.ARANIYOR } });\n    cmd[`c${i}`] = bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: q.leadId, ENTITY_TYPE: 'lead',\n      COMMENT: `${A.PROJE_ADI}: yapay zeka araması başladı (${q.deneme}/${MAX}. deneme, arayan hat: ${q.hat}).` } });\n  } else {\n    const hata = String((r.error && (r.error.message || JSON.stringify(r.error))) || r.message || JSON.stringify(r)).slice(0, 300);\n    cmd[`u${i}`] = bitrixKomut('crm.lead.update', { id: q.leadId, fields: { STATUS_ID: A.STATU.ULASILAMADI } });\n    cmd[`c${i}`] = bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: q.leadId, ENTITY_TYPE: 'lead',\n      COMMENT: `${A.PROJE_ADI}: arama BAŞLATILAMADI (${q.hat}). Hata: ${hata}` } });\n  }\n});\nawait bitrixBatch(this, A, cmd);\nreturn [{ json: { islenen: kuyruk.length } }];\n"
+      },
+      "id": "d9df9c57-3f80-4244-82ea-a56a26d9baa3",
+      "name": "Arama Notu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===================== ORTAK YARDIMCILAR =====================\nconst TR_OFFSET_MS = 3 * 3600e3;\nconst GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];\nconst pad2 = (n) => String(n).padStart(2, '0');\nfunction trParcalar(date) {\n  const d = new Date(date.getTime() + TR_OFFSET_MS);\n  return { yil: d.getUTCFullYear(), ay: d.getUTCMonth() + 1, gun: d.getUTCDate(), saat: d.getUTCHours(), dakika: d.getUTCMinutes(), haftaGunu: d.getUTCDay() };\n}\nfunction trIso(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}T${pad2(p.saat)}:${pad2(p.dakika)}:00+03:00`; }\nfunction trMetin(date) { const p = trParcalar(date); return `${pad2(p.gun)}.${pad2(p.ay)}.${p.yil} ${GUN_ADLARI[p.haftaGunu]} ${pad2(p.saat)}:${pad2(p.dakika)}`; }\nfunction trGun(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}`; }\nfunction trGunBasi(date) { const p = trParcalar(date); return new Date(Date.UTC(p.yil, p.ay - 1, p.gun) - TR_OFFSET_MS); }\nconst saatDakikaya = (s) => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };\nfunction pencereIcinde(date, P) {\n  const p = trParcalar(date); const g = p.haftaGunu === 0 ? 7 : p.haftaGunu;\n  if (!P.GUNLER.includes(g)) return false;\n  const dk = p.saat * 60 + p.dakika;\n  return dk >= saatDakikaya(P.BASLA) && dk < saatDakikaya(P.BITIS);\n}\nfunction pencereyeTasi(date, P) {\n  if (pencereIcinde(date, P)) return date;\n  let gb = trGunBasi(date).getTime();\n  for (let i = 0; i < 9; i++) {\n    const aday = new Date(gb + saatDakikaya(P.BASLA) * 60000);\n    if (aday > date && pencereIcinde(aday, P)) return aday;\n    gb += 864e5;\n  }\n  return date;\n}\nfunction telefonNormalize(raw) {\n  let s = String(raw || '').trim().replace(/[^\\d+]/g, '');\n  const yabanci = s.startsWith('+') || s.startsWith('00');\n  s = s.replace(/^\\+/, '').replace(/^00/, '');\n  if (s.length === 10 && /^[2-58]/.test(s)) s = '90' + s;\n  else if (s.length === 11 && s.startsWith('0')) s = '9' + s;\n  if (/^90[2-58]\\d{9}$/.test(s)) return '+' + s;\n  if (yabanci && !s.startsWith('90') && /^[1-9]\\d{7,14}$/.test(s)) return '+' + s;\n  return null;\n}\nfunction leadTelefonu(lead) {\n  for (const p of Array.isArray(lead && lead.PHONE) ? lead.PHONE : []) { const n = telefonNormalize(p && p.VALUE); if (n) return n; }\n  return null;\n}\nfunction isimDuzelt(s) {\n  return String(s || '').trim().toLocaleLowerCase('tr-TR').split(/\\s+/).filter(Boolean)\n    .map((k) => k.charAt(0).toLocaleUpperCase('tr-TR') + k.slice(1)).join(' ');\n}\nfunction adSoyadBol(s) {\n  const p = String(s || '').trim().split(/\\s+/).filter(Boolean);\n  if (p.length < 2) return { NAME: p[0] || '', LAST_NAME: '' };\n  return { NAME: p.slice(0, -1).join(' '), LAST_NAME: p[p.length - 1] };\n}\nfunction kisalt(s, n) { s = String(s || '').replace(/\\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }\nfunction sureMetni(sn) { sn = Math.round(Number(sn) || 0); return sn >= 60 ? `${Math.floor(sn / 60)} dk ${sn % 60} sn` : `${sn} sn`; }\nconst htmlKacis = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n// Bitrix 4 baytlık karakterleri (emoji) bozuyor → temizle\nfunction bitrixMetni(s) { return String(s).replace(/[\\u{10000}-\\u{10FFFF}]️?/gu, '').replace(/ {2,}/g, ' '); }\nfunction argumanCoz(a) {\n  if (typeof a === 'string') { try { return JSON.parse(a); } catch (e) { return {}; } }\n  return a && typeof a === 'object' ? a : {};\n}\nconst bekle = (ms) => new Promise((r) => setTimeout(r, ms));\n// Bitrix çağrısı: 503 / QUERY_LIMIT_EXCEEDED gelirse bekleyip tekrar dener\nasync function bitrix(ctx, A, metod, body) {\n  let son;\n  for (let i = 0; i < 4; i++) {\n    try {\n      const r = await ctx.helpers.httpRequest({ method: 'POST', url: `${A.BITRIX_WEBHOOK}${metod}.json`, body, json: true });\n      if (r && r.error) {\n        son = new Error(`Bitrix ${metod}: ${r.error_description || r.error}`);\n        if (/QUERY_LIMIT|OVERLOAD/i.test(String(r.error)) && i < 3) { await bekle(1500 * (i + 1)); continue; }\n        throw son;\n      }\n      return r;\n    } catch (e) {\n      son = e;\n      if (i < 3 && /503|429|QUERY_LIMIT|ECONNRESET|ETIMEDOUT|socket hang up/i.test(String((e && e.message) || e))) { await bekle(1500 * (i + 1)); continue; }\n      throw e;\n    }\n  }\n  throw son;\n}\nasync function bitrixBatch(ctx, A, cmd) {\n  if (!Object.keys(cmd).length) return {};\n  const r = await bitrix(ctx, A, 'batch', { halt: 0, cmd });\n  return (r && r.result) || {};\n}\nfunction bitrixKomut(metod, params) {\n  const qs = (obj, onEk) => {\n    const out = [];\n    for (const [k, v] of Object.entries(obj)) {\n      if (v === undefined) continue;\n      const key = onEk ? `${onEk}[${k}]` : k;\n      if (v !== null && typeof v === 'object') { const ic = qs(v, key); if (ic) out.push(ic); }\n      else out.push(`${encodeURIComponent(key)}=${encodeURIComponent(v === null ? '' : typeof v === 'string' ? bitrixMetni(v) : String(v))}`);\n    }\n    return out.join('&');\n  };\n  return `${metod}?${qs(params)}`;\n}\nfunction gunlukSayac(sd, alan) {\n  const g = trGun(new Date());\n  sd.gunluk = sd.gunluk || {};\n  for (const k of Object.keys(sd.gunluk)) if (k < trGun(new Date(Date.now() - 14 * 864e5))) delete sd.gunluk[k];\n  sd.gunluk[g] = sd.gunluk[g] || {};\n  sd.gunluk[g][alan] = (sd.gunluk[g][alan] || 0) + 1;\n}\n\nconst ULASILAMADI_NEDEN_RE = /did-not-answer|customer-busy|voicemail|no-answer|failed-to-connect|unanswered|declined|rejected|not-reachable|unavailable/i;\nconst HAT_HATASI_RE = /^call\\.in-progress\\.error-|sip-5\\d\\d|vapifault|pipeline-error|providerfault/i;\nconst OPERATOR_ANONS_RE = /ulaşılamıyor|ulasilamiyor|şu an kapalı|telefonu kapalı|kapsama alanı|meşgul|sesli mesaj|sinyal sesinden|tekrar deneyiniz|kullanılmamaktadır|abonesine/i;\nconst TEKRAR_ARA_RE = /sonra ara|daha sonra|müsait değil|musait degil|şu an konuşamam|şimdi konuşamam|toplantıdayım|araba kullanıyorum|işteyim|meşgulüm|akşam ara|yarın ara/i;\n\n// Vapi sunucu mesajını tek tip nesneye çevirir\nfunction vapiMesajCoz(body) {\n  const msg = (body && body.message) || {};\n  const call = msg.call || {};\n  const vv = (call.assistantOverrides && call.assistantOverrides.variableValues) || {};\n  const artifact = msg.artifact || {};\n  const toolCalls = (msg.toolCallList || msg.toolCalls || []).map((tc) => ({\n    id: tc.id, ad: (tc.function && tc.function.name) || tc.name || '',\n    arg: argumanCoz(tc.function ? tc.function.arguments : tc.arguments),\n  }));\n  const mesajlar = artifact.messages || msg.messages || [];\n  let kullanici = mesajlar.filter((m) => m && m.role === 'user' && String(m.message || '').trim()).map((m) => String(m.message).trim());\n  const transkript = artifact.transcript || msg.transcript || '';\n  if (!kullanici.length && transkript) {\n    kullanici = transkript.split('\\n').filter((l) => /^(user|customer)\\s*:/i.test(l)).map((l) => l.replace(/^[^:]+:\\s*/, '').trim()).filter(Boolean);\n  }\n  const aracCagrildi = mesajlar.some((m) => m && (m.role === 'tool_calls' || m.role === 'tool_call_result') &&\n    JSON.stringify(m).includes('randevu_olustur'));\n  let yapi = {};\n  const sd = msg.analysis && msg.analysis.structuredData;\n  if (sd && typeof sd === 'object') Object.assign(yapi, sd);\n  const so = artifact.structuredOutputs || (call.artifact && call.artifact.structuredOutputs) || msg.structuredOutputs;\n  if (so && typeof so === 'object') {\n    for (const v of Object.values(so)) {\n      if (!v) continue;\n      if (v.result && typeof v.result === 'object' && !Array.isArray(v.result)) Object.assign(yapi, v.result);\n      else if (v.name && v.result !== undefined) yapi[v.name] = v.result;\n    }\n  }\n  let sure = Number(msg.durationSeconds);\n  if (!sure && msg.startedAt && msg.endedAt) sure = (new Date(msg.endedAt) - new Date(msg.startedAt)) / 1000;\n  const kayit = artifact.recordingUrl || msg.recordingUrl ||\n    (artifact.recording && artifact.recording.mono && artifact.recording.mono.combinedUrl) || (artifact.recording && artifact.recording.stereoUrl) || '';\n  const endedReason = msg.endedReason || call.endedReason || '';\n  const anlamli = kullanici.filter((t) => !OPERATOR_ANONS_RE.test(t));\n  return {\n    tip: msg.type || '',\n    callId: call.id || '',\n    leadId: String(vv.lead_id || (call.metadata && call.metadata.lead_id) || '').replace(/\\D/g, ''),\n    telefon: telefonNormalize((call.customer && call.customer.number) || (msg.customer && msg.customer.number)),\n    toolCalls, endedReason, aracCagrildi,\n    sure: Math.round(sure || 0),\n    ozet: (typeof yapi.ozet === 'string' && yapi.ozet.trim()) || (msg.analysis && msg.analysis.summary) || msg.summary || '',\n    sonuc: String(yapi.sonuc || yapi.arama_sonucu || '').toLowerCase().trim(),\n    yapi, kayit,\n    kullaniciMetni: anlamli.join(' | '),\n    ulasildi: !ULASILAMADI_NEDEN_RE.test(endedReason) && anlamli.length > 0,\n    hatHatasi: HAT_HATASI_RE.test(endedReason) && !anlamli.length,\n  };\n}\n\n// Randevu: lead RANDEVU OLUŞTURANLAR'a geçer, sıradaki satışçıya atanır, kişi kartı da aynı satışçıya.\nasync function randevuIsle(ctx, A, sd, lead, arg, m) {\n  const id = String(lead.ID);\n  const liste = (A.SATIS_SORUMLU_IDLERI || []).map(String).filter(Boolean);\n  let sorumlu = String(lead.ASSIGNED_BY_ID || '');\n  if (liste.length) {\n    const i = (Number(sd.rr) || 0) % liste.length;\n    sorumlu = liste[i];\n    sd.rr = i + 1;\n  }\n  const ad = isimDuzelt((arg && arg.ad_soyad) || [lead.NAME, lead.LAST_NAME].filter(Boolean).join(' '));\n  const detay = [\n    `${A.PROJE_ADI} — yapay zeka aramasında RANDEVU oluşturuldu. Danışman müşteriyi arayıp gün/saat belirleyecek.`,\n    ad ? `Müşteri: ${ad}` : '',\n    m.telefon ? `Telefon: ${m.telefon}` : '',\n    arg && arg.ilgilendigi_hisse ? `İlgilendiği hisse: ${arg.ilgilendigi_hisse}` : '',\n    arg && (arg.randevu_tarihi || arg.randevu_saati) ? `Müşterinin söylediği zaman: ${[arg.randevu_tarihi, arg.randevu_saati].filter(Boolean).join(' ')}` : '',\n    arg && arg.not ? `Not: ${kisalt(arg.not, 500)}` : '',\n    m.callId ? `Vapi Call ID: ${m.callId}` : '',\n  ].filter(Boolean);\n  const alanlar = { STATUS_ID: A.STATU.RANDEVU, ASSIGNED_BY_ID: sorumlu || undefined };\n  if (ad && !String(lead.NAME || '').trim()) Object.assign(alanlar, adSoyadBol(ad));\n  const cmd = {\n    upd: bitrixKomut('crm.lead.update', { id, fields: alanlar }),\n    not: bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: detay.join('\\n') } }),\n  };\n  if (sorumlu && lead.CONTACT_ID && String(lead.CONTACT_ID) !== '0') {\n    cmd.kisi = bitrixKomut('crm.contact.update', { id: String(lead.CONTACT_ID), fields: { ASSIGNED_BY_ID: sorumlu } });\n  }\n  if (sorumlu) {\n    cmd.todo = bitrixKomut('crm.activity.todo.add', {\n      ownerTypeId: 1, ownerId: id,\n      deadline: trIso(pencereyeTasi(new Date(Date.now() + 15 * 60000), A.ARAMA_SAATLERI)),\n      title: kisalt(`Ankaport Hisse randevu — müşteriyi arayın — ${ad || m.telefon || ''}`, 250),\n      description: detay.join('\\n'), responsibleId: sorumlu, pingOffsets: [0],\n    });\n  }\n  const r = await bitrixBatch(ctx, A, cmd);\n  const hata = (r.result_error && r.result_error.upd) || null;\n  if (hata) throw new Error('Bitrix randevu kaydı: ' + JSON.stringify(hata));\n  gunlukSayac(sd, 'randevu');\n  let sorumluAdi = sorumlu ? `ID ${sorumlu}` : 'Atanmadı';\n  try {\n    const u = await bitrix(ctx, A, 'user.get', { ID: sorumlu });\n    const k = u && u.result && u.result[0];\n    if (k) sorumluAdi = [k.NAME, k.LAST_NAME].filter(Boolean).join(' ') || sorumluAdi;\n  } catch (e) {}\n  const telegram = [\n    `📅 <b>ANKAPORT HİSSE — YENİ RANDEVU</b> (potansiyel arama)`,\n    `👤 Müşteri: ${htmlKacis(ad || '-')} · ${htmlKacis(m.telefon || '-')}`,\n    `👩‍💼 Atanan satışçı: ${htmlKacis(sorumluAdi)}`,\n    arg && arg.not ? `📝 Not: ${htmlKacis(kisalt(arg.not, 300))}` : '',\n    `🔗 https://xre.bitrix24.com.tr/crm/lead/details/${id}/`,\n  ].filter(Boolean).join('\\n');\n  return { sorumlu, telegram };\n}\n// =================== /ORTAK YARDIMCILAR ===================\n\nconst body = $('Vapi Webhook').first().json.body || {};\nreturn [{ json: vapiMesajCoz(body) }];\n"
+      },
+      "id": "845c71a9-675e-41f9-b473-837bd5e48b57",
+      "name": "Mesajı Çöz",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "4d189e6d-11f5-41d6-b732-a4cd959e19e0",
+                    "leftValue": "={{ $json.tip }}",
+                    "rightValue": "tool-calls",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Araç çağrısı"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "0f4d5487-dae1-4f2a-bc53-f2c32d5c86c5",
+                    "leftValue": "={{ $json.tip }}",
+                    "rightValue": "end-of-call-report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Çağrı raporu"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "Diğer"
+        }
+      },
+      "id": "dde9b0f2-7885-4bd8-9a15-bb0660dd8865",
+      "name": "Mesaj Tipi",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        980,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===================== ORTAK YARDIMCILAR =====================\nconst TR_OFFSET_MS = 3 * 3600e3;\nconst GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];\nconst pad2 = (n) => String(n).padStart(2, '0');\nfunction trParcalar(date) {\n  const d = new Date(date.getTime() + TR_OFFSET_MS);\n  return { yil: d.getUTCFullYear(), ay: d.getUTCMonth() + 1, gun: d.getUTCDate(), saat: d.getUTCHours(), dakika: d.getUTCMinutes(), haftaGunu: d.getUTCDay() };\n}\nfunction trIso(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}T${pad2(p.saat)}:${pad2(p.dakika)}:00+03:00`; }\nfunction trMetin(date) { const p = trParcalar(date); return `${pad2(p.gun)}.${pad2(p.ay)}.${p.yil} ${GUN_ADLARI[p.haftaGunu]} ${pad2(p.saat)}:${pad2(p.dakika)}`; }\nfunction trGun(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}`; }\nfunction trGunBasi(date) { const p = trParcalar(date); return new Date(Date.UTC(p.yil, p.ay - 1, p.gun) - TR_OFFSET_MS); }\nconst saatDakikaya = (s) => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };\nfunction pencereIcinde(date, P) {\n  const p = trParcalar(date); const g = p.haftaGunu === 0 ? 7 : p.haftaGunu;\n  if (!P.GUNLER.includes(g)) return false;\n  const dk = p.saat * 60 + p.dakika;\n  return dk >= saatDakikaya(P.BASLA) && dk < saatDakikaya(P.BITIS);\n}\nfunction pencereyeTasi(date, P) {\n  if (pencereIcinde(date, P)) return date;\n  let gb = trGunBasi(date).getTime();\n  for (let i = 0; i < 9; i++) {\n    const aday = new Date(gb + saatDakikaya(P.BASLA) * 60000);\n    if (aday > date && pencereIcinde(aday, P)) return aday;\n    gb += 864e5;\n  }\n  return date;\n}\nfunction telefonNormalize(raw) {\n  let s = String(raw || '').trim().replace(/[^\\d+]/g, '');\n  const yabanci = s.startsWith('+') || s.startsWith('00');\n  s = s.replace(/^\\+/, '').replace(/^00/, '');\n  if (s.length === 10 && /^[2-58]/.test(s)) s = '90' + s;\n  else if (s.length === 11 && s.startsWith('0')) s = '9' + s;\n  if (/^90[2-58]\\d{9}$/.test(s)) return '+' + s;\n  if (yabanci && !s.startsWith('90') && /^[1-9]\\d{7,14}$/.test(s)) return '+' + s;\n  return null;\n}\nfunction leadTelefonu(lead) {\n  for (const p of Array.isArray(lead && lead.PHONE) ? lead.PHONE : []) { const n = telefonNormalize(p && p.VALUE); if (n) return n; }\n  return null;\n}\nfunction isimDuzelt(s) {\n  return String(s || '').trim().toLocaleLowerCase('tr-TR').split(/\\s+/).filter(Boolean)\n    .map((k) => k.charAt(0).toLocaleUpperCase('tr-TR') + k.slice(1)).join(' ');\n}\nfunction adSoyadBol(s) {\n  const p = String(s || '').trim().split(/\\s+/).filter(Boolean);\n  if (p.length < 2) return { NAME: p[0] || '', LAST_NAME: '' };\n  return { NAME: p.slice(0, -1).join(' '), LAST_NAME: p[p.length - 1] };\n}\nfunction kisalt(s, n) { s = String(s || '').replace(/\\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }\nfunction sureMetni(sn) { sn = Math.round(Number(sn) || 0); return sn >= 60 ? `${Math.floor(sn / 60)} dk ${sn % 60} sn` : `${sn} sn`; }\nconst htmlKacis = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n// Bitrix 4 baytlık karakterleri (emoji) bozuyor → temizle\nfunction bitrixMetni(s) { return String(s).replace(/[\\u{10000}-\\u{10FFFF}]️?/gu, '').replace(/ {2,}/g, ' '); }\nfunction argumanCoz(a) {\n  if (typeof a === 'string') { try { return JSON.parse(a); } catch (e) { return {}; } }\n  return a && typeof a === 'object' ? a : {};\n}\nconst bekle = (ms) => new Promise((r) => setTimeout(r, ms));\n// Bitrix çağrısı: 503 / QUERY_LIMIT_EXCEEDED gelirse bekleyip tekrar dener\nasync function bitrix(ctx, A, metod, body) {\n  let son;\n  for (let i = 0; i < 4; i++) {\n    try {\n      const r = await ctx.helpers.httpRequest({ method: 'POST', url: `${A.BITRIX_WEBHOOK}${metod}.json`, body, json: true });\n      if (r && r.error) {\n        son = new Error(`Bitrix ${metod}: ${r.error_description || r.error}`);\n        if (/QUERY_LIMIT|OVERLOAD/i.test(String(r.error)) && i < 3) { await bekle(1500 * (i + 1)); continue; }\n        throw son;\n      }\n      return r;\n    } catch (e) {\n      son = e;\n      if (i < 3 && /503|429|QUERY_LIMIT|ECONNRESET|ETIMEDOUT|socket hang up/i.test(String((e && e.message) || e))) { await bekle(1500 * (i + 1)); continue; }\n      throw e;\n    }\n  }\n  throw son;\n}\nasync function bitrixBatch(ctx, A, cmd) {\n  if (!Object.keys(cmd).length) return {};\n  const r = await bitrix(ctx, A, 'batch', { halt: 0, cmd });\n  return (r && r.result) || {};\n}\nfunction bitrixKomut(metod, params) {\n  const qs = (obj, onEk) => {\n    const out = [];\n    for (const [k, v] of Object.entries(obj)) {\n      if (v === undefined) continue;\n      const key = onEk ? `${onEk}[${k}]` : k;\n      if (v !== null && typeof v === 'object') { const ic = qs(v, key); if (ic) out.push(ic); }\n      else out.push(`${encodeURIComponent(key)}=${encodeURIComponent(v === null ? '' : typeof v === 'string' ? bitrixMetni(v) : String(v))}`);\n    }\n    return out.join('&');\n  };\n  return `${metod}?${qs(params)}`;\n}\nfunction gunlukSayac(sd, alan) {\n  const g = trGun(new Date());\n  sd.gunluk = sd.gunluk || {};\n  for (const k of Object.keys(sd.gunluk)) if (k < trGun(new Date(Date.now() - 14 * 864e5))) delete sd.gunluk[k];\n  sd.gunluk[g] = sd.gunluk[g] || {};\n  sd.gunluk[g][alan] = (sd.gunluk[g][alan] || 0) + 1;\n}\n\nconst ULASILAMADI_NEDEN_RE = /did-not-answer|customer-busy|voicemail|no-answer|failed-to-connect|unanswered|declined|rejected|not-reachable|unavailable/i;\nconst HAT_HATASI_RE = /^call\\.in-progress\\.error-|sip-5\\d\\d|vapifault|pipeline-error|providerfault/i;\nconst OPERATOR_ANONS_RE = /ulaşılamıyor|ulasilamiyor|şu an kapalı|telefonu kapalı|kapsama alanı|meşgul|sesli mesaj|sinyal sesinden|tekrar deneyiniz|kullanılmamaktadır|abonesine/i;\nconst TEKRAR_ARA_RE = /sonra ara|daha sonra|müsait değil|musait degil|şu an konuşamam|şimdi konuşamam|toplantıdayım|araba kullanıyorum|işteyim|meşgulüm|akşam ara|yarın ara/i;\n\n// Vapi sunucu mesajını tek tip nesneye çevirir\nfunction vapiMesajCoz(body) {\n  const msg = (body && body.message) || {};\n  const call = msg.call || {};\n  const vv = (call.assistantOverrides && call.assistantOverrides.variableValues) || {};\n  const artifact = msg.artifact || {};\n  const toolCalls = (msg.toolCallList || msg.toolCalls || []).map((tc) => ({\n    id: tc.id, ad: (tc.function && tc.function.name) || tc.name || '',\n    arg: argumanCoz(tc.function ? tc.function.arguments : tc.arguments),\n  }));\n  const mesajlar = artifact.messages || msg.messages || [];\n  let kullanici = mesajlar.filter((m) => m && m.role === 'user' && String(m.message || '').trim()).map((m) => String(m.message).trim());\n  const transkript = artifact.transcript || msg.transcript || '';\n  if (!kullanici.length && transkript) {\n    kullanici = transkript.split('\\n').filter((l) => /^(user|customer)\\s*:/i.test(l)).map((l) => l.replace(/^[^:]+:\\s*/, '').trim()).filter(Boolean);\n  }\n  const aracCagrildi = mesajlar.some((m) => m && (m.role === 'tool_calls' || m.role === 'tool_call_result') &&\n    JSON.stringify(m).includes('randevu_olustur'));\n  let yapi = {};\n  const sd = msg.analysis && msg.analysis.structuredData;\n  if (sd && typeof sd === 'object') Object.assign(yapi, sd);\n  const so = artifact.structuredOutputs || (call.artifact && call.artifact.structuredOutputs) || msg.structuredOutputs;\n  if (so && typeof so === 'object') {\n    for (const v of Object.values(so)) {\n      if (!v) continue;\n      if (v.result && typeof v.result === 'object' && !Array.isArray(v.result)) Object.assign(yapi, v.result);\n      else if (v.name && v.result !== undefined) yapi[v.name] = v.result;\n    }\n  }\n  let sure = Number(msg.durationSeconds);\n  if (!sure && msg.startedAt && msg.endedAt) sure = (new Date(msg.endedAt) - new Date(msg.startedAt)) / 1000;\n  const kayit = artifact.recordingUrl || msg.recordingUrl ||\n    (artifact.recording && artifact.recording.mono && artifact.recording.mono.combinedUrl) || (artifact.recording && artifact.recording.stereoUrl) || '';\n  const endedReason = msg.endedReason || call.endedReason || '';\n  const anlamli = kullanici.filter((t) => !OPERATOR_ANONS_RE.test(t));\n  return {\n    tip: msg.type || '',\n    callId: call.id || '',\n    leadId: String(vv.lead_id || (call.metadata && call.metadata.lead_id) || '').replace(/\\D/g, ''),\n    telefon: telefonNormalize((call.customer && call.customer.number) || (msg.customer && msg.customer.number)),\n    toolCalls, endedReason, aracCagrildi,\n    sure: Math.round(sure || 0),\n    ozet: (typeof yapi.ozet === 'string' && yapi.ozet.trim()) || (msg.analysis && msg.analysis.summary) || msg.summary || '',\n    sonuc: String(yapi.sonuc || yapi.arama_sonucu || '').toLowerCase().trim(),\n    yapi, kayit,\n    kullaniciMetni: anlamli.join(' | '),\n    ulasildi: !ULASILAMADI_NEDEN_RE.test(endedReason) && anlamli.length > 0,\n    hatHatasi: HAT_HATASI_RE.test(endedReason) && !anlamli.length,\n  };\n}\n\n// Randevu: lead RANDEVU OLUŞTURANLAR'a geçer, sıradaki satışçıya atanır, kişi kartı da aynı satışçıya.\nasync function randevuIsle(ctx, A, sd, lead, arg, m) {\n  const id = String(lead.ID);\n  const liste = (A.SATIS_SORUMLU_IDLERI || []).map(String).filter(Boolean);\n  let sorumlu = String(lead.ASSIGNED_BY_ID || '');\n  if (liste.length) {\n    const i = (Number(sd.rr) || 0) % liste.length;\n    sorumlu = liste[i];\n    sd.rr = i + 1;\n  }\n  const ad = isimDuzelt((arg && arg.ad_soyad) || [lead.NAME, lead.LAST_NAME].filter(Boolean).join(' '));\n  const detay = [\n    `${A.PROJE_ADI} — yapay zeka aramasında RANDEVU oluşturuldu. Danışman müşteriyi arayıp gün/saat belirleyecek.`,\n    ad ? `Müşteri: ${ad}` : '',\n    m.telefon ? `Telefon: ${m.telefon}` : '',\n    arg && arg.ilgilendigi_hisse ? `İlgilendiği hisse: ${arg.ilgilendigi_hisse}` : '',\n    arg && (arg.randevu_tarihi || arg.randevu_saati) ? `Müşterinin söylediği zaman: ${[arg.randevu_tarihi, arg.randevu_saati].filter(Boolean).join(' ')}` : '',\n    arg && arg.not ? `Not: ${kisalt(arg.not, 500)}` : '',\n    m.callId ? `Vapi Call ID: ${m.callId}` : '',\n  ].filter(Boolean);\n  const alanlar = { STATUS_ID: A.STATU.RANDEVU, ASSIGNED_BY_ID: sorumlu || undefined };\n  if (ad && !String(lead.NAME || '').trim()) Object.assign(alanlar, adSoyadBol(ad));\n  const cmd = {\n    upd: bitrixKomut('crm.lead.update', { id, fields: alanlar }),\n    not: bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: detay.join('\\n') } }),\n  };\n  if (sorumlu && lead.CONTACT_ID && String(lead.CONTACT_ID) !== '0') {\n    cmd.kisi = bitrixKomut('crm.contact.update', { id: String(lead.CONTACT_ID), fields: { ASSIGNED_BY_ID: sorumlu } });\n  }\n  if (sorumlu) {\n    cmd.todo = bitrixKomut('crm.activity.todo.add', {\n      ownerTypeId: 1, ownerId: id,\n      deadline: trIso(pencereyeTasi(new Date(Date.now() + 15 * 60000), A.ARAMA_SAATLERI)),\n      title: kisalt(`Ankaport Hisse randevu — müşteriyi arayın — ${ad || m.telefon || ''}`, 250),\n      description: detay.join('\\n'), responsibleId: sorumlu, pingOffsets: [0],\n    });\n  }\n  const r = await bitrixBatch(ctx, A, cmd);\n  const hata = (r.result_error && r.result_error.upd) || null;\n  if (hata) throw new Error('Bitrix randevu kaydı: ' + JSON.stringify(hata));\n  gunlukSayac(sd, 'randevu');\n  let sorumluAdi = sorumlu ? `ID ${sorumlu}` : 'Atanmadı';\n  try {\n    const u = await bitrix(ctx, A, 'user.get', { ID: sorumlu });\n    const k = u && u.result && u.result[0];\n    if (k) sorumluAdi = [k.NAME, k.LAST_NAME].filter(Boolean).join(' ') || sorumluAdi;\n  } catch (e) {}\n  const telegram = [\n    `📅 <b>ANKAPORT HİSSE — YENİ RANDEVU</b> (potansiyel arama)`,\n    `👤 Müşteri: ${htmlKacis(ad || '-')} · ${htmlKacis(m.telefon || '-')}`,\n    `👩‍💼 Atanan satışçı: ${htmlKacis(sorumluAdi)}`,\n    arg && arg.not ? `📝 Not: ${htmlKacis(kisalt(arg.not, 300))}` : '',\n    `🔗 https://xre.bitrix24.com.tr/crm/lead/details/${id}/`,\n  ].filter(Boolean).join('\\n');\n  return { sorumlu, telegram };\n}\n// =================== /ORTAK YARDIMCILAR ===================\n\n// Görüşme sırasında randevu_olustur aracı çağrıldı → randevu işlenir, Vapi'ye cevap döner.\nconst A = $('AYARLAR').first().json;\nconst m = $('Mesajı Çöz').first().json;\nconst sd = $getWorkflowStaticData('global');\nsd.aracCagri = sd.aracCagri || {};\nfor (const [k, v] of Object.entries(sd.aracCagri)) if (Date.now() - v.t > 3 * 864e5) delete sd.aracCagri[k];\nconst results = [];\nconst telegram = [];\nfor (const tc of m.toolCalls) {\n  if (tc.ad !== 'randevu_olustur') { results.push({ toolCallId: tc.id, result: `Bilinmeyen araç: ${tc.ad}` }); continue; }\n  if (m.callId) sd.aracCagri[m.callId] = { t: Date.now(), arg: tc.arg };\n  const KAPANIS = 'Kaydedildi. Müşteriye \"Tamam, bilgilerinizi aldım. Danışmanımız en kısa sürede sizi arayıp detayları anlatacak.\" de, ardından \"İksreli günler dilerim, iyi günler\" diyerek görüşmeyi kapat. Başka soru sorma.';\n  try {\n    if (!m.leadId) throw new Error('lead_id yok');\n    const r = await bitrix(this, A, 'crm.lead.get', { id: m.leadId });\n    const lead = r && r.result;\n    if (!lead || !lead.ID) throw new Error('lead bulunamadı');\n    if (lead.STATUS_ID !== A.STATU.RANDEVU) {\n      const s = await randevuIsle(this, A, sd, lead, tc.arg, m);\n      telegram.push(s.telegram);\n    }\n    if (m.callId) sd.aracCagri[m.callId].islendi = true;\n    results.push({ toolCallId: tc.id, result: KAPANIS });\n  } catch (e) {\n    results.push({ toolCallId: tc.id, result: 'Talebini not aldığını, danışmanımızın en kısa sürede arayacağını söyle ve kibarca görüşmeyi kapat.' });\n  }\n}\nreturn [{ json: { results, telegram: telegram.join('\\n\\n') } }];\n"
+      },
+      "id": "7308c682-d5f1-492e-84f9-2c3142e19d47",
+      "name": "Randevu Aracı",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1220,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ results: $json.results }) }}",
+        "options": {}
+      },
+      "id": "5bb685bc-5ee4-4962-b0e3-fd47eb2262cd",
+      "name": "Yanıtla (Araç)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1460,
+        140
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a18abb71-5475-47ac-adab-4c12dbb20b50",
+              "leftValue": "={{ !!$json.telegram }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "d9da4929-304e-4c5d-8878-d090793c3d28",
+      "name": "Randevu Bildirimi Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1460,
+        280
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('AYARLAR').first().json.TELEGRAM.CHAT_ID }}",
+        "text": "={{ $json.telegram }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "2b986179-3fc7-498a-a62f-f80cccf56b35",
+      "name": "Telegram: Randevu",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1700,
+        280
+      ],
+      "webhookId": "53749d39-8297-4875-9190-efd841893daa",
+      "credentials": {
+        "telegramApi": {
+          "id": "9rdlvgk54bgsCz0s",
+          "name": "Telegram account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {}
+      },
+      "id": "ac7dac7a-182a-4e3a-abf4-ec4516a24b73",
+      "name": "Hemen Yanıtla",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1220,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===================== ORTAK YARDIMCILAR =====================\nconst TR_OFFSET_MS = 3 * 3600e3;\nconst GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];\nconst pad2 = (n) => String(n).padStart(2, '0');\nfunction trParcalar(date) {\n  const d = new Date(date.getTime() + TR_OFFSET_MS);\n  return { yil: d.getUTCFullYear(), ay: d.getUTCMonth() + 1, gun: d.getUTCDate(), saat: d.getUTCHours(), dakika: d.getUTCMinutes(), haftaGunu: d.getUTCDay() };\n}\nfunction trIso(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}T${pad2(p.saat)}:${pad2(p.dakika)}:00+03:00`; }\nfunction trMetin(date) { const p = trParcalar(date); return `${pad2(p.gun)}.${pad2(p.ay)}.${p.yil} ${GUN_ADLARI[p.haftaGunu]} ${pad2(p.saat)}:${pad2(p.dakika)}`; }\nfunction trGun(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}`; }\nfunction trGunBasi(date) { const p = trParcalar(date); return new Date(Date.UTC(p.yil, p.ay - 1, p.gun) - TR_OFFSET_MS); }\nconst saatDakikaya = (s) => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };\nfunction pencereIcinde(date, P) {\n  const p = trParcalar(date); const g = p.haftaGunu === 0 ? 7 : p.haftaGunu;\n  if (!P.GUNLER.includes(g)) return false;\n  const dk = p.saat * 60 + p.dakika;\n  return dk >= saatDakikaya(P.BASLA) && dk < saatDakikaya(P.BITIS);\n}\nfunction pencereyeTasi(date, P) {\n  if (pencereIcinde(date, P)) return date;\n  let gb = trGunBasi(date).getTime();\n  for (let i = 0; i < 9; i++) {\n    const aday = new Date(gb + saatDakikaya(P.BASLA) * 60000);\n    if (aday > date && pencereIcinde(aday, P)) return aday;\n    gb += 864e5;\n  }\n  return date;\n}\nfunction telefonNormalize(raw) {\n  let s = String(raw || '').trim().replace(/[^\\d+]/g, '');\n  const yabanci = s.startsWith('+') || s.startsWith('00');\n  s = s.replace(/^\\+/, '').replace(/^00/, '');\n  if (s.length === 10 && /^[2-58]/.test(s)) s = '90' + s;\n  else if (s.length === 11 && s.startsWith('0')) s = '9' + s;\n  if (/^90[2-58]\\d{9}$/.test(s)) return '+' + s;\n  if (yabanci && !s.startsWith('90') && /^[1-9]\\d{7,14}$/.test(s)) return '+' + s;\n  return null;\n}\nfunction leadTelefonu(lead) {\n  for (const p of Array.isArray(lead && lead.PHONE) ? lead.PHONE : []) { const n = telefonNormalize(p && p.VALUE); if (n) return n; }\n  return null;\n}\nfunction isimDuzelt(s) {\n  return String(s || '').trim().toLocaleLowerCase('tr-TR').split(/\\s+/).filter(Boolean)\n    .map((k) => k.charAt(0).toLocaleUpperCase('tr-TR') + k.slice(1)).join(' ');\n}\nfunction adSoyadBol(s) {\n  const p = String(s || '').trim().split(/\\s+/).filter(Boolean);\n  if (p.length < 2) return { NAME: p[0] || '', LAST_NAME: '' };\n  return { NAME: p.slice(0, -1).join(' '), LAST_NAME: p[p.length - 1] };\n}\nfunction kisalt(s, n) { s = String(s || '').replace(/\\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }\nfunction sureMetni(sn) { sn = Math.round(Number(sn) || 0); return sn >= 60 ? `${Math.floor(sn / 60)} dk ${sn % 60} sn` : `${sn} sn`; }\nconst htmlKacis = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n// Bitrix 4 baytlık karakterleri (emoji) bozuyor → temizle\nfunction bitrixMetni(s) { return String(s).replace(/[\\u{10000}-\\u{10FFFF}]️?/gu, '').replace(/ {2,}/g, ' '); }\nfunction argumanCoz(a) {\n  if (typeof a === 'string') { try { return JSON.parse(a); } catch (e) { return {}; } }\n  return a && typeof a === 'object' ? a : {};\n}\nconst bekle = (ms) => new Promise((r) => setTimeout(r, ms));\n// Bitrix çağrısı: 503 / QUERY_LIMIT_EXCEEDED gelirse bekleyip tekrar dener\nasync function bitrix(ctx, A, metod, body) {\n  let son;\n  for (let i = 0; i < 4; i++) {\n    try {\n      const r = await ctx.helpers.httpRequest({ method: 'POST', url: `${A.BITRIX_WEBHOOK}${metod}.json`, body, json: true });\n      if (r && r.error) {\n        son = new Error(`Bitrix ${metod}: ${r.error_description || r.error}`);\n        if (/QUERY_LIMIT|OVERLOAD/i.test(String(r.error)) && i < 3) { await bekle(1500 * (i + 1)); continue; }\n        throw son;\n      }\n      return r;\n    } catch (e) {\n      son = e;\n      if (i < 3 && /503|429|QUERY_LIMIT|ECONNRESET|ETIMEDOUT|socket hang up/i.test(String((e && e.message) || e))) { await bekle(1500 * (i + 1)); continue; }\n      throw e;\n    }\n  }\n  throw son;\n}\nasync function bitrixBatch(ctx, A, cmd) {\n  if (!Object.keys(cmd).length) return {};\n  const r = await bitrix(ctx, A, 'batch', { halt: 0, cmd });\n  return (r && r.result) || {};\n}\nfunction bitrixKomut(metod, params) {\n  const qs = (obj, onEk) => {\n    const out = [];\n    for (const [k, v] of Object.entries(obj)) {\n      if (v === undefined) continue;\n      const key = onEk ? `${onEk}[${k}]` : k;\n      if (v !== null && typeof v === 'object') { const ic = qs(v, key); if (ic) out.push(ic); }\n      else out.push(`${encodeURIComponent(key)}=${encodeURIComponent(v === null ? '' : typeof v === 'string' ? bitrixMetni(v) : String(v))}`);\n    }\n    return out.join('&');\n  };\n  return `${metod}?${qs(params)}`;\n}\nfunction gunlukSayac(sd, alan) {\n  const g = trGun(new Date());\n  sd.gunluk = sd.gunluk || {};\n  for (const k of Object.keys(sd.gunluk)) if (k < trGun(new Date(Date.now() - 14 * 864e5))) delete sd.gunluk[k];\n  sd.gunluk[g] = sd.gunluk[g] || {};\n  sd.gunluk[g][alan] = (sd.gunluk[g][alan] || 0) + 1;\n}\n\nconst ULASILAMADI_NEDEN_RE = /did-not-answer|customer-busy|voicemail|no-answer|failed-to-connect|unanswered|declined|rejected|not-reachable|unavailable/i;\nconst HAT_HATASI_RE = /^call\\.in-progress\\.error-|sip-5\\d\\d|vapifault|pipeline-error|providerfault/i;\nconst OPERATOR_ANONS_RE = /ulaşılamıyor|ulasilamiyor|şu an kapalı|telefonu kapalı|kapsama alanı|meşgul|sesli mesaj|sinyal sesinden|tekrar deneyiniz|kullanılmamaktadır|abonesine/i;\nconst TEKRAR_ARA_RE = /sonra ara|daha sonra|müsait değil|musait degil|şu an konuşamam|şimdi konuşamam|toplantıdayım|araba kullanıyorum|işteyim|meşgulüm|akşam ara|yarın ara/i;\n\n// Vapi sunucu mesajını tek tip nesneye çevirir\nfunction vapiMesajCoz(body) {\n  const msg = (body && body.message) || {};\n  const call = msg.call || {};\n  const vv = (call.assistantOverrides && call.assistantOverrides.variableValues) || {};\n  const artifact = msg.artifact || {};\n  const toolCalls = (msg.toolCallList || msg.toolCalls || []).map((tc) => ({\n    id: tc.id, ad: (tc.function && tc.function.name) || tc.name || '',\n    arg: argumanCoz(tc.function ? tc.function.arguments : tc.arguments),\n  }));\n  const mesajlar = artifact.messages || msg.messages || [];\n  let kullanici = mesajlar.filter((m) => m && m.role === 'user' && String(m.message || '').trim()).map((m) => String(m.message).trim());\n  const transkript = artifact.transcript || msg.transcript || '';\n  if (!kullanici.length && transkript) {\n    kullanici = transkript.split('\\n').filter((l) => /^(user|customer)\\s*:/i.test(l)).map((l) => l.replace(/^[^:]+:\\s*/, '').trim()).filter(Boolean);\n  }\n  const aracCagrildi = mesajlar.some((m) => m && (m.role === 'tool_calls' || m.role === 'tool_call_result') &&\n    JSON.stringify(m).includes('randevu_olustur'));\n  let yapi = {};\n  const sd = msg.analysis && msg.analysis.structuredData;\n  if (sd && typeof sd === 'object') Object.assign(yapi, sd);\n  const so = artifact.structuredOutputs || (call.artifact && call.artifact.structuredOutputs) || msg.structuredOutputs;\n  if (so && typeof so === 'object') {\n    for (const v of Object.values(so)) {\n      if (!v) continue;\n      if (v.result && typeof v.result === 'object' && !Array.isArray(v.result)) Object.assign(yapi, v.result);\n      else if (v.name && v.result !== undefined) yapi[v.name] = v.result;\n    }\n  }\n  let sure = Number(msg.durationSeconds);\n  if (!sure && msg.startedAt && msg.endedAt) sure = (new Date(msg.endedAt) - new Date(msg.startedAt)) / 1000;\n  const kayit = artifact.recordingUrl || msg.recordingUrl ||\n    (artifact.recording && artifact.recording.mono && artifact.recording.mono.combinedUrl) || (artifact.recording && artifact.recording.stereoUrl) || '';\n  const endedReason = msg.endedReason || call.endedReason || '';\n  const anlamli = kullanici.filter((t) => !OPERATOR_ANONS_RE.test(t));\n  return {\n    tip: msg.type || '',\n    callId: call.id || '',\n    leadId: String(vv.lead_id || (call.metadata && call.metadata.lead_id) || '').replace(/\\D/g, ''),\n    telefon: telefonNormalize((call.customer && call.customer.number) || (msg.customer && msg.customer.number)),\n    toolCalls, endedReason, aracCagrildi,\n    sure: Math.round(sure || 0),\n    ozet: (typeof yapi.ozet === 'string' && yapi.ozet.trim()) || (msg.analysis && msg.analysis.summary) || msg.summary || '',\n    sonuc: String(yapi.sonuc || yapi.arama_sonucu || '').toLowerCase().trim(),\n    yapi, kayit,\n    kullaniciMetni: anlamli.join(' | '),\n    ulasildi: !ULASILAMADI_NEDEN_RE.test(endedReason) && anlamli.length > 0,\n    hatHatasi: HAT_HATASI_RE.test(endedReason) && !anlamli.length,\n  };\n}\n\n// Randevu: lead RANDEVU OLUŞTURANLAR'a geçer, sıradaki satışçıya atanır, kişi kartı da aynı satışçıya.\nasync function randevuIsle(ctx, A, sd, lead, arg, m) {\n  const id = String(lead.ID);\n  const liste = (A.SATIS_SORUMLU_IDLERI || []).map(String).filter(Boolean);\n  let sorumlu = String(lead.ASSIGNED_BY_ID || '');\n  if (liste.length) {\n    const i = (Number(sd.rr) || 0) % liste.length;\n    sorumlu = liste[i];\n    sd.rr = i + 1;\n  }\n  const ad = isimDuzelt((arg && arg.ad_soyad) || [lead.NAME, lead.LAST_NAME].filter(Boolean).join(' '));\n  const detay = [\n    `${A.PROJE_ADI} — yapay zeka aramasında RANDEVU oluşturuldu. Danışman müşteriyi arayıp gün/saat belirleyecek.`,\n    ad ? `Müşteri: ${ad}` : '',\n    m.telefon ? `Telefon: ${m.telefon}` : '',\n    arg && arg.ilgilendigi_hisse ? `İlgilendiği hisse: ${arg.ilgilendigi_hisse}` : '',\n    arg && (arg.randevu_tarihi || arg.randevu_saati) ? `Müşterinin söylediği zaman: ${[arg.randevu_tarihi, arg.randevu_saati].filter(Boolean).join(' ')}` : '',\n    arg && arg.not ? `Not: ${kisalt(arg.not, 500)}` : '',\n    m.callId ? `Vapi Call ID: ${m.callId}` : '',\n  ].filter(Boolean);\n  const alanlar = { STATUS_ID: A.STATU.RANDEVU, ASSIGNED_BY_ID: sorumlu || undefined };\n  if (ad && !String(lead.NAME || '').trim()) Object.assign(alanlar, adSoyadBol(ad));\n  const cmd = {\n    upd: bitrixKomut('crm.lead.update', { id, fields: alanlar }),\n    not: bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: detay.join('\\n') } }),\n  };\n  if (sorumlu && lead.CONTACT_ID && String(lead.CONTACT_ID) !== '0') {\n    cmd.kisi = bitrixKomut('crm.contact.update', { id: String(lead.CONTACT_ID), fields: { ASSIGNED_BY_ID: sorumlu } });\n  }\n  if (sorumlu) {\n    cmd.todo = bitrixKomut('crm.activity.todo.add', {\n      ownerTypeId: 1, ownerId: id,\n      deadline: trIso(pencereyeTasi(new Date(Date.now() + 15 * 60000), A.ARAMA_SAATLERI)),\n      title: kisalt(`Ankaport Hisse randevu — müşteriyi arayın — ${ad || m.telefon || ''}`, 250),\n      description: detay.join('\\n'), responsibleId: sorumlu, pingOffsets: [0],\n    });\n  }\n  const r = await bitrixBatch(ctx, A, cmd);\n  const hata = (r.result_error && r.result_error.upd) || null;\n  if (hata) throw new Error('Bitrix randevu kaydı: ' + JSON.stringify(hata));\n  gunlukSayac(sd, 'randevu');\n  let sorumluAdi = sorumlu ? `ID ${sorumlu}` : 'Atanmadı';\n  try {\n    const u = await bitrix(ctx, A, 'user.get', { ID: sorumlu });\n    const k = u && u.result && u.result[0];\n    if (k) sorumluAdi = [k.NAME, k.LAST_NAME].filter(Boolean).join(' ') || sorumluAdi;\n  } catch (e) {}\n  const telegram = [\n    `📅 <b>ANKAPORT HİSSE — YENİ RANDEVU</b> (potansiyel arama)`,\n    `👤 Müşteri: ${htmlKacis(ad || '-')} · ${htmlKacis(m.telefon || '-')}`,\n    `👩‍💼 Atanan satışçı: ${htmlKacis(sorumluAdi)}`,\n    arg && arg.not ? `📝 Not: ${htmlKacis(kisalt(arg.not, 300))}` : '',\n    `🔗 https://xre.bitrix24.com.tr/crm/lead/details/${id}/`,\n  ].filter(Boolean).join('\\n');\n  return { sorumlu, telegram };\n}\n// =================== /ORTAK YARDIMCILAR ===================\n\n// Çağrı bitti (end-of-call-report): lead'in yeni statüsüne karar verir.\n//  randevu → RANDEVU OLUŞTURANLAR | ilgilenmiyor/aranmak istemiyor/yanlış kişi → OLUMSUZ\n//  açmadı/meşgul/hat hatası/\"sonra arayın\" → ULAŞILAMADI (deneme hakkı varsa ertesi gün tekrar)\nconst A = $('AYARLAR').first().json;\nconst m = $('Mesajı Çöz').first().json;\nconst sd = $getWorkflowStaticData('global');\nsd.aracCagri = sd.aracCagri || {}; sd.deneme = sd.deneme || {};\nif (!m.leadId) return [];\nconst r = await bitrix(this, A, 'crm.lead.get', { id: m.leadId });\nconst lead = r && r.result;\nif (!lead || !lead.ID) return [];\nconst id = String(lead.ID);\nconst MAX = Math.max(1, Number(A.MAX_DENEME) || 1);\nconst deneme = Number(sd.deneme[id]) || 1;\nconst arac = m.callId ? sd.aracCagri[m.callId] : null;\nlet telegram = '';\nlet durum;\nlet yeniStatu = null;\n\nif (lead.STATUS_ID === A.STATU.RANDEVU) {\n  durum = 'Randevu oluşturuldu';\n} else if (arac || m.sonuc === 'randevu') {\n  // Araç çağrıldı ama kayıt başarısız olduysa ya da model aracı çağırmayı unuttuysa burada tamamlanır\n  const s = await randevuIsle(this, A, sd, lead, (arac && arac.arg) || {}, m);\n  telegram = s.telegram;\n  durum = 'Randevu oluşturuldu (çağrı sonunda işlendi)';\n} else if (lead.STATUS_ID !== A.STATU.ARANIYOR) {\n  durum = `Statü elle değiştirilmiş (${lead.STATUS_ID}), dokunulmadı`;\n} else if (m.hatHatasi || !m.ulasildi || /tekrar|sonra|musait|müsait|ulasilamadi/.test(m.sonuc) || (!m.sonuc && TEKRAR_ARA_RE.test(m.kullaniciMetni))) {\n  yeniStatu = A.STATU.ULASILAMADI;\n  const neden = m.hatHatasi ? `hat hatası (${m.endedReason})` : !m.ulasildi ? 'açmadı / meşgul' : 'müsait değil, sonra aranmak istedi';\n  durum = deneme >= MAX ? `Ulaşılamadı — ${neden}. ${deneme}/${MAX} deneme doldu, tekrar ARANMAYACAK.` : `Ulaşılamadı — ${neden}. Yarın tekrar aranacak (${deneme}/${MAX}).`;\n  gunlukSayac(sd, 'ulasilamadi');\n} else {\n  yeniStatu = A.STATU.OLUMSUZ;\n  const neden = { ilgilenmiyor: 'ilgilenmiyor', aranmak_istemiyor: 'aranmak istemiyor', yanlis_kisi: 'yanlış kişi' }[m.sonuc] || 'görüştü, randevu oluşmadı';\n  durum = `Olumsuz — ${neden}. Tekrar aranmayacak.`;\n  gunlukSayac(sd, 'olumsuz');\n}\nif (m.callId) delete sd.aracCagri[m.callId];\n\nconst cmd = {};\nif (yeniStatu) cmd.upd = bitrixKomut('crm.lead.update', { id, fields: { STATUS_ID: yeniStatu } });\ncmd.rapor = bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: [\n  `${A.PROJE_ADI} yapay zeka araması — ${durum}`,\n  `Süre: ${sureMetni(m.sure)} | Bitiş: ${m.endedReason || '-'}`,\n  m.ozet ? `Özet: ${kisalt(m.ozet, 1500)}` : '',\n  m.kayit ? `Ses kaydı: ${m.kayit}` : '',\n  m.callId ? `Vapi Call ID: ${m.callId}` : '',\n].filter(Boolean).join('\\n') } });\nawait bitrixBatch(this, A, cmd);\nreturn [{ json: { leadId: id, durum, telegram } }];\n"
+      },
+      "id": "04a9365f-27d4-4a61-bfe7-928ac1dd7880",
+      "name": "Sonucu İşle",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1460,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9dfe9774-71e1-445a-9c5c-55768b839cfb",
+              "leftValue": "={{ !!$json.telegram }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "860b8c67-a3bf-44a7-96ea-9ccfe2d545c3",
+      "name": "Bildirim Var mı?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1700,
+        440
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('AYARLAR').first().json.TELEGRAM.CHAT_ID }}",
+        "text": "={{ $json.telegram }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "fbc9cf61-6b45-467a-af1b-f6a75c534ecd",
+      "name": "Telegram: Randevu (Rapor)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1940,
+        440
+      ],
+      "webhookId": "c8bae4e8-bb6c-4fe0-9741-4238c87ebb6f",
+      "credentials": {
+        "telegramApi": {
+          "id": "9rdlvgk54bgsCz0s",
+          "name": "Telegram account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "respondWith": "noData",
+        "options": {}
+      },
+      "id": "be7422d8-9b0f-40cf-ad86-38a95581973d",
+      "name": "Yanıtla (Diğer)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1220,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===================== ORTAK YARDIMCILAR =====================\nconst TR_OFFSET_MS = 3 * 3600e3;\nconst GUN_ADLARI = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];\nconst pad2 = (n) => String(n).padStart(2, '0');\nfunction trParcalar(date) {\n  const d = new Date(date.getTime() + TR_OFFSET_MS);\n  return { yil: d.getUTCFullYear(), ay: d.getUTCMonth() + 1, gun: d.getUTCDate(), saat: d.getUTCHours(), dakika: d.getUTCMinutes(), haftaGunu: d.getUTCDay() };\n}\nfunction trIso(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}T${pad2(p.saat)}:${pad2(p.dakika)}:00+03:00`; }\nfunction trMetin(date) { const p = trParcalar(date); return `${pad2(p.gun)}.${pad2(p.ay)}.${p.yil} ${GUN_ADLARI[p.haftaGunu]} ${pad2(p.saat)}:${pad2(p.dakika)}`; }\nfunction trGun(date) { const p = trParcalar(date); return `${p.yil}-${pad2(p.ay)}-${pad2(p.gun)}`; }\nfunction trGunBasi(date) { const p = trParcalar(date); return new Date(Date.UTC(p.yil, p.ay - 1, p.gun) - TR_OFFSET_MS); }\nconst saatDakikaya = (s) => { const [h, m] = String(s).split(':').map(Number); return h * 60 + (m || 0); };\nfunction pencereIcinde(date, P) {\n  const p = trParcalar(date); const g = p.haftaGunu === 0 ? 7 : p.haftaGunu;\n  if (!P.GUNLER.includes(g)) return false;\n  const dk = p.saat * 60 + p.dakika;\n  return dk >= saatDakikaya(P.BASLA) && dk < saatDakikaya(P.BITIS);\n}\nfunction pencereyeTasi(date, P) {\n  if (pencereIcinde(date, P)) return date;\n  let gb = trGunBasi(date).getTime();\n  for (let i = 0; i < 9; i++) {\n    const aday = new Date(gb + saatDakikaya(P.BASLA) * 60000);\n    if (aday > date && pencereIcinde(aday, P)) return aday;\n    gb += 864e5;\n  }\n  return date;\n}\nfunction telefonNormalize(raw) {\n  let s = String(raw || '').trim().replace(/[^\\d+]/g, '');\n  const yabanci = s.startsWith('+') || s.startsWith('00');\n  s = s.replace(/^\\+/, '').replace(/^00/, '');\n  if (s.length === 10 && /^[2-58]/.test(s)) s = '90' + s;\n  else if (s.length === 11 && s.startsWith('0')) s = '9' + s;\n  if (/^90[2-58]\\d{9}$/.test(s)) return '+' + s;\n  if (yabanci && !s.startsWith('90') && /^[1-9]\\d{7,14}$/.test(s)) return '+' + s;\n  return null;\n}\nfunction leadTelefonu(lead) {\n  for (const p of Array.isArray(lead && lead.PHONE) ? lead.PHONE : []) { const n = telefonNormalize(p && p.VALUE); if (n) return n; }\n  return null;\n}\nfunction isimDuzelt(s) {\n  return String(s || '').trim().toLocaleLowerCase('tr-TR').split(/\\s+/).filter(Boolean)\n    .map((k) => k.charAt(0).toLocaleUpperCase('tr-TR') + k.slice(1)).join(' ');\n}\nfunction adSoyadBol(s) {\n  const p = String(s || '').trim().split(/\\s+/).filter(Boolean);\n  if (p.length < 2) return { NAME: p[0] || '', LAST_NAME: '' };\n  return { NAME: p.slice(0, -1).join(' '), LAST_NAME: p[p.length - 1] };\n}\nfunction kisalt(s, n) { s = String(s || '').replace(/\\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1) + '…' : s; }\nfunction sureMetni(sn) { sn = Math.round(Number(sn) || 0); return sn >= 60 ? `${Math.floor(sn / 60)} dk ${sn % 60} sn` : `${sn} sn`; }\nconst htmlKacis = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n// Bitrix 4 baytlık karakterleri (emoji) bozuyor → temizle\nfunction bitrixMetni(s) { return String(s).replace(/[\\u{10000}-\\u{10FFFF}]️?/gu, '').replace(/ {2,}/g, ' '); }\nfunction argumanCoz(a) {\n  if (typeof a === 'string') { try { return JSON.parse(a); } catch (e) { return {}; } }\n  return a && typeof a === 'object' ? a : {};\n}\nconst bekle = (ms) => new Promise((r) => setTimeout(r, ms));\n// Bitrix çağrısı: 503 / QUERY_LIMIT_EXCEEDED gelirse bekleyip tekrar dener\nasync function bitrix(ctx, A, metod, body) {\n  let son;\n  for (let i = 0; i < 4; i++) {\n    try {\n      const r = await ctx.helpers.httpRequest({ method: 'POST', url: `${A.BITRIX_WEBHOOK}${metod}.json`, body, json: true });\n      if (r && r.error) {\n        son = new Error(`Bitrix ${metod}: ${r.error_description || r.error}`);\n        if (/QUERY_LIMIT|OVERLOAD/i.test(String(r.error)) && i < 3) { await bekle(1500 * (i + 1)); continue; }\n        throw son;\n      }\n      return r;\n    } catch (e) {\n      son = e;\n      if (i < 3 && /503|429|QUERY_LIMIT|ECONNRESET|ETIMEDOUT|socket hang up/i.test(String((e && e.message) || e))) { await bekle(1500 * (i + 1)); continue; }\n      throw e;\n    }\n  }\n  throw son;\n}\nasync function bitrixBatch(ctx, A, cmd) {\n  if (!Object.keys(cmd).length) return {};\n  const r = await bitrix(ctx, A, 'batch', { halt: 0, cmd });\n  return (r && r.result) || {};\n}\nfunction bitrixKomut(metod, params) {\n  const qs = (obj, onEk) => {\n    const out = [];\n    for (const [k, v] of Object.entries(obj)) {\n      if (v === undefined) continue;\n      const key = onEk ? `${onEk}[${k}]` : k;\n      if (v !== null && typeof v === 'object') { const ic = qs(v, key); if (ic) out.push(ic); }\n      else out.push(`${encodeURIComponent(key)}=${encodeURIComponent(v === null ? '' : typeof v === 'string' ? bitrixMetni(v) : String(v))}`);\n    }\n    return out.join('&');\n  };\n  return `${metod}?${qs(params)}`;\n}\nfunction gunlukSayac(sd, alan) {\n  const g = trGun(new Date());\n  sd.gunluk = sd.gunluk || {};\n  for (const k of Object.keys(sd.gunluk)) if (k < trGun(new Date(Date.now() - 14 * 864e5))) delete sd.gunluk[k];\n  sd.gunluk[g] = sd.gunluk[g] || {};\n  sd.gunluk[g][alan] = (sd.gunluk[g][alan] || 0) + 1;\n}\n\nconst ULASILAMADI_NEDEN_RE = /did-not-answer|customer-busy|voicemail|no-answer|failed-to-connect|unanswered|declined|rejected|not-reachable|unavailable/i;\nconst HAT_HATASI_RE = /^call\\.in-progress\\.error-|sip-5\\d\\d|vapifault|pipeline-error|providerfault/i;\nconst OPERATOR_ANONS_RE = /ulaşılamıyor|ulasilamiyor|şu an kapalı|telefonu kapalı|kapsama alanı|meşgul|sesli mesaj|sinyal sesinden|tekrar deneyiniz|kullanılmamaktadır|abonesine/i;\nconst TEKRAR_ARA_RE = /sonra ara|daha sonra|müsait değil|musait degil|şu an konuşamam|şimdi konuşamam|toplantıdayım|araba kullanıyorum|işteyim|meşgulüm|akşam ara|yarın ara/i;\n\n// Vapi sunucu mesajını tek tip nesneye çevirir\nfunction vapiMesajCoz(body) {\n  const msg = (body && body.message) || {};\n  const call = msg.call || {};\n  const vv = (call.assistantOverrides && call.assistantOverrides.variableValues) || {};\n  const artifact = msg.artifact || {};\n  const toolCalls = (msg.toolCallList || msg.toolCalls || []).map((tc) => ({\n    id: tc.id, ad: (tc.function && tc.function.name) || tc.name || '',\n    arg: argumanCoz(tc.function ? tc.function.arguments : tc.arguments),\n  }));\n  const mesajlar = artifact.messages || msg.messages || [];\n  let kullanici = mesajlar.filter((m) => m && m.role === 'user' && String(m.message || '').trim()).map((m) => String(m.message).trim());\n  const transkript = artifact.transcript || msg.transcript || '';\n  if (!kullanici.length && transkript) {\n    kullanici = transkript.split('\\n').filter((l) => /^(user|customer)\\s*:/i.test(l)).map((l) => l.replace(/^[^:]+:\\s*/, '').trim()).filter(Boolean);\n  }\n  const aracCagrildi = mesajlar.some((m) => m && (m.role === 'tool_calls' || m.role === 'tool_call_result') &&\n    JSON.stringify(m).includes('randevu_olustur'));\n  let yapi = {};\n  const sd = msg.analysis && msg.analysis.structuredData;\n  if (sd && typeof sd === 'object') Object.assign(yapi, sd);\n  const so = artifact.structuredOutputs || (call.artifact && call.artifact.structuredOutputs) || msg.structuredOutputs;\n  if (so && typeof so === 'object') {\n    for (const v of Object.values(so)) {\n      if (!v) continue;\n      if (v.result && typeof v.result === 'object' && !Array.isArray(v.result)) Object.assign(yapi, v.result);\n      else if (v.name && v.result !== undefined) yapi[v.name] = v.result;\n    }\n  }\n  let sure = Number(msg.durationSeconds);\n  if (!sure && msg.startedAt && msg.endedAt) sure = (new Date(msg.endedAt) - new Date(msg.startedAt)) / 1000;\n  const kayit = artifact.recordingUrl || msg.recordingUrl ||\n    (artifact.recording && artifact.recording.mono && artifact.recording.mono.combinedUrl) || (artifact.recording && artifact.recording.stereoUrl) || '';\n  const endedReason = msg.endedReason || call.endedReason || '';\n  const anlamli = kullanici.filter((t) => !OPERATOR_ANONS_RE.test(t));\n  return {\n    tip: msg.type || '',\n    callId: call.id || '',\n    leadId: String(vv.lead_id || (call.metadata && call.metadata.lead_id) || '').replace(/\\D/g, ''),\n    telefon: telefonNormalize((call.customer && call.customer.number) || (msg.customer && msg.customer.number)),\n    toolCalls, endedReason, aracCagrildi,\n    sure: Math.round(sure || 0),\n    ozet: (typeof yapi.ozet === 'string' && yapi.ozet.trim()) || (msg.analysis && msg.analysis.summary) || msg.summary || '',\n    sonuc: String(yapi.sonuc || yapi.arama_sonucu || '').toLowerCase().trim(),\n    yapi, kayit,\n    kullaniciMetni: anlamli.join(' | '),\n    ulasildi: !ULASILAMADI_NEDEN_RE.test(endedReason) && anlamli.length > 0,\n    hatHatasi: HAT_HATASI_RE.test(endedReason) && !anlamli.length,\n  };\n}\n\n// Randevu: lead RANDEVU OLUŞTURANLAR'a geçer, sıradaki satışçıya atanır, kişi kartı da aynı satışçıya.\nasync function randevuIsle(ctx, A, sd, lead, arg, m) {\n  const id = String(lead.ID);\n  const liste = (A.SATIS_SORUMLU_IDLERI || []).map(String).filter(Boolean);\n  let sorumlu = String(lead.ASSIGNED_BY_ID || '');\n  if (liste.length) {\n    const i = (Number(sd.rr) || 0) % liste.length;\n    sorumlu = liste[i];\n    sd.rr = i + 1;\n  }\n  const ad = isimDuzelt((arg && arg.ad_soyad) || [lead.NAME, lead.LAST_NAME].filter(Boolean).join(' '));\n  const detay = [\n    `${A.PROJE_ADI} — yapay zeka aramasında RANDEVU oluşturuldu. Danışman müşteriyi arayıp gün/saat belirleyecek.`,\n    ad ? `Müşteri: ${ad}` : '',\n    m.telefon ? `Telefon: ${m.telefon}` : '',\n    arg && arg.ilgilendigi_hisse ? `İlgilendiği hisse: ${arg.ilgilendigi_hisse}` : '',\n    arg && (arg.randevu_tarihi || arg.randevu_saati) ? `Müşterinin söylediği zaman: ${[arg.randevu_tarihi, arg.randevu_saati].filter(Boolean).join(' ')}` : '',\n    arg && arg.not ? `Not: ${kisalt(arg.not, 500)}` : '',\n    m.callId ? `Vapi Call ID: ${m.callId}` : '',\n  ].filter(Boolean);\n  const alanlar = { STATUS_ID: A.STATU.RANDEVU, ASSIGNED_BY_ID: sorumlu || undefined };\n  if (ad && !String(lead.NAME || '').trim()) Object.assign(alanlar, adSoyadBol(ad));\n  const cmd = {\n    upd: bitrixKomut('crm.lead.update', { id, fields: alanlar }),\n    not: bitrixKomut('crm.timeline.comment.add', { fields: { ENTITY_ID: id, ENTITY_TYPE: 'lead', COMMENT: detay.join('\\n') } }),\n  };\n  if (sorumlu && lead.CONTACT_ID && String(lead.CONTACT_ID) !== '0') {\n    cmd.kisi = bitrixKomut('crm.contact.update', { id: String(lead.CONTACT_ID), fields: { ASSIGNED_BY_ID: sorumlu } });\n  }\n  if (sorumlu) {\n    cmd.todo = bitrixKomut('crm.activity.todo.add', {\n      ownerTypeId: 1, ownerId: id,\n      deadline: trIso(pencereyeTasi(new Date(Date.now() + 15 * 60000), A.ARAMA_SAATLERI)),\n      title: kisalt(`Ankaport Hisse randevu — müşteriyi arayın — ${ad || m.telefon || ''}`, 250),\n      description: detay.join('\\n'), responsibleId: sorumlu, pingOffsets: [0],\n    });\n  }\n  const r = await bitrixBatch(ctx, A, cmd);\n  const hata = (r.result_error && r.result_error.upd) || null;\n  if (hata) throw new Error('Bitrix randevu kaydı: ' + JSON.stringify(hata));\n  gunlukSayac(sd, 'randevu');\n  let sorumluAdi = sorumlu ? `ID ${sorumlu}` : 'Atanmadı';\n  try {\n    const u = await bitrix(ctx, A, 'user.get', { ID: sorumlu });\n    const k = u && u.result && u.result[0];\n    if (k) sorumluAdi = [k.NAME, k.LAST_NAME].filter(Boolean).join(' ') || sorumluAdi;\n  } catch (e) {}\n  const telegram = [\n    `📅 <b>ANKAPORT HİSSE — YENİ RANDEVU</b> (potansiyel arama)`,\n    `👤 Müşteri: ${htmlKacis(ad || '-')} · ${htmlKacis(m.telefon || '-')}`,\n    `👩‍💼 Atanan satışçı: ${htmlKacis(sorumluAdi)}`,\n    arg && arg.not ? `📝 Not: ${htmlKacis(kisalt(arg.not, 300))}` : '',\n    `🔗 https://xre.bitrix24.com.tr/crm/lead/details/${id}/`,\n  ].filter(Boolean).join('\\n');\n  return { sorumlu, telegram };\n}\n// =================== /ORTAK YARDIMCILAR ===================\n\n// 19:10 gün sonu raporu\nconst A = $('AYARLAR').first().json;\nconst sd = $getWorkflowStaticData('global');\nconst g = (sd.gunluk || {})[trGun(new Date())] || {};\nasync function say(statu) {\n  try { const r = await bitrix(this, A, 'crm.lead.list', { filter: { STATUS_ID: statu }, select: ['ID'] }); return Number(r.total) || (r.result || []).length; }\n  catch (e) { return '?'; }\n}\nconst bekleyen = await say.call(this, A.STATU.POTANSIYEL);\nconst ulasilamadi = await say.call(this, A.STATU.ULASILAMADI);\nconst metin = [\n  `📊 <b>ANKAPORT HİSSE — POTANSİYEL ARAMA GÜN SONU</b> (${trGun(new Date()).split('-').reverse().join('.')})`,\n  `☎ Bugün yapılan arama: ${g.arandi || 0}`,\n  `📅 Randevu: ${g.randevu || 0}`,\n  `❌ Olumsuz: ${g.olumsuz || 0}`,\n  `📵 Ulaşılamadı: ${g.ulasilamadi || 0}`,\n  ``,\n  `⏳ Henüz aranmamış (POTANSİYEL): ${bekleyen}`,\n  `🔁 ULAŞILAMADI statüsünde: ${ulasilamadi} (deneme hakkı olanlar yarın tekrar aranır)`,\n].join('\\n');\nreturn [{ json: { telegram: metin } }];\n"
+      },
+      "id": "8464abee-38ed-4f1a-b64e-53af50f22342",
+      "name": "Gün Sonu Raporu",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        640
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('AYARLAR').first().json.TELEGRAM.CHAT_ID }}",
+        "text": "={{ $json.telegram }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "disable_web_page_preview": true,
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "a341051b-0ed5-40cf-bdaf-c6f664b87130",
+      "name": "Telegram: Gün Sonu",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        980,
+        640
+      ],
+      "webhookId": "5b73c24d-71d3-48a0-8db9-e1d329798022",
+      "credentials": {
+        "telegramApi": {
+          "id": "9rdlvgk54bgsCz0s",
+          "name": "Telegram account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Her 2 Dakikada": {
+      "main": [
+        [
+          {
+            "node": "AYARLAR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi Webhook": {
+      "main": [
+        [
+          {
+            "node": "AYARLAR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gün Sonu 19:10": {
+      "main": [
+        [
+          {
+            "node": "AYARLAR",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AYARLAR": {
+      "main": [
+        [
+          {
+            "node": "Tetikleyen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tetikleyen": {
+      "main": [
+        [
+          {
+            "node": "Mesajı Çöz",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Gün Sonu Raporu",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Vapi: Son Çağrılar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Son Çağrılar": {
+      "main": [
+        [
+          {
+            "node": "Arama Kuyruğu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Arama Kuyruğu": {
+      "main": [
+        [
+          {
+            "node": "Vapi: Aramayı Başlat",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vapi: Aramayı Başlat": {
+      "main": [
+        [
+          {
+            "node": "Arama Notu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mesajı Çöz": {
+      "main": [
+        [
+          {
+            "node": "Mesaj Tipi",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mesaj Tipi": {
+      "main": [
+        [
+          {
+            "node": "Randevu Aracı",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Hemen Yanıtla",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Yanıtla (Diğer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Randevu Aracı": {
+      "main": [
+        [
+          {
+            "node": "Yanıtla (Araç)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Randevu Bildirimi Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Randevu Bildirimi Var mı?": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Randevu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hemen Yanıtla": {
+      "main": [
+        [
+          {
+            "node": "Sonucu İşle",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sonucu İşle": {
+      "main": [
+        [
+          {
+            "node": "Bildirim Var mı?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bildirim Var mı?": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Randevu (Rapor)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gün Sonu Raporu": {
+      "main": [
+        [
+          {
+            "node": "Telegram: Gün Sonu",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Istanbul",
+    "errorWorkflow": "RAY5efwAaxnHR67o",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {}
+}
