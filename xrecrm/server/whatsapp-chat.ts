@@ -4,6 +4,7 @@
 // QR (Evolution / WhatsApp Web) hatlarında ilk mesajı şablonsuz atmak mümkündür.
 // Meta Cloud API hatlarında müşteri son 24 saatte yazmadıysa Meta yalnız
 // onaylı şablona izin verir; bu kural burada da uygulanır.
+import { learnWaLid } from "./wa-lid.js";
 import crypto from "node:crypto";
 import type { Express, Request } from "express";
 import type { Store } from "./db.js";
@@ -268,6 +269,7 @@ export function registerWhatsappChatRoutes(app: Express, store: Store, deps: Wha
       if (!provider) fail(503, "Bu hat WhatsApp'a bağlı değil. WhatsApp → Bağlantılar'dan QR ile bağlayın.", "LINE_NOT_CONNECTED");
       const guard = await guardOutbound(store, auth.ownerOpenId, { lineId, phone, provider });
       const result = provider === "evolution" ? await sendEvolutionText(lineId, phone, text) : await sendMetaText(lineId, phone, text);
+      if (provider === "evolution") void learnWaLid(store, auth.ownerOpenId, lineId, phone, result);
       const providerMessageId = String(result?.messages?.[0]?.id || result?.key?.id || "");
       const message = {
         id: providerMessageId || `wa-${crypto.randomUUID()}`,

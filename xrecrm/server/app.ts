@@ -122,6 +122,7 @@ import { registerDealerRoutes } from "./dealers.js";
 import { registerLiveRoutes } from "./live.js";
 import { registerPasswordResetRoutes } from "./password-reset.js";
 import { startSenetReminders } from "./senet-reminders.js";
+import { learnWaLid, resolveWaPeer } from "./wa-lid.js";
 import { escapeHtml, registerTelegram, sendTelegram, startTelegramScheduler } from "./telegram.js";
 import { registerBrandingAdminRoutes, registerBrandingPublicRoutes } from "./branding.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
@@ -1076,8 +1077,9 @@ async function processEvolutionWebhook(
   if (key.fromMe) {
     // Telefondan yazılan yanıt sohbete kaydedilmez; yalnız "yanıtlandı" bilgisi tutulur ki
     // Hat yönetimindeki "bekliyor" sayısı telefondan cevaplanan sohbetleri saymasın.
-    const jid = String(key.remoteJid || "");
     const lineId = String(body?.instance || "");
+    const peer = lineId ? await resolveWaPeer(store, owner, lineId, key, data) : { phone: "", hidden: true };
+    const jid = peer.hidden ? "" : `${peer.phone}@s.whatsapp.net`;
     if (lineId && data?.message && /^(messages[._]upsert|send[._]message)$/.test(eventName) && jid.endsWith("@s.whatsapp.net")) {
       const sentAt = Number(data?.messageTimestamp) * 1000;
       // Geçmiş eşitlemesinde gelen eski mesajlar kendi saatleriyle not edilir.
@@ -1086,8 +1088,9 @@ async function processEvolutionWebhook(
     }
     return;
   }
-  const remoteJid = String(key.remoteJid || data?.remoteJid || "");
-  const phone = remoteJid.split("@")[0];
+  // Gizli kimlikle (…@lid) gelen mesaj gerçek numaraya çevrilir; yoksa aynı kişi iki sohbete bölünür.
+  const peer = await resolveWaPeer(store, owner, String(body?.instance || body?.sender || ""), key, data, { guess: true });
+  const phone = peer.phone;
   if (!phone) return;
   // WhatCRM tarzı: varsayılan olarak gelen mesaj müşteri kartı açmaz;
   // numara kayıtlıysa bağlanır. WHATSAPP_AUTO_LEAD=1 ile eski davranış.
@@ -1119,6 +1122,7 @@ async function processEvolutionWebhook(
       leadId: lead?.id || null,
       lineId: body?.instance || body?.sender || null,
       phone: normalizePhone(phone),
+      ...(peer.hidden ? { hidden: true } : {}),
       contactName: String(data?.pushName || data?.notifyName || "").slice(0, 120) || null,
       provider: "evolution",
       direction: "inbound",
@@ -2193,6 +2197,7 @@ export function createApp(
       if (useEvolution && providerConfigured("evolution")) {
         provider = "evolution";
         result = await sendEvolutionText(lineId, lead.phone, parsed.data.text);
+        void learnWaLid(store, ownerOf(req), lineId, lead.phone, result);
       } else if (!useEvolution && providerConfigured("meta")) {
         provider = "meta";
         result = await sendMetaText(

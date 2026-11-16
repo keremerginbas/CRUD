@@ -156,7 +156,6 @@ const navGroups = [
     items: [
       ["/worktime", "XRE Mesai", Clock],
       ["/employees", "Çalışanlar", Users],
-      ["/team", "Ekip dizini", Users],
       ["/structure", "Şirket yapısı", Building2],
     ],
   },
@@ -172,8 +171,6 @@ const navGroups = [
     label: "İŞ AKIŞLARI",
     items: [
       ["/automations", "Otomasyonlar", Workflow],
-      ["/n8n", "n8n iş akışları", Workflow],
-      ["/webhooks", "Webhooklar", Webhook],
       ["/integrations", "Entegrasyonlar", Link2],
     ],
   },
@@ -187,6 +184,12 @@ const navGroups = [
     ],
   },
 ] as const;
+// Kenar çubuğunda tek bağlantı altında toplanan sayfalar: sayfanın üstünde sekme olarak görünür.
+const pageTabs: Record<string, [string, string][]> = {
+  "/integrations": [["/integrations", "Entegrasyonlar"], ["/n8n", "n8n iş akışları"], ["/webhooks", "Webhooklar"]],
+  "/employees": [["/employees", "Çalışanlar"], ["/team", "Ekip dizini"]],
+};
+const tabParent: Record<string, string> = { "/n8n": "/integrations", "/webhooks": "/integrations", "/team": "/employees" };
 function Workspace() {
   const { data, demo, user, workspace, setDemo, loading, request } = useStore();
   // Kayıtla açılan firmalarda ortak altyapıya bağlı modüller (WhatsApp, santral, n8n…) kapalıdır.
@@ -259,6 +262,8 @@ function Workspace() {
   const inbox = useInbox();
   const pendingQuotes = usePendingQuotes();
   const branding = useBranding();
+  // Firmaya özel (tek firmalı) kurulumda "Firmalar" bağlantısı gösterilmez.
+  const inSidebar = (url: string) => permitted(url) && !(url === "/workspaces" && branding.name);
   // Telefonda menü açıkken arkadaki sayfa kaymasın (CSS'te kök :has() yerine sınıf kullanılır).
   useEffect(() => {
     document.documentElement.classList.toggle("xre-drawer-open", sidebar);
@@ -322,7 +327,7 @@ function Workspace() {
           (["/leads", "/activities", "/calendar"].includes(path)
             ? "/kanban"
             : path),
-      )?.[1] || (path === "/profile" ? "Profilim" : "Ayarlar");
+      )?.[1] || ({ "/profile": "Profilim", "/n8n": "n8n iş akışları", "/webhooks": "Webhooklar", "/team": "Ekip dizini" } as Record<string, string>)[path] || "Ayarlar";
   // Bitrix içinde her zaman canlı veri gösterilir.
   useEffect(() => {
     if (EMBED && user && demo) setDemo(false);
@@ -513,15 +518,15 @@ function Workspace() {
             <ChevronDown size={15} />
           </button>
           <nav aria-label="Çalışma alanı menüsü">
-            {navGroups.filter((g) => g.items.some(([url]) => permitted(url))).map((g) => (
+            {navGroups.filter((g) => g.items.some(([url]) => inSidebar(url))).map((g) => (
               <div className="nav-group" key={g.label}>
                 <div className="nav-label">{g.label}</div>
                 {g.items
-                  .filter(([url]) => permitted(url))
+                  .filter(([url]) => inSidebar(url))
                   .map(([url, label, Icon]) => (
                     <button
                       key={url}
-                      className={`nav-item ${(url === "/kanban" ? ["/kanban", "/leads", "/activities", "/calendar"].includes(path) : path === url) ? "active" : ""}`}
+                      className={`nav-item ${(url === "/kanban" ? ["/kanban", "/leads", "/activities", "/calendar"].includes(path) : path === url || tabParent[path] === url) ? "active" : ""}`}
                       onClick={() => navigate(url)}
                     >
                       <Icon size={18} />
@@ -796,6 +801,17 @@ function Workspace() {
           <main
             className={`page-content ${path === "/kanban" ? "kanban-page" : ""}`}
           >
+            {permitted(path) && pageTabs[tabParent[path] || path] && (
+              <div className="page-tabs" role="tablist">
+                {pageTabs[tabParent[path] || path]
+                  .filter(([url]) => permitted(url))
+                  .map(([url, label]) => (
+                    <button key={url} type="button" role="tab" aria-selected={path === url} className={path === url ? "active" : ""} onClick={() => navigate(url)}>
+                      {label}
+                    </button>
+                  ))}
+              </div>
+            )}
             {!permitted(path) ? (
               <>
                 <PageTitle

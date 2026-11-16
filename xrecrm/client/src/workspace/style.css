@@ -3787,3 +3787,9 @@ html[data-xre-theme="night"] .kanban-edge-left {
 .b24-quick-card { display: grid; gap: 8px; }
 .b24-quick-card input,
 .b24-quick-card select { width: 100%; box-sizing: border-box; min-height: 36px; }
+
+/* Sayfa üstü sekmeler (Entegrasyonlar / n8n / Webhooklar, Çalışanlar / Ekip dizini) */
+html .app-shell .page-tabs:not(#_) { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 16px; border-bottom: 1px solid var(--xre-border, rgba(127, 127, 127, 0.25)); }
+html .app-shell .page-tabs:not(#_) button { background: none; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; padding: 9px 14px; font: inherit; font-weight: 600; color: var(--xre-muted, inherit); opacity: 0.75; cursor: pointer; }
+html .app-shell .page-tabs:not(#_) button:hover { opacity: 1; }
+html .app-shell .page-tabs:not(#_) button.active { opacity: 1; color: var(--xre-accent, var(--ds-accent, #1d9bb8)); border-bottom-color: currentColor; }
