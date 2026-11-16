@@ -6,10 +6,15 @@ import { canAccess, rawStoreOf } from "./access.js";
 import type { AuthContext, StoredRecord } from "./types.js";
 import { ContactSchema, CompanySchema } from "./suite.js";
 import { LeadSchema, type Lead } from "./types.js";
+import { PROJECT_KIND, type Project } from "../shared/real-estate.js";
 import {
+  IMPORT_FIELDS,
   IMPORT_MAX_BYTES,
+  IMPORT_MAX_COLUMNS,
   IMPORT_MAX_ROWS,
   canonicalImportRow,
+  legacyImportRow,
+  projectMatchKey,
   normalizeEmail,
   normalizeName,
   normalizePhone,
@@ -23,17 +28,7 @@ import {
 
 type StoreKind = "contacts" | "companies" | "lead";
 type AuthedRequest = Request & { auth?: AuthContext };
-const allowedFields = new Set([
-  "name",
-  "phone",
-  "email",
-  "companyId",
-  "companyName",
-  "contactId",
-  "city",
-  "source",
-  "notes",
-]);
+const allowedFields = new Set<string>(IMPORT_FIELDS);
 const kinds = z.enum(["contacts", "companies", "leads"]);
 const previewEnvelope = z
   .object({
@@ -130,9 +125,12 @@ function cleanRows(
   return rows.map((input) => {
     const raw: ImportRawRow = {};
     const issues: ImportIssue[] = [];
-    if (Object.keys(input).length > 32)
+    if (Object.keys(input).length > IMPORT_MAX_COLUMNS)
       issues.push(
-        issue("TOO_MANY_COLUMNS", "Satır 32 sütundan fazla içeriyor."),
+        issue(
+          "TOO_MANY_COLUMNS",
+          `Satır ${IMPORT_MAX_COLUMNS} sütundan fazla içeriyor.`,
+        ),
       );
     for (const [key, value] of Object.entries(input)) {
       if (!allowedFields.has(key)) {
@@ -237,11 +235,56 @@ function hiddenDuplicate(
 interface ReferenceIndex {
   companiesByName: Map<string, any[]>;
   contactIds: Set<unknown>;
+  /** Arşivlenmemiş projeler; anahtar Türkçe duyarlı küçük harfli ad. */
+  projectsByName: Map<string, ProjectRef[]>;
+  /** Aynı projeler; anahtar noktalı/noktasız i ayrımı yapmaz (bkz. projectMatchKey). */
+  projectsByLooseName: Map<string, ProjectRef[]>;
+}
+type ProjectRef = { id: string; name: string };
+/**
+ * Yazılan proje adını mevcut projelerle eşleştirir. Önce birebir (Türkçe duyarlı) ad,
+ * bulunamazsa i/ı ayrımı yapmayan ad denenir. Aynı adı taşıyan birden çok proje varsa
+ * hangisinin kastedildiği bilinemez; rastgele birine bağlanmaz.
+ */
+function resolveProject(
+  references: ReferenceIndex,
+  text: string,
+): { project?: ProjectRef; ambiguous: boolean } {
+  if (!text) return { ambiguous: false };
+  const exact = references.projectsByName.get(normalizeName(text)) || [];
+  const matches = exact.length
+    ? exact
+    : references.projectsByLooseName.get(projectMatchKey(text)) || [];
+  if (matches.length === 1) return { project: matches[0], ambiguous: false };
+  return { ambiguous: matches.length > 1 };
 }
 function buildReferenceIndex(
   visibleCompanies: StoredRecord[],
   visibleContacts: StoredRecord[],
+  projects: StoredRecord[] = [],
 ): ReferenceIndex {
+  const projectsByName = new Map<string, ProjectRef[]>();
+  const projectsByLooseName = new Map<string, ProjectRef[]>();
+  const addProject = (
+    index: Map<string, ProjectRef[]>,
+    key: string,
+    ref: ProjectRef,
+  ) => {
+    const list = index.get(key);
+    if (list) list.push(ref);
+    else index.set(key, [ref]);
+  };
+  for (const record of projects) {
+    const project = record.payload as Partial<Project>;
+    const key = normalizeName(project.name);
+    if (!key || project.archived) continue;
+    const ref = {
+      id: String(project.id || record.id),
+      name: String(project.name).trim(),
+    };
+    addProject(projectsByName, key, ref);
+    addProject(projectsByLooseName, projectMatchKey(project.name), ref);
+  }
   const companiesByName = new Map<string, any[]>();
   for (const record of visibleCompanies) {
     const company = record.payload as any;
@@ -251,6 +294,8 @@ function buildReferenceIndex(
     else companiesByName.set(key, [company]);
   }
   return {
+    projectsByName,
+    projectsByLooseName,
     companiesByName,
     contactIds: new Set(
       visibleContacts.map((record) => (record.payload as any).id),
@@ -323,6 +368,16 @@ async function referenceIssues(
       contactId = "";
     }
   }
+  if (
+    kind === "leads" &&
+    resolveProject(references, String(raw.project || "").trim()).ambiguous
+  )
+    issues.push(
+      issue(
+        "AMBIGUOUS_REFERENCE",
+        "Bu adla birden fazla proje var; hangisine bağlanacağı belli değil. Projelerden birinin adını değiştirin veya Proje sütununu atlayın.",
+      ),
+    );
   return { issues, companyId, companyName, contactId };
 }
 
@@ -333,13 +388,18 @@ async function loadRecords(
   kind: CrmImportKind,
 ) {
   const sk = storeKind(kind);
-  const [visible, all, visibleCompanies, visibleContacts] = await Promise.all([
-    scopedStore.list(sk, owner),
-    rawStore.list(sk, owner),
-    scopedStore.list("companies", owner),
-    scopedStore.list("contacts", owner),
-  ]);
-  return { visible, all, visibleCompanies, visibleContacts };
+  const [visible, all, visibleCompanies, visibleContacts, projects] =
+    await Promise.all([
+      scopedStore.list(sk, owner),
+      rawStore.list(sk, owner),
+      scopedStore.list("companies", owner),
+      scopedStore.list("contacts", owner),
+      // Proje adı yalnızca müşteri aktarımında eşleştirilir.
+      kind === "leads"
+        ? rawStore.list(PROJECT_KIND, owner)
+        : Promise.resolve([] as StoredRecord[]),
+    ]);
+  return { visible, all, visibleCompanies, visibleContacts, projects };
 }
 
 async function makePreview(
@@ -369,6 +429,7 @@ async function makePreview(
   const referenceIndex = buildReferenceIndex(
     records.visibleCompanies,
     records.visibleContacts,
+    records.projects,
   );
   for (const row of base.rows) {
     const source = rows[row.rowNumber - 2];
@@ -427,6 +488,7 @@ function sameImportPayload(
   kind: CrmImportKind,
   existing: any,
   expected: any,
+  ignore: readonly string[] = [],
 ): boolean {
   const fields =
     kind === "contacts"
@@ -441,11 +503,13 @@ function sameImportPayload(
             "companyId",
             "contactId",
             "city",
+            "country",
             "source",
             "notes",
             "stage",
           ];
   return fields.every((field) => {
+    if (ignore.includes(field)) return true;
     if (field === "phone")
       return (
         normalizePhone(existing[field]) === normalizePhone(expected[field])
@@ -531,6 +595,10 @@ async function buildEntity(
           ),
         };
   }
+  // Proje adı mevcut bir projeyle eşleşirse hızlı eklemedeki gibi bağlanır;
+  // eşleşmezse yazılan metin kartta proje başlığı olarak kalır, yeni proje açılmaz.
+  const projectText = String(raw.project || "").trim();
+  const { project } = resolveProject(references, projectText);
   const parsed = LeadSchema.safeParse({
     id,
     name,
@@ -540,6 +608,16 @@ async function buildEntity(
     companyId: refs.companyId || undefined,
     contactId: refs.contactId || undefined,
     city: raw.city ? String(raw.city).trim() : undefined,
+    country: raw.country ? String(raw.country).trim() : undefined,
+    ...(project
+      ? {
+          dealTitle: project.name,
+          projectId: project.id,
+          projectName: project.name,
+        }
+      : projectText
+        ? { dealTitle: projectText }
+        : {}),
     stage: "new",
     owner: assigneeName,
     value: 0,
@@ -652,6 +730,7 @@ async function commitImport(
   const referenceIndex = buildReferenceIndex(
     records.visibleCompanies,
     records.visibleContacts,
+    records.projects,
   );
   let created = 0;
   let recovered = 0;
@@ -667,12 +746,21 @@ async function commitImport(
       scopedStore,
       referenceIndex,
     );
-    const id = importId(body.kind, raw);
-    const anyExisting = await rawStore.get<any>(
-      storeKind(body.kind),
-      id,
-      owner,
-    );
+    let id = importId(body.kind, raw);
+    let anyExisting = await rawStore.get<any>(storeKind(body.kind), id, owner);
+    // Ülke/Proje sütunları tanınmadan önce aktarılmış satır: kayıt, bu alanlar olmadan
+    // hesaplanan kimlikle duruyor. Aynı dosya yeniden yüklenince ikinci kez eklenmesin.
+    const legacyRaw = anyExisting ? null : legacyImportRow(raw);
+    const legacyId = legacyRaw ? importId(body.kind, legacyRaw) : "";
+    const legacyExisting = legacyId
+      ? await rawStore.get<any>(storeKind(body.kind), legacyId, owner)
+      : null;
+    const viaLegacyId = Boolean(legacyExisting);
+    if (legacyExisting) {
+      id = legacyId;
+      anyExisting = legacyExisting;
+      if (built.entity) built.entity = { ...built.entity, id };
+    }
     if (anyExisting && !visibleIds.has(id)) {
       rowCopy.status = "duplicate";
       rowCopy.unavailable = true;
@@ -693,7 +781,13 @@ async function commitImport(
     if (
       existingById &&
       built.entity &&
-      sameImportPayload(body.kind, existingById.payload, built.entity)
+      sameImportPayload(
+        body.kind,
+        existingById.payload,
+        built.entity,
+        // Eski kayıtta ülke yoktu; karşılaştırma eski alanlarla yapılır.
+        viaLegacyId ? ["country"] : [],
+      )
     ) {
       rowCopy.status = "ready";
       rowCopy.candidateId = id;

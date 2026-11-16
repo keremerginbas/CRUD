@@ -7,6 +7,7 @@ export interface Lead {
   rank?: number;
   stageTransitionToken?: string;
   city?: string;
+  country?: string;
   appointmentAt?: string;
   pipelineId?: string;
   contactId?: string;

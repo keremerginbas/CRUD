@@ -918,7 +918,9 @@ export default function CRM({
                           />
                           <span className="b24-card-source">
                             {l.source}
-                            {l.city ? ` · ${l.city}` : ""}
+                            {l.city || l.country
+                              ? ` · ${[l.city, l.country].filter(Boolean).join(", ")}`
+                              : ""}
                           </span>
                           <span
                             className="crm-open-count"
@@ -964,6 +966,7 @@ export default function CRM({
                             <span>{l.phone || "Telefon eklenmedi"}</span>
                             {l.email && <span>{l.email}</span>}
                             {l.city && <span>Şehir: {l.city}</span>}
+                            {l.country && <span>Ülke: {l.country}</span>}
                             <span>
                               Kişi:{" "}
                               {data.contacts.find((c) => c.id === l.contactId)

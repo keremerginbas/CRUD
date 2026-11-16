@@ -47,9 +47,11 @@ describe("Kart iletişimi ve online toplantı", () => {
         <CustomerCallDialog leadId={customer.id} onClose={() => {}} />
       </StoreProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Yapay zekâ araması" }));
+    // Arama penceresi yalnızca telefonla aramayı sunar.
+    expect(screen.queryByRole("button", { name: "Yapay zekâ araması" })).toBeNull();
+    expect(screen.queryByText(/webhook/i)).toBeNull();
     fireEvent.click(
-      screen.getByRole("button", { name: "Demo AI aramasını dene" }),
+      screen.getByRole("button", { name: "Demo aramasını dene" }),
     );
     expect(vi.mocked(fetch).mock.calls.some(([u]) => u === "/api/calls")).toBe(
       false,

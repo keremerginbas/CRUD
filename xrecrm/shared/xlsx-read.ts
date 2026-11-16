@@ -1,6 +1,7 @@
 import { unzipSync, strFromU8 } from "fflate";
 import {
-  IMPORT_MAX_COLUMNS,
+  tooManyColumnsError,
+  IMPORT_HARD_MAX_COLUMNS,
   IMPORT_MAX_ROWS,
   ImportParseError,
   formatImportBytes,
@@ -159,11 +160,7 @@ export function parseXlsx(
   if (!headers.length)
     throw new ImportParseError("MISSING_HEADER", "İlk satır sütun başlıklarını içermeli.");
   const rows = table.map((row) => row.slice(0, headers.length));
-  // Sütun sınırı gizli sistem sütunları ayıklandıktan sonra uygulanır (normalizeImportTable).
-  if (headers.length > IMPORT_MAX_COLUMNS * 4)
-    throw new ImportParseError(
-      "TOO_MANY_COLUMNS",
-      `Dosya ${IMPORT_MAX_COLUMNS} sütundan fazla içeriyor.`,
-    );
+  // Fazla sütunlar normalizeImportTable içinde ayıklanır; burada yalnızca güvenlik sınırı var.
+  if (headers.length > IMPORT_HARD_MAX_COLUMNS) throw tooManyColumnsError();
   return { delimiter: "\t", headers, rows };
 }

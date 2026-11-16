@@ -6,7 +6,7 @@ import {
 import LeadQuickActions, { openOnlineMeeting } from "./LeadQuickActions";
 import { FileSignature, Video } from "lucide-react";
 import { withBase } from "../nav";
-import CustomerTimeline from "./CustomerTimeline";
+import CustomerTimeline, { callLine } from "./CustomerTimeline";
 import { openEmailComposer } from "./EmailTimeline";
 import {
   appointmentIso,
@@ -116,8 +116,8 @@ export default function LeadDrawer({
       .map((c) => ({
         id: c.id,
         type: "call",
-        title: "Yapay zekâ araması",
-        text: c.summary || c.status,
+        title: c.direction === "inbound" ? "Gelen arama" : "Giden arama",
+        text: callLine(c),
         date: c.createdAt,
       })),
     ...data.events
@@ -513,6 +513,17 @@ export default function LeadDrawer({
                   value={form.city || ""}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                   placeholder="Örn. Ankara"
+                />
+              </label>
+              <label>
+                Ülke
+                <input
+                  value={form.country || ""}
+                  onChange={(e) =>
+                    setForm({ ...form, country: e.target.value })
+                  }
+                  placeholder="Örn. Türkiye"
+                  maxLength={120}
                 />
               </label>
               <div className="cx-date-row">

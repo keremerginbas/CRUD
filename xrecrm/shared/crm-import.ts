@@ -1,6 +1,8 @@
 export const IMPORT_MAX_BYTES = 1_000_000;
 export const IMPORT_MAX_ROWS = 1_000;
 export const IMPORT_MAX_COLUMNS = 32;
+/** Dosyadaki sütun sayısı için güvenlik sınırı; fazlası hiç okunmaz. */
+export const IMPORT_HARD_MAX_COLUMNS = 256;
 
 export const importKinds = ["contacts", "companies", "leads"] as const;
 export type CrmImportKind = (typeof importKinds)[number];
@@ -12,8 +14,81 @@ export type ImportField =
   | "companyName"
   | "contactId"
   | "city"
+  | "country"
+  | "project"
   | "source"
   | "notes";
+
+/** İçe aktarmada kabul edilen tüm alanlar (istemci ve sunucu aynı listeyi kullanır). */
+export const IMPORT_FIELDS: readonly ImportField[] = [
+  "name",
+  "phone",
+  "email",
+  "companyId",
+  "companyName",
+  "contactId",
+  "city",
+  "country",
+  "project",
+  "source",
+  "notes",
+];
+
+/** Yalnızca müşteri (lead) kaydında karşılığı olan alanlar. */
+const LEAD_ONLY_FIELDS: readonly ImportField[] = ["country", "project"];
+export function importFieldsFor(kind: CrmImportKind): ImportField[] {
+  if (kind === "companies") return ["name", "phone", "email", "notes"];
+  return IMPORT_FIELDS.filter(
+    (field) => kind === "leads" || !LEAD_ONLY_FIELDS.includes(field),
+  );
+}
+
+/** Örnek şablonun başlık satırı; her başlık otomatik eşlenir. */
+export const IMPORT_TEMPLATE_HEADERS: Record<CrmImportKind, string[]> = {
+  leads: ["Ad Soyad", "Telefon", "E-posta", "Şehir", "Ülke", "Proje", "Kaynak", "Not"],
+  contacts: ["Ad Soyad", "Telefon", "E-posta", "Not"],
+  companies: ["Şirket Adı", "Telefon", "E-posta", "Not"],
+};
+const IMPORT_TEMPLATE_EXAMPLE: Record<CrmImportKind, string[]> = {
+  leads: [
+    "Ayşe Yılmaz",
+    "05550000001",
+    "ornek@example.com",
+    "İstanbul",
+    "Türkiye",
+    "Örnek Proje",
+    "Web sitesi",
+    "Bu örnek satırı silip kendi müşterilerinizi yazın.",
+  ],
+  contacts: [
+    "Ayşe Yılmaz",
+    "05550000001",
+    "ornek@example.com",
+    "Bu örnek satırı silip kendi kişilerinizi yazın.",
+  ],
+  companies: [
+    "Örnek Şirket A.Ş.",
+    "02120000001",
+    "bilgi@example.com",
+    "Bu örnek satırı silip kendi şirketlerinizi yazın.",
+  ],
+};
+/** Örnek şablonun satırları: başlık + tek örnek satır. */
+export function importTemplateRows(kind: CrmImportKind): string[][] {
+  return [IMPORT_TEMPLATE_HEADERS[kind], IMPORT_TEMPLATE_EXAMPLE[kind]];
+}
+const TEMPLATE_EXAMPLE_NOTES = new Set(
+  Object.values(IMPORT_TEMPLATE_EXAMPLE).map((row) => row[row.length - 1]),
+);
+/**
+ * Şablondaki örnek satır silinmeden yüklenirse gerçek kayıt olarak eklenmemeli.
+ * Satır, örnek not cümlesinden tanınır; sütun eşlemesinden bağımsızdır.
+ */
+export function isTemplateExampleRow(values: readonly unknown[]): boolean {
+  return values.some((value) =>
+    TEMPLATE_EXAMPLE_NOTES.has(String(value ?? "").trim()),
+  );
+}
 
 export type ImportRawRow = Partial<Record<ImportField, string>> &
   Record<string, unknown>;
@@ -22,6 +97,10 @@ export interface ParsedDelimitedFile {
   delimiter: "," | ";" | "\t";
   headers: string[];
   rows: string[][];
+  /** Sütun sınırı aşıldığı için dışarıda bırakılan tanınmayan sütun sayısı. */
+  droppedColumns?: number;
+  /** Dışarıda bırakılan sütunların başlıkları (dosyadaki sırayla). */
+  droppedHeaders?: string[];
 }
 
 export interface ImportIssue {
@@ -113,6 +192,15 @@ export function normalizeName(raw: unknown): string {
     .toLocaleLowerCase("tr-TR");
 }
 
+/**
+ * Proje adı eşleştirme anahtarı. Türkçe küçük harfe çevirmede "I" → "ı", "İ" → "i"
+ * olur; Türkçe klavye kullanılmadan büyük harfle yazılmış adlar ("SKYLINE") küçük
+ * harfli karşılığıyla ("Skyline") eşleşsin diye noktalı ve noktasız i tek harf sayılır.
+ */
+export function projectMatchKey(raw: unknown): string {
+  return normalizeName(raw).replace(/ı/g, "i").replace(/\u0307/g, "");
+}
+
 export function normalizeHeader(raw: unknown): string {
   return String(raw ?? "")
     .replace(/^\uFEFF/, "")
@@ -125,7 +213,7 @@ export function normalizeHeader(raw: unknown): string {
 
 const aliases: Record<ImportField, string[]> = {
   name: [
-    "tam ad", "tam adı", "adı soyadı", "müşteri adı", "ilgili kişi", "contact",
+    "tam ad", "tam adı", "adı soyadı", "müşteri adı", "müşteri adı soyadı", "müşteri ad soyad", "adı ve soyadı", "ad ve soyad", "ilgili kişi", "contact",
     "name",
     "müşteri",
     "musteri",
@@ -161,6 +249,18 @@ const aliases: Record<ImportField, string[]> = {
   ],
   contactId: ["contactid", "contact id", "kişi id", "kisi id", "contact_id"],
   city: ["address 1: city", "adres 1: şehir", "address 1 city", "adres 1 şehir", "city (address 1)", "city", "şehir", "sehir", "il", "location"],
+  country: ["ülke", "ulke", "ülkesi", "country", "country/region", "address 1: country/region", "adres 1: ülke/bölge", "address 1 country"],
+  project: [
+    "proje",
+    "proje adı",
+    "proje adi",
+    "project",
+    "project name",
+    "ilgilendiği proje",
+    "ilgilendigi proje",
+    "ilgilenilen proje",
+    "ilgili proje",
+  ],
   source: ["müşteri adayı kaynağı", "aday kaynağı", "kaynak kampanya", "source", "kaynak", "lead source", "channel", "kanal"],
   notes: [
     "topic", "konu", "subject",
@@ -329,17 +429,21 @@ export function parseDelimited(
       "MISSING_HEADER",
       "İlk satır sütun başlıklarını içermeli.",
     );
-  if (headers.length > IMPORT_MAX_COLUMNS)
-    throw new ImportParseError(
-      "TOO_MANY_COLUMNS",
-      `Dosya ${IMPORT_MAX_COLUMNS} sütundan fazla içeriyor.`,
-    );
+  // Tanınmayan fazla sütunlar normalizeImportTable içinde ayıklanır; burada yalnızca güvenlik sınırı var.
+  if (headers.length > IMPORT_HARD_MAX_COLUMNS) throw tooManyColumnsError();
   if (records.length > maxRows)
     throw new ImportParseError(
       "TOO_MANY_ROWS",
       `Dosya ${formatImportCount(maxRows)} veri satırından fazla içeriyor.`,
     );
   return { delimiter, headers, rows: records };
+}
+
+export function tooManyColumnsError(): ImportParseError {
+  return new ImportParseError(
+    "TOO_MANY_COLUMNS",
+    `Dosyada ${IMPORT_HARD_MAX_COLUMNS} sütundan fazlası var. Kullanmadığınız sütunları silip yeniden yükleyin.`,
+  );
 }
 
 export const parseCsv = parseDelimited;
@@ -356,6 +460,8 @@ export function mapHeaders(
   return headers.map((header) => {
     let mapped = aliasToField.get(normalizeHeader(header)) || null;
     if (kind === "companies" && mapped === "companyName") mapped = "name";
+    if (mapped && kind !== "leads" && LEAD_ONLY_FIELDS.includes(mapped))
+      mapped = null;
     if (!mapped || taken.has(mapped)) return null;
     taken.add(mapped);
     return mapped;
@@ -401,12 +507,33 @@ export function normalizeImportTable(parsed: ParsedDelimitedFile): ParsedDelimit
   }
   if (!headers.length)
     throw new ImportParseError("MISSING_HEADER", "İlk satır sütun başlıklarını içermeli.");
-  if (headers.length > IMPORT_MAX_COLUMNS)
-    throw new ImportParseError(
-      "TOO_MANY_COLUMNS",
-      `Dosya ${IMPORT_MAX_COLUMNS} sütundan fazla içeriyor.`,
+  if (headers.length > IMPORT_HARD_MAX_COLUMNS) throw tooManyColumnsError();
+  let droppedColumns = 0;
+  let droppedHeaders: string[] = [];
+  if (headers.length > IMPORT_MAX_COLUMNS) {
+    // Tanınan sütunlar her zaman kalır; kalan yer tanınmayanlara dosyadaki sırayla verilir.
+    const recognised = headers.map((header) =>
+      aliasToField.has(normalizeHeader(header)),
     );
-  return { ...parsed, headers, rows };
+    let room = IMPORT_MAX_COLUMNS;
+    const kept = new Set<number>();
+    for (const wanted of [true, false])
+      for (let i = 0; i < headers.length && room > 0; i++)
+        if (recognised[i] === wanted) {
+          kept.add(i);
+          room--;
+        }
+    droppedColumns = headers.length - kept.size;
+    droppedHeaders = headers.filter((_, i) => !kept.has(i));
+    headers = headers.filter((_, i) => kept.has(i));
+    rows = rows.map((row) => row.filter((_, i) => kept.has(i)));
+  }
+  return {
+    ...parsed,
+    headers,
+    rows,
+    ...(droppedColumns ? { droppedColumns, droppedHeaders } : {}),
+  };
 }
 
 export function mapDelimitedRows(
@@ -415,7 +542,9 @@ export function mapDelimitedRows(
   mapping?: Array<ImportField | null>,
 ): Array<{ rowNumber: number; raw: ImportRawRow; issues: ImportIssue[] }> {
   const fields = mapping || mapHeaders(parsed.headers, kind);
-  return parsed.rows.map((values, index) => {
+  return parsed.rows.flatMap((values, index) => {
+    // Şablonun örnek satırı aktarılmaz; diğer satırların dosyadaki numarası değişmez.
+    if (isTemplateExampleRow(values)) return [];
     const raw: ImportRawRow = {};
     const issues: ImportIssue[] = [];
     const chosen = fields.filter(Boolean);
@@ -433,7 +562,7 @@ export function mapDelimitedRows(
       const field = fields[i];
       if (field) raw[field] = values[i].trim();
     }
-    return { rowNumber: index + 2, raw, issues };
+    return [{ rowNumber: index + 2, raw, issues }];
   });
 }
 
@@ -478,20 +607,7 @@ export function validateImportRow(
       message: "Şirket adı zorunlu.",
     });
   for (const key of Object.keys(row)) {
-    if (
-      !Object.prototype.hasOwnProperty.call(aliases, key) &&
-      ![
-        "name",
-        "phone",
-        "email",
-        "companyId",
-        "companyName",
-        "contactId",
-        "city",
-        "source",
-        "notes",
-      ].includes(key)
-    )
+    if (!Object.prototype.hasOwnProperty.call(aliases, key))
       issues.push({
         code: "UNKNOWN_FIELD",
         message: `Desteklenmeyen alan: ${key}.`,
@@ -509,13 +625,22 @@ export function validateImportRow(
         message: "Bağlı kayıt kimliği çok uzun.",
       });
   }
-  for (const field of ["city", "source"]) {
+  for (const [field, label] of [
+    ["city", "Şehir"],
+    ["country", "Ülke"],
+    ["source", "Kaynak"],
+  ]) {
     if (String(row[field] || "").length > 120)
       issues.push({
         code: "FIELD_TOO_LONG",
-        message: `${field} alanı 120 karakteri aşamaz.`,
+        message: `${label} alanı 120 karakteri aşamaz.`,
       });
   }
+  if (String(row.project || "").length > 200)
+    issues.push({
+      code: "FIELD_TOO_LONG",
+      message: "Proje alanı 200 karakteri aşamaz.",
+    });
   return issues;
 }
 
@@ -635,17 +760,7 @@ export function canonicalImportRow(
   kind: CrmImportKind,
   row: ImportRawRow,
 ): string {
-  const allowed: ImportField[] = [
-    "name",
-    "phone",
-    "email",
-    "companyId",
-    "companyName",
-    "contactId",
-    "city",
-    "source",
-    "notes",
-  ];
+  const allowed = [...IMPORT_FIELDS];
   return JSON.stringify({
     kind,
     ...Object.fromEntries(
@@ -655,6 +770,18 @@ export function canonicalImportRow(
         .map((key) => [key, String(row[key] ?? "").trim()]),
     ),
   });
+}
+
+/**
+ * Ülke ve proje alanları eklenmeden önce kayıt kimliği bu iki alan olmadan
+ * hesaplanıyordu. Satırda bu alanlar varsa onlarsız hâlini döndürür (yoksa null);
+ * böylece eskiden aktarılmış bir dosya yeniden yüklendiğinde aynı kayıt tanınır.
+ */
+export function legacyImportRow(row: ImportRawRow): ImportRawRow | null {
+  if (!LEAD_ONLY_FIELDS.some((field) => row[field] !== undefined)) return null;
+  const copy: ImportRawRow = { ...row };
+  for (const field of LEAD_ONLY_FIELDS) delete copy[field];
+  return copy;
 }
 
 /** Portable deterministic fallback used by the demo; the server additionally hashes with SHA-256. */

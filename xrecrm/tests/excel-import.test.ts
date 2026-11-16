@@ -1,7 +1,18 @@
 import { expect, it } from "vitest";
 import { strToU8, zipSync } from "fflate";
 import { parseXlsx } from "../shared/xlsx-read";
+import { buildXlsx } from "../shared/xlsx-write";
 import {
+  IMPORT_HARD_MAX_COLUMNS,
+  IMPORT_MAX_COLUMNS,
+  IMPORT_TEMPLATE_HEADERS,
+  ImportParseError,
+  canonicalImportRow,
+  importFieldsFor,
+  importTemplateRows,
+  isTemplateExampleRow,
+  legacyImportRow,
+  projectMatchKey,
   mapDelimitedRows,
   mapHeaders,
   normalizeImportTable,
@@ -112,4 +123,164 @@ it("tam ad sütunu varsa ad ve soyadı birleştirmez; bozuk ve çok büyük dosy
   expect(mapHeaders(table.headers, "contacts")).toEqual(["name", null, null]);
   expect(() => parseXlsx(strToU8("bu bir excel değil"))).toThrow();
   expect(() => parseXlsx(new Uint8Array(5_000_001))).toThrow();
+});
+
+it("örnek şablon: başlıkların tamamı otomatik eşlenir ve örnek satır hatasız okunur", () => {
+  const headers = ["Ad Soyad", "Telefon", "E-posta", "Şehir", "Ülke", "Proje", "Kaynak", "Not"];
+  expect(IMPORT_TEMPLATE_HEADERS.leads).toEqual(headers);
+  const table = normalizeImportTable(parseXlsx(buildXlsx(importTemplateRows("leads"))));
+  expect(table.headers).toEqual(headers);
+  expect(table.droppedColumns).toBeUndefined();
+  expect(mapHeaders(table.headers, "leads")).toEqual([
+    "name",
+    "phone",
+    "email",
+    "city",
+    "country",
+    "project",
+    "source",
+    "notes",
+  ]);
+  // Örnek satır dosyada okunur ama silinmeden yüklense bile kayıt olarak aktarılmaz.
+  expect(table.rows).toHaveLength(1);
+  expect(table.rows[0].slice(0, 6)).toEqual([
+    "Ayşe Yılmaz",
+    "05550000001",
+    "ornek@example.com",
+    "İstanbul",
+    "Türkiye",
+    "Örnek Proje",
+  ]);
+  expect(isTemplateExampleRow(table.rows[0])).toBe(true);
+  expect(mapDelimitedRows(table, "leads")).toHaveLength(0);
+  // Kullanıcı örneğin altına kendi satırını yazarsa yalnızca o satır aktarılır;
+  // satır numarası dosyadaki yerini (3. satır) korur.
+  const filled = normalizeImportTable(
+    parseXlsx(
+      buildXlsx([
+        ...importTemplateRows("leads"),
+        ["Mehmet Örnek", "05550000002", "ornek2@example.com", "İzmir", "Türkiye", "Örnek Proje", "Fuar", "İlk görüşme"],
+      ]),
+    ),
+  );
+  const mapped = mapDelimitedRows(filled, "leads");
+  expect(mapped).toHaveLength(1);
+  expect(mapped[0].rowNumber).toBe(3);
+  expect(mapped[0].issues).toHaveLength(0);
+  expect(mapped[0].raw).toMatchObject({
+    name: "Mehmet Örnek",
+    phone: "05550000002",
+    email: "ornek2@example.com",
+    city: "İzmir",
+    country: "Türkiye",
+    project: "Örnek Proje",
+  });
+  expect(validateImportRow("leads", mapped[0].raw)).toHaveLength(0);
+  // Sütun eşlemesi elle değiştirilse (Not atlansa) bile örnek satır tanınır.
+  expect(mapDelimitedRows(filled, "leads", ["name", "phone", null, null, null, null, null, null])).toHaveLength(1);
+  // Kişi ve şirket şablonları da kendi türlerinde eksiksiz eşlenir, örnekleri atlanır.
+  for (const kind of ["contacts", "companies"] as const) {
+    const other = normalizeImportTable(parseXlsx(buildXlsx(importTemplateRows(kind))));
+    expect(mapHeaders(other.headers, kind).every(Boolean)).toBe(true);
+    expect(mapDelimitedRows(other, kind)).toHaveLength(0);
+  }
+});
+
+it("şablonda sütunlar metin biçimlidir: yeni satıra yazılan telefonun baştaki sıfırı kaybolmaz", async () => {
+  const { unzipSync, strFromU8 } = await import("fflate");
+  const sheet = strFromU8(unzipSync(buildXlsx(importTemplateRows("leads")))["xl/worksheets/sheet1.xml"]);
+  const cols = sheet.match(/<col [^>]*>/g) || [];
+  expect(cols).toHaveLength(8);
+  // style="2" → styles.xml içindeki metin ("@") biçimi.
+  expect(cols.every((col) => /\bstyle="2"/.test(col))).toBe(true);
+});
+
+it("proje eşleştirme anahtarı i/ı ayrımı yapmaz; eski kayıt kimliği ülke ve proje olmadan hesaplanır", () => {
+  expect(projectMatchKey("SKYLINE RESIDENCE")).toBe(projectMatchKey("Skyline Residence"));
+  expect(projectMatchKey("VADİ İSTANBUL")).toBe(projectMatchKey("Vadi Istanbul"));
+  expect(projectMatchKey("  Işık   Vadisi ")).toBe(projectMatchKey("IŞIK VADİSİ"));
+  expect(projectMatchKey("Skyline")).not.toBe(projectMatchKey("Skyland"));
+  expect(legacyImportRow({ name: "A", city: "İzmir" })).toBeNull();
+  const legacy = legacyImportRow({ name: "A", city: "İzmir", country: "Türkiye", project: "Örnek Proje" });
+  expect(legacy).toEqual({ name: "A", city: "İzmir" });
+  expect(canonicalImportRow("leads", legacy!)).toBe('{"kind":"leads","city":"İzmir","name":"A"}');
+});
+
+it("ülke ve proje başlıklarını tanır; kişi ve şirket aktarımında bu alanları sunmaz", () => {
+  const headers = ["Müşteri Adı Soyadı", "Telefon Numarası", "Şehir", "Eposta", "Proje Adı", "Ülke"];
+  expect(mapHeaders(headers, "leads")).toEqual(["name", "phone", "city", "email", "project", "country"]);
+  expect(mapHeaders(["Name", "Country", "Project Name", "İlgilendiği Proje"], "leads")).toEqual([
+    "name",
+    "country",
+    "project",
+    null,
+  ]);
+  expect(mapHeaders(["Ad Soyad", "Ülke", "Proje"], "contacts")).toEqual(["name", null, null]);
+  expect(importFieldsFor("leads")).toEqual(expect.arrayContaining(["country", "project"]));
+  expect(importFieldsFor("contacts")).not.toEqual(expect.arrayContaining(["country"]));
+  expect(importFieldsFor("companies")).toEqual(["name", "phone", "email", "notes"]);
+  expect(validateImportRow("leads", { name: "A", country: "x".repeat(121) })[0].code).toBe("FIELD_TOO_LONG");
+  expect(validateImportRow("leads", { name: "A", project: "x".repeat(201) })[0].code).toBe("FIELD_TOO_LONG");
+  // Yeni alanlar boşken kayıt kimliği eskisiyle aynı kalır; doluyken değişir.
+  const base = canonicalImportRow("leads", { name: "A", phone: "05550000001" });
+  expect(base).toBe('{"kind":"leads","name":"A","phone":"05550000001"}');
+  expect(canonicalImportRow("leads", { name: "A", phone: "05550000001", country: "Türkiye" })).not.toBe(base);
+});
+
+it("60 sütunlu tablo reddedilmez: tanınan sütunlar kalır, tanınmayanlar sınıra kadar alınır", () => {
+  const known = ["Ad Soyad", "Telefon", "E-posta", "Şehir", "Ülke", "Proje", "Kaynak", "Not"];
+  // Tanınan sütunlar tablonun sonunda: yine de hepsi korunmalı.
+  const headers = [...Array.from({ length: 52 }, (_, i) => `Özel Alan ${i + 1}`), ...known];
+  const values = [
+    ...Array.from({ length: 52 }, (_, i) => `d${i + 1}`),
+    "Ayşe Yılmaz",
+    "05550000001",
+    "ornek@example.com",
+    "İzmir",
+    "Türkiye",
+    "Örnek Proje",
+    "Fuar",
+    "Not",
+  ];
+  for (const parsed of [parseXlsx(buildXlsx([headers, values])), parseDelimited([headers.join(";"), values.join(";")].join("\n"))]) {
+    expect(parsed.headers).toHaveLength(60);
+    const table = normalizeImportTable(parsed);
+    expect(table.headers).toHaveLength(IMPORT_MAX_COLUMNS);
+    expect(table.droppedColumns).toBe(28);
+    expect(table.droppedHeaders).toEqual(headers.slice(24, 52));
+    expect(table.headers.slice(0, 24)).toEqual(headers.slice(0, 24));
+    expect(table.headers.slice(24)).toEqual(known);
+    const mapping = mapHeaders(table.headers, "leads");
+    expect(mapping.filter(Boolean)).toEqual(["name", "phone", "email", "city", "country", "project", "source", "notes"]);
+    const [row] = mapDelimitedRows(table, "leads");
+    expect(row.issues).toHaveLength(0);
+    // Sunucuya yalnızca tanınan alanlar gider.
+    expect(Object.keys(row.raw).sort()).toEqual(["city", "country", "email", "name", "notes", "phone", "project", "source"]);
+    expect(row.raw.name).toBe("Ayşe Yılmaz");
+    expect(row.raw.project).toBe("Örnek Proje");
+  }
+  // Sınırın altındaki tablo olduğu gibi kalır.
+  const small = normalizeImportTable(parseDelimited("Ad;Telefon;Özel\nA;05550000001;x"));
+  expect(small.headers).toEqual(["Ad", "Telefon", "Özel"]);
+  expect(small.droppedColumns).toBeUndefined();
+});
+
+it("güvenlik sınırı: 256 sütundan fazlası açık bir mesajla reddedilir", () => {
+  const wide = (count: number) => Array.from({ length: count }, (_, i) => `S${i + 1}`);
+  expect(IMPORT_HARD_MAX_COLUMNS).toBe(256);
+  expect(() => parseDelimited(`${wide(256).join(";")}\n${wide(256).join(";")}`)).not.toThrow();
+  for (const read of [
+    () => parseDelimited(`${wide(257).join(";")}\n${wide(257).join(";")}`),
+    () => parseXlsx(buildXlsx([wide(257), wide(257)])),
+  ]) {
+    let error: unknown;
+    try {
+      read();
+    } catch (cause) {
+      error = cause;
+    }
+    expect(error).toBeInstanceOf(ImportParseError);
+    expect((error as ImportParseError).code).toBe("TOO_MANY_COLUMNS");
+    expect((error as ImportParseError).message).toContain("256 sütundan fazlası");
+  }
 });

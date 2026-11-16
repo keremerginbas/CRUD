@@ -181,3 +181,82 @@ it("demo modunda büyük dosya yerelde parçalanır; durdurulabilir ve kaldığ�
   await waitFor(() => expect(companies()).toHaveLength(1_299));
   expect(new Set(companies().map((c: any) => c.name)).size).toBe(1_299);
 }, 60_000);
+
+it("ilk adımda şablon düğmesi ve beklenen başlıklar görünür; fazla sütunlu dosya tek cümleyle bildirilir", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({ ok: true, json: async () => ({ user: null }) })),
+  );
+  render(
+    <StoreProvider>
+      <ImportWizard kind="leads" onClose={() => {}} />
+    </StoreProvider>,
+  );
+  expect(screen.getByRole("button", { name: "Örnek şablonu indir" })).toBeTruthy();
+  expect(
+    screen.getByText("Ad Soyad, Telefon, E-posta, Şehir, Ülke, Proje, Kaynak, Not"),
+  ).toBeTruthy();
+  const extra = Array.from({ length: 52 }, (_, i) => `Özel Alan ${i + 1}`);
+  fireEvent.change(screen.getByLabelText("CSV dosyası seç"), {
+    target: {
+      files: [
+        csvFile(
+          [
+            [...extra, "Ad Soyad", "Telefon", "Ülke", "Proje"].join(";"),
+            [...extra.map(() => "x"), "Ayşe Yılmaz", "05550000001", "Türkiye", "Örnek Proje"].join(";"),
+          ],
+          "genis.csv",
+        ),
+      ],
+    },
+  });
+  expect(await screen.findByText("Tanınmayan 24 sütun dışarıda bırakıldı.")).toBeTruthy();
+  // Kullanıcı dosyanın eşleştiğini görür: tanınan sütunlar adıyla yazılır ve listede en üstte durur.
+  expect(screen.getByText("Ad Soyad, Telefon, Ülke, Proje")).toBeTruthy();
+  const selects = Array.from(
+    document.querySelectorAll<HTMLSelectElement>(".dq-column-mapping select"),
+  );
+  expect(selects).toHaveLength(32);
+  expect(selects.slice(0, 5).map((select) => select.value)).toEqual(["name", "phone", "country", "project", ""]);
+  expect(selects[4].getAttribute("aria-label")).toBe("Özel Alan 1 sütun eşlemesi");
+  // Dışarıda kalan sütunlar adıyla sayılır ve ne yapılacağı söylenir.
+  const dropped = document.querySelector(".dq-import-dropped")!.textContent!;
+  expect(dropped).toContain("Dışarıda kalanlar: Özel Alan 29, Özel Alan 30");
+  expect(dropped).toContain("ve 16 sütun daha");
+  expect(dropped).toContain("yeniden yükleyin");
+  expect((screen.getByLabelText("Ülke sütun eşlemesi") as HTMLSelectElement).value).toBe("country");
+  expect((screen.getByLabelText("Proje sütun eşlemesi") as HTMLSelectElement).value).toBe("project");
+  expect(screen.queryByLabelText("Özel Alan 40 sütun eşlemesi")).toBeNull();
+  await screen.findByRole("button", { name: "1 yeni kaydı içe aktar" });
+});
+
+it("şablondaki örnek satır silinmeden yüklenirse aktarılmaz; yalnızca kullanıcının satırı eklenir", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({ ok: true, json: async () => ({ user: null }) })),
+  );
+  render(
+    <StoreProvider>
+      <ImportWizard kind="leads" onClose={() => {}} />
+    </StoreProvider>,
+  );
+  const header = "Ad Soyad;Telefon;E-posta;Şehir;Ülke;Proje;Kaynak;Not";
+  const example =
+    "Ayşe Yılmaz;05550000001;ornek@example.com;İstanbul;Türkiye;Örnek Proje;Web sitesi;Bu örnek satırı silip kendi müşterilerinizi yazın.";
+  const input = screen.getByLabelText("CSV dosyası seç");
+  fireEvent.change(input, { target: { files: [csvFile([header, example], "sablon.csv")] } });
+  expect(await screen.findByText(/Şablondaki örnek satır aktarılmaz\. Dosyada başka satır yok/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /yeni kaydı içe aktar/ })).toBeNull();
+  fireEvent.change(input, {
+    target: {
+      files: [
+        csvFile([header, example, "Mehmet Örnek;05550000002;;İzmir;Türkiye;;Fuar;"], "sablon-dolu.csv"),
+      ],
+    },
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "1 yeni kaydı içe aktar" }));
+  await screen.findByText("Aktarım sonucu");
+  const leads = JSON.parse(localStorage.getItem("xre-demo-v2")!).leads.map((lead: any) => lead.name);
+  expect(leads).toContain("Mehmet Örnek");
+  expect(leads).not.toContain("Ayşe Yılmaz");
+});

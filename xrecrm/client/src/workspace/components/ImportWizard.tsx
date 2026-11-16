@@ -1,14 +1,19 @@
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { AlertTriangle, Check, FileUp, Loader2, X } from "lucide-react";
+import { AlertTriangle, Check, Download, FileUp, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "../store";
 import type { Lead } from "../data";
 import type { Company, Contact } from "../suite";
 import {
+  IMPORT_TEMPLATE_HEADERS,
   formatImportBytes,
   formatImportCount,
+  importFieldsFor,
   importRecordId,
+  importTemplateRows,
+  isTemplateExampleRow,
+  legacyImportRow,
   mapDelimitedRows,
   mapHeaders,
   type ParsedDelimitedFile,
@@ -71,6 +76,42 @@ const labels: Record<CrmImportKind, string> = {
   companies: "şirketler",
   leads: "müşteriler",
 };
+const fieldLabels: Record<ImportField, string> = {
+  name: "Ad / unvan",
+  phone: "Telefon",
+  email: "E-posta",
+  companyId: "Bağlı şirket ID",
+  companyName: "Bağlı şirket adı",
+  contactId: "Bağlı kişi ID",
+  city: "Şehir",
+  country: "Ülke",
+  project: "Proje",
+  source: "Kaynak",
+  notes: "Notlar",
+};
+const templateFileNames: Record<CrmImportKind, string> = {
+  contacts: "kisi-sablonu.xlsx",
+  companies: "sirket-sablonu.xlsx",
+  leads: "musteri-sablonu.xlsx",
+};
+
+/** Örnek şablonu tarayıcıda üretip indirir; sunucuya istek gitmez. */
+async function downloadTemplate(kind: CrmImportKind) {
+  const { buildXlsx, XLSX_MIME } = await import(
+    "../../../../shared/xlsx-write"
+  );
+  const bytes = buildXlsx(importTemplateRows(kind), "Şablon");
+  const url = URL.createObjectURL(
+    new Blob([bytes as BlobPart], { type: XLSX_MIME }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = templateFileNames[kind];
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 
 function localPreview(
   kind: CrmImportKind,
@@ -202,6 +243,9 @@ function demoEntity(
     companyId: companyId || undefined,
     contactId: raw.contactId || undefined,
     city: raw.city || undefined,
+    country: raw.country || undefined,
+    // Demo çalışma alanında proje adı kartta proje başlığı olarak tutulur.
+    ...(raw.project ? { dealTitle: String(raw.project).trim() } : {}),
     stage: "new",
     owner,
     value: 0,
@@ -263,6 +307,8 @@ function demoStorageChars(fallback: unknown): number {
   return JSON.stringify(fallback).length;
 }
 const fmt = formatImportCount;
+/** Dışarıda bırakılan sütunlardan adıyla gösterilecek en fazla başlık sayısı. */
+const DROPPED_HEADERS_SHOWN = 8;
 
 function ProgressBar({
   label,
@@ -340,6 +386,24 @@ export default function ImportWizard({
   const busy =
     phase === "reading" || phase === "previewing" || phase === "committing";
   const readyCount = useMemo(() => preview?.counts.ready || 0, [preview]);
+  // Otomatik tanınan sütunlar listede önce gösterilir; sıra, kullanıcı seçim
+  // değiştirdikçe oynamasın diye dosya okunduğundaki eşlemeye göre belirlenir.
+  const columnOrder = useMemo(() => {
+    if (!parsedFile) return { order: [] as number[], matched: [] as string[] };
+    const auto = mapHeaders(parsedFile.headers, kind);
+    const indexes = parsedFile.headers.map((_, i) => i);
+    return {
+      order: [
+        ...indexes.filter((i) => auto[i]),
+        ...indexes.filter((i) => !auto[i]),
+      ],
+      matched: parsedFile.headers.filter((_, i) => auto[i]),
+    };
+  }, [parsedFile, kind]);
+  const exampleRowSkipped = useMemo(
+    () => Boolean(parsedFile?.rows.some(isTemplateExampleRow)),
+    [parsedFile],
+  );
 
   const resetRun = () => {
     // Süren döngü nesil değişimini görüp sessizce biter; yeni çalıştırmaya izin ver.
@@ -517,6 +581,14 @@ export default function ImportWizard({
       (state[kind] as Array<{ id: string }>).map((entry) => entry.id),
     );
     const owner = user?.name || "Demo çalışma alanı";
+    // Ülke/Proje sütunları tanınmadan önce eklenmiş kayıt, bu alanlar olmadan
+    // hesaplanan kimlikle durur; aynı dosya yeniden yüklenince ikinci kez eklenmez.
+    const alreadyImported = (raw: ImportRawRow, id: string) => {
+      const legacy = legacyImportRow(raw);
+      return [id, ...(legacy ? [importRecordId(kind, legacy)] : [])].some(
+        (known) => existingIds.has(known) || demoSavedIds.current.has(known),
+      );
+    };
     const rows: CommitRow[] = [];
     const entities = new Map<number, ReturnType<typeof demoEntity>>();
     // Yazım, React çizimi bitene kadar localStorage'a yansımaz; kendi sayacımızı da tut.
@@ -526,7 +598,7 @@ export default function ImportWizard({
       if (row.status !== "ready") continue;
       const entity = demoEntity(kind, row.raw, state, owner);
       entities.set(row.rowNumber, entity);
-      if (!existingIds.has(entity.id) && !demoSavedIds.current.has(entity.id))
+      if (!alreadyImported(row.raw, entity.id))
         cost +=
           JSON.stringify(entity).length +
           String(entity.name).length +
@@ -543,7 +615,7 @@ export default function ImportWizard({
       if (output.status === "ready") {
         const entity = entities.get(row.rowNumber)!;
         output.candidateId = entity.id;
-        if (existingIds.has(entity.id) || demoSavedIds.current.has(entity.id)) {
+        if (alreadyImported(row.raw, entity.id)) {
           // Aynı içerikli kayıt daha önce eklenmiş: yeniden yazma.
           output.recovered = true;
         } else {
@@ -733,6 +805,23 @@ export default function ImportWizard({
               }}
             />
           </label>
+          <div className="dq-template-row">
+            <p>
+              Beklenen sütun başlıkları:{" "}
+              <b>{IMPORT_TEMPLATE_HEADERS[kind].join(", ")}</b>
+            </p>
+            <button
+              type="button"
+              className="btn secondary"
+              onClick={() =>
+                void downloadTemplate(kind).catch(() =>
+                  toast.error("Şablon indirilemedi; lütfen tekrar deneyin."),
+                )
+              }
+            >
+              <Download size={16} /> Örnek şablonu indir
+            </button>
+          </div>
           {fileName && (
             <p className="dq-file-name">
               {fileName} ·{" "}
@@ -741,6 +830,40 @@ export default function ImportWizard({
                 : `${fmt(mappedRows.length)} veri satırı`}
             </p>
           )}
+          {exampleRowSkipped && (
+            <p className="dq-import-note" role="status">
+              Şablondaki örnek satır aktarılmaz.
+              {mappedRows.length === 0 &&
+                " Dosyada başka satır yok; kendi kayıtlarınızı ekleyip yeniden yükleyin."}
+            </p>
+          )}
+          {parsedFile?.droppedColumns ? (
+            <div className="dq-import-dropped" role="status">
+              {columnOrder.matched.length > 0 && (
+                <p>
+                  Dosyada çok sütun var. Tanıdığımız{" "}
+                  {fmt(columnOrder.matched.length)} sütun eşlendi:{" "}
+                  <b>{columnOrder.matched.join(", ")}</b>
+                </p>
+              )}
+              <p>
+                Tanınmayan {fmt(parsedFile.droppedColumns)} sütun dışarıda
+                bırakıldı.
+              </p>
+              {parsedFile.droppedHeaders?.length ? (
+                <p>
+                  Dışarıda kalanlar:{" "}
+                  {parsedFile.droppedHeaders
+                    .slice(0, DROPPED_HEADERS_SHOWN)
+                    .join(", ")}
+                  {parsedFile.droppedHeaders.length > DROPPED_HEADERS_SHOWN &&
+                    ` ve ${fmt(parsedFile.droppedHeaders.length - DROPPED_HEADERS_SHOWN)} sütun daha`}
+                  . Bunlardan biri gerekliyse başlığını beklenen başlıklardan
+                  biriyle değiştirip dosyayı yeniden yükleyin.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           {parsedFile && !finished && phase !== "committing" && (
             <section className="dq-column-mapping">
               <h3>Sütun eşleme</h3>
@@ -749,7 +872,9 @@ export default function ImportWizard({
                 atlayın.
               </p>
               <div>
-                {parsedFile.headers.map((header, i) => (
+                {columnOrder.order
+                  .map((i) => [parsedFile.headers[i], i] as const)
+                  .map(([header, i]) => (
                   <label key={i}>
                     <span>{header || `Sütun ${i + 1}`}</span>
                     <select
@@ -763,27 +888,11 @@ export default function ImportWizard({
                       }
                     >
                       <option value="">Atla</option>
-                      {Object.entries({
-                        name: "Ad / unvan",
-                        phone: "Telefon",
-                        email: "E-posta",
-                        companyId: "Bağlı şirket ID",
-                        companyName: "Bağlı şirket adı",
-                        contactId: "Bağlı kişi ID",
-                        city: "Şehir",
-                        source: "Kaynak",
-                        notes: "Notlar",
-                      })
-                        .filter(
-                          ([field]) =>
-                            kind !== "companies" ||
-                            ["name", "phone", "email", "notes"].includes(field),
-                        )
-                        .map(([field, label]) => (
-                          <option key={field} value={field}>
-                            {label}
-                          </option>
-                        ))}
+                      {importFieldsFor(kind).map((field) => (
+                        <option key={field} value={field}>
+                          {fieldLabels[field]}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 ))}

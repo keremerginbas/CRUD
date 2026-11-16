@@ -25,6 +25,7 @@ export const LeadSchema = z
     lastActivity: z.string().datetime({ offset: true }),
     tags: z.array(z.string().max(80)).max(100),
     city: z.string().max(120).optional(),
+    country: z.string().max(120).optional(),
     appointmentAt: z
       .string()
       .datetime({ offset: true })

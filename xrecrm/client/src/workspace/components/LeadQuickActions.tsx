@@ -1,20 +1,14 @@
-import VapiCallFields, {
-  useVapiOptions,
-  canUseVapiSelection,
-} from "./VapiCallFields";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Phone,
   Headset,
   MessageCircle,
   CalendarPlus,
   Video,
-  Sparkles,
-  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Lead } from "../data";
-import { lines, formatPhone } from "../data";
+import { formatPhone } from "../data";
 import { useStore } from "../store";
 import { dialWithWebphone } from "../webphone";
 import { Modal } from "./ui";
@@ -179,45 +173,11 @@ export function CustomerCallDialog({
   leadId: string;
   onClose: () => void;
 }) {
-  const { data, demo, request, refresh, user } = useStore();
+  const { data, demo, user } = useStore();
   const lead = data.leads.find((l) => l.id === leadId);
-  const [mode, setMode] = useState<"phone" | "ai">("phone");
-  const [lineId, setLineId] = useState("");
-  const [assistant, setAssistant] = useState("");
-  const [busy, setBusy] = useState(false);
-  const lock = useRef(false);
-  const options = useVapiOptions(mode === "ai");
   if (!lead) return null;
   const can = demo || user?.isOwner || !!user?.permissions?.calls?.write;
   const phone = lead.phone.replace(/[^+\d]/g, "");
-  async function call() {
-    if (lock.current || !can || !lead) return;
-    if (demo) {
-      toast.info("Demo modu: gerçek arama yapılmadı.");
-      return;
-    }
-    if (!canUseVapiSelection(options.catalog, lineId, assistant)) {
-      toast.error("Doğrulanmış Vapi hattı ve asistanı seçin.");
-      return;
-    }
-    lock.current = true;
-    setBusy(true);
-    try {
-      await request("/api/calls", {
-        leadId,
-        lineId,
-        assistantId: assistant.trim() || undefined,
-      });
-      toast.success("Arama isteği Vapi sağlayıcısına iletildi.");
-      await refresh();
-      onClose();
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      lock.current = false;
-      setBusy(false);
-    }
-  }
   return (
     <Modal
       title={`${lead.name} · Arama`}
@@ -225,94 +185,37 @@ export function CustomerCallDialog({
       onClose={onClose}
     >
       <div className="modal-content v6-call-modal">
-        <div className="v6-call-tabs">
+        {!demo && (
+          <PbxCallBox leadId={leadId} phone={lead.phone} onDone={onClose} />
+        )}
+        <p>
+          Bilgisayarınızdaki veya telefonunuzdaki arama uygulamasıyla arayın.
+        </p>
+        {demo ? (
           <button
-            className={mode === "phone" ? "active" : ""}
-            onClick={() => setMode("phone")}
+            className="btn primary"
+            onClick={() =>
+              toast.info("Demo modu: telefon uygulaması açılmadı.")
+            }
           >
             <Phone size={16} />
-            Telefonla ara
+            Demo aramasını dene
           </button>
-          <button
-            className={mode === "ai" ? "active" : ""}
-            onClick={() => setMode("ai")}
-          >
-            <Sparkles size={16} />
-            Yapay zekâ araması
-          </button>
-        </div>
-        {mode === "phone" ? (
-          <>
-            {!demo && <PbxCallBox leadId={leadId} phone={lead.phone} onDone={onClose} />}
-            <p>
-              Alternatif: bilgisayarınızdaki veya telefonunuzdaki arama
-              uygulamasıyla arayın.
-            </p>
-            {demo ? (
-              <button
-                className="btn primary"
-                onClick={() =>
-                  toast.info("Demo modu: telefon uygulaması açılmadı.")
-                }
-              >
-                <Phone size={16} />
-                Demo aramasını dene
-              </button>
-            ) : (
-              <a
-                className={`btn primary ${!can ? "disabled" : ""}`}
-                href={can ? `tel:${phone}` : undefined}
-                onClick={(e) => {
-                  if (!can) e.preventDefault();
-                }}
-              >
-                <Phone size={16} />
-                Telefon uygulamasında ara
-              </a>
-            )}
-            <small>
-              Bu seçenek CRM’de başarılı arama sonucu üretmez; sonuç sağlayıcı
-              webhookuyla gelir.
-            </small>
-          </>
         ) : (
-          <>
-            <VapiCallFields
-              {...options}
-              lineId={lineId}
-              assistantId={assistant}
-              onLine={setLineId}
-              onAssistant={setAssistant}
-              onReload={options.reload}
-            />
-            <div className="info-banner slim">
-              <ShieldCheck size={16} />
-              <p>
-                {demo
-                  ? "Demo modu hiçbir gerçek arama göndermez."
-                  : "Seçili müşteriye gerçek AI araması başlatılır. Vapi kurulumu gereklidir; sağlayıcı ücretleri uygulanabilir."}
-              </p>
-            </div>
-            <button
-              disabled={
-                busy ||
-                !can ||
-                (!demo &&
-                  (options.loading ||
-                    !canUseVapiSelection(options.catalog, lineId, assistant)))
-              }
-              className="btn primary"
-              onClick={() => void call()}
-            >
-              <Phone size={16} />
-              {busy
-                ? "İletiliyor…"
-                : demo
-                  ? "Demo AI aramasını dene"
-                  : "AI aramasını başlat"}
-            </button>
-          </>
+          <a
+            className={`btn primary ${!can ? "disabled" : ""}`}
+            href={can ? `tel:${phone}` : undefined}
+            onClick={(e) => {
+              if (!can) e.preventDefault();
+            }}
+          >
+            <Phone size={16} />
+            Telefon uygulamasında ara
+          </a>
         )}
+        <small>
+          Telefon uygulamasından yapılan aramalar karta otomatik yazılmaz.
+        </small>
       </div>
     </Modal>
   );
