@@ -269,6 +269,23 @@ test('karşılama hattında tuşlanan dahili danışmana gider, santral IVR çal
   }
 });
 
+test('kayıtsız müşteri: asistanların hepsi (tarayıcı telefonu) birlikte çalar', async () => {
+  const pw = hashPassword('x');
+  const add = db.prepare(`INSERT INTO users (name, role, email, password_hash, phone) VALUES (?, 'asistan', ?, ?, '+905310000000')`);
+  const a1 = Number(add.run('ASİSTAN BİR', 'asistan1', pw).lastInsertRowid);
+  const a2 = Number(add.run('ASİSTAN İKİ', 'asistan2', pw).lastInsertRowid);
+  try {
+    const route = { from: '05559998800', to: '4442453', callId: 'grp-1' };
+    const r = await call('POST', '/webhooks/pbx/route', route, signed(route));
+    assert.deepEqual(r.body.browserGroup, [`u${a1}`, `u${a2}`]);
+    // Danışmana giden aramada grup yok
+    const known = { from: '05464962638', to: '908504660149', callId: 'grp-2' };
+    assert.equal((await call('POST', '/webhooks/pbx/route', known, signed(known))).body.browserGroup, undefined);
+  } finally {
+    db.prepare('DELETE FROM users WHERE id IN (?, ?)').run(a1, a2);
+  }
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));

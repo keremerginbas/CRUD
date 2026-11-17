@@ -74,10 +74,12 @@ HUNT_FALLBACK=05312814423
 EOF
 printf '[xre]\ntype=user\nread_only=no\npassword=e2e\npassword_format=plain\n' > "$E/ari_users.conf"
 # Tarayıcı telefonu yerine düz SIP kullanıcıları (aynı dialplan: xre-webrtc)
-for u in 1 2 3; do
+for u in 1 2 3 4; do
   printf '[u%s]\ntype=endpoint\ntransport=transport-udp\ncontext=xre-webrtc\ndisallow=all\nallow=ulaw,alaw\nauth=u%s\naors=u%s\ndirect_media=no\n[u%s]\ntype=auth\nauth_type=userpass\nusername=u%s\npassword=u%spass\n[u%s]\ntype=aor\nmax_contacts=1\n\n' \
     "$u" "$u" "$u" "$u" "$u" "$u" "$u"
 done > "$E/pjsip_webrtc_users.conf"
+# u4 (asistan) panelde açık: sabit adres = operatör tarafındaki 127.0.0.4
+echo "contact=sip:u4@127.0.0.4:5070" >> "$E/pjsip_webrtc_users.conf"
 echo "permit=127.0.0.4/255.255.255.255" > "$E/xre.d/acl-e2e.conf"
 # Anons dosyası yerine 1 sn sessizlik (IVR akışı dosya varsa çalışır)
 mkdir -p "$W/sounds"
@@ -198,6 +200,13 @@ for u in 1 2 3; do
 done
 cat > "$O/extensions.conf" <<'EOF'
 [op-in]
+; panelde açık asistan; 05557770003 aradığında meşgul (açmayan asistan)
+exten => u4,1,Log(NOTICE,E2E-IN to=u4 from=${CALLERID(num)})
+ same => n,GotoIf($["${CALLERID(num)}" = "05557770003"]?busy)
+ same => n,Answer()
+ same => n,Wait(2)
+ same => n,Hangup()
+ same => n(busy),Busy(2)
 exten => _[0-9a-z+].,1,Log(NOTICE,E2E-IN to=${EXTEN} from=${CALLERID(num)} pai=${PJSIP_HEADER(read,P-Asserted-Identity)} via=${CHANNEL(pjsip,local_addr)})
  same => n,Answer()
  same => n,Wait(2)
@@ -242,6 +251,8 @@ add.run('KAAN', 'kaan', hashPassword('x'), '+905321112233', '+905321112233', 'u1
 add.run('MERVE', 'merve', hashPassword('x'), '+905339998877', '+905339998877', 'u2pass');
 db.exec(\"UPDATE users SET extension = '2020' WHERE email = 'merve'\");
 add.run('AHMET', 'ahmet', hashPassword('x'), '+905350001122', '+905350001122', 'u3pass');
+add.run('ASİSTAN', 'asistan', hashPassword('x'), '+905310000000', null, 'u4pass');
+db.exec(\"UPDATE users SET role = 'asistan' WHERE email = 'asistan'\");
 db.exec(\`INSERT INTO numbers (did, type, user_id, label, trunk) VALUES
   ('+903122191672', 'personal', 1, 'Kaan 0312', NULL),
   ('+905337435628', 'personal', 2, 'Merve 5628', 'netgsm'),
@@ -283,7 +294,7 @@ expect "görüşme kuruldu" "E2E-RESULT 03122191672-topbx_tt-05464962638 ANSWER"
 
 echo "== Gelen: kayıtsız müşteri, Netgsm hattını arıyor (1 kanal) → asistan, danışman bağlantısından"
 call 905337435628-topbx_netgsm-05551234567
-expect "asistan 0531 281 44 23 aranır, Netgsm'den, hat 10 hane" "E2E-IN to=05312814423 from=5337435628 pai=<sip:5337435628@127.0.0.2> via=127.0.0.2:5070"
+expect "panelde açık asistan çalar, müşterinin numarası görünür" "E2E-IN to=u4 from=05551234567"
 
 echo "== Gelen: + ile gelen numara da tanınır"
 call +903122191672-topbx_tt-05464962638
@@ -304,7 +315,12 @@ expect "Merve'nin cebi aranır, 444 görünür" "E2E-IN to=05339998877 from=4442
 
 echo "== Gelen: 444'e kayıtsız müşteri, hiçbir şey tuşlamaz → asistan"
 call 4442453-topbx_tt-05557770002 8
-expect "asistan aranır" "E2E-IN to=05312814423 from=4442453 pai=<sip:4442453@127.0.0.3> via=127.0.0.3:5070"
+expect "panelde açık asistan çalar" "E2E-IN to=u4 from=05557770002"
+
+echo "== Gelen: asistan panelden açmazsa asistan hattı (cep) aranır"
+call 4442453-topbx_tt-05557770003 8
+expect "önce panel" "E2E-IN to=u4 from=05557770003"
+expect "sonra asistan hattı, TT'den, 444 görünür" "E2E-IN to=05312814423 from=4442453 pai=<sip:4442453@127.0.0.3> via=127.0.0.3:5070"
 
 echo "== Gelen: danışmanın 0533'ü 0850'ye yönlendirilmiş (Diversion) → IVR'sız doğrudan"
 CTX=e2e-div call 4442453-topbx_tt-05464962638-05337435628 4

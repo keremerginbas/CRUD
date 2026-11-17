@@ -58,13 +58,15 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
       callerPhone: body.from, dialedNumber: body.to, providerCallId: body.callId, trunk: body.trunk, extension: body.ext,
     }),
 
-    // 5. alan: danışmanın tarayıcı telefonu (u<id>); panelde açıksa önce orası çalar
+    // 5. alan: danışmanın tarayıcı telefonu (u<id>); panelde açıksa önce orası çalar.
+    //   Asistana giden aramada asistanların tarayıcı telefonları (u5&u6): boştakiler birlikte çalar
     // 6. alan: 1 ise karşılama hattı; santral "dahili numarayı tuşlayın" anonsunu çalar
     formatRouteResponse(decision) {
       if (decision.action === 'reject') return 'reject,,0,0,';
       const ivr = decision.ivr ? ',1' : '';
-      if (decision.action !== 'forward') return `queue,,0,0,${ivr}`;
-      const browser = !decision.reason && decision.userId ? `u${decision.userId}` : '';
+      const group = (decision.browserGroup ?? []).join('&');
+      if (decision.action !== 'forward') return `queue,,0,0,${group}${ivr}`;
+      const browser = !decision.reason && decision.userId ? `u${decision.userId}` : group;
       return ['forward', toLocalFormat(decision.destination), decision.callerAnnouncement ? 1 : 0, decision.whisper ? 1 : 0, browser].join(',') + ivr;
     },
 

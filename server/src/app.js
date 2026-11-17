@@ -35,6 +35,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     number: db.prepare('SELECT * FROM numbers WHERE did = ?'),
     numberByExtension: db.prepare(`SELECT n.* FROM numbers n JOIN users u ON u.id = n.user_id
       WHERE u.extension = ? AND n.type = 'personal' LIMIT 1`),
+    assistants: db.prepare("SELECT id FROM users WHERE role = 'asistan' ORDER BY id"),
     userByExtension: db.prepare('SELECT * FROM users WHERE extension = ? ORDER BY id LIMIT 1'),
     numbersOfUser: db.prepare('SELECT * FROM numbers WHERE user_id = ? ORDER BY type'),
     personalNumber: db.prepare("SELECT did, trunk FROM numbers WHERE user_id = ? AND type = 'personal' LIMIT 1"),
@@ -240,6 +241,11 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     });
     // HUNT_IVR=1 ise karşılama hattında santral önce "dahili tuşlayın" anonsunu çalar, sonra tuşlananla tekrar sorar
     decision.ivr = Boolean(config.pbx.huntIvr) && number?.type === 'hunt';
+    // Asistana giden arama: panelde açık olan asistanların hepsi birlikte çalar (masa telefonu gibi);
+    // kimse açmazsa santral asistan hattına (cebe) düşer
+    if (decision.action !== 'reject' && (decision.reason || decision.action === 'queue')) {
+      decision.browserGroup = q.assistants.all().map((a) => `u${a.id}`);
+    }
 
     if (decision.action !== 'reject' && providerCallId) {
       const existing = q.callByProviderId.get(providerCallId);

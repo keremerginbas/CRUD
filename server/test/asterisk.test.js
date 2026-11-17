@@ -60,6 +60,9 @@ test('yönlendirme cevabı dialplan için düz metin', () => {
   assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905312814423', userId: 7, reason: 'kayitsiz-musteri', callerAnnouncement: null, whisper: 'x' }), 'forward,05312814423,0,1,');
   assert.equal(provider.formatRouteResponse({ action: 'queue', destination: 'queue:karsilama' }), 'queue,,0,0,');
   assert.equal(provider.formatRouteResponse({ action: 'reject' }), 'reject,,0,0,');
+  // Asistana giden aramada 5. alan: asistanların tarayıcı telefonları (& ile), boştakiler aynı anda çalar
+  assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905312814423', userId: 7, reason: 'kayitsiz-musteri', whisper: 'x', browserGroup: ['u5', 'u6'] }), 'forward,05312814423,0,1,u5&u6');
+  assert.equal(provider.formatRouteResponse({ action: 'queue', destination: 'queue:karsilama', browserGroup: ['u5'] }), 'queue,,0,0,u5');
   // 6. alan: karşılama hattı, santral "dahili tuşlayın" anonsunu çalar
   assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905312814423', userId: null, reason: 'kayitsiz-musteri', whisper: 'x', ivr: true }), 'forward,05312814423,0,1,,1');
   assert.equal(provider.parseRouteRequest({ from: '1', to: '2', callId: 'c', ext: '2020' }).extension, '2020');
