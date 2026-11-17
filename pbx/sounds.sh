@@ -15,6 +15,7 @@ declare -A TEXT=(
   [xre-kayit-bilgisi]="XRE'yi aradığınız için teşekkür ederiz. Görüşmeniz kalite standartları gereği kayıt altına alınmaktadır."
   [xre-musteriniz-ariyor]="Müşteriniz arıyor."
   [xre-musterinize-baglaniyorsunuz]="Müşterinize bağlanıyorsunuz."
+  [xre-dahili-tuslayin]="XRE'yi aradığınız için teşekkür ederiz. Görüşmek istediğiniz danışmanın dahili numarasını biliyorsanız şimdi tuşlayın, bilmiyorsanız lütfen hatta kalın."
 )
 
 if [[ ! -x $TTS/bin/python ]]; then

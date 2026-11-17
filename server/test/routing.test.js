@@ -108,3 +108,20 @@ test('hat listesinde olmayan numaraya gelen arama reddedilir (şirketin diğer a
   const d = decideInboundRoute({ ...base, assistantDestination: '+905312814423', number: undefined, user: null, contact: null, now: at('2026-10-27T06:00:00Z') });
   assert.deepEqual([d.action, d.reason], ['reject', 'bilinmeyen-numara']);
 });
+
+test('karşılama hattında (444/0850) tuşlanan dahili: o danışmana, mesai dışıysa asistana', () => {
+  const hunt = { type: 'hunt', label: '0850' };
+  const ahmet = { ...user, id: 20, extension: '2020' };
+  const d = decideInboundRoute({ ...base, assistantDestination: '+905312814423', number: hunt, user: null, contact: null,
+    extensionUser: ahmet, callerAnnouncement: 'anons', now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([d.action, d.destination, d.userId, d.callerAnnouncement], ['forward', '+905551112233', 20, 'anons']);
+  assert.match(d.whisper, /0850 hattından/);
+  const off = decideInboundRoute({ ...base, assistantDestination: '+905312814423', number: hunt, user: null, contact: null,
+    extensionUser: ahmet, now: at('2026-11-01T09:00:00Z') });
+  assert.deepEqual([off.destination, off.reason, off.userId], ['+905312814423', 'mesai-disi', 20]);
+  // Dahili sadece karşılama hattında geçerli; kişisel hatta yok sayılır
+  const other = { ...user, id: 30, forward_phone: '+905000000030' };
+  const line = decideInboundRoute({ ...base, number: { type: 'personal', label: 'x' }, user: other, contact: null,
+    extensionUser: ahmet, now: at('2026-10-27T06:00:00Z') });
+  assert.equal(line.destination, '+905000000030');
+});

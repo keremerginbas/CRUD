@@ -53,14 +53,19 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
     }),
 
     // trunk: aramanın geldiği operatör bağlantısı (santraldeki endpoint adı)
-    parseRouteRequest: (body) => ({ callerPhone: body.from, dialedNumber: body.to, providerCallId: body.callId, trunk: body.trunk }),
+    // ext: karşılama hattında arayanın tuşladığı dahili
+    parseRouteRequest: (body) => ({
+      callerPhone: body.from, dialedNumber: body.to, providerCallId: body.callId, trunk: body.trunk, extension: body.ext,
+    }),
 
     // 5. alan: danışmanın tarayıcı telefonu (u<id>); panelde açıksa önce orası çalar
+    // 6. alan: 1 ise karşılama hattı; santral "dahili numarayı tuşlayın" anonsunu çalar
     formatRouteResponse(decision) {
       if (decision.action === 'reject') return 'reject,,0,0,';
-      if (decision.action !== 'forward') return 'queue,,0,0,';
+      const ivr = decision.ivr ? ',1' : '';
+      if (decision.action !== 'forward') return `queue,,0,0,${ivr}`;
       const browser = !decision.reason && decision.userId ? `u${decision.userId}` : '';
-      return ['forward', toLocalFormat(decision.destination), decision.callerAnnouncement ? 1 : 0, decision.whisper ? 1 : 0, browser].join(',');
+      return ['forward', toLocalFormat(decision.destination), decision.callerAnnouncement ? 1 : 0, decision.whisper ? 1 : 0, browser].join(',') + ivr;
     },
 
     fetchRecording: (ref) => ari(`/recordings/stored/${encodeURIComponent(ref)}/file`),

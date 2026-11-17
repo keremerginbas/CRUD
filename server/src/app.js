@@ -35,6 +35,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     number: db.prepare('SELECT * FROM numbers WHERE did = ?'),
     numberByExtension: db.prepare(`SELECT n.* FROM numbers n JOIN users u ON u.id = n.user_id
       WHERE u.extension = ? AND n.type = 'personal' LIMIT 1`),
+    userByExtension: db.prepare('SELECT * FROM users WHERE extension = ? ORDER BY id LIMIT 1'),
     numbersOfUser: db.prepare('SELECT * FROM numbers WHERE user_id = ? ORDER BY type'),
     personalNumber: db.prepare("SELECT did, trunk FROM numbers WHERE user_id = ? AND type = 'personal' LIMIT 1"),
     contactById: db.prepare('SELECT * FROM contacts WHERE id = ?'),
@@ -215,7 +216,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
   // ---- Santral webhook'ları ----
   // Gelen çağrı: santral hangi hedefe aktaracağını sorar
   app.post('/webhooks/pbx/route', webhook, (req, res) => {
-    const { callerPhone: rawCaller, dialedNumber, providerCallId, trunk } = provider.parseRouteRequest(req.body);
+    const { callerPhone: rawCaller, dialedNumber, providerCallId, trunk, extension } = provider.parseRouteRequest(req.body);
     const callerPhone = normalizePhone(rawCaller);
     const number = findNumber(dialedNumber);
     // Numaranın hangi operatör bağlantısından geldiği ilk aramada öğrenilir; giden aramalar da oradan çıkar
@@ -226,17 +227,28 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const user = number?.user_id ? q.userById.get(number.user_id) : null;
     const contact = q.contactByPhone.get(callerPhone) ?? null;
     const owner = contact?.owner_id ? q.userById.get(contact.owner_id) : null;
+    // Karşılama hattında (444, 0850) arayanın IVR'da tuşladığı danışman dahilisi
+    const ext = String(extension ?? '');
+    const extensionUser = number?.type === 'hunt' && /^\d{2,6}$/.test(ext) ? q.userByExtension.get(ext) ?? null : null;
     const decision = decideInboundRoute({
       number, user, contact, owner, callerPhone,
       now: new Date(), timeZone: config.timezone,
       huntDestination: config.pbx.huntGroupDestination,
       assistantDestination: config.pbx.assistantDestination,
       callerAnnouncement: config.pbx.callerAnnouncement,
+      extensionUser,
     });
+    // Karşılama hattında santral önce "dahili tuşlayın" anonsunu çalar, sonra tuşlananla tekrar sorar
+    decision.ivr = number?.type === 'hunt';
 
-    if (decision.action !== 'reject' && providerCallId && !q.callByProviderId.get(providerCallId)) {
-      q.insertCall.run(providerCallId, 'inbound', callerPhone, number?.did ?? normalizePhone(dialedNumber),
-        decision.userId, contact?.id ?? null, 'ringing');
+    if (decision.action !== 'reject' && providerCallId) {
+      const existing = q.callByProviderId.get(providerCallId);
+      if (!existing) {
+        q.insertCall.run(providerCallId, 'inbound', callerPhone, number?.did ?? normalizePhone(dialedNumber),
+          decision.userId, contact?.id ?? null, 'ringing');
+      } else if (extensionUser && existing.user_id !== decision.userId) {
+        db.prepare('UPDATE calls SET user_id = ? WHERE id = ?').run(decision.userId, existing.id);
+      }
     }
     const target = decision.userId ? q.userById.get(decision.userId) : null;
     if (target && decision.action === 'forward' && decision.reason !== 'kayitsiz-musteri' && decision.reason !== 'mesai-disi') {

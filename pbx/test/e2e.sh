@@ -79,6 +79,10 @@ for u in 1 2 3; do
     "$u" "$u" "$u" "$u" "$u" "$u" "$u"
 done > "$E/pjsip_webrtc_users.conf"
 echo "permit=127.0.0.4/255.255.255.255" > "$E/xre.d/acl-e2e.conf"
+# Anons dosyası yerine 1 sn sessizlik (IVR akışı dosya varsa çalışır)
+mkdir -p "$W/sounds"
+python3 -I -c "import wave,sys;w=wave.open(sys.argv[1],'wb');w.setnchannels(1);w.setsampwidth(2);w.setframerate(8000);w.writeframes(b'\0\0'*8000);w.close()" "$W/sounds/xre-dahili-tuslayin.wav"
+chmod -R a+rX "$W/sounds"
 start pbx
 
 # Operatör bağlantıları gerçek kurulumdaki gibi pbx/trunk.sh ile yazılır
@@ -203,6 +207,21 @@ exten => _[0-9a-z+].,1,Log(NOTICE,E2E-IN to=${EXTEN} from=${CALLERID(num)} pai=$
 exten => _[+0-9].,1,Set(CALLERID(num)=${CUT(EXTEN,-,3)})
  same => n,Dial(PJSIP/${CUT(EXTEN,-,1)}@${CUT(EXTEN,-,2)},10,g)
  same => n,Log(NOTICE,E2E-RESULT ${EXTEN} ${DIALSTATUS})
+; açıldıktan 2 sn sonra 4. alandaki dahiliyi tuşlar
+[e2e-dtmf]
+exten => _[+0-9].,1,Set(CALLERID(num)=${CUT(EXTEN,-,3)})
+ same => n,Dial(PJSIP/${CUT(EXTEN,-,1)}@${CUT(EXTEN,-,2)},10,gD(wwww${CUT(EXTEN,-,4)}))
+ same => n,Log(NOTICE,E2E-RESULT ${EXTEN} ${DIALSTATUS})
+; yönlendirilmiş arama: Diversion başlığında 4. alandaki numara
+[e2e-div]
+exten => _[+0-9].,1,Set(CALLERID(num)=${CUT(EXTEN,-,3)})
+ same => n,Dial(PJSIP/${CUT(EXTEN,-,1)}@${CUT(EXTEN,-,2)},10,gb(e2e-div-h^s^1(${CUT(EXTEN,-,4)})))
+ same => n,Log(NOTICE,E2E-RESULT ${EXTEN} ${DIALSTATUS})
+[e2e-div-h]
+exten => s,1,Set(REDIRECTING(from-num)=${ARG1})
+ same => n,Set(REDIRECTING(count)=1)
+ same => n,Set(REDIRECTING(reason)=unconditional)
+ same => n,Return()
 EOF
 start op
 # Santral bağlantıları operatör açılmadan denedi ve "ulaşılamaz" saydı: şimdi yeniden denesin
@@ -221,6 +240,7 @@ const add = db.prepare(\`INSERT INTO users (name, email, password_hash, phone, f
   saturday_start, saturday_end, sunday_enabled, sunday_start, sunday_end) VALUES (?, ?, ?, ?, ?, ?, '00:00','23:59','00:00','23:59',1,'00:00','23:59')\`);
 add.run('KAAN', 'kaan', hashPassword('x'), '+905321112233', '+905321112233', 'u1pass');
 add.run('MERVE', 'merve', hashPassword('x'), '+905339998877', '+905339998877', 'u2pass');
+db.exec(\"UPDATE users SET extension = '2020' WHERE email = 'merve'\");
 add.run('AHMET', 'ahmet', hashPassword('x'), '+905350001122', '+905350001122', 'u3pass');
 db.exec(\`INSERT INTO numbers (did, type, user_id, label, trunk) VALUES
   ('+903122191672', 'personal', 1, 'Kaan 0312', NULL),
@@ -241,7 +261,7 @@ for _ in $(seq 50); do curl -sf http://127.0.0.1:3999/health >/dev/null && break
 # ---------- Senaryolar ----------
 FAIL=0
 LOG="$W/op/log/messages.log"
-call() { B "channel originate Local/$1@e2e-out application Wait 6" >/dev/null; sleep "${2:-4}"; }
+call() { B "channel originate Local/$1@${CTX:-e2e-out} application Wait 9" >/dev/null; sleep "${2:-4}"; }
 expect() { # açıklama, beklenen satır parçası (E2E-IN ya da E2E-RESULT); arama bitene kadar bekler
   for _ in $(seq 20); do grep -qF -- "$2" "$LOG" && break; sleep 0.5; done
   if grep -qF -- "$2" "$LOG"; then echo "  ✓ $1"; else echo "  ✗ $1"; echo "      beklenen: $2"; FAIL=1; fi
@@ -275,6 +295,20 @@ call 8501112244-vm2-05551112233
 call 8501112233-vm1-05551112234
 expect_pbx "ikinci hesaba gelen arama ikinci bağlantıda" "Gelen arama: 05551112233 -> 8501112244 (bağlantı: verimor2)"
 expect_pbx "birinci hesaba gelen arama birinci bağlantıda" "Gelen arama: 05551112234 -> 8501112233 (bağlantı: verimor)"
+
+echo "== Gelen: 444'e kayıtsız müşteri, dahili 2020 tuşlar → Merve"
+CTX=e2e-dtmf call 4442453-topbx_tt-05557770001-2020 6
+expect "Merve'nin cebi aranır, 444 görünür" "E2E-IN to=05339998877 from=4442453 pai=<sip:4442453@127.0.0.3> via=127.0.0.3:5070"
+[[ "$(sql "SELECT u.email FROM calls c JOIN users u ON u.id=c.user_id WHERE c.customer_phone='+905557770001'")" == "merve" ]] \
+  && echo "  ✓ arama Merve'ye yazıldı" || { echo "  ✗ arama Merve'ye yazılmadı"; FAIL=1; }
+
+echo "== Gelen: 444'e kayıtsız müşteri, hiçbir şey tuşlamaz → asistan"
+call 4442453-topbx_tt-05557770002 8
+expect "asistan aranır" "E2E-IN to=05312814423 from=4442453 pai=<sip:4442453@127.0.0.3> via=127.0.0.3:5070"
+
+echo "== Gelen: danışmanın 0533'ü 0850'ye yönlendirilmiş (Diversion) → IVR'sız doğrudan"
+CTX=e2e-div call 4442453-topbx_tt-05464962638-05337435628 4
+expect "kayıtlı müşteri kendi danışmanına (Kaan), Merve'nin hattı görünür" "E2E-IN to=05321112233 from=05337435628 pai=<sip:05337435628@127.0.0.3> via=127.0.0.3:5070"
 
 echo "== Gelen: bizim olmayan numara → açılmadan meşgul"
 call 05330000000-topbx_netgsm-05464962638 3
@@ -339,7 +373,7 @@ sleep 2
 ROWS="$(sql "SELECT direction, dialed_number, status FROM calls ORDER BY id")"
 echo "$ROWS" | sed 's/^/    /'
 N="$(echo "$ROWS" | grep -c 'completed' || true)"
-[[ "$N" -ge 11 ]] && echo "  ✓ $N görüşme tamamlandı olarak kaydedildi" || { echo "  ✗ tamamlanan görüşme sayısı: $N"; FAIL=1; }
+[[ "$N" -ge 14 ]] && echo "  ✓ $N görüşme tamamlandı olarak kaydedildi" || { echo "  ✗ tamamlanan görüşme sayısı: $N"; FAIL=1; }
 # Bizim ayarlarımızdan kaynaklanan uyarılar (dialplan sözdizimi, PJSIP ayarı, fonksiyon hataları) testi bozar
 if grep -E "ERROR|WARNING" "$W/pbx/log/messages.log" \
   | grep -E "pbx_config|config\.c|res_pjsip/|res_sorcery_config|chan_pjsip|func_|app_dial|pbx\.c" \

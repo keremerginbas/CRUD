@@ -244,6 +244,27 @@ test('panelden aramada hattın operatör bağlantısı santrale iletilir', async
   }
 });
 
+test('karşılama hattında tuşlanan dahili danışmana gider, santral IVR çalacağını bilir', async () => {
+  const ask = async (body) => (await fetch(`${base}/webhooks/pbx/route?token=hook`, {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body),
+  })).json();
+  db.exec("UPDATE users SET extension = '2020' WHERE id = 1");
+  try {
+    const first = await ask({ from: '05559998877', to: '4442453', callId: 'ivr-1' });
+    assert.equal(first.ivr, true);
+    const second = await ask({ from: '05559998877', to: '4442453', callId: 'ivr-1', ext: '2020' });
+    assert.deepEqual([second.action, second.destination, second.userId], ['forward', '+905050000000', 1]);
+    const calls = db.prepare("SELECT user_id FROM calls WHERE provider_call_id = 'ivr-1'").all();
+    assert.deepEqual(calls.map((c) => c.user_id), [1]);
+    const unknown = await ask({ from: '05559998877', to: '4442453', callId: 'ivr-2', ext: '9999' });
+    assert.notEqual(unknown.userId, 1);
+    const personal = await ask({ from: '05559998877', to: '908504660149', callId: 'ivr-3' });
+    assert.equal(personal.ivr, false);
+  } finally {
+    db.exec("UPDATE users SET extension = '1001' WHERE id = 1");
+  }
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));
