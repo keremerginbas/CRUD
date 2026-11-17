@@ -38,19 +38,23 @@ echo "== Bağlantı: $NAME"
 # Danışmanları arayan bağlantı gelen arama kabul etmez (from-agent meşgul döner)
 CONTEXT=from-trunk; [[ "$NAME" == "agent" ]] && CONTEXT=from-agent
 
+# Girdinin başındaki/sonundaki boşlukları ve görünmez (ASCII dışı, kontrol) karakterleri atar
+clean() { printf '%s' "$1" | LC_ALL=C tr -cd '\041-\176'; }
 echo "Operatör: 1) Netgsm  2) Verimor  3) Türk Telekom  4) Diğer"
 read -rp "Seçim [4]: " OP
-case "${OP:-4}" in
+case "$(clean "${OP:-4}")" in
   1) OPERATOR=Netgsm; HINT="ör. sip8.netsantral.com (Netgsm panelinde hesabınızın SIP sunucusu)" ;;
   2) OPERATOR=Verimor; HINT="ör. sip.verimor.com.tr" ;;
   3) OPERATOR="Türk Telekom"; HINT="Türk Telekom'un verdiği SIP sunucu adresi/IP" ;;
   *) read -rp "Operatör adı (bilgi için): " OPERATOR; HINT="alan adı ya da IP" ;;
 esac
 read -rp "Operatörün SIP sunucusu ($HINT; port farklıysa sunucu:port): " HOST
+# Kopyala-yapıştırla gelen boşluk ve görünmez karakterleri at
+HOST="$(printf '%s' "$HOST" | LC_ALL=C tr -cd 'A-Za-z0-9.:-')"
 [[ "$HOST" =~ ^[A-Za-z0-9.-]+(:[0-9]{1,5})?$ ]] || { echo "Geçersiz SIP sunucusu: $HOST"; exit 1; }
 HOSTNAME_ONLY="${HOST%%:*}"
 read -rp "Doğrulama yöntemi: 1) kullanıcı adı/şifre  2) IP doğrulama [1]: " MODE
-MODE="${MODE:-1}"
+MODE="$(clean "${MODE:-1}")"
 [[ "$MODE" == "1" || "$MODE" == "2" ]] || { echo "Yöntem 1 ya da 2 olmalı"; exit 1; }
 # IP doğrulamada gelen arama sadece gönderen adresten tanınır: aynı sunucuda ikinci bir IP bağlantısı
 # aramaları karıştırır (şifreli kayıtta sorun yok, operatör kayıt etiketiyle gönderir)
@@ -68,15 +72,16 @@ for ip in $EXTRA; do [[ "$ip" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || { echo "Ge�
 read -rp "Bu bağlantının ana numarası (ör. 8503465993; operatör aranan numarayı iletmezse kullanılır): " DID
 DID="${DID//[^0-9]/}"
 read -rp "Aynı anda kaç görüşme (kanal) var? [1]: " CH
-CH="${CH:-1}"; [[ "$CH" =~ ^[0-9]{1,3}$ && "$CH" -ge 1 ]] || { echo "Kanal sayısı 1 ya da daha büyük olmalı"; exit 1; }
+CH="$(clean "${CH:-1}")"; [[ "$CH" =~ ^[0-9]{1,3}$ && "$CH" -ge 1 ]] || { echo "Kanal sayısı 1 ya da daha büyük olmalı"; exit 1; }
 echo "Arayan numara operatöre hangi biçimde gönderilsin? (operatörün istediği biçim; emin değilseniz 10)"
 echo "  10) 3122191672   0) 03122191672   90) 903122191672   +90) +903122191672"
 read -rp "Biçim [10]: " CLI
-CLI="${CLI:-10}"; [[ "$CLI" =~ ^(10|0|90|\+90)$ ]] || { echo "Biçim 10, 0, 90 ya da +90 olmalı"; exit 1; }
+CLI="$(clean "${CLI:-10}")"; [[ "$CLI" =~ ^(10|0|90|\+90)$ ]] || { echo "Biçim 10, 0, 90 ya da +90 olmalı"; exit 1; }
 
 if [[ "$MODE" == "1" ]]; then
   read -rp "Trunk kullanıcı adı: " SIPUSER
   read -rsp "Trunk şifresi (yazarken görünmez): " SIPPASS; echo
+  SIPUSER="$(clean "$SIPUSER")"; SIPPASS="$(clean "$SIPPASS")"
   [[ -n "$SIPUSER" && -n "$SIPPASS" ]] || { echo "Kullanıcı adı ve şifre zorunlu"; exit 1; }
   [[ "$SIPUSER" =~ ^[A-Za-z0-9._@+-]+$ ]] || { echo "Kullanıcı adında geçersiz karakter"; exit 1; }
   if [[ "$SIPPASS" == *";"* || "$SIPPASS" =~ [[:space:]] ]]; then

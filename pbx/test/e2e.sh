@@ -92,7 +92,7 @@ start pbx
 # Operatör bağlantıları gerçek kurulumdaki gibi pbx/trunk.sh ile yazılır
 export XRE_CONF="$E" ASTERISK_OPTS="-C $E/asterisk.conf" XRE_WAIT=1
 #               operatör  sunucu          yöntem ek-IP  numara      kanal biçim  kullanıcı   şifre
-printf '%s\n' 1 127.0.0.2:5070 2 "" 8503465993 1 10 | "$REPO/pbx/trunk.sh" netgsm >/dev/null
+printf '%s\n' "1 " $'127.0.0.2:5070 \r' $'2\xc2\xa0' "" 8503465993 1 10 | "$REPO/pbx/trunk.sh" netgsm >/dev/null
 printf '%s\n' 3 127.0.0.3:5070 2 "" 3122191672 4 0 | "$REPO/pbx/trunk.sh" tt >/dev/null
 printf '%s\n' 2 127.0.0.5:5070 1 "" 8501112233 2 90 vm1 verisifre | "$REPO/pbx/trunk.sh" verimor >/dev/null
 # Aynı operatör sunucusunda ikinci hesap (Netgsm'de 119 ve 114 gibi)
