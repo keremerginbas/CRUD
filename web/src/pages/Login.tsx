@@ -23,16 +23,16 @@ export function Login() {
 
   return (
     <Center mih="100vh" p="md">
-      <Paper component="form" onSubmit={submit} w="100%" maw={380} p="xl" radius="lg" bg="dark.6">
+      <Paper component="form" onSubmit={submit} w="100%" maw={400} p="xl" radius="xl" className="card login-card">
         <Stack gap="lg">
-          <Group gap="sm" justify="center">
-            <img src="/icon.svg" alt="" width={40} height={40} />
-            <Title order={2}>santral</Title>
+          <Group gap="sm" justify="center" mt="sm">
+            <img src="/icon.svg" alt="" width={44} height={44} />
+            <Title order={1} fz={30} className="brand"><span><b>XRE</b> Santral</span></Title>
           </Group>
-          <Text c="dimmed" ta="center" size="sm">Danışman girişi</Text>
+          <Text c="dimmed" ta="center" size="sm">Müşterilerinizle şirket hattınız üzerinden görüşün</Text>
           <TextInput name="username" label="Kullanıcı adı" placeholder="ad.soyad" autoComplete="username" autoCapitalize="none" required />
           <PasswordInput name="password" label="Şifre" autoComplete="current-password" required error={error} />
-          <Button type="submit" loading={busy} size="md">Giriş yap</Button>
+          <Button type="submit" loading={busy} size="md" mt="xs">Giriş yap</Button>
         </Stack>
       </Paper>
     </Center>

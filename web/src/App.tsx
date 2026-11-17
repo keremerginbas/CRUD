@@ -1,9 +1,13 @@
-import { ActionIcon, AppShell, Center, Group, Loader, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, AppShell, Avatar, Center, Group, Loader, Text, Tooltip } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
-import { IconAddressBook, IconLogout, IconPhone, IconSettings, IconUsers, type Icon } from '@tabler/icons-react';
+import { nprogress } from '@mantine/nprogress';
+import { spotlight } from '@mantine/spotlight';
+import { IconAddressBook, IconLogout, IconPhone, IconSearch, IconSettings, IconUsers, type Icon } from '@tabler/icons-react';
+import { motion } from 'motion/react';
 import { notifications } from '@mantine/notifications';
 import { useEffect } from 'react';
 import { CallBar, PhoneStatusDot } from './components/CallBar';
+import { QuickSearch } from './components/QuickSearch';
 import { CallDetail } from './pages/CallDetail';
 import { Calls } from './pages/Calls';
 import { Contacts } from './pages/Contacts';
@@ -42,6 +46,14 @@ export function App() {
     return () => softphone.stop();
   }, [me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Sayfa geçişinde üstte kısa ilerleme çizgisi
+  useEffect(() => {
+    if (!me) return;
+    nprogress.start();
+    const t = setTimeout(() => nprogress.complete(), 200);
+    return () => clearTimeout(t);
+  }, [page, id, me?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!ready) return <Center h="100vh"><Loader /></Center>;
   if (!me) return <Login />;
 
@@ -53,11 +65,11 @@ export function App() {
 
   return (
     <AppShell header={{ height: 64 }} footer={mobile ? { height: 64 } : undefined} padding="md">
-      <AppShell.Header px="md" style={{ display: 'flex', alignItems: 'center' }}>
-        <Group gap="xs" mr="xl">
+      <AppShell.Header px="md" className="app-header" style={{ display: 'flex', alignItems: 'center' }}>
+        <a href="#/aramalar" className="brand" style={{ marginRight: 28 }}>
           <img src="/icon.svg" alt="" width={32} height={32} />
-          <Text fw={700} fz="xl">santral</Text>
-        </Group>
+          <span><b>XRE</b> Santral</span>
+        </a>
         {!mobile && (
           <Group gap={4} style={{ flex: 1 }} component="nav">
             {items.map(({ path, label, icon: I }) => (
@@ -68,8 +80,11 @@ export function App() {
           </Group>
         )}
         <Group gap="xs" ml="auto">
+          <button type="button" className="search-hint" onClick={() => spotlight.open()} aria-label="Hızlı ara">
+            <IconSearch size={15} /><Text span size="sm" visibleFrom="md">Ara</Text><kbd>Ctrl K</kbd>
+          </button>
           <PhoneStatusDot />
-          <Text size="sm" c="dimmed" visibleFrom="sm">{me.name}</Text>
+          <Tooltip label={me.name}><Avatar name={me.name} color="initials" radius="xl" size={34} /></Tooltip>
           <Tooltip label="Çıkış yap">
             <ActionIcon variant="subtle" color="gray" size="lg" onClick={logout} aria-label="Çıkış yap">
               <IconLogout size={20} stroke={1.6} />
@@ -79,12 +94,18 @@ export function App() {
       </AppShell.Header>
 
       <AppShell.Main>
-        <div style={{ maxWidth: 960, margin: '0 auto', paddingBottom: 96 }}>{content}</div>
+        <motion.div
+          key={`${page}/${id ?? ''}`} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }}
+          style={{ maxWidth: 960, margin: '0 auto', paddingBottom: 96 }}
+        >
+          {content}
+        </motion.div>
         <CallBar />
+        <QuickSearch pages={items} />
       </AppShell.Main>
 
       {mobile && (
-        <AppShell.Footer component="nav" style={{ display: 'flex', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <AppShell.Footer component="nav" className="app-header" style={{ display: 'flex', paddingBottom: 'env(safe-area-inset-bottom)' }}>
           {items.map(({ path, label, icon: I }) => (
             <a key={path} href={`#/${path}`} className="tab-link" aria-current={current === path ? 'page' : undefined}>
               <I size={24} stroke={1.6} />{label}

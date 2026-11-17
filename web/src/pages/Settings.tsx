@@ -21,7 +21,7 @@ const initial = (u: User) => ({
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <Paper p="lg" radius="lg" bg="dark.6">
+    <Paper p="lg" radius="lg" className="card">
       <Text fw={600}>{title}</Text>
       {description && <Text size="sm" c="dimmed" mb="md">{description}</Text>}
       <Stack gap="md" mt={description ? 0 : 'md'}>{children}</Stack>
@@ -78,7 +78,7 @@ export function Settings() {
         <Text c="dimmed">{u.department ?? u.title}</Text>
       </div>
 
-      <Paper p="lg" radius="lg" bg="dark.6">
+      <Paper p="lg" radius="lg" className="card">
         <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
           <div><Text size="xs" c="dimmed">Telefon</Text><Text>{u.phone || '—'}</Text></div>
           {(u.numbers ?? []).map((n) => (

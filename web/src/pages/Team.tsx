@@ -1,4 +1,4 @@
-import { Badge, Button, Code, CopyButton, Group, Modal, Select, SimpleGrid, Skeleton, Stack, Table, Tabs, Text, TextInput, Title } from '@mantine/core';
+import { ActionIcon, Avatar, Badge, Button, Code, CopyButton, Group, Modal, Select, SimpleGrid, Skeleton, Stack, Table, Tabs, Text, TextInput, Title, Tooltip } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { IconKey, IconSearch } from '@tabler/icons-react';
@@ -37,6 +37,11 @@ export function Team() {
   const [opened, { open, close }] = useDisclosure(false);
   const [saving, setSaving] = useState(false);
   const [numberSearch, setNumberSearch] = useState('');
+  const [userSearch, setUserSearch] = useState('');
+  const shownUsers = (users.data ?? []).filter((u) => {
+    const q = userSearch.trim().toLocaleLowerCase('tr-TR');
+    return !q || `${u.name} ${u.email} ${u.department ?? ''}`.toLocaleLowerCase('tr-TR').includes(q);
+  });
 
   const userOptions = useMemo(() => (users.data ?? []).map((u) => ({ value: String(u.id), label: u.name })), [users.data]);
   const shownNumbers = (numbers.data ?? []).filter((n) => {
@@ -113,27 +118,35 @@ export function Team() {
         </Tabs.List>
 
         <Tabs.Panel value="ekip" pt="md">
+          <TextInput mb="md" placeholder="İsim, kullanıcı adı veya departman ara" leftSection={<IconSearch size={16} />} value={userSearch} onChange={(e) => setUserSearch(e.currentTarget.value)} />
           {!users.data ? <Skeleton h={240} radius="lg" /> : (
-            <Table.ScrollContainer minWidth={560}>
-              <Table verticalSpacing="sm" highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr><Table.Th>Ad</Table.Th><Table.Th>Rol ve departman</Table.Th><Table.Th>Hat</Table.Th><Table.Th /></Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {users.data.map((u) => {
-                    const line = numbers.data?.find((n) => n.user_id === u.id);
-                    return (
-                      <Table.Tr key={u.id}>
-                        <Table.Td><Text>{u.name}</Text><Text size="xs" c="dimmed">{u.email}</Text></Table.Td>
-                        <Table.Td><Badge variant="light" color={u.role === 'admin' ? 'orange' : 'gray'}>{ROLE_LABELS[u.role]}</Badge><Text size="xs" c="dimmed" mt={4}>{u.department ?? ''}</Text></Table.Td>
-                        <Table.Td><Text size="sm">{line?.did ?? '—'}</Text><Text size="xs" c="dimmed">{u.extension ? `Dahili ${u.extension}` : ''}</Text></Table.Td>
-                        <Table.Td ta="right">{isAdmin && <Button size="xs" variant="subtle" leftSection={<IconKey size={14} />} onClick={() => resetPassword(u)}>Şifre sıfırla</Button>}</Table.Td>
-                      </Table.Tr>
-                    );
-                  })}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
+            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+              {shownUsers.map((u) => {
+                const line = numbers.data?.find((n) => n.user_id === u.id);
+                return (
+                  <div key={u.id} className="card" style={{ padding: 14 }}>
+                    <Group wrap="nowrap" align="flex-start" gap="sm">
+                      <Avatar name={u.name} color="initials" radius="xl" size={44} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text fw={600} truncate>{u.name}</Text>
+                        <Text size="xs" c="dimmed" truncate>{u.email}{u.department ? ` · ${u.department}` : ''}</Text>
+                        <Group gap={6} mt={8}>
+                          <Badge size="sm" variant="light" color={u.role === 'admin' ? 'orange' : u.role === 'asistan' ? 'cyan' : 'gray'}>{ROLE_LABELS[u.role]}</Badge>
+                          {line
+                            ? <Badge size="sm" variant="outline" color="lime" style={{ textTransform: 'none' }}>{line.did}</Badge>
+                            : u.role === 'danisman' && <Badge size="sm" variant="outline" color="yellow" style={{ textTransform: 'none' }}>Hat yok</Badge>}
+                        </Group>
+                      </div>
+                      {isAdmin && (
+                        <Tooltip label="Şifre sıfırla">
+                          <ActionIcon variant="subtle" color="gray" onClick={() => resetPassword(u)} aria-label={`${u.name} şifresini sıfırla`}><IconKey size={18} /></ActionIcon>
+                        </Tooltip>
+                      )}
+                    </Group>
+                  </div>
+                );
+              })}
+            </SimpleGrid>
           )}
         </Tabs.Panel>
 

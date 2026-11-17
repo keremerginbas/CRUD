@@ -1,4 +1,4 @@
-import { Anchor, Badge, Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
+import { Anchor, Avatar, Badge, Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
 import { IconArrowLeft, IconPhone, IconPlayerPlay } from '@tabler/icons-react';
 import { useState } from 'react';
 import { api, fetchRecording } from '../api';
@@ -36,7 +36,8 @@ export function CallDetail({ id }: { id: string }) {
       <Anchor href="#/aramalar" c="dimmed" size="sm"><Group gap={4}><IconArrowLeft size={16} />Aramalar</Group></Anchor>
       <Group justify="space-between" align="flex-start">
         <div>
-          <Title order={2} c={callColor(c)} tt="uppercase">{name}</Title>
+          <Group gap="sm"><Avatar name={c.contact_name ?? '#'} color="initials" radius="xl" size={48} />
+            <Title order={2} c={callColor(c)} tt="uppercase">{name}</Title></Group>
           <Group gap="xs" mt={6}>
             <Badge variant="light" color={callColor(c).split('.')[0]}>{c.direction === 'inbound' ? 'Gelen' : 'Giden'}</Badge>
             <Badge variant="outline" color="gray">{STATUS_LABELS[c.status]}</Badge>
@@ -47,7 +48,7 @@ export function CallDetail({ id }: { id: string }) {
         </Button>
       </Group>
 
-      <Paper p="lg" radius="lg" bg="dark.6">
+      <Paper p="lg" radius="lg" className="card">
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
           {rows.map(([k, v]) => (
             <div key={k}>
@@ -59,7 +60,7 @@ export function CallDetail({ id }: { id: string }) {
       </Paper>
 
       {c.recording_ref && (
-        <Paper p="lg" radius="lg" bg="dark.6">
+        <Paper p="lg" radius="lg" className="card">
           <Text fw={500} mb="sm">Ses kaydı</Text>
           {audio
             ? <audio controls autoPlay src={audio} style={{ width: '100%' }} />

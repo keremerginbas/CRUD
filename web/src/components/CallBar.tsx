@@ -1,4 +1,4 @@
-import { ActionIcon, Badge, Button, Group, Modal, Paper, Stack, Text, Tooltip } from '@mantine/core';
+import { ActionIcon, Avatar, Badge, Button, Group, Modal, Paper, Stack, Text, Tooltip } from '@mantine/core';
 import { IconMicrophone, IconMicrophoneOff, IconPhone, IconPhoneOff } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 import { formatDuration } from '../format';
@@ -22,6 +22,7 @@ export function CallBar() {
     return (
       <Modal opened onClose={() => {}} closeOnClickOutside={false} closeOnEscape={false} withCloseButton={false} centered radius="lg" size="sm">
         <Stack align="center" gap="xs" py="md">
+          <div className="ring"><Avatar name={call.name === call.number ? '#' : call.name} color="initials" radius="50%" size={84} /></div>
           <Badge color="lime" variant="light">Müşteriniz arıyor</Badge>
           <Text fz="xl" fw={600} tt="uppercase" ta="center">{call.name}</Text>
           {call.name !== call.number && <Text c="dimmed">{call.number}</Text>}
@@ -42,9 +43,12 @@ export function CallBar() {
       <Group justify="space-between" wrap="nowrap" gap="md">
         <div style={{ minWidth: 0 }}>
           <Text fw={600} tt="uppercase" truncate>{call.name}</Text>
-          <Text size="sm" c={call.phase === 'active' ? 'lime.4' : 'dimmed'}>
-            {call.phase === 'active' && call.startedAt ? <Timer since={call.startedAt} /> : PHASES[call.phase]}
-          </Text>
+          <Group gap="xs" wrap="nowrap">
+            {call.phase === 'active' && <span className={`wave${call.muted ? ' muted' : ''}`} aria-hidden><i /><i /><i /><i /></span>}
+            <Text size="sm" c={call.phase === 'active' ? 'lime.4' : 'dimmed'}>
+              {call.phase === 'active' && call.startedAt ? <Timer since={call.startedAt} /> : PHASES[call.phase]}
+            </Text>
+          </Group>
         </div>
         <Group gap="xs" wrap="nowrap">
           {call.phase === 'active' && (

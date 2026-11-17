@@ -1,11 +1,11 @@
-import { Button, Group, Modal, Radio, Skeleton, Stack, Text, TextInput } from '@mantine/core';
+import { Badge, Button, Group, Modal, Radio, Skeleton, Stack, Text, TextInput } from '@mantine/core';
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
-import { IconSearch } from '@tabler/icons-react';
+import { IconAddressBook, IconSearch } from '@tabler/icons-react';
 import { useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { Fab } from '../components/Fab';
 import { maskedCall, toastError, toastOk } from '../components/maskedCall';
-import { Row } from '../components/Row';
+import { Empty, Row } from '../components/Row';
 import { formatDate } from '../format';
 import type { Contact } from '../types';
 import { useLoad } from '../useLoad';
@@ -39,23 +39,26 @@ export function Contacts() {
         leftSection={<IconSearch size={18} />} size="md" aria-label="Kişi ara"
       />
 
-      <div style={{ borderTop: '1px solid var(--mantine-color-dark-4)' }}>
-        {loading && !contacts && [1, 2, 3].map((i) => <Skeleton key={i} h={80} my="xs" radius="md" />)}
+      <Stack gap="xs">
+        {loading && !contacts && [1, 2, 3, 4].map((i) => <Skeleton key={i} h={70} radius={16} />)}
         {error && <Text c="red.5" py="xl" ta="center">{error}</Text>}
         {contacts && !contacts.length && (
-          <Stack align="center" py={48} gap="sm">
-            <Text c="dimmed">{query ? 'Bu aramayla eşleşen kişi yok.' : 'Henüz kişi yok.'}</Text>
+          <Empty icon={IconAddressBook} title={query ? 'Bu aramayla eşleşen kişi yok.' : 'Henüz kişi yok.'}>
             <Button variant="light" onClick={open}>Yeni kişi ekle</Button>
-          </Stack>
+          </Empty>
         )}
-        {contacts?.map((c) => (
+        {contacts?.map((c, i) => (
           <Row
-            key={c.id} title={c.name} callLabel={`${c.name} kişisini ara`}
+            key={c.id} index={i} name={c.name} title={c.name} subtitle={c.note ? `${c.phone} · ${c.note}` : c.phone}
+            callLabel={`${c.name} kişisini ara`}
             onCall={() => maskedCall({ contactId: c.id, phone: c.phone, name: c.name })}
-            details={[c.phone, c.type === 'SATICI' ? 'Satıcı' : 'Alıcı', formatDate(c.created_at)]}
+            meta={<>
+              <Badge size="sm" variant="light" color={c.type === 'SATICI' ? 'grape' : 'cyan'}>{c.type === 'SATICI' ? 'Satıcı' : 'Alıcı'}</Badge>
+              <Text size="xs" c="dimmed" className="hide-xs">{formatDate(c.created_at)}</Text>
+            </>}
           />
         ))}
-      </div>
+      </Stack>
 
       <Fab label="Yeni kişi" onClick={open} />
 
