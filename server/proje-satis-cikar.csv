@@ -1,4 +1,6 @@
 bitrix_id,ad_soyad,departman,hat,dahili,kullanici_adi,rol
+# PROJE SATIŞÇILARI: Bitrix'te kalırlar, panelde yer almazlar. Panelden çıkarmak için:
+#   node --env-file=.env src/remove-staff.js proje-satis-cikar.csv
 # Kullanıcı adı panele girişte kullanılır (satışçılar ortak e-posta kullandığı için e-posta yerine). Kalıp: ad.soyad, iki isimliler bitişik: alikemal.cinar
 # rol: admin | broker | asistan | danisman. Kullanıcı adı boş satırlar atlanır.
 # Boştaki hatlar (personel ayrıldı): 0533 743 75 89, 0533 743 56 80, 0533 743 68 58, 0533 743 74 29, 0533 743 76 58. Aranırlarsa asistana düşer.
@@ -21,3 +23,8 @@ bitrix_id,ad_soyad,departman,hat,dahili,kullanici_adi,rol
 30342,Ceren Delice,XRE MEMNUNİYET ARAMA,+905337437426,124,ceren.delice,danisman
 30868,Müzeyyen Günay,XRE ELEKTRİK,+905337436861,112,muzeyyen.gunay,danisman
 22182,Zarife Ayoğlu,XRE RECRUITING,+905422478514,103,zarife.ayoglu,danisman
+,Boşta 5680,,+905337435680,,,
+,Boşta 6858,,+905337436858,,,
+,Boşta 7429,,+905337437429,,,
+,Boşta 7589,,+905337437589,,,
+,Boşta 7658,,+905337437658,,,

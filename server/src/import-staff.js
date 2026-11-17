@@ -1,4 +1,4 @@
-// Personeli içe aktarır: node --env-file=.env src/import-staff.js personel.csv
+// Personeli içe aktarır: node --env-file=.env src/import-staff.js danismanlar.csv
 // CSV sütunları: bitrix_id,ad_soyad,departman,hat,dahili,kullanici_adi,rol (kullanıcı adı ya da e-posta)
 // Kullanıcı yoksa açılır (şifresi kimseye bilinmez; yönetici panelden "Şifre sıfırla" ile verir),
 // varsa adı, departmanı, Bitrix kimliği ve dahilisi güncellenir. Hat kullanıcıya atanır.
@@ -11,7 +11,7 @@ import { normalizePhone } from './phone.js';
 const ROLES = ['admin', 'broker', 'asistan', 'danisman'];
 const file = process.argv[2];
 if (!file) {
-  console.error('Kullanım: node src/import-staff.js personel.csv');
+  console.error('Kullanım: node src/import-staff.js danismanlar.csv');
   process.exit(1);
 }
 

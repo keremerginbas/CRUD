@@ -27,41 +27,4 @@ dahili,numara,etiket,danisman_email,tip
 # --- Test hattı (santral testleri için; Netgsm'de 119'a yönlendirilir) ---
 ,05337435628,Test hattı 5628,,
 
-# --- Satışçı hatları (Netgsm, Bitrix24'e bağlı). Sadece son 4 hanesi bilinenler 0533 743 ile tamamlandı: Netgsm panelinden doğrulayın.
-# 101 numarası Bitrix'te 3 kişilik kuyruk olarak tanımlı.
-101,05337437586,Satış hattı 101,,
-102,05337437124,Satış hattı 102,,
-103,05422478514,Satış hattı 103,,
-104,05337435988,Satış hattı 104,,
-105,05337435976,Satış hattı 105,,
-106,05337437434,Satış hattı 106,,
-107,05337435601,Satış hattı 107,,
-108,05337437435,Satış hattı 108,,
-109,05337437550,Satış hattı 109,,
-110,05337437109,Satış hattı 110,,
-111,05337437616,Satış hattı 111,,
-112,05337436861,Satış hattı 112,,
-114,05337435680,Boşta (eski personel) 114,,
-115,05337436867,Satış hattı 115,,
-116,05337436858,Boşta (eski personel) 116,,
-117,05337435692,Satış hattı 117,,
-118,05337437429,Boşta (eski personel) 118,,
-119,05337437589,Boşta (eski personel) 119,,
-120,05337437096,Satış hattı 120,,
-121,05337437177,Satış hattı 121,,
-122,05337437147,Satış hattı 122,,
-123,05337435970,Satış hattı 123,,
-124,05337437426,Satış hattı 124,,
-125,05337437658,Boşta (eski personel) 125,,
-
-# --- Yapay zeka (sesli asistan) hatları: Vapi'de "BYO phone number", Netgsm'e SIP trunk ile bağlı ---
-# Gateway: sip8.netsantral.com:5060 UDP, kullanıcı 850 ana hesap. Şu an yalnızca giden arama açık.
-# Bu hatları sesli asistan yönetir; uygulama yönlendirmez, bu yüzden içe aktarılmaz (satırlar yorum).
-# 05337436902,XRE Netgsm Vapi
-# 05337437116,XRE Ankaport 7116
-# 05337436876,EFAS NTEPE
-# 05337435604,MAKSİMUM LİFE
-# 05337435613,MOTTO SARAYKÖY (adı ekranda kısaltılmış, kontrol edin)
-# 05337435632,EFAS NTEPE
-# 05337435654,EFAS NTEPE
-# 05337436014,FİNEST YAŞAM... (adı ekranda kısaltılmış, kontrol edin)
+# Proje satışçılarının 0533 743 hatları Netgsm/Bitrix'te kalır; bu listede yoktur (proje-satis-cikar.csv).
