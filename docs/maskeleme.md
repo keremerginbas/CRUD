@@ -23,8 +23,9 @@ Müşteri ◀── telefon ──▶│ netgsm (0850 / 0533)   tt (0312'ler)   
   - Kayıtlı müşteri ve danışman mesaideyse danışmana gider: panel açıksa panelde, değilse cebinde
     çalar. Danışmanın ekranında şirket hattı görünür.
   - Kayıtsız müşteri, mesai dışı ya da boştaki hat ise **asistanlara** gider: paneli açık olan
-    asistanların (rolü "Asistan" olan kullanıcılar) hepsi birlikte çalar, ilk açan alır. 25 sn içinde
-    kimse açmazsa ya da panel kapalıysa asistan hattı (0531 281 44 23) aranır.
+    asistanlar (rolü "Asistan" olan kullanıcılar) sırayla çalar, her biri 15 sn; meşgul olan atlanır,
+    sıra her aramada bir sonraki asistandan başlar. Kimse açmazsa ya da panel kapalıysa asistan hattı
+    (0531 281 44 23) aranır.
   - Hat listesinde olmayan numara ise açılmadan "meşgul" döner. Operatör aramayı başka hedefe verir
     ve arama geçmişe yazılmaz.
 - **Hangi numara görünür:** Panelde Ekip → Hatlar'da her hattın bir "operatör bağlantısı" vardır.
