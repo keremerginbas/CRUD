@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { formatDuration } from '../format';
 import { softphone, useSoftphone } from '../softphone';
 
-const PHASES = { calling: 'Aranıyor…', ringing: 'Çalıyor…', incoming: 'Gelen arama', active: '' };
+const PHASES = { calling: 'Aranıyor…', ringing: 'Çalıyor…', incoming: 'Gelen arama', answering: 'Bağlanıyor…', active: '' };
 
 function Timer({ since }: { since: number }) {
   const [now, setNow] = useState(Date.now());

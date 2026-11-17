@@ -10,7 +10,7 @@ export type ActiveCall = {
   direction: 'out' | 'in';
   name: string;
   number: string;
-  phase: 'calling' | 'ringing' | 'incoming' | 'active';
+  phase: 'calling' | 'ringing' | 'incoming' | 'answering' | 'active';
   startedAt?: number;
   muted: boolean;
 };
@@ -80,6 +80,14 @@ function bind(s: RTCSession) {
   });
   if (s.connection) attach(s.connection as unknown as RTCPeerConnection);
   s.on('peerconnection', (e) => attach(e.peerconnection as unknown as RTCPeerConnection));
+  // Tarayıcı ses yolu için ağ adreslerini toplar; bazı ağlarda (VPN, birden fazla bağdaştırıcı, kapalı STUN) bu
+  // onlarca saniye sürer ve o bitene kadar arama açılmaz/başlamaz. Dış adres bulununca ya da ilk adresten
+  // 1,5 sn sonra beklemeyi keseriz (santralin adresi sabit olduğu için eldeki adresler yeterlidir).
+  let iceTimer: number | undefined;
+  s.on('icecandidate', (e) => {
+    if (e.candidate.type === 'srflx' || e.candidate.type === 'relay') e.ready();
+    else iceTimer ??= window.setTimeout(() => e.ready(), 1500);
+  });
   s.on('progress', () => { if (state.call?.direction === 'out') setCall({ phase: 'ringing' }); });
   s.on('confirmed', () => { stopRing(); setCall({ phase: 'active', startedAt: Date.now() }); });
   const finish = (reason: string | null) => {
@@ -146,7 +154,20 @@ export const softphone = {
     bind(ua.call(`sip:${digits}@${domain}`, { mediaConstraints: MEDIA, pcConfig: PC_CONFIG }));
   },
 
-  answer() { session?.answer({ mediaConstraints: MEDIA, pcConfig: PC_CONFIG }); stopRing(); },
+  answer() {
+    if (!session || state.call?.phase !== 'incoming') return;
+    stopRing();
+    setCall({ phase: 'answering' });
+    try {
+      session.answer({ mediaConstraints: MEDIA, pcConfig: PC_CONFIG });
+    } catch (err) {
+      const failed = session;
+      session = null;
+      setCall(null);
+      try { failed.terminate(); } catch { /* zaten kapanmış */ }
+      onEnded?.(err instanceof Error ? `Arama açılamadı: ${err.message}` : 'Arama açılamadı');
+    }
+  },
   hangup() { session?.terminate(); },
   toggleMute() {
     if (!session || !state.call) return;
