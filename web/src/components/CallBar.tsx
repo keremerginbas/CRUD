@@ -18,8 +18,9 @@ export function CallBar() {
   if (!call) return null;
 
   if (call.phase === 'incoming') {
+    // Pencere dışına tıklamak ya da Esc aramayı reddetmesin: sadece düğmeler
     return (
-      <Modal opened onClose={() => softphone.hangup()} withCloseButton={false} centered radius="lg" size="sm">
+      <Modal opened onClose={() => {}} closeOnClickOutside={false} closeOnEscape={false} withCloseButton={false} centered radius="lg" size="sm">
         <Stack align="center" gap="xs" py="md">
           <Badge color="lime" variant="light">Müşteriniz arıyor</Badge>
           <Text fz="xl" fw={600} tt="uppercase" ta="center">{call.name}</Text>
