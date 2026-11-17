@@ -1,3 +1,7 @@
+# İlan5 3.1.4 — Doğrulama notları
+
+17 Kasım 2026 (3.1.4): Kullanıcı bildirimi: Emlakjet ve arabam.com'da düğmeye basıldıktan sonra telefon ve ad soyad gelmiyor. Bu ortamdan iki siteye erişilemedi (bağlantı kurulamadı), sorun kod incelemesi ve sentetik sayfalarla ele alındı. Yeni senaryolar önce başarısız oldu, düzeltmeyle geçti: üretilmiş sınıf adlı Emlakjet kartı ve etiketsiz açılır pencere; arabam.com'da adın kartın ilk satırında, numaranın kelimesiz bir dialog içinde olması; “Ara” arama bağlantısından numara; çok numaralı pencere, açıklama ve sayfa altı numaralarının alınmaması. Eski 55 senaryonun tamamı (Sahibinden'in katı ad kuralları dahil) değişmeden geçti: 59/59. `npm test` 18/18, panel e2e geçti. Gerçek sitede deneme yapılmadı; ilk denemede bir ilanın sonucunu siteyle karşılaştırın.
+
 # İlan5 3.1.3 — Doğrulama notları
 
 16 Kasım 2026 (3.1.3): XRE Auto aktarımı. Auto akışının “Deal Verisi Hazırla” kodu ad soyadı yalnız `AD SOYAD` başlığından okuduğu için eklentinin Auto satırı akıştaki başlıklarla birebir aynı yapıldı (AD SOYAD, TELEFON, ŞEHİR, İLÇE, MARKA, SERİ, MODEL, YIL, KM, FİYAT, TRAMER, İLAN NO, İLAN LİNKİ, AÇIKLAMA). Akış kopyası kontrol edildi (bağlantılar, düğüm referansları, Sheets düğümü kalmaması) ve kod İlan5 satırıyla çalıştırıldı: başlık, ad/soyad, iki telefon, marka/seri/model, yıl (2018-01-01), km (120000), fiyat, şehir/ilçe, ilan no, link ve mükerrer sorgusu doğru. `npm test` 18/18, panel e2e geçti. Gerçek n8n/Bitrix ile canlı deneme yapılmadı.

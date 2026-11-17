@@ -7,6 +7,7 @@
   const SELLERS = '.classifiedUserBox,.classifiedOtherBox,.user-info-wrapper,.username-info-area,.classifiedUser,.user-info-box,[class*="owner"],[class*="seller"],[class*="realtor"],[class*="contact-card"],[class*="consultant"]';
   const PHONE_REGIONS = '#phoneInfoPart,.userContactInfo,.user-info-phones,.pretty-phone-part,.encrypted-phone-part,.phone-number,[class*="phone-number"],a[href^="tel:"]';
   const DESCRIPTION = '#classifiedDescription,.classifiedDescription,#ilanAciklamasi,[class*="description" i],[id*="description" i],[class*="aciklama" i],[id*="aciklama" i],[contenteditable="true"]';
+  const OVERLAYS = '[role="dialog"],dialog[open],[aria-modal="true"],[class*="modal" i],[class*="popup" i],[class*="popover" i],[class*="drawer" i],[class*="overlay" i],[class*="tooltip" i]';
   const DETAIL_TITLE = '.classifiedDetailTitle,.classified-title,[class*="detail-title"],[class*="listing-title"]';
   const OTHER_TAXONOMIES = ['ikinci-el-ve-sifir-alisveris','is-makineleri-sanayi','yedek-parca-aksesuar-donanim-tuning','hayvanlar-alemi','ozel-ders-verenler','yardimci-arayanlar','ustalar-ve-hizmetler','is-ilanlari'];
   const OTHER_LABELS = ['ikinci el ve sifir alisveris','is makineleri ve sanayi','is makineleri sanayi','yedek parca aksesuar donanim tuning','hayvanlar alemi','ozel ders verenler','yardimci arayanlar','ustalar ve hizmetler','is ilanlari'];
@@ -445,12 +446,24 @@
     if (/[*＊•●◦]|\.{3}|…|[\uE000-\uF8FF\uFFFD]/u.test(name)) return false;
     if (/telefon|iletisim|giris yap|mesaj gonder|uyelik|uye ol|hesabim|tum ilanlari|diger ilanlari|favori|sikayet|guvenlik/.test(key)) return false;
     if (/^(satici bilgileri|satici|ilan sahibi|sahibinden ilan|magaza|kurumsal uye|bireysel uye|danisman bilgileri|kullanici bilgileri|uye profili)$/.test(key)) return false;
+    // Card labels and controls (Emlakjet / arabam.com seller cards) are not names.
+    if (/^(ara|arayin|mesaj|mesaj at|whatsapp|emlak ofisi|danisman|galeri|yetkili bayi|sahibinden|kurumsal|bireysel|profil|profili gor|ilanlari|tum ilanlar|takip et|paylas|bilgi al|teklif ver|sat|kirala)$/.test(key)) return false;
     return true;
+  }
+  // Last resort: the first short, name-like line of the seller card (no digits, at most six words).
+  function firstNameLine(root) {
+    for (const line of String(root.innerText || '').split('\n').map(clean)) {
+      if (line.length < 3 || line.length > 60 || /\d/.test(line) || line.split(' ').length > 6) continue;
+      if (validSellerName(line)) return line;
+    }
+    return '';
   }
   function readSellerName(roots) {
     const selectors = ['.username-info-area h5,.username-info-area h4',
       '.store-name,.username,.user-name,.userName,.classified-user-name,.classifiedUserName,.seller-name,.sellerName,.owner-name,.ownerName,[data-testid="seller-name"],[data-testid="user-name"]',
       '[itemprop="name"]','h2,h3,h4,h5','.username-info-area'];
+    // Emlakjet / arabam.com / Hepsiemlak: generated class names such as styles_agentName__x1. Sahibinden keeps its stricter rules.
+    if (sourceFor() !== 'sahibinden') selectors.splice(3, 0, '[class*="agentName" i],[class*="ownerName" i],[class*="sellerName" i],[class*="fullName" i],[class*="name-surname" i],[class*="nameSurname" i],[class*="user-name" i]:not(.username-info-area)');
     for (const root of roots) {
       for (const selector of selectors) {
         const candidates = (root.matches(selector) ? [root] : []).concat(all(selector, root));
@@ -467,18 +480,21 @@
         }
       }
     }
+    if (sourceFor() !== 'sahibinden') for (const root of roots) { if (!root.closest(DESCRIPTION)) { const line = firstNameLine(root); if (line) return line; } }
     return '';
   }
   function contactScope(button) {
     const known = button.closest(SELLERS);
     if (known && text(known).length < 5000) return known;
-    let fallback = button.parentElement;
+    let fallback = null, card = button.parentElement;
     for (let node = button.parentElement, i = 0; node && i < 7; node = node.parentElement, i++) {
       if (/^(BODY|MAIN|HTML)$/.test(node.tagName) || text(node).length > 3500 || node.querySelector('table,.classifiedInfoList')) break;
       if (/sahibinden ilan|emlak ofisi|danisman|ilan sahibi|bireysel uye|kurumsal uye|tum ilanlari|galeri/.test(fold(text(node))) && node.querySelector('h2,h3,h4,h5,[class*="name" i]')) return node;
       if (node.matches('aside,[class*="contact"],[class*="user"]')) fallback = node;
+      // Generated class names (styles_card__x1): the largest small block around the button is the seller card.
+      if (text(node).length <= 1500 && !node.querySelector(DESCRIPTION)) card = node;
     }
-    return fallback;
+    return fallback || card;
   }
   function renderedPhoneNumbers(root) {
     const regions = (root.matches(PHONE_REGIONS) ? [root] : []).concat(all(PHONE_REGIONS, root));
@@ -499,8 +515,9 @@
   function readContact(scope, dialogs = false, originalDialogs = []) {
     const roots = sellerRoots(scope);
     if (dialogs) {
-      for (const dialog of all('[role="dialog"],dialog[open]')) {
-        if (!originalDialogs.includes(dialog) && /telefon|iletisim/.test(fold(text(dialog))) && text(dialog).length < 2500) roots.push(dialog);
+      // A popup that opened after the press belongs to it, whatever its wording.
+      for (const dialog of all(OVERLAYS)) {
+        if (!originalDialogs.includes(dialog) && !dialog.closest(DESCRIPTION) && text(dialog) && text(dialog).length < 2500) roots.push(dialog);
       }
     }
     const numbers = [];
@@ -511,6 +528,20 @@
       numbers.push(...renderedPhoneNumbers(root));
     }
     return {phones: unique(numbers), sellerName: readSellerName(roots)};
+  }
+  // Numbers visible anywhere on the page outside the description, footer and navigation.
+  function pageNumbers() {
+    const found = [];
+    for (const el of all('main,aside,section,article,div,[role="dialog"],dialog')) {
+      if (el.closest(DESCRIPTION + ',nav,footer,header') || el.querySelector('main,aside,section,article,div')) continue;
+      found.push(...phoneNumbers(text(el)));
+    }
+    return unique(found);
+  }
+  // Emlakjet can render the seller's "Ara" as a call link carrying the full number.
+  function callLinkNumbers(rule) {
+    return unique(all('a[href^="tel:"]').filter(a => rule.phoneButton.test(fold(text(a))) && !a.closest('nav,header,footer,' + DESCRIPTION))
+      .map(a => normalizePhone(decodeURIComponent(a.getAttribute('href').slice(4)))));
   }
   async function contact(revealPhone) {
     let result = readContact(null);
@@ -542,12 +573,17 @@
       const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
       return rb.x - ra.x || ra.y - rb.y;
     });
-    if (!candidates.length) return {...result, phoneStatus: 'Görünür telefon düğmesi bulunamadı'};
+    if (!candidates.length) {
+      const links = callLinkNumbers(rule);
+      if (links.length && links.length <= 3) return {...result, phones: links, phoneStatus: 'Arama bağlantısından alındı'};
+      return {...result, phoneStatus: 'Görünür telefon düğmesi bulunamadı'};
+    }
     const button = candidates[0];
     const scope = contactScope(button);
     const scoped = readContact(scope);
     result = {...scoped, sellerName: scoped.sellerName || result.sellerName};
-    const existingDialogs = all('[role="dialog"],dialog[open]');
+    const existingDialogs = all(OVERLAYS);
+    const before = new Set(pageNumbers());
     button.click();
     const stop = Date.now() + 6000;
     while (Date.now() < stop) {
@@ -555,7 +591,10 @@
       const problem = screenProblem();
       if (problem) throw Object.assign(new Error(problem.error), {kind: problem.kind});
       const latest = readContact(scope, true, existingDialogs);
-      if (latest.phones.length) return {...latest, sellerName: latest.sellerName || result.sellerName, phoneStatus: 'Telefonu Göster düğmesiyle alındı'};
+      // Only a few new numbers count: a popup full of numbers is not this seller's contact.
+      if (latest.phones.length && latest.phones.length <= 3) return {...latest, sellerName: latest.sellerName || result.sellerName, phoneStatus: 'Telefonu Göster düğmesiyle alındı'};
+      const appeared = pageNumbers().filter(n => !before.has(n));
+      if (appeared.length && appeared.length <= 3) return {...latest, phones: appeared, sellerName: latest.sellerName || result.sellerName, phoneStatus: 'Telefonu Göster düğmesiyle alındı'};
       if (!result.sellerName && latest.sellerName) result.sellerName = latest.sellerName;
     }
     return {...result, phoneStatus: 'Düğmeye basıldı; numara açılmadı veya ek giriş/doğrulama gerekiyor'};

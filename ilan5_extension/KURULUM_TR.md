@@ -1,4 +1,4 @@
-# İlan5 3.1.3 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
+# İlan5 3.1.4 — Sahibinden, Hepsiemlak, Emlakjet ve arabam.com tek panelde
 
 Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwright veya terminal kurulumu gerekmez.
 
@@ -7,11 +7,19 @@ Bu paket Chrome / Edge eklentisidir. Kullanmak için Python, Selenium, Playwrigh
 1. Mevcut panelde **JSON yedeği indir** ile arşivin yedeğini alın.
 2. `chrome://extensions` ekranında mevcut İlan5 eklentisinin **Ayrıntılar** bölümündeki yükleme yolunu kontrol edin.
 3. Bu ZIP içindeki `ilan5_extension` klasörünün dosyalarını, daha önce yüklediğiniz aynı klasörde güncelleyin. Yeni bir klasörden ikinci eklenti yüklemeyin; mevcut eklentiyi kaldırmayın.
-4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.1.3** olduğunu kontrol edin.
+4. `chrome://extensions` ekranında mevcut İlan5 kartının **Yenile** düğmesine basın. Sürümün **3.1.4** olduğunu kontrol edin.
 5. Eski panel sekmesini kapatıp eklenti simgesinden paneli yeniden açın. Açık kaynak ilan sekmelerini de yenileyin.
 6. Önceki iş kısmi bittiyse **Devam et** ile yeniden kontrol edin. Yeni bir arama başlatmak için eski işi **Durdur** ile kapatabilirsiniz; arşiv kayıtları silinmez.
 
 Veritabanı adı ve arşiv şeması değiştirilmedi. Veriler Chrome profilinize ve eklenti kimliğine bağlıdır. Aynı klasör ve aynı profilden güncelleyin. Boş arşiv görürseniz yeni veri toplamadan önce eski eklenti/profilin açık olduğunu kontrol edin veya JSON yedeğini içe aktarın.
+
+## 3.1.4 Emlakjet ve arabam.com'da telefon ve ad soyad
+
+“Telefonu göster” / “Ara” düğmesine basıldıktan sonra numaranın ve adın okunamaması düzeltildi:
+- Numara, kelimesinde “telefon” geçmeyen bir açılır pencerede çıksa da okunur. Düğmeye basınca sayfada yeni beliren numara alınır. Bir pencerede 3'ten fazla numara çıkarsa, ya da numara açıklamada veya sayfa altındaysa, alınmaz.
+- Emlakjet'te “Ara” düğmesi doğrudan arama bağlantısıysa numara bağlantıdan alınır.
+- Satıcı kartı, sitelerin rastgele sınıf adlarına rağmen düğmenin çevresinden bulunur. Ad soyad, “agentName / ownerName” gibi alanlardan ya da kartın ilk ad satırından okunur. “Emlak Ofisi”, “Danışman”, “Ara”, “Mesaj” gibi etiketler ad sayılmaz.
+- Sahibinden'in okuma kuralları değişmedi.
 
 ## 3.1.2 tek tuşla Bitrix'e yükleme (n8n)
 

@@ -294,6 +294,34 @@ async function check(name,fn){ await fn(); passed++; console.log('PASS',name); }
     assert.equal(r.rawDetails['Yıl'],'2022');assert.equal(r.rawDetails['Kilometre'],'125.500 KM');assert.ok(r.categoryEvidence.some(e=>e.category==='arac'));
     w.close();
   });
+  // 3.1.4: real sites use generated class names and show the number in a popup without "telefon" in it.
+  await check('Emlakjet (generated classes): number in an unlabeled popup, agent name in a *Name* element',async()=>{
+    const url='https://www.emlakjet.com/ilan/satilik-arsa-golbasi-19990111';
+    const {w,x}=dom(`<main><h1>Gölbaşı satılık arsa</h1><div class="styles_price__p1">2.500.000 ₺</div><ul><li><span>İlan Numarası</span><span>19990111</span></li></ul><div class="styles_desc__d1">Köşe parsel. Bilgi: 0850 999 88 77</div></main><div class="styles_card__a1"><div class="styles_label__l1">Emlak Ofisi</div><div class="styles_office__o1">Mavi Gayrimenkul</div><div><span>Danışman</span><span class="styles_agentName__k1">Ayşe Demir</span></div><button class="styles_btn__b1"><span>Ara</span></button></div><footer>Müşteri hizmetleri 0850 222 33 44</footer>`,url);
+    w.document.querySelector('.styles_btn__b1').onclick=()=>{w.document.body.insertAdjacentHTML('beforeend','<div class="Modal_overlay__m1"><div class="Modal_box__m2"><p>Ayşe Demir</p><span>0 (850) 123 45 67</span></div></div>');};
+    const r=(await x.extractListing({revealPhone:true})).record;
+    assert.deepEqual(Array.from(r.phones),['908501234567']);assert.equal(r.sellerName,'Ayşe Demir');assert.match(r.phoneStatus,/Telefonu Göster/);w.close();
+  });
+  await check('arabam.com (plain card): name is the first line of the seller card; number in a dialog without keywords',async()=>{
+    const url='https://www.arabam.com/ilan/sahibinden-satilik-renault-clio/temiz/44985299';
+    const {w,x}=dom(`<main><h1>Temiz Clio</h1><div class="product-price">850.000 TL</div><ul><li><span>İlan No</span><span>44985299</span></li><li><span>Marka</span><span>Renault</span></li></ul></main><div class="advert-owner-box"><div><p>Mehmet Kaya</p><p>Bireysel Üye</p></div><button id="tel">Telefonu göster - (0530) 111 ** **</button><button>Mesaj Gönder</button></div>`,url);
+    w.document.querySelector('#tel').onclick=()=>{w.document.body.insertAdjacentHTML('beforeend','<div role="dialog"><div class="nr">0530 111 22 33</div></div>');};
+    const r=(await x.extractListing({revealPhone:true})).record;
+    assert.deepEqual(Array.from(r.phones),['905301112233']);assert.equal(r.sellerName,'Mehmet Kaya');w.close();
+  });
+  await check('Emlakjet: a visible "Ara" call link with a full number is read from the link itself',async()=>{
+    const url='https://www.emlakjet.com/ilan/satilik-arsa-golbasi-19990112';
+    const {w,x}=dom(`<main><h1>Arsa</h1><ul><li><span>İlan Numarası</span><span>19990112</span></li></ul></main><div class="styles_card__a1"><div class="styles_ownerName__n1">Can Yıldız</div><a class="styles_call__c1" href="tel:+908505556677">Ara</a></div>`,url);
+    const r=(await x.extractListing({revealPhone:true})).record;
+    assert.deepEqual(Array.from(r.phones),['908505556677']);assert.equal(r.sellerName,'Can Yıldız');w.close();
+  });
+  await check('Popup with many numbers or only footer/description numbers is never taken as the seller phone',async()=>{
+    const url='https://www.emlakjet.com/ilan/satilik-arsa-golbasi-19990113';
+    const {w,x}=dom(`<main><h1>Arsa</h1><ul><li><span>İlan Numarası</span><span>19990113</span></li></ul></main><div class="styles_card__a1"><div class="styles_ownerName__n1">Can Yıldız</div><button id="b">Ara</button></div>`,url);
+    w.document.querySelector('#b').onclick=()=>{w.document.body.insertAdjacentHTML('beforeend','<div class="Modal_x"><p>0532 000 00 01</p><p>0532 000 00 02</p><p>0532 000 00 03</p><p>0532 000 00 04</p></div><footer>0850 111 11 11</footer>');};
+    const r=(await x.extractListing({revealPhone:true})).record;
+    assert.equal(r.phones.length,0);w.close();
+  });
   await check('arabam.com list: struck-through old price is ignored, the current price is used',async()=>{
     const row=(id,price)=>`<tr class="listing-list-item"><td><a href="/ilan/sahibinden-satilik-x/sahibinden-x/${id}"><img></a></td><td><a href="/ilan/sahibinden-satilik-x/sahibinden-x/${id}">Model</a></td><td>2017</td><td>241.000 KM</td><td class="listing-price">${price}</td></tr>`;
     const {w,x}=dom(`<main><table id="searchResultsTable"><tbody>${row(45000001,'810.000 TL')}${row(45000002,'<span class="old-price" style="text-decoration:line-through">950.000 TL</span><span>925.000 TL</span>')}</tbody></table></main>`,'https://www.arabam.com/ikinci-el/otomobil-sahibinden');
