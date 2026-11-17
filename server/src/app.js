@@ -238,8 +238,8 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       callerAnnouncement: config.pbx.callerAnnouncement,
       extensionUser,
     });
-    // Karşılama hattında santral önce "dahili tuşlayın" anonsunu çalar, sonra tuşlananla tekrar sorar
-    decision.ivr = number?.type === 'hunt';
+    // HUNT_IVR=1 ise karşılama hattında santral önce "dahili tuşlayın" anonsunu çalar, sonra tuşlananla tekrar sorar
+    decision.ivr = Boolean(config.pbx.huntIvr) && number?.type === 'hunt';
 
     if (decision.action !== 'reject' && providerCallId) {
       const existing = q.callByProviderId.get(providerCallId);

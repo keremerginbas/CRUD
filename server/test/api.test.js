@@ -8,7 +8,7 @@ import { createApp } from '../src/app.js';
 
 const config = {
   jwtSecret: 'test', timezone: 'Europe/Istanbul',
-  pbx: { webhookSecret: 'hook', huntGroupDestination: 'queue:karsilama', customerAnnouncement: 'anons' },
+  pbx: { webhookSecret: 'hook', huntGroupDestination: 'queue:karsilama', customerAnnouncement: 'anons', huntIvr: true },
 };
 const pushes = [];
 const bitrixCalls = [];
@@ -260,8 +260,12 @@ test('karşılama hattında tuşlanan dahili danışmana gider, santral IVR çal
     assert.notEqual(unknown.userId, 1);
     const personal = await ask({ from: '05559998877', to: '908504660149', callId: 'ivr-3' });
     assert.equal(personal.ivr, false);
+    // Varsayılan: IVR kapalı
+    config.pbx.huntIvr = false;
+    assert.equal((await ask({ from: '05559998877', to: '4442453', callId: 'ivr-4' })).ivr, false);
   } finally {
     db.exec("UPDATE users SET extension = '1001' WHERE id = 1");
+    config.pbx.huntIvr = true;
   }
 });
 

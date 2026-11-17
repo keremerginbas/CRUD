@@ -251,7 +251,7 @@ db.exec(\`INSERT INTO numbers (did, type, user_id, label, trunk) VALUES
 db.exec(\"INSERT INTO contacts (name, phone, owner_id) VALUES ('MUSTAFA', '+905464962638', 1)\");
 " --input-type=module)
 (cd "$REPO/server" && PORT=3999 PBX_PROVIDER=asterisk ASTERISK_ARI_URL=http://127.0.0.1:8088 ASTERISK_ARI_USER=xre \
-  ASTERISK_ARI_PASSWORD=e2e ASTERISK_TRUNK=netgsm PBX_WEBHOOK_SECRET=e2e ASSISTANT_DESTINATION=+905312814423 JWT_SECRET=e2e \
+  ASTERISK_ARI_PASSWORD=e2e ASTERISK_TRUNK=netgsm HUNT_IVR=1 PBX_WEBHOOK_SECRET=e2e ASSISTANT_DESTINATION=+905312814423 JWT_SECRET=e2e \
   exec node src/index.js > "$W/app.log" 2>&1) &
 APP_PID=$!
 for _ in $(seq 50); do curl -sf http://127.0.0.1:3999/health >/dev/null && break; sleep 0.2; done

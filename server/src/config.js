@@ -25,6 +25,9 @@ export const config = {
     callerAnnouncement: env.CALLER_ANNOUNCEMENT ?? 'satis-danismaninizi-ariyorsunuz',
     // Kayıtlı olmayan müşteri ve mesai dışı aramalar (boşsa kayıtsız müşteri de hattın sahibine gider)
     assistantDestination: env.ASSISTANT_DESTINATION ?? '',
+    // 1: karşılama hattında (444/0850) "danışmanın dahili numarasını tuşlayın" anonsu. Varsayılan kapalı:
+    // kayıtlı müşteri doğrudan danışmanına gider
+    huntIvr: env.HUNT_IVR === '1',
     asterisk: {
       ariUrl: env.ASTERISK_ARI_URL ?? '',
       ariUser: env.ASTERISK_ARI_USER ?? '',
