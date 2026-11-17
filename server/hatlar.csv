@@ -4,24 +4,25 @@ dahili,numara,etiket,danisman_email,tip
 # --- Karşılama hattı: arayan kuyruğa düşer, müsait olan açar ---
 ,4442453,444 24 53,,hunt
 
-# --- Danışman hatları (0312, şu an Türk Telekom/fibimi tarafında). Dahililer santral taşınınca yazılacak ---
-,03122191672,Danışman hattı 1672,,
-,03122191670,Danışman hattı 1670,,
-,03122190475,Danışman hattı 0475,,
-,03122190083,Danışman hattı 0083,,
-,03122191034,Danışman hattı 1034,,
-,03122190493,Danışman hattı 0493,,
-,03122190518,Danışman hattı 0518,,
-,03122190464,Danışman hattı 0464,,
-,03122190325,Danışman hattı 0325,,
-,03122191038,Danışman hattı 1038,,
-,03122190528,Danışman hattı 0528,,
-,03122191039,Danışman hattı 1039,,
-,03122190476,Danışman hattı 0476,,
-,03122190328,Danışman hattı 0328,,
-,03122191037,Danışman hattı 1037,,
-,03122191036,Danışman hattı 1036,,
-,03122190082,Danışman hattı 0082,,
+# --- 444 24 53'ün altında çalışan 17 hat (Türk Telekom, XRE Beştepe adına). Kişiye ait değil: 444 gibi davranır
+#     (kayıtlı müşteri danışmanına, değilse asistana). Danışmanların kendi numaraları danismanlar.csv'de ---
+,03122191672,444 alt hattı 1672,,hunt
+,03122191670,444 alt hattı 1670,,hunt
+,03122190475,444 alt hattı 0475,,hunt
+,03122190083,444 alt hattı 0083,,hunt
+,03122191034,444 alt hattı 1034,,hunt
+,03122190493,444 alt hattı 0493,,hunt
+,03122190518,444 alt hattı 0518,,hunt
+,03122190464,444 alt hattı 0464,,hunt
+,03122190325,444 alt hattı 0325,,hunt
+,03122191038,444 alt hattı 1038,,hunt
+,03122190528,444 alt hattı 0528,,hunt
+,03122191039,444 alt hattı 1039,,hunt
+,03122190476,444 alt hattı 0476,,hunt
+,03122190328,444 alt hattı 0328,,hunt
+,03122191037,444 alt hattı 1037,,hunt
+,03122191036,444 alt hattı 1036,,hunt
+,03122190082,444 alt hattı 0082,,hunt
 
 # --- Test hattı (santral testleri için; Netgsm'de 119'a yönlendirilir) ---
 ,05337435628,Test hattı 5628,,

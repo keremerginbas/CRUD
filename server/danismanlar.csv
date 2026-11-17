@@ -1,0 +1,65 @@
+bitrix_id,ad_soyad,departman,hat,dahili,kullanici_adi,rol
+# Satış danışmanları (fibimi maskeli numaralarıyla). Bitrix kullanmazlar. Kaynak: fibimi listesi.
+# İçe aktarma: node --env-file=.env src/import-staff.js danismanlar.csv  (hat boş olanlara hat atanmaz)
+# Kişisel cep numaraları burada TUTULMAZ (KVKK): danışman Ayarlar sayfasından ya da yönetici panelden girer.
+,ALP YERLİKAYA,SATIŞ DANIŞMANI,+905337435922,,alp.yerlikaya,danisman
+,AYHAN SÜMER,SATIŞ DANIŞMANI,+905337435599,,ayhan.sumer,danisman
+,AYTEKİN CANSIZ,SATIŞ DANIŞMANI,+905337436017,,aytekin.cansiz,danisman
+,BERKCAN KARTAL,SATIŞ DANIŞMANI,+905337435685,,berkcan.kartal,danisman
+,BORA DAMAR,SATIŞ DANIŞMANI,+905337436863,,bora.damar,danisman
+,BURCU ERTEKİN YURDAKUL,SATIŞ DANIŞMANI,+905337436001,,burcuertekin.yurdakul,danisman
+,BÜŞRA KAYMAK KÖREMEZLİ,SATIŞ DANIŞMANI,,,busrakaymak.koremezli,danisman
+,CAFER SARIKAYA,SATIŞ DANIŞMANI,+905337437560,,cafer.sarikaya,danisman
+,CEM KARACAKAYA,SATIŞ DANIŞMANI,+905337436835,,cem.karacakaya,danisman
+,ÇAĞDAŞ OLGUN,SATIŞ DANIŞMANI,,,cagdas.olgun,danisman
+,ÇAĞLAR DOĞANLI,SATIŞ DANIŞMANI,,,caglar.doganli,danisman
+,DEMET YAY,SATIŞ DANIŞMANI,+905337436841,,demet.yay,danisman
+,DENİZ KULAOĞULLARINDAN,SATIŞ DANIŞMANI,+905337435650,,deniz.kulaogullarindan,danisman
+,ELİF PEHLİVAN,SATIŞ DANIŞMANI,+905337437669,,elif.pehlivan,danisman
+,EMRE KOCATEPE,SATIŞ DANIŞMANI,,,emre.kocatepe,danisman
+,ERTUĞRUL ÖZSU,SATIŞ DANIŞMANI,+905337437121,,ertugrul.ozsu,danisman
+,FATIMA NURGÜL ÖZTOK,SATIŞ DANIŞMANI,,,fatimanurgul.oztok,danisman
+,FATMA ZEHRA KOÇ,SATIŞ DANIŞMANI,+905337436711,,fatmazehra.koc,danisman
+,FATİH TARIK DEMİRBAĞ,SATIŞ DANIŞMANI,+905337436012,,fatihtarik.demirbag,danisman
+,HAKAN SAĞLAM,SATIŞ DANIŞMANI,,,hakan.saglam,danisman
+,HALUK DOĞAN,SATIŞ DANIŞMANI,+905337437122,,haluk.dogan,danisman
+,HASAN HÜSEYİN TÜRKMENOĞLU,SATIŞ DANIŞMANI,+905337437094,,hasanhuseyin.turkmenoglu,danisman
+,HAZIM KÖREMEZLİ,SATIŞ DANIŞMANI,+905337435965,,hazim.koremezli,danisman
+,HİDAYET SARIŞIK,SATIŞ DANIŞMANI,+905337437092,,hidayet.sarisik,danisman
+,HİKMET ŞİMŞEK,SATIŞ DANIŞMANI,+905337437557,,hikmet.simsek,danisman
+,HÜLYA KOCAGÖZ,SATIŞ DANIŞMANI,+905337435678,,hulya.kocagoz,danisman
+,İBRAHİM TELLİ,SATIŞ DANIŞMANI,+905337436857,,ibrahim.telli,danisman
+,İLKER OZAN GÜLER,SATIŞ DANIŞMANI,+905337437153,,ilkerozan.guler,danisman
+,İREMNUR GÖZEL,SATIŞ DANIŞMANI,+905337435662,,iremnur.gozel,danisman
+,JANVANSHİR ASHİROV,SATIŞ DANIŞMANI,,,janvanshir.ashirov,danisman
+,JEREN TURALY,SATIŞ DANIŞMANI,+905337437131,,jeren.turaly,danisman
+,KAAN İNCE,SATIŞ DANIŞMANI,+905337435950,,kaan.ince,danisman
+,KAYRA DEMİR ÖZKAN,SATIŞ DANIŞMANI,+905337437602,,kayrademir.ozkan,danisman
+,MAHMUT METİN,SATIŞ DANIŞMANI,+905337437179,,mahmut.metin,danisman
+,MEHMET ÖZDAĞLAR,SATIŞ DANIŞMANI,+905337437592,,mehmet.ozdaglar,danisman
+,MELTEM KÖŞKER,SATIŞ DANIŞMANI,+905337436891,,meltem.kosker,danisman
+,MERT AKGÜN,SATIŞ DANIŞMANI,,,mert.akgun,danisman
+,MİKAİL BARBAROS ÖZKAN,SATIŞ DANIŞMANI,+905337436842,,mikailbarbaros.ozkan,danisman
+,MURAT ER,SATIŞ DANIŞMANI,+905337437572,,murat.er,danisman
+,MUSTAFA KARA,SATIŞ DANIŞMANI,+905337437600,,mustafa.kara,danisman
+,MUSTAFA UTKU ALADAĞ,SATIŞ DANIŞMANI,+905337437095,,mustafautku.aladag,danisman
+,MUSTAFA SALMAN,SATIŞ DANIŞMANI,+905337437431,,mustafa.salman,danisman
+,MUSTAFA VEYSEL YAĞMUR,SATIŞ DANIŞMANI,,,mustafaveysel.yagmur,danisman
+,OKTAY GÜLER,SATIŞ DANIŞMANI,+905337437662,,oktay.guler,danisman
+,ONUR TAŞDEMİR,SATIŞ DANIŞMANI,+905337436879,,onur.tasdemir,danisman
+,ORHAN DENİZ ÖZTÜRK,SATIŞ DANIŞMANI,+905337436007,,orhandeniz.ozturk,danisman
+,ORHAN GÜNEŞ,SATIŞ DANIŞMANI,+905337435942,,orhan.gunes,danisman
+,OSMAN ÖZDEN,SATIŞ DANIŞMANI,,,osman.ozden,danisman
+,ÖZCAN YILDIZ,SATIŞ DANIŞMANI,+905337436886,,ozcan.yildiz,danisman
+,ÖZLEM DAŞTAN,SATIŞ DANIŞMANI,,,ozlem.dastan,danisman
+,SEHER ÖNCÜ,SATIŞ DANIŞMANI,+905337437427,,seher.oncu,danisman
+,SİBEL REÇBER,SATIŞ DANIŞMANI,+905337436801,,sibel.recber,danisman
+,SELİM DURAN,SATIŞ DANIŞMANI,+905337435686,,selim.duran,danisman
+,SELMAN AKKUZU,SATIŞ DANIŞMANI,+905337435605,,selman.akkuzu,danisman
+,SÜLEYMAN GÖK,SATIŞ DANIŞMANI,+905337435957,,suleyman.gok,danisman
+,TACETTİN PAÇAL,SATIŞ DANIŞMANI,,,tacettin.pacal,danisman
+,TİMUÇİN BİLGİLİ,SATIŞ DANIŞMANI,+905337435609,,timucin.bilgili,danisman
+,URAL KARACA,SATIŞ DANIŞMANI,+905337436847,,ural.karaca,danisman
+,VEDAT ÇELİKTEN,SATIŞ DANIŞMANI,,,vedat.celikten,danisman
+,YAHYA AYBARS DİLEK,SATIŞ DANIŞMANI,,,yahyaaybars.dilek,danisman
+,ZEYNEP CEREN KARA,SATIŞ DANIŞMANI,+905337435949,,zeynepceren.kara,danisman
