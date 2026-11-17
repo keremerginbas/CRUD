@@ -128,6 +128,7 @@ import { registerLiveRoutes } from "./live.js";
 import { registerPasswordResetRoutes } from "./password-reset.js";
 import { startSenetReminders } from "./senet-reminders.js";
 import { learnWaLid, resolveWaPeer } from "./wa-lid.js";
+import { registerFleetHeartbeat, registerFleetRoutes, registerFleetTest, startFleet } from "./fleet.js";
 import { escapeHtml, registerTelegram, sendTelegram, startTelegramScheduler } from "./telegram.js";
 import { registerBrandingAdminRoutes, registerBrandingPublicRoutes } from "./branding.js";
 import { addInboxNotification, registerTriggerRoutes, setTriggerStageMover, triggerStore } from "./triggers.js";
@@ -1805,6 +1806,7 @@ export function createApp(
       scheduleConversationAnalysis(target, owner, "call", callId),
   };
   registerHookInboundRoute(app, store, hubDeps);
+  registerFleetHeartbeat(app, baseStore);
   // Netgsm Netsantral olayları (gelen arama, cevap, görüşme sonu kaydı).
   const netsantralHook = { id: "netsantral", name: "Netsantral" };
   registerNetsantralWebhook(app, store, {
@@ -1853,6 +1855,8 @@ export function createApp(
   registerProjectRoutes(app, store);
   registerLiveRoutes(app);
   registerTelegram(app, store);
+  registerFleetRoutes(app, baseStore);
+  registerFleetTest(app, baseStore);
   registerBrandingAdminRoutes(app, store);
   registerSaleRoutes(app, store);
   registerDealerRoutes(app, store);
@@ -1870,6 +1874,7 @@ export function createApp(
   if (options.background) startBackupScheduler(baseStore);
   if (options.background) startSenetReminders(rawStore);
   if (options.background) startTelegramScheduler(rawStore);
+  if (options.background) startFleet(baseStore);
   // Bağlı posta kutularının gelen kutusu yoklayıcısı (testte ve XRE_EMAIL_POLL=0 iken çalışmaz).
   if (options.background) startEmailPoller(rawStore);
   if (options.background && withConnector) {

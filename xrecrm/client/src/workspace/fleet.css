@@ -1,0 +1,30 @@
+/* Yönetim paneli: müşteri kurulumları */
+.fleet-error { color: var(--ds-danger, #d9675f); }
+.fleet-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.fleet-summary .panel { padding: 14px 16px; display: grid; gap: 4px; }
+.fleet-summary span { font-size: 12px; opacity: 0.7; }
+.fleet-summary strong { font-size: 24px; }
+.fleet-summary .warn strong { color: var(--ds-danger, #d9675f); }
+.fleet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.fleet-card { padding: 16px; display: grid; gap: 12px; align-content: start; border-top: 3px solid #2aa876; }
+.fleet-card.has-problem { border-top-color: #d9675f; }
+.fleet-card header { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.fleet-card header > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.fleet-card header strong { font-size: 16px; overflow-wrap: anywhere; }
+.fleet-card header a { font-size: 12px; color: var(--xre-accent, #168db3); overflow-wrap: anywhere; }
+.fleet-badges { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.fleet-card dl { margin: 0; display: grid; gap: 6px; }
+.fleet-card dl > div { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; }
+.fleet-card dt { opacity: 0.7; }
+.fleet-card dd { margin: 0; text-align: right; font-weight: 600; }
+.fleet-card dd em { font-style: normal; color: #d9a441; font-weight: 500; }
+.fleet-notes { margin: 0; font-size: 12px; opacity: 0.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fleet-card footer { display: flex; gap: 8px; align-items: center; }
+.fleet-card footer .icon-button { margin-left: auto; }
+.fleet-form, .fleet-key { display: grid; gap: 12px; }
+.fleet-form label, .fleet-key label { display: grid; gap: 4px; font-size: 13px; }
+.fleet-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fleet-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.fleet-copy { display: flex; gap: 8px; align-items: center; }
+.fleet-copy code { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; background: rgba(127, 127, 127, 0.14); font-size: 12px; overflow-wrap: anywhere; user-select: all; }
+@media (max-width: 520px) { .fleet-form-row { grid-template-columns: 1fr; } .fleet-grid { grid-template-columns: 1fr; } }

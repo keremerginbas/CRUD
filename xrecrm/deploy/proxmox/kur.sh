@@ -9,6 +9,7 @@
 #   Yedek al    : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --yedek
 #   Durum       : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --durum
 #   WhatsApp aç : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --whatsapp
+#   Panel yap   : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --panel
 set -euo pipefail
 
 REPO_URL="https://github.com/keremerginbas/CRUD.git"
@@ -114,6 +115,24 @@ whatsapp_kur() {
   fi
 }
 
+# Programı hazırlar; kurulu sürüm bilgisi (kısa kod ve tarih) imaja yazılır.
+derle() {
+  docker build -q -t "$NAME:latest" \
+    --build-arg XRE_COMMIT="$(git -C "$SRC" rev-parse --short HEAD 2>/dev/null || true)" \
+    --build-arg XRE_COMMIT_DATE="$(git -C "$SRC" log -1 --format=%cI 2>/dev/null || true)" \
+    "$SRC/xrecrm" >/dev/null
+}
+
+# Yönetim paneli: bu kurulumu, sattığınız diğer CRM kurulumlarını izleyen panel yapar.
+panel_ac() {
+  [ -f "$ENVFILE" ] || { echo "Kurulum bulunamadı. Önce ilk kurulumu yapın."; exit 1; }
+  grep -q '^XRE_PANEL=' "$ENVFILE" || echo "XRE_PANEL=1" >> "$ENVFILE"
+  calistir
+  bekle || { echo "HATA: sunucu açılmadı. Kayıtlar: docker logs --tail 60 $NAME"; exit 1; }
+  echo "== Yönetim paneli açık =="
+  echo "Sahip hesabıyla girin; kenar çubuğunda Yönetim → Müşteri kurulumları görünür."
+}
+
 yedek() {
   mkdir -p "$BACKUPS"
   # Veritabanı dökümü (geri yükleme: gunzip -c dosya | docker exec -i xrecrm-db psql -U xrecrm -d xrecrm)
@@ -157,6 +176,7 @@ bekle() {
 case "${1:-}" in
   --yedek) yedek; exit 0 ;;
   --whatsapp) whatsapp_kur; exit 0 ;;
+  --panel) panel_ac; exit 0 ;;
   --durum)
     docker ps --filter "name=^${NAME}$" --format 'Konteyner: {{.Names}}  {{.Status}}'
     if whatsapp_acik; then docker ps --filter "name=^${WA_NAME}$" --format 'WhatsApp:  {{.Names}}  {{.Status}}'; fi
@@ -176,7 +196,7 @@ case "${1:-}" in
     git -C "$SRC" reset --hard FETCH_HEAD
     echo "3/4 Hazırlanıyor (birkaç dakika sürebilir)..."
     docker tag "$NAME:latest" "$NAME:onceki" 2>/dev/null || true
-    docker build -q -t "$NAME:latest" "$SRC/xrecrm" >/dev/null
+    derle
     echo "4/4 Yeniden başlatılıyor..."; calistir
     if bekle; then echo "== Güncelleme tamam =="; docker image prune -f >/dev/null 2>&1 || true
     else
@@ -226,7 +246,7 @@ fi
 chmod 600 "$ENVFILE"
 
 echo "4/6 Program hazırlanıyor (ilk seferde 5-10 dakika sürebilir)..."
-docker build -q -t "$NAME:latest" "$SRC/xrecrm" >/dev/null
+derle
 
 echo "5/6 Başlatılıyor..."
 calistir

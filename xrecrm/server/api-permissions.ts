@@ -44,6 +44,9 @@ export function requireModulePermissions(
     path === "/integrations/sms/test" ||
     path === "/integrations/mail/test" ||
     path === "/integrations/telegram/test" ||
+    path === "/integrations/panel/test" ||
+    // Yönetim paneli uçları kendi sahiplik kontrolünü yapar.
+    /^\/fleet(?:\/|$)/.test(path) ||
     path === "/pbx/me" ||
     path === "/lines" ||
     path === "/audit" ||

@@ -121,7 +121,18 @@ export const SETTING_GROUPS: SettingGroup[] = [
     ],
   },
   {
+    id: "panel",
+    title: "Yönetim paneli (yazılım sağlayıcınız)",
+    description: "Bu kurulumun teknik durumu (çalışıyor mu, sürüm, son yedek, disk, kullanıcı ve kayıt sayıları) yazılım sağlayıcınızın paneline bildirilir. Müşteri adları, mesajlar ve satış bilgileri gönderilmez.",
+    test: "panel",
+    fields: [
+      { key: "PANEL_URL", label: "Panel adresi", placeholder: "https://crm.yonetim.ornek.com.tr", help: "Yazılım sağlayıcınızın verdiği adres." },
+      { key: "PANEL_KEY", label: "Kurulum anahtarı", secret: true, help: "Panelde bu kurulum için üretilen anahtar. Yalnız buraya yapıştırın." },
+    ],
+  },
+  {
     id: "mail",
+
     title: "Sistem e-postası (SMTP)",
     description: "Davet, doğrulama kodu ve şifre sıfırlama e-postaları bu hesaptan gönderilir.",
     test: "mail",

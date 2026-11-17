@@ -18,6 +18,11 @@ RUN pnpm install --prod --frozen-lockfile
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/config ./config
 ENV NODE_ENV=production
+# Kurulu sürüm (Sunucu durumu ve yönetim paneli için); kurulum betiği doldurur.
+ARG XRE_COMMIT=""
+ARG XRE_COMMIT_DATE=""
+ENV XRE_COMMIT=$XRE_COMMIT
+ENV XRE_COMMIT_DATE=$XRE_COMMIT_DATE
 ENV XRE_DATA_DIR=/app/data
 VOLUME ["/app/data"]
 ENV PORT=3000

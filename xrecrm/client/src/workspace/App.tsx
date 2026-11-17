@@ -120,6 +120,7 @@ const Worktime = lazy(() => import("./pages/Worktime"));
 const AuditLog = lazy(() => import("./pages/AuditLog"));
 const SystemBackups = lazy(() => import("./pages/SystemBackups"));
 const Workspaces = lazy(() => import("./pages/Workspaces"));
+const Fleet = lazy(() => import("./pages/Fleet"));
 const navGroups = [
   {
     label: "ÇALIŞMA ALANI",
@@ -182,6 +183,7 @@ const navGroups = [
       ["/audit", "Denetim günlüğü", History],
       ["/system", "Sunucu & yedekler", DatabaseBackup],
       ["/workspaces", "Firmalar", Building2],
+      ["/fleet", "Müşteri kurulumları", DatabaseBackup],
     ],
   },
 ] as const;
@@ -195,7 +197,15 @@ function Workspace() {
   const { data, demo, user, workspace, setDemo, loading, request } = useStore();
   // Kayıtla açılan firmalarda ortak altyapıya bağlı modüller (WhatsApp, santral, n8n…) kapalıdır.
   const tenant = Boolean(!demo && workspace && !workspace.isDefault);
-  const tenantHidden = new Set(["/whatsapp", "/calls", "/lines", "/n8n", "/webhooks", "/integrations", "/apps", "/ai", "/system", "/workspaces"]);
+  const tenantHidden = new Set(["/whatsapp", "/calls", "/lines", "/n8n", "/webhooks", "/integrations", "/apps", "/ai", "/system", "/workspaces", "/fleet"]);
+  // Yönetim paneli yalnız panel olarak kurulan sunucuda ve sahibine görünür.
+  const [fleetEnabled, setFleetEnabled] = useState(false);
+  useEffect(() => {
+    if (demo || !user?.isOwner) return void setFleetEnabled(false);
+    request("/api/fleet")
+      .then((r: { enabled?: boolean }) => setFleetEnabled(Boolean(r?.enabled)))
+      .catch(() => setFleetEnabled(false));
+  }, [demo, user?.openId]);
   const routeModules: Record<string, AccessModule> = {
     "/feed": "feed",
     "/kanban": "crm",
@@ -233,6 +243,7 @@ function Workspace() {
   const permitted = (url: string) =>
     tenant && tenantHidden.has(url) ? false :
     url === "/workspaces" ? Boolean(!demo && user?.isOwner && workspace?.isDefault) :
+    url === "/fleet" ? Boolean(!demo && user?.isOwner && fleetEnabled) :
     ownerOnly.has(url) ? Boolean(user?.isOwner) :
     // Para maliyeti yalnız yöneticiye (Teklifler: yazma) açıktır.
     url === "/cost-of-money" ? Boolean(demo || user?.isOwner || user?.permissions?.quotes?.write) :
@@ -913,6 +924,8 @@ function Workspace() {
                   setLeadModal(data.leads.find((l) => l.id === id) || null)
                 }
               />
+            ) : path === "/fleet" ? (
+              <Fleet />
             ) : path === "/n8n" ? (
               <N8n navigate={navigate} />
             ) : path === "/reports" ? (
