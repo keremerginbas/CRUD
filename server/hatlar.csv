@@ -26,7 +26,7 @@ dahili,numara,etiket,danisman_email,tip
 
 # --- Test hattı (santral testleri için; Netgsm'de 119'a yönlendirilir) ---
 ,05337435628,Test hattı 5628,,
-# Netgsm dahili 119'un numarası: santral denemeleri bu hat üzerinden yapılır
-,05337437589,Netgsm test hattı 7589,,
+# Netgsm dahili 125'in numarası (boşta): santral denemeleri bu hat üzerinden yapılır
+,05337437658,Netgsm test hattı 7658,,
 
 # Proje satışçılarının 0533 743 hatları Netgsm/Bitrix'te kalır; bu listede yoktur (proje-satis-cikar.csv).
