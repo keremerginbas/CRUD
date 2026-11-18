@@ -20,7 +20,22 @@ if curl -fsS -m 8 "http://$TARGET/health" >/dev/null 2>&1; then echo "    Evet."
   echo "    HAYIR: http://$TARGET/health yanıt vermiyor. Önce CRM makinesinin kurulumunu tamamlayın."; exit 1; fi
 
 echo "1/5 Örnek alan adının şablonu okunuyor ($MODEL)..."
-INFO=$("$BIN/v-list-web-domain" "$HUSER" "$MODEL" shell 2>/dev/null) || { echo "    $MODEL bulunamadı. Çalışan bir yönlendirmenizin adını 3. değer olarak verin."; exit 1; }
+# Örnek alan adı verilen kullanıcıda yoksa bütün Hestia kullanıcılarında aranır; yeni alan da o kullanıcıya eklenir.
+if ! INFO=$("$BIN/v-list-web-domain" "$HUSER" "$MODEL" shell 2>/dev/null); then
+  FOUND=""
+  for u in $("$BIN/v-list-users" plain 2>/dev/null | awk '{print $1}'); do
+    if INFO=$("$BIN/v-list-web-domain" "$u" "$MODEL" shell 2>/dev/null); then FOUND="$u"; break; fi
+  done
+  if [ -z "$FOUND" ]; then
+    echo "    $MODEL hiçbir kullanıcıda bulunamadı. Çalışan yönlendirmeleriniz:"
+    for u in $("$BIN/v-list-users" plain 2>/dev/null | awk '{print $1}'); do
+      "$BIN/v-list-web-domains" "$u" plain 2>/dev/null | awk -v u="$u" '{print "      " u "  " $1}'
+    done
+    echo "    Bunlardan çalışan bir CRM adresini 3. değer olarak verip yeniden çalıştırın."; exit 1
+  fi
+  echo "    $MODEL, '$FOUND' kullanıcısında bulundu; yeni alan da bu kullanıcıya eklenecek."
+  HUSER="$FOUND"
+fi
 PTPL=$(printf '%s\n' "$INFO" | awk -F': *' 'toupper($1) ~ /^PROXY$/ {print $2; exit}' | tr -d ' ')
 [ -n "$PTPL" ] || PTPL=$(printf '%s\n' "$INFO" | awk -F': *' 'toupper($1) ~ /PROXY/ && $2 !~ /^$/ {v=$2} END{print v}' | tr -d ' ')
 echo "    Örnek şablon: ${PTPL:-bulunamadı}"
