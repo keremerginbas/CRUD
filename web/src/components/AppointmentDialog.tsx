@@ -1,4 +1,4 @@
-import { Button, Chip, Group, Modal, NumberInput, Stack, Text, TextInput, Textarea } from '@mantine/core';
+import { Button, Checkbox, Chip, Group, Modal, NumberInput, Stack, Text, TextInput, Textarea } from '@mantine/core';
 import { DateTimePicker } from '@mantine/dates';
 import { useEffect, useState } from 'react';
 import { appointments } from '../appointments';
@@ -22,11 +22,12 @@ export function AppointmentDialog({ target, opened, onClose }: { target: Appoint
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [saving, setSaving] = useState(false);
+  const [sms, setSms] = useState(false);
   const fixed = !!(target?.contactId || target?.phone);
 
   useEffect(() => {
     if (!opened) return;
-    setDue(toLocal(at(1, 12))); setNote(''); setRemind(60); setName(target?.name ?? ''); setPhone(target?.phone ?? '');
+    setDue(toLocal(at(1, 12))); setNote(''); setSms(false); setRemind(60); setName(target?.name ?? ''); setPhone(target?.phone ?? '');
   }, [opened, target]);
 
   const save = async () => {
@@ -35,8 +36,9 @@ export function AppointmentDialog({ target, opened, onClose }: { target: Appoint
     try {
       const a = await appointments.create({
         contactId: target?.contactId ?? undefined, name, phone, note,
-        due_at: new Date(due.replace(' ', 'T')).toISOString(), remind_before: Number(remind) || 0,
-      });
+        due_at: new Date(due.replace(' ', 'T')).toISOString(), remind_before: Number(remind) || 0, sms,
+      }) as Awaited<ReturnType<typeof appointments.create>> & { sms?: { ok: boolean } | null };
+      if (sms && !a.sms?.ok) toastError(new Error('Randevu kaydedildi ama müşteriye SMS gönderilemedi'));
       if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
       toastOk(`${a.name} için randevu kaydedildi`);
       onClose();
@@ -62,6 +64,7 @@ export function AppointmentDialog({ target, opened, onClose }: { target: Appoint
         <DateTimePicker label="Ne zaman aranacak" value={due} onChange={setDue} valueFormat="DD.MM.YYYY HH:mm" minDate={new Date()} required />
         <NumberInput label="Kaç dakika önce hatırlatılsın" value={remind} onChange={setRemind} min={0} max={1440} step={15} suffix=" dk" />
         <Textarea label="Not" placeholder="Ör. Yarın tekrar ara dedi, Çankaya 3+1 ile ilgileniyor" value={note} onChange={(e) => setNote(e.currentTarget.value)} autosize minRows={2} />
+        <Checkbox label="Müşteriye SMS ile bildir (“sizi şu saatte arayacağız”)" checked={sms} onChange={(e) => setSms(e.currentTarget.checked)} />
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>Vazgeç</Button>
           <Button onClick={save} loading={saving} disabled={!due || (!fixed && !phone)}>Randevuyu kaydet</Button>

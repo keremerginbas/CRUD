@@ -11,6 +11,7 @@ import { useSession } from '../session';
 import { SPECIALTY_COLORS, SPECIALTY_LABELS, parseSpecialties } from '../specialties';
 import type { OfficeSettings, PbxNumber, Role, User } from '../types';
 import { useLoad } from '../useLoad';
+import { SmsTemplates } from '../components/SmsTemplates';
 
 const ROLE_LABELS: Record<Role, string> = { admin: 'Yönetici', broker: 'Broker', asistan: 'Asistan', danisman: 'Danışman' };
 const NUMBER_TYPES = { personal: 'Danışman hattı', listing: 'İlan hattı', hunt: 'Karşılama hattı' };
@@ -131,6 +132,7 @@ export function Team() {
           <Tabs.Tab value="ekip">Ekip {users.data && <Badge size="sm" variant="light" ml={6}>{users.data.length}</Badge>}</Tabs.Tab>
           <Tabs.Tab value="hatlar">Hatlar {numbers.data && <Badge size="sm" variant="light" ml={6}>{numbers.data.length}</Badge>}</Tabs.Tab>
           <Tabs.Tab value="ofis">Ofis saatleri</Tabs.Tab>
+          <Tabs.Tab value="sms">SMS şablonları</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="ekip" pt="md">
@@ -166,6 +168,8 @@ export function Team() {
             </SimpleGrid>
           )}
         </Tabs.Panel>
+
+        <Tabs.Panel value="sms" pt="md"><SmsTemplates editable={isAdmin} /></Tabs.Panel>
 
         <Tabs.Panel value="ofis" pt="md">
           {!office.data ? <Skeleton h={160} radius="lg" /> : (

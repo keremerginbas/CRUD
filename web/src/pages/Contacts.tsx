@@ -1,11 +1,13 @@
-import { Badge, Button, Group, Modal, Radio, Skeleton, Stack, Text, TextInput } from '@mantine/core';
+import { ActionIcon, Badge, Button, Group, Modal, Radio, Skeleton, Stack, Text, TextInput, Tooltip } from '@mantine/core';
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
-import { IconAddressBook, IconSearch } from '@tabler/icons-react';
+import { IconAddressBook, IconCalendarPlus, IconMessage, IconSearch } from '@tabler/icons-react';
 import { useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { Fab } from '../components/Fab';
 import { maskedCall, toastError, toastOk } from '../components/maskedCall';
 import { Empty, Row } from '../components/Row';
+import { AppointmentDialog } from '../components/AppointmentDialog';
+import { SmsDialog, type SmsTarget } from '../components/SmsDialog';
 import { formatDate } from '../format';
 import type { Contact } from '../types';
 import { useLoad } from '../useLoad';
@@ -16,6 +18,8 @@ export function Contacts() {
   const { data: contacts, error, loading, reload } = useLoad(() => api<Contact[]>(`/api/contacts?q=${encodeURIComponent(query)}`), [query]);
   const [opened, { open, close }] = useDisclosure(false);
   const [saving, setSaving] = useState(false);
+  const [smsTarget, setSmsTarget] = useState<SmsTarget | null>(null);
+  const [apptTarget, setApptTarget] = useState<SmsTarget | null>(null);
 
   const save = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -53,7 +57,13 @@ export function Contacts() {
             callLabel={`${c.name} kişisini ara`}
             onCall={() => maskedCall({ contactId: c.id, phone: c.phone, name: c.name })}
             meta={<>
-              <Badge size="sm" variant="light" color={c.type === 'SATICI' ? 'grape' : 'cyan'}>{c.type === 'SATICI' ? 'Satıcı' : 'Alıcı'}</Badge>
+              <Group gap={2} wrap="nowrap">
+                <Tooltip label="SMS"><ActionIcon size="sm" variant="subtle" color="gray" aria-label={`${c.name} SMS`}
+                  onClick={() => setSmsTarget({ contactId: c.id, name: c.name, phone: c.phone })}><IconMessage size={16} /></ActionIcon></Tooltip>
+                <Tooltip label="Randevu"><ActionIcon size="sm" variant="subtle" color="gray" aria-label={`${c.name} randevu`}
+                  onClick={() => setApptTarget({ contactId: c.id, name: c.name, phone: c.phone })}><IconCalendarPlus size={16} /></ActionIcon></Tooltip>
+                <Badge size="sm" variant="light" color={c.type === 'SATICI' ? 'grape' : 'cyan'}>{c.type === 'SATICI' ? 'Satıcı' : 'Alıcı'}</Badge>
+              </Group>
               <Text size="xs" c="dimmed" className="hide-xs">{formatDate(c.created_at)}</Text>
             </>}
           />
@@ -61,6 +71,8 @@ export function Contacts() {
       </Stack>
 
       <Fab label="Yeni kişi" onClick={open} />
+      <SmsDialog opened={!!smsTarget} target={smsTarget} onClose={() => setSmsTarget(null)} />
+      <AppointmentDialog opened={!!apptTarget} target={apptTarget} onClose={() => setApptTarget(null)} />
 
       <Modal opened={opened} onClose={close} title="Yeni kişi" centered radius="lg">
         <form onSubmit={save}>

@@ -7,6 +7,7 @@ import { normalizePhone, toLocalFormat, TRUNK_NAME_RE } from './phone.js';
 import { decideInboundRoute, isOfficeOpen } from './routing.js';
 import { sendPush } from './push.js';
 import { syncCallToBitrix } from './bitrix.js';
+import { DEFAULT_SMS_TEMPLATES, createSmsClient, fillTemplate } from './sms.js';
 
 const SETTINGS_FIELDS = [
   'forward_phone', 'voice_announcement', 'recording_broker', 'recording_assistant',
@@ -30,7 +31,7 @@ const requireRole = (...roles) => (req, res, next) => (roles.includes(req.user.r
 
 const publicUser = ({ password_hash, push_token, ...u }) => u;
 
-export function createApp({ db, provider, config, notify = sendPush, bitrix = null }) {
+export function createApp({ db, provider, config, notify = sendPush, bitrix = null, sms = createSmsClient(config.sms) }) {
   const app = express();
   const keepRaw = (req, _res, buf) => { req.rawBody = buf; };
   app.use(express.json({ verify: keepRaw }));
@@ -64,6 +65,8 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     ...Object.fromEntries(db.prepare('SELECT key, value FROM settings').all().map((r) => [r.key, r.value])) });
 
   const auth = requireAuth(config.jwtSecret);
+  const manager = requireRole(...MANAGER_ROLES);
+  const admin = requireRole('admin');
   const verify = verifyWebhook(config.pbx.webhookSecret);
   // PBX_LOG_WEBHOOKS=1: santralin gönderdiği ham alanları görmek için (yeni sağlayıcı bağlarken)
   const webhook = (req, res, next) => verify(req, res, () => {
@@ -349,6 +352,66 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     }
   }
 
+  // ---- SMS ----
+  const smsTemplates = () => {
+    const raw = db.prepare("SELECT value FROM settings WHERE key = 'sms_templates'").get()?.value;
+    try { return raw ? JSON.parse(raw) : DEFAULT_SMS_TEMPLATES; } catch { return DEFAULT_SMS_TEMPLATES; }
+  };
+  const smsVars = (user, contact, extra = {}) => ({
+    ad: contact?.name ?? '', danisman: user?.name ?? '',
+    hat: q.personalNumber.get(user?.id ?? 0)?.did ? toLocalFormat(q.personalNumber.get(user.id).did) : '', ...extra,
+  });
+  // Tek numaraya SMS gönderir ve loglar; { ok, id }
+  async function sendSms(user, phone, message, contactId) {
+    let result;
+    try { result = await sms.send(toLocalFormat(phone), message); } catch (err) { result = { ok: false, response: err.message }; }
+    const { lastInsertRowid } = db.prepare(`INSERT INTO sms_log (user_id, contact_id, phone, message, status, response)
+      VALUES (?, ?, ?, ?, ?, ?)`).run(user?.id ?? null, contactId ?? q.contactByPhone.get(phone)?.id ?? null, phone, message,
+      result.ok ? 'sent' : 'failed', result.response ?? null);
+    return { ok: result.ok, id: Number(lastInsertRowid), response: result.response };
+  }
+
+  app.get('/api/sms/templates', auth, (req, res) => res.json({ enabled: sms.enabled, templates: smsTemplates() }));
+
+  app.put('/api/sms/templates', auth, admin, (req, res) => {
+    const list = Array.isArray(req.body?.templates) ? req.body.templates : null;
+    if (!list || list.some((t) => !t?.title || !t?.text || String(t.text).length > 600)) {
+      return res.status(400).json({ error: 'Her şablonun başlığı ve metni olmalı (en çok 600 karakter)' });
+    }
+    const clean = list.slice(0, 30).map((t, i) => ({ id: String(t.id ?? `t${i}`), title: String(t.title).slice(0, 60), text: String(t.text) }));
+    db.prepare("INSERT INTO settings (key, value) VALUES ('sms_templates', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+      .run(JSON.stringify(clean));
+    res.json({ enabled: sms.enabled, templates: clean });
+  });
+
+  // Önizleme: şablon alanları doldurulmuş metin
+  app.post('/api/sms/preview', auth, (req, res) => {
+    const contact = req.body?.contactId ? q.contactById.get(req.body.contactId) : null;
+    res.json({ text: fillTemplate(String(req.body?.text ?? ''), smsVars(me(req), contact)) });
+  });
+
+  app.post('/api/sms', auth, async (req, res) => {
+    const user = me(req);
+    const contact = req.body?.contactId ? q.contactById.get(req.body.contactId) : null;
+    const phone = normalizePhone(contact?.phone ?? req.body?.phone);
+    const message = fillTemplate(String(req.body?.message ?? '').trim(), smsVars(user, contact));
+    if (!/^\+905\d{9}$/.test(phone)) return res.status(400).json({ error: 'SMS yalnızca Türkiye cep numaralarına gönderilir' });
+    if (!message || message.length > 600) return res.status(400).json({ error: 'Mesaj boş olamaz (en çok 600 karakter)' });
+    if (!sms.enabled) return res.status(503).json({ error: 'SMS ayarlı değil; yöneticinize başvurun' });
+    const r = await sendSms(user, phone, message, contact?.id);
+    if (!r.ok) return res.status(502).json({ error: `SMS gönderilemedi: ${r.response ?? ''}`.trim() });
+    res.status(201).json(db.prepare('SELECT * FROM sms_log WHERE id = ?').get(r.id));
+  });
+
+  app.get('/api/sms', auth, (req, res) => {
+    const phone = normalizePhone(req.query.phone);
+    const contactId = Number(req.query.contactId) || null;
+    const all = MANAGER_ROLES.has(req.user.role);
+    res.json(db.prepare(`SELECT s.*, u.name AS user_name FROM sms_log s LEFT JOIN users u ON u.id = s.user_id
+      WHERE (? OR s.user_id = ?) AND (? IS NULL OR s.contact_id = ?) AND (? = '' OR s.phone = ?)
+      ORDER BY s.id DESC LIMIT 100`).all(all ? 1 : 0, req.user.sub, contactId, contactId, phone, phone));
+  });
+
   // ---- Randevular (geri arama) ----
   const toSqlUtc = (raw) => {
     const d = new Date(String(raw ?? ''));
@@ -362,7 +425,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       ORDER BY status = 'open' DESC, due_at ${all ? 'DESC' : 'ASC'} LIMIT 300`).all(req.user.sub, all ? 1 : 0));
   });
 
-  app.post('/api/appointments', auth, (req, res) => {
+  app.post('/api/appointments', auth, async (req, res) => {
     const body = req.body ?? {};
     const contact = body.contactId ? q.contactById.get(body.contactId) : null;
     const phone = normalizePhone(contact?.phone ?? body.phone);
@@ -373,7 +436,19 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const { lastInsertRowid } = db.prepare(`INSERT INTO appointments (user_id, contact_id, name, phone, due_at, remind_before, note)
       VALUES (?, ?, ?, ?, ?, ?, ?)`).run(req.user.sub, contact?.id ?? q.contactByPhone.get(phone)?.id ?? null,
       contact?.name ?? (String(body.name ?? '').trim().toLocaleUpperCase('tr-TR') || phone), phone, dueAt, remind, body.note ? String(body.note).slice(0, 500) : null);
-    res.status(201).json(apptById.get(lastInsertRowid, req.user.sub));
+    const created = apptById.get(lastInsertRowid, req.user.sub);
+    // İsteğe bağlı: müşteriye "sizi şu tarihte arayacağız" SMS'i
+    let smsResult = null;
+    if (body.sms && sms.enabled && /^\+905\d{9}$/.test(phone)) {
+      const tpl = smsTemplates().find((t) => t.id === 'randevu') ?? DEFAULT_SMS_TEMPLATES[2];
+      const d = new Date(`${dueAt.replace(' ', 'T')}Z`);
+      // Sunucuda Türkçe yerel ayar olmayabilir: parçaları kendimiz birleştiririz (18.11 12:00)
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: config.timezone, day: '2-digit', month: '2-digit',
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map((x) => [x.type, x.value]));
+      const tarih = `${p.day}.${p.month} ${p.hour}:${p.minute}`;
+      smsResult = await sendSms(me(req), phone, fillTemplate(tpl.text, smsVars(me(req), contact ?? q.contactById.get(created.contact_id ?? 0), { tarih })), created.contact_id);
+    }
+    res.status(201).json({ ...created, sms: smsResult && { ok: smsResult.ok } });
   });
 
   app.put('/api/appointments/:id', auth, (req, res) => {
@@ -390,8 +465,6 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
   });
 
   // ---- Ekip ve hat yönetimi ----
-  const manager = requireRole(...MANAGER_ROLES);
-  const admin = requireRole('admin');
 
   app.get('/api/users', auth, manager, (_req, res) => {
     res.json(db.prepare('SELECT * FROM users ORDER BY name COLLATE NOCASE').all().map(publicUser));

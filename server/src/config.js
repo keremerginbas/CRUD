@@ -10,6 +10,14 @@ export const config = {
     wsUrl: env.SIP_WS_URL ?? '',
     domain: env.SIP_DOMAIN ?? '',
   },
+  // Kurumsal SMS (CORPORATESMS XML); şifre yalnızca .env'de
+  sms: {
+    url: env.SMS_API_URL ?? '',
+    username: env.SMS_USERNAME ?? '',
+    password: env.SMS_PASSWORD ?? '',
+    header: env.SMS_HEADER ?? 'XRE',
+    type: env.SMS_TYPE ?? 'UC',
+  },
   bitrix: {
     webhookUrl: env.BITRIX_WEBHOOK_URL ?? '',
     // Danışmanı Bitrix'te eşleşmeyen çağrılar bu kullanıcıya yazılır (boşsa yazılmaz)

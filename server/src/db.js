@@ -56,6 +56,19 @@ CREATE TABLE IF NOT EXISTS appointments (
 );
 CREATE INDEX IF NOT EXISTS appointments_user ON appointments(user_id, status, due_at);
 
+-- Gönderilen SMS'ler (firmanın cevabıyla)
+CREATE TABLE IF NOT EXISTS sms_log (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+  phone TEXT NOT NULL,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL CHECK (status IN ('sent','failed')),
+  response TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS sms_log_contact ON sms_log(contact_id, created_at);
+
 -- Panelden değiştirilebilen ayarlar (ofis saatleri vb.)
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 

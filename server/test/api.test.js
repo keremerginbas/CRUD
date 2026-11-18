@@ -5,6 +5,8 @@ import { openDb } from '../src/db.js';
 import { hashPassword } from '../src/auth.js';
 import { createMockProvider } from '../src/providers/mock.js';
 import { createApp } from '../src/app.js';
+import { createServer } from 'node:http';
+import { createSmsClient } from '../src/sms.js';
 
 const config = {
   jwtSecret: 'test', timezone: 'Europe/Istanbul',
@@ -14,6 +16,8 @@ const pushes = [];
 const bitrixCalls = [];
 const bitrix = { call: async (method, params) => { bitrixCalls.push([method, params]); return method.endsWith('register') ? { CALL_ID: 'externalCall.1' } : true; } };
 let base, provider, db, tokens = {};
+// Sahte SMS firması: gelen XML'leri kaydeder; mesajında 'BOZUK' geçerse hata döner
+const smsSeen = [];
 
 before(async () => {
   db = openDb(':memory:');
@@ -30,7 +34,14 @@ before(async () => {
   db.exec(`INSERT INTO contacts (name, phone, type, owner_id) VALUES ('MUSTAFA UTKU', '+905464962638', 'ALICI', 1)`);
 
   provider = createMockProvider();
-  const server = createApp({ db, provider, config, bitrix, notify: async (...a) => pushes.push(a) }).listen(0);
+  const smsServer = createServer((req, res) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => { smsSeen.push({ type: req.headers['content-type'], body }); res.end(body.includes('BOZUK') ? 'HATA: yetersiz bakiye' : 'OK 123456'); });
+  }).listen(0);
+  smsServer.unref();
+  const sms = createSmsClient({ url: `http://127.0.0.1:${smsServer.address().port}/sms`, username: 'kullanici', password: 'gizli&<', header: 'XRE', type: 'UC' });
+  const server = createApp({ db, provider, config, bitrix, sms, notify: async (...a) => pushes.push(a) }).listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
   server.unref();
   for (const who of ['kaan', 'broker', 'baska']) {
@@ -340,6 +351,35 @@ test('randevu: danışman oluşturur, kendi randevularını görür, tamamlar', 
   const moved = await call('PUT', `/api/appointments/${byPhone.body.id}`, { due_at: later }, { token: tokens.kaan });
   assert.equal(new Date(`${moved.body.due_at.replace(' ', 'T')}Z`).toISOString().slice(0, 16), later.slice(0, 16));
   assert.equal((await call('PUT', `/api/appointments/${byPhone.body.id}`, { status: 'x' }, { token: tokens.kaan })).status, 400);
+  db.exec('DELETE FROM appointments');
+});
+
+test('SMS: şablon doldurulur, XML firmaya gider, loglanır; hata ve geçersiz numara', async () => {
+  const t = await call('GET', '/api/sms/templates', null, { token: tokens.kaan });
+  assert.equal(t.body.enabled, true);
+  assert.ok(t.body.templates.some((x) => x.id === 'randevu'));
+  const sent = await call('POST', '/api/sms', { contactId: 1, message: 'Sayın {ad}, danışmanınız {danisman} ({hat}). ]]> test' }, { token: tokens.kaan });
+  assert.equal(sent.status, 201);
+  assert.equal(sent.body.message, 'Sayın MUSTAFA UTKU, danışmanınız KAAN (08504660149). ]]> test');
+  const xml = smsSeen.at(-1);
+  assert.match(xml.type, /text\/xml/);
+  assert.match(xml.body, /<USERNAME>kullanici<\/USERNAME>/);
+  assert.match(xml.body, /<PASSWORD>gizli&amp;&lt;<\/PASSWORD>/);
+  assert.match(xml.body, /<NUMBERS>05464962638<\/NUMBERS>/);
+  assert.match(xml.body, /<SMS_MESSAGE><!\[CDATA\[Sayın MUSTAFA UTKU.*\]\]\]\]><!\[CDATA\[> test\]\]><\/SMS_MESSAGE>/s);
+  assert.equal((await call('POST', '/api/sms', { phone: '03122191672', message: 'x' }, { token: tokens.kaan })).status, 400);
+  assert.equal((await call('POST', '/api/sms', { phone: '05551112233', message: '' }, { token: tokens.kaan })).status, 400);
+  const failed = await call('POST', '/api/sms', { phone: '05551112233', message: 'BOZUK' }, { token: tokens.kaan });
+  assert.equal(failed.status, 502);
+  const log = (await call('GET', '/api/sms?contactId=1', null, { token: tokens.kaan })).body;
+  assert.deepEqual(log.map((l) => l.status), ['sent']);
+  assert.equal((await call('GET', '/api/sms', null, { token: tokens.baska })).body.length, 0);
+  // Randevu oluştururken müşteriye SMS
+  const n = smsSeen.length;
+  const a = await call('POST', '/api/appointments', { contactId: 1, due_at: new Date(Date.now() + 3600e3).toISOString(), sms: true }, { token: tokens.kaan });
+  assert.equal(a.body.sms.ok, true);
+  assert.match(smsSeen.at(-1).body, /MUSTAFA UTKU, XRE danismaniniz KAAN sizi \d\d\.\d\d \d\d:\d\d tarihinde arayacak/);
+  assert.equal(smsSeen.length, n + 1);
   db.exec('DELETE FROM appointments');
 });
 
