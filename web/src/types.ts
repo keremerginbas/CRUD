@@ -23,3 +23,8 @@ export type Call = {
   duration_sec: number; recording_ref: string | null; started_at: string;
   contact_id: number | null; contact_name: string | null; contact_type: Contact['type'] | null; user_name: string | null;
 };
+
+export type Appointment = {
+  id: number; user_id: number; contact_id: number | null; name: string; phone: string;
+  due_at: string; remind_before: number; note: string | null; status: 'open' | 'done' | 'cancelled'; created_at: string;
+};

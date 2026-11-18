@@ -349,6 +349,46 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     }
   }
 
+  // ---- Randevular (geri arama) ----
+  const toSqlUtc = (raw) => {
+    const d = new Date(String(raw ?? ''));
+    return Number.isNaN(+d) ? null : d.toISOString().slice(0, 19).replace('T', ' ');
+  };
+  const apptById = db.prepare('SELECT * FROM appointments WHERE id = ? AND user_id = ?');
+
+  app.get('/api/appointments', auth, (req, res) => {
+    const all = req.query.status === 'all';
+    res.json(db.prepare(`SELECT * FROM appointments WHERE user_id = ? AND (? OR status = 'open')
+      ORDER BY status = 'open' DESC, due_at ${all ? 'DESC' : 'ASC'} LIMIT 300`).all(req.user.sub, all ? 1 : 0));
+  });
+
+  app.post('/api/appointments', auth, (req, res) => {
+    const body = req.body ?? {};
+    const contact = body.contactId ? q.contactById.get(body.contactId) : null;
+    const phone = normalizePhone(contact?.phone ?? body.phone);
+    const dueAt = toSqlUtc(body.due_at);
+    if (!phone) return res.status(400).json({ error: 'Aranacak numara yok' });
+    if (!dueAt) return res.status(400).json({ error: 'Randevu tarihi geçersiz' });
+    const remind = Number.isInteger(Number(body.remind_before)) ? Math.min(Math.max(Number(body.remind_before), 0), 1440) : 60;
+    const { lastInsertRowid } = db.prepare(`INSERT INTO appointments (user_id, contact_id, name, phone, due_at, remind_before, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`).run(req.user.sub, contact?.id ?? q.contactByPhone.get(phone)?.id ?? null,
+      contact?.name ?? (String(body.name ?? '').trim().toLocaleUpperCase('tr-TR') || phone), phone, dueAt, remind, body.note ? String(body.note).slice(0, 500) : null);
+    res.status(201).json(apptById.get(lastInsertRowid, req.user.sub));
+  });
+
+  app.put('/api/appointments/:id', auth, (req, res) => {
+    const a = apptById.get(req.params.id, req.user.sub);
+    if (!a) return res.status(404).json({ error: 'Randevu bulunamadı' });
+    const body = req.body ?? {};
+    const status = body.status ?? a.status;
+    if (!['open', 'done', 'cancelled'].includes(status)) return res.status(400).json({ error: 'Geçersiz durum' });
+    const dueAt = 'due_at' in body ? toSqlUtc(body.due_at) : a.due_at;
+    if (!dueAt) return res.status(400).json({ error: 'Randevu tarihi geçersiz' });
+    const note = 'note' in body ? (body.note ? String(body.note).slice(0, 500) : null) : a.note;
+    db.prepare('UPDATE appointments SET status = ?, due_at = ?, note = ? WHERE id = ?').run(status, dueAt, note, a.id);
+    res.json(apptById.get(a.id, req.user.sub));
+  });
+
   // ---- Ekip ve hat yönetimi ----
   const manager = requireRole(...MANAGER_ROLES);
   const admin = requireRole('admin');

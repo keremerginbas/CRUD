@@ -1,7 +1,9 @@
 import { Anchor, Avatar, Badge, Button, Group, Paper, SimpleGrid, Skeleton, Stack, Text, Title } from '@mantine/core';
-import { IconArrowLeft, IconPhone, IconPlayerPlay } from '@tabler/icons-react';
+import { useDisclosure } from '@mantine/hooks';
+import { IconArrowLeft, IconCalendarPlus, IconPhone, IconPlayerPlay } from '@tabler/icons-react';
 import { useState } from 'react';
 import { api, fetchRecording } from '../api';
+import { AppointmentDialog } from '../components/AppointmentDialog';
 import { maskedCall, toastError } from '../components/maskedCall';
 import { daysAgo, formatDate, formatDuration } from '../format';
 import type { Call } from '../types';
@@ -12,6 +14,7 @@ export function CallDetail({ id }: { id: string }) {
   const { data: c, error } = useLoad(() => api<Call>(`/api/calls/${encodeURIComponent(id)}`), [id]);
   const [audio, setAudio] = useState<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
+  const [apptOpen, appt] = useDisclosure(false);
 
   if (error) return <Text c="red.5" ta="center" py="xl">{error}</Text>;
   if (!c) return <Skeleton h={320} radius="lg" />;
@@ -43,9 +46,13 @@ export function CallDetail({ id }: { id: string }) {
             <Badge variant="outline" color="gray">{STATUS_LABELS[c.status]}</Badge>
           </Group>
         </div>
-        <Button leftSection={<IconPhone size={18} />} onClick={() => maskedCall({ contactId: c.contact_id ?? undefined, phone: c.customer_phone, name })}>
-          Geri ara
-        </Button>
+        <Group gap="xs">
+          <Button variant="light" leftSection={<IconCalendarPlus size={18} />} onClick={appt.open}>Randevu</Button>
+          <Button leftSection={<IconPhone size={18} />} onClick={() => maskedCall({ contactId: c.contact_id ?? undefined, phone: c.customer_phone, name })}>
+            Geri ara
+          </Button>
+        </Group>
+        <AppointmentDialog opened={apptOpen} onClose={appt.close} target={{ contactId: c.contact_id, name, phone: c.customer_phone }} />
       </Group>
 
       <Paper p="lg" radius="lg" className="card">

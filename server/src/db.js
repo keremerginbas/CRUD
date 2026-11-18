@@ -41,6 +41,21 @@ CREATE TABLE IF NOT EXISTS numbers (
   trunk TEXT                        -- numaranın bağlı olduğu operatör bağlantısı (santraldeki trunk adı; boşsa varsayılan)
 );
 
+-- Geri arama randevuları: danışmana panelde önce (remind_before dk) ve zamanında hatırlatılır
+CREATE TABLE IF NOT EXISTS appointments (
+  id INTEGER PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  due_at TEXT NOT NULL,              -- UTC "YYYY-MM-DD HH:MM:SS"
+  remind_before INTEGER NOT NULL DEFAULT 60,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','done','cancelled')),
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS appointments_user ON appointments(user_id, status, due_at);
+
 -- Panelden değiştirilebilen ayarlar (ofis saatleri vb.)
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 

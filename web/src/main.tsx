@@ -7,6 +7,8 @@ import '@mantine/spotlight/styles.css';
 import '@mantine/nprogress/styles.css';
 import './app.css';
 import { MantineProvider } from '@mantine/core';
+import { DatesProvider } from '@mantine/dates';
+import 'dayjs/locale/tr';
 import { ModalsProvider } from '@mantine/modals';
 import { Notifications } from '@mantine/notifications';
 import { NavigationProgress } from '@mantine/nprogress';
@@ -20,6 +22,7 @@ import { theme } from './theme';
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <MantineProvider theme={theme} forceColorScheme="dark">
+      <DatesProvider settings={{ locale: 'tr', firstDayOfWeek: 1 }}>
       <ModalsProvider labels={{ confirm: 'Tamam', cancel: 'Vazgeç' }}>
         <Notifications position="top-center" limit={2} autoClose={3000} />
         <NavigationProgress />
@@ -30,6 +33,7 @@ createRoot(document.getElementById('root')!).render(
           </SessionProvider>
         </MotionConfig>
       </ModalsProvider>
+      </DatesProvider>
     </MantineProvider>
   </StrictMode>,
 );

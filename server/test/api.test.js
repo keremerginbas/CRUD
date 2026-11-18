@@ -316,6 +316,33 @@ test('ofis saatleri yöneticiden ayarlanır, danışman uzmanlık alanı zorunlu
   }
 });
 
+test('randevu: danışman oluşturur, kendi randevularını görür, tamamlar', async () => {
+  const due = new Date(Date.now() + 26 * 3600e3).toISOString();
+  assert.equal((await call('POST', '/api/appointments', { phone: '05464962638', due_at: 'yarın' }, { token: tokens.kaan })).status, 400);
+  assert.equal((await call('POST', '/api/appointments', { due_at: due }, { token: tokens.kaan })).status, 400);
+  const created = await call('POST', '/api/appointments', { contactId: 1, due_at: due, note: 'Yarın ara dedi' }, { token: tokens.kaan });
+  assert.equal(created.status, 201);
+  assert.deepEqual([created.body.name, created.body.phone, created.body.status, created.body.remind_before], ['MUSTAFA UTKU', '+905464962638', 'open', 60]);
+  const byPhone = await call('POST', '/api/appointments', { phone: '0555 111 22 33', name: 'Yeni', due_at: due, remind_before: 30 }, { token: tokens.kaan });
+  assert.equal(byPhone.body.remind_before, 30);
+
+  const mine = (await call('GET', '/api/appointments', null, { token: tokens.kaan })).body;
+  assert.equal(mine.length, 2);
+  assert.equal((await call('GET', '/api/appointments', null, { token: tokens.baska })).body.length, 0);
+  // Başkası güncelleyemez
+  assert.equal((await call('PUT', `/api/appointments/${created.body.id}`, { status: 'done' }, { token: tokens.baska })).status, 404);
+  const done = await call('PUT', `/api/appointments/${created.body.id}`, { status: 'done' }, { token: tokens.kaan });
+  assert.equal(done.body.status, 'done');
+  assert.equal((await call('GET', '/api/appointments', null, { token: tokens.kaan })).body.length, 1);
+  assert.equal((await call('GET', '/api/appointments?status=all', null, { token: tokens.kaan })).body.length, 2);
+  // Erteleme
+  const later = new Date(Date.now() + 50 * 3600e3).toISOString();
+  const moved = await call('PUT', `/api/appointments/${byPhone.body.id}`, { due_at: later }, { token: tokens.kaan });
+  assert.equal(new Date(`${moved.body.due_at.replace(' ', 'T')}Z`).toISOString().slice(0, 16), later.slice(0, 16));
+  assert.equal((await call('PUT', `/api/appointments/${byPhone.body.id}`, { status: 'x' }, { token: tokens.kaan })).status, 400);
+  db.exec('DELETE FROM appointments');
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));
