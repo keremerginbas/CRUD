@@ -169,6 +169,19 @@ export const softphone = {
     }
   },
   hangup() { session?.terminate(); },
+  // Görüşmedeki müşteriyi bir ilanın danışmanına aktarır (santral: xre-transfer, aktar<id>)
+  transfer(listingId: number) {
+    if (!session || state.call?.phase !== 'active') throw new Error('Aktarılacak görüşme yok');
+    return new Promise<void>((resolve, reject) => {
+      session!.refer(`sip:aktar${listingId}@${domain}`, {
+        eventHandlers: {
+          accepted: () => resolve(),
+          failed: () => reject(new Error('Santral aktarmayı kabul etmedi')),
+          requestFailed: () => reject(new Error('Aktarma isteği gönderilemedi')),
+        },
+      });
+    });
+  },
   toggleMute() {
     if (!session || !state.call) return;
     if (state.call.muted) session.unmute({ audio: true }); else session.mute({ audio: true });

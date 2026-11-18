@@ -56,6 +56,20 @@ CREATE TABLE IF NOT EXISTS appointments (
 );
 CREATE INDEX IF NOT EXISTS appointments_user ON appointments(user_id, status, due_at);
 
+-- İlan portalı: asistan, kayıtsız müşterinin sorduğu ilanı seçip aramayı ilanın danışmanına aktarır
+CREATE TABLE IF NOT EXISTS listings (
+  id INTEGER PRIMARY KEY,
+  ref TEXT NOT NULL,                 -- ilan no (sahibinden, hepsiemlak vb.)
+  title TEXT NOT NULL,
+  category TEXT NOT NULL CHECK (category IN ('konut','ticari','arazi')),
+  district TEXT,
+  price INTEGER,
+  url TEXT,
+  user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 -- Gönderilen SMS'ler (firmanın cevabıyla)
 CREATE TABLE IF NOT EXISTS sms_log (
   id INTEGER PRIMARY KEY,
@@ -118,6 +132,7 @@ const ADDED_COLUMNS = [
   ['calls', 'bitrix_call_id', 'TEXT'],
   ['numbers', 'trunk', 'TEXT'],
   ['users', 'specialties', 'TEXT'],
+  ['calls', 'listing_id', 'INTEGER'],
 ];
 
 function migrate(db) {

@@ -27,6 +27,7 @@ export function CallDetail({ id }: { id: string }) {
     ['Telefon', c.customer_phone],
     [c.direction === 'inbound' ? 'Aranan numara' : 'Müşterinin gördüğü numara', c.dialed_label ? `${c.dialed_label} · ${c.dialed_number}` : (c.dialed_number ?? '—')],
     ['Danışman', c.user_name ?? '—'],
+    ...(c.listing_ref ? [['İlan', `${c.listing_ref} · ${c.listing_title}`] as [string, string]] : []),
     ['Tarih', `${formatDate(c.started_at)} (${daysAgo(c.started_at).toLocaleLowerCase('tr-TR')})`],
     ['Süre', formatDuration(c.duration_sec)],
   ];

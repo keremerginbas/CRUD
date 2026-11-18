@@ -66,6 +66,7 @@ test('yönlendirme cevabı dialplan için düz metin', () => {
   // 6. alan: karşılama hattı, santral "dahili tuşlayın" anonsunu çalar
   assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905312814423', userId: null, reason: 'kayitsiz-musteri', whisper: 'x', ivr: true }), 'forward,05312814423,0,1,,1');
   assert.equal(provider.parseRouteRequest({ from: '1', to: '2', callId: 'c', ext: '2020' }).extension, '2020');
+  assert.equal(provider.formatRouteResponse({ action: 'forward', destination: '+905070000000', userId: 3, whisper: 'x', callerName: 'İlan 701 Gölbaşı, arsa' }), 'forward,05070000000,0,1,u3,,İlan 701 Gölbaşı  arsa');
 });
 
 test('olaylar gelen ve giden aramada doğru ayrıştırılır', () => {

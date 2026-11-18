@@ -2,7 +2,7 @@ import { ActionIcon, AppShell, Avatar, Center, Group, Loader, Text, Tooltip } fr
 import { useMediaQuery } from '@mantine/hooks';
 import { nprogress } from '@mantine/nprogress';
 import { spotlight } from '@mantine/spotlight';
-import { IconAddressBook, IconCalendarEvent, IconLogout, IconPhone, IconSearch, IconSettings, IconUsers, type Icon } from '@tabler/icons-react';
+import { IconAddressBook, IconBuildingStore, IconCalendarEvent, IconLogout, IconPhone, IconSearch, IconSettings, IconUsers, type Icon } from '@tabler/icons-react';
 import { motion } from 'motion/react';
 import { notifications } from '@mantine/notifications';
 import { useEffect } from 'react';
@@ -11,6 +11,7 @@ import { QuickSearch } from './components/QuickSearch';
 import { SpecialtyGate } from './components/SpecialtyGate';
 import { AppointmentReminders } from './components/AppointmentReminders';
 import { Appointments } from './pages/Appointments';
+import { Listings } from './pages/Listings';
 import { CallDetail } from './pages/CallDetail';
 import { Calls } from './pages/Calls';
 import { Contacts } from './pages/Contacts';
@@ -26,6 +27,7 @@ const NAV: NavItem[] = [
   { path: 'aramalar', label: 'Aramalar', icon: IconPhone },
   { path: 'kisiler', label: 'Kişiler', icon: IconAddressBook },
   { path: 'randevular', label: 'Randevular', icon: IconCalendarEvent },
+  { path: 'ilanlar', label: 'İlanlar', icon: IconBuildingStore },
   { path: 'ekip', label: 'Ekip', icon: IconUsers, managerOnly: true },
   { path: 'ayarlar', label: 'Ayarlar', icon: IconSettings },
 ];
@@ -64,6 +66,7 @@ export function App() {
   const content = page === 'arama' && id ? <CallDetail id={id} />
     : page === 'kisiler' ? <Contacts />
     : page === 'randevular' ? <Appointments />
+    : page === 'ilanlar' ? <Listings />
     : page === 'ekip' && isManager ? <Team />
     : page === 'ayarlar' ? <Settings />
     : <Calls />;

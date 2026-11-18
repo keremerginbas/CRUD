@@ -22,9 +22,15 @@ export type Call = {
   dialed_number: string | null; dialed_label: string | null; status: CallStatus;
   duration_sec: number; recording_ref: string | null; started_at: string;
   contact_id: number | null; contact_name: string | null; contact_type: Contact['type'] | null; user_name: string | null;
+  listing_ref?: string | null; listing_title?: string | null;
 };
 
 export type Appointment = {
   id: number; user_id: number; contact_id: number | null; name: string; phone: string;
   due_at: string; remind_before: number; note: string | null; status: 'open' | 'done' | 'cancelled'; created_at: string;
+};
+
+export type Listing = {
+  id: number; ref: string; title: string; category: 'konut' | 'ticari' | 'arazi'; district: string | null;
+  price: number | null; url: string | null; user_id: number | null; user_name: string | null; active: number; created_at: string;
 };

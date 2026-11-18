@@ -1,5 +1,7 @@
 import { ActionIcon, Avatar, Badge, Button, Group, Modal, Paper, Stack, Text, Tooltip } from '@mantine/core';
-import { IconMicrophone, IconMicrophoneOff, IconPhone, IconPhoneOff } from '@tabler/icons-react';
+import { IconArrowsTransferUp, IconMicrophone, IconMicrophoneOff, IconPhone, IconPhoneOff } from '@tabler/icons-react';
+import { notifications } from '@mantine/notifications';
+import { ListingPicker } from './ListingPicker';
 import { useEffect, useState } from 'react';
 import { formatDuration } from '../format';
 import { softphone, useSoftphone } from '../softphone';
@@ -15,6 +17,7 @@ function Timer({ since }: { since: number }) {
 // Görüşme sırasında ekranın altında duran çubuk ve gelen arama penceresi
 export function CallBar() {
   const { call } = useSoftphone();
+  const [picking, setPicking] = useState(false);
   if (!call) return null;
 
   if (call.phase === 'incoming') {
@@ -36,6 +39,7 @@ export function CallBar() {
   }
 
   return (
+    <>
     <Paper
       shadow="xl" radius="xl" p="sm" pl="lg" bg="dark.5" withBorder
       style={{ position: 'fixed', left: '50%', transform: 'translateX(-50%)', bottom: 'calc(84px + env(safe-area-inset-bottom))', zIndex: 300, minWidth: 300, maxWidth: 'calc(100vw - 32px)' }}
@@ -51,6 +55,13 @@ export function CallBar() {
           </Group>
         </div>
         <Group gap="xs" wrap="nowrap">
+          {call.phase === 'active' && call.direction === 'in' && (
+            <Tooltip label="İlana aktar: müşteriyi ilanın danışmanına bağla">
+              <ActionIcon size={44} radius="xl" variant="light" color="orange" onClick={() => setPicking(true)} aria-label="İlana aktar">
+                <IconArrowsTransferUp size={20} />
+              </ActionIcon>
+            </Tooltip>
+          )}
           {call.phase === 'active' && (
             <Tooltip label={call.muted ? 'Sesi aç' : 'Sessize al'}>
               <ActionIcon size={44} radius="xl" variant={call.muted ? 'filled' : 'light'} color="gray" onClick={() => softphone.toggleMute()} aria-label="Mikrofon">
@@ -64,6 +75,19 @@ export function CallBar() {
         </Group>
       </Group>
     </Paper>
+    <ListingPicker
+      opened={picking} onClose={() => setPicking(false)} title="Müşteri hangi ilan için arıyor?"
+      onPick={async (l) => {
+        setPicking(false);
+        try {
+          await softphone.transfer(l.id);
+          notifications.show({ color: 'lime', message: `${l.ref} numaralı ilanın danışmanına (${l.user_name}) aktarıldı` });
+        } catch (e) {
+          notifications.show({ color: 'red', title: 'Aktarılamadı', message: (e as Error).message });
+        }
+      }}
+    />
+    </>
   );
 }
 

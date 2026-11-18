@@ -383,6 +383,39 @@ test('SMS: şablon doldurulur, XML firmaya gider, loglanır; hata ve geçersiz n
   db.exec('DELETE FROM appointments');
 });
 
+test('ilan portalı: ilan eklenir, aranır; asistan aramayı ilanın danışmanına aktarır', async () => {
+  // Danışman kendi ilanını ekler; başkası adına ekleyemez
+  const mine = await call('POST', '/api/listings', { ref: '638', title: 'Çankaya 3+1 daire', category: 'konut', district: 'Çankaya', price: 7500000 }, { token: tokens.kaan });
+  assert.equal(mine.status, 201);
+  assert.deepEqual([mine.body.user_id, mine.body.user_name, mine.body.category], [1, 'KAAN', 'konut']);
+  assert.equal((await call('POST', '/api/listings', { ref: '639', title: 'x', category: 'konut', user_id: 3 }, { token: tokens.kaan })).status, 403);
+  assert.equal((await call('POST', '/api/listings', { ref: '640', title: 'x', category: 'villa' }, { token: tokens.kaan })).status, 400);
+  // Broker başkası adına ekler
+  const other = await call('POST', '/api/listings', { ref: '701', title: 'Gölbaşı arsa', category: 'arazi', user_id: 3 }, { token: tokens.broker });
+  assert.equal(other.body.user_name, 'BAŞKA');
+  assert.equal((await call('GET', '/api/listings?q=gölbaşı', null, { token: tokens.kaan })).body.length, 1);
+  assert.equal((await call('GET', '/api/listings?q=638', null, { token: tokens.kaan })).body[0].title, 'Çankaya 3+1 daire');
+  assert.equal((await call('PUT', `/api/listings/${other.body.id}`, { title: 'y' }, { token: tokens.kaan })).status, 403);
+
+  // Santral: asistanın açtığı arama ilan 701'e aktarılır → BAŞKA'ya gider, ilan adı görünür
+  const route = { from: '05551239999', to: '4442453', callId: 'tr-ilan-1' };
+  await call('POST', '/webhooks/pbx/route', route, signed(route));
+  db.exec("UPDATE users SET forward_phone = '+905070000000' WHERE id = 3");
+  const ask = async (body) => (await fetch(`${base}/webhooks/pbx/transfer?token=hook`, {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body),
+  })).json();
+  const t = await ask({ callId: 'tr-ilan-1', listing: other.body.id });
+  assert.deepEqual([t.action, t.destination, t.userId, t.callerName], ['forward', '+905070000000', 3, 'İlan 701 Gölbaşı arsa']);
+  const row = db.prepare("SELECT user_id, listing_id FROM calls WHERE provider_call_id = 'tr-ilan-1'").get();
+  assert.deepEqual([row.user_id, row.listing_id], [3, other.body.id]);
+  const detail = (await call('GET', `/api/calls?scope=all`, null, { token: tokens.broker })).body.find((c) => c.provider_call_id === 'tr-ilan-1');
+  assert.deepEqual([detail.listing_ref, detail.listing_title], ['701', 'Gölbaşı arsa']);
+  assert.equal((await ask({ callId: 'tr-ilan-1', listing: 99999 })).action, 'reject');
+  db.exec('UPDATE users SET forward_phone = NULL WHERE id = 3');
+  db.exec("DELETE FROM calls WHERE provider_call_id = 'tr-ilan-1'");
+  db.exec('DELETE FROM listings');
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));

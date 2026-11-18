@@ -171,8 +171,10 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
 
   // ---- Çağrılar ----
   const CALL_VIEW = `
-    SELECT c.*, ct.name AS contact_name, ct.type AS contact_type, u.name AS user_name, n.label AS dialed_label
+    SELECT c.*, ct.name AS contact_name, ct.type AS contact_type, u.name AS user_name, n.label AS dialed_label,
+      l.ref AS listing_ref, l.title AS listing_title
     FROM calls c
+    LEFT JOIN listings l ON l.id = c.listing_id
     LEFT JOIN contacts ct ON ct.id = c.contact_id
     LEFT JOIN users u ON u.id = c.user_id
     LEFT JOIN numbers n ON n.did = c.dialed_number`;
@@ -351,6 +353,83 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       console.error('Bitrix aktarımı başarısız:', err.message);
     }
   }
+
+  // ---- İlan portalı ----
+  const LISTING_VIEW = 'SELECT l.*, u.name AS user_name FROM listings l LEFT JOIN users u ON u.id = l.user_id';
+  const listingById = db.prepare(`${LISTING_VIEW} WHERE l.id = ?`);
+  const listingBody = (body, current = {}) => {
+    const v = { ...current, ...Object.fromEntries(['ref', 'title', 'category', 'district', 'price', 'url', 'user_id', 'active'].filter((k) => k in (body ?? {})).map((k) => [k, body[k]])) };
+    v.ref = String(v.ref ?? '').trim(); v.title = String(v.title ?? '').trim();
+    if (!v.ref || !v.title) return { error: 'İlan no ve başlık zorunlu' };
+    if (!SPECIALTIES.includes(v.category)) return { error: 'Kategori konut, ticari ya da arazi olmalı' };
+    v.price = v.price === '' || v.price == null ? null : Math.round(Number(v.price));
+    if (v.price !== null && !(v.price >= 0)) return { error: 'Geçersiz fiyat' };
+    v.url = v.url ? String(v.url).trim() : null;
+    if (v.url && !/^https?:\/\//i.test(v.url)) return { error: 'Bağlantı http:// ya da https:// ile başlamalı' };
+    v.district = v.district ? String(v.district).trim() : null;
+    v.active = v.active === undefined ? 1 : (v.active ? 1 : 0);
+    return { value: v };
+  };
+
+  app.get('/api/listings', auth, (req, res) => {
+    const term = `%${String(req.query.q ?? '').trim().toLocaleLowerCase('tr-TR')}%`;
+    res.json(db.prepare(`${LISTING_VIEW} WHERE (? OR l.active = 1)
+      AND (lower(l.ref || ' ' || l.title || ' ' || coalesce(l.district, '') || ' ' || coalesce(u.name, '')) LIKE ? OR l.title LIKE ?)
+      ORDER BY l.active DESC, l.id DESC LIMIT 300`).all(req.query.all === '1' ? 1 : 0, term, `%${String(req.query.q ?? '').trim()}%`));
+  });
+
+  app.post('/api/listings', auth, (req, res) => {
+    const isManager = MANAGER_ROLES.has(req.user.role);
+    const userId = req.body?.user_id ? Number(req.body.user_id) : req.user.sub;
+    if (!isManager && userId !== req.user.sub) return res.status(403).json({ error: 'Sadece kendi adınıza ilan ekleyebilirsiniz' });
+    if (!q.userById.get(userId)) return res.status(400).json({ error: 'Danışman bulunamadı' });
+    const { value: v, error } = listingBody({ ...req.body, user_id: userId });
+    if (error) return res.status(400).json({ error });
+    const { lastInsertRowid } = db.prepare(`INSERT INTO listings (ref, title, category, district, price, url, user_id, active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(v.ref, v.title, v.category, v.district, v.price, v.url, userId, v.active);
+    res.status(201).json(listingById.get(lastInsertRowid));
+  });
+
+  app.put('/api/listings/:id', auth, (req, res) => {
+    const current = listingById.get(req.params.id);
+    if (!current) return res.status(404).json({ error: 'İlan bulunamadı' });
+    const isManager = MANAGER_ROLES.has(req.user.role);
+    if (!isManager && current.user_id !== req.user.sub) return res.status(403).json({ error: 'Bu ilanı düzenleme yetkiniz yok' });
+    if (!isManager && 'user_id' in (req.body ?? {}) && Number(req.body.user_id) !== req.user.sub) {
+      return res.status(403).json({ error: 'İlanı başkasına devredemezsiniz' });
+    }
+    const { value: v, error } = listingBody(req.body, current);
+    if (error) return res.status(400).json({ error });
+    if (v.user_id && !q.userById.get(v.user_id)) return res.status(400).json({ error: 'Danışman bulunamadı' });
+    db.prepare('UPDATE listings SET ref = ?, title = ?, category = ?, district = ?, price = ?, url = ?, user_id = ?, active = ? WHERE id = ?')
+      .run(v.ref, v.title, v.category, v.district, v.price, v.url, v.user_id ?? null, v.active, current.id);
+    res.json(listingById.get(current.id));
+  });
+
+  // Santral: görüşmedeki (asistanın açtığı) arama bir ilana aktarıldı → ilanın danışmanına yönlendir
+  app.post('/webhooks/pbx/transfer', webhook, (req, res) => {
+    const listing = listingById.get(Number(req.body?.listing) || 0);
+    const target = listing?.user_id ? q.userById.get(listing.user_id) : null;
+    const callId = String(req.body?.callId ?? '');
+    const callRow = callId ? q.callByProviderId.get(callId) : null;
+    let decision;
+    if (!listing || !target?.forward_phone) {
+      decision = { action: 'reject', destination: null, userId: null, whisper: null };
+    } else {
+      const contact = callRow?.contact_id ? q.contactById.get(callRow.contact_id) : null;
+      decision = {
+        action: 'forward', destination: target.forward_phone, userId: target.id, callerAnnouncement: null,
+        whisper: target.voice_announcement ? `${contact ? contact.name : 'Yeni müşteri'} ${listing.ref} numaralı ilan için arıyor.` : null,
+        // Danışmanın panelinde arayanın adı yerine görünür
+        callerName: `İlan ${listing.ref} ${listing.title}`.slice(0, 60),
+      };
+      if (callRow) db.prepare('UPDATE calls SET user_id = ?, listing_id = ? WHERE id = ?').run(target.id, listing.id, callRow.id);
+      notify(target.push_token, contact?.name ?? callRow?.customer_phone ?? 'Müşteri', `${listing.ref} numaralı ilanınız için aktarıldı`, { type: 'incoming' });
+    }
+    const answer = provider.formatRouteResponse(decision);
+    if (typeof answer === 'string') res.type('text').send(answer);
+    else res.json(answer);
+  });
 
   // ---- SMS ----
   const smsTemplates = () => {

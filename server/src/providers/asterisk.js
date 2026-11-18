@@ -61,13 +61,17 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
     // 5. alan: danışmanın tarayıcı telefonu (u<id>); panelde açıksa önce orası çalar.
     //   Asistana giden aramada asistanların tarayıcı telefonları (u5&u6): boştakiler birlikte çalar
     // 6. alan: 1 ise karşılama hattı; santral "dahili numarayı tuşlayın" anonsunu çalar
+    // 7. alan: danışmanın panelinde arayan adı yerine görünecek metin (ilana aktarma)
     formatRouteResponse(decision) {
       if (decision.action === 'reject') return 'reject,,0,0,';
       const ivr = decision.ivr ? ',1' : '';
       const group = (decision.browserGroup ?? []).join('&');
       if (decision.action !== 'forward') return `queue,,0,0,${group}${ivr}`;
       const browser = !decision.reason && decision.userId ? `u${decision.userId}` : group;
-      return ['forward', toLocalFormat(decision.destination), decision.callerAnnouncement ? 1 : 0, decision.whisper ? 1 : 0, browser].join(',') + ivr;
+      const fields = ['forward', toLocalFormat(decision.destination), decision.callerAnnouncement ? 1 : 0, decision.whisper ? 1 : 0, browser];
+      // 7. alan: danışmanın panelinde görünecek ad (ilana aktarma); dialplan'ı bozmasın diye harf/rakam/boşluk/.-/ dışı atılır
+      if (decision.callerName) return [...fields, decision.ivr ? 1 : '', String(decision.callerName).replace(/[^\p{L}\p{N} .\/-]/gu, ' ')].join(',');
+      return fields.join(',') + ivr;
     },
 
     fetchRecording: (ref) => ari(`/recordings/stored/${encodeURIComponent(ref)}/file`),
