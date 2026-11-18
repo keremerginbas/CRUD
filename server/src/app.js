@@ -4,7 +4,7 @@ import { Readable } from 'node:stream';
 import { randomBytes } from 'node:crypto';
 import { generatePassword, hashPassword, normalizeLogin, requireAuth, signToken, verifyPassword, verifyWebhook } from './auth.js';
 import { normalizePhone, toLocalFormat, TRUNK_NAME_RE } from './phone.js';
-import { decideInboundRoute } from './routing.js';
+import { decideInboundRoute, isOfficeOpen } from './routing.js';
 import { sendPush } from './push.js';
 import { syncCallToBitrix } from './bitrix.js';
 
@@ -14,6 +14,13 @@ const SETTINGS_FIELDS = [
   'sunday_enabled', 'sunday_start', 'sunday_end',
 ];
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+export const SPECIALTIES = ['konut', 'ticari', 'arazi'];
+const SETTING_DEFAULTS = { office_start: '09:00', office_end: '18:00', office_days: '1,2,3,4,5,6' };
+// Uzmanlık listesi: dizi ya da virgüllü metin → "konut,arazi" (geçersizse null)
+const parseSpecialties = (raw) => {
+  const list = [...new Set((Array.isArray(raw) ? raw : String(raw ?? '').split(',')).map((s) => String(s).trim().toLowerCase()).filter(Boolean))];
+  return list.length && list.every((s) => SPECIALTIES.includes(s)) ? SPECIALTIES.filter((s) => list.includes(s)).join(',') : null;
+};
 const MANAGER_ROLES = new Set(['admin', 'broker', 'asistan']);
 const ROLES = ['admin', 'broker', 'asistan', 'danisman'];
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
@@ -52,6 +59,9 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const raw = String(dialed ?? '').replace(/\D/g, '');
     return q.number.get(normalizePhone(raw)) ?? (raw && raw.length <= 5 ? q.numberByExtension.get(raw) : undefined);
   };
+
+  const getSettings = () => ({ ...SETTING_DEFAULTS,
+    ...Object.fromEntries(db.prepare('SELECT key, value FROM settings').all().map((r) => [r.key, r.value])) });
 
   const auth = requireAuth(config.jwtSecret);
   const verify = verifyWebhook(config.pbx.webhookSecret);
@@ -100,6 +110,14 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       user: `u${req.user.sub}`,
       password: secret,
     });
+  });
+
+  // Uzmanlık alanı (ilk girişte zorunlu sorulur)
+  app.put('/api/me/specialties', auth, (req, res) => {
+    const specialties = parseSpecialties(req.body?.specialties);
+    if (!specialties) return res.status(400).json({ error: 'En az bir uzmanlık alanı seçin (konut, ticari, arazi)' });
+    db.prepare('UPDATE users SET specialties = ? WHERE id = ?').run(specialties, req.user.sub);
+    res.json(publicUser(q.userById.get(req.user.sub)));
   });
 
   app.put('/api/me/push-token', auth, (req, res) => {
@@ -238,6 +256,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       assistantDestination: config.pbx.assistantDestination,
       callerAnnouncement: config.pbx.callerAnnouncement,
       extensionUser,
+      officeOpen: isOfficeOpen(getSettings(), new Date(), config.timezone),
     });
     // HUNT_IVR=1 ise karşılama hattında santral önce "dahili tuşlayın" anonsunu çalar, sonra tuşlananla tekrar sorar
     decision.ivr = Boolean(config.pbx.huntIvr) && number?.type === 'hunt';
@@ -338,15 +357,37 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     res.json(db.prepare('SELECT * FROM users ORDER BY name COLLATE NOCASE').all().map(publicUser));
   });
 
+  app.get('/api/settings', auth, manager, (_req, res) => res.json(getSettings()));
+
+  app.put('/api/settings', auth, admin, (req, res) => {
+    const next = { ...getSettings() };
+    for (const key of ['office_start', 'office_end']) {
+      if (key in (req.body ?? {})) {
+        if (!TIME_RE.test(req.body[key])) return res.status(400).json({ error: 'Saat SS:DD biçiminde olmalı' });
+        next[key] = req.body[key];
+      }
+    }
+    if ('office_days' in (req.body ?? {})) {
+      const days = [...new Set(String(req.body.office_days).split(',').map((d) => d.trim()).filter(Boolean))];
+      if (!days.length || days.some((d) => !/^[0-6]$/.test(d))) return res.status(400).json({ error: 'Geçersiz gün listesi' });
+      next.office_days = days.sort().join(',');
+    }
+    const put = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+    for (const [k, v] of Object.entries(next)) put.run(k, v);
+    res.json(getSettings());
+  });
+
   app.post('/api/users', auth, admin, (req, res) => {
     const { email, name, role = 'danisman', phone, extension = null } = req.body ?? {};
+    const specialties = parseSpecialties(req.body?.specialties);
+    if (role === 'danisman' && !specialties) return res.status(400).json({ error: 'Uzmanlık alanı seçin (konut, ticari, arazi)' });
     if (!normalizeLogin(email) || !name || !normalizePhone(phone)) return res.status(400).json({ error: 'Kullanıcı adı, ad ve telefon zorunlu' });
     if (!ROLES.includes(role)) return res.status(400).json({ error: 'Geçersiz rol' });
     if (q.userByEmail.get(normalizeLogin(email))) return res.status(409).json({ error: 'Bu kullanıcı adı zaten kayıtlı' });
     const password = generatePassword();
-    const { lastInsertRowid } = db.prepare(`INSERT INTO users (name, role, email, password_hash, phone, forward_phone, extension)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`).run(String(name).toLocaleUpperCase('tr-TR'), role, normalizeLogin(email),
-      hashPassword(password), normalizePhone(phone), normalizePhone(phone), extension || null);
+    const { lastInsertRowid } = db.prepare(`INSERT INTO users (name, role, email, password_hash, phone, forward_phone, extension, specialties)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(String(name).toLocaleUpperCase('tr-TR'), role, normalizeLogin(email),
+      hashPassword(password), normalizePhone(phone), normalizePhone(phone), extension || null, specialties);
     res.status(201).json({ user: publicUser(q.userById.get(lastInsertRowid)), password });
   });
 

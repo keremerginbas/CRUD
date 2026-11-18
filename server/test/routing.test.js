@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { decideInboundRoute, isWithinWorkingHours } from '../src/routing.js';
+import { decideInboundRoute, isOfficeOpen, isWithinWorkingHours } from '../src/routing.js';
 import { normalizePhone, toLocalFormat } from '../src/phone.js';
 
 const user = {
@@ -124,4 +124,31 @@ test('karşılama hattında (444/0850) tuşlanan dahili: o danışmana, mesai d�
   const line = decideInboundRoute({ ...base, number: { type: 'personal', label: 'x' }, user: other, contact: null,
     extensionUser: ahmet, now: at('2026-10-27T06:00:00Z') });
   assert.equal(line.destination, '+905000000030');
+});
+
+test('ofis kapalıyken (18:00 sonrası) kayıtlı olmayan müşteri de hattın danışmanına gider', () => {
+  const owner = { ...user, id: 9, forward_phone: '+905559998877' };
+  const open = decideInboundRoute({ ...base, ...assistant, number: line, user, contact: null, officeOpen: true, now: at('2026-10-27T06:00:00Z') });
+  assert.deepEqual([open.destination, open.reason], ['+905312814423', 'kayitsiz-musteri']);
+  const closed = decideInboundRoute({ ...base, ...assistant, number: line, user, contact: null, officeOpen: false, now: at('2026-10-27T16:30:00Z') });
+  assert.deepEqual([closed.action, closed.destination, closed.userId, closed.reason], ['forward', '+905551112233', 7, undefined]);
+  // Kayıtlı müşteri ofis kapalıyken danışmanın kendi mesaisi bitmiş olsa da sorumlu danışmana gider
+  const reg = decideInboundRoute({ ...base, ...assistant, number: line, user, owner, contact: { name: 'AHMET', type: 'ALICI' },
+    officeOpen: false, now: at('2026-11-01T19:00:00Z') });
+  assert.deepEqual([reg.destination, reg.userId], ['+905559998877', 9]);
+  // Yönlendirme telefonu olmayan danışman: asistana
+  const noPhone = decideInboundRoute({ ...base, ...assistant, number: line, user: { ...user, forward_phone: null }, contact: null, officeOpen: false, now: at('2026-10-27T16:30:00Z') });
+  assert.equal(noPhone.destination, '+905312814423');
+  // Karşılama hattında (444) kural değişmez: kayıtsız müşteri asistana
+  const hunt = decideInboundRoute({ ...base, ...assistant, number: { type: 'hunt', label: '444' }, user: null, contact: null, officeOpen: false, now: at('2026-10-27T16:30:00Z') });
+  assert.equal(hunt.destination, '+905312814423');
+});
+
+test('ofis saatleri: gün ve saat aralığı', () => {
+  const office = { office_start: '09:00', office_end: '18:00', office_days: '1,2,3,4,5,6' };
+  assert.equal(isOfficeOpen(office, at('2026-10-27T06:00:00Z')), true);   // Salı 09:00
+  assert.equal(isOfficeOpen(office, at('2026-10-27T05:59:00Z')), false);  // Salı 08:59
+  assert.equal(isOfficeOpen(office, at('2026-10-27T15:00:00Z')), false);  // Salı 18:00
+  assert.equal(isOfficeOpen(office, at('2026-10-31T10:00:00Z')), true);   // Cumartesi 13:00
+  assert.equal(isOfficeOpen(office, at('2026-11-01T10:00:00Z')), false);  // Pazar
 });

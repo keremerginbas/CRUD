@@ -26,7 +26,8 @@ CREATE TABLE IF NOT EXISTS users (
   sunday_end TEXT NOT NULL DEFAULT '17:00',
   push_token TEXT,
   department TEXT,
-  sip_secret TEXT,                  -- tarayıcı telefonu (WebRTC) şifresi; kullanıcı adı u<id>
+  sip_secret TEXT,
+  specialties TEXT,                 -- uzmanlık: konut,ticari,arazi (virgülle)                  -- tarayıcı telefonu (WebRTC) şifresi; kullanıcı adı u<id>
   bitrix_user_id INTEGER,            -- Bitrix24'teki kullanıcı kimliği (CRM'e arama yazmak için)
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -39,6 +40,9 @@ CREATE TABLE IF NOT EXISTS numbers (
   label TEXT NOT NULL,
   trunk TEXT                        -- numaranın bağlı olduğu operatör bağlantısı (santraldeki trunk adı; boşsa varsayılan)
 );
+
+-- Panelden değiştirilebilen ayarlar (ofis saatleri vb.)
+CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
 CREATE TABLE IF NOT EXISTS contacts (
   id INTEGER PRIMARY KEY,
@@ -85,6 +89,7 @@ const ADDED_COLUMNS = [
   ['users', 'bitrix_user_id', 'INTEGER'],
   ['calls', 'bitrix_call_id', 'TEXT'],
   ['numbers', 'trunk', 'TEXT'],
+  ['users', 'specialties', 'TEXT'],
 ];
 
 function migrate(db) {

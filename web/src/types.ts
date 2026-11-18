@@ -9,7 +9,10 @@ export type User = {
   saturday_enabled: number; saturday_start: string; saturday_end: string;
   sunday_enabled: number; sunday_start: string; sunday_end: string;
   numbers?: PbxNumber[];
+  specialties?: string | null;
 };
+
+export type OfficeSettings = { office_start: string; office_end: string; office_days: string };
 
 export type Contact = { id: number; name: string; phone: string; type: 'ALICI' | 'SATICI'; created_at: string; note: string | null };
 

@@ -1,4 +1,5 @@
-import { ActionIcon, Avatar, Badge, Button, Code, CopyButton, Group, Modal, Select, SimpleGrid, Skeleton, Stack, Table, Tabs, Text, TextInput, Title, Tooltip } from '@mantine/core';
+import { ActionIcon, Avatar, Badge, Button, Chip, Code, CopyButton, Group, Input, Modal, Select, SimpleGrid, Skeleton, Stack, Table, Tabs, Text, TextInput, Title, Tooltip } from '@mantine/core';
+import { TimeInput } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
 import { IconKey, IconSearch } from '@tabler/icons-react';
@@ -7,7 +8,8 @@ import { api } from '../api';
 import { Fab } from '../components/Fab';
 import { toastError, toastOk } from '../components/maskedCall';
 import { useSession } from '../session';
-import type { PbxNumber, Role, User } from '../types';
+import { SPECIALTY_COLORS, SPECIALTY_LABELS, parseSpecialties } from '../specialties';
+import type { OfficeSettings, PbxNumber, Role, User } from '../types';
 import { useLoad } from '../useLoad';
 
 const ROLE_LABELS: Record<Role, string> = { admin: 'Yönetici', broker: 'Broker', asistan: 'Asistan', danisman: 'Danışman' };
@@ -38,6 +40,17 @@ export function Team() {
   const [saving, setSaving] = useState(false);
   const [numberSearch, setNumberSearch] = useState('');
   const [userSearch, setUserSearch] = useState('');
+  const [newRole, setNewRole] = useState<string>('danisman');
+  const [newSpecialties, setNewSpecialties] = useState<string[]>([]);
+  const office = useLoad(() => api<OfficeSettings>('/api/settings'), []);
+  const [savingOffice, setSavingOffice] = useState(false);
+  const saveOffice = async (patch: Partial<OfficeSettings>) => {
+    setSavingOffice(true);
+    try {
+      office.setData(await api<OfficeSettings>('/api/settings', { method: 'PUT', body: patch }));
+      toastOk('Ofis saatleri kaydedildi');
+    } catch (e) { toastError(e); } finally { setSavingOffice(false); }
+  };
   const shownUsers = (users.data ?? []).filter((u) => {
     const q = userSearch.trim().toLocaleLowerCase('tr-TR');
     return !q || `${u.name} ${u.email} ${u.department ?? ''}`.toLocaleLowerCase('tr-TR').includes(q);
@@ -66,7 +79,9 @@ export function Team() {
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await api<{ user: User; password: string }>('/api/users', { method: 'POST', body: Object.fromEntries(new FormData(e.currentTarget)) });
+      const body = { ...Object.fromEntries(new FormData(e.currentTarget)), role: newRole, specialties: newSpecialties };
+      const res = await api<{ user: User; password: string }>('/api/users', { method: 'POST', body });
+      setNewSpecialties([]);
       close();
       users.reload();
       showPassword(res.user.name, res.password);
@@ -115,6 +130,7 @@ export function Team() {
         <Tabs.List>
           <Tabs.Tab value="ekip">Ekip {users.data && <Badge size="sm" variant="light" ml={6}>{users.data.length}</Badge>}</Tabs.Tab>
           <Tabs.Tab value="hatlar">Hatlar {numbers.data && <Badge size="sm" variant="light" ml={6}>{numbers.data.length}</Badge>}</Tabs.Tab>
+          <Tabs.Tab value="ofis">Ofis saatleri</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="ekip" pt="md">
@@ -132,6 +148,7 @@ export function Team() {
                         <Text size="xs" c="dimmed" truncate>{u.email}{u.department ? ` · ${u.department}` : ''}</Text>
                         <Group gap={6} mt={8}>
                           <Badge size="sm" variant="light" color={u.role === 'admin' ? 'orange' : u.role === 'asistan' ? 'cyan' : 'gray'}>{ROLE_LABELS[u.role]}</Badge>
+                          {parseSpecialties(u.specialties).map((s) => <Badge key={s} size="sm" variant="light" color={SPECIALTY_COLORS[s]}>{SPECIALTY_LABELS[s]}</Badge>)}
                           {line
                             ? <Badge size="sm" variant="outline" color="lime" style={{ textTransform: 'none' }}>{line.did}</Badge>
                             : u.role === 'danisman' && <Badge size="sm" variant="outline" color="yellow" style={{ textTransform: 'none' }}>Hat yok</Badge>}
@@ -147,6 +164,33 @@ export function Team() {
                 );
               })}
             </SimpleGrid>
+          )}
+        </Tabs.Panel>
+
+        <Tabs.Panel value="ofis" pt="md">
+          {!office.data ? <Skeleton h={160} radius="lg" /> : (
+            <div className="card" style={{ padding: 20 }}>
+              <Text fw={600}>Asistanların çalışma saatleri</Text>
+              <Text size="sm" c="dimmed" mb="md">
+                Bu saatlerde danışman hattını arayan kayıtsız müşteri asistana gider. Saat dışında arama, kayıtlı olsun olmasın,
+                hattın danışmanına gider.
+              </Text>
+              <SimpleGrid cols={{ base: 2, sm: 4 }} maw={520}>
+                <TimeInput label="Başlangıç" defaultValue={office.data.office_start} disabled={!isAdmin}
+                  onBlur={(e) => e.currentTarget.value !== office.data!.office_start && saveOffice({ office_start: e.currentTarget.value })} />
+                <TimeInput label="Bitiş" defaultValue={office.data.office_end} disabled={!isAdmin}
+                  onBlur={(e) => e.currentTarget.value !== office.data!.office_end && saveOffice({ office_end: e.currentTarget.value })} />
+              </SimpleGrid>
+              <Input.Wrapper label="Günler" mt="md">
+                <Chip.Group multiple value={office.data.office_days.split(',')} onChange={(v) => v.length && saveOffice({ office_days: v.join(',') })}>
+                  <Group gap="xs" mt={6}>
+                    {['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'].map((d, i) => (
+                      <Chip key={d} value={String((i + 1) % 7)} disabled={!isAdmin || savingOffice}>{d}</Chip>
+                    ))}
+                  </Group>
+                </Chip.Group>
+              </Input.Wrapper>
+            </div>
           )}
         </Tabs.Panel>
 
@@ -207,12 +251,19 @@ export function Team() {
             </SimpleGrid>
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <TextInput name="phone" label="Cep telefonu" type="tel" required />
-              <Select name="role" label="Rol" defaultValue="danisman" allowDeselect={false}
+              <Select label="Rol" value={newRole} onChange={(v) => setNewRole(v ?? 'danisman')} allowDeselect={false}
                 data={Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }))} />
             </SimpleGrid>
+            {newRole === 'danisman' && (
+              <Input.Wrapper label="Uzmanlık alanı" required description="Birden fazla seçilebilir">
+                <Chip.Group multiple value={newSpecialties} onChange={setNewSpecialties}>
+                  <Group gap="xs" mt={6}>{Object.entries(SPECIALTY_LABELS).map(([k, l]) => <Chip key={k} value={k}>{l}</Chip>)}</Group>
+                </Chip.Group>
+              </Input.Wrapper>
+            )}
             <Group justify="flex-end" mt="sm">
               <Button variant="default" onClick={close}>Vazgeç</Button>
-              <Button type="submit" loading={saving}>Kullanıcıyı ekle</Button>
+              <Button type="submit" loading={saving} disabled={newRole === 'danisman' && !newSpecialties.length}>Kullanıcıyı ekle</Button>
             </Group>
           </Stack>
         </form>

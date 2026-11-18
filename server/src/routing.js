@@ -25,6 +25,14 @@ export function isWithinWorkingHours(user, now = new Date(), timeZone = 'Europe/
   return start <= end ? minutes >= start && minutes < end : minutes >= start || minutes < end;
 }
 
+// Ofis (asistanların) çalışma saatleri: settings tablosundaki office_start/office_end/office_days (0=Pazar)
+export function isOfficeOpen(office, now = new Date(), timeZone = 'Europe/Istanbul') {
+  const { weekday, minutes } = localParts(now, timeZone);
+  const day = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(weekday);
+  if (!String(office.office_days ?? '').split(',').map(Number).includes(day)) return false;
+  return minutes >= toMinutes(office.office_start) && minutes < toMinutes(office.office_end);
+}
+
 /**
  * Santralin "bu çağrıyı nereye yönlendireyim?" sorusuna verilen cevap.
  * - 444 hattı (hunt): müşteri bir danışmana kayıtlıysa ve danışman mesaideyse doğrudan o danışman,
@@ -37,10 +45,12 @@ export function isWithinWorkingHours(user, now = new Date(), timeZone = 'Europe/
  * - Kimseye atanmamış hat (ör. ayrılan personelin numarası) → asistan hattı, o da yoksa karşılama kuyruğu
  * - Hat listesinde olmayan numara → reddet (santral açmaz, operatör aramayı başka hedefe verir)
  * - Karşılama hattında arayan bir dahili tuşladıysa (extensionUser) → o danışman, mesai dışıysa asistan
+ * - Ofis kapalıyken (officeOpen=false, ör. 18:00 sonrası) danışman hattı: asistan yok, kayıtlı olsun olmasın
+ *   arama danışmana gider (müşterinin sorumlu danışmanı, yoksa hattın sahibi)
  */
 export function decideInboundRoute({
   number, user, contact, owner, callerPhone, now, timeZone, huntDestination, assistantDestination, callerAnnouncement,
-  extensionUser = null,
+  extensionUser = null, officeOpen = true,
 }) {
   const hunt = { action: 'queue', destination: huntDestination, whisper: null, userId: null };
   // Tanımadığımız bir numaraya gelen arama (ör. operatörün departmanından düşen şirket araması):
@@ -68,9 +78,10 @@ export function decideInboundRoute({
     return toAssistant(contact ? 'mesai-disi' : 'kayitsiz-musteri', owner?.id ?? null);
   }
   if (!user) return toAssistant('sahipsiz-hat', null);
+  const target = contact ? (owner ?? user) : user;
+  if (!officeOpen && target.forward_phone) return toConsultant(target);
   if (!contact && assistantDestination) return toAssistant('kayitsiz-musteri', user.id);
 
-  const target = owner ?? user;
   return available(target) ? toConsultant(target) : toAssistant('mesai-disi', target.id);
 }
 

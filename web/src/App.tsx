@@ -8,6 +8,7 @@ import { notifications } from '@mantine/notifications';
 import { useEffect } from 'react';
 import { CallBar, PhoneStatusDot } from './components/CallBar';
 import { QuickSearch } from './components/QuickSearch';
+import { SpecialtyGate } from './components/SpecialtyGate';
 import { CallDetail } from './pages/CallDetail';
 import { Calls } from './pages/Calls';
 import { Contacts } from './pages/Contacts';
@@ -102,6 +103,7 @@ export function App() {
         </motion.div>
         <CallBar />
         <QuickSearch pages={items} />
+        <SpecialtyGate />
       </AppShell.Main>
 
       {mobile && (

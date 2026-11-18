@@ -286,6 +286,36 @@ test('kayıtsız müşteri: asistanların hepsi (tarayıcı telefonu) birlikte �
   }
 });
 
+test('ofis saatleri yöneticiden ayarlanır, danışman uzmanlık alanı zorunlu', async () => {
+  db.exec("UPDATE users SET role = 'admin' WHERE email = 'broker@x.com'");
+  const adminToken = (await call('POST', '/api/auth/login', { email: 'broker@x.com', password: 'Sifre1234' })).body.token;
+  try {
+    const s = await call('GET', '/api/settings', null, { token: adminToken });
+    assert.deepEqual(s.body, { office_start: '09:00', office_end: '18:00', office_days: '1,2,3,4,5,6' });
+    assert.equal((await call('PUT', '/api/settings', { office_end: '19:30' }, { token: tokens.kaan })).status, 403);
+    assert.equal((await call('PUT', '/api/settings', { office_end: '25:00' }, { token: adminToken })).status, 400);
+    assert.equal((await call('PUT', '/api/settings', { office_days: '1,9' }, { token: adminToken })).status, 400);
+    const saved = await call('PUT', '/api/settings', { office_end: '19:30', office_days: '1,2,3,4,5' }, { token: adminToken });
+    assert.deepEqual([saved.body.office_end, saved.body.office_days], ['19:30', '1,2,3,4,5']);
+    await call('PUT', '/api/settings', { office_end: '18:00', office_days: '1,2,3,4,5,6' }, { token: adminToken });
+
+    // Danışman açarken uzmanlık zorunlu; asistan için değil
+    assert.equal((await call('POST', '/api/users', { email: 'u.zman', name: 'u', phone: '05320000001' }, { token: adminToken })).status, 400);
+    assert.equal((await call('POST', '/api/users', { email: 'u.zman', name: 'u', phone: '05320000001', specialties: ['villa'] }, { token: adminToken })).status, 400);
+    const ok = await call('POST', '/api/users', { email: 'u.zman', name: 'u', phone: '05320000001', specialties: ['konut', 'arazi'] }, { token: adminToken });
+    assert.equal(ok.body.user.specialties, 'konut,arazi');
+    assert.equal((await call('POST', '/api/users', { email: 'a.sistan', name: 'a', phone: '05320000002', role: 'asistan' }, { token: adminToken })).status, 201);
+
+    // Kişi kendi uzmanlığını seçer (ilk girişte)
+    assert.equal((await call('PUT', '/api/me/specialties', { specialties: [] }, { token: tokens.kaan })).status, 400);
+    const me = await call('PUT', '/api/me/specialties', { specialties: ['ticari'] }, { token: tokens.kaan });
+    assert.equal(me.body.specialties, 'ticari');
+  } finally {
+    db.exec("UPDATE users SET role = 'broker' WHERE email = 'broker@x.com'");
+    db.exec("DELETE FROM users WHERE email IN ('u.zman', 'a.sistan')");
+  }
+});
+
 test('cevapsız çağrıda danışmana bildirim gider', async () => {
   const ev = { callId: 'in-2', direction: 'inbound', from: '05321112233', to: '908504660149', status: 'missed' };
   await call('POST', '/webhooks/pbx/event', ev, signed(ev));
@@ -306,11 +336,11 @@ test('yönetici ekip ve hatları yönetir, danışman yönetemez', async () => {
   const adminToken = (await call('POST', '/api/auth/login', { email: 'broker@x.com', password: 'Sifre1234' })).body.token;
   try {
     assert.equal((await call('GET', '/api/users', null, { token: tokens.baska })).status, 403);
-    const created = await call('POST', '/api/users', { email: 'Yeni@x.com', name: 'yeni danışman', phone: '0532 000 00 00' }, { token: adminToken });
+    const created = await call('POST', '/api/users', { email: 'Yeni@x.com', name: 'yeni danışman', phone: '0532 000 00 00', specialties: ['konut'] }, { token: adminToken });
     assert.equal(created.status, 201);
     assert.equal(created.body.user.name, 'YENİ DANIŞMAN');
     assert.equal((await call('POST', '/api/auth/login', { email: 'yeni@x.com', password: created.body.password })).status, 200);
-    assert.equal((await call('POST', '/api/users', { email: 'yeni@x.com', name: 'x', phone: '05320000000' }, { token: adminToken })).status, 409);
+    assert.equal((await call('POST', '/api/users', { email: 'yeni@x.com', name: 'x', phone: '05320000000', specialties: ['konut'] }, { token: adminToken })).status, 409);
 
     const did = encodeURIComponent('+908504660150');
     assert.equal((await call('PUT', `/api/numbers/${did}`, { user_id: created.body.user.id }, { token: tokens.kaan })).status, 403);
