@@ -3,6 +3,8 @@ dahili,numara,etiket,danisman_email,tip
 
 # --- Karşılama hattı: arayan kuyruğa düşer, müsait olan açar ---
 ,4442453,444 24 53,,hunt
+# Santralin kendi hattı (Netgsm, ayrı abonelik): ortak şirket numarası
+,08503467290,0850 346 72 90,,hunt
 
 # --- 444 24 53'ün altında çalışan 17 hat (Türk Telekom, XRE Beştepe adına). Kişiye ait değil: 444 gibi davranır
 #     (kayıtlı müşteri danışmanına, değilse asistana). Danışmanların kendi numaraları danismanlar.csv'de ---
