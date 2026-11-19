@@ -17,8 +17,8 @@ export const config = {
     password: env.SMS_PASSWORD ?? '',
     header: env.SMS_HEADER ?? 'XRE',
     type: env.SMS_TYPE ?? 'UC',
-    // Numara biçimi: 0 (05XX...), 10 (5XX...), 90 (905XX...)
-    numberFormat: env.SMS_NUMBER_FORMAT ?? '0',
+    // Numara biçimi: 90 (905XX..., Erccell), 0 (05XX...), 10 (5XX...)
+    numberFormat: env.SMS_NUMBER_FORMAT ?? '90',
     successCodes: env.SMS_SUCCESS_CODES ?? '',
   },
   bitrix: {

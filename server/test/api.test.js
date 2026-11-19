@@ -359,7 +359,8 @@ test('SMS cevabı: kısa kod hata, uzun kimlik başarı; numara biçimi', async 
   const { parseSmsResult, formatSmsNumber } = await import('../src/sms.js');
   const xml = (c) => `<?xml version="1.0" encoding="utf-8"?><CORPORATESMS><RESULT>${c}</RESULT></CORPORATESMS>`;
   assert.equal(parseSmsResult(true, xml('081')), false);
-  assert.equal(parseSmsResult(true, xml('1234567')), true);
+  assert.equal(parseSmsResult(true, '<?xml version="1.0"?><CORPORATESMS><RESULT>1</RESULT><MSG_ID>4969635</MSG_ID><MSG_COUNT>1</MSG_COUNT></CORPORATESMS>'), true);
+  assert.equal(parseSmsResult(true, xml('1')), true);
   assert.equal(parseSmsResult(true, xml('00'), ['00']), true);
   assert.equal(parseSmsResult(false, xml('1234567')), false);
   assert.deepEqual(['0', '10', '90'].map((f) => formatSmsNumber('+905061288930', f)), ['05061288930', '5061288930', '905061288930']);
@@ -376,7 +377,7 @@ test('SMS: şablon doldurulur, XML firmaya gider, loglanır; hata ve geçersiz n
   assert.match(xml.type, /text\/xml/);
   assert.match(xml.body, /<USERNAME>kullanici<\/USERNAME>/);
   assert.match(xml.body, /<PASSWORD>gizli&amp;&lt;<\/PASSWORD>/);
-  assert.match(xml.body, /<NUMBERS>05464962638<\/NUMBERS>/);
+  assert.match(xml.body, /<NUMBERS>905464962638<\/NUMBERS>/);
   assert.match(xml.body, /<SMS_MESSAGE><!\[CDATA\[Sayın MUSTAFA UTKU.*\]\]\]\]><!\[CDATA\[> test\]\]><\/SMS_MESSAGE>/s);
   assert.equal((await call('POST', '/api/sms', { phone: '03122191672', message: 'x' }, { token: tokens.kaan })).status, 400);
   assert.equal((await call('POST', '/api/sms', { phone: '05551112233', message: '' }, { token: tokens.kaan })).status, 400);
@@ -478,7 +479,7 @@ test('şifremi unuttum: SMS ile kod gelir, kodla yeni şifre belirlenir', async 
     assert.equal((await call('POST', '/api/auth/forgot', { email: 'yok.boyle' })).status, 200);
     assert.equal(smsSeen.length, n + 1);
     const code = smsSeen.at(-1).body.match(/kodunuz: (\d{6})/)[1];
-    assert.match(smsSeen.at(-1).body, /<NUMBERS>05051112233<\/NUMBERS>/);
+    assert.match(smsSeen.at(-1).body, /<NUMBERS>905051112233<\/NUMBERS>/);
     assert.equal((await call('POST', '/api/auth/reset', { email: 'baska@x.com', code: '000000', password: 'yeniSifre99' })).status, 400);
     assert.equal((await call('POST', '/api/auth/reset', { email: 'baska@x.com', code, password: 'kisa' })).status, 400);
     assert.equal((await call('POST', '/api/auth/reset', { email: 'baska@x.com', code, password: 'yeniSifre99' })).status, 200);
@@ -500,7 +501,7 @@ test('randevu hatırlatma SMS\'i danışmanın cebine bir kez gider', async () =
   await appInstance.locals.runReminders();
   await appInstance.locals.runReminders();
   assert.equal(smsSeen.length, n + 1);
-  assert.match(smsSeen.at(-1).body, /<NUMBERS>05050000000<\/NUMBERS>/);
+  assert.match(smsSeen.at(-1).body, /<NUMBERS>905050000000<\/NUMBERS>/);
   assert.match(smsSeen.at(-1).body, /Hatirlatma: \d\d:\d\d MUSTAFA UTKU \(05464962638\) aranacak\. Fiyat konuşulacak/);
   db.exec('DELETE FROM appointments');
 });

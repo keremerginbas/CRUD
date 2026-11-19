@@ -21,17 +21,18 @@ export function buildSmsXml({ username, password, header, type = 'UC' }, number,
 }
 
 // Numarayı firmanın beklediği biçime getirir: 0 → 05XXXXXXXXX, 10 → 5XXXXXXXXX, 90 → 905XXXXXXXXX
-export function formatSmsNumber(number, format = '0') {
+export function formatSmsNumber(number, format = '90') {
   const ten = String(number).replace(/\D/g, '').slice(-10);
   return format === '10' ? ten : format === '90' ? `90${ten}` : `0${ten}`;
 }
 
-// Firmanın cevabı: <RESULT>...</RESULT>. Kısa sayısal kodlar (ör. 081) hata, uzun sayı ya da OK mesaj kimliğidir.
-// Firma hangi kodu başarı saydığını belgelerse SMS_SUCCESS_CODES ile eklenebilir (virgülle)
+// Erccell cevabı: başarı <RESULT>1</RESULT><MSG_ID>4969635</MSG_ID>; hata <RESULT>081</RESULT> gibi bir kod.
+// Başka başarı kodları SMS_SUCCESS_CODES ile eklenebilir (virgülle)
 export function parseSmsResult(httpOk, body, successCodes = []) {
   const code = /<RESULT>\s*([^<]*?)\s*<\/RESULT>/i.exec(body)?.[1];
   if (!httpOk) return false;
-  if (code !== undefined) return successCodes.includes(code) || /^\d{6,}$/.test(code) || /^ok/i.test(code);
+  if (/<MSG_ID>\s*\d+\s*<\/MSG_ID>/i.test(body)) return true;
+  if (code !== undefined) return code === '1' || successCodes.includes(code) || /^ok/i.test(code);
   return !/(hata|error|fail|invalid|yetki|bakiye)/i.test(body);
 }
 
