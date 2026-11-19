@@ -66,7 +66,7 @@ export function Appointments() {
                 subtitle={[a.phone, a.note].filter(Boolean).join(' · ')}
                 callLabel={`${a.name} kişisini ara`} onCall={() => maskedCall({ contactId: a.contact_id ?? undefined, phone: a.phone, name: a.name })}
                 meta={<>
-                  <Text fw={600} c={late ? 'red.4' : 'orange.4'}>{pad(d.getHours())}:{pad(d.getMinutes())}</Text>
+                  <Text fw={600} c={late ? 'red.4' : 'xre.4'}>{pad(d.getHours())}:{pad(d.getMinutes())}</Text>
                   {a.status === 'open' ? (
                     <Group gap={4}>
                       <Tooltip label="Arandı"><ActionIcon size="sm" variant="subtle" color="lime" onClick={() => set(a, 'done')} aria-label="Arandı"><IconCheck size={16} /></ActionIcon></Tooltip>

@@ -172,7 +172,7 @@ export function Team() {
                         <Text size="xs" c="dimmed" truncate>{u.email}{u.department ? ` · ${u.department}` : ''}</Text>
                         <Group gap={6} mt={8}>
                           {u.status === 'pending' && <Badge size="sm" color="yellow">Onay bekliyor</Badge>}
-                          <Badge size="sm" variant="light" color={u.role === 'admin' ? 'orange' : u.role === 'asistan' ? 'cyan' : 'gray'}>{ROLE_LABELS[u.role]}</Badge>
+                          <Badge size="sm" variant="light" color={u.role === 'admin' ? 'xre' : u.role === 'asistan' ? 'cyan' : 'gray'}>{ROLE_LABELS[u.role]}</Badge>
                           {parseSpecialties(u.specialties).map((s) => <Badge key={s} size="sm" variant="light" color={SPECIALTY_COLORS[s]}>{SPECIALTY_LABELS[s]}</Badge>)}
                           {line
                             ? <Badge size="sm" variant="outline" color="lime" style={{ textTransform: 'none' }}>{line.did}</Badge>

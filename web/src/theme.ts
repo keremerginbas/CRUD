@@ -1,14 +1,14 @@
 import { createTheme, type MantineColorsTuple } from '@mantine/core';
 
-// fibimi'deki turuncu (#f26b21) 6. ton
-const orange: MantineColorsTuple = ['#fff1e8', '#ffe0cf', '#fdbf9c', '#fb9c66', '#f87e3a', '#f66f24', '#f26b21', '#d8570f', '#c04b09', '#a73e00'];
-// Koyu gri zemin: 7 = sayfa, 6 = kart, 4 = çizgi
-const dark: MantineColorsTuple = ['#ececec', '#c9cacd', '#a7aab0', '#8a8d94', '#41444c', '#383b42', '#2e3036', '#24262b', '#1d1f23', '#141518'];
+// XRE mavisi (logodaki lacivert #24315d'nin koyu zeminde okunan açık tonları); 6. ton ana renk
+const xre: MantineColorsTuple = ['#eef1fe', '#d9e0fc', '#b0bff8', '#859cf4', '#6280f1', '#4c6def', '#4063ef', '#3253d5', '#2a4abf', '#1d3fa8'];
+// Koyu lacivert-gri zemin: 7 = sayfa, 6 = kart, 4 = çizgi
+const dark: MantineColorsTuple = ['#eceef3', '#c6cad6', '#a3a9ba', '#868da1', '#3c4256', '#33384a', '#2a2f40', '#1f2333', '#191c29', '#12141e'];
 
 export const theme = createTheme({
-  primaryColor: 'orange',
+  primaryColor: 'xre',
   primaryShade: 6,
-  colors: { orange, dark },
+  colors: { xre, dark },
   fontFamily: '"Inter Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   defaultRadius: 'md',
   headings: { fontWeight: '600' },
@@ -21,4 +21,7 @@ export const theme = createTheme({
 });
 
 // Arama yönü renkleri
-export const CALL_COLORS = { inbound: 'lime.4', outbound: 'indigo.3', missed: 'red.5' } as const;
+export const CALL_COLORS = { inbound: 'lime.4', outbound: 'xre.3', missed: 'red.5' } as const;
+
+// Logodaki lacivert (uygulama simgesi, tarayıcı çubuğu)
+export const XRE_NAVY = '#24315d';

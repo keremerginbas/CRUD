@@ -51,10 +51,10 @@ export function Login() {
     <Stack mih="100vh" p="md" justify="center" align="center">
       <Paper w="100%" maw={420} p="xl" radius="xl" className="card login-card">
         <Stack gap="lg">
-          <Group gap="sm" justify="center" mt="sm">
-            <img src="/icon.svg" alt="" width={44} height={44} />
-            <Title order={1} fz={30} className="brand"><span><b>XRE</b> Santral</span></Title>
-          </Group>
+          <Stack gap={6} align="center" mt="sm">
+            <img src="/logo-full-white.png" alt="XRE X Real Estate Beştepe" style={{ width: 170, opacity: 0.95 }} />
+            <Title order={1} fz={22} mt="sm" className="brand brand-lg"><span className="brand-text"><b>XRE</b> SOFTWARE SANTRAL</span></Title>
+          </Stack>
           {mode !== 'forgot' && (
             <SegmentedControl fullWidth radius="xl" value={mode} onChange={(v) => switchTo(v as Mode)}
               data={[{ value: 'login', label: 'Giriş yap' }, { value: 'register', label: 'Üye ol' }]} />

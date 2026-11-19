@@ -15,8 +15,8 @@ import { useLoad } from '../useLoad';
 
 type Filter = 'all' | 'inbound' | 'outbound' | 'missed';
 const FILTERS: [Filter, string, Icon, string][] = [
-  ['all', 'Tüm aramalar', IconPhone, 'var(--mantine-color-orange-5)'], ['inbound', 'Gelen', IconPhoneIncoming, 'var(--mantine-color-lime-4)'],
-  ['outbound', 'Giden', IconPhoneOutgoing, 'var(--mantine-color-indigo-3)'], ['missed', 'Cevapsız', IconPhoneX, 'var(--mantine-color-red-5)'],
+  ['all', 'Tüm aramalar', IconPhone, 'var(--mantine-color-dark-0)'], ['inbound', 'Gelen', IconPhoneIncoming, 'var(--mantine-color-lime-4)'],
+  ['outbound', 'Giden', IconPhoneOutgoing, 'var(--mantine-color-xre-3)'], ['missed', 'Cevapsız', IconPhoneX, 'var(--mantine-color-red-5)'],
 ];
 const matches = (c: Call, f: Filter) => f === 'all' || (f === 'missed' ? c.status === 'missed' : c.direction === f);
 const isMissed = (c: Call) => c.status === 'missed' || c.status === 'failed';
@@ -74,7 +74,7 @@ export function Calls() {
           <BarChart
             h={150} data={week} dataKey="gun" type="stacked" withLegend legendProps={{ verticalAlign: 'bottom', height: 28 }}
             gridAxis="none" withYAxis={false} barProps={{ radius: 5, maxBarSize: 34 }} tickLine="none"
-            series={[{ name: 'Gelen', color: 'lime.5' }, { name: 'Giden', color: 'indigo.4' }, { name: 'Cevapsız', color: 'red.5' }]}
+            series={[{ name: 'Gelen', color: 'lime.5' }, { name: 'Giden', color: 'xre.4' }, { name: 'Cevapsız', color: 'red.5' }]}
           />
         </div>
       )}
@@ -111,7 +111,7 @@ export function Calls() {
               meta={<>
                 <Text size="sm">{daysAgo(c.started_at)}</Text>
                 <Text size="xs" c="dimmed" className="hide-xs">{formatDate(c.started_at)}</Text>
-                {c.recording_ref && <Badge size="sm" variant="light" color="orange" leftSection={<IconMicrophone size={11} />}>Kayıt</Badge>}
+                {c.recording_ref && <Badge size="sm" variant="light" color="xre" leftSection={<IconMicrophone size={11} />}>Kayıt</Badge>}
               </>}
             />
           );

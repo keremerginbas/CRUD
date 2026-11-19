@@ -8,6 +8,7 @@ import { notifications } from '@mantine/notifications';
 import { useEffect } from 'react';
 import { CallBar, PhoneStatusDot } from './components/CallBar';
 import { QuickSearch } from './components/QuickSearch';
+import { Brand } from './components/Brand';
 import { SpecialtyGate } from './components/SpecialtyGate';
 import { AppointmentReminders } from './components/AppointmentReminders';
 import { Appointments } from './pages/Appointments';
@@ -74,10 +75,7 @@ export function App() {
   return (
     <AppShell header={{ height: 64 }} footer={mobile ? { height: 64 } : undefined} padding="md">
       <AppShell.Header px="md" className="app-header" style={{ display: 'flex', alignItems: 'center' }}>
-        <a href="#/aramalar" className="brand" style={{ marginRight: 28 }}>
-          <img src="/icon.svg" alt="" width={32} height={32} />
-          <span><b>XRE</b> Santral</span>
-        </a>
+        <div style={{ marginRight: 28 }}><Brand href="#/aramalar" /></div>
         {!mobile && (
           <Group gap={4} style={{ flex: 1 }} component="nav">
             {items.map(({ path, label, icon: I }) => (

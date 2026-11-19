@@ -57,7 +57,7 @@ export function CallBar() {
         <Group gap="xs" wrap="nowrap">
           {call.phase === 'active' && call.direction === 'in' && (
             <Tooltip label="İlana aktar: müşteriyi ilanın danışmanına bağla">
-              <ActionIcon size={44} radius="xl" variant="light" color="orange" onClick={() => setPicking(true)} aria-label="İlana aktar">
+              <ActionIcon size={44} radius="xl" variant="light" color="xre" onClick={() => setPicking(true)} aria-label="İlana aktar">
                 <IconArrowsTransferUp size={20} />
               </ActionIcon>
             </Tooltip>

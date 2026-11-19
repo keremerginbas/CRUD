@@ -34,7 +34,7 @@ function chime(times = 1) {
 }
 
 function browserNotify(title: string, body: string) {
-  try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification(title, { body, icon: '/icon.svg' }); } catch { /* yok */ }
+  try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification(title, { body, icon: '/icon-192.png' }); } catch { /* yok */ }
 }
 
 // Panel açıkken randevudan önce (remind_before dk) bildirim, saatinde "şimdi ara" penceresi
@@ -68,7 +68,7 @@ export function AppointmentReminders() {
         browserNotify(title, a.name);
         chime(1);
         notifications.show({
-          id: early, color: 'orange', autoClose: false, icon: <IconCalendarEvent size={18} />, title,
+          id: early, color: 'xre', autoClose: false, icon: <IconCalendarEvent size={18} />, title,
           message: <Text size="sm">{a.name}{a.note ? ` · ${a.note}` : ''}</Text>,
         });
       }

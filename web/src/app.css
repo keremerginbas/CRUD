@@ -1,25 +1,27 @@
 /* Mantine'in üstüne panelin kendi görünümü */
 :root { --xre-card: color-mix(in srgb, var(--mantine-color-dark-6) 82%, transparent); --xre-line: color-mix(in srgb, var(--mantine-color-dark-4) 70%, transparent); }
 body { background:
-  radial-gradient(900px 480px at 85% -10%, rgba(242, 107, 33, .13), transparent 60%),
-  radial-gradient(700px 420px at -10% 10%, rgba(120, 130, 255, .07), transparent 60%),
+  radial-gradient(900px 480px at 85% -10%, rgba(64, 99, 239, .16), transparent 60%),
+  radial-gradient(700px 420px at -10% 10%, rgba(36, 49, 93, .45), transparent 60%),
   var(--mantine-color-dark-7); background-attachment: fixed; }
 
 .app-header { backdrop-filter: blur(14px); background: color-mix(in srgb, var(--mantine-color-dark-7) 78%, transparent) !important;
   border-bottom: 1px solid var(--xre-line) !important; }
-.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--mantine-color-dark-0); font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
-.brand { white-space: nowrap; }
-.brand b { color: var(--mantine-color-orange-6); font-weight: 800; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #fff; white-space: nowrap; }
+.brand-mark { height: 26px; width: auto; display: block; }
+.brand-text { font-weight: 700; font-size: 17px; letter-spacing: .04em; }
+.brand-text b { color: var(--mantine-color-xre-4); font-weight: 800; }
+.brand-lg .brand-text { font-size: 22px; letter-spacing: .06em; }
 
 .nav-link { display: flex; align-items: center; gap: 8px; padding: 8px 14px; color: var(--mantine-color-dark-2); border-radius: 999px;
   text-decoration: none; font-size: var(--mantine-font-size-sm); font-weight: 500; transition: background-color 150ms, color 150ms; }
 .nav-link:hover { color: var(--mantine-color-dark-0); background: var(--mantine-color-dark-6); }
-.nav-link[aria-current='page'] { color: var(--mantine-color-orange-4); background: rgba(242, 107, 33, .13); }
+.nav-link[aria-current='page'] { color: var(--mantine-color-xre-4); background: rgba(64, 99, 239, .13); }
 
 .tab-link { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 0;
   color: var(--mantine-color-dark-2); text-decoration: none; font-size: 11px; font-weight: 500; }
-.tab-link[aria-current='page'] { color: var(--mantine-color-orange-5); }
-.tab-link[aria-current='page'] svg { filter: drop-shadow(0 0 8px rgba(242, 107, 33, .55)); }
+.tab-link[aria-current='page'] { color: var(--mantine-color-xre-5); }
+.tab-link[aria-current='page'] svg { filter: drop-shadow(0 0 8px rgba(64, 99, 239, .55)); }
 
 .search-hint { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 12px; border-radius: 999px; cursor: pointer;
   border: 1px solid var(--xre-line); background: var(--xre-card); color: var(--mantine-color-dark-2); font-size: 13px; }
@@ -48,7 +50,7 @@ a.row-card:hover { border-color: var(--mantine-color-dark-3); background: var(--
 .stat-icon { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center;
   background: color-mix(in srgb, var(--stat-color) 18%, transparent); color: var(--stat-color); }
 
-.fab { position: fixed; right: max(20px, calc(50% - 470px)); bottom: 28px; z-index: 50; box-shadow: 0 10px 28px rgba(242, 107, 33, .4);
+.fab { position: fixed; right: max(20px, calc(50% - 470px)); bottom: 28px; z-index: 50; box-shadow: 0 10px 28px rgba(64, 99, 239, .4);
   transition: transform 150ms; }
 .fab:hover { transform: scale(1.06); }
 @media (max-width: 48em) { .fab { right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); } }
@@ -56,7 +58,7 @@ a.row-card:hover { border-color: var(--mantine-color-dark-3); background: var(--
 /* Giriş ekranı */
 .login-card { position: relative; overflow: hidden; }
 .login-card::before { content: ''; position: absolute; inset: -40% -20% auto; height: 220px;
-  background: radial-gradient(closest-side, rgba(242, 107, 33, .28), transparent); pointer-events: none; }
+  background: radial-gradient(closest-side, rgba(64, 99, 239, .28), transparent); pointer-events: none; }
 
 /* Gelen arama: çalan halka; görüşme: ses dalgası */
 .ring { position: relative; display: grid; place-items: center; width: 132px; height: 132px; }
@@ -71,11 +73,11 @@ a.row-card:hover { border-color: var(--mantine-color-dark-3); background: var(--
 .wave.muted i { animation: none; height: 4px; background: var(--mantine-color-dark-2); }
 
 .empty { display: grid; place-items: center; gap: 10px; padding: 48px 16px; text-align: center; }
-.empty-icon { width: 72px; height: 72px; border-radius: 24px; display: grid; place-items: center; color: var(--mantine-color-orange-4);
-  background: rgba(242, 107, 33, .12); }
+.empty-icon { width: 72px; height: 72px; border-radius: 24px; display: grid; place-items: center; color: var(--mantine-color-xre-4);
+  background: rgba(64, 99, 239, .12); }
 
 @media (prefers-reduced-motion: reduce) {
   .ring::before, .ring::after, .wave i { animation: none; }
   .row-card, .stat, .fab, .nav-link { transition: none; }
 }
-@media (max-width: 36em) { .search-hint kbd { display: none; } .search-hint { padding: 8px; } .brand { font-size: 18px; margin-right: 8px !important; } }
+@media (max-width: 36em) { .search-hint kbd { display: none; } .search-hint { padding: 8px; } .brand-sw { display: none; } .brand-text { font-size: 15px; } }
