@@ -372,8 +372,10 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       extensionUser,
       officeOpen: isOfficeOpen(getSettings(), new Date(), config.timezone),
     });
-    // HUNT_IVR=1 ise karşılama hattında santral önce "dahili tuşlayın" anonsunu çalar, sonra tuşlananla tekrar sorar
-    decision.ivr = Boolean(config.pbx.huntIvr) && number?.type === 'hunt';
+    // HUNT_IVR=1 ise karşılama hattında santral önce "dahili tuşlayın" anonsunu çalar, sonra tuşlananla tekrar sorar.
+    // Kayıtlı müşteri kendi danışmanına gidiyorsa tuşlatılmaz: doğrudan danışmanı çalar
+    const toOwnConsultant = decision.action === 'forward' && !decision.reason && owner && decision.userId === owner.id;
+    decision.ivr = Boolean(config.pbx.huntIvr) && number?.type === 'hunt' && !extensionUser && !toOwnConsultant;
     // Asistana giden arama: panelde açık olan asistanların hepsi birlikte çalar (masa telefonu gibi);
     // kimse açmazsa santral asistan hattına (cebe) düşer
     if (decision.action !== 'reject' && (decision.reason || decision.action === 'queue')) {

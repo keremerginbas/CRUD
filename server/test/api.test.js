@@ -270,6 +270,9 @@ test('karşılama hattında tuşlanan dahili danışmana gider, santral IVR çal
     assert.deepEqual(calls.map((c) => c.user_id), [1]);
     const unknown = await ask({ from: '05559998877', to: '4442453', callId: 'ivr-2', ext: '9999' });
     assert.notEqual(unknown.userId, 1);
+    // Kayıtlı müşteri (MUSTAFA UTKU, sorumlusu Kaan) 0850/444'ü ararsa tuşlatılmaz, doğrudan Kaan
+    const known = await ask({ from: '05464962638', to: '4442453', callId: 'ivr-5' });
+    assert.deepEqual([known.action, known.userId, known.ivr], ['forward', 1, false]);
     const personal = await ask({ from: '05559998877', to: '908504660149', callId: 'ivr-3' });
     assert.equal(personal.ivr, false);
     // Varsayılan: IVR kapalı
