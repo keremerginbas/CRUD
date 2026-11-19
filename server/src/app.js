@@ -194,6 +194,9 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
         updates[key] = value;
       } else if (key === 'forward_phone') {
         updates[key] = value ? normalizePhone(value) : null;
+        // Şirket hattı (0850, 444, danışman hatları) yönlendirme hedefi olamaz: arama santrale geri döner
+        const line = updates[key] && findNumber(updates[key]);
+        if (line) return res.status(400).json({ error: `Yönlendirilen telefon kişisel cep numaranız olmalı; ${line.label} bir şirket hattı` });
       } else {
         updates[key] = value ? 1 : 0;
       }

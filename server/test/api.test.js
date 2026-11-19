@@ -589,3 +589,12 @@ test('kişi: aynı numara iki kez eklenmez, sahibi/yönetici düzenler ve siler,
   assert.equal(db.prepare('SELECT contact_id FROM calls WHERE id = 9901').get().contact_id, null);
   assert.equal((await call('DELETE', `/api/contacts/${created.id}`, null, { token: tokens.broker })).status, 404);
 });
+
+test('yönlendirilen telefon şirket hattı olamaz (arama santrale geri döner)', async () => {
+  const before = db.prepare('SELECT forward_phone FROM users WHERE id = 1').get().forward_phone;
+  const bad = await call('PUT', '/api/me/santral', { forward_phone: '0850 466 01 49' }, { token: tokens.kaan });
+  assert.equal(bad.status, 400);
+  assert.match(bad.body.error, /şirket hattı/);
+  assert.equal((await call('PUT', '/api/me/santral', { forward_phone: '444 24 53' }, { token: tokens.kaan })).status, 400);
+  assert.equal(db.prepare('SELECT forward_phone FROM users WHERE id = 1').get().forward_phone, before);
+});
