@@ -21,7 +21,7 @@ export function buildSmsXml({ username, password, header, type = 'UC' }, number,
 }
 
 export function createSmsClient(cfg) {
-  const enabled = Boolean(cfg?.url && cfg?.username && cfg?.password);
+  const enabled = Boolean(/^https?:\/\//.test(cfg?.url ?? '') && cfg?.username && cfg?.password);
   return {
     enabled,
     // number: 05XXXXXXXXX biçiminde; { ok, response } döner (firmanın cevabı loga yazılır)

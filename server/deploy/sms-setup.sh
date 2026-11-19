@@ -4,7 +4,8 @@
 set -euo pipefail
 ENV=/opt/santral/server/.env
 URL_DEFAULT=https://gateway.erccell.com.tr/corporatesms/sendsms/
-read -rp "SMS adresi [$URL_DEFAULT]: " URL; URL="${URL:-$URL_DEFAULT}"
+read -rp "SMS adresi (değiştirmeyecekseniz sadece Enter) [$URL_DEFAULT]: " URL; URL="${URL:-$URL_DEFAULT}"
+[[ "$URL" =~ ^https?:// ]] || { echo "Adres https:// ile başlamalı (yazılan: $URL). Tekrar çalıştırıp ilk soruda sadece Enter'a basın."; exit 1; }
 read -rp "Kullanıcı adı: " USERNAME
 read -rsp "Şifre (yazarken görünmez): " PASSWORD; echo
 read -rp "Başlık [XRE]: " HEADER; HEADER="${HEADER:-XRE}"
