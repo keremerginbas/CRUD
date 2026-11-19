@@ -89,6 +89,16 @@ if [[ "$MODE" == "1" ]]; then
   fi
 fi
 
+# 444 / 0850 gibi tek numaralı bağlantı: müşteri her aramada bu numarayı görür, danışmanın hattı gönderilmez
+# (operatör bağlantıdaki numara dışında arayan numaraya izin vermiyorsa). Eski kullanımlarda soru cevapsız kalır → hayır
+FIX=""
+read -rp "Her aramada sadece bu bağlantının ana numarası mı gösterilsin? (444 gibi tek numaralı hat) e/h [h]: " FIX || true
+FIX="$(clean "${FIX:-h}")"
+case "$FIX" in
+  e|E|evet) [[ -n "$DID" ]] || { echo "Sabit numara için bağlantının ana numarası girilmeli"; exit 1; }; FIX=1 ;;
+  *) FIX=0 ;;
+esac
+
 umask 027
 {
   echo "; pbx/trunk.sh tarafından yazıldı ($OPERATOR). Elle düzenlemeyin; scripti tekrar çalıştırın."
@@ -155,6 +165,7 @@ HOST_$NAME=$HOSTNAME_ONLY
 CLI_$NAME=$CLI
 CH_$NAME=$CH
 DID_$NAME=$DID
+FIX_$NAME=$FIX
 CONFEOF
 mv "$D/pjsip-$NAME.conf.new" "$D/pjsip-$NAME.conf"
 
@@ -178,7 +189,7 @@ fi
 echo "== Operatöre erişim (Avail görünmeli):"
 ast "pjsip show aor $NAME" | grep -i "contact:" || true
 cat <<MSG
-== Bitti: $NAME ($OPERATOR, $CH kanal, arayan numara biçimi $CLI)
+== Bitti: $NAME ($OPERATOR, $CH kanal, arayan numara biçimi $CLI$([[ "$FIX" == 1 ]] && echo ", her aramada $DID görünür"))
    Bu bağlantıdaki numaraları panelde Ekip → Hatlar'da "$NAME" bağlantısına bağlayın
    (gelen ilk aramada otomatik de öğrenilir). Kontrol: /opt/santral/pbx/doctor.sh
 MSG

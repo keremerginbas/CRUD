@@ -31,7 +31,7 @@ for n in $NAMES; do
   STATE="$(grep -E "^ *Contact: +$n/" <<<"$EP" | awk '{print $4}' | head -1)"
   REG="$(ast 'pjsip show registrations' | awk -v r="$n-reg/" 'index($1, r) == 1 {
     for (i = 2; i <= NF; i++) if ($i ~ /^(Registered|Unregistered|Rejected|Retrying|Stopped)$/) print $i }' | head -1)"
-  INFO="$(gvar "CH_$n") kanal, biçim $(gvar "CLI_$n"), numara $(gvar "DID_$n")"
+  INFO="$(gvar "CH_$n") kanal, biçim $(gvar "CLI_$n"), numara $(gvar "DID_$n")$([[ "$(gvar "FIX_$n")" == 1 ]] && echo ", her aramada bu numara görünür")"
   [[ "$n" == "agent" && "$CTX" != "from-agent" ]] && bad "$n: gelen arama açabiliyor (context=$CTX); pbx/trunk.sh agent ile yeniden yazın"
   if [[ -n "$REG" && "$REG" != "Registered" ]]; then bad "$n: operatöre kayıt olamadı ($REG) — kullanıcı adı/şifre ya da sunucu yanlış"
   elif [[ "$STATE" == "Avail" || "$STATE" == "NonQual" ]]; then ok "$n: ${REG:+kayıtlı, }erişilebilir ($INFO)"

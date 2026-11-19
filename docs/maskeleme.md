@@ -145,6 +145,29 @@ Aynı operatörde ikinci hesap (ör. Netgsm 119 ve 114) **kullanıcı adı/şifr
 operatörün kayıt etiketinden doğru hesaba eşleşir. Aynı sunucuda iki IP doğrulamalı bağlantıyı `trunk.sh`
 kabul etmez, çünkü gelen aramalar karışır.
 
+### 6. Tek ortak numara: 444 (Kobikom'un önerisi)
+
+Operatör danışmanların 0533 numaralarını arayan numara olarak göstermiyorsa en temiz çözüm budur:
+
+- **Giden:** Her danışmanın araması 444 24 53 ile çıkar. Müşteri 0533 değil, 444 görür.
+- **Müşteri 444'ü geri arayınca:** Santral arayanı tanır. Kayıtlı müşteri doğrudan kendi danışmanına
+  gider (panel açıksa panelde, değilse cebinde). Kayıtsız müşteri mesai içinde asistanlara sırayla
+  gider.
+- **Eski müşteriler 0533'ü ararsa:** SIM'lerde Türk Telekom'dan "koşulsuz yönlendirme → 444 24 53"
+  açtırılır. Arama 444'e düşer, santral arayanı tanıyıp danışmana verir. Operatör yönlendirilen
+  numarayı (Diversion) iletiyorsa kayıtsız arayan da o 0533'ün danışmanına gider.
+
+**Makine: root@santral**
+```bash
+/opt/santral/pbx/trunk.sh t444    # ana numara 4442453, son soru "her aramada sadece bu numara" → e
+/opt/santral/pbx/doctor.sh        # "t444: ... numara 4442453, her aramada bu numara görünür"
+/opt/santral/pbx/cli-test.sh 4442453 05XXXXXXXXX t444
+```
+**Makine: root@pve:** `pct exec 150 -- cat /opt/santral/pbx/connect.sh | TRUNK=t444 bash`
+
+Kanal sayısı önemli: aynı anda konuşan danışman sayısı kadar, artı cebe yönlendirilen her arama
+iki kanal kullanır. En az 8 kanal önerilir.
+
 ## Sorun giderme
 
 | Belirti | Bakılacak yer |

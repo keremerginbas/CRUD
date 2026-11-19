@@ -394,6 +394,14 @@ XRE_WAIT=1 "$REPO/pbx/cli-test.sh" 03122191672 05321110000 tt >/dev/null
 expect "test araması TT'den, hat 0'lı biçimde" "E2E-IN to=05321110000 from=03122191672 pai=<sip:03122191672@127.0.0.3> via=127.0.0.3:5070"
 if "$REPO/pbx/cli-test.sh" 03122191672 00441234567 >/dev/null 2>&1; then echo "  ✗ yurt dışı test araması kabul edildi"; FAIL=1; else echo "  ✓ yurt dışı test araması reddedildi"; fi
 
+echo "== Giden: tek numaralı bağlantı (444): danışmanın hattı yerine her aramada 444 görünür"
+printf '%s\n' 3 127.0.0.3:5070 2 "" 4442453 4 0 e | "$REPO/pbx/trunk.sh" tt >/dev/null
+grep -q "^FIX_tt=1" "$E/xre.d/globals-tt.conf" || { echo "  ✗ FIX_tt yazılmadı"; FAIL=1; }
+call 05464962639-asu1-u1
+expect "müşteri TT'den aranır, 444 24 53 görünür" "E2E-IN to=05464962639 from=4442453 pai=<sip:4442453@127.0.0.3> via=127.0.0.3:5070"
+if printf '%s\n' 3 127.0.0.3:5070 2 "" "" 4 0 e | "$REPO/pbx/trunk.sh" tt >/dev/null 2>&1; then echo "  ✗ numarasız sabit bağlantı kabul edildi"; FAIL=1; else echo "  ✓ numarasız sabit bağlantı reddedildi"; fi
+printf '%s\n' 3 127.0.0.3:5070 2 "" 3122191672 4 0 | "$REPO/pbx/trunk.sh" tt >/dev/null
+
 echo "== Araç: sağlık kontrolü (doctor.sh)"
 if XRE_LOG="$W/pbx/log/messages.log" "$REPO/pbx/doctor.sh" > "$W/doctor.txt" 2>&1; then echo "  ✓ doctor.sh sorun bulmadı"; else echo "  ✗ doctor.sh:"; sed 's/^/      /' "$W/doctor.txt"; FAIL=1; fi
 for want in "netgsm: erişilebilir (1 kanal, biçim 10, numara 8503465993)" "tt: erişilebilir (4 kanal, biçim 0" "verimor: kayıtlı, erişilebilir (2 kanal, biçim 90" "arama 'bize ait değil' diye reddedildi"; do
