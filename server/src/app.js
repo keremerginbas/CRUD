@@ -211,17 +211,71 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const raw = String(req.query.q ?? '').trim();
     // "0532 123" gibi aramalar +90532123... ile eşleşsin
     const digits = raw.replace(/\D/g, '').replace(/^0/, '');
-    res.json(db.prepare(`SELECT * FROM contacts WHERE name LIKE ? OR (? != '' AND phone LIKE ?)
-      ORDER BY name COLLATE NOCASE LIMIT 500`).all(`%${raw.toLocaleUpperCase('tr-TR')}%`, digits, `%${digits}%`));
+    res.json(db.prepare(`SELECT c.*, u.name AS owner_name FROM contacts c LEFT JOIN users u ON u.id = c.owner_id
+      WHERE c.name LIKE ? OR (? != '' AND c.phone LIKE ?)
+      ORDER BY c.name COLLATE NOCASE LIMIT 500`).all(`%${raw.toLocaleUpperCase('tr-TR')}%`, digits, `%${digits}%`));
   });
+
+  // Aynı numara iki kez kaydedilmez: gelen arama numaradan tek bir sorumlu danışman bulmalı
+  const duplicateContact = (phone, exceptId = 0) => db.prepare(`SELECT c.name, u.name AS owner_name FROM contacts c
+    LEFT JOIN users u ON u.id = c.owner_id WHERE c.phone = ? AND c.id != ? LIMIT 1`).get(phone, exceptId);
+  const duplicateError = (d) => ({ error: `Bu numara zaten kayıtlı: ${d.name}${d.owner_name ? ` (sorumlu: ${d.owner_name})` : ''}` });
 
   app.post('/api/contacts', auth, (req, res) => {
     const { name, phone, type = 'ALICI', note = null } = req.body ?? {};
     if (!name || !normalizePhone(phone)) return res.status(400).json({ error: 'İsim ve telefon zorunlu' });
     if (!['ALICI', 'SATICI'].includes(type)) return res.status(400).json({ error: 'Tip ALICI veya SATICI olmalı' });
+    const dup = duplicateContact(normalizePhone(phone));
+    if (dup) return res.status(409).json(duplicateError(dup));
     const { lastInsertRowid } = db.prepare('INSERT INTO contacts (name, phone, type, owner_id, note) VALUES (?, ?, ?, ?, ?)')
       .run(String(name).toLocaleUpperCase('tr-TR'), normalizePhone(phone), type, req.user.sub, note);
     res.status(201).json(q.contactById.get(lastInsertRowid));
+  });
+
+  // Kişiyi kendi sorumlusu ya da yönetici/broker/asistan düzenler ve siler; sorumlu danışmanı sadece onlar değiştirir
+  const editableContact = (req, res) => {
+    const contact = q.contactById.get(req.params.id);
+    if (!contact) { res.status(404).json({ error: 'Kişi bulunamadı' }); return null; }
+    if (contact.owner_id !== req.user.sub && !MANAGER_ROLES.has(req.user.role)) {
+      res.status(403).json({ error: 'Bu kişi başka bir danışmana ait' }); return null;
+    }
+    return contact;
+  };
+
+  app.put('/api/contacts/:id', auth, (req, res) => {
+    const contact = editableContact(req, res);
+    if (!contact) return;
+    const body = req.body ?? {};
+    const name = String(body.name ?? contact.name).trim().toLocaleUpperCase('tr-TR');
+    const phone = 'phone' in body ? normalizePhone(body.phone) : contact.phone;
+    const type = body.type ?? contact.type;
+    if (!name || !phone) return res.status(400).json({ error: 'İsim ve telefon zorunlu' });
+    if (!['ALICI', 'SATICI'].includes(type)) return res.status(400).json({ error: 'Tip ALICI veya SATICI olmalı' });
+    const dup = duplicateContact(phone, contact.id);
+    if (dup) return res.status(409).json(duplicateError(dup));
+    let ownerId = contact.owner_id;
+    if ('owner_id' in body && body.owner_id !== contact.owner_id) {
+      if (!MANAGER_ROLES.has(req.user.role)) return res.status(403).json({ error: 'Sorumlu danışmanı yönetici değiştirir' });
+      ownerId = body.owner_id === null ? null : Number(body.owner_id);
+      if (ownerId !== null && !q.userById.get(ownerId)) return res.status(400).json({ error: 'Kullanıcı bulunamadı' });
+    }
+    const note = 'note' in body ? (String(body.note ?? '').trim() || null) : contact.note;
+    db.prepare('UPDATE contacts SET name = ?, phone = ?, type = ?, owner_id = ?, note = ? WHERE id = ?')
+      .run(name, phone, type, ownerId, note, contact.id);
+    res.json(q.contactById.get(contact.id));
+  });
+
+  // Geçmiş aramalar, SMS ve randevular silinmez; sadece kişi bağlantısı boşalır
+  app.delete('/api/contacts/:id', auth, (req, res) => {
+    const contact = editableContact(req, res);
+    if (!contact) return;
+    db.exec('BEGIN');
+    try {
+      for (const t of ['calls', 'sms_log', 'appointments']) db.prepare(`UPDATE ${t} SET contact_id = NULL WHERE contact_id = ?`).run(contact.id);
+      db.prepare('DELETE FROM contacts WHERE id = ?').run(contact.id);
+      db.exec('COMMIT');
+    } catch (err) { db.exec('ROLLBACK'); throw err; }
+    res.status(204).end();
   });
 
   // ---- Çağrılar ----

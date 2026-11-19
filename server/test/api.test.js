@@ -563,3 +563,26 @@ test('danışman yalnızca kendi çağrılarını, broker hepsini görür', asyn
   assert.equal((await call('GET', '/api/calls', null, { token: tokens.baska })).body.length, 0);
   assert.ok((await call('GET', '/api/calls?scope=all', null, { token: tokens.broker })).body.length >= 3);
 });
+
+test('kişi: aynı numara iki kez eklenmez, sahibi/yönetici düzenler ve siler, sorumluyu yönetici değiştirir', async () => {
+  const dup = await call('POST', '/api/contacts', { name: 'ikinci', phone: '0546 496 26 38' }, { token: tokens.baska });
+  assert.equal(dup.status, 409);
+  assert.match(dup.body.error, /MUSTAFA UTKU.*KAAN/);
+  const created = (await call('POST', '/api/contacts', { name: 'silinecek', phone: '05559998877' }, { token: tokens.kaan })).body;
+  assert.equal((await call('GET', '/api/contacts?q=silinecek', null, { token: tokens.kaan })).body[0].owner_name, 'KAAN');
+  // Başka danışman dokunamaz
+  assert.equal((await call('PUT', `/api/contacts/${created.id}`, { name: 'x' }, { token: tokens.baska })).status, 403);
+  assert.equal((await call('DELETE', `/api/contacts/${created.id}`, null, { token: tokens.baska })).status, 403);
+  // Sahibi düzenler ama sorumluyu değiştiremez
+  const edited = await call('PUT', `/api/contacts/${created.id}`, { name: 'yeni ad', type: 'SATICI' }, { token: tokens.kaan });
+  assert.equal(edited.body.name, 'YENİ AD');
+  assert.equal(edited.body.type, 'SATICI');
+  assert.equal((await call('PUT', `/api/contacts/${created.id}`, { owner_id: 3 }, { token: tokens.kaan })).status, 403);
+  assert.equal((await call('PUT', `/api/contacts/${created.id}`, { phone: '05464962638' }, { token: tokens.kaan })).status, 409);
+  // Yönetici sorumluyu değiştirir; arama artık yeni sorumluya gider
+  assert.equal((await call('PUT', `/api/contacts/${created.id}`, { owner_id: 3 }, { token: tokens.broker })).body.owner_id, 3);
+  db.prepare("INSERT INTO calls (id, direction, customer_phone, user_id, contact_id, status) VALUES (9901, 'inbound', '+905559998877', 3, ?, 'completed')").run(created.id);
+  assert.equal((await call('DELETE', `/api/contacts/${created.id}`, null, { token: tokens.broker })).status, 204);
+  assert.equal(db.prepare('SELECT contact_id FROM calls WHERE id = 9901').get().contact_id, null);
+  assert.equal((await call('DELETE', `/api/contacts/${created.id}`, null, { token: tokens.broker })).status, 404);
+});

@@ -15,7 +15,10 @@ export type User = {
 
 export type OfficeSettings = { office_start: string; office_end: string; office_days: string };
 
-export type Contact = { id: number; name: string; phone: string; type: 'ALICI' | 'SATICI'; created_at: string; note: string | null };
+export type Contact = {
+  id: number; name: string; phone: string; type: 'ALICI' | 'SATICI'; created_at: string; note: string | null;
+  owner_id: number | null; owner_name?: string | null;
+};
 
 export type CallStatus = 'initiated' | 'ringing' | 'answered' | 'completed' | 'missed' | 'failed';
 export type Call = {
