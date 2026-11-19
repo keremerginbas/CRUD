@@ -4,6 +4,8 @@
 # Şifreler otomatik üretilir/taşınır; ekrana yazılmaz.
 # Varsayılan operatör bağlantısı "trunk"tır; başka bir bağlantıyı varsayılan yapmak için (ör. tt):
 #   pct exec 150 -- cat /opt/santral/pbx/connect.sh | TRUNK=tt bash
+# Danışmanların cebini arayan bağlantı da aynı olsun (ör. agent bağlantısını kaldırmadan önce):
+#   pct exec 150 -- cat /opt/santral/pbx/connect.sh | TRUNK=n850 AGENT=n850 bash
 set -euo pipefail
 CT_APP="${CT_APP:-140}"; CT_PBX="${CT_PBX:-150}"
 APP_IP="${APP_IP:-192.168.1.253}"; PBX_IP="${PBX_IP:-192.168.1.247}"
@@ -22,9 +24,10 @@ TRUNK="${TRUNK:-trunk}"
 [[ "$TRUNK" =~ ^[a-z][a-z0-9_]{1,19}$ ]] || { echo "Geçersiz bağlantı adı: $TRUNK"; exit 1; }
 has_conn() { pct exec "$CT_PBX" -- bash -c "test -f /etc/asterisk/xre.d/pjsip-$1.conf || grep -qs type=endpoint /etc/asterisk/pjsip_$1.conf"; }
 has_conn "$TRUNK" || echo "!! UYARI: santralde '$TRUNK' bağlantısı yok; önce pbx/trunk.sh $TRUNK çalıştırın"
-# Danışman bağlantısı (pbx/trunk.sh agent) varsa danışmanların cebi ondan aranır
-AGENT="$TRUNK"
-has_conn agent && AGENT=agent
+# Danışman bağlantısı (pbx/trunk.sh agent) varsa danışmanların cebi ondan aranır; AGENT=<ad> ile seçilebilir
+if [[ -z "${AGENT:-}" ]]; then AGENT="$TRUNK"; has_conn agent && AGENT=agent; fi
+[[ "$AGENT" =~ ^[a-z][a-z0-9_]{1,19}$ ]] || { echo "Geçersiz bağlantı adı: $AGENT"; exit 1; }
+has_conn "$AGENT" || echo "!! UYARI: santralde '$AGENT' bağlantısı yok"
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 cat > "$TMP/xre_globals.conf" <<CONFEOF

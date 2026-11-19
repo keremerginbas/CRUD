@@ -1,0 +1,5 @@
+bitrix_id,ad_soyad,departman,hat,dahili,kullanici_adi,rol
+# Netgsm sanal santral (sip8.netsantral.com) test hatları: panelden çıkarılır, kişi silinmez
+# node --env-file=.env src/remove-staff.js netgsm-cikar.csv
+,Netgsm test hattı 5628,,+905337435628,,,
+,Netgsm test hattı 7658,,+905337437658,,,
