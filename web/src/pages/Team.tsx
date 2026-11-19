@@ -2,7 +2,7 @@ import { ActionIcon, Avatar, Badge, Button, Chip, Code, CopyButton, Group, Input
 import { TimeInput } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
-import { IconKey, IconSearch } from '@tabler/icons-react';
+import { IconCheck, IconKey, IconSearch, IconUserMinus } from '@tabler/icons-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { Fab } from '../components/Fab';
@@ -55,7 +55,7 @@ export function Team() {
   const shownUsers = (users.data ?? []).filter((u) => {
     const q = userSearch.trim().toLocaleLowerCase('tr-TR');
     return !q || `${u.name} ${u.email} ${u.department ?? ''}`.toLocaleLowerCase('tr-TR').includes(q);
-  });
+  }).sort((a, b) => Number(b.status === 'pending') - Number(a.status === 'pending'));
 
   const userOptions = useMemo(() => (users.data ?? []).map((u) => ({ value: String(u.id), label: u.name })), [users.data]);
   const shownNumbers = (numbers.data ?? []).filter((n) => {
@@ -72,6 +72,28 @@ export function Team() {
       try {
         const { password } = await api<{ password: string }>(`/api/users/${u.id}/reset-password`, { method: 'POST' });
         showPassword(u.name, password);
+      } catch (e) { toastError(e); }
+    },
+  });
+
+  const approve = async (u: User) => {
+    try {
+      await api(`/api/users/${u.id}/approve`, { method: 'POST' });
+      users.reload();
+      toastOk(`${u.name} onaylandı`);
+    } catch (e) { toastError(e); }
+  };
+  const removeUser = (u: User) => modals.openConfirmModal({
+    title: `${u.name} ekipten çıkarılsın mı?`,
+    centered: true,
+    children: <Text size="sm" c="dimmed">Kişi panele giremez; hatları boşa düşer (aramalar asistana gider). Geçmiş aramalar silinmez.</Text>,
+    labels: { confirm: 'Ekipten çıkar', cancel: 'Vazgeç' },
+    confirmProps: { color: 'red' },
+    onConfirm: async () => {
+      try {
+        await api(`/api/users/${u.id}`, { method: 'DELETE' });
+        users.reload(); numbers.reload();
+        toastOk(`${u.name} ekipten çıkarıldı`);
       } catch (e) { toastError(e); }
     },
   });
@@ -149,6 +171,7 @@ export function Team() {
                         <Text fw={600} truncate>{u.name}</Text>
                         <Text size="xs" c="dimmed" truncate>{u.email}{u.department ? ` · ${u.department}` : ''}</Text>
                         <Group gap={6} mt={8}>
+                          {u.status === 'pending' && <Badge size="sm" color="yellow">Onay bekliyor</Badge>}
                           <Badge size="sm" variant="light" color={u.role === 'admin' ? 'orange' : u.role === 'asistan' ? 'cyan' : 'gray'}>{ROLE_LABELS[u.role]}</Badge>
                           {parseSpecialties(u.specialties).map((s) => <Badge key={s} size="sm" variant="light" color={SPECIALTY_COLORS[s]}>{SPECIALTY_LABELS[s]}</Badge>)}
                           {line
@@ -157,9 +180,21 @@ export function Team() {
                         </Group>
                       </div>
                       {isAdmin && (
-                        <Tooltip label="Şifre sıfırla">
-                          <ActionIcon variant="subtle" color="gray" onClick={() => resetPassword(u)} aria-label={`${u.name} şifresini sıfırla`}><IconKey size={18} /></ActionIcon>
-                        </Tooltip>
+                        <Group gap={2} wrap="nowrap">
+                          {u.status === 'pending' && (
+                            <Tooltip label="Başvuruyu onayla">
+                              <ActionIcon variant="light" color="lime" onClick={() => approve(u)} aria-label={`${u.name} onayla`}><IconCheck size={18} /></ActionIcon>
+                            </Tooltip>
+                          )}
+                          <Tooltip label="Şifre sıfırla">
+                            <ActionIcon variant="subtle" color="gray" onClick={() => resetPassword(u)} aria-label={`${u.name} şifresini sıfırla`}><IconKey size={18} /></ActionIcon>
+                          </Tooltip>
+                          {u.id !== me?.id && (
+                            <Tooltip label="Ekipten çıkar">
+                              <ActionIcon variant="subtle" color="red" onClick={() => removeUser(u)} aria-label={`${u.name} ekipten çıkar`}><IconUserMinus size={18} /></ActionIcon>
+                            </Tooltip>
+                          )}
+                        </Group>
                       )}
                     </Group>
                   </div>

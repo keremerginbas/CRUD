@@ -15,7 +15,7 @@ const config = {
 const pushes = [];
 const bitrixCalls = [];
 const bitrix = { call: async (method, params) => { bitrixCalls.push([method, params]); return method.endsWith('register') ? { CALL_ID: 'externalCall.1' } : true; } };
-let base, provider, db, tokens = {};
+let base, provider, db, appInstance, tokens = {};
 // Sahte SMS firması: gelen XML'leri kaydeder; mesajında 'BOZUK' geçerse hata döner
 const smsSeen = [];
 
@@ -41,7 +41,8 @@ before(async () => {
   }).listen(0);
   smsServer.unref();
   const sms = createSmsClient({ url: `http://127.0.0.1:${smsServer.address().port}/sms`, username: 'kullanici', password: 'gizli&<', header: 'XRE', type: 'UC' });
-  const server = createApp({ db, provider, config, bitrix, sms, notify: async (...a) => pushes.push(a) }).listen(0);
+  appInstance = createApp({ db, provider, config, bitrix, sms, notify: async (...a) => pushes.push(a) });
+  const server = appInstance.listen(0);
   base = `http://127.0.0.1:${server.address().port}`;
   server.unref();
   for (const who of ['kaan', 'broker', 'baska']) {
@@ -414,6 +415,84 @@ test('ilan portalı: ilan eklenir, aranır; asistan aramayı ilanın danışman�
   db.exec('UPDATE users SET forward_phone = NULL WHERE id = 3');
   db.exec("DELETE FROM calls WHERE provider_call_id = 'tr-ilan-1'");
   db.exec('DELETE FROM listings');
+});
+
+test('giriş: e-posta biçiminde yazılan kullanıcı adı da kabul edilir', async () => {
+  db.exec("UPDATE users SET email = 'kaan.ince' WHERE id = 1");
+  try {
+    assert.equal((await call('POST', '/api/auth/login', { email: 'Kaan.Ince@xre.com.tr', password: 'Sifre1234' })).status, 200);
+  } finally { db.exec("UPDATE users SET email = 'kaan@x.com' WHERE id = 1"); }
+});
+
+test('üye ol: başvuru onay bekler, yönetici onaylar ya da siler', async () => {
+  const bad = await call('POST', '/api/auth/register', { name: 'Yeni Kişi', email: 'yeni.kisi', phone: '05321234567', password: 'kisa', specialties: ['konut'] });
+  assert.equal(bad.status, 400);
+  assert.equal((await call('POST', '/api/auth/register', { name: 'Yeni Kişi', email: 'yeni.kisi', phone: '05321234567', password: 'uzunSifre1' })).status, 400);
+  const ok = await call('POST', '/api/auth/register', { name: 'Yeni Kişi', email: 'yeni.kisi', phone: '0532 123 45 67', password: 'uzunSifre1', specialties: ['konut', 'ticari'] });
+  assert.equal(ok.status, 201);
+  assert.equal((await call('POST', '/api/auth/register', { name: 'x', email: 'yeni.kisi', phone: '05321234567', password: 'uzunSifre1', specialties: ['konut'] })).status, 409);
+  const pending = await call('POST', '/api/auth/login', { email: 'yeni.kisi', password: 'uzunSifre1' });
+  assert.equal(pending.status, 403);
+  assert.match(pending.body.error, /onay/);
+
+  db.exec("UPDATE users SET role = 'admin' WHERE email = 'broker@x.com'");
+  const adminToken = (await call('POST', '/api/auth/login', { email: 'broker@x.com', password: 'Sifre1234' })).body.token;
+  try {
+    const u = (await call('GET', '/api/users', null, { token: adminToken })).body.find((x) => x.email === 'yeni.kisi');
+    assert.deepEqual([u.status, u.role, u.specialties, u.forward_phone], ['pending', 'danisman', 'konut,ticari', '+905321234567']);
+    assert.equal(u.password_hash, undefined);
+    assert.equal((await call('POST', `/api/users/${u.id}/approve`, null, { token: tokens.kaan })).status, 403);
+    assert.equal((await call('POST', `/api/users/${u.id}/approve`, null, { token: adminToken })).body.status, 'active');
+    assert.equal((await call('POST', '/api/auth/login', { email: 'yeni.kisi', password: 'uzunSifre1' })).status, 200);
+    // Ekipten çıkarma: kendini silemez, danışman silemez; silinen giriş yapamaz, hattı boşa düşer
+    db.exec(`INSERT INTO numbers (did, type, user_id, label) VALUES ('+905339990000', 'personal', ${u.id}, 'Test')`);
+    const meId = (await call('GET', '/api/me', null, { token: adminToken })).body.id;
+    assert.equal((await call('DELETE', `/api/users/${meId}`, null, { token: adminToken })).status, 400);
+    assert.equal((await call('DELETE', `/api/users/${u.id}`, null, { token: tokens.kaan })).status, 403);
+    assert.equal((await call('DELETE', `/api/users/${u.id}`, null, { token: adminToken })).status, 200);
+    assert.equal((await call('POST', '/api/auth/login', { email: 'yeni.kisi', password: 'uzunSifre1' })).status, 401);
+    assert.equal(db.prepare("SELECT user_id FROM numbers WHERE did = '+905339990000'").get().user_id, null);
+    db.exec("DELETE FROM numbers WHERE did = '+905339990000'");
+  } finally {
+    db.exec("UPDATE users SET role = 'broker' WHERE email = 'broker@x.com'");
+  }
+});
+
+test('şifremi unuttum: SMS ile kod gelir, kodla yeni şifre belirlenir', async () => {
+  db.exec("UPDATE users SET forward_phone = '+905051112233' WHERE id = 3");
+  try {
+    const n = smsSeen.length;
+    const r = await call('POST', '/api/auth/forgot', { email: 'baska@x.com' });
+    assert.equal(r.status, 200);
+    // Olmayan kullanıcıda da aynı cevap (kullanıcı adı tahmin edilmesin), SMS gitmez
+    assert.equal((await call('POST', '/api/auth/forgot', { email: 'yok.boyle' })).status, 200);
+    assert.equal(smsSeen.length, n + 1);
+    const code = smsSeen.at(-1).body.match(/kodunuz: (\d{6})/)[1];
+    assert.match(smsSeen.at(-1).body, /<NUMBERS>05051112233<\/NUMBERS>/);
+    assert.equal((await call('POST', '/api/auth/reset', { email: 'baska@x.com', code: '000000', password: 'yeniSifre99' })).status, 400);
+    assert.equal((await call('POST', '/api/auth/reset', { email: 'baska@x.com', code, password: 'kisa' })).status, 400);
+    assert.equal((await call('POST', '/api/auth/reset', { email: 'baska@x.com', code, password: 'yeniSifre99' })).status, 200);
+    assert.equal((await call('POST', '/api/auth/login', { email: 'baska@x.com', password: 'yeniSifre99' })).status, 200);
+    // Kod bir kez kullanılır
+    assert.equal((await call('POST', '/api/auth/reset', { email: 'baska@x.com', code, password: 'baskaSifre99' })).status, 400);
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = 3').run(hashPassword('Sifre1234'));
+  } finally {
+    db.exec('UPDATE users SET forward_phone = NULL WHERE id = 3');
+  }
+});
+
+test('randevu hatırlatma SMS\'i danışmanın cebine bir kez gider', async () => {
+  db.exec("UPDATE users SET forward_phone = '+905050000000' WHERE id = 1");
+  const due = new Date(Date.now() + 30 * 60e3).toISOString();
+  await call('POST', '/api/appointments', { contactId: 1, due_at: due, note: 'Fiyat konuşulacak', remind_before: 60 }, { token: tokens.kaan });
+  await call('POST', '/api/appointments', { contactId: 1, due_at: new Date(Date.now() + 5 * 3600e3).toISOString() }, { token: tokens.kaan });
+  const n = smsSeen.length;
+  await appInstance.locals.runReminders();
+  await appInstance.locals.runReminders();
+  assert.equal(smsSeen.length, n + 1);
+  assert.match(smsSeen.at(-1).body, /<NUMBERS>05050000000<\/NUMBERS>/);
+  assert.match(smsSeen.at(-1).body, /Hatirlatma: \d\d:\d\d MUSTAFA UTKU \(05464962638\) aranacak\. Fiyat konuşulacak/);
+  db.exec('DELETE FROM appointments');
 });
 
 test('cevapsız çağrıda danışmana bildirim gider', async () => {

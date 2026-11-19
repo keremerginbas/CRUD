@@ -133,6 +133,11 @@ const ADDED_COLUMNS = [
   ['numbers', 'trunk', 'TEXT'],
   ['users', 'specialties', 'TEXT'],
   ['calls', 'listing_id', 'INTEGER'],
+  ['users', 'status', "TEXT NOT NULL DEFAULT 'active'"], // active | pending (üye ol başvurusu, yönetici onaylar)
+  ['users', 'reset_code', 'TEXT'], // şifremi unuttum: SMS kodunun özeti
+  ['users', 'reset_expires', 'TEXT'],
+  ['users', 'reset_attempts', 'INTEGER NOT NULL DEFAULT 0'],
+  ['appointments', 'sms_reminded', 'INTEGER NOT NULL DEFAULT 0'],
 ];
 
 function migrate(db) {

@@ -1,7 +1,7 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
 import { Readable } from 'node:stream';
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { generatePassword, hashPassword, normalizeLogin, requireAuth, signToken, verifyPassword, verifyWebhook } from './auth.js';
 import { normalizePhone, toLocalFormat, TRUNK_NAME_RE } from './phone.js';
 import { decideInboundRoute, isOfficeOpen } from './routing.js';
@@ -29,7 +29,9 @@ const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 const requireRole = (...roles) => (req, res, next) => (roles.includes(req.user.role)
   ? next() : res.status(403).json({ error: 'Bu işlem için yetkiniz yok' }));
 
-const publicUser = ({ password_hash, push_token, ...u }) => u;
+// eslint-disable-next-line no-unused-vars
+const publicUser = ({ password_hash, push_token, reset_code, reset_expires, reset_attempts, ...u }) => u;
+const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
 export function createApp({ db, provider, config, notify = sendPush, bitrix = null, sms = createSmsClient(config.sms) }) {
   const app = express();
@@ -76,12 +78,65 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
   const me = (req) => q.userById.get(req.user.sub);
 
   // ---- Oturum ----
+  // "ad.soyad@xre.com.tr" yazılırsa "ad.soyad" kullanıcısı da denenir
+  const findLogin = (raw) => {
+    const login = normalizeLogin(raw);
+    return q.userByEmail.get(login) ?? (login.includes('@') ? q.userByEmail.get(login.split('@')[0]) : undefined);
+  };
+
   app.post('/api/auth/login', (req, res) => {
-    const user = q.userByEmail.get(normalizeLogin(req.body?.email));
+    const user = findLogin(req.body?.email);
     if (!user || !verifyPassword(String(req.body?.password ?? ''), user.password_hash)) {
       return res.status(401).json({ error: 'Kullanıcı adı veya şifre hatalı' });
     }
+    if (user.status === 'pending') return res.status(403).json({ error: 'Hesabınız yönetici onayı bekliyor' });
     res.json({ token: signToken({ sub: user.id, role: user.role }, config.jwtSecret), user: publicUser(user) });
+  });
+
+  // Üye ol: başvuru danışman rolüyle açılır, yönetici onaylayana kadar giriş yapılamaz
+  app.post('/api/auth/register', (req, res) => {
+    const { name, email, phone, password } = req.body ?? {};
+    const login = normalizeLogin(email);
+    const specialties = parseSpecialties(req.body?.specialties);
+    if (!String(name ?? '').trim() || !/^[a-z0-9._-]{3,40}$/.test(login)) return res.status(400).json({ error: 'Ad soyad ve kullanıcı adı (ad.soyad) zorunlu' });
+    if (!/^\+905\d{9}$/.test(normalizePhone(phone))) return res.status(400).json({ error: 'Cep telefonu 05XX XXX XX XX biçiminde olmalı' });
+    if (String(password ?? '').length < 8) return res.status(400).json({ error: 'Şifre en az 8 karakter olmalı' });
+    if (!specialties) return res.status(400).json({ error: 'Uzmanlık alanı seçin (konut, ticari, arazi)' });
+    if (q.userByEmail.get(login)) return res.status(409).json({ error: 'Bu kullanıcı adı alınmış' });
+    db.prepare(`INSERT INTO users (name, role, email, password_hash, phone, forward_phone, specialties, status)
+      VALUES (?, 'danisman', ?, ?, ?, ?, ?, 'pending')`).run(String(name).trim().toLocaleUpperCase('tr-TR'), login,
+      hashPassword(String(password)), normalizePhone(phone), normalizePhone(phone), specialties);
+    res.status(201).json({ pending: true });
+  });
+
+  // Şifremi unuttum: kayıtlı cebe 6 haneli kod (10 dk, 5 deneme). Kullanıcı var mı yok mu belli edilmez
+  app.post('/api/auth/forgot', async (req, res) => {
+    const user = findLogin(req.body?.email);
+    const phone = user?.forward_phone && /^\+905\d{9}$/.test(user.forward_phone) ? user.forward_phone
+      : user?.phone && /^\+905\d{9}$/.test(user.phone) ? user.phone : null;
+    if (user && user.status === 'active' && phone && sms.enabled) {
+      const code = String(randomInt(0, 1e6)).padStart(6, '0');
+      db.prepare("UPDATE users SET reset_code = ?, reset_expires = datetime('now', '+10 minutes'), reset_attempts = 0 WHERE id = ?")
+        .run(sha(`${user.id}:${code}`), user.id);
+      await sendSms(user, phone, `XRE Santral sifre sifirlama kodunuz: ${code} (10 dakika gecerli)`, null);
+    }
+    res.json({ ok: true, sms: sms.enabled });
+  });
+
+  app.post('/api/auth/reset', (req, res) => {
+    const user = findLogin(req.body?.email);
+    const password = String(req.body?.password ?? '');
+    const fail = () => res.status(400).json({ error: 'Kod hatalı ya da süresi dolmuş' });
+    if (!user?.reset_code || db.prepare("SELECT ? < datetime('now') AS old").get(user.reset_expires).old || user.reset_attempts >= 5) return fail();
+    const given = Buffer.from(sha(`${user.id}:${String(req.body?.code ?? '').trim()}`));
+    if (!timingSafeEqual(given, Buffer.from(user.reset_code))) {
+      db.prepare('UPDATE users SET reset_attempts = reset_attempts + 1 WHERE id = ?').run(user.id);
+      return fail();
+    }
+    if (password.length < 8) return res.status(400).json({ error: 'Şifre en az 8 karakter olmalı' });
+    db.prepare('UPDATE users SET password_hash = ?, reset_code = NULL, reset_expires = NULL, reset_attempts = 0 WHERE id = ?')
+      .run(hashPassword(password), user.id);
+    res.json({ ok: true });
   });
 
   app.get('/api/me', auth, (req, res) => {
@@ -583,6 +638,21 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     res.status(201).json({ user: publicUser(q.userById.get(lastInsertRowid)), password });
   });
 
+  app.post('/api/users/:id/approve', auth, admin, (req, res) => {
+    if (!q.userById.get(req.params.id)) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    db.prepare("UPDATE users SET status = 'active' WHERE id = ?").run(req.params.id);
+    res.json(publicUser(q.userById.get(req.params.id)));
+  });
+
+  // Ekipten çıkarma: hatları boşa düşer, geçmiş aramalar kalır (kişi bağlantısı boşalır)
+  app.delete('/api/users/:id', auth, admin, (req, res) => {
+    const u = q.userById.get(req.params.id);
+    if (!u) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
+    if (u.id === req.user.sub) return res.status(400).json({ error: 'Kendinizi ekipten çıkaramazsınız' });
+    db.prepare('DELETE FROM users WHERE id = ?').run(u.id);
+    res.json({ ok: true });
+  });
+
   app.post('/api/users/:id/reset-password', auth, admin, (req, res) => {
     if (!q.userById.get(req.params.id)) return res.status(404).json({ error: 'Kullanıcı bulunamadı' });
     const password = generatePassword();
@@ -617,6 +687,25 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
   app.use(express.static(PUBLIC_DIR, { index: 'index.html', maxAge: '1h' }));
 
   app.get('/health', (_req, res) => res.json({ ok: true, provider: provider.name }));
+
+  // Randevu hatırlatma SMS'i: hatırlatma zamanı gelen randevular için danışmanın cebine bir kez
+  async function runReminders() {
+    if (!sms.enabled) return;
+    const due = db.prepare(`SELECT a.*, u.forward_phone FROM appointments a JOIN users u ON u.id = a.user_id
+      WHERE a.status = 'open' AND a.sms_reminded = 0
+        AND datetime(a.due_at, '-' || a.remind_before || ' minutes') <= datetime('now')
+        AND a.due_at >= datetime('now', '-10 minutes')`).all();
+    for (const a of due) {
+      db.prepare('UPDATE appointments SET sms_reminded = 1 WHERE id = ?').run(a.id);
+      if (!/^\+905\d{9}$/.test(a.forward_phone ?? '')) continue;
+      const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: config.timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(new Date(`${a.due_at.replace(' ', 'T')}Z`)).map((x) => [x.type, x.value]));
+      await sendSms(q.userById.get(a.user_id), a.forward_phone,
+        `Hatirlatma: ${p.hour}:${p.minute} ${a.name} (${toLocalFormat(a.phone)}) aranacak.${a.note ? ` ${a.note}` : ''}`, a.contact_id);
+    }
+  }
+  app.locals.runReminders = runReminders;
+  if (!config.disableJobs) setInterval(() => runReminders().catch((e) => console.error('Hatırlatma SMS:', e.message)), 60_000).unref();
 
   app.use((err, _req, res, _next) => {
     console.error(err);

@@ -10,6 +10,7 @@ export type User = {
   sunday_enabled: number; sunday_start: string; sunday_end: string;
   numbers?: PbxNumber[];
   specialties?: string | null;
+  status?: 'active' | 'pending';
 };
 
 export type OfficeSettings = { office_start: string; office_end: string; office_days: string };

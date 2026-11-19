@@ -12,6 +12,27 @@ const SHOWN_KEY = 'xre-appt-shown';
 const shown = (): string[] => { try { return JSON.parse(localStorage.getItem(SHOWN_KEY) ?? '[]'); } catch { return []; } };
 const markShown = (key: string) => { try { localStorage.setItem(SHOWN_KEY, JSON.stringify([...shown().slice(-200), key])); } catch { /* yok */ } };
 
+// Kısa "ding-dong" (dosya gerektirmez); tarayıcı ses iznini sayfada bir tıklamadan sonra verir
+function chime(times = 1) {
+  try {
+    const ctx = new AudioContext();
+    for (let r = 0; r < times; r++) {
+      [[880, 0], [660, 0.22]].forEach(([f, t]) => {
+        const at = ctx.currentTime + r * 0.9 + t;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = f;
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(0.25, at + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.6);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(at); osc.stop(at + 0.65);
+      });
+    }
+    setTimeout(() => ctx.close().catch(() => {}), times * 900 + 800);
+  } catch { /* ses yok */ }
+}
+
 function browserNotify(title: string, body: string) {
   try { if ('Notification' in window && Notification.permission === 'granted' && document.hidden) new Notification(title, { body, icon: '/icon.svg' }); } catch { /* yok */ }
 }
@@ -39,11 +60,13 @@ export function AppointmentReminders() {
       if (now >= due && now < due + 2 * 3600e3 && !done.includes(onTime)) {
         markShown(onTime);
         setDueNow(a);
+        chime(3);
         browserNotify('Randevu zamanı', `${a.name} aranacak`);
       } else if (a.remind_before > 0 && now >= due - a.remind_before * 60e3 && now < due && !done.includes(early)) {
         markShown(early);
         const title = `Saat ${hhmm(new Date(due))}'de randevunuz var`;
         browserNotify(title, a.name);
+        chime(1);
         notifications.show({
           id: early, color: 'orange', autoClose: false, icon: <IconCalendarEvent size={18} />, title,
           message: <Text size="sm">{a.name}{a.note ? ` · ${a.note}` : ''}</Text>,
