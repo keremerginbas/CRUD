@@ -12,7 +12,7 @@ export const config = {
   },
   // Kurumsal SMS (CORPORATESMS XML); şifre yalnızca .env'de
   sms: {
-    url: env.SMS_API_URL ?? '',
+    url: env.SMS_API_URL ?? '',  // Erccell: https://gateway.erccell.com.tr/corporatesms/sendsms/
     username: env.SMS_USERNAME ?? '',
     password: env.SMS_PASSWORD ?? '',
     header: env.SMS_HEADER ?? 'XRE',
