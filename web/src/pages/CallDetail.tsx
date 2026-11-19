@@ -25,7 +25,7 @@ export function CallDetail({ id }: { id: string }) {
   const rows: [string, string][] = [
     ['Müşteri', c.contact_name ? `${c.contact_name} (${c.contact_type === 'SATICI' ? 'Satıcı' : 'Alıcı'})` : 'Kayıtlı değil'],
     ['Telefon', c.customer_phone],
-    [c.direction === 'inbound' ? 'Aranan numara' : 'Müşterinin gördüğü numara', c.dialed_label ? `${c.dialed_label} · ${c.dialed_number}` : (c.dialed_number ?? '—')],
+    [c.direction === 'inbound' ? 'Aranan numara' : 'Danışmanın hattı', c.dialed_label ? `${c.dialed_label} · ${c.dialed_number}` : (c.dialed_number ?? '—')],
     ['Danışman', c.user_name ?? '—'],
     ...(c.listing_ref ? [['İlan', `${c.listing_ref} · ${c.listing_title}`] as [string, string]] : []),
     ['Tarih', `${formatDate(c.started_at)} (${daysAgo(c.started_at).toLocaleLowerCase('tr-TR')})`],
