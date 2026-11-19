@@ -15,4 +15,4 @@ sed -i '/^SMS_\(API_URL\|USERNAME\|PASSWORD\|HEADER\|TYPE\)=/d' "$ENV"
 printf 'SMS_API_URL=%s\nSMS_USERNAME=%s\nSMS_PASSWORD=%s\nSMS_HEADER=%s\nSMS_TYPE=UC\n' "$URL" "$USERNAME" "$PASSWORD" "$HEADER" >> "$ENV"
 chmod 600 "$ENV"; chown santral:santral "$ENV" 2>/dev/null || true
 systemctl restart santral
-echo "== Kaydedildi, servis yeniden başlatıldı. Deneme: node --env-file=.env src/sms-test.js 05XXXXXXXXX"
+echo "== Kaydedildi, servis yeniden başlatıldı. Deneme: node --env-file=.env src/sms-deneme.js 05XXXXXXXXX"
