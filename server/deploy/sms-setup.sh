@@ -9,11 +9,13 @@ read -rp "SMS adresi (değiştirmeyecekseniz sadece Enter) [$URL_DEFAULT]: " URL
 read -rp "Kullanıcı adı: " USERNAME
 read -rsp "Şifre (yazarken görünmez): " PASSWORD; echo
 read -rp "Başlık [XRE]: " HEADER; HEADER="${HEADER:-XRE}"
+read -rp "Numara biçimi: 0 (05XX...), 10 (5XX...), 90 (905XX...) [0]: " FMT; FMT="${FMT:-0}"
+[[ "$FMT" =~ ^(0|10|90)$ ]] || { echo "Biçim 0, 10 ya da 90 olmalı"; exit 1; }
 [[ -n "$USERNAME" && -n "$PASSWORD" ]] || { echo "Kullanıcı adı ve şifre zorunlu"; exit 1; }
 [[ "$PASSWORD$USERNAME" != *$'\n'* ]] || exit 1
 touch "$ENV"
-sed -i '/^SMS_\(API_URL\|USERNAME\|PASSWORD\|HEADER\|TYPE\)=/d' "$ENV"
-printf 'SMS_API_URL=%s\nSMS_USERNAME=%s\nSMS_PASSWORD=%s\nSMS_HEADER=%s\nSMS_TYPE=UC\n' "$URL" "$USERNAME" "$PASSWORD" "$HEADER" >> "$ENV"
+sed -i '/^SMS_\(API_URL\|USERNAME\|PASSWORD\|HEADER\|TYPE\|NUMBER_FORMAT\)=/d' "$ENV"
+printf 'SMS_API_URL=%s\nSMS_USERNAME=%s\nSMS_PASSWORD=%s\nSMS_HEADER=%s\nSMS_TYPE=UC\nSMS_NUMBER_FORMAT=%s\n' "$URL" "$USERNAME" "$PASSWORD" "$HEADER" "$FMT" >> "$ENV"
 chmod 600 "$ENV"; chown santral:santral "$ENV" 2>/dev/null || true
 systemctl restart santral
 echo "== Kaydedildi, servis yeniden başlatıldı. Deneme: node --env-file=.env src/sms-deneme.js 05XXXXXXXXX"

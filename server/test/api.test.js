@@ -355,6 +355,16 @@ test('randevu: danışman oluşturur, kendi randevularını görür, tamamlar', 
   db.exec('DELETE FROM appointments');
 });
 
+test('SMS cevabı: kısa kod hata, uzun kimlik başarı; numara biçimi', async () => {
+  const { parseSmsResult, formatSmsNumber } = await import('../src/sms.js');
+  const xml = (c) => `<?xml version="1.0" encoding="utf-8"?><CORPORATESMS><RESULT>${c}</RESULT></CORPORATESMS>`;
+  assert.equal(parseSmsResult(true, xml('081')), false);
+  assert.equal(parseSmsResult(true, xml('1234567')), true);
+  assert.equal(parseSmsResult(true, xml('00'), ['00']), true);
+  assert.equal(parseSmsResult(false, xml('1234567')), false);
+  assert.deepEqual(['0', '10', '90'].map((f) => formatSmsNumber('+905061288930', f)), ['05061288930', '5061288930', '905061288930']);
+});
+
 test('SMS: şablon doldurulur, XML firmaya gider, loglanır; hata ve geçersiz numara', async () => {
   const t = await call('GET', '/api/sms/templates', null, { token: tokens.kaan });
   assert.equal(t.body.enabled, true);

@@ -20,22 +20,38 @@ export function buildSmsXml({ username, password, header, type = 'UC' }, number,
 </CORPORATESMS>`;
 }
 
+// Numarayı firmanın beklediği biçime getirir: 0 → 05XXXXXXXXX, 10 → 5XXXXXXXXX, 90 → 905XXXXXXXXX
+export function formatSmsNumber(number, format = '0') {
+  const ten = String(number).replace(/\D/g, '').slice(-10);
+  return format === '10' ? ten : format === '90' ? `90${ten}` : `0${ten}`;
+}
+
+// Firmanın cevabı: <RESULT>...</RESULT>. Kısa sayısal kodlar (ör. 081) hata, uzun sayı ya da OK mesaj kimliğidir.
+// Firma hangi kodu başarı saydığını belgelerse SMS_SUCCESS_CODES ile eklenebilir (virgülle)
+export function parseSmsResult(httpOk, body, successCodes = []) {
+  const code = /<RESULT>\s*([^<]*?)\s*<\/RESULT>/i.exec(body)?.[1];
+  if (!httpOk) return false;
+  if (code !== undefined) return successCodes.includes(code) || /^\d{6,}$/.test(code) || /^ok/i.test(code);
+  return !/(hata|error|fail|invalid|yetki|bakiye)/i.test(body);
+}
+
 export function createSmsClient(cfg) {
   const enabled = Boolean(/^https?:\/\//.test(cfg?.url ?? '') && cfg?.username && cfg?.password);
+  const successCodes = String(cfg?.successCodes ?? '').split(',').map((s) => s.trim()).filter(Boolean);
   return {
     enabled,
     // number: 05XXXXXXXXX biçiminde; { ok, response } döner (firmanın cevabı loga yazılır)
-    async send(number, message) {
+    async send(number, message, format = cfg?.numberFormat) {
       if (!enabled) throw new Error('SMS ayarlı değil (SMS_API_URL / SMS_USERNAME / SMS_PASSWORD)');
       const res = await fetch(cfg.url, {
         method: 'POST',
         headers: { 'content-type': 'text/xml; charset=utf-8' },
-        body: buildSmsXml(cfg, number, message),
+        body: buildSmsXml(cfg, formatSmsNumber(number, format), message),
         signal: AbortSignal.timeout(15000),
       });
       const response = (await res.text()).slice(0, 500);
-      // Firma hata durumunu çoğu zaman 200 ile ve metinde bildirir
-      const ok = res.ok && !/(hata|error|fail|invalid|yetki|bakiye)/i.test(response);
+      // Firma hata durumunu 200 ile ve RESULT kodunda bildirir
+      const ok = parseSmsResult(res.ok, response, successCodes);
       return { ok, response: `${res.status} ${response}`.trim() };
     },
   };
