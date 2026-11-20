@@ -53,7 +53,7 @@ export function Login() {
         <Stack gap="lg">
           <Stack gap={6} align="center" mt="sm">
             <img src="/logo-full-white.png" alt="XRE X Real Estate Beştepe" style={{ width: 170, opacity: 0.95 }} />
-            <Title order={1} fz={22} mt="sm" className="brand brand-lg"><span className="brand-text"><b>XRE</b> SOFTWARE SANTRAL</span></Title>
+            <Title order={1} fz={22} mt="sm" className="brand brand-lg"><span className="brand-text">SOFTWARE SANTRAL</span></Title>
           </Stack>
           {mode !== 'forgot' && (
             <SegmentedControl fullWidth radius="xl" value={mode} onChange={(v) => switchTo(v as Mode)}

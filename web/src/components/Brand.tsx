@@ -1,9 +1,9 @@
-// XRE SOFTWARE SANTRAL: logodaki XRE işareti + "XRE" mavi, "SOFTWARE SANTRAL" beyaz
+// XRE SOFTWARE SANTRAL: mavi XRE logosu + beyaz "SOFTWARE SANTRAL" (XRE logoda yazdığı için tekrar edilmez)
 export function Brand({ size = 'md', href }: { size?: 'md' | 'lg'; href?: string }) {
   const body = (
     <>
       <img src="/logo-mark.png" alt="XRE" className="brand-mark" />
-      <span className="brand-text"><b>XRE</b> <span className="brand-sw">SOFTWARE </span>SANTRAL</span>
+      <span className="brand-text"><span className="brand-sw">SOFTWARE </span>SANTRAL</span>
     </>
   );
   const cls = `brand brand-${size}`;
