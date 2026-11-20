@@ -210,7 +210,7 @@ test('tarayıcıdan arama: santral danışmanın hattını sorar, arama kaydı a
     return res.text();
   };
   // 4. alan: hattın bağlı olduğu operatör bağlantısı (boşsa santralin varsayılan trunk'ı)
-  assert.equal(await ask({ user: 'u1', to: '05464962638', callId: 'web-1' }), 'ok,08504660149,05464962638,');
+  assert.equal(await ask({ user: 'u1', to: '05464962638', callId: 'web-1' }), 'ok,08504660149,05464962638,,');
   const calls = (await call('GET', '/api/calls', null, { token: tokens.kaan })).body;
   const row = calls.find((c) => c.provider_call_id === 'web-1');
   assert.deepEqual([row.direction, row.contact_name, row.dialed_number], ['outbound', 'MUSTAFA UTKU', '+908504660149']);
@@ -230,7 +230,7 @@ test('hat başına operatör: giden arama hattın bağlantısından çıkar, gel
     const route = { from: '05464962638', to: '908504660149', callId: 'tr-1', trunk: 'netgsm' };
     await call('POST', '/webhooks/pbx/route', route, signed(route));
     assert.equal(db.prepare("SELECT trunk FROM numbers WHERE did = '+908504660149'").get().trunk, 'netgsm');
-    assert.equal(await ask('/webhooks/pbx/outbound', { user: 'u1', to: '05464962638' }), 'ok,08504660149,05464962638,netgsm');
+    assert.equal(await ask('/webhooks/pbx/outbound', { user: 'u1', to: '05464962638' }), 'ok,08504660149,05464962638,netgsm,');
     // Sonraki aramalar elle seçilen bağlantıyı değiştirmez
     const again = { ...route, callId: 'tr-2', trunk: 'tt' };
     await call('POST', '/webhooks/pbx/route', again, signed(again));
@@ -695,5 +695,30 @@ test('santral durumu sadece yöneticiye açık, açık paneller isimle döner', 
   } finally {
     db.exec("UPDATE users SET role = 'broker' WHERE id = 2");
     delete provider.status;
+  }
+});
+
+test('giden çağrı ön eki: hatta tanımlıysa santrale 5. alan olarak gider, panelden ayarlanır', async () => {
+  const ask = async (body) => (await fetch(`${base}/webhooks/pbx/outbound?token=hook`, {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body),
+  })).text();
+  db.exec("UPDATE users SET role = 'admin' WHERE id = 2");
+  try {
+    const admin = (await call('POST', '/api/auth/login', { email: 'broker@x.com', password: 'Sifre1234' })).body.token;
+    const did = encodeURIComponent('+908504660149');
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { dial_prefix: '0701' }, { token: admin })).status, 400);
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { dial_prefix: '12a' }, { token: admin })).status, 400);
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { dial_prefix: '701' }, { token: admin })).body.dial_prefix, '701');
+    assert.equal(await ask({ user: 'u1', to: '05464962638' }), 'ok,08504660149,05464962638,,701');
+    // Maskeli arama (önce cep): ön ek santrale değişken olarak gider
+    await call('POST', '/api/calls/click-to-call', { contactId: 1 }, { token: tokens.kaan });
+    assert.equal(provider.originated.at(-1).dialPrefix, '701');
+    // Başka alan güncellenince ön ek silinmez; boş gönderilince silinir
+    await call('PUT', `/api/numbers/${did}`, { label: 'Dijital hat' }, { token: admin });
+    assert.equal(db.prepare("SELECT dial_prefix FROM numbers WHERE did = '+908504660149'").get().dial_prefix, '701');
+    assert.equal((await call('PUT', `/api/numbers/${did}`, { dial_prefix: '' }, { token: admin })).body.dial_prefix, null);
+  } finally {
+    db.exec("UPDATE users SET role = 'broker' WHERE id = 2");
+    db.exec("UPDATE numbers SET dial_prefix = NULL");
   }
 });

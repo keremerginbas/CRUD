@@ -365,6 +365,12 @@ echo "== Giden (panel): Ahmet → hattı Verimor'da (şifreli bağlantı, 90'lı
 call 05551234568-asu3-u3
 expect "müşteri Verimor'dan aranır, operatöre 850 numarası bildirilir" "E2E-IN to=05551234568 from=vm1 pai=<sip:908501112233@127.0.0.5> via=127.0.0.5:5070"
 
+echo "== Giden: hattın operatör ön eki (Netsantral 'Giden Çağrı' kuralı) aranan numaranın başına eklenir"
+sql "UPDATE numbers SET dial_prefix='701' WHERE did='+905337435628'" >/dev/null
+call 05551234566-asu2-u2
+expect "operatöre 701 + müşteri gider" "E2E-IN to=70105551234566 from=5337435628 pai=<sip:5337435628@127.0.0.2> via=127.0.0.2:5070"
+sql "UPDATE numbers SET dial_prefix=NULL WHERE did='+905337435628'" >/dev/null
+
 echo "== Giden: hattın bağlantısı santralde yoksa varsayılan bağlantı"
 sql "UPDATE numbers SET trunk='silinmis' WHERE did='+905337435628'" >/dev/null
 call 05551234569-asu2-u2

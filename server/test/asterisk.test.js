@@ -105,3 +105,9 @@ test('santral durumu ARI\'den okunur: bağlantılar, açık paneller ve süren g
     assert.deepEqual([s.channels[0].caller, s.channels[0].exten, s.channels[0].state], ['05061288930', '8503035640', 'Up']);
   } finally { fake.close(); }
 });
+
+test('hattın giden çağrı ön eki santrale değişken olarak gider', async () => {
+  await provider.originate({ agentPhone: '+905321112233', customerPhone: '+905464962638', callerId: '+905337436010', trunk: 'd125', dialPrefix: '701' });
+  assert.deepEqual(JSON.parse(seen.at(-1).body).variables,
+    { XRE_CUSTOMER: '05464962638', XRE_LINE: '05337436010', XRE_LINE_TRUNK: 'd125', XRE_LINE_PREFIX: '701' });
+});

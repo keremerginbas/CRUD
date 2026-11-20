@@ -51,7 +51,7 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
       };
     },
 
-    async originate({ agentPhone, customerPhone, callerId, trunk: lineTrunk }) {
+    async originate({ agentPhone, customerPhone, callerId, trunk: lineTrunk, dialPrefix }) {
       const id = `xre-${randomUUID()}`;
       const line = toLocalFormat(callerId);
       const params = new URLSearchParams({
@@ -64,6 +64,7 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
         // XRE_LINE_TRUNK: hattın bağlı olduğu operatör bağlantısı; müşteri o bağlantıdan aranır
         body: JSON.stringify({ variables: {
           XRE_CUSTOMER: toLocalFormat(customerPhone), XRE_LINE: line, ...(lineTrunk && { XRE_LINE_TRUNK: lineTrunk }),
+          ...(dialPrefix && { XRE_LINE_PREFIX: dialPrefix }),
         } }),
       });
       if (!res.ok) throw new Error(`Asterisk arama başlatamadı (${res.status}): ${await res.text()}`);

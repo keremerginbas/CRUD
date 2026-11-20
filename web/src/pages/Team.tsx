@@ -166,6 +166,20 @@ export function Team() {
     },
   });
 
+  // Operatörün giden çağrı ön eki (Netsantral "Giden Çağrı" kuralı): müşteri bu hattın numarasını görür
+  const setPrefix = async (n: PbxNumber, input: HTMLInputElement) => {
+    const dial_prefix = input.value.trim();
+    if (dial_prefix === (n.dial_prefix ?? '')) return;
+    try {
+      const saved = await api<PbxNumber>(`/api/numbers/${encodeURIComponent(n.did)}`, { method: 'PUT', body: { dial_prefix } });
+      numbers.setData((list) => list?.map((x) => (x.did === n.did ? { ...x, dial_prefix: saved.dial_prefix } : x)) ?? null);
+      toastOk(dial_prefix ? `${n.did} ön eki ${dial_prefix}` : `${n.did} ön eki kaldırıldı`);
+    } catch (e) {
+      input.value = n.dial_prefix ?? '';
+      toastError(e);
+    }
+  };
+
   const assign = async (n: PbxNumber, value: string | null) => {
     try {
       await api(`/api/numbers/${encodeURIComponent(n.did)}`, { method: 'PUT', body: { user_id: value ? Number(value) : null } });
@@ -269,7 +283,7 @@ export function Team() {
           {!numbers.data ? <Skeleton h={240} radius="lg" /> : (
             <Table.ScrollContainer minWidth={720}>
               <Table verticalSpacing="sm">
-                <Table.Thead><Table.Tr><Table.Th>Numara</Table.Th><Table.Th>Tür</Table.Th><Table.Th w={150}>Operatör bağlantısı</Table.Th><Table.Th w={260}>Kimin</Table.Th>{isAdmin && <Table.Th w={44} />}</Table.Tr></Table.Thead>
+                <Table.Thead><Table.Tr><Table.Th>Numara</Table.Th><Table.Th>Tür</Table.Th><Table.Th w={150}>Operatör bağlantısı</Table.Th><Table.Th w={90}>Ön ek</Table.Th><Table.Th w={260}>Kimin</Table.Th>{isAdmin && <Table.Th w={44} />}</Table.Tr></Table.Thead>
                 <Table.Tbody>
                   {shownNumbers.map((n) => (
                     <Table.Tr key={n.did}>
@@ -292,6 +306,15 @@ export function Team() {
                             onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
                           />
                         ) : <Text size="sm" c="dimmed">{n.trunk ?? 'varsayılan'}</Text>}
+                      </Table.Td>
+                      <Table.Td>
+                        {isAdmin ? (
+                          <TextInput
+                            key={n.dial_prefix ?? ''} defaultValue={n.dial_prefix ?? ''} placeholder="—" size="xs" inputMode="numeric" aria-label={`${n.did} ön eki`}
+                            onBlur={(e) => setPrefix(n, e.currentTarget)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                          />
+                        ) : <Text size="sm" c="dimmed">{n.dial_prefix ?? '—'}</Text>}
                       </Table.Td>
                       <Table.Td>
                         {n.type === 'hunt' ? <Text size="sm" c="dimmed">Kuyruk</Text> : (
@@ -330,6 +353,8 @@ export function Team() {
             )}
             <TextInput name="trunk" label="Operatör bağlantısı" placeholder="boş = varsayılan (ör. n850)" autoCapitalize="none"
               description="Santralde trunk.sh ile tanımlanan bağlantının adı" />
+            <TextInput name="dial_prefix" label="Ön ek" placeholder="ör. 701" inputMode="numeric"
+              description="Operatörde bu numara için tanımlı giden çağrı ön eki (Netsantral → Giden Çağrı). Boş bırakılabilir." />
             <Text size="xs" c="dimmed">Danışmanın 0533'ü ise numarayı santrale yönlendirmeyi unutmayın (ör. *21*08503035640#).</Text>
             <Group justify="flex-end" mt="sm">
               <Button variant="default" onClick={lineModal.close}>Vazgeç</Button>

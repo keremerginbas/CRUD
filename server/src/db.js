@@ -140,6 +140,8 @@ const ADDED_COLUMNS = [
   ['appointments', 'sms_reminded', 'INTEGER NOT NULL DEFAULT 0'],
   ['users', 'call_via_mobile', 'INTEGER NOT NULL DEFAULT 0'],
   // Danışmanın arama sonrası işaretlediği sonuç (ilgileniyor, randevu, olumsuz...) ve kısa notu
+  // Operatörün 'giden çağrı ön eki': aranan numaranın başına eklenir, operatör ön eke göre gösterilecek numarayı seçer
+  ['numbers', 'dial_prefix', 'TEXT'],
   ['calls', 'outcome', 'TEXT'],
   ['calls', 'outcome_note', 'TEXT'], // panelden aramada önce danışmanın cebi aranır
 ];

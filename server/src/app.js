@@ -23,6 +23,8 @@ const parseSpecialties = (raw) => {
   return list.length && list.every((s) => SPECIALTIES.includes(s)) ? SPECIALTIES.filter((s) => list.includes(s)).join(',') : null;
 };
 const MANAGER_ROLES = new Set(['admin', 'broker', 'asistan']);
+// Ön ek 0 ile başlayamaz: müşteri numaraları 0 ile başladığı için operatör ikisini karıştırır
+const DIAL_PREFIX_RE = /^[1-9]\d{0,5}$/;
 export const CALL_OUTCOME_LABELS = [['ilgileniyor', 'İlgileniyor'], ['randevu', 'Randevu alındı'], ['tekrar-ara', 'Tekrar aranacak'],
   ['ulasilamadi', 'Ulaşılamadı'], ['olumsuz', 'Olumsuz']];
 export const CALL_OUTCOMES = CALL_OUTCOME_LABELS.map(([v]) => v);
@@ -52,7 +54,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     assistants: db.prepare("SELECT id FROM users WHERE role = 'asistan' ORDER BY id"),
     userByExtension: db.prepare('SELECT * FROM users WHERE extension = ? ORDER BY id LIMIT 1'),
     numbersOfUser: db.prepare('SELECT * FROM numbers WHERE user_id = ? ORDER BY type'),
-    personalNumber: db.prepare("SELECT did, trunk FROM numbers WHERE user_id = ? AND type = 'personal' LIMIT 1"),
+    personalNumber: db.prepare("SELECT did, trunk, dial_prefix FROM numbers WHERE user_id = ? AND type = 'personal' LIMIT 1"),
     contactById: db.prepare('SELECT * FROM contacts WHERE id = ?'),
     contactByPhone: db.prepare('SELECT * FROM contacts WHERE phone = ? ORDER BY id LIMIT 1'),
     callById: db.prepare('SELECT * FROM calls WHERE id = ?'),
@@ -446,6 +448,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
         customerPhone,
         callerId,
         trunk: personal.trunk ?? null,
+        dialPrefix: personal.dial_prefix ?? null,
         announcement: config.pbx.customerAnnouncement,
       }));
     } catch (err) {
@@ -540,7 +543,7 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     if (callId && !q.callByProviderId.get(callId)) {
       q.insertCall.run(callId, 'outbound', customerPhone, line, user.id, q.contactByPhone.get(customerPhone)?.id ?? null, 'initiated');
     }
-    res.type('text').send(`ok,${toLocalFormat(line)},${toLocalFormat(customerPhone)},${personal.trunk ?? ''}`);
+    res.type('text').send(`ok,${toLocalFormat(line)},${toLocalFormat(customerPhone)},${personal.trunk ?? ''},${personal.dial_prefix ?? ''}`);
   });
 
   // Çağrı durum olayları (çaldı, açıldı, kapandı, kayıt hazır)
@@ -864,7 +867,9 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
     const trunk = String(body.trunk ?? '').trim().toLowerCase() || null;
     if (trunk && !TRUNK_NAME_RE.test(trunk)) return res.status(400).json({ error: 'Geçersiz bağlantı adı (küçük harf, rakam, _)' });
     const label = String(body.label ?? '').trim() || `Hat ${did.slice(-4)}`;
-    db.prepare('INSERT INTO numbers (did, type, user_id, label, trunk) VALUES (?, ?, ?, ?, ?)').run(did, type, userId, label, trunk);
+    const prefix = String(body.dial_prefix ?? '').trim() || null;
+    if (prefix && !DIAL_PREFIX_RE.test(prefix)) return res.status(400).json({ error: 'Ön ek 1-6 rakam olmalı ve 0 ile başlamamalı' });
+    db.prepare('INSERT INTO numbers (did, type, user_id, label, trunk, dial_prefix) VALUES (?, ?, ?, ?, ?, ?)').run(did, type, userId, label, trunk, prefix);
     res.status(201).json(q.number.get(did));
   });
 
@@ -890,8 +895,13 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       trunk = String(req.body.trunk ?? '').trim().toLowerCase() || null;
       if (trunk && !TRUNK_NAME_RE.test(trunk)) return res.status(400).json({ error: 'Geçersiz bağlantı adı (küçük harf, rakam, _)' });
     }
-    db.prepare('UPDATE numbers SET user_id = ?, label = ?, trunk = ? WHERE did = ?')
-      .run(number.type === 'hunt' ? null : userId, label, trunk, number.did);
+    let prefix = number.dial_prefix;
+    if ('dial_prefix' in (req.body ?? {})) {
+      prefix = String(req.body.dial_prefix ?? '').trim() || null;
+      if (prefix && !DIAL_PREFIX_RE.test(prefix)) return res.status(400).json({ error: 'Ön ek 1-6 rakam olmalı ve 0 ile başlamamalı' });
+    }
+    db.prepare('UPDATE numbers SET user_id = ?, label = ?, trunk = ?, dial_prefix = ? WHERE did = ?')
+      .run(number.type === 'hunt' ? null : userId, label, trunk, prefix, number.did);
     res.json(q.number.get(number.did));
   });
 
