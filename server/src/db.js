@@ -138,6 +138,7 @@ const ADDED_COLUMNS = [
   ['users', 'reset_expires', 'TEXT'],
   ['users', 'reset_attempts', 'INTEGER NOT NULL DEFAULT 0'],
   ['appointments', 'sms_reminded', 'INTEGER NOT NULL DEFAULT 0'],
+  ['users', 'call_via_mobile', 'INTEGER NOT NULL DEFAULT 0'], // panelden aramada önce danışmanın cebi aranır
 ];
 
 function migrate(db) {

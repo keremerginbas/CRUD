@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { api, getToken, setToken, setUnauthorizedHandler } from './api';
 import type { User } from './types';
+import { setCallViaMobile } from './components/maskedCall';
 
 type Session = {
   ready: boolean;
@@ -27,6 +28,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUnauthorizedHandler(logout);
     (getToken() ? refresh() : Promise.resolve()).catch(logout).finally(() => setReady(true));
   }, [logout, refresh]);
+
+  // Panelden aramada "önce cebimi ara" tercihi
+  useEffect(() => { setCallViaMobile(!!me?.call_via_mobile); }, [me]);
 
   const login = async (username: string, password: string) => {
     const res = await api<{ token: string }>('/api/auth/login', { method: 'POST', body: { email: username, password } });

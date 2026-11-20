@@ -10,7 +10,7 @@ import { syncCallToBitrix } from './bitrix.js';
 import { DEFAULT_SMS_TEMPLATES, createSmsClient, fillTemplate } from './sms.js';
 
 const SETTINGS_FIELDS = [
-  'forward_phone', 'voice_announcement', 'recording_broker', 'recording_assistant',
+  'forward_phone', 'voice_announcement', 'call_via_mobile', 'recording_broker', 'recording_assistant',
   'work_start', 'work_end', 'saturday_enabled', 'saturday_start', 'saturday_end',
   'sunday_enabled', 'sunday_start', 'sunday_end',
 ];

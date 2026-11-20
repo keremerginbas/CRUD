@@ -598,3 +598,10 @@ test('yönlendirilen telefon şirket hattı olamaz (arama santrale geri döner)'
   assert.equal((await call('PUT', '/api/me/santral', { forward_phone: '444 24 53' }, { token: tokens.kaan })).status, 400);
   assert.equal(db.prepare('SELECT forward_phone FROM users WHERE id = 1').get().forward_phone, before);
 });
+
+test('"önce cebimi ara" ayarı kaydedilir ve /api/me ile döner', async () => {
+  assert.equal((await call('GET', '/api/me', null, { token: tokens.kaan })).body.call_via_mobile, 0);
+  assert.equal((await call('PUT', '/api/me/santral', { call_via_mobile: true }, { token: tokens.kaan })).status, 200);
+  assert.equal((await call('GET', '/api/me', null, { token: tokens.kaan })).body.call_via_mobile, 1);
+  await call('PUT', '/api/me/santral', { call_via_mobile: false }, { token: tokens.kaan });
+});

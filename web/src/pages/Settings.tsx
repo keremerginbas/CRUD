@@ -12,6 +12,7 @@ type DayKey = 'work' | 'saturday' | 'sunday';
 const initial = (u: User) => ({
   forward_phone: u.forward_phone ?? '',
   voice_announcement: !!u.voice_announcement,
+  call_via_mobile: !!u.call_via_mobile,
   recording_broker: !!u.recording_broker,
   recording_assistant: !!u.recording_assistant,
   work_start: u.work_start, work_end: u.work_end,
@@ -94,6 +95,8 @@ export function Settings() {
           <Section title="Santral ayarları" description="Müşteri hattınızı aradığında telefonunuz bu numarada çalar.">
             <TextInput label="Yönlendirilen telefon" placeholder="05XX XXX XX XX" type="tel" value={form.forward_phone} onChange={(e) => set('forward_phone', e.currentTarget.value)} />
             <Switch label="Sesli yönlendirme" description="Açmadan önce kimin aradığı size söylenir" checked={form.voice_announcement} onChange={(e) => set('voice_announcement', e.currentTarget.checked)} />
+            <Switch label="Panelden aradığımda önce cebimi arasın" description="Santral önce yönlendirilen telefonunuzu arar; açınca müşteriye bağlanırsınız. Kapalıyken arama panelden (tarayıcıdan) yapılır."
+              checked={form.call_via_mobile} onChange={(e) => set('call_via_mobile', e.currentTarget.checked)} />
           </Section>
 
           <Section title="Ses kaydımı dinleyebilsin">

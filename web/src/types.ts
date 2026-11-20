@@ -4,7 +4,7 @@ export type PbxNumber = { did: string; type: 'personal' | 'listing' | 'hunt'; la
 export type User = {
   id: number; name: string; title: string; role: Role; email: string; phone: string;
   forward_phone: string | null; extension: string | null; department: string | null;
-  voice_announcement: number; recording_broker: number; recording_assistant: number;
+  voice_announcement: number; call_via_mobile?: number; recording_broker: number; recording_assistant: number;
   work_start: string; work_end: string;
   saturday_enabled: number; saturday_start: string; saturday_end: string;
   sunday_enabled: number; sunday_start: string; sunday_end: string;

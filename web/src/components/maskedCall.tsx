@@ -4,9 +4,14 @@ import { notifications } from '@mantine/notifications';
 import { api } from '../api';
 import { softphone } from '../softphone';
 
-// Tarayıcı telefonu bağlıysa arama panelden yapılır; değilse santral önce danışmanın cebini arar
+// Danışmanın "önce cebimi ara" ayarı (oturum açılınca session.tsx yazar)
+let viaMobile = false;
+export const setCallViaMobile = (value: boolean) => { viaMobile = value; };
+
+// Tarayıcı telefonu bağlıysa (ve danışman "önce cebimi ara" demediyse) arama panelden yapılır;
+// değilse santral önce danışmanın cebini arar, açınca müşteriyi arar
 export function maskedCall(target: { contactId?: number; phone: string; name: string }) {
-  if (softphone.getState().status === 'ready') {
+  if (!viaMobile && softphone.getState().status === 'ready') {
     try {
       softphone.call(target.phone, target.name);
     } catch (e) {
