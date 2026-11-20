@@ -6,6 +6,14 @@ export function createMockProvider() {
   return {
     name: 'mock',
     originated,
+    // Geliştirme için örnek santral durumu
+    async status() {
+      return {
+        version: 'mock', startedAt: new Date(Date.now() - 3 * 3600e3).toISOString(),
+        trunks: [{ name: 'n850', state: 'online', channels: 0, isDefault: true, isAgent: true }],
+        browsersOnline: [1], channels: [],
+      };
+    },
     async originate(req) {
       const providerCallId = `mock-${randomUUID()}`;
       originated.push({ ...req, providerCallId });

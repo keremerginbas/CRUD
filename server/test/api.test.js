@@ -653,3 +653,47 @@ test('müşteri kartı aramaları/SMS/randevuları getirir; arama sonucu işaret
     db.exec('DELETE FROM calls WHERE id IN (9801, 9802)');
   }
 });
+
+test('raporlar: danışman bazında özet ve Excel (CSV) dışa aktarma; danışman göremez', async () => {
+  db.prepare(`INSERT INTO calls (id, provider_call_id, direction, customer_phone, user_id, status, duration_sec, outcome, outcome_note, started_at)
+    VALUES (9701, 'r-1', 'inbound', '+905551112233', 1, 'completed', 60, 'ilgileniyor', '=HACK;not', '2026-03-10 09:00:00'),
+           (9702, 'r-2', 'outbound', '+905551112234', 1, 'missed', 0, NULL, NULL, '2026-03-10 21:30:00'),
+           (9703, 'r-3', 'outbound', '+905551112235', 3, 'completed', 30, 'olumsuz', NULL, '2026-03-11 10:00:00')`).run();
+  try {
+    assert.equal((await call('GET', '/api/reports/summary?from=2026-03-10&to=2026-03-11', null, { token: tokens.kaan })).status, 403);
+    const sum = (await call('GET', '/api/reports/summary?from=2026-03-10&to=2026-03-11', null, { token: tokens.broker })).body;
+    const kaan = sum.rows.find((r) => r.name === 'KAAN');
+    assert.deepEqual([kaan.total, kaan.inbound, kaan.outbound, kaan.answered, kaan.missed, kaan.talk_sec, kaan['o_ilgileniyor']], [2, 1, 1, 1, 1, 60, 1]);
+    // 21:30 UTC = 11 Mart 00:30 Türkiye: güne Türkiye saatiyle yazılır
+    assert.deepEqual(sum.daily.map((d) => [d.day, d.total]), [['2026-03-10', 1], ['2026-03-11', 2]]);
+    const res = await fetch(`${base}/api/reports/calls.csv?from=2026-03-10&to=2026-03-10`, { headers: { authorization: `Bearer ${tokens.broker}` } });
+    assert.equal(res.status, 200);
+    const bytes = Buffer.from(await res.arrayBuffer());
+    // Excel Türkçe karakterleri doğru okusun diye UTF-8 BOM ile başlar
+    assert.deepEqual([...bytes.subarray(0, 3)], [0xef, 0xbb, 0xbf]);
+    const text = bytes.subarray(3).toString('utf8');
+    assert.ok(text.startsWith('Tarih;Yön;Durum'));
+    assert.match(text, /Gelen;Tamamlandı;60;;0555 111 22 33;KAAN;;İlgileniyor;/);
+    // Excel formül enjeksiyonu engellenir
+    assert.match(text, /"'=HACK;not"/);
+  } finally {
+    db.exec('DELETE FROM calls WHERE id IN (9701, 9702, 9703)');
+  }
+});
+
+test('santral durumu sadece yöneticiye açık, açık paneller isimle döner', async () => {
+  assert.equal((await call('GET', '/api/pbx/status', null, { token: tokens.broker })).status, 403);
+  db.exec("UPDATE users SET role = 'admin' WHERE id = 2");
+  try {
+    const admin = (await call('POST', '/api/auth/login', { email: 'broker@x.com', password: 'Sifre1234' })).body.token;
+    provider.status = async () => ({ version: 'x', startedAt: null, trunks: [], browsersOnline: [1], channels: [] });
+    const s = (await call('GET', '/api/pbx/status', null, { token: admin })).body;
+    assert.deepEqual(s.browsersOnline, [{ id: 1, name: 'KAAN' }]);
+    assert.equal(typeof s.today.total, 'number');
+    provider.status = async () => { throw new Error('bağlantı yok'); };
+    assert.equal((await call('GET', '/api/pbx/status', null, { token: admin })).status, 502);
+  } finally {
+    db.exec("UPDATE users SET role = 'broker' WHERE id = 2");
+    delete provider.status;
+  }
+});

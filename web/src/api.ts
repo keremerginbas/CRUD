@@ -36,3 +36,17 @@ export async function fetchRecording(callId: number) {
   if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Kayıt alınamadı');
   return URL.createObjectURL(await res.blob());
 }
+
+// Yetkili dosya indirme (Excel/CSV): tarayıcıya "kaydet" olarak verilir
+export async function downloadFile(path: string, fileName: string) {
+  const res = await fetch(path, { headers: { authorization: `Bearer ${token}` } });
+  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? 'Dosya alınamadı');
+  saveBlob(await res.blob(), fileName);
+}
+
+export function saveBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href: url, download: fileName });
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

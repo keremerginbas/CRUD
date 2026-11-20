@@ -2,7 +2,7 @@ import { ActionIcon, AppShell, Avatar, Center, Group, Loader, Text, Tooltip } fr
 import { useMediaQuery } from '@mantine/hooks';
 import { nprogress } from '@mantine/nprogress';
 import { spotlight } from '@mantine/spotlight';
-import { IconAddressBook, IconBuildingStore, IconCalendarEvent, IconLogout, IconPhone, IconSearch, IconSettings, IconUsers, type Icon } from '@tabler/icons-react';
+import { IconAddressBook, IconBuildingStore, IconCalendarEvent, IconChartBar, IconLogout, IconPhone, IconSearch, IconSettings, IconUsers, type Icon } from '@tabler/icons-react';
 import { motion } from 'motion/react';
 import { notifications } from '@mantine/notifications';
 import { useEffect } from 'react';
@@ -16,6 +16,7 @@ import { Listings } from './pages/Listings';
 import { CallDetail } from './pages/CallDetail';
 import { Calls } from './pages/Calls';
 import { ContactCard } from './pages/ContactCard';
+import { Reports } from './pages/Reports';
 import { Contacts } from './pages/Contacts';
 import { Login } from './pages/Login';
 import { Settings } from './pages/Settings';
@@ -31,6 +32,7 @@ const NAV: NavItem[] = [
   { path: 'randevular', label: 'Randevular', icon: IconCalendarEvent },
   { path: 'ilanlar', label: 'İlanlar', icon: IconBuildingStore },
   { path: 'ekip', label: 'Ekip', icon: IconUsers, managerOnly: true },
+  { path: 'raporlar', label: 'Raporlar', icon: IconChartBar, managerOnly: true },
   { path: 'ayarlar', label: 'Ayarlar', icon: IconSettings },
 ];
 
@@ -71,6 +73,7 @@ export function App() {
     : page === 'randevular' ? <Appointments />
     : page === 'ilanlar' ? <Listings />
     : page === 'ekip' && isManager ? <Team />
+    : page === 'raporlar' && isManager ? <Reports />
     : page === 'ayarlar' ? <Settings />
     : <Calls />;
 
@@ -79,7 +82,7 @@ export function App() {
       <AppShell.Header px="md" className="app-header" style={{ display: 'flex', alignItems: 'center' }}>
         <div style={{ marginRight: 28 }}><Brand href="#/aramalar" /></div>
         {!mobile && (
-          <Group gap={4} style={{ flex: 1 }} component="nav">
+          <Group gap={4} wrap="nowrap" style={{ flex: 1 }} component="nav">
             {items.map(({ path, label, icon: I }) => (
               <a key={path} href={`#/${path}`} className="nav-link" aria-current={current === path ? 'page' : undefined}>
                 <I size={18} stroke={1.6} />{label}

@@ -18,9 +18,38 @@ export function createAsteriskProvider({ ariUrl, ariUser, ariPassword, trunk = '
     headers: { authorization: auth, 'content-type': 'application/json', ...init.headers },
   });
 
+  const ariJson = async (path) => {
+    const res = await ari(path);
+    if (!res.ok) throw new Error(`ARI ${path}: ${res.status}`);
+    return res.json();
+  };
+
   return {
     name: 'asterisk',
     supportsBrowserPhone: true,
+
+    // Santral durumu (yönetici ekranı): sürüm, açılış zamanı, operatör bağlantıları, açık paneller, süren görüşmeler
+    async status() {
+      const [info, endpoints, channels] = await Promise.all([
+        ariJson('/asterisk/info?only=build,system,status'),
+        ariJson('/endpoints/PJSIP'),
+        ariJson('/channels'),
+      ]);
+      const isBrowser = (r) => /^u\d+$/.test(r);
+      return {
+        version: info.system?.version ?? null,
+        startedAt: info.status?.startup_time ?? null,
+        trunks: endpoints.filter((e) => !isBrowser(e.resource)).map((e) => ({
+          name: e.resource, state: e.state, channels: e.channel_ids?.length ?? 0,
+          isDefault: e.resource === trunk, isAgent: e.resource === agentTrunk,
+        })),
+        browsersOnline: endpoints.filter((e) => isBrowser(e.resource) && e.state === 'online').map((e) => Number(e.resource.slice(1))),
+        channels: channels.map((c) => ({
+          id: c.id, name: c.name, state: c.state, caller: c.caller?.number ?? '', connected: c.connected?.number ?? '',
+          exten: c.dialplan?.exten ?? '', createdAt: c.creationtime,
+        })),
+      };
+    },
 
     async originate({ agentPhone, customerPhone, callerId, trunk: lineTrunk }) {
       const id = `xre-${randomUUID()}`;

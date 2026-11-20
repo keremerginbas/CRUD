@@ -82,3 +82,26 @@ test('ses kaydı ARI stored recordings üzerinden indirilir', async () => {
   assert.equal(await res.text(), 'RIFF');
   assert.equal(seen.at(-1).url, '/ari/recordings/stored/xre-abc/file');
 });
+
+test('santral durumu ARI\'den okunur: bağlantılar, açık paneller ve süren görüşmeler ayrılır', async () => {
+  const replies = {
+    '/ari/asterisk/info': { system: { version: '22.11.0' }, status: { startup_time: '2026-11-20T06:00:00.000+0300' } },
+    '/ari/endpoints/PJSIP': [
+      { technology: 'PJSIP', resource: 'n850', state: 'online', channel_ids: ['a'] },
+      { technology: 'PJSIP', resource: 'u1', state: 'online', channel_ids: [] },
+      { technology: 'PJSIP', resource: 'u7', state: 'offline', channel_ids: [] },
+    ],
+    '/ari/channels': [{ id: 'a', name: 'PJSIP/n850-00000001', state: 'Up', caller: { number: '05061288930' }, connected: { number: '' },
+      dialplan: { exten: '8503035640' }, creationtime: '2026-11-20T09:00:00.000+0300' }],
+  };
+  const fake = createServer((req, res) => res.writeHead(200, { 'content-type': 'application/json' })
+    .end(JSON.stringify(replies[new URL(req.url, 'http://x').pathname] ?? {}))).listen(0);
+  try {
+    const p = createAsteriskProvider({ ariUrl: `http://127.0.0.1:${fake.address().port}`, ariUser: 'xre', ariPassword: 'x', trunk: 'n850' });
+    const s = await p.status();
+    assert.equal(s.version, '22.11.0');
+    assert.deepEqual(s.trunks, [{ name: 'n850', state: 'online', channels: 1, isDefault: true, isAgent: true }]);
+    assert.deepEqual(s.browsersOnline, [1]);
+    assert.deepEqual([s.channels[0].caller, s.channels[0].exten, s.channels[0].state], ['05061288930', '8503035640', 'Up']);
+  } finally { fake.close(); }
+});

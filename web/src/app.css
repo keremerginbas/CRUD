@@ -81,3 +81,8 @@ a.row-card:hover { border-color: var(--mantine-color-dark-3); background: var(--
   .row-card, .stat, .fab, .nav-link { transition: none; }
 }
 @media (max-width: 36em) { .search-hint kbd { display: none; } .search-hint { padding: 8px; } .brand-sw { display: none; } .brand-text { font-size: 15px; } }
+/* Menü 7 öğeye çıktı: orta genişlikte tek satıra sığsın (marka kısalır, boşluklar daralır, ikonlar gizlenir) */
+.nav-row { flex-wrap: nowrap; }
+@media (max-width: 90em) { .brand-sw { display: none; } .nav-link { padding: 8px 10px; } }
+@media (max-width: 75em) { .nav-link svg { display: none; } .nav-link { padding: 8px 9px; } }
+.nowrap { white-space: nowrap; }

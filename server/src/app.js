@@ -23,7 +23,10 @@ const parseSpecialties = (raw) => {
   return list.length && list.every((s) => SPECIALTIES.includes(s)) ? SPECIALTIES.filter((s) => list.includes(s)).join(',') : null;
 };
 const MANAGER_ROLES = new Set(['admin', 'broker', 'asistan']);
-export const CALL_OUTCOMES = ['ilgileniyor', 'randevu', 'tekrar-ara', 'ulasilamadi', 'olumsuz'];
+export const CALL_OUTCOME_LABELS = [['ilgileniyor', 'İlgileniyor'], ['randevu', 'Randevu alındı'], ['tekrar-ara', 'Tekrar aranacak'],
+  ['ulasilamadi', 'Ulaşılamadı'], ['olumsuz', 'Olumsuz']];
+export const CALL_OUTCOMES = CALL_OUTCOME_LABELS.map(([v]) => v);
+const CALL_STATUS_LABELS = { initiated: 'Başlatıldı', ringing: 'Çalıyor', answered: 'Görüşmede', completed: 'Tamamlandı', missed: 'Cevapsız', failed: 'Başarısız' };
 const ROLES = ['admin', 'broker', 'asistan', 'danisman'];
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 
@@ -304,6 +307,91 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       return res.status(404).json({ error: 'Çağrı bulunamadı' });
     }
     res.json(call);
+  });
+
+  // ---- Santral durumu (yönetici) ----
+  app.get('/api/pbx/status', auth, admin, async (_req, res) => {
+    if (!provider.status) return res.status(501).json({ error: `${provider.name} santrali durum bilgisi vermiyor` });
+    let pbx;
+    try {
+      pbx = await provider.status();
+    } catch (err) {
+      console.error(err);
+      return res.status(502).json({ error: 'Santrale ulaşılamıyor (CT 150 açık mı, ARI şifresi doğru mu?)' });
+    }
+    const names = Object.fromEntries(db.prepare('SELECT id, name FROM users').all().map((u) => [u.id, u.name]));
+    const today = db.prepare(`SELECT COUNT(*) AS total, SUM(status IN ('completed','answered')) AS answered,
+        SUM(status IN ('missed','failed')) AS missed, MAX(started_at) AS last_at
+      FROM calls WHERE date(started_at, '+3 hours') = date('now', '+3 hours')`).get();
+    const recentFailed = db.prepare(`${CALL_VIEW} WHERE c.status IN ('missed','failed')
+      AND c.started_at >= datetime('now', '-1 day') ORDER BY c.started_at DESC LIMIT 10`).all();
+    res.json({
+      ...pbx,
+      browsersOnline: pbx.browsersOnline.map((id) => ({ id, name: names[id] ?? `u${id}` })),
+      today: { total: today.total, answered: today.answered ?? 0, missed: today.missed ?? 0, lastAt: today.last_at },
+      recentFailed,
+    });
+  });
+
+  // ---- Raporlar (yönetici, broker, asistan) ----
+  // Tarihler Türkiye saatiyle (UTC+3) gün olarak verilir: ?from=2026-11-01&to=2026-11-20
+  const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const reportRange = (req) => {
+    const today = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+    const to = DAY_RE.test(req.query.to ?? '') ? req.query.to : today;
+    const from = DAY_RE.test(req.query.from ?? '') ? req.query.from : to.slice(0, 8) + '01';
+    return { from, to };
+  };
+  const RANGE_SQL = "date(c.started_at, '+3 hours') BETWEEN ? AND ?";
+  const ANSWERED = "c.status IN ('completed','answered')";
+
+  app.get('/api/reports/summary', auth, manager, (req, res) => {
+    const { from, to } = reportRange(req);
+    const rows = db.prepare(`SELECT u.id AS user_id, COALESCE(u.name, 'Atanmamış') AS name, u.role,
+        COUNT(*) AS total,
+        SUM(c.direction = 'inbound') AS inbound,
+        SUM(c.direction = 'outbound') AS outbound,
+        SUM(${ANSWERED}) AS answered,
+        SUM(c.status IN ('missed','failed')) AS missed,
+        SUM(CASE WHEN ${ANSWERED} THEN c.duration_sec ELSE 0 END) AS talk_sec,
+        ${CALL_OUTCOMES.map((o) => `SUM(c.outcome = '${o}') AS "o_${o}"`).join(', ')}
+      FROM calls c LEFT JOIN users u ON u.id = c.user_id
+      WHERE ${RANGE_SQL}
+      GROUP BY c.user_id ORDER BY total DESC`).all(from, to);
+    const daily = db.prepare(`SELECT date(c.started_at, '+3 hours') AS day, COUNT(*) AS total, SUM(${ANSWERED}) AS answered,
+        SUM(c.status IN ('missed','failed')) AS missed
+      FROM calls c WHERE ${RANGE_SQL} GROUP BY day ORDER BY day`).all(from, to);
+    res.json({ from, to, rows, daily });
+  });
+
+  // Excel'de açılan CSV (Türkçe Excel: noktalı virgül ayraç, UTF-8 BOM)
+  const csvCell = (v) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[";\n\r]/.test(s) || /^[=+\-@]/.test(s) ? `"${s.replace(/^([=+\-@])/, "'$1").replace(/"/g, '""')}"` : s;
+  };
+  // Excel numarayı sayıya çevirip baştaki 0'ı ya da +'yı atmasın: "0555 111 22 33"
+  const excelPhone = (p) => {
+    const local = toLocalFormat(p ?? '');
+    return /^0\d{10}$/.test(local) ? local.replace(/^(\d{4})(\d{3})(\d{2})(\d{2})$/, '$1 $2 $3 $4') : (local || '');
+  };
+  const sendCsv = (res, name, header, rows) => {
+    res.set('content-type', 'text/csv; charset=utf-8');
+    res.set('content-disposition', `attachment; filename="${name}"`);
+    res.send('\ufeff' + [header, ...rows].map((r) => r.map(csvCell).join(';')).join('\r\n'));
+  };
+
+  app.get('/api/reports/calls.csv', auth, manager, (req, res) => {
+    const { from, to } = reportRange(req);
+    const calls = db.prepare(`${CALL_VIEW} WHERE ${RANGE_SQL} ORDER BY c.started_at`).all(from, to);
+    const outcomeLabel = Object.fromEntries(CALL_OUTCOME_LABELS);
+    sendCsv(res, `aramalar_${from}_${to}.csv`,
+      ['Tarih', 'Yön', 'Durum', 'Süre (sn)', 'Müşteri', 'Müşteri telefonu', 'Danışman', 'Hat', 'Sonuç', 'Not'],
+      calls.map((c) => [
+        new Date(`${c.started_at.replace(' ', 'T')}Z`).toLocaleString('tr-TR', { timeZone: 'Europe/Istanbul' }),
+        c.direction === 'inbound' ? 'Gelen' : 'Giden', CALL_STATUS_LABELS[c.status] ?? c.status, c.duration_sec,
+        c.contact_name ?? '', excelPhone(c.customer_phone), c.user_name ?? '', c.dialed_label ?? excelPhone(c.dialed_number),
+        outcomeLabel[c.outcome] ?? '', c.outcome_note ?? '',
+      ]));
   });
 
   // Arama sonucu: danışman görüşmeden sonra işaretler (müşteri kartında ve raporlarda görünür)
