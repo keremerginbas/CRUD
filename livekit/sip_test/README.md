@@ -8,9 +8,12 @@ Canlı Vapi hatlarına dokunmaz; NetSantral'da açılan **ayrı bir test dahilis
 - Ağ: `vmbr0`, yerel ağda **sabit IP** (ör. 192.168.1.50)
 
 ## 2. Ofis modemi / güvenlik duvarı
-- **UDP 5060** → sanal makinenin yerel IP'si
-- **UDP 10000–20000** → sanal makinenin yerel IP'si
-- Modemde **SIP ALG** ayarı varsa **kapatın** (ses sorunlarının en sık sebebi)
+Ofisteki mevcut santral (CT 150, 192.168.1.247) **UDP 5060** ve **UDP 10000–10200** kullanıyor. O yönlendirmelere **dokunmayın**; test ayrı portlarda çalışır:
+- **UDP 5070** → test sanal makinesinin yerel IP'si
+- **UDP 20000–20200** → test sanal makinesinin yerel IP'si
+- Modemde **SIP ALG** kapalı olmalı (mevcut santral için de zaten kapalı olmalı)
+
+Ofis dış IP'si (kayıtlardaki): **81.214.28.155** — `kur.sh` çalışırken otomatik doğrular.
 
 ## 3. NetSantral
 - Yeni bir **dahili** açın (ör. 1099) ve şifre verin. Mevcut Vapi yönlendirmelerine dokunmayın.

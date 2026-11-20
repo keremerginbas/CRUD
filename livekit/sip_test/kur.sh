@@ -25,11 +25,16 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -y -q asterisk curl dnsutils ufw
 
-PUBLIC_IP=$(curl -s4 https://ifconfig.me || true)
+PUBLIC_IP=$(curl -s4 https://ifconfig.me || true); PUBLIC_IP=${PUBLIC_IP:-81.214.28.155}
+# Ofisteki mevcut santral (192.168.1.247) UDP 5060 ve 10000-10200 kullanıyor; test çakışmasın diye farklı portlar
+read -rp "Test SIP portu [5070]: " SIP_PORT; SIP_PORT=${SIP_PORT:-5070}
+read -rp "Test ses (RTP) port aralığı başlangıcı [20000]: " RTP_BAS; RTP_BAS=${RTP_BAS:-20000}
+RTP_BIT=$((RTP_BAS + 200))
 read -rp "Ofisin sabit dış IP'si [${PUBLIC_IP}]: " GIRILEN; PUBLIC_IP=${GIRILEN:-$PUBLIC_IP}
 LAN_IP=$(ip -4 route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}')
 LAN_NET=$(ip -4 -o addr show | awk -v ip="$LAN_IP" '$4 ~ "^"ip"/" {print $4}' | head -1)
 SIP_IPS=$(dig +short A "$SIP_HOST" | grep -E '^[0-9.]+$' || true)
+echo "SIP portu: $SIP_PORT | RTP: $RTP_BAS-$RTP_BIT"
 echo "Dış IP: $PUBLIC_IP | Sanal makine IP: $LAN_IP ($LAN_NET) | NetGSM IP: $SIP_IPS"
 
 cat > /etc/asterisk/pjsip.conf <<EOF
@@ -40,7 +45,7 @@ user_agent=XRE-SesTesti
 [transport-udp]
 type=transport
 protocol=udp
-bind=0.0.0.0:5060
+bind=0.0.0.0:${SIP_PORT}
 external_media_address=${PUBLIC_IP}
 external_signaling_address=${PUBLIC_IP}
 local_net=${LAN_NET}
@@ -88,10 +93,10 @@ match=${SIP_HOST}
 EOF
 chmod 640 /etc/asterisk/pjsip.conf; chown root:asterisk /etc/asterisk/pjsip.conf
 
-cat > /etc/asterisk/rtp.conf <<'EOF'
+cat > /etc/asterisk/rtp.conf <<EOF
 [general]
-rtpstart=10000
-rtpend=20000
+rtpstart=${RTP_BAS}
+rtpend=${RTP_BIT}
 rtcpinterval=5000
 EOF
 
@@ -124,8 +129,8 @@ EOF
 ufw --force reset >/dev/null
 ufw default deny incoming; ufw default allow outgoing
 ufw allow 22/tcp
-for ip in $SIP_IPS; do ufw allow from "$ip" to any port 5060 proto udp; done
-ufw allow 10000:20000/udp
+for ip in $SIP_IPS; do ufw allow from "$ip" to any port "$SIP_PORT" proto udp; done
+ufw allow "${RTP_BAS}:${RTP_BIT}/udp"
 ufw --force enable
 
 systemctl enable asterisk >/dev/null 2>&1 || true
