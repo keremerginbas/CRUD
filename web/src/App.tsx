@@ -15,6 +15,7 @@ import { Appointments } from './pages/Appointments';
 import { Listings } from './pages/Listings';
 import { CallDetail } from './pages/CallDetail';
 import { Calls } from './pages/Calls';
+import { ContactCard } from './pages/ContactCard';
 import { Contacts } from './pages/Contacts';
 import { Login } from './pages/Login';
 import { Settings } from './pages/Settings';
@@ -39,7 +40,7 @@ export function App() {
   const mobile = useMediaQuery('(max-width: 48em)');
   const isManager = !!me && MANAGERS.includes(me.role);
   const items = NAV.filter((n) => !n.managerOnly || isManager);
-  const current = page === 'arama' ? 'aramalar' : page;
+  const current = page === 'arama' ? 'aramalar' : page === 'kisi' ? 'kisiler' : page;
 
   useEffect(() => {
     if (me && !items.some((n) => n.path === current)) go('aramalar');
@@ -65,6 +66,7 @@ export function App() {
   if (!me) return <Login />;
 
   const content = page === 'arama' && id ? <CallDetail id={id} />
+    : page === 'kisi' && id ? <ContactCard id={id} />
     : page === 'kisiler' ? <Contacts />
     : page === 'randevular' ? <Appointments />
     : page === 'ilanlar' ? <Listings />

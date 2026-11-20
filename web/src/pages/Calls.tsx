@@ -11,6 +11,7 @@ import { go } from '../router';
 import { MANAGERS, useSession } from '../session';
 import { CALL_COLORS } from '../theme';
 import type { Call } from '../types';
+import { outcomeOf } from '../outcomes';
 import { useLoad } from '../useLoad';
 
 type Filter = 'all' | 'inbound' | 'outbound' | 'missed';
@@ -107,6 +108,7 @@ export function Calls() {
                 missed ? STATUS_LABELS[c.status] : c.direction === 'inbound' ? 'Gelen' : 'Giden',
                 c.duration_sec ? formatDuration(c.duration_sec) : null,
                 scope === 'all' && c.user_name ? c.user_name : (c.dialed_label ?? c.dialed_number),
+                outcomeOf(c.outcome)?.label,
               ].filter(Boolean).join(' · ')}
               meta={<>
                 <Text size="sm">{daysAgo(c.started_at)}</Text>

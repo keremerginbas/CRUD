@@ -627,3 +627,29 @@ test('hat: yönetici panelden ekler ve siler, yanlış/çift kayıt reddedilir',
     db.exec("UPDATE users SET role = 'broker' WHERE id = 2");
   }
 });
+
+test('müşteri kartı aramaları/SMS/randevuları getirir; arama sonucu işaretlenir', async () => {
+  db.prepare(`INSERT INTO calls (id, provider_call_id, direction, customer_phone, user_id, contact_id, status, duration_sec)
+    VALUES (9801, 'kart-1', 'outbound', '+905464962638', 1, 1, 'completed', 40),
+           (9802, 'kart-2', 'inbound', '+905464962638', 3, NULL, 'missed', 0)`).run();
+  try {
+    const card = (await call('GET', '/api/contacts/1', null, { token: tokens.kaan })).body;
+    assert.equal(card.name, 'MUSTAFA UTKU');
+    assert.equal(card.owner_name, 'KAAN');
+    // Sahibi müşterinin bütün aramalarını görür (numarayla eşleşen, kişiye bağlanmamış arama dahil)
+    assert.ok(card.calls.some((c) => c.id === 9801) && card.calls.some((c) => c.id === 9802));
+    assert.ok(Array.isArray(card.sms) && Array.isArray(card.appointments));
+    // Başka danışman sadece kendi aramalarını görür
+    const other = (await call('GET', '/api/contacts/1', null, { token: tokens.baska })).body;
+    assert.deepEqual(other.calls.map((c) => c.id).filter((id) => id >= 9801), [9802]);
+    assert.equal((await call('GET', '/api/contacts/99999', null, { token: tokens.kaan })).status, 404);
+
+    const marked = await call('PUT', '/api/calls/9801/outcome', { outcome: 'randevu', note: 'Cumartesi 14:00' }, { token: tokens.kaan });
+    assert.deepEqual([marked.body.outcome, marked.body.outcome_note], ['randevu', 'Cumartesi 14:00']);
+    assert.equal((await call('PUT', '/api/calls/9801/outcome', { outcome: 'uydurma' }, { token: tokens.kaan })).status, 400);
+    assert.equal((await call('PUT', '/api/calls/9801/outcome', { outcome: 'olumsuz' }, { token: tokens.baska })).status, 404);
+    assert.equal((await call('PUT', '/api/calls/9801/outcome', { outcome: null }, { token: tokens.broker })).body.outcome, null);
+  } finally {
+    db.exec('DELETE FROM calls WHERE id IN (9801, 9802)');
+  }
+});

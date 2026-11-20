@@ -23,6 +23,7 @@ const parseSpecialties = (raw) => {
   return list.length && list.every((s) => SPECIALTIES.includes(s)) ? SPECIALTIES.filter((s) => list.includes(s)).join(',') : null;
 };
 const MANAGER_ROLES = new Set(['admin', 'broker', 'asistan']);
+export const CALL_OUTCOMES = ['ilgileniyor', 'randevu', 'tekrar-ara', 'ulasilamadi', 'olumsuz'];
 const ROLES = ['admin', 'broker', 'asistan', 'danisman'];
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 
@@ -303,6 +304,37 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       return res.status(404).json({ error: 'Çağrı bulunamadı' });
     }
     res.json(call);
+  });
+
+  // Arama sonucu: danışman görüşmeden sonra işaretler (müşteri kartında ve raporlarda görünür)
+  app.put('/api/calls/:id/outcome', auth, (req, res) => {
+    const call = q.callById.get(req.params.id);
+    if (!call || (call.user_id !== req.user.sub && !MANAGER_ROLES.has(req.user.role))) {
+      return res.status(404).json({ error: 'Çağrı bulunamadı' });
+    }
+    const outcome = req.body?.outcome ?? null;
+    if (outcome !== null && !CALL_OUTCOMES.includes(outcome)) return res.status(400).json({ error: 'Geçersiz arama sonucu' });
+    const note = String(req.body?.note ?? '').trim().slice(0, 500) || null;
+    db.prepare('UPDATE calls SET outcome = ?, outcome_note = ? WHERE id = ?').run(outcome, note, call.id);
+    res.json(db.prepare(`${CALL_VIEW} WHERE c.id = ?`).get(call.id));
+  });
+
+  // Müşteri kartı: kişi, sorumlusu, bütün aramaları, SMS'leri ve randevuları.
+  // Danışman başka danışmanların aramalarını görmez (yönetici/broker/asistan hepsini görür)
+  app.get('/api/contacts/:id', auth, (req, res) => {
+    const contact = db.prepare(`SELECT c.*, u.name AS owner_name FROM contacts c LEFT JOIN users u ON u.id = c.owner_id
+      WHERE c.id = ?`).get(req.params.id);
+    if (!contact) return res.status(404).json({ error: 'Kişi bulunamadı' });
+    const all = MANAGER_ROLES.has(req.user.role) || contact.owner_id === req.user.sub ? 1 : 0;
+    const calls = db.prepare(`${CALL_VIEW} WHERE (c.contact_id = ? OR c.customer_phone = ?) AND (? OR c.user_id = ?)
+      ORDER BY c.started_at DESC, c.id DESC LIMIT 200`).all(contact.id, contact.phone, all, req.user.sub);
+    const sms = db.prepare(`SELECT s.id, s.message, s.status, s.created_at, u.name AS user_name FROM sms_log s
+      LEFT JOIN users u ON u.id = s.user_id WHERE (s.contact_id = ? OR s.phone = ?) AND (? OR s.user_id = ?)
+      ORDER BY s.created_at DESC LIMIT 100`).all(contact.id, contact.phone, all, req.user.sub);
+    const appointments = db.prepare(`SELECT a.id, a.due_at, a.note, a.status, u.name AS user_name FROM appointments a
+      LEFT JOIN users u ON u.id = a.user_id WHERE (a.contact_id = ? OR a.phone = ?) AND (? OR a.user_id = ?)
+      ORDER BY a.due_at DESC LIMIT 100`).all(contact.id, contact.phone, all, req.user.sub);
+    res.json({ ...contact, calls, sms, appointments });
   });
 
   // Maskeli arama: santral önce danışmanı, sonra müşteriyi danışmanın dijital numarasıyla arar

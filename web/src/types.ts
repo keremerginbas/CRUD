@@ -27,6 +27,15 @@ export type Call = {
   duration_sec: number; recording_ref: string | null; started_at: string;
   contact_id: number | null; contact_name: string | null; contact_type: Contact['type'] | null; user_name: string | null;
   listing_ref?: string | null; listing_title?: string | null;
+  outcome?: CallOutcome | null; outcome_note?: string | null;
+};
+
+export type CallOutcome = 'ilgileniyor' | 'randevu' | 'tekrar-ara' | 'ulasilamadi' | 'olumsuz';
+
+export type ContactCard = Contact & {
+  calls: Call[];
+  sms: { id: number; message: string; status: 'sent' | 'failed'; created_at: string; user_name: string | null }[];
+  appointments: { id: number; due_at: string; note: string | null; status: 'open' | 'done' | 'cancelled'; user_name: string | null }[];
 };
 
 export type Appointment = {

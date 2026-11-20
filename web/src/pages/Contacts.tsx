@@ -94,12 +94,12 @@ export function Contacts() {
         )}
         {contacts?.map((c, i) => (
           <Row
-            key={c.id} index={i} name={c.name} title={c.name}
+            key={c.id} index={i} href={`#/kisi/${c.id}`} name={c.name} title={c.name}
             subtitle={[c.phone, c.owner_name && `Sorumlu: ${c.owner_name}`, c.note].filter(Boolean).join(' · ')}
             callLabel={`${c.name} kişisini ara`}
             onCall={() => maskedCall({ contactId: c.id, phone: c.phone, name: c.name })}
             meta={<>
-              <Group gap={2} wrap="nowrap">
+              <Group gap={2} wrap="nowrap" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
                 <Tooltip label="SMS"><ActionIcon size="sm" variant="subtle" color="gray" aria-label={`${c.name} SMS`}
                   onClick={() => setSmsTarget({ contactId: c.id, name: c.name, phone: c.phone })}><IconMessage size={16} /></ActionIcon></Tooltip>
                 <Tooltip label="Randevu"><ActionIcon size="sm" variant="subtle" color="gray" aria-label={`${c.name} randevu`}

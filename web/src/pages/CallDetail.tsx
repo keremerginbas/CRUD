@@ -4,6 +4,7 @@ import { IconArrowLeft, IconCalendarPlus, IconMessage, IconPhone, IconPlayerPlay
 import { useState } from 'react';
 import { api, fetchRecording } from '../api';
 import { AppointmentDialog } from '../components/AppointmentDialog';
+import { OutcomePicker } from '../components/OutcomePicker';
 import { SmsDialog } from '../components/SmsDialog';
 import { maskedCall, toastError } from '../components/maskedCall';
 import { daysAgo, formatDate, formatDuration } from '../format';
@@ -12,7 +13,7 @@ import { useLoad } from '../useLoad';
 import { STATUS_LABELS, callColor } from './Calls';
 
 export function CallDetail({ id }: { id: string }) {
-  const { data: c, error } = useLoad(() => api<Call>(`/api/calls/${encodeURIComponent(id)}`), [id]);
+  const { data: c, error, setData } = useLoad(() => api<Call>(`/api/calls/${encodeURIComponent(id)}`), [id]);
   const [audio, setAudio] = useState<string | null>(null);
   const [loadingAudio, setLoadingAudio] = useState(false);
   const [apptOpen, appt] = useDisclosure(false);
@@ -43,7 +44,9 @@ export function CallDetail({ id }: { id: string }) {
       <Group justify="space-between" align="flex-start">
         <div>
           <Group gap="sm"><Avatar name={c.contact_name ?? '#'} color="initials" radius="xl" size={48} />
-            <Title order={2} c={callColor(c)} tt="uppercase">{name}</Title></Group>
+            {c.contact_id
+              ? <Anchor href={`#/kisi/${c.contact_id}`} underline="hover"><Title order={2} c={callColor(c)} tt="uppercase">{name}</Title></Anchor>
+              : <Title order={2} c={callColor(c)} tt="uppercase">{name}</Title>}</Group>
           <Group gap="xs" mt={6}>
             <Badge variant="light" color={callColor(c).split('.')[0]}>{c.direction === 'inbound' ? 'Gelen' : 'Giden'}</Badge>
             <Badge variant="outline" color="gray">{STATUS_LABELS[c.status]}</Badge>
@@ -70,6 +73,8 @@ export function CallDetail({ id }: { id: string }) {
           ))}
         </SimpleGrid>
       </Paper>
+
+      <OutcomePicker key={c.id} call={c} onSaved={(saved) => setData(saved)} />
 
       {c.recording_ref && (
         <Paper p="lg" radius="lg" className="card">
