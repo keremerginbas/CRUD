@@ -724,6 +724,39 @@ export function createApp({ db, provider, config, notify = sendPush, bitrix = nu
       ORDER BY n.type, n.did`).all());
   });
 
+  // Yeni hat: danışman hattı (0533...), ilan hattı ya da karşılama hattı (444, 0850)
+  app.post('/api/numbers', auth, admin, (req, res) => {
+    const body = req.body ?? {};
+    const type = body.type ?? 'personal';
+    if (!['personal', 'listing', 'hunt'].includes(type)) return res.status(400).json({ error: 'Geçersiz hat türü' });
+    const raw = String(body.did ?? '').replace(/\D/g, '');
+    // 444'lü numaralar 7 hanedir; diğerleri +90 biçimine çevrilir
+    const did = /^444\d{4}$/.test(raw) ? raw : normalizePhone(raw);
+    if (!/^(444\d{4}|\+90[2-5]\d{9})$/.test(did)) return res.status(400).json({ error: 'Numara 05XX XXX XX XX, 0850 ... ya da 444 XX XX biçiminde olmalı' });
+    if (q.number.get(did)) return res.status(409).json({ error: 'Bu numara zaten listede' });
+    const userId = type === 'hunt' ? null : (body.user_id ? Number(body.user_id) : null);
+    if (userId !== null && !q.userById.get(userId)) return res.status(400).json({ error: 'Kullanıcı bulunamadı' });
+    // Danışmanın tek kişisel hattı olur: santral giden aramada ilk hattı kullanır
+    if (userId !== null && type === 'personal') {
+      const existing = q.personalNumber.get(userId);
+      if (existing) return res.status(409).json({ error: `Bu kişinin zaten hattı var (${existing.did}); önce onu boşa alın` });
+    }
+    const trunk = String(body.trunk ?? '').trim().toLowerCase() || null;
+    if (trunk && !TRUNK_NAME_RE.test(trunk)) return res.status(400).json({ error: 'Geçersiz bağlantı adı (küçük harf, rakam, _)' });
+    const label = String(body.label ?? '').trim() || `Hat ${did.slice(-4)}`;
+    db.prepare('INSERT INTO numbers (did, type, user_id, label, trunk) VALUES (?, ?, ?, ?, ?)').run(did, type, userId, label, trunk);
+    res.status(201).json(q.number.get(did));
+  });
+
+  // Hattı listeden çıkarır: geçmiş aramalar kalır (numara metin olarak durur); santral bu numaraya gelen
+  // aramayı artık "bize ait değil" diye açmaz
+  app.delete('/api/numbers/:did', auth, admin, (req, res) => {
+    const number = q.number.get(req.params.did);
+    if (!number) return res.status(404).json({ error: 'Hat bulunamadı' });
+    db.prepare('DELETE FROM numbers WHERE did = ?').run(number.did);
+    res.status(204).end();
+  });
+
   app.put('/api/numbers/:did', auth, admin, (req, res) => {
     const number = q.number.get(req.params.did);
     if (!number) return res.status(404).json({ error: 'Hat bulunamadı' });

@@ -605,3 +605,25 @@ test('"önce cebimi ara" ayarı kaydedilir ve /api/me ile döner', async () => {
   assert.equal((await call('GET', '/api/me', null, { token: tokens.kaan })).body.call_via_mobile, 1);
   await call('PUT', '/api/me/santral', { call_via_mobile: false }, { token: tokens.kaan });
 });
+
+test('hat: yönetici panelden ekler ve siler, yanlış/çift kayıt reddedilir', async () => {
+  db.exec("UPDATE users SET role = 'admin' WHERE id = 2");
+  const admin = (await call('POST', '/api/auth/login', { email: 'broker@x.com', password: 'Sifre1234' })).body.token;
+  try {
+    assert.equal((await call('POST', '/api/numbers', { did: '0533 743 59 99' }, { token: tokens.kaan })).status, 403);
+    const made = await call('POST', '/api/numbers', { did: '0533 743 59 99', user_id: 3, trunk: 'n850' }, { token: admin });
+    assert.equal(made.status, 201);
+    assert.deepEqual([made.body.did, made.body.type, made.body.user_id, made.body.label, made.body.trunk], ['+905337435999', 'personal', 3, 'Hat 5999', 'n850']);
+    assert.equal((await call('POST', '/api/numbers', { did: '05337435999' }, { token: admin })).status, 409);
+    // Kişinin zaten hattı varsa ikinci kişisel hat verilmez
+    assert.match((await call('POST', '/api/numbers', { did: '05337435998', user_id: 3 }, { token: admin })).body.error, /zaten hattı var/);
+    assert.equal((await call('POST', '/api/numbers', { did: '12345' }, { token: admin })).status, 400);
+    const hunt = await call('POST', '/api/numbers', { did: '444 11 22', type: 'hunt', user_id: 1, label: 'Yeni 444' }, { token: admin });
+    assert.deepEqual([hunt.body.did, hunt.body.user_id], ['4441122', null]);
+    assert.equal((await call('DELETE', `/api/numbers/${encodeURIComponent('+905337435999')}`, null, { token: admin })).status, 204);
+    assert.equal((await call('DELETE', '/api/numbers/4441122', null, { token: admin })).status, 204);
+    assert.equal((await call('DELETE', '/api/numbers/4441122', null, { token: admin })).status, 404);
+  } finally {
+    db.exec("UPDATE users SET role = 'broker' WHERE id = 2");
+  }
+});

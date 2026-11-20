@@ -2,7 +2,7 @@ import { ActionIcon, Avatar, Badge, Button, Chip, Code, CopyButton, Group, Input
 import { TimeInput } from '@mantine/dates';
 import { useDisclosure } from '@mantine/hooks';
 import { modals } from '@mantine/modals';
-import { IconCheck, IconKey, IconSearch, IconUserMinus } from '@tabler/icons-react';
+import { IconCheck, IconKey, IconPlus, IconSearch, IconTrash, IconUserMinus } from '@tabler/icons-react';
 import { useMemo, useState, type FormEvent } from 'react';
 import { api } from '../api';
 import { Fab } from '../components/Fab';
@@ -138,6 +138,34 @@ export function Team() {
     }
   };
 
+  // Yeni hat ekleme penceresi
+  const [lineOpened, lineModal] = useDisclosure(false);
+  const [lineType, setLineType] = useState<string>('personal');
+  const [lineOwner, setLineOwner] = useState<string | null>(null);
+  const addLine = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const body = { ...Object.fromEntries(new FormData(e.currentTarget)), type: lineType, user_id: lineOwner ? Number(lineOwner) : null };
+      const saved = await api<PbxNumber>('/api/numbers', { method: 'POST', body });
+      toastOk(`${saved.did} eklendi`);
+      lineModal.close(); setLineOwner(null); setLineType('personal');
+      numbers.reload();
+    } catch (err) { toastError(err); } finally { setSaving(false); }
+  };
+  const removeLine = (n: PbxNumber) => modals.openConfirmModal({
+    title: 'Hattı listeden çıkar', centered: true,
+    children: <Text size="sm"><b>{n.did}</b> ({n.label}) listeden çıkarılsın mı? Geçmiş aramalar silinmez. Santral bu numaraya gelen aramaları artık açmaz.</Text>,
+    labels: { confirm: 'Çıkar', cancel: 'Vazgeç' }, confirmProps: { color: 'red' },
+    onConfirm: async () => {
+      try {
+        await api(`/api/numbers/${encodeURIComponent(n.did)}`, { method: 'DELETE' });
+        numbers.setData((list) => list?.filter((x) => x.did !== n.did) ?? null);
+        toastOk(`${n.did} çıkarıldı`);
+      } catch (err) { toastError(err); }
+    },
+  });
+
   const assign = async (n: PbxNumber, value: string | null) => {
     try {
       await api(`/api/numbers/${encodeURIComponent(n.did)}`, { method: 'PUT', body: { user_id: value ? Number(value) : null } });
@@ -234,11 +262,14 @@ export function Team() {
         </Tabs.Panel>
 
         <Tabs.Panel value="hatlar" pt="md">
-          <TextInput mb="md" placeholder="Numara, etiket veya kişi ara" leftSection={<IconSearch size={16} />} value={numberSearch} onChange={(e) => setNumberSearch(e.currentTarget.value)} />
+          <Group mb="md" wrap="nowrap">
+            <TextInput style={{ flex: 1 }} placeholder="Numara, etiket veya kişi ara" leftSection={<IconSearch size={16} />} value={numberSearch} onChange={(e) => setNumberSearch(e.currentTarget.value)} />
+            {isAdmin && <Button leftSection={<IconPlus size={16} />} onClick={lineModal.open}>Yeni hat</Button>}
+          </Group>
           {!numbers.data ? <Skeleton h={240} radius="lg" /> : (
             <Table.ScrollContainer minWidth={720}>
               <Table verticalSpacing="sm">
-                <Table.Thead><Table.Tr><Table.Th>Numara</Table.Th><Table.Th>Tür</Table.Th><Table.Th w={150}>Operatör bağlantısı</Table.Th><Table.Th w={260}>Kimin</Table.Th></Table.Tr></Table.Thead>
+                <Table.Thead><Table.Tr><Table.Th>Numara</Table.Th><Table.Th>Tür</Table.Th><Table.Th w={150}>Operatör bağlantısı</Table.Th><Table.Th w={260}>Kimin</Table.Th>{isAdmin && <Table.Th w={44} />}</Table.Tr></Table.Thead>
                 <Table.Tbody>
                   {shownNumbers.map((n) => (
                     <Table.Tr key={n.did}>
@@ -270,6 +301,11 @@ export function Team() {
                           />
                         )}
                       </Table.Td>
+                      {isAdmin && (
+                        <Table.Td>
+                          <Tooltip label="Listeden çıkar"><ActionIcon variant="subtle" color="red" aria-label={`${n.did} çıkar`} onClick={() => removeLine(n)}><IconTrash size={16} /></ActionIcon></Tooltip>
+                        </Table.Td>
+                      )}
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
@@ -280,6 +316,28 @@ export function Team() {
       </Tabs>
 
       {isAdmin && <Fab label="Yeni kullanıcı" onClick={open} />}
+
+      <Modal opened={lineOpened} onClose={lineModal.close} title="Yeni hat" centered radius="lg">
+        <form onSubmit={addLine}>
+          <Stack>
+            <TextInput name="did" label="Numara" placeholder="0533 743 xx xx · 0850 ... · 444 xx xx" type="tel" required data-autofocus />
+            <Select label="Tür" value={lineType} onChange={(v) => setLineType(v ?? 'personal')} allowDeselect={false}
+              data={Object.entries(NUMBER_TYPES).map(([value, label]) => ({ value, label }))}
+              description={lineType === 'hunt' ? 'Kayıtlı müşteri danışmanına, kayıtsız arayan asistana gider' : undefined} />
+            <TextInput name="label" label="Hat adı" placeholder="ör. Kaan İnce hattı" />
+            {lineType !== 'hunt' && (
+              <Select label="Kimin" data={userOptions} value={lineOwner} onChange={setLineOwner} searchable clearable placeholder="Boşta" />
+            )}
+            <TextInput name="trunk" label="Operatör bağlantısı" placeholder="boş = varsayılan (ör. n850)" autoCapitalize="none"
+              description="Santralde trunk.sh ile tanımlanan bağlantının adı" />
+            <Text size="xs" c="dimmed">Danışmanın 0533'ü ise numarayı santrale yönlendirmeyi unutmayın (ör. *21*08503035640#).</Text>
+            <Group justify="flex-end" mt="sm">
+              <Button variant="default" onClick={lineModal.close}>Vazgeç</Button>
+              <Button type="submit" loading={saving}>Hattı ekle</Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
 
       <Modal opened={opened} onClose={close} title="Yeni kullanıcı" centered radius="lg">
         <form onSubmit={addUser}>
