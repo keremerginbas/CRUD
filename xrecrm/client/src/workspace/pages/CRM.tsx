@@ -81,6 +81,9 @@ export default function CRM({
   onMessage?: (id: string) => void;
 }) {
   const { data, moveLead, saveLead, deleteLead, demo, user, saveRecord } = useStore();
+  // Silme yetkisi yoksa sil düğmeleri gösterilmez (sunucu da ayrıca reddeder).
+  const crmGrant = user?.permissions?.crm as { write?: boolean; delete?: boolean } | undefined;
+  const canDelete = demo || !user || Boolean(user.isOwner) || !crmGrant || (Boolean(crmGrant.write) && crmGrant.delete !== false);
   const [localView, setLocalView] = useState<CRMView>(
     kanban ? "kanban" : "list",
   );
@@ -299,6 +302,61 @@ export default function CRM({
   // Sütun başına ekrana çizilen kart sayısı sınırlıdır; sayılar ve tutarlar yine tüm müşterileri kapsar.
   const COLUMN_PAGE = 20;
   const [columnLimit, setColumnLimit] = useState<Record<string, number>>({});
+  // Liste görünümü: sütun başlığına tıklayınca açılan menüden sıralama seçilir.
+  type ListSortKey = "name" | "stage" | "value" | "next" | "owner" | "source";
+  const [listSort, setListSort] = useState<{ key: ListSortKey; dir: 1 | -1 } | null>(null);
+  const [sortMenu, setSortMenu] = useState<ListSortKey | null>(null);
+  const listRows = useMemo(() => {
+    if (!listSort) return leads;
+    const { key, dir } = listSort;
+    const order = new Map(stages.map((st, i) => [st.id as string, i]));
+    const text = (a: string, b: string) => a.localeCompare(b, "tr");
+    return [...leads].sort((a, b) => {
+      if (key === "value") return (a.value - b.value) * dir;
+      if (key === "stage") return ((order.get(a.stage) ?? 99) - (order.get(b.stage) ?? 99)) * dir;
+      if (key === "next") {
+        // Etkinliği olmayanlar her iki yönde de sonda kalır.
+        const x = Date.parse(nextByLead.get(a.id)?.date || "");
+        const y = Date.parse(nextByLead.get(b.id)?.date || "");
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return Number(!Number.isFinite(x)) - Number(!Number.isFinite(y));
+        return (x - y) * dir;
+      }
+      const pick = (l: Lead) => (key === "owner" ? l.owner : key === "source" ? l.source : l.name) || "";
+      // Boş değerler sonda.
+      if (!pick(a) || !pick(b)) return Number(!pick(a)) - Number(!pick(b));
+      return text(pick(a), pick(b)) * dir;
+    });
+  }, [leads, listSort, nextByLead, stages]);
+  const SORT_OPTIONS: Record<ListSortKey, [string, string]> = {
+    name: ["A → Z", "Z → A"],
+    stage: ["İlk aşamadan sona", "Son aşamadan başa"],
+    value: ["Azdan çoğa", "Çoktan aza"],
+    next: ["Önce geçmişler (gecikenler üstte)", "Önce ileri tarihliler"],
+    owner: ["A → Z", "Z → A"],
+    source: ["A → Z", "Z → A"],
+  };
+  const sortHead = (key: ListSortKey, label: string) => (
+    <th className={`sortable ${listSort?.key === key ? "sorted" : ""}`} aria-sort={listSort?.key === key ? (listSort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button type="button" className="th-sort" aria-haspopup="menu" aria-expanded={sortMenu === key} onClick={() => setSortMenu(sortMenu === key ? null : key)}>
+        {label}
+        <span aria-hidden="true">{listSort?.key === key ? (listSort.dir === 1 ? " ▲" : " ▼") : " ▾"}</span>
+      </button>
+      {sortMenu === key && (
+        <div className="th-sort-menu" role="menu">
+          {([1, -1] as const).map((dir, i) => (
+            <button key={dir} type="button" role="menuitemradio" aria-checked={listSort?.key === key && listSort.dir === dir} onClick={() => (setListSort({ key, dir }), setSortMenu(null), setListLimit(LIST_PAGE))}>
+              {SORT_OPTIONS[key][i]}
+            </button>
+          ))}
+          {listSort?.key === key && (
+            <button type="button" role="menuitem" onClick={() => (setListSort(null), setSortMenu(null))}>
+              Sıralamayı kaldır
+            </button>
+          )}
+        </div>
+      )}
+    </th>
+  );
   const LIST_PAGE = 100;
   const [listLimit, setListLimit] = useState(LIST_PAGE);
   const open = leads.filter((l) => l.stage !== "won" && l.stage !== "lost");
@@ -684,9 +742,11 @@ export default function CRM({
           >
             Sorumlu ata
           </button>
-          <button className="btn secondary small danger" disabled={busy} onClick={() => void removeLeads(selected)}>
-            <Trash2 size={14} /> Seçilenleri sil
-          </button>
+          {canDelete && (
+            <button className="btn secondary small danger" disabled={busy} onClick={() => void removeLeads(selected)}>
+              <Trash2 size={14} /> Seçilenleri sil
+            </button>
+          )}
           <button className="text-button" onClick={() => setSelected([])}>
             Seçimi kaldır
           </button>
@@ -937,7 +997,7 @@ export default function CRM({
                           >
                             <MoreHorizontal size={16} />
                           </button>
-                          <button
+                          {canDelete && <button
                             className="icon-button lead-delete"
                             aria-label={`${l.name} müşterisini sil`}
                             title="Müşteriyi sil"
@@ -945,7 +1005,7 @@ export default function CRM({
                             onClick={() => void removeLeads([l.id])}
                           >
                             <Trash2 size={14} />
-                          </button>
+                          </button>}
                         </div>
                         <button
                           className="b24-deal-title"
@@ -1125,17 +1185,17 @@ export default function CRM({
                       }
                     />
                   </th>
-                  <th>MÜŞTERİ / PORTFÖY</th>
-                  {showColumn("stage") && <th>AŞAMA</th>}
-                  {showColumn("value") && <th>TUTAR</th>}
-                  {showColumn("next") && <th>SONRAKİ ETKİNLİK</th>}
-                  {showColumn("owner") && <th>SORUMLU</th>}
-                  {showColumn("source") && <th>KAYNAK</th>}
+                  {sortHead("name", "MÜŞTERİ / PORTFÖY")}
+                  {showColumn("stage") && sortHead("stage", "AŞAMA")}
+                  {showColumn("value") && sortHead("value", "TUTAR")}
+                  {showColumn("next") && sortHead("next", "SONRAKİ ETKİNLİK")}
+                  {showColumn("owner") && sortHead("owner", "SORUMLU")}
+                  {showColumn("source") && sortHead("source", "KAYNAK")}
                   <th>ETKİNLİK / İLETİŞİM</th>
                 </tr>
               </thead>
               <tbody>
-                {leads.slice(0, listLimit).map((l) => (
+                {listRows.slice(0, listLimit).map((l) => (
                   <tr key={l.id}>
                     <td>
                       <input

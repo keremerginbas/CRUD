@@ -229,13 +229,13 @@ describe("Teklifler — ayarlar ve yetki", () => {
     // Sahip rolü açıkça yetkilendirince yönetici olur.
     const roles = (await (await owner("GET", "/api/access")).json()).roles;
     const role = roles.find((r: any) => r.id === "manager");
-    expect(role.grants.quotes).toEqual({ read: true, write: false, scope: "all" });
+    expect(role.grants.quotes).toEqual({ read: true, write: false, delete: false, scope: "all" });
     role.grants.quotes.write = true;
     expect((await owner("PUT", "/api/access/roles/manager", role)).status).toBe(200);
     expect((await manager("PUT", "/api/quotes/settings", SETTINGS)).status).toBe(200);
     // Satış rolünde okuma kapatılırsa çalışan modülü kullanamaz.
     const sales = defaultRole("sales")!;
-    sales.grants.quotes = { read: false, write: false, scope: "own" };
+    sales.grants.quotes = { read: false, write: false, delete: false, scope: "own" };
     await store.put("role", "sales", sales, "o");
     expect((await member("GET", "/api/quotes")).status).toBe(403);
     expect((await (await member("GET", "/api/quotes/summary")).json()).pending).toBe(0);

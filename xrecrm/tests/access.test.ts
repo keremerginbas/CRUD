@@ -141,6 +141,28 @@ describe("priority multiuser RBAC", () => {
     );
   });
 
+  it("silme yetkisi ayrı denetlenir; eski rollerde yazma silmeyi kapsar", async () => {
+    const { raw, owner, auth, scoped } = await admittedFixture();
+    const lead = { id: "mine", owner: "Satış Kullanıcısı", ownerOpenId: "employee-1", name: "Benim kayıt", stage: "new" };
+    await raw.put("lead", "mine", lead, owner.ownerOpenId);
+    const run = <T,>(a: AuthContext, fn: () => Promise<T>) =>
+      new Promise<T>((resolve, reject) => withPermissionContext(scoped, a, () => void fn().then(resolve, reject)));
+    // Silme kapalı: yazma çalışır, silme reddedilir.
+    const noDelete: AuthContext = { ...auth, permissions: { ...auth.permissions!, crm: { ...auth.permissions!.crm, delete: false } } };
+    await run(noDelete, () => scoped.put("lead", "mine", { ...lead, name: "Güncel" }, owner.ownerOpenId));
+    await expect(run(noDelete, () => scoped.delete("lead", "mine", owner.ownerOpenId))).rejects.toMatchObject({ statusCode: 403, code: "DELETE_DENIED" });
+    expect(await raw.get("lead", "mine", owner.ownerOpenId)).toBeTruthy();
+    // Silme alanı olmayan eski oturum verisi: yazma yetkisi silmeyi de kapsar.
+    const legacy = { ...auth.permissions!.crm } as Record<string, unknown>;
+    delete legacy.delete;
+    const old: AuthContext = { ...auth, permissions: { ...auth.permissions!, crm: legacy as never } };
+    await run(old, () => scoped.delete("lead", "mine", owner.ownerOpenId));
+    expect(await raw.get("lead", "mine", owner.ownerOpenId)).toBeFalsy();
+    // Varsayılan rollerde silme yazmaya eşittir; yazma yoksa silme de yoktur.
+    expect(defaultRole("sales")!.grants.crm).toMatchObject({ write: true, delete: true });
+    expect(defaultRole("viewer")?.grants.crm.delete ?? false).toBe(false);
+  });
+
   it("keeps owner admission available while protecting owner employee changes", async () => {
     const { raw, owner } = await admittedFixture();
     const ownerAuth: AuthContext = {

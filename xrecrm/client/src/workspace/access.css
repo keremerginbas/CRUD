@@ -142,7 +142,7 @@
 }
 .grant-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 76px 76px 180px;
+  grid-template-columns: minmax(180px, 1fr) 76px 76px 76px 180px;
   align-items: center;
   column-gap: 10px;
 }
@@ -166,7 +166,7 @@
   border-bottom: 1px solid #f0f2ef;
   padding: 8px 12px;
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 76px 76px 180px;
+  grid-template-columns: minmax(180px, 1fr) 76px 76px 76px 180px;
   align-items: center;
   column-gap: 10px;
 }
@@ -606,7 +606,7 @@
     display: block;
   }
   .grant-grid {
-    grid-template-columns: minmax(140px, 1fr) 57px 57px 155px;
+    grid-template-columns: minmax(120px, 1fr) 57px 57px 57px 140px;
     column-gap: 5px;
   }
   .access-grant-card {

@@ -5,7 +5,6 @@ import {
   openCount,
   next,
   activityBucket,
-  CRM_ACTIVITY_BUCKET_LABELS,
   openRecordsForLead,
   type CrmActivityBucket,
   type CrmOpenRecord,
@@ -18,15 +17,16 @@ import { ActivityEditor, TaskEditor } from "./Work";
 import { CRMContactCard } from "../components/CRMViews";
 import { Empty } from "../components/ui";
 
-const bucketOrder: CrmActivityBucket[] = [
-  "overdue",
-  "today",
-  "this-week",
-  "next-week",
-  "two-weeks",
-  "later",
-  "none",
-];
+// Bitrix24'teki sütun sırası: geciken, bugün, bu hafta, gelecek hafta, boş, iki haftadan sonra.
+const bucketOrder: CrmActivityBucket[] = ["overdue", "today", "this-week", "next-week", "none", "later"];
+const BOARD_LABELS: Record<string, string> = {
+  overdue: "Geciken",
+  today: "Son tarihi bugün",
+  "this-week": "Son tarihi bu hafta",
+  "next-week": "Gelecek hafta",
+  none: "Boş",
+  later: "Son tarihi iki haftadan sonra",
+};
 
 type EditorState = {
   activity?: Activity;
@@ -135,8 +135,9 @@ export default function CRMActivities({
     bucketOrder.forEach((bucket) => grouped.set(bucket, []));
     leads.forEach((lead) => {
       const record = next(lead.id, tasksFor(lead.id), activitiesFor(lead.id));
-      const bucket = activityBucket(record);
-      grouped.get(bucket)!.push(lead);
+      const raw = activityBucket(record);
+      // "İki hafta sonra" ve "daha sonra" tek sütunda toplanır.
+      grouped.get(raw === "two-weeks" ? "later" : raw)!.push(lead);
     });
     const nextOf = new Map(leads.map((lead) => [lead.id, next(lead.id, tasksFor(lead.id), activitiesFor(lead.id))] as const));
     grouped.forEach((items) =>
@@ -175,17 +176,16 @@ export default function CRMActivities({
           description="Filtreleri temizleyin veya yeni bir müşteri ekleyin."
         />
       )}
+      <div className="crm-activity-board">
       {bucketOrder.map((bucket) => {
         const items = groups.get(bucket)!;
-        if (!items.length) return null;
         return (
           <section className={`crm-activity-group ${bucket}`} key={bucket}>
             <header>
               <div>
-                <h3>{CRM_ACTIVITY_BUCKET_LABELS[bucket]}</h3>
-                <span>{items.length} müşteri</span>
+                <h3>{BOARD_LABELS[bucket]}</h3>
+                <span>{items.length}</span>
               </div>
-              <span className="crm-group-line" />
             </header>
             <div className="crm-activity-cards">
               {items.slice(0, bucketLimit[bucket] || BUCKET_PAGE).map((lead) => {
@@ -300,6 +300,7 @@ export default function CRMActivities({
           </section>
         );
       })}
+      </div>
       {editor?.activity && (
         <ActivityEditor
           requireLead

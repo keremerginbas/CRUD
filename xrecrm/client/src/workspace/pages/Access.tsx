@@ -82,7 +82,12 @@ export default function Access() {
       ...draft,
       grants: {
         ...draft.grants,
-        [module]: { ...draft.grants[module], ...patch },
+        // Yazma kapanınca silme de kapanır; yazma açılınca silme varsayılan olarak açılır.
+        [module]: {
+          ...draft.grants[module],
+          ...patch,
+          ...(patch.write === false ? { delete: false } : patch.write === true ? { delete: true } : {}),
+        },
       },
     });
   };
@@ -97,7 +102,7 @@ export default function Access() {
       const effects = changes
         .map(
           (m) =>
-            `${ACCESS_MODULE_LABELS[m]}: ${draft.grants[m].read ? "okuma açık" : "okuma kapalı"}, ${draft.grants[m].write ? "yazma açık" : "yazma kapalı"}, ${draft.grants[m].scope === "all" ? "tüm kayıtlar" : "kendi kayıtları"}`,
+            `${ACCESS_MODULE_LABELS[m]}: ${draft.grants[m].read ? "okuma açık" : "okuma kapalı"}, ${draft.grants[m].write ? "yazma açık" : "yazma kapalı"}, ${draft.grants[m].write && draft.grants[m].delete !== false ? "silme açık" : "silme kapalı"}, ${draft.grants[m].scope === "all" ? "tüm kayıtlar" : "kendi kayıtları"}`,
         )
         .join("\n");
       const people =
@@ -149,11 +154,9 @@ export default function Access() {
       <PageTitle
         eyebrow="ÇALIŞMA ALANI / ERİŞİM"
         title="Erişim ve roller"
-        description="Her modül için okuma, yazma ve kayıt kapsamını açıkça tanımlayın."
+        description="Her modül için okuma, yazma, silme ve kayıt kapsamını açıkça tanımlayın."
         actions={
-          <span className="access-security">
-            <ShieldCheck size={16} /> Manus kimliğiyle korunuyor
-          </span>
+          null
         }
       />
       {demo && (
@@ -230,6 +233,7 @@ export default function Access() {
                 <span>Modül</span>
                 <span>Oku</span>
                 <span>Yaz</span>
+                <span>Sil</span>
                 <span>Kapsam</span>
               </div>
               <div className="grant-grid grant-grid-body">
@@ -262,6 +266,17 @@ export default function Access() {
                           }
                         />
                         <span>Yazma</span>
+                      </label>
+                      <label className="access-check" title={grant.write ? "Bu modülde kayıt silebilir" : "Silme için önce yazma yetkisi gerekir"}>
+                        <input
+                          type="checkbox"
+                          checked={grant.write && grant.delete !== false}
+                          disabled={draft.locked || !isOwner || !grant.write}
+                          onChange={(event) =>
+                            updateGrant(module, { delete: event.target.checked })
+                          }
+                        />
+                        <span>Silme</span>
                       </label>
                       <select
                         disabled={draft.locked || !isOwner}

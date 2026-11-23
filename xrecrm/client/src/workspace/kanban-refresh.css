@@ -559,3 +559,17 @@ html .app-shell .b24-kanban .stage-insert:hover:not(#_) { background: var(--xre-
 html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > input[type="checkbox"] { pointer-events: none; }
 html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_):hover .lead-card-top > input[type="checkbox"],
 html .app-shell .b24-kanban .lead-card.b24-deal-card:not(.crm-card-profile-detailed):not(#_) .lead-card-top > input[type="checkbox"]:checked { pointer-events: auto; }
+
+/* Aşama adları dar sütunda kesilmesin: küçük yazı, en çok iki satır; kalem yalnız üzerine gelince yer kaplar. */
+html .app-shell .b24-kanban .kanban-column > header h3:not(#_) {
+  font-size: 11px; line-height: 1.25; letter-spacing: 0; white-space: normal; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word;
+}
+html .app-shell .b24-kanban .kanban-column > header h3:not(#_)::before { display: none; }
+html .app-shell .b24-kanban .kanban-column > header > div:not(#_) { gap: 4px; }
+html .app-shell .b24-kanban .kanban-column > header .column-count:not(#_) { padding: 1px 6px; font-size: 10.5px; min-width: 0; }
+html .app-shell .b24-kanban .kanban-column > header .icon-button:not(#_) { width: 22px; height: 22px; min-width: 22px; }
+@media (pointer: fine) {
+  html .app-shell .b24-kanban .kanban-column > header .icon-button.stage-edit:not(#_) { display: none; }
+  html .app-shell .b24-kanban .kanban-column > header:hover .icon-button.stage-edit:not(#_) { display: inline-grid; }
+}

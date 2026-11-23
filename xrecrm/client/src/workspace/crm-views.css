@@ -521,3 +521,30 @@
     font-size: 8px;
   }
 }
+
+/* Etkinlikler: Bitrix24'teki gibi yan yana tarih sütunları, ok biçimli renkli başlıklar. */
+.crm-activity-board { display: flex; gap: 6px; align-items: flex-start; overflow-x: auto; padding-bottom: 12px; scroll-snap-type: x proximity; }
+.crm-activity-board .crm-activity-group { flex: 0 0 286px; min-width: 286px; margin: 0; scroll-snap-align: start; }
+.crm-activity-board .crm-activity-group > header {
+  --c: #8f9bb3; margin: 0 0 8px; padding: 0 22px 0 14px; height: 30px; background: var(--c); color: #fff;
+  clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%, 10px 50%);
+}
+.crm-activity-board .crm-activity-group:first-child > header { clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 0 100%); border-radius: 4px 0 0 4px; }
+.crm-activity-board .crm-activity-group > header > div { align-items: center; gap: 8px; min-width: 0; }
+.crm-activity-board .crm-activity-group > header h3 { color: #fff; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crm-activity-board .crm-activity-group > header span:not(.crm-group-line) { color: #fff; opacity: 0.85; font-size: 12px; font-weight: 600; }
+.crm-activity-board .crm-activity-group.overdue > header { --c: #f0524f; }
+.crm-activity-board .crm-activity-group.today > header { --c: #7bc617; }
+.crm-activity-board .crm-activity-group.this-week > header { --c: #2fc6f6; }
+.crm-activity-board .crm-activity-group.next-week > header { --c: #55d0e0; }
+.crm-activity-board .crm-activity-group.none > header { --c: #a8adb4; }
+.crm-activity-board .crm-activity-group.later > header { --c: #3a80c2; }
+.crm-activity-board .crm-activity-cards { grid-template-columns: 1fr; gap: 8px; }
+
+/* Liste: sütun başlığından sıralama menüsü */
+.leads-table th.sortable { position: relative; }
+.leads-table .th-sort { background: none; border: 0; padding: 0; font: inherit; color: inherit; letter-spacing: inherit; cursor: pointer; white-space: nowrap; }
+.leads-table th.sorted .th-sort { color: var(--xre-accent, #168db3); }
+.leads-table .th-sort-menu { position: absolute; top: calc(100% + 2px); left: 0; z-index: 30; min-width: 220px; display: grid; padding: 6px; border-radius: 10px; background: var(--xre-surface-raised, #fff); border: 1px solid var(--xre-border, rgba(127,127,127,.3)); box-shadow: 0 12px 28px rgba(0,0,0,.22); }
+.leads-table .th-sort-menu button { text-align: left; background: none; border: 0; padding: 8px 10px; border-radius: 7px; font: inherit; font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--xre-text, inherit); cursor: pointer; }
+.leads-table .th-sort-menu button:hover, .leads-table .th-sort-menu button[aria-checked="true"] { background: color-mix(in srgb, var(--xre-accent, #168db3) 14%, transparent); }

@@ -59,23 +59,20 @@ export function permissionFor(
   auth: AuthContext | undefined,
   module: AccessModule,
 ): ModulePermission {
-  if (auth?.isOwner) return { read: true, write: true, scope: "all" };
-  return (
-    auth?.permissions?.[module] || {
-      read: false,
-      write: false,
-      scope: "own",
-    }
-  );
+  if (auth?.isOwner) return { read: true, write: true, delete: true, scope: "all" };
+  const permission = auth?.permissions?.[module];
+  if (!permission) return { read: false, write: false, delete: false, scope: "own" };
+  // Silme alanı olmayan eski oturum/rol verisinde yazma yetkisi silmeyi de kapsıyordu.
+  return { ...permission, delete: permission.write && permission.delete !== false };
 }
 
 export function canAccess(
   auth: AuthContext | undefined,
   module: AccessModule,
-  action: "read" | "write" = "read",
+  action: "read" | "write" | "delete" = "read",
 ): boolean {
   const permission = permissionFor(auth, module);
-  return action === "read" ? permission.read : permission.write;
+  return action === "read" ? permission.read : action === "write" ? permission.write : permission.delete;
 }
 
 export const hasPermission = canAccess;
@@ -500,6 +497,8 @@ async function scopedDelete(
     deny("Bu kayıt türü için yetkiniz yok.", "UNKNOWN_KIND");
   if (permission && !auth.isOwner && !canAccess(auth, permission, "write"))
     deny(`${permission} modülünde yazma yetkiniz yok.`, "WRITE_DENIED");
+  if (permission && !auth.isOwner && !canAccess(auth, permission, "delete"))
+    deny("Bu modülde kayıt silme yetkiniz yok. Yöneticiniz Erişim izinleri ekranından açabilir.", "DELETE_DENIED");
   if (
     !auth.isOwner &&
     permissionFor(auth, permission || "crm").scope === "own"
@@ -686,6 +685,8 @@ function safePermissionMap(value: unknown): PermissionMap {
     grants[module] = {
       read: Boolean(item.read),
       write: Boolean(item.write),
+      // Silme alanı olmayan eski rollerde yazma yetkisi silmeyi de kapsıyordu; davranış korunur.
+      delete: Boolean(item.write) && (item.delete === undefined ? true : Boolean(item.delete)),
       scope: item.scope === "all" ? "all" : "own",
     };
   }

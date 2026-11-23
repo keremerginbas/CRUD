@@ -24,6 +24,8 @@ export type PermissionScope = "all" | "own";
 export interface ModulePermission {
   read: boolean;
   write: boolean;
+  /** Kayıt silme. Yazma olmadan silme verilmez; eski kayıtlarda yazma yetkisinden türetilir. */
+  delete: boolean;
   scope: PermissionScope;
 }
 export type PermissionMap = Record<AccessModule, ModulePermission>;
@@ -90,6 +92,7 @@ function grants(
     result[module] = {
       read: Boolean(value.read),
       write: Boolean(value.write),
+      delete: Boolean(value.write) && (value.delete === undefined ? true : Boolean(value.delete)),
       scope: value.scope === "all" ? "all" : "own",
     };
   }
@@ -193,6 +196,7 @@ export function clonePermissionMap(
     result[module] = {
       read: Boolean(candidate.read),
       write: Boolean(candidate.write),
+      delete: Boolean(candidate.write) && candidate.delete !== false,
       scope: candidate.scope === "all" ? "all" : "own",
     };
   }
