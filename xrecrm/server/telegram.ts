@@ -167,7 +167,7 @@ const scoreIcon = (score: number) => (score >= 75 ? "🟢" : score >= 50 ? "🟡
 export function callAnalysisMessage(input: { lead: string; agent: string; durationSeconds: number; score?: number; summary: string; feedback?: string; nextSteps?: string }): string {
   const lines = [
     `📞 <b>Görüşme analizi</b> · ${escapeHtml(input.agent)}`,
-    `👤 ${escapeHtml(input.lead)}${input.durationSeconds ? ` · ${duration(input.durationSeconds * 1000)}` : ""}`,
+    `👤 ${escapeHtml(input.lead)}${input.durationSeconds ? ` · ${input.durationSeconds < 60 ? `${Math.round(input.durationSeconds)} sn` : duration(input.durationSeconds * 1000)}` : ""}`,
   ];
   if (input.score !== undefined) lines.push(`${scoreIcon(input.score)} <b>Puan: ${input.score}/100</b>`);
   lines.push(`📝 ${escapeHtml(input.summary.slice(0, 600))}`);
