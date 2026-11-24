@@ -56,6 +56,14 @@ export default function Employees({
   const [payload, setPayload] = useState<AccessPayload>(() => readFixture());
   const [form, setForm] = useState(emptyForm);
   const [adding, setAdding] = useState(false);
+  // Manus kimliği eşleştirmesi yalnız Manus girişi açık kurulumlarda anlamlıdır.
+  const [manus, setManus] = useState(false);
+  useEffect(() => {
+    fetch("/api/auth/status")
+      .then((r) => r.json())
+      .then((s) => setManus(Boolean(s?.providers?.manus)))
+      .catch(() => undefined);
+  }, []);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const isOwner = demo || Boolean(user?.isOwner);
@@ -157,7 +165,7 @@ export default function Employees({
         title={structure ? "Ekip yapısı" : "Çalışanlar"}
         description="Çalışanlara giriş hesabı açın; yetkiler seçtiğiniz rolden gelir."
         actions={
-          isOwner && (
+          isOwner && manus && (
             <button className="btn primary" onClick={() => setAdding(true)}>
               <Plus size={16} /> Çalışan ekle
             </button>
@@ -170,6 +178,7 @@ export default function Employees({
           Örnek ekip yapısı · gerçek çalışan hesabı veya erişim oluşturulmaz.
         </div>
       )}
+      {manus && (
       <div className="access-notice">
         <KeyRound size={17} />
         <span>
@@ -178,6 +187,7 @@ export default function Employees({
           eşleşir ve <strong>pasif</strong> başlar.
         </span>
       </div>
+      )}
       {structure && (
         <Organization
           departments={payload.departments}
@@ -229,7 +239,7 @@ export default function Employees({
         <div className="employee-table">
           <div className="employee-head">
             <span>Çalışan</span>
-            <span>Manus kimliği</span>
+            <span>{manus ? "Manus kimliği" : "Hesap kimliği"}</span>
             <span>Departman</span>
             <span>Rol</span>
             <span>Durum</span>
@@ -240,7 +250,7 @@ export default function Employees({
               <UserRoundX size={24} />
               <strong>Henüz çalışan yok</strong>
               <span>
-                Yalnızca gerçek Manus kimliği eşleştirilmiş çalışanlar burada
+                Giriş hesabı açılan çalışanlar burada
                 görünür.
               </span>
             </div>
