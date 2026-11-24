@@ -118,6 +118,15 @@ export function netsantralOriginateUrl(
 
 /** Sağlayıcı hatasını çalışanın anlayacağı Türkçe iletiye çevirir. */
 export function netsantralErrorMessage(body: unknown, httpStatus: number, cfg = netsantralConfig()): string {
+  const text = netsantralErrorText(body, httpStatus, cfg);
+  const data = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
+  const vendor = scrub(String(data.message ?? ""), cfg).slice(0, 160);
+  const code = Number(data.code);
+  // Netgsm'in kendi yanıtı da gösterilir: kurulumda sorunun kaynağını bulmayı kolaylaştırır (şifre içermez).
+  const raw = [Number.isFinite(code) ? `kod ${code}` : "", vendor].filter(Boolean).join(" · ");
+  return raw && !text.includes(vendor || "\u0000") ? `${text} (Netgsm yanıtı: ${raw})` : text;
+}
+function netsantralErrorText(body: unknown, httpStatus: number, cfg: NetsantralConfig): string {
   const data = body && typeof body === "object" ? (body as Record<string, unknown>) : {};
   const code = Number(data.code);
   const vendor = scrub(String(data.message ?? ""), cfg).slice(0, 160);
