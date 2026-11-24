@@ -150,3 +150,23 @@ it("görüşme analizi mesajı ve haftalık temsilci raporu", async () => {
   expect(report).toContain("3 görüşme · ekip ortalaması 70/100");
   expect(await weeklyCallReport(createMemoryStore(), o, now)).toBe("");
 });
+
+it("bildirimlerin kopyası WhatsApp numaralarına gider; Telegram ayarı olmadan da çalışır", async () => {
+  const { setWhatsappNotifySender, htmlToWhatsapp, sendTelegram: send } = await import("../server/telegram");
+  expect(htmlToWhatsapp("🟢 <b>Ayşe &lt;Y&gt;</b> başladı &amp; bitti")).toBe("🟢 *Ayşe <Y>* başladı & bitti");
+  const wa: string[] = [];
+  setWhatsappNotifySender(async (line, to, text) => void wa.push(`${line}|${to}|${text}`));
+  setTelegramSender(null);
+  delete process.env.TELEGRAM_CHAT_ID;
+  process.env.WHATSAPP_NOTIFY_TO = "0555 000 00 01, 05550000002, kisa";
+  await store.put("connection", "cloud-2", { status: "disconnected" }, "owner-1");
+  await store.put("connection", "cloud-3", { status: "connected" }, "owner-1");
+  await move("start");
+  expect(wa).toHaveLength(2);
+  expect(wa[0]).toMatch(/^cloud-3\|905550000001\|🟢 \*Ayşe Yılmaz\* mesaiye başladı/);
+  // Hat seçilirse o kullanılır; gönderim hatası Telegram'ı engellemez.
+  process.env.WHATSAPP_NOTIFY_LINE = "cloud-9";
+  setWhatsappNotifySender(async () => { throw new Error("hat bağlı değil"); });
+  expect(await send("<b>x</b>")).toBe(false);
+  setWhatsappNotifySender(null);
+});

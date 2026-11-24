@@ -110,12 +110,13 @@ export const SETTING_GROUPS: SettingGroup[] = [
   },
   {
     id: "telegram",
-    title: "Telegram bildirimleri",
+    title: "Bildirimler (Telegram / WhatsApp)",
     description: "Mesai hareketleri, günlük mesai raporu, hatırlatmalar ve otomasyon mesajları Telegram grubunuza gelir.",
     test: "telegram",
     fields: [
-      { key: "TELEGRAM_BOT_TOKEN", label: "Bot anahtarı", secret: true, help: "Telegram'da @BotFather ile /newbot yazıp bir bot oluşturun; verdiği anahtarı buraya yapıştırın." },
-      { key: "TELEGRAM_CHAT_ID", label: "Grup kimliği", placeholder: "-1001234567890", help: "Botu gruba ekleyin. Kimlik genelde -100 ile başlar; grupta @RawDataBot veya @getidsbot ile öğrenilir." },
+      { key: "TELEGRAM_BOT_TOKEN", label: "Telegram bot anahtarı", secret: true, help: "Telegram'da @BotFather ile /newbot yazıp bir bot oluşturun; verdiği anahtarı buraya yapıştırın." },
+      { key: "TELEGRAM_CHAT_ID", label: "Telegram grup kimliği", placeholder: "-1001234567890", help: "Botu gruba ekleyin. Kimlik genelde -100 ile başlar; grupta @RawDataBot veya @getidsbot ile öğrenilir." },
+      { key: "WHATSAPP_NOTIFY_TO", label: "WhatsApp'a da gönder (isteğe bağlı)", placeholder: "05321234567, 05331234567", help: "Aynı bildirimlerin (mesai, raporlar, görüşme analizleri) gideceği WhatsApp numaraları; virgülle ayırın, en çok 10. CRM'e bağlı ilk WhatsApp hattından gönderilir. Çok sık otomatik mesaj WhatsApp'ın numarayı kısıtlamasına yol açabilir; kalıcı kullanım için Telegram önerilir." },
       { key: "TELEGRAM_WORKTIME_MOVES", label: "Mesai hareketleri (isteğe bağlı)", placeholder: "acik", help: "Giriş, mola, dönüş ve çıkışlar gruba yazılır. Kapatmak için: kapali" },
       { key: "TELEGRAM_CALL_ANALYSIS", label: "Görüşme analizleri (isteğe bağlı)", placeholder: "acik", help: "Her analiz edilen görüşmenin puanı ve özeti, ayrıca pazartesi sabahı haftalık temsilci raporu gruba gelir. Kapatmak için: kapali" },
       { key: "TELEGRAM_DAILY_REPORT", label: "Günlük rapor saati (isteğe bağlı)", placeholder: "20:00", help: "Her akşam bu saatte günün mesai raporu gelir. Kapatmak için: kapali" },

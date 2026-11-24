@@ -2,6 +2,8 @@
 // tek bir bot üzerinden firmanın Telegram grubuna gider. Ayarlar Entegrasyonlar ekranından girilir.
 import type { Express, Request } from "express";
 import type { Store } from "./db.js";
+import { sendEvolutionText } from "./integrations.js";
+import { normalizePhone } from "./security.js";
 import type { AuthContext } from "./types.js";
 import { rawStoreOf } from "./access.js";
 import { setCallAnalysisListener } from "./conversation-analysis.js";
@@ -18,8 +20,54 @@ export const setTelegramSender = (fn: Sender | null) => void (override = fn);
 export const escapeHtml = (value: unknown) =>
   String(value ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!);
 
+// ---- WhatsApp'a kopya -------------------------------------------------------------------
+// Telegram kullanmayan ekipler için aynı bildirimler seçilen WhatsApp numaralarına da gider.
+type WaSender = (lineId: string, to: string, text: string) => Promise<unknown>;
+let waSender: WaSender = (lineId, to, text) => sendEvolutionText(lineId, to, text);
+let waStore: Store | null = null;
+/** Testler için WhatsApp gönderimini değiştirir. */
+export const setWhatsappNotifySender = (fn: WaSender | null) => void (waSender = fn || ((lineId, to, text) => sendEvolutionText(lineId, to, text)));
+export const whatsappNotifyNumbers = () => env("WHATSAPP_NOTIFY_TO").split(/[,;\n]+/).map((v) => normalizePhone(v)).filter((v) => v.length >= 10).slice(0, 10);
+export const notificationsConfigured = () => telegramConfigured() || whatsappNotifyNumbers().length > 0;
+/** Telegram'ın HTML biçimini WhatsApp yazısına çevirir (kalın: *…*). */
+export const htmlToWhatsapp = (html: string) =>
+  html
+    .replace(/<b>(.*?)<\/b>/gs, "*$1*")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+async function notifyLine(): Promise<string> {
+  const chosen = env("WHATSAPP_NOTIFY_LINE");
+  if (chosen || !waStore) return chosen;
+  // Hat seçilmediyse bağlı ilk WhatsApp hattı kullanılır.
+  const owner = await waStore.resolveOwner().catch(() => undefined);
+  if (!owner) return "";
+  const rows = await waStore.list<{ status?: string }>("connection", owner);
+  return rows.find((row) => row.payload.status === "connected")?.id || "";
+}
+/** Bildirimi WhatsApp numaralarına gönderir; gönderilen kişi sayısını döndürür. */
+export async function sendWhatsappNotice(html: string): Promise<number> {
+  const numbers = whatsappNotifyNumbers();
+  if (!numbers.length) return 0;
+  const lineId = await notifyLine();
+  if (!lineId) throw new Error("WhatsApp bildirimi için bağlı bir hat yok. WhatsApp sayfasından bir hat bağlayın.");
+  const text = htmlToWhatsapp(html).slice(0, 4000);
+  let sent = 0;
+  for (const to of numbers) {
+    await waSender(lineId, to, text);
+    sent += 1;
+  }
+  return sent;
+}
+
 /** Gruba (ya da verilen sohbete) HTML biçimli mesaj gönderir. Ayar yoksa sessizce atlar. */
 export async function sendTelegram(html: string, chatId = env("TELEGRAM_CHAT_ID")): Promise<boolean> {
+  // Varsayılan gruba giden her bildirimin kopyası WhatsApp'a da gider; biri hata verse diğeri etkilenmez.
+  const wa = chatId === env("TELEGRAM_CHAT_ID") ? await sendWhatsappNotice(html).catch((error) => (console.warn("WhatsApp bildirimi gönderilemedi:", error instanceof Error ? error.message : error), 0)) : 0;
+  return (await sendTelegramOnly(html, chatId)) || wa > 0;
+}
+async function sendTelegramOnly(html: string, chatId: string): Promise<boolean> {
   const token = env("TELEGRAM_BOT_TOKEN");
   if (override) {
     await override(chatId, html);
@@ -222,7 +270,7 @@ const SENT_KIND = "telegram-sent";
 
 /** Dakikada bir çağrılır: günlük rapor, "mesaiyi kapatmayı unutma" ve süresi aşan mola uyarısı. Her biri bir kez gider. */
 export async function runTelegramSchedule(store: Store, now = new Date()): Promise<string[]> {
-  if (!telegramConfigured() && !override) return [];
+  if (!notificationsConfigured() && !override) return [];
   const raw = rawStoreOf(store);
   const owner = await raw.resolveOwner().catch(() => undefined);
   if (!owner) return [];
@@ -279,15 +327,16 @@ export function startTelegramScheduler(store: Store): void {
 
 /** Mesai hareketlerini gruba yazan dinleyiciyi bağlar ve test ucunu kaydeder. */
 export function registerTelegram(app: Express, store: Store): void {
+  waStore = rawStoreOf(store);
   setWorktimeListener(async (owner, move) => {
-    if (!telegramConfigured() && !override) return;
+    if (!notificationsConfigured() && !override) return;
     // Bot kurulumun sahibine aittir; aynı sunucudaki başka firmaların hareketleri gruba yazılmaz.
     if (owner !== (await rawStoreOf(store).resolveOwner().catch(() => undefined))) return;
     if (env("TELEGRAM_WORKTIME_MOVES").toLowerCase() === "kapali") return;
     await sendTelegram(worktimeMessage(move));
   });
   setCallAnalysisListener(async (owner, info) => {
-    if (!telegramConfigured() && !override) return;
+    if (!notificationsConfigured() && !override) return;
     const raw = rawStoreOf(store);
     if (owner !== (await raw.resolveOwner().catch(() => undefined))) return;
     if (env("TELEGRAM_CALL_ANALYSIS").toLowerCase() === "kapali") return;
@@ -311,12 +360,15 @@ export function registerTelegram(app: Express, store: Store): void {
   app.post("/api/integrations/telegram/test", async (req: Request, res) => {
     const auth = (req as Request & { auth: AuthContext }).auth;
     if (!auth?.isOwner) return void res.status(403).json({ error: "FORBIDDEN", message: "Bağlantıyı yalnız çalışma alanı sahibi test edebilir." });
-    if (!telegramConfigured()) return void res.status(503).json({ error: "NOT_CONFIGURED", message: "Bot anahtarı ve grup kimliği girilmeli." });
-    try {
-      await sendTelegram(`✅ <b>${escapeHtml(env("XRE_BRAND_NAME") || "CRM")}</b> Telegram bağlantısı çalışıyor.\nMesai hareketleri ve günlük rapor bu gruba gelecek.`);
-      res.json({ provider: "telegram", configured: true, connected: true, message: "Deneme mesajı gruba gönderildi." });
-    } catch (error) {
-      res.status(502).json({ error: "TELEGRAM_FAILED", message: `${(error as Error).message}. Botun gruba eklendiğinden ve grup kimliğinin doğru olduğundan emin olun.`.slice(0, 300) });
-    }
+    if (!notificationsConfigured()) return void res.status(503).json({ error: "NOT_CONFIGURED", message: "Telegram için bot anahtarı ve grup kimliği, ya da WhatsApp için bildirim numarası girilmeli." });
+    const html = `✅ <b>${escapeHtml(env("XRE_BRAND_NAME") || "CRM")}</b> bildirim bağlantısı çalışıyor.\nMesai hareketleri, raporlar ve görüşme analizleri buraya gelecek.`;
+    const done: string[] = [];
+    const failed: string[] = [];
+    if (telegramConfigured())
+      await sendTelegramOnly(html, env("TELEGRAM_CHAT_ID")).then(() => done.push("Telegram grubu"), (error) => failed.push(`${(error as Error).message} (bot gruba ekli mi, grup kimliği doğru mu?)`));
+    if (whatsappNotifyNumbers().length)
+      await sendWhatsappNotice(html).then((n) => done.push(`WhatsApp (${n} numara)`), (error) => failed.push(`WhatsApp: ${(error as Error).message}`));
+    if (failed.length) return void res.status(502).json({ error: "NOTIFY_FAILED", message: `${done.length ? `Gönderildi: ${done.join(", ")}. ` : ""}Gönderilemedi: ${failed.join("; ")}`.slice(0, 400) });
+    res.json({ provider: "telegram", configured: true, connected: true, message: `Deneme mesajı gönderildi: ${done.join(", ")}.` });
   });
 }
