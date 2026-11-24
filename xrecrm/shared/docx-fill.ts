@@ -97,8 +97,19 @@ function fillXml(xml: string, fields: Record<string, string>, tables: Record<str
 export function fillDocx(template: Uint8Array, fields: Record<string, string>, tables: Record<string, string[][]> = {}): FillResult {
   let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(template);
-  } catch {
+    // Sıkıştırılmış bomba koruması: açılmış toplam boyut ve dosya sayısı sınırlıdır.
+    let total = 0;
+    let count = 0;
+    files = unzipSync(template, {
+      filter: (file) => {
+        total += file.originalSize;
+        count += 1;
+        if (total > 40 * 1024 * 1024 || count > 2000) throw new DocxError("Şablon çok büyük.");
+        return true;
+      },
+    });
+  } catch (cause) {
+    if (cause instanceof DocxError) throw cause;
     throw new DocxError("Şablon okunamadı. Word'de .docx olarak kaydedip yeniden yükleyin.");
   }
   if (!files["word/document.xml"]) throw new DocxError("Dosya bir Word (.docx) belgesi değil.");

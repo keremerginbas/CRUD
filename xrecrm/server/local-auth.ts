@@ -131,10 +131,10 @@ export function publicAccount(account: LocalAccount) {
 
 // Basit kaba kuvvet koruması: IP + e-posta için 15 dakikada 10 deneme.
 const attempts = new Map<string, { count: number; first: number }>();
-function tooManyAttempts(key: string): boolean {
+function tooManyAttempts(key: string, limit = 10): boolean {
   const entry = attempts.get(key);
   if (!entry || Date.now() - entry.first > 15 * 60_000) return false;
-  return entry.count >= 10;
+  return entry.count >= limit;
 }
 function recordFailure(key: string) {
   // Bellek sınırsız büyümesin: süresi geçmiş kayıtlar ara sıra temizlenir.
@@ -231,7 +231,9 @@ export function registerLocalAuthRoutes(app: Express, store: Store) {
     const password = String(req.body?.password || "");
     const key = `${req.ip}|${email}`;
     try {
-      if (tooManyAttempts(key))
+      // Hesap başına sayaç: adres değiştirerek (ya da sahte X-Forwarded-For ile) sınır aşılamaz.
+      const accountKey = `hesap|${String(req.body?.workspace || "").trim().toLowerCase()}|${email}`;
+      if (tooManyAttempts(key) || tooManyAttempts(accountKey, 30))
         return res.status(429).json({
           error: "TOO_MANY_ATTEMPTS",
           message: "Çok fazla hatalı deneme. 15 dakika sonra tekrar deneyin.",
@@ -256,6 +258,7 @@ export function registerLocalAuthRoutes(app: Express, store: Store) {
         : (await hashPassword(password), false);
       if (!account || !valid) {
         recordFailure(key);
+        recordFailure(accountKey);
         return res.status(401).json({ error: "INVALID_CREDENTIALS", message: "E-posta veya şifre hatalı." });
       }
       const linked = account.employeeId ? (await raw.get<AccessEmployee>("employee", account.employeeId, owner))?.payload : null;

@@ -309,3 +309,11 @@ describe("assistant server contract", () => {
     ).toBe(true);
   });
 });
+
+import { userCommandsAction } from "../server/assistant";
+it("onaysız uygulama yalnız kullanıcının açık komutunda geçerlidir", () => {
+  expect(userCommandsAction("Ada Lead'e not ekle: Cumartesi aranacak.")).toBe(true);
+  expect(userCommandsAction("Bu müşteriyi Mert'e ata")).toBe(true);
+  expect(userCommandsAction("Bugünkü mesajları özetle")).toBe(false);
+  expect(userCommandsAction("Bu hafta kaç satış var?")).toBe(false);
+});

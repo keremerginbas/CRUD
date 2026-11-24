@@ -1067,6 +1067,11 @@ function validateAction(
 function autoAllowed(raw: Record<string, unknown>, kind: string): boolean {
   return raw.auto === true && (ASSISTANT_AUTO_KINDS as readonly string[]).includes(kind);
 }
+/** Kullanıcının mesajı bir işlem komutu mu? (ekle, oluştur, güncelle, not al, ata, taşı…) */
+export function userCommandsAction(message: string): boolean {
+  const m = message.toLocaleLowerCase("tr");
+  return /(^|[^\p{L}])(ekle|ekler|ekleyin|oluştur|olustur|aç|kaydet|yaz|not al|not düş|güncelle|guncelle|değiştir|degistir|düzelt|ata|devret|taşı|tasi|al|planla|kur|hatırlat|yap|tamamla|işaretle)([^\p{L}]|$)/u.test(m);
+}
 function sanitizeModelActions(
   rawActions: unknown[],
   bundle: ContextBundle,
@@ -1078,6 +1083,14 @@ function sanitizeModelActions(
     const result = validateAction(raw, bundle, userMessage);
     if (result.action) actions.push(result.action);
     else rejected += 1;
+  }
+  // Onaysız uygulama yalnız kullanıcının kendi mesajı açık bir komutsa geçerlidir. Müşteri mesajı,
+  // döküm ya da not içine gizlenmiş bir talimat modeli kandırsa bile (ör. "özetle" denmişken)
+  // işlem kendiliğinden uygulanmaz; aşama değişikliği ise kuralları tetiklediği için hep onay ister.
+  const commanded = userCommandsAction(userMessage);
+  for (const action of actions) {
+    const patch = (action.payload as { patch?: Record<string, unknown> }).patch;
+    if (!commanded || (action.kind === "lead" && patch && "stage" in patch)) delete action.auto;
   }
   return { actions, rejected };
 }

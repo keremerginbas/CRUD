@@ -91,6 +91,12 @@ export function registerPasswordResetRoutes(app: Express, store: Store): void {
       for (const row of await raw.list<ResetRecord>(RESET_KIND, WORKSPACE_SYSTEM_OWNER))
         if (row.payload.accountId === account.id || Date.parse(row.payload.expiresAt) < Date.now()) await raw.delete(RESET_KIND, row.id, WORKSPACE_SYSTEM_OWNER);
       await raw.put(RESET_KIND, record.id, record, WORKSPACE_SYSTEM_OWNER);
+      // Canlı kurulumda bağlantı yalnız ayarlı site adresinden üretilir; istekteki Host başlığına
+      // güvenilmez (sahte Host ile sıfırlama bağlantısı başka siteye yönlendirilemez).
+      if (process.env.NODE_ENV === "production" && !process.env.PUBLIC_ORIGIN?.trim()) {
+        console.warn("PUBLIC_ORIGIN ayarlı değil; şifre sıfırlama e-postası gönderilmedi.");
+        return void res.json(generic);
+      }
       const link = `${originOf(req)}/sifre-sifirla/${token}`;
       await sendMail({
         to: email,

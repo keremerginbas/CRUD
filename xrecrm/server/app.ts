@@ -66,6 +66,7 @@ import {
 } from "./integrations.js";
 import {
   bearerMatches,
+  timingSafeEqualText,
   envConfigured,
   fetchWithTimeout,
   normalizePhone,
@@ -1441,10 +1442,22 @@ export function createApp(
   // Böylece giriş deneme sınırı herkesi tek adres sayıp ortak kilitlemez.
   const trustProxy = process.env.XRE_TRUST_PROXY?.trim();
   if (trustProxy ? trustProxy !== "0" : process.env.NODE_ENV === "production") app.set("trust proxy", Number(trustProxy) || 1);
+  // Arayüz başka bir sitenin içine (iframe) gömülemez: gizli çerçeveyle "onayla" düğmesine
+  // tıklatma (clickjacking) engellenir. Bitrix24 içinde açılan sayfalar bunun dışındadır.
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    if (String(req.headers["x-forwarded-proto"] || "").split(",")[0].trim() === "https" || req.secure) res.setHeader("Strict-Transport-Security", "max-age=15552000");
+    if (process.env.XRE_BITRIX_EMBED?.trim() !== "1" && !/^\/(b24|bitrix)/i.test(req.path)) {
+      res.setHeader("X-Frame-Options", "SAMEORIGIN");
+      if (!res.getHeader("Content-Security-Policy")) res.setHeader("Content-Security-Policy", "frame-ancestors 'self'");
+    }
+    next();
+  });
   // Başka bir siteden, kullanıcının oturum çereziyle gönderilen değişiklik istekleri reddedilir (CSRF).
   // Dış servis bildirimleri (webhook) çerez ve Origin taşımadığı için etkilenmez.
   app.use((req, res, next) => {
-    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS" || !req.path.startsWith("/api/")) return next();
+    if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS" || !req.path.toLowerCase().startsWith("/api/")) return next();
     const origin = String(req.headers.origin || "");
     if (!origin || !cookieValue(req, SESSION_COOKIE)) return next();
     let originHost = "";
@@ -1544,7 +1557,7 @@ export function createApp(
     const mode = String(req.query["hub.mode"] || "");
     const verifyToken = String(req.query["hub.verify_token"] || "");
     const challenge = String(req.query["hub.challenge"] || "");
-    if (mode === "subscribe" && verifyToken === token && challenge)
+    if (mode === "subscribe" && timingSafeEqualText(verifyToken, token) && challenge)
       return res.status(200).send(challenge);
     return res.status(403).send("forbidden");
   });
@@ -1654,9 +1667,8 @@ export function createApp(
 
   app.post(
     "/api/webhooks/evolution",
-    // Bağlantı anındaki sohbet geçmişi tek olayda büyük gelebilir.
-    express.json({ limit: "64mb" }),
-    async (req, res) => {
+    // Kimlik gövde okunmadan önce denetlenir: yetkisiz istek 64 MB'lık gövdeyi sunucuya işletemez.
+    (req, res, next) => {
       if (!process.env.EVOLUTION_WEBHOOK_SECRET)
         return res
           .status(503)
@@ -1676,6 +1688,11 @@ export function createApp(
         )
       )
         return res.status(401).send("unauthorized");
+      next();
+    },
+    // Bağlantı anındaki sohbet geçmişi tek olayda büyük gelebilir.
+    express.json({ limit: "64mb" }),
+    async (req, res) => {
       // Bitrix pazar yeri bağlayıcısının oturumları CRM çalışma alanına girmez.
       if (isConnectorInstance(req.body?.instance)) {
         res.status(200).json({ ok: true });
