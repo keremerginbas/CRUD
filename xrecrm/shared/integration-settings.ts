@@ -117,6 +117,7 @@ export const SETTING_GROUPS: SettingGroup[] = [
       { key: "TELEGRAM_BOT_TOKEN", label: "Bot anahtarı", secret: true, help: "Telegram'da @BotFather ile /newbot yazıp bir bot oluşturun; verdiği anahtarı buraya yapıştırın." },
       { key: "TELEGRAM_CHAT_ID", label: "Grup kimliği", placeholder: "-1001234567890", help: "Botu gruba ekleyin. Kimlik genelde -100 ile başlar; grupta @RawDataBot veya @getidsbot ile öğrenilir." },
       { key: "TELEGRAM_WORKTIME_MOVES", label: "Mesai hareketleri (isteğe bağlı)", placeholder: "acik", help: "Giriş, mola, dönüş ve çıkışlar gruba yazılır. Kapatmak için: kapali" },
+      { key: "TELEGRAM_CALL_ANALYSIS", label: "Görüşme analizleri (isteğe bağlı)", placeholder: "acik", help: "Her analiz edilen görüşmenin puanı ve özeti, ayrıca pazartesi sabahı haftalık temsilci raporu gruba gelir. Kapatmak için: kapali" },
       { key: "TELEGRAM_DAILY_REPORT", label: "Günlük rapor saati (isteğe bağlı)", placeholder: "20:00", help: "Her akşam bu saatte günün mesai raporu gelir. Kapatmak için: kapali" },
       { key: "TELEGRAM_WORKTIME_REMINDER", label: "Mesaiyi kapat hatırlatması (isteğe bağlı)", placeholder: "18:05", help: "Bu saatte mesaisi hâlâ açık olanlar gruba yazılır. Kapatmak için: kapali" },
     ],

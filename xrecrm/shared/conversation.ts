@@ -18,6 +18,8 @@ export interface ConversationAnalysis {
   confidence: string;
   /** Yalnız telefon görüşmelerinde: temsilcinin görüşmeyi yürütüşüne dair kısa, yapıcı gözlemler. */
   callFeedback?: string;
+  /** Yalnız telefon görüşmelerinde: görüşmenin yürütülüşüne 0-100 arası puan. */
+  callScore?: number;
   dataLimits: string[];
 }
 

@@ -124,3 +124,29 @@ it("metinler: süre, hak aşımı ve rapor biçimi", () => {
   expect(back).toContain("ihtiyaç molasından döndü · 13:30 (30 dk) ⚠️ (hak 15 dk)");
   expect(dailyReportMessages("2026-11-16", [], ["Ali"], true)).toEqual([]);
 });
+
+it("görüşme analizi mesajı ve haftalık temsilci raporu", async () => {
+  const { callAnalysisMessage, weeklyCallReport } = await import("../server/telegram");
+  const text = callAnalysisMessage({ lead: "Ayşe <Yılmaz>", agent: "Mert Kaya", durationSeconds: 125, score: 62, summary: "Fiyat soruldu.", feedback: "Çok enerjik değildi.", nextSteps: "Cumartesi aranacak." });
+  expect(text).toContain("Ayşe &lt;Yılmaz&gt; · 2 dk");
+  expect(text).toContain("🟡 <b>Puan: 62/100</b>");
+  expect(text).toContain("Çok enerjik değildi.");
+  const now = new Date("2026-11-23T07:00:00.000Z");
+  const o = "owner-1";
+  await store.put("employee", "e1", { id: "e1", name: "Mert Kaya", openId: "local:e1", active: true }, o);
+  await store.put("pbx-extension", "local:e1", { ext: "125" }, o);
+  await store.put("call", "c1", { id: "c1", agent: "125", durationSeconds: 120 }, o);
+  await store.put("call", "c2", { id: "c2", agent: "125", durationSeconds: 60 }, o);
+  await store.put("call", "c3", { id: "c3", agent: "130", durationSeconds: 30 }, o);
+  const post = (id: string, sourceId: string, score: number | undefined, createdAt: string) =>
+    store.put("feed", id, { id, kind: "ai-analysis", sourceKind: "call", sourceId, createdAt, analysis: { summary: "x", ...(score === undefined ? {} : { callScore: score }) } }, o);
+  await post("f1", "c1", 80, "2026-11-20T10:00:00.000Z");
+  await post("f2", "c2", 60, "2026-11-21T10:00:00.000Z");
+  await post("f3", "c3", undefined, "2026-11-22T10:00:00.000Z");
+  await post("eski", "c1", 10, "2026-11-01T10:00:00.000Z");
+  const report = await weeklyCallReport(store, o, now);
+  expect(report).toContain("🥇 <b>Mert Kaya</b> — 🟡 ort. 70/100 · 2 görüşme · 3 dk");
+  expect(report).toContain("<b>Dahili 130</b> — puan yok · 1 görüşme");
+  expect(report).toContain("3 görüşme · ekip ortalaması 70/100");
+  expect(await weeklyCallReport(createMemoryStore(), o, now)).toBe("");
+});

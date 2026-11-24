@@ -4,6 +4,7 @@ import type { Express, Request } from "express";
 import type { Store } from "./db.js";
 import type { AuthContext } from "./types.js";
 import { rawStoreOf } from "./access.js";
+import { setCallAnalysisListener } from "./conversation-analysis.js";
 import { setWorktimeListener, worktimeDaySnapshot, type WorktimeDayRow } from "./worktime.js";
 
 const env = (key: string) => (process.env[key] || "").trim();
@@ -139,6 +140,74 @@ export function dailyReportMessages(day: string, rows: WorktimeDayRow[], absent:
   return messages;
 }
 
+// ---- Görüşme analizi --------------------------------------------------------------------
+
+interface AnalysisPost {
+  kind?: string;
+  sourceKind?: string;
+  sourceId?: string;
+  createdAt?: string;
+  analysis?: { summary?: string; callFeedback?: string; callScore?: number; nextSteps?: string };
+}
+/** Dahili numarasını çalışan adına çevirir (dahilisini kaydetmiş çalışanlar için). */
+async function agentNames(store: Store, owner: string): Promise<Map<string, string>> {
+  const [exts, employees] = await Promise.all([store.list<{ ext?: string }>("pbx-extension", owner), store.list<{ openId?: string; name?: string }>("employee", owner)]);
+  const byOpenId = new Map(employees.map((row) => [String(row.payload.openId || ""), String(row.payload.name || "")]));
+  const map = new Map<string, string>();
+  for (const row of exts) if (row.payload.ext && byOpenId.get(row.id)) map.set(String(row.payload.ext), byOpenId.get(row.id)!);
+  return map;
+}
+const agentLabel = (agent: unknown, names: Map<string, string>) => {
+  const value = String(agent || "").trim();
+  return names.get(value) || (/^\d{2,6}$/.test(value) ? `Dahili ${value}` : value || "Bilinmeyen temsilci");
+};
+const scoreIcon = (score: number) => (score >= 75 ? "🟢" : score >= 50 ? "🟡" : "🔴");
+
+/** Tek görüşmenin analiz mesajı. */
+export function callAnalysisMessage(input: { lead: string; agent: string; durationSeconds: number; score?: number; summary: string; feedback?: string; nextSteps?: string }): string {
+  const lines = [
+    `📞 <b>Görüşme analizi</b> · ${escapeHtml(input.agent)}`,
+    `👤 ${escapeHtml(input.lead)}${input.durationSeconds ? ` · ${duration(input.durationSeconds * 1000)}` : ""}`,
+  ];
+  if (input.score !== undefined) lines.push(`${scoreIcon(input.score)} <b>Puan: ${input.score}/100</b>`);
+  lines.push(`📝 ${escapeHtml(input.summary.slice(0, 600))}`);
+  if (input.feedback) lines.push(`💬 ${escapeHtml(input.feedback.slice(0, 700))}`);
+  if (input.nextSteps) lines.push(`➡️ ${escapeHtml(input.nextSteps.slice(0, 300))}`);
+  return lines.join("\n");
+}
+
+/** Haftalık temsilci raporu: son 7 günün analiz edilen görüşmeleri, temsilci bazında. */
+export async function weeklyCallReport(store: Store, owner: string, now = new Date()): Promise<string> {
+  const since = now.getTime() - 7 * 86_400_000;
+  const [posts, calls, names] = await Promise.all([store.list<AnalysisPost>("feed", owner), store.list<{ agent?: string; durationSeconds?: number }>("call", owner), agentNames(store, owner)]);
+  const callById = new Map(calls.map((row) => [row.id, row.payload]));
+  const stats = new Map<string, { count: number; scored: number; total: number; seconds: number }>();
+  for (const row of posts) {
+    const post = row.payload;
+    if (post.kind !== "ai-analysis" || post.sourceKind !== "call" || Date.parse(post.createdAt || "") < since) continue;
+    const call = callById.get(String(post.sourceId || ""));
+    const key = agentLabel(call?.agent, names);
+    const item = stats.get(key) || { count: 0, scored: 0, total: 0, seconds: 0 };
+    item.count += 1;
+    item.seconds += Math.max(0, Number(call?.durationSeconds) || 0);
+    if (typeof post.analysis?.callScore === "number") (item.scored += 1), (item.total += post.analysis.callScore);
+    stats.set(key, item);
+  }
+  if (!stats.size) return "";
+  const rows = [...stats.entries()]
+    .map(([name, s]) => ({ name, ...s, avg: s.scored ? Math.round(s.total / s.scored) : null }))
+    .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1) || b.count - a.count);
+  const lines = ["📈 <b>HAFTALIK GÖRÜŞME RAPORU</b>", "Son 7 günde analiz edilen görüşmeler"];
+  rows.forEach((r, i) => {
+    const rank = i < 3 ? ["🥇", "🥈", "🥉"][i] : `${i + 1}.`;
+    lines.push(`${rank} <b>${escapeHtml(r.name)}</b> — ${r.avg === null ? "puan yok" : `${scoreIcon(r.avg)} ort. ${r.avg}/100`} · ${r.count} görüşme · ${duration(r.seconds * 1000)}`);
+  });
+  const scored = rows.filter((r) => r.avg !== null);
+  const all = rows.reduce((n, r) => n + r.count, 0);
+  lines.push(`━━━━━━━━━━━━\n📞 ${all} görüşme${scored.length ? ` · ekip ortalaması ${Math.round(scored.reduce((n, r) => n + r.total, 0) / scored.reduce((n, r) => n + r.scored, 0))}/100` : ""}`);
+  return lines.join("\n");
+}
+
 // ---- Zamanlanmış işler ------------------------------------------------------------------
 
 const istanbul = (date = new Date()) => {
@@ -181,6 +250,14 @@ export async function runTelegramSchedule(store: Store, now = new Date()): Promi
       done.push("reminder");
     }
   }
+  // Haftalık görüşme raporu: pazartesi 09:00'dan sonra bir kez.
+  if (new Intl.DateTimeFormat("en-US", { timeZone: TZ, weekday: "short" }).format(now) === "Mon" && minutes >= 9 * 60 && minutes < 14 * 60 && env("TELEGRAM_CALL_ANALYSIS").toLowerCase() !== "kapali") {
+    const report = await weeklyCallReport(raw, owner, now);
+    if (report && (await once(`haftalik-gorusme:${day}`))) {
+      await sendTelegram(report);
+      done.push("weekly-calls");
+    }
+  }
   // Günlük toplu rapor
   const reportAt = env("TELEGRAM_DAILY_REPORT").toLowerCase() === "kapali" ? -1 : minutesOf(env("TELEGRAM_DAILY_REPORT"), 20 * 60);
   if (reportAt >= 0 && minutes >= reportAt && minutes < reportAt + 180) {
@@ -208,6 +285,28 @@ export function registerTelegram(app: Express, store: Store): void {
     if (owner !== (await rawStoreOf(store).resolveOwner().catch(() => undefined))) return;
     if (env("TELEGRAM_WORKTIME_MOVES").toLowerCase() === "kapali") return;
     await sendTelegram(worktimeMessage(move));
+  });
+  setCallAnalysisListener(async (owner, info) => {
+    if (!telegramConfigured() && !override) return;
+    const raw = rawStoreOf(store);
+    if (owner !== (await raw.resolveOwner().catch(() => undefined))) return;
+    if (env("TELEGRAM_CALL_ANALYSIS").toLowerCase() === "kapali") return;
+    const [call, lead, names] = await Promise.all([
+      raw.get<{ agent?: string; durationSeconds?: number; phone?: string }>("call", info.callId, owner),
+      info.leadId ? raw.get<{ name?: string }>("lead", info.leadId, owner) : null,
+      agentNames(raw, owner),
+    ]);
+    await sendTelegram(
+      callAnalysisMessage({
+        lead: lead?.payload?.name || "Kayıtsız numara",
+        agent: agentLabel(call?.payload?.agent, names),
+        durationSeconds: Number(call?.payload?.durationSeconds) || 0,
+        score: info.analysis.callScore,
+        summary: info.analysis.summary,
+        feedback: info.analysis.callFeedback,
+        nextSteps: info.analysis.nextSteps,
+      }),
+    );
   });
   app.post("/api/integrations/telegram/test", async (req: Request, res) => {
     const auth = (req as Request & { auth: AuthContext }).auth;
