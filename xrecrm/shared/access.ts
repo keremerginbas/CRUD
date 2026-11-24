@@ -177,7 +177,8 @@ export const DEFAULT_ROLES: readonly AccessRole[] = [
       calls: { read: true, write: false, scope: "own" },
       reports: { read: true, write: false, scope: "own" },
       ai: { read: true, write: false, scope: "own" },
-      worktime: { read: true, write: false, scope: "own" },
+      // Mesai kişinin kendi giriş-çıkışıdır; salt okunur roldeki çalışan da mesaisini başlatabilmeli.
+      worktime: { read: true, write: true, scope: "own" },
     }),
   },
 ] as const;

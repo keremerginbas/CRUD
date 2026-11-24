@@ -608,10 +608,39 @@ async function teamResponse(
     );
   const { from, to } = parseRange(query);
   const collection = await loadStateCollection(store, auth.ownerOpenId);
-  const users = await store.list<any>("user", auth.ownerOpenId);
-  const names = new Map(
+  const [users, employees] = await Promise.all([
+    store.list<any>("user", auth.ownerOpenId),
+    store.list<any>("employee", auth.ownerOpenId),
+  ]);
+  const names = new Map<string, string>(
     users.map((row) => [row.id, profileName(row.payload, row.id)]),
   );
+  // Çalışan kaydındaki ad esas alınır (giriş hesabı openId = çalışanın openId'si).
+  for (const row of employees)
+    if (row.payload?.openId && row.payload?.name) names.set(String(row.payload.openId), String(row.payload.name));
+  // Bugünün kadrosu: eklenen her etkin çalışan, henüz mesai başlatmamış olsa da listede görünür.
+  const today = turkeyDay();
+  const roster = employees
+    .map((row) => row.payload)
+    .filter((employee) => employee?.active !== false && employee?.name)
+    .map((employee) => {
+      const openId = String(employee.openId || "");
+      const state = openId ? collection.states.get(openId)?.get(today) : undefined;
+      const output = state ? publicState(state) : null;
+      return {
+        employeeId: String(employee.id || ""),
+        userOpenId: openId,
+        name: String(employee.name),
+        title: String(employee.title || ""),
+        hasAccount: Boolean(openId),
+        status: output?.status || "idle",
+        netMs: output ? output.totals.netMs : 0,
+        breakMs: output ? output.totals.breakMs : 0,
+        firstStartAt: output ? output.totals.firstStartAt : null,
+        activeType: state?.periods.find((period) => period.endAt === null)?.type || null,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, "tr"));
   const rows: Array<Record<string, unknown>> = [];
   for (const [userOpenId, days] of collection.states) {
     for (const state of days.values()) {
@@ -655,6 +684,8 @@ async function teamResponse(
     serverNow: nowIso(),
     records: rows,
     days,
+    today,
+    roster,
   };
 }
 

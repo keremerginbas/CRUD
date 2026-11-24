@@ -145,7 +145,13 @@ function pdfText(pdf: Buffer): string {
     }
     const dict = body.slice(0, at);
     const start = body.indexOf("\n", at) + 1;
-    const bytes = Buffer.from(body.slice(start, body.lastIndexOf("endstream")).replace(/\r?\n$/, ""), "latin1");
+    // Akışın uzunluğu sözlükteki /Length değerinden alınır: sıkıştırılmış veri satır sonu baytıyla
+    // bitebildiği için "sondaki satır sonunu at" yaklaşımı bazı günlerde bir baytı fazladan kesiyordu.
+    const length = Number(/\/Length (\d+)/.exec(dict)?.[1]);
+    const bytes = Buffer.from(
+      Number.isFinite(length) && length > 0 ? body.slice(start, start + length) : body.slice(start, body.lastIndexOf("endstream")).replace(/\r?\n$/, ""),
+      "latin1",
+    );
     objects.set(Number(match[1]), { dict, stream: /FlateDecode/.test(dict) ? zlib.inflateSync(bytes) : bytes });
   }
   const cmaps = new Map<string, Map<string, string>>();

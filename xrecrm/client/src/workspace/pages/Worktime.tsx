@@ -575,6 +575,39 @@ export default function Worktime({
               ×
             </button>
           </div>
+          {!!team.roster?.length && (
+            <>
+              <span className="worktime-eyebrow worktime-roster-title">
+                BUGÜN · {team.roster.filter((r) => r.status !== "idle").length} / {team.roster.length} KİŞİ MESAİDE
+              </span>
+              <div className="worktime-team-list worktime-roster">
+                {team.roster.map((r) => (
+                  <div key={r.employeeId || r.userOpenId} className={`roster-${r.status}`}>
+                    <span>
+                      <strong>{r.name}</strong>
+                      <small>
+                        {!r.hasAccount
+                          ? "Giriş hesabı yok"
+                          : r.status === "working"
+                            ? `Çalışıyor · giriş ${time(r.firstStartAt)}`
+                            : r.status === "paused"
+                              ? r.activeType === "meal"
+                                ? "Yemek molasında"
+                                : r.activeType === "appointment"
+                                  ? "Online randevuda"
+                                  : "Molada"
+                              : r.status === "finished"
+                                ? "Mesaiyi bitirdi"
+                                : "Henüz başlamadı"}
+                      </small>
+                    </span>
+                    <b>{r.status === "idle" ? "—" : duration(r.netMs)}</b>
+                  </div>
+                ))}
+              </div>
+              <span className="worktime-eyebrow worktime-roster-title">GEÇMİŞ KAYITLAR</span>
+            </>
+          )}
           {team.records.length ? (
             <div className="worktime-team-list">
               {team.records.map((row) => (

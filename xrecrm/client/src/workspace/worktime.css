@@ -763,3 +763,12 @@
   margin-top: 2px;
 }
 .worktime-meeting { display: block; margin-top: 2px; color: var(--xre-text); font-weight: 600; }
+
+/* Ekip raporu: bugünün kadrosu */
+.worktime-roster-title { display: block; margin-top: 14px; }
+.worktime-roster { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin-top: 8px; }
+.worktime-roster > div { border-left: 3px solid #b8c2cc; }
+.worktime-roster > .roster-working { border-left-color: #2aa876; }
+.worktime-roster > .roster-paused { border-left-color: #e0a336; }
+.worktime-roster > .roster-finished { border-left-color: #5b8def; }
+.worktime-roster > .roster-idle b { opacity: 0.5; }

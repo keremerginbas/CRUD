@@ -148,5 +148,14 @@ describe("worktime native API", () => {
     expect(team.response.status).toBe(200);
     expect(team.body.records).toEqual([]);
     expect(team.body.timezone).toBe("Europe/Istanbul");
+    // Yeni eklenen çalışan, mesai başlatmadan da bugünün kadrosunda görünür.
+    await store.put("employee", "e1", { id: "e1", name: "Ayşe Yılmaz", openId: "manager-1", active: true, title: "Danışman" }, "owner-1");
+    await store.put("employee", "e2", { id: "e2", name: "Mert Kaya", openId: "local:e2", active: true }, "owner-1");
+    await store.put("employee", "e3", { id: "e3", name: "Pasif Kişi", openId: "local:e3", active: false }, "owner-1");
+    auth = { ...auth, permissions: { worktime: { read: true, write: true, scope: "all" } } };
+    await transition("start", id(), 0);
+    const filled = await call("/api/worktime/team");
+    expect(filled.body.roster.map((r: any) => [r.name, r.status])).toEqual([["Ayşe Yılmaz", "working"], ["Mert Kaya", "idle"]]);
+    expect(filled.body.records[0].name).toBe("Ayşe Yılmaz");
   });
 });

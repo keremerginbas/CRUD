@@ -96,4 +96,18 @@ export interface WorktimeTeamResponse {
     breakMs: number;
     records: WorktimeTeamRecord[];
   }>;
+  /** Bugünün tarihi (İstanbul) ve bugünün kadrosu: mesai başlatmamış çalışanlar da yer alır. */
+  today?: string;
+  roster?: Array<{
+    employeeId: string;
+    userOpenId: string;
+    name: string;
+    title: string;
+    hasAccount: boolean;
+    status: "idle" | "working" | "paused" | "finished";
+    netMs: number;
+    breakMs: number;
+    firstStartAt: string | null;
+    activeType: string | null;
+  }>;
 }
