@@ -4,7 +4,7 @@ import type { AuthContext } from "./types.js";
 import { rawStoreOf } from "./access.js";
 import fs from "node:fs";
 import path from "node:path";
-import { lines, parseLineInventory, setLineInventory, type Line } from "../shared/lines.js";
+import { lines, parseLineInventory, placeholderLines, setLineInventory, type Line } from "../shared/lines.js";
 
 /**
  * Gerçek hat envanterini Git dışındaki kaynaktan yükler:
@@ -73,9 +73,9 @@ export async function saveLineInventory(store: Store, owner: string, next: Line[
 }
 
 /**
- * Kendi hat listesi olmayan kurulumlarda 47 örnek hat yerine sade başlangıç listesi:
- * iki WhatsApp hattı + hâlihazırda bağlı olan hatlar. Kaydedilmez; sahip Hat yönetimi'nden
- * kendi listesini kaydedince o geçerli olur.
+ * Örnek (sahte numaralı) hatları listeden ayıklar: gerçek numarası, verilmiş adı ya da bağlı
+ * WhatsApp hesabı olan hatlar kalır; toplam üçten azsa örnek hatlarla üçe tamamlanır.
+ * Kayıt değişmez; sahip Hat yönetimi'nden kendi listesini kaydedince o geçerli olur.
  */
 export async function useStarterLines(store: Store): Promise<number> {
   const raw = rawStoreOf(store);
@@ -84,7 +84,11 @@ export async function useStarterLines(store: Store): Promise<number> {
   if (owner)
     for (const r of await raw.list<{ status?: string }>("connection", owner).catch(() => []))
       if (r.payload?.status === "connected") connected.add(r.id);
-  const starter = lines.filter((l, i) => i < 2 || connected.has(l.id)).map((l, i) => ({ ...l, ...(i < 2 ? { label: `WhatsApp ${i + 1}` } : {}) }));
+  const sample = new Map(placeholderLines.map((l) => [l.id, l.phone]));
+  const inUse = (l: Line) => sample.get(l.id) !== l.phone || Boolean(l.label?.trim()) || connected.has(l.id);
+  const keep = new Set(lines.filter(inUse).map((l) => l.id));
+  for (const l of lines) if (keep.size < 3) keep.add(l.id);
+  const starter = lines.filter((l) => keep.has(l.id)).map((l, i) => (l.label?.trim() ? l : { ...l, label: `WhatsApp ${i + 1}` }));
   setLineInventory(starter);
   return starter.length;
 }

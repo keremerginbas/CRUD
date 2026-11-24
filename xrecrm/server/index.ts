@@ -57,8 +57,9 @@ export async function start(): Promise<void> {
   try {
     const saved = await loadLineInventoryFromStore(store);
     if (saved) console.log(`Hat envanteri veritabanından yüklendi: ${saved} hat.`);
-    else if (inventory.source === "placeholder" && process.env.NODE_ENV === "production")
-      console.log(`Kayıtlı hat listesi yok; başlangıç listesi kullanılıyor: ${await useStarterLines(store)} hat.`);
+    // Örnek numaralı hatlar (kaydedilmiş olsalar bile) listede gösterilmez.
+    if (process.env.NODE_ENV === "production")
+      console.log(`Örnek hatlar ayıklandı; listede ${await useStarterLines(store)} hat var.`);
   } catch (error) {
     console.warn("Kayıtlı hat envanteri okunamadı:", error instanceof Error ? error.message : error);
   }
