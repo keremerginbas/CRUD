@@ -232,7 +232,8 @@ export function registerSocialAuthRoutes(app: Express, store: Store) {
   app.get("/api/auth/status", async (_req, res) => {
     const providers = { local: true, qr: true, manus: manusConfigured(), ...socialProvidersStatus() };
     try {
-      res.json({ needsSetup: !(await raw.resolveOwner()), providers });
+      const needsSetup = !(await raw.resolveOwner());
+      res.json({ needsSetup, ...(needsSetup && process.env.XRE_SETUP_TOKEN?.trim() ? { setupCode: true } : {}), providers });
     } catch {
       res.json({ needsSetup: false, database: false, providers });
     }

@@ -10,6 +10,8 @@
 #   Durum       : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --durum
 #   WhatsApp aç : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --whatsapp
 #   Panel yap   : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --panel
+#   Kapıyı kilitle: bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --kilit <ara-sunucu-IP>   (geri al: --kilit-kaldir)
+#   Uzak yedek  : bash /opt/xre/xrecrm/deploy/proxmox/kur.sh --yedek-uzak kullanici@sunucu:/klasor
 set -euo pipefail
 
 REPO_URL="https://github.com/keremerginbas/CRUD.git"
@@ -23,6 +25,9 @@ DB_NAME=xrecrm-db
 NET=xrecrm-net
 PORT="${XRE_PORT:-3000}"
 KEEP_DAYS=14
+LOCKFILE=/opt/xre-kilit.conf
+REMOTEFILE=/opt/xre-yedek-uzak.conf
+REMOTEKEY=/root/.ssh/xre-yedek
 
 [ "$(id -u)" -eq 0 ] || { echo "Lütfen root olarak çalıştırın."; exit 1; }
 
@@ -133,8 +138,80 @@ panel_ac() {
   echo "Sahip hesabıyla girin; kenar çubuğunda Yönetim → Müşteri kurulumları görünür."
 }
 
+# Kapı kilidi: CRM kapısına (3000) yalnız ara sunucu (Hestia) ulaşır. Docker yayımladığı kapıyı
+# ufw'nin önünden geçirdiği için kural DOCKER-USER zincirine yazılır. Konteynerlerin kendi
+# aralarındaki trafik (WhatsApp servisi → CRM) ve makinenin kendisi etkilenmez.
+kilit_uygula() {
+  [ -f "$LOCKFILE" ] || return 0
+  local ip; ip=$(cat "$LOCKFILE")
+  command -v iptables >/dev/null 2>&1 || { echo "UYARI: iptables yok; kapı kilidi uygulanamadı."; return 0; }
+  iptables -N DOCKER-USER 2>/dev/null || true
+  iptables -N XRE-KILIT 2>/dev/null || iptables -F XRE-KILIT
+  iptables -A XRE-KILIT -i docker0 -j RETURN
+  iptables -A XRE-KILIT -i br-+ -j RETURN
+  iptables -A XRE-KILIT -s "$ip" -j RETURN
+  iptables -A XRE-KILIT -j DROP
+  iptables -C DOCKER-USER -p tcp -m conntrack --ctorigdstport "$PORT" --ctdir ORIGINAL -j XRE-KILIT 2>/dev/null \
+    || iptables -I DOCKER-USER -p tcp -m conntrack --ctorigdstport "$PORT" --ctdir ORIGINAL -j XRE-KILIT
+}
+kilit_kaldir() {
+  rm -f "$LOCKFILE" /etc/cron.d/xrecrm-kilit
+  iptables -D DOCKER-USER -p tcp -m conntrack --ctorigdstport "$PORT" --ctdir ORIGINAL -j XRE-KILIT 2>/dev/null || true
+  iptables -F XRE-KILIT 2>/dev/null || true
+  iptables -X XRE-KILIT 2>/dev/null || true
+  echo "Kapı kilidi kaldırıldı; CRM kapısı ($PORT) yeniden ağdaki herkese açık."
+}
+kilit_kur() {
+  local ip="${1:-}"
+  printf '%s' "$ip" | grep -Eq '^([0-9]{1,3}\.){3}[0-9]{1,3}$' || { echo "Kullanım: kur.sh --kilit <ara-sunucunun-IP-adresi>   örnek: kur.sh --kilit 192.168.1.10"; exit 1; }
+  umask 077; echo "$ip" > "$LOCKFILE"
+  kilit_uygula
+  # Makine yeniden başlayınca kural yeniden yazılır.
+  echo "@reboot root sleep 45; bash $SRC/xrecrm/deploy/proxmox/kur.sh --kilit-uygula >> /var/log/xrecrm-kilit.log 2>&1" > /etc/cron.d/xrecrm-kilit
+  chmod 644 /etc/cron.d/xrecrm-kilit
+  echo "== Kapı kilitlendi: CRM kapısına ($PORT) yalnız $ip ulaşabilir =="
+  echo "ŞİMDİ siteyi tarayıcıdan açıp deneyin. Açılmıyorsa IP yanlıştır; geri almak için:"
+  echo "  bash $SRC/xrecrm/deploy/proxmox/kur.sh --kilit-kaldir"
+}
+
+# Şifreli uzak yedek: her yedek AES-256 ile şifrelenip başka bir sunucuya (SSH) kopyalanır.
+# Parola bu makinede $REMOTEFILE içinde durur; geri yükleme için parolayı ayrıca saklayın.
+yedek_uzak_kur() {
+  local hedef="${1:-}"
+  printf '%s' "$hedef" | grep -Eq '^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:/[A-Za-z0-9._/-]+$' || { echo "Kullanım: kur.sh --yedek-uzak kullanici@sunucu:/klasor"; exit 1; }
+  mkdir -p /root/.ssh; chmod 700 /root/.ssh
+  [ -f "$REMOTEKEY" ] || ssh-keygen -q -t ed25519 -N "" -C xre-yedek -f "$REMOTEKEY"
+  local parola
+  if [ -f "$REMOTEFILE" ]; then parola=$(grep '^PAROLA=' "$REMOTEFILE" | cut -d= -f2-); else parola=$(openssl rand -base64 30 | tr -d '=+/'); fi
+  umask 077; printf 'HEDEF=%s\nPAROLA=%s\n' "$hedef" "$parola" > "$REMOTEFILE"
+  echo "== Uzak yedek ayarlandı: $hedef =="
+  echo "1) Aşağıdaki satırı uzak sunucuda o kullanıcının ~/.ssh/authorized_keys dosyasına ekleyin:"
+  echo; cat "$REMOTEKEY.pub"; echo
+  echo "2) Yedek parolası (geri yükleme için ŞART; güvenli bir yere yazın, bir daha gösterilmez):"
+  echo; echo "   $parola"; echo
+  echo "3) Sonra deneyin:  bash $SRC/xrecrm/deploy/proxmox/kur.sh --yedek"
+  echo "Geri açma:  openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in dosya.enc -out dosya   (parolayı sorar)"
+}
+yedek_uzak() {
+  [ -f "$REMOTEFILE" ] || return 0
+  local hedef parola f
+  hedef=$(grep '^HEDEF=' "$REMOTEFILE" | cut -d= -f2-); parola=$(grep '^PAROLA=' "$REMOTEFILE" | cut -d= -f2-)
+  for f in "$@"; do
+    [ -f "$f" ] || continue
+    if XRE_YEDEK_PAROLA="$parola" openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass env:XRE_YEDEK_PAROLA -in "$f" -out "$f.enc" \
+      && scp -q -i "$REMOTEKEY" -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 "$f.enc" "$hedef/"; then
+      echo "Uzak yedek gönderildi: $(basename "$f").enc → $hedef"
+    else
+      echo "UYARI: uzak yedek GÖNDERİLEMEDİ: $(basename "$f") (SSH anahtarı uzak sunucuya eklendi mi?)"
+    fi
+    rm -f "$f.enc"
+  done
+}
+
 yedek() {
+  umask 077
   mkdir -p "$BACKUPS"
+  local gonder=()
   # Veritabanı dökümü (geri yükleme: gunzip -c dosya | docker exec -i xrecrm-db psql -U xrecrm -d xrecrm)
   if docker ps --format '{{.Names}}' | grep -qx "$DB_NAME"; then
     local dump="$BACKUPS/xrecrm-db-$(date +%Y%m%d-%H%M%S).sql.gz"
@@ -142,6 +219,7 @@ yedek() {
     chmod 600 "$dump"
     find "$BACKUPS" -name 'xrecrm-db-*.sql.gz' -mtime +"$KEEP_DAYS" -delete
     echo "Veritabanı yedeği: $dump ($(du -h "$dump" | cut -f1))"
+    gonder+=("$dump")
   fi
   local file="$BACKUPS/xrecrm-$(date +%Y%m%d-%H%M%S).tar.gz"
   # Veri klasörü: veritabanı dosyası + proje görselleri + yüklenen dosyalar.
@@ -149,6 +227,8 @@ yedek() {
   chmod 600 "$file"
   find "$BACKUPS" -name 'xrecrm-*.tar.gz' -mtime +"$KEEP_DAYS" -delete
   echo "Yedek alındı: $file ($(du -h "$file" | cut -f1))"
+  gonder+=("$file")
+  yedek_uzak "${gonder[@]}"
 }
 
 calistir() {
@@ -163,6 +243,7 @@ calistir() {
     -v "$DATA":/app/data \
     -p "$PORT":3000 \
     "$NAME:latest" >/dev/null
+  kilit_uygula
 }
 
 bekle() {
@@ -177,6 +258,10 @@ case "${1:-}" in
   --yedek) yedek; exit 0 ;;
   --whatsapp) whatsapp_kur; exit 0 ;;
   --panel) panel_ac; exit 0 ;;
+  --kilit) kilit_kur "${2:-}"; exit 0 ;;
+  --kilit-uygula) kilit_uygula; exit 0 ;;
+  --kilit-kaldir) kilit_kaldir; exit 0 ;;
+  --yedek-uzak) yedek_uzak_kur "${2:-}"; exit 0 ;;
   --durum)
     docker ps --filter "name=^${NAME}$" --format 'Konteyner: {{.Names}}  {{.Status}}'
     if whatsapp_acik; then docker ps --filter "name=^${WA_NAME}$" --format 'WhatsApp:  {{.Names}}  {{.Status}}'; fi
@@ -238,6 +323,8 @@ if [ ! -f "$ENVFILE" ]; then
   {
     echo "PUBLIC_ORIGIN=https://$DOMAIN"
     echo "XRE_SESSION_SECRET=$(openssl rand -hex 48)"
+    # İlk (yönetici) hesabı yalnız bu kodu bilen açabilir.
+    echo "XRE_SETUP_TOKEN=$(openssl rand -hex 12)"
     if [ -n "${2:-}" ]; then echo "XRE_BRAND_NAME=$2"; fi
   } > "$ENVFILE"
 else
@@ -264,6 +351,12 @@ echo
 echo "== Kurulum tamam =="
 echo "Bu makinede CRM şu adreste çalışıyor:  http://$IP:$PORT"
 echo "Ara sunucuda (Hestia) $DOMAIN isteklerini bu adrese yönlendirin."
-echo "Sonra https://$DOMAIN adresini açıp İLK HESABI HEMEN oluşturun (ilk hesap yönetici olur)."
+KOD=$(grep '^XRE_SETUP_TOKEN=' "$ENVFILE" | cut -d= -f2- || true)
+if [ -n "$KOD" ]; then
+  echo "Sonra şu adresi açıp ilk (yönetici) hesabı oluşturun; kurulum kodu adreste hazır gelir:"
+  echo "  https://$DOMAIN/?kurulum=$KOD"
+else
+  echo "Sonra https://$DOMAIN adresini açıp İLK HESABI HEMEN oluşturun (ilk hesap yönetici olur)."
+fi
 echo "Güncelleme:  bash $SRC/xrecrm/deploy/proxmox/kur.sh --guncelle"
 echo "Yedekler:    $BACKUPS"

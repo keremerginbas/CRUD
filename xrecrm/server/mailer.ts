@@ -19,7 +19,7 @@ const env = (k: string) => process.env[k]?.trim() || "";
 export const mailConfigured = () => Boolean(override || (env("SMTP_HOST") && env("SMTP_USER") && env("SMTP_PASS")));
 export const mailFrom = () => env("SMTP_FROM") || env("SMTP_USER");
 
-let cached: { key: string; transport: nodemailer.Transporter } | null = null;
+let cached: { key: string; transport: ReturnType<typeof nodemailer.createTransport> } | null = null;
 function transport() {
   const port = Number(env("SMTP_PORT")) || 465;
   const key = [env("SMTP_HOST"), port, env("SMTP_USER"), env("SMTP_PASS")].join("|");

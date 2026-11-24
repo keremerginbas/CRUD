@@ -8,6 +8,8 @@ import { useBranding } from "../branding";
 
 export interface AuthStatus {
   needsSetup: boolean;
+  /** İlk hesap için kurulum kodu gerekiyor. */
+  setupCode?: boolean;
   database?: boolean;
   providers: {
     local: boolean;
@@ -128,6 +130,8 @@ export default function LoginScreen({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+  // Kurulum kodu adresle gelebilir: https://…/?kurulum=KOD
+  const [setupCode, setSetupCode] = useState(() => new URLSearchParams(location.search).get("kurulum") || "");
   const [show, setShow] = useState(false);
   const [forgot, setForgot] = useState(false);
   const [forgotMessage, setForgotMessage] = useState("");
@@ -153,7 +157,7 @@ export default function LoginScreen({
     }
     setBusy(true);
     try {
-      await api(setup ? "/api/auth/setup" : "/api/auth/local-login", setup ? { name, email, password } : { email, password, workspace: workspace?.slug });
+      await api(setup ? "/api/auth/setup" : "/api/auth/local-login", setup ? { name, email, password, setupCode } : { email, password, workspace: workspace?.slug });
       toast.success(setup ? "Yönetici hesabı oluşturuldu." : "Giriş yapıldı.");
       finish();
     } catch (err) {
@@ -254,6 +258,12 @@ export default function LoginScreen({
             </form>
           ) : (
           <form onSubmit={submit} className="login-form">
+            {setup && status.setupCode && (
+              <label>
+                Kurulum kodu
+                <input value={setupCode} onChange={(e) => setSetupCode(e.target.value)} autoComplete="off" required placeholder="Kurulum çıktısındaki kod" />
+              </label>
+            )}
             {setup && (
               <label>
                 Ad soyad

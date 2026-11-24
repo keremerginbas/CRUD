@@ -3,6 +3,7 @@
 // özetiyle saklanır. Oturum mevcut JWT çerezini kullanır; çalışan yetkileri
 // erişim modülündeki "employee" kaydı (openId = local:<id>) üzerinden gelir.
 import crypto from "node:crypto";
+import { timingSafeEqualText } from "./security.js";
 import fs from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -191,6 +192,17 @@ export function registerLocalAuthRoutes(app: Express, store: Store) {
         z.object({ name: nameSchema, email: emailSchema, password: passwordSchema }),
         req.body,
       );
+      // Kurulum kodu ayarlıysa ilk (yönetici) hesabı yalnız kodu bilen açabilir.
+      const setupToken = process.env.XRE_SETUP_TOKEN?.trim();
+      if (setupToken && !(await raw.resolveOwner())) {
+        const setupKey = `kurulum|${req.ip}`;
+        if (tooManyAttempts(setupKey))
+          return res.status(429).json({ error: "TOO_MANY_ATTEMPTS", message: "Çok fazla hatalı deneme. 15 dakika sonra tekrar deneyin." });
+        if (!timingSafeEqualText(String(req.body?.setupCode || "").trim(), setupToken)) {
+          recordFailure(setupKey);
+          return res.status(403).json({ error: "SETUP_CODE_REQUIRED", message: "Kurulum kodu hatalı. Kodu kurulum çıktısından alın." });
+        }
+      }
       if (await raw.resolveOwner())
         return res.status(409).json({
           error: "ALREADY_SET_UP",
