@@ -115,8 +115,15 @@ function PbxCallBox({ leadId, phone, onDone }: { leadId: string; phone: string; 
       .then((r: { driver: string; extension: string }) => {
         setInfo(r);
         setExt(r.extension);
-        // Dahili daha önce kaydedildiyse yeniden sorulmaz: arama hemen başlar.
-        if (r.driver && r.extension && !autoStarted.current) {
+        if (autoStarted.current) return;
+        const phoneReady = Boolean((r as { webphone?: { configured: boolean; hasPassword: boolean } }).webphone?.configured && (r as { webphone?: { hasPassword: boolean } }).webphone?.hasPassword);
+        if (phoneReady) {
+          // Tarayıcı telefonu hazırsa arama doğrudan bu sekmeden yapılır (kulaklıkla), ayrıca sorulmaz.
+          autoStarted.current = true;
+          dialWithWebphone(phone, leadId);
+          onDone();
+        } else if (r.driver && r.extension) {
+          // Dahili daha önce kaydedildiyse yeniden sorulmaz: arama hemen başlar.
           autoStarted.current = true;
           void place(r.extension, r.extension);
         }
