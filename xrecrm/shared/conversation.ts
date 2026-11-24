@@ -16,6 +16,8 @@ export interface ConversationAnalysis {
   outcome: string;
   nextSteps: string;
   confidence: string;
+  /** Yalnız telefon görüşmelerinde: temsilcinin görüşmeyi yürütüşüne dair kısa, yapıcı gözlemler. */
+  callFeedback?: string;
   dataLimits: string[];
 }
 
