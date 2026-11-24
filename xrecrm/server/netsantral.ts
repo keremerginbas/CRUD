@@ -194,18 +194,26 @@ export async function netsantralOriginate(input: { ext: string; number: string; 
   // çıkarsa yalnız netsantralAccepted düzeltilir.
   if (!body)
     throw fail("Netsantral beklenmeyen bir yanıt verdi; aramanın başlayıp başlamadığı anlaşılamadı. Telefonunuz çalmadıysa biraz sonra yeniden deneyin.", 502);
+  // Yanıtın biçimi belgeden farklı çıkabildiği için alan adları (değerler değil) kayda yazılır.
+  console.info("Netsantral tıkla-ara yanıtı:", JSON.stringify({ alanlar: Object.keys(body).slice(0, 20), status: scrub(String(body.status ?? ""), cfg).slice(0, 40), message: scrub(String(body.message ?? ""), cfg).slice(0, 80), code: body.code ?? null }));
   if (!netsantralAccepted(body)) throw fail(netsantralErrorMessage(body, response.status, cfg), 502);
   // Kimlik yoksa kayıt sonradan gelen olaylarla telefon numarasından eşleştirilir.
-  return { message: "Netsantral aramayı kabul etti.", providerCallId: normalizeNetsantralId(body.unique_id) };
+  return { message: "Netsantral aramayı kabul etti.", providerCallId: normalizeNetsantralId(body.unique_id ?? body.uniqueid ?? body.uniqueId) };
 }
 
-/** Tıkla-ara yanıtı aramanın kabul edildiğini gösteriyor mu? (Doğrulanmalı.) */
+/**
+ * Tıkla-ara yanıtı aramanın kabul edildiğini gösteriyor mu?
+ * Gerçek hesapta (Kasım 2026) başarılı yanıtın iletisi "Success" geldi ama "status" alanı
+ * belgedeki gibi değildi; bu yüzden açık bir hata işareti yoksa ve yanıt başarıdan söz ediyorsa
+ * (ya da arama kimliği döndüyse) kabul edilir.
+ */
 export function netsantralAccepted(body: Record<string, unknown>): boolean {
   const status = String(body.status ?? "").trim().toLowerCase();
-  if (body.code !== undefined && body.code !== null && status !== "success") return false;
-  if (status) return status === "success";
-  // "status" hiç yoksa yalnız arama kimliği dönmüşse kabul edilmiş sayılır.
-  return Boolean(normalizeNetsantralId(body.unique_id));
+  const message = String(body.message ?? "").trim().toLowerCase();
+  const failed = /^(error|fail|failed|hata)$/.test(status) || /do[gğ]rulanamad|parametre|not specified|no registration|hata|error|fail/.test(message);
+  if (failed) return false;
+  const ok = (value: string) => /^(success|successfully|ok|queued)\b|ba[sş]ar[ıi]l[ıi]/.test(value);
+  return ok(status) || ok(message) || Boolean(normalizeNetsantralId(body.unique_id ?? body.uniqueid ?? body.uniqueId));
 }
 
 // ---------------------------------------------------------------------------

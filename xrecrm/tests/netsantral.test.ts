@@ -636,6 +636,21 @@ describe("Netsantral kurulum denetimi", () => {
   });
 });
 
+describe("Netsantral: gerçek hesaptaki başarı yanıtı", () => {
+  it("iletisi Success olan yanıt kabul edilir; hata yanıtları reddedilir", () => {
+    // Gerçek hesapta görülen: "status" belgedeki gibi değil, ileti "Success".
+    expect(netsantralAccepted({ message: "Success" })).toBe(true);
+    expect(netsantralAccepted({ status: 200, message: "Success" })).toBe(true);
+    expect(netsantralAccepted({ status: "Success", message: "Successfully", unique_id: "sip3-1.2" })).toBe(true);
+    expect(netsantralAccepted({ unique_id: "sip3-1700000001.55" })).toBe(true);
+    expect(netsantralAccepted({ status: "Error", message: "Kullanici dogrulanamadi" })).toBe(false);
+    expect(netsantralAccepted({ code: 30, status: "Error", message: "Eksik yada yanlis parametre 2" })).toBe(false);
+    expect(netsantralAccepted({ status: "Success", message: "No registration" })).toBe(false);
+    expect(netsantralAccepted({ code: 80 })).toBe(false);
+    expect(netsantralAccepted({})).toBe(false);
+  });
+});
+
 describe("Netsantral: yalnız seçilen dahili / hatlar", () => {
   it("ortak santralde diğer dahililerin aramaları hiç kaydedilmez; seçilen dahili ve CRM'den başlatılan arama kaydedilir", async () => {
     await fakeNetsantral();
