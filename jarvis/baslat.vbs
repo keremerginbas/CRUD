@@ -10,8 +10,11 @@ dir     = fso.GetParentFolderName(WScript.ScriptFullName)
 page    = "file:///" & Replace(Replace(dir & "\index.html", "\", "/"), " ", "%20")
 profile = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\JarvisEkrani"
 
-' Masaustu yuklensin diye kisa bir bekleme (bilgisayar acilisinda)
+' Masaustu ve internet baglantisi hazir olsun diye kisa bir bekleme
 WScript.Sleep 3000
+
+' Takvimi indir (gizli pencerede, bitmesini bekle)
+sh.Run "powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File """ & dir & "\takvim-indir.ps1""", 0, True
 
 cmd = "msedge --app=""" & page & """" & _
       " --start-fullscreen" & _

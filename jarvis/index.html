@@ -11,6 +11,7 @@
     --cyan-dim: rgba(62, 232, 255, .35);
     --cyan-faint: rgba(62, 232, 255, .12);
     --amber: #ffb547;
+    --green: #6dffb0;
     --text: #cdf6ff;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -18,12 +19,11 @@
   body {
     background: radial-gradient(ellipse at center, #06202b 0%, var(--bg) 70%);
     color: var(--text);
-    font-family: "Consolas", "Cascadia Mono", "SF Mono", monospace;
+    font-family: "Consolas", "Cascadia Mono", "SF Mono", "Menlo", monospace;
     overflow: hidden;
     cursor: default;
     user-select: none;
   }
-  /* ince ızgara + tarama çizgileri */
   body::before {
     content: ""; position: fixed; inset: 0; pointer-events: none;
     background-image:
@@ -31,6 +31,7 @@
       linear-gradient(90deg, var(--cyan-faint) 1px, transparent 1px);
     background-size: 48px 48px;
     mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 75%);
     opacity: .5;
   }
   body::after {
@@ -41,7 +42,7 @@
   .stage { position: relative; height: 100%; display: grid; place-items: center; }
 
   /* ---------- merkez reaktör ---------- */
-  .core { position: relative; width: min(62vmin, 560px); aspect-ratio: 1; opacity: 0; transform: scale(.6);
+  .core { position: relative; width: min(56vmin, 520px); aspect-ratio: 1; margin-bottom: 8vh; opacity: 0; transform: scale(.6);
           transition: opacity 1.2s ease, transform 1.6s cubic-bezier(.2,.9,.2,1); }
   .booted .core { opacity: 1; transform: scale(1); }
   .core svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
@@ -68,12 +69,11 @@
   .clock .d { font-size: clamp(10px, 1.6vmin, 14px); letter-spacing: .3em; color: var(--cyan); margin-top: 4px; }
 
   /* ---------- mesaj ---------- */
-  .message {
-    position: absolute; left: 0; right: 0; bottom: 9vh; text-align: center; padding: 0 16px;
-  }
+  .message { position: absolute; left: 0; right: 0; bottom: 7vh; text-align: center; padding: 0 16px; }
   .message h1 {
-    font-weight: 400; font-size: clamp(20px, 3.6vmin, 38px); letter-spacing: .06em;
+    font-weight: 400; font-size: clamp(18px, 3.2vmin, 34px); letter-spacing: .05em;
     color: #fff; text-shadow: 0 0 18px var(--cyan); min-height: 1.3em;
+    max-width: 1100px; margin: 0 auto;
   }
   .message h1 .caret { display: inline-block; width: .5em; background: var(--cyan); animation: blink 1s steps(1) infinite; margin-left: 4px; }
   .message p { margin-top: 10px; color: var(--cyan); letter-spacing: .35em; font-size: clamp(10px, 1.4vmin, 13px); opacity: .8; }
@@ -81,23 +81,36 @@
 
   /* ---------- yan paneller ---------- */
   .panel {
-    position: absolute; top: 6vh; width: min(30vw, 340px); font-size: 12px; line-height: 1.75;
+    position: absolute; top: 6vh; width: min(28vw, 340px); font-size: 12px; line-height: 1.75;
     color: var(--cyan); opacity: 0; transition: opacity 1s ease .6s;
   }
-  .booted .panel { opacity: .9; }
+  .booted .panel { opacity: .92; }
   .panel.left  { left: 4vw; }
   .panel.right { right: 4vw; text-align: right; }
-  .panel h2 { font-size: 11px; font-weight: 400; letter-spacing: .4em; color: var(--amber); border-bottom: 1px solid var(--cyan-dim); padding-bottom: 6px; margin-bottom: 8px; }
-  .panel .ok::after { content: " [OK]"; color: #6dffb0; }
+  .panel h2 { font-size: 11px; font-weight: 400; letter-spacing: .4em; color: var(--amber); border-bottom: 1px solid var(--cyan-dim); padding-bottom: 6px; margin: 22px 0 8px; }
+  .panel h2:first-child { margin-top: 0; }
+  .panel .ok::after { content: " [OK]"; color: var(--green); }
   .bar { height: 3px; background: var(--cyan-faint); margin: 3px 0 9px; overflow: hidden; }
-  .bar i { display: block; height: 100%; width: 0; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); transition: width 1.4s ease; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--amber); box-shadow: 0 0 8px var(--amber); transition: width 1.4s ease; }
+  .muted { opacity: .55; }
+
+  /* hava */
+  .wx-main { display: flex; justify-content: flex-end; align-items: baseline; gap: 12px; }
+  .wx-temp { font-size: 44px; line-height: 1; color: #fff; text-shadow: 0 0 14px var(--cyan); }
+  .wx-desc { color: #fff; }
+
+  /* ajanda */
+  .agenda { list-style: none; }
+  .agenda li { display: grid; grid-template-columns: 64px 1fr; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--cyan-faint); }
+  .agenda li b { color: #fff; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .agenda li.past { opacity: .4; }
+  .agenda li.next span { color: var(--amber); }
 
   .title {
     position: absolute; top: 3vh; left: 0; right: 0; text-align: center;
     letter-spacing: 1.2em; font-size: 13px; color: var(--cyan); opacity: .7;
   }
 
-  /* ---------- etkinleştir (ses engellenirse) ---------- */
   .wake {
     position: fixed; inset: 0; display: none; place-items: center; background: rgba(2,7,13,.55);
     cursor: pointer; z-index: 10;
@@ -113,6 +126,9 @@
   @media (max-width: 760px) { .panel { display: none; } }
   @media (prefers-reduced-motion: reduce) { .spin, .spinR, .spinF, .glow { animation: none; } }
 </style>
+<script src="ayarlar.js"></script>
+<!-- takvim.js açılış betiği tarafından her açılışta yeniden oluşturulur -->
+<script src="takvim.js"></script>
 </head>
 <body>
 <div class="stage" id="stage">
@@ -121,16 +137,17 @@
   <aside class="panel left">
     <h2>SİSTEM DURUMU</h2>
     <div id="bootlog"></div>
+    <h2>BUGÜNÜN AJANDASI</h2>
+    <ul class="agenda" id="agenda"><li class="muted"><span>--:--</span><b>Takvim okunuyor…</b></li></ul>
   </aside>
 
   <aside class="panel right">
     <h2>OTURUM</h2>
-    <div>KULLANICI: <b style="color:#fff">PATRON</b></div>
+    <div>KULLANICI: <b style="color:#fff" id="user">PATRON</b></div>
     <div>ERİŞİM SEVİYESİ: <b style="color:#fff">ALFA</b></div>
-    <div>ÇEKİRDEK <div class="bar"><i data-w="92%"></i></div></div>
-    <div>BELLEK <div class="bar"><i data-w="64%"></i></div></div>
-    <div>AĞ <div class="bar"><i data-w="81%"></i></div></div>
-    <div>KAHVE SEVİYESİ <div class="bar"><i data-w="18%" style="background:var(--amber);box-shadow:0 0 8px var(--amber)"></i></div></div>
+    <div>KAHVE SEVİYESİ <div class="bar"><i data-w="18%"></i></div></div>
+    <h2 id="wx-title">HAVA DURUMU</h2>
+    <div id="wx"><span class="muted">Uydu bağlantısı kuruluyor…</span></div>
   </aside>
 
   <div class="core">
@@ -166,19 +183,25 @@
 
 <script>
 (() => {
-  // ====== AYARLAR — istediğin gibi değiştir ======
-  const HITAP = "patron";
-  const MESAJ_SABAH = "Günaydın " + HITAP + ". Bugün bolca işimiz var. Hadi kodlamaya başlayalım.";
-  const MESAJ_OGLEN = "İyi günler " + HITAP + ". Kaldığımız yerden devam edelim. Hadi kodlamaya başlayalım.";
-  const MESAJ_AKSAM = "İyi akşamlar " + HITAP + ". Mesai uzun sürecek gibi. Hadi kodlamaya başlayalım.";
-  // Tercih edilen sesler (ilk bulunan kullanılır). Edge'deki "Ahmet" en çok JARVIS'e benzeyendir.
-  const SES_TERCIHI = ["Ahmet", "Tolga", "Emel", "Turkish", "tr-TR"];
-  // ===============================================
+  const A = Object.assign({
+    HITAP: "patron", SEHIR: "İstanbul", TAKVIM_URL: "",
+    KAPANIS_SABAH: "Bugün bolca işimiz var. Hadi kodlamaya başlayalım.",
+    KAPANIS_OGLEN: "Kaldığımız yerden devam edelim. Hadi kodlamaya başlayalım.",
+    KAPANIS_AKSAM: "Mesai uzun sürecek gibi. Hadi kodlamaya başlayalım.",
+    SES_TERCIHI: ["Ahmet", "Tolga", "Yelda", "Emel", "tr-TR"],
+  }, window.JARVIS_AYARLAR || {});
 
   const $ = id => document.getElementById(id);
   const stage = $("stage");
+  const now = new Date();
+  const hour = now.getHours();
+  const pad = n => String(n).padStart(2, "0");
+  const hm = d => pad(d.getHours()) + ":" + pad(d.getMinutes());
+  const esc = s => s.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
-  // --- saat & tarih ---
+  $("user").textContent = A.HITAP.toLocaleUpperCase("tr-TR");
+
+  // ---------- saat ----------
   const tick = () => {
     const n = new Date();
     $("time").textContent = n.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
@@ -186,13 +209,194 @@
   };
   tick(); setInterval(tick, 1000);
 
-  const hour = new Date().getHours();
-  const message = hour < 12 ? MESAJ_SABAH : hour < 18 ? MESAJ_OGLEN : MESAJ_AKSAM;
+  // ---------- Türkçe bulunma eki: İstanbul'da, Ankara'da, Paris'te ----------
+  const locSuffix = word => {
+    const w = word.toLocaleLowerCase("tr-TR");
+    const vowels = w.match(/[aıoueöüi]/g) || ["a"];
+    const back = "aıou".includes(vowels[vowels.length - 1]);
+    const hard = "fstkçşhp".includes(w[w.length - 1]);
+    return word + "'" + (hard ? "t" : "d") + (back ? "a" : "e");
+  };
 
-  // --- açılış logu ---
+  const withTimeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+
+  // ---------- HAVA DURUMU (Open-Meteo, anahtarsız) ----------
+  const WMO = {
+    0: "açık", 1: "çoğunlukla açık", 2: "parçalı bulutlu", 3: "kapalı",
+    45: "sisli", 48: "kırağılı sis", 51: "hafif çiseleyen", 53: "çiseleyen", 55: "yoğun çiseleyen",
+    56: "dondurucu çisenti", 57: "dondurucu çisenti", 61: "hafif yağmurlu", 63: "yağmurlu", 65: "şiddetli yağmurlu",
+    66: "dondurucu yağmurlu", 67: "dondurucu yağmurlu", 71: "hafif karlı", 73: "karlı", 75: "yoğun karlı",
+    77: "kar taneli", 80: "hafif sağanaklı", 81: "sağanak yağışlı", 82: "şiddetli sağanaklı",
+    85: "kar sağanaklı", 86: "yoğun kar sağanaklı", 95: "gök gürültülü fırtınalı", 96: "dolulu fırtınalı", 99: "dolulu fırtınalı",
+  };
+  const getWeather = async () => {
+    try {
+      const g = await (await fetch("https://geocoding-api.open-meteo.com/v1/search?count=1&language=tr&name=" + encodeURIComponent(A.SEHIR))).json();
+      const p = g.results && g.results[0];
+      if (!p) return null;
+      const url = "https://api.open-meteo.com/v1/forecast?latitude=" + p.latitude + "&longitude=" + p.longitude +
+        "&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m" +
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=1";
+      const w = await (await fetch(url)).json();
+      return {
+        city: p.name, temp: Math.round(w.current.temperature_2m), feels: Math.round(w.current.apparent_temperature),
+        desc: WMO[w.current.weather_code] || "değişken", wind: Math.round(w.current.wind_speed_10m),
+        max: Math.round(w.daily.temperature_2m_max[0]), min: Math.round(w.daily.temperature_2m_min[0]),
+        rain: w.daily.precipitation_probability_max[0] ?? 0,
+      };
+    } catch (e) { return null; }
+  };
+  const renderWeather = w => {
+    if (!w) { $("wx").innerHTML = '<span class="muted">Hava verisi alınamadı</span>'; return; }
+    $("wx-title").textContent = "HAVA · " + w.city.toLocaleUpperCase("tr-TR");
+    $("wx").innerHTML =
+      '<div class="wx-main"><span class="wx-desc">' + esc(w.desc.toLocaleUpperCase("tr-TR")) + '</span><span class="wx-temp">' + w.temp + '°</span></div>' +
+      '<div>EN DÜŞÜK ' + w.min + '° · EN YÜKSEK ' + w.max + '°</div>' +
+      '<div>HİSSEDİLEN ' + w.feels + '° · RÜZGÂR ' + w.wind + ' KM/S</div>' +
+      '<div>YAĞIŞ OLASILIĞI %' + w.rain + '</div>';
+  };
+  const weatherSentence = w => {
+    if (!w) return "";
+    let s = locSuffix(w.city) + " hava şu an " + w.temp + " derece ve " + w.desc + ". Gün içinde en yüksek " + w.max + " derece.";
+    if (w.rain >= 50) s += " Yağış ihtimali yüksek, şemsiyeni almayı unutma.";
+    else if (w.max <= 5) s += " Hava soğuk, sıkı giyin.";
+    return s;
+  };
+
+  // ---------- TAKVİM (iCal / .ics) ----------
+  const decodeB64 = b64 => new TextDecoder("utf-8").decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+
+  const parseIcsDate = (v, params) => {
+    const m = v.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
+    if (!m) return null;
+    const [, y, mo, d, h, mi, s, z] = m;
+    const allDay = !h || /VALUE=DATE(?!-)/.test(params);
+    if (allDay) return { date: new Date(+y, mo - 1, +d), allDay: true };
+    const date = z ? new Date(Date.UTC(+y, mo - 1, +d, +h, +mi, +(s || 0)))
+                   : new Date(+y, mo - 1, +d, +h, +mi, +(s || 0)); // TZID: yerel saat kabul edilir
+    return { date, allDay: false };
+  };
+  const unescapeText = s => s.replace(/\\n/gi, " ").replace(/\\([,;\\])/g, "$1").trim();
+
+  const parseIcs = text => {
+    const lines = text.replace(/\r?\n[ \t]/g, "").split(/\r?\n/);
+    const events = []; let ev = null;
+    for (const line of lines) {
+      if (line === "BEGIN:VEVENT") { ev = { exdates: [] }; continue; }
+      if (line === "END:VEVENT") { if (ev && ev.start) events.push(ev); ev = null; continue; }
+      if (!ev) continue;
+      const i = line.indexOf(":"); if (i < 0) continue;
+      const key = line.slice(0, i), val = line.slice(i + 1);
+      const name = key.split(";")[0].toUpperCase(), params = key.slice(name.length);
+      if (name === "SUMMARY") ev.summary = unescapeText(val);
+      else if (name === "DTSTART") ev.start = parseIcsDate(val, params);
+      else if (name === "DTEND") ev.end = parseIcsDate(val, params);
+      else if (name === "RRULE") ev.rrule = Object.fromEntries(val.split(";").map(p => p.split("=")));
+      else if (name === "EXDATE") val.split(",").forEach(x => { const d = parseIcsDate(x, params); if (d) ev.exdates.push(d.date); });
+      else if (name === "RECURRENCE-ID") ev.recurrenceId = parseIcsDate(val, params);
+      else if (name === "UID") ev.uid = val;
+      else if (name === "STATUS") ev.status = val;
+    }
+    return events;
+  };
+
+  const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  const DAYS = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+
+  // Tekrarlayan etkinliğin bugün bir tekrarı var mı? (DAILY/WEEKLY/MONTHLY/YEARLY, INTERVAL, COUNT, UNTIL, BYDAY)
+  const recursOn = (ev, day) => {
+    const r = ev.rrule, start = ev.start.date;
+    const dayOnly = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    if (dayOnly < startDay) return false;
+    const interval = +(r.INTERVAL || 1);
+    const until = r.UNTIL ? parseIcsDate(r.UNTIL, "").date : null;
+    const count = r.COUNT ? +r.COUNT : Infinity;
+    const byday = r.BYDAY ? r.BYDAY.split(",").map(x => x.replace(/^[+-]?\d+/, "")) : null;
+    let n = 0;
+    for (let d = new Date(startDay), guard = 0; d <= dayOnly && guard < 40000; d.setDate(d.getDate() + 1), guard++) {
+      const diffDays = Math.round((d - startDay) / 864e5);
+      let hit = false;
+      switch (r.FREQ) {
+        case "DAILY":   hit = diffDays % interval === 0 && (!byday || byday.includes(DAYS[d.getDay()])); break;
+        case "WEEKLY": {
+          const weeks = Math.floor((diffDays + startDay.getDay()) / 7);
+          hit = weeks % interval === 0 && (byday ? byday.includes(DAYS[d.getDay()]) : d.getDay() === startDay.getDay());
+          break;
+        }
+        case "MONTHLY": {
+          const months = (d.getFullYear() - startDay.getFullYear()) * 12 + d.getMonth() - startDay.getMonth();
+          hit = months % interval === 0 && d.getDate() === startDay.getDate();
+          break;
+        }
+        case "YEARLY":
+          hit = (d.getFullYear() - startDay.getFullYear()) % interval === 0 && d.getMonth() === startDay.getMonth() && d.getDate() === startDay.getDate();
+          break;
+      }
+      if (!hit) continue;
+      if (until && d > until) return false;
+      if (++n > count) return false;
+      if (sameDay(d, dayOnly)) return !ev.exdates.some(x => sameDay(x, d));
+    }
+    return false;
+  };
+
+  const todaysEvents = text => {
+    const events = parseIcs(text).filter(e => e.status !== "CANCELLED");
+    const overridden = new Set(events.filter(e => e.recurrenceId).map(e => e.uid + "|" + e.recurrenceId.date.toDateString()));
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const out = [];
+    for (const e of events) {
+      const s = e.start.date;
+      if (e.rrule && !e.recurrenceId) {
+        if (overridden.has(e.uid + "|" + today.toDateString())) continue;
+        if (recursOn(e, today)) {
+          const at = new Date(today); at.setHours(s.getHours(), s.getMinutes());
+          out.push({ title: e.summary || "(başlıksız)", at, allDay: e.start.allDay });
+        }
+      } else {
+        const end = e.end ? e.end.date : new Date(s.getTime() + (e.start.allDay ? 864e5 : 0));
+        const tomorrow = new Date(today.getTime() + 864e5);
+        const overlaps = e.start.allDay ? (s < tomorrow && end > today) : sameDay(s, today);
+        if (overlaps) out.push({ title: e.summary || "(başlıksız)", at: e.start.allDay ? today : s, allDay: e.start.allDay });
+      }
+    }
+    const seen = new Set();
+    return out.filter(e => { const k = e.title + e.at.getTime(); return !seen.has(k) && seen.add(k); })
+              .sort((a, b) => (b.allDay - a.allDay) || (a.at - b.at));
+  };
+
+  const getAgenda = () => {
+    if (!A.TAKVIM_URL) return { configured: false, events: [] };
+    if (!window.TAKVIM_ICS_B64) return { configured: true, failed: true, events: [] };
+    try { return { configured: true, events: todaysEvents(decodeB64(window.TAKVIM_ICS_B64)) }; }
+    catch (e) { return { configured: true, failed: true, events: [] }; }
+  };
+  const renderAgenda = ag => {
+    const ul = $("agenda");
+    if (!ag.configured) { ul.innerHTML = '<li class="muted"><span>—</span><b>Takvim bağlı değil (ayarlar.js)</b></li>'; return; }
+    if (ag.failed) { ul.innerHTML = '<li class="muted"><span>!</span><b>Takvim okunamadı</b></li>'; return; }
+    if (!ag.events.length) { ul.innerHTML = '<li><span>✓</span><b>Bugün etkinlik yok</b></li>'; return; }
+    const nextIdx = ag.events.findIndex(e => !e.allDay && e.at > now);
+    ul.innerHTML = ag.events.slice(0, 8).map((e, i) =>
+      '<li class="' + (!e.allDay && e.at < now ? "past" : "") + (i === nextIdx ? " next" : "") + '">' +
+      '<span>' + (e.allDay ? "TÜM GÜN" : hm(e.at)) + '</span><b title="' + esc(e.title) + '">' + esc(e.title) + '</b></li>').join("") +
+      (ag.events.length > 8 ? '<li class="muted"><span>+' + (ag.events.length - 8) + '</span><b>etkinlik daha</b></li>' : "");
+  };
+  const agendaSentence = ag => {
+    if (!ag.configured || ag.failed) return "";
+    const timed = ag.events.filter(e => !e.allDay && e.at > now);
+    if (!ag.events.length) return "Takvimin bugün boş, tamamen koda odaklanabiliriz.";
+    let s = "Takviminde bugün " + ag.events.length + " etkinlik var.";
+    if (timed.length) s += " Sıradaki, saat " + hm(timed[0].at) + " itibarıyla: " + timed[0].title + ".";
+    else s += " Saatli etkinliklerin tamamlandı.";
+    return s;
+  };
+
+  // ---------- açılış logu ----------
   const lines = [
-    "Çekirdek modüller yükleniyor", "Ark reaktörü kalibre ediliyor", "Nöral arayüz eşleniyor",
-    "Kod editörü hazırlanıyor", "Git depoları taranıyor", "Güvenlik protokolleri aktif", "Ses sentezleyici çevrimiçi"
+    "Çekirdek modüller yükleniyor", "Ark reaktörü kalibre ediliyor", "Meteoroloji uydusuna bağlanılıyor",
+    "Takvim senkronize ediliyor", "Git depoları taranıyor", "Güvenlik protokolleri aktif", "Ses sentezleyici çevrimiçi"
   ];
   const boot = () => new Promise(res => {
     stage.classList.add("booted");
@@ -208,7 +412,6 @@
     add();
   });
 
-  // --- daktilo efekti ---
   const type = (text, ms) => new Promise(res => {
     const el = $("msg"); el.textContent = "";
     let i = 0;
@@ -216,41 +419,51 @@
     step();
   });
 
-  // --- ses ---
+  // ---------- ses ----------
   const getVoices = () => new Promise(res => {
+    if (!("speechSynthesis" in window)) return res([]);
     const v = speechSynthesis.getVoices();
     if (v.length) return res(v);
     speechSynthesis.onvoiceschanged = () => res(speechSynthesis.getVoices());
     setTimeout(() => res(speechSynthesis.getVoices()), 1500);
   });
   const pickVoice = voices => {
-    for (const want of SES_TERCIHI) {
+    for (const want of A.SES_TERCIHI) {
       const v = voices.find(v => v.name.includes(want) || v.lang === want);
       if (v) return v;
     }
     return voices.find(v => v.lang && v.lang.toLowerCase().startsWith("tr")) || null;
   };
 
-  let voice = null;
+  let voice = null, speech = "";
   const speak = () => new Promise(res => {
     if (!("speechSynthesis" in window)) return res(false);
     speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(message);
+    const u = new SpeechSynthesisUtterance(speech);
     u.lang = "tr-TR"; if (voice) u.voice = voice;
-    u.rate = 0.95; u.pitch = 0.85; u.volume = 1;
+    u.rate = 0.97; u.pitch = 0.85; u.volume = 1;
     let started = false;
     u.onstart = () => { started = true; stage.classList.add("speaking"); };
     u.onend = u.onerror = () => { stage.classList.remove("speaking"); res(started); };
     speechSynthesis.speak(u);
-    // Tarayıcı izin vermezse konuşma hiç başlamaz → etkinleştir butonunu göster
     setTimeout(() => { if (!started) { speechSynthesis.cancel(); res(false); } }, 2500);
   });
 
   const run = async () => {
-    voice = pickVoice(await getVoices());
+    const weatherP = withTimeout(getWeather(), 6000);
+    const voicesP = getVoices();
     await boot();
+    const agenda = getAgenda(); renderAgenda(agenda);
+    const weather = await weatherP; renderWeather(weather);
+    voice = pickVoice(await voicesP);
+
+    const greet = hour < 12 ? "Günaydın" : hour < 18 ? "İyi günler" : "İyi akşamlar";
+    const close = hour < 12 ? A.KAPANIS_SABAH : hour < 18 ? A.KAPANIS_OGLEN : A.KAPANIS_AKSAM;
+    const headline = greet + " " + A.HITAP + ". " + close;
+    speech = [greet + " " + A.HITAP + ".", weatherSentence(weather), agendaSentence(agenda), close].filter(Boolean).join(" ");
+
     $("sub").textContent = "TÜM SİSTEMLER ÇEVRİMİÇİ";
-    const typing = type(message, 45);
+    const typing = type(headline, 45);
     const ok = await speak();
     await typing;
     if (!ok) $("wake").classList.add("show");
@@ -262,6 +475,8 @@
     if (e.key === " ") { $("wake").classList.remove("show"); speak(); }
   });
 
+  // test için: window.__jarvis
+  window.__jarvis = { todaysEvents, locSuffix, get speech() { return speech; } };
   setTimeout(run, 400);
 })();
 </script>
