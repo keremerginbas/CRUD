@@ -260,7 +260,7 @@ export function netsantralCdrOutcome(input: {
   return { answered: false };
 }
 
-type Body = Record<string, unknown>;
+export type Body = Record<string, unknown>;
 
 /** Alan adlarının büyük/küçük harfi belgede tutarsız olduğundan harf duyarsız okunur. */
 function field(body: Body, ...names: string[]): string {
@@ -275,7 +275,7 @@ function field(body: Body, ...names: string[]): string {
   return "";
 }
 
-const extOf = (value: string) => (/^\d{2,6}$/.test(value) ? value : "");
+export const extOf = (value: string) => (/^\d{2,6}$/.test(value) ? value : "");
 const short = (value: string, max = 60) => value.replace(/[^\p{L}\p{N} .:+@_-]/gu, "").slice(0, max);
 const seconds = (value: string) => {
   const n = Math.round(Number(value));
@@ -296,7 +296,7 @@ function localTime(value: string): string | undefined {
   return Number.isNaN(Date.parse(iso)) ? undefined : iso;
 }
 
-const last10 = (value: string) => value.replace(/\D/g, "").slice(-10);
+export const last10 = (value: string) => value.replace(/\D/g, "").slice(-10);
 
 /**
  * Netgsm numarayı baştaki 0 olmadan gönderirse (ör. 2125550000) CRM'deki

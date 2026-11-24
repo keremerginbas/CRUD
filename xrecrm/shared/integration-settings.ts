@@ -177,6 +177,7 @@ export const SETTING_GROUPS: SettingGroup[] = [
     fields: [
       { key: "XRE_OPENAI_API_KEY", label: "OpenAI API anahtarı", secret: true },
       { key: "XRE_OPENAI_MODEL", label: "Model (isteğe bağlı)", placeholder: "gpt-4.1-mini", help: "Boş bırakılırsa gpt-4.1-mini kullanılır. Daha güçlü yanıtlar için gpt-4.1 yazabilirsiniz; daha pahalıdır. OpenAI hesabınızda açık olan başka bir sohbet modelinin adını da yazabilirsiniz." },
+      { key: "XRE_CALL_TRANSCRIBE", label: "Arama kayıtlarını yazıya dök ve analiz et", placeholder: "kapali", help: "acik yazarsanız santralden gelen ses kayıtları OpenAI ile yazıya dökülür ve görüşme analizi müşteri kartına düşer. Ses kayıtları OpenAI'ye gönderilir; müşterilerinizi bu konuda bilgilendirmeniz gerekebilir. Kapatmak için: kapali" },
       { key: "N8N_API_KEY", label: "n8n API anahtarı", secret: true },
     ],
   },

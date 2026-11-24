@@ -114,6 +114,7 @@ import {
   registerNetsantralWebhook,
   replayNetsantralEvent,
 } from "./netsantral.js";
+import { startNetsantralReportSync } from "./netsantral-report.js";
 import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-inventory.js";
 import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
 import { registerBackupRoutes, startBackupScheduler } from "./backup.js";
@@ -1875,6 +1876,13 @@ export function createApp(
   if (options.background) startSenetReminders(rawStore);
   if (options.background) startTelegramScheduler(rawStore);
   if (options.background) startFleet(baseStore);
+  // Netsantral görüşme raporu: süre ve ses kaydı bildirim adresi olmadan da gelir.
+  if (options.background)
+    startNetsantralReportSync(store, {
+      ownerScope,
+      logCall: (owner, input) => runInboundAction(store, owner, { id: "netsantral", name: "Netsantral" }, "call.log", input, hubDeps),
+      analyze: (owner, callId) => scheduleConversationAnalysis(store, owner, "call", callId),
+    });
   // Bağlı posta kutularının gelen kutusu yoklayıcısı (testte ve XRE_EMAIL_POLL=0 iken çalışmaz).
   if (options.background) startEmailPoller(rawStore);
   if (options.background && withConnector) {

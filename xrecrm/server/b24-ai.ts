@@ -117,7 +117,7 @@ export async function translateTo(text: string, lang: string, from: "tr" | "en" 
 }
 
 /** Sesli mesajı yazıya döker. */
-export async function transcribe(buffer: Buffer, mime: string, fileName = "ses.ogg"): Promise<string> {
+export async function transcribe(buffer: Buffer, mime: string, fileName = "ses.ogg", maxChars = 4000): Promise<string> {
   if (!aiConfigured() || !buffer.length || buffer.length > 24 * 1024 * 1024) return "";
   const form = new FormData();
   form.append("model", TRANSCRIBE_MODEL);
@@ -131,7 +131,7 @@ export async function transcribe(buffer: Buffer, mime: string, fileName = "ses.o
   });
   if (!response.ok) throw new Error(`Ses yazıya dökülemedi (HTTP ${response.status}).`);
   const body: any = await response.json();
-  return String(body?.text || "").trim().slice(0, 4000);
+  return String(body?.text || "").trim().slice(0, maxChars);
 }
 
 export interface Qualification {

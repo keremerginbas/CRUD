@@ -40,3 +40,4 @@ html .app-shell .call-window:not(#_), .call-window { position: fixed; right: 20p
 /* Müşteri kartında ses kaydı */
 .cx-call-recording { display: block; width: 100%; max-width: 420px; height: 34px; margin-top: 6px; }
 .call-window-link { background: none; border: 0; padding: 0; font: inherit; color: var(--xre-accent, #168db3); text-decoration: underline; cursor: pointer; }
+.cx-call-recording-link { display: inline-block; margin-top: 4px; font-size: 12px; color: var(--xre-accent, #168db3); }

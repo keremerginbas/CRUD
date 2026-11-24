@@ -429,9 +429,12 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
               </header>
               <p>{s.text}</p>
               {"recording" in s && s.recording && (
-                <audio className="cx-call-recording" controls preload="none" src={s.recording as string}>
-                  <a href={s.recording as string} target="_blank" rel="noreferrer">Ses kaydını aç</a>
-                </audio>
+                <>
+                  <audio className="cx-call-recording" controls preload="none" src={s.recording as string} />
+                  <a className="cx-call-recording-link" href={s.recording as string} target="_blank" rel="noreferrer">
+                    Ses kaydını yeni sekmede aç
+                  </a>
+                </>
               )}
               {s.type === "analysis" && (
                 <small className="cx-ai-caption">
