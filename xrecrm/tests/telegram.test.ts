@@ -1,5 +1,5 @@
 import express from "express";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createMemoryStore, type Store } from "../server/db";
 import { registerWorktimeRoutes } from "../server/worktime";
 import { dailyReportMessages, duration, registerTelegram, runTelegramSchedule, setTelegramSender, worktimeMessage } from "../server/telegram";
@@ -32,6 +32,7 @@ beforeEach(async () => {
   base = `http://127.0.0.1:${(server.address() as { port: number }).port}`;
 });
 afterEach(async () => {
+  vi.useRealTimers();
   setTelegramSender(null);
   await new Promise<void>((resolve) => server.close(() => resolve()));
   for (const key of Object.keys(process.env)) if (!(key in savedEnv)) delete process.env[key];
@@ -79,6 +80,9 @@ it("başka çalışma alanının hareketi ve kapatılmış bildirim gruba gitmez
 });
 
 it("süresi aşan mola, kapatma hatırlatması ve günlük rapor birer kez gider", async () => {
+  // Saat sabitlenir: akşam 18:05'ten sonra çalışınca mola denetimi hatırlatmayı da erkenden tetikliyordu.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date())}T10:00:00+03:00`));
   process.env.TELEGRAM_WORKTIME_MOVES = "kapali";
   await store.put("employee", "e1", { id: "e1", name: "Ayşe Yılmaz", openId: "employee-1", active: true }, "owner-1");
   await store.put("employee", "e2", { id: "e2", name: "Mert Kaya", openId: "employee-2", active: true }, "owner-1");

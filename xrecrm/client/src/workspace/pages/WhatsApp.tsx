@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { useStore } from "../store";
 import { lines, formatPhone, Lead } from "../data";
+import { lineDisplayName } from "../../../../shared/lines";
 import { PageTitle, Badge, Avatar, Modal, Empty } from "../components/ui";
 export default function WhatsApp({
   initialLead,
@@ -194,7 +195,9 @@ export default function WhatsApp({
             className="btn primary"
             onClick={() => {
               setTab("connections");
-              loadQr("office-2");
+              // Bağlı olmayan ilk hat; hepsi bağlıysa ilk hat yeniden bağlanır.
+              const free = lines.find((l) => data.connections.find((c) => c.id === l.id)?.status !== "connected") || lines[0];
+              if (free) loadQr(free.id);
             }}
           >
             <Plus size={17} />
@@ -253,15 +256,7 @@ export default function WhatsApp({
                       <MessageCircle size={19} />
                     </span>
                     <div>
-                      <h3>
-                        XRE{" "}
-                        {l.group === "ai"
-                          ? "AI"
-                          : l.group === "office"
-                            ? "Ofis"
-                            : "Bulut"}{" "}
-                        {l.id.split("-")[1]}
-                      </h3>
+                      <h3>{lineDisplayName(l)}</h3>
                       <p>
                         {connected && connection?.phone
                           ? formatPhone(`+${connection.phone}`)

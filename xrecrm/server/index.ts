@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 import { createApp, startOutboxWorker } from "./app.js";
 import { createStore } from "./db.js";
-import { loadLineInventory, loadLineInventoryFromStore } from "./line-inventory.js";
+import { loadLineInventory, loadLineInventoryFromStore, useStarterLines } from "./line-inventory.js";
 import { ensureSessionSecret } from "./local-auth.js";
 import { loadIntegrationSettings } from "./integration-settings.js";
 import { webhookEmitterStore } from "./webhook-hub.js";
@@ -57,6 +57,8 @@ export async function start(): Promise<void> {
   try {
     const saved = await loadLineInventoryFromStore(store);
     if (saved) console.log(`Hat envanteri veritabanından yüklendi: ${saved} hat.`);
+    else if (inventory.source === "placeholder" && process.env.NODE_ENV === "production")
+      console.log(`Kayıtlı hat listesi yok; başlangıç listesi kullanılıyor: ${await useStarterLines(store)} hat.`);
   } catch (error) {
     console.warn("Kayıtlı hat envanteri okunamadı:", error instanceof Error ? error.message : error);
   }
