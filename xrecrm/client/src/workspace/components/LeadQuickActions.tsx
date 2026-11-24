@@ -1,5 +1,5 @@
 import { openCallWindow } from "./CallWindow";
-import { useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 import {
   Phone,
   Headset,
@@ -89,35 +89,43 @@ function PbxCallBox({ leadId, phone, onDone }: { leadId: string; phone: string; 
   } | null>(null);
   const [ext, setExt] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    request("/api/pbx/me")
-      .then((r: { driver: string; extension: string }) => {
-        setInfo(r);
-        setExt(r.extension);
-      })
-      .catch(() => setInfo(null));
-  }, []);
-  const browserPhone = Boolean(info?.webphone?.configured);
-  if (!info || (!info.driver && !browserPhone)) return null;
-  const call = async () => {
+  const autoStarted = useRef(false);
+  const place = async (extension: string, saved: string) => {
     setBusy(true);
     try {
-      if (ext !== info.extension) {
-        await request("/api/pbx/me", { extension: ext }, "PUT");
-        setInfo({ ...info, extension: ext });
+      if (extension !== saved) {
+        await request("/api/pbx/me", { extension }, "PUT");
+        setInfo((current) => (current ? { ...current, extension } : current));
       }
       const r = await request("/api/pbx/call", { leadId });
       // Arama penceresi durumu zaten gösterir; ayrıca bildirim çıkarılmaz.
-      if (r.callId) openCallWindow({ callId: r.callId, leadId, phone });
+      if (r.callId) openCallWindow({ callId: r.callId, leadId, phone, ext: extension });
       else toast.success(r.message);
       await refresh();
       onDone();
     } catch (e) {
+      // Hata olursa pencere açık kalır; dahili buradan düzeltilebilir.
       toast.error((e as Error).message);
     } finally {
       setBusy(false);
     }
   };
+  useEffect(() => {
+    request("/api/pbx/me")
+      .then((r: { driver: string; extension: string }) => {
+        setInfo(r);
+        setExt(r.extension);
+        // Dahili daha önce kaydedildiyse yeniden sorulmaz: arama hemen başlar.
+        if (r.driver && r.extension && !autoStarted.current) {
+          autoStarted.current = true;
+          void place(r.extension, r.extension);
+        }
+      })
+      .catch(() => setInfo(null));
+  }, []);
+  const browserPhone = Boolean(info?.webphone?.configured);
+  if (!info || (!info.driver && !browserPhone)) return null;
+  const call = () => place(ext, info.extension);
   const browserCall = () => {
     if (!info.webphone?.hasPassword)
       toast.info("Önce üst çubuktaki telefon simgesinden dahili şifrenizi girin.");

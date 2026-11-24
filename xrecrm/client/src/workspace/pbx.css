@@ -39,3 +39,4 @@ html .app-shell .call-window:not(#_), .call-window { position: fixed; right: 20p
 @media (prefers-reduced-motion: reduce) { .call-window.wait .call-window-icon { animation: none; } }
 /* Müşteri kartında ses kaydı */
 .cx-call-recording { display: block; width: 100%; max-width: 420px; height: 34px; margin-top: 6px; }
+.call-window-link { background: none; border: 0; padding: 0; font: inherit; color: var(--xre-accent, #168db3); text-decoration: underline; cursor: pointer; }

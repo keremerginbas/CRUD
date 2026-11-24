@@ -12,6 +12,8 @@ export interface ActiveCall {
   leadId: string;
   phone: string;
   startedAt: number;
+  /** Aramanın yapıldığı dahili (değiştirme bağlantısı için). */
+  ext?: string;
 }
 let current: ActiveCall | null = null;
 const listeners = new Set<(call: ActiveCall | null) => void>();
@@ -34,7 +36,20 @@ export function callWindowState(status: string | undefined, elapsedSeconds: numb
 const clock = (seconds: number) => `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 
 export default function CallWindow({ onLead }: { onLead: (id: string) => void }) {
-  const { data, refresh, addNote } = useStore();
+  const { data, refresh, addNote, request } = useStore();
+  const changeExtension = async () => {
+    const next = window.prompt("Dahili numaranız (sonraki aramalarda kullanılır):", call?.ext || "");
+    if (next === null) return;
+    const clean = next.replace(/\D/g, "").slice(0, 6);
+    if (!clean) return void toast.error("Dahili yalnız rakamlardan oluşur (ör. 125).");
+    try {
+      await request("/api/pbx/me", { extension: clean }, "PUT");
+      setCall((current) => (current ? { ...current, ext: clean } : current));
+      toast.success(`Dahiliniz ${clean} olarak kaydedildi.`);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  };
   const [call, setCall] = useState<ActiveCall | null>(current);
   const [now, setNow] = useState(Date.now());
   const [note, setNote] = useState("");
@@ -113,7 +128,18 @@ export default function CallWindow({ onLead }: { onLead: (id: string) => void })
           Notu kaydet
         </button>
       </footer>
-      <small className="call-window-hint">Görüşmeyi telefonunuzdan yapar ve kapatırsınız; süre ve sonuç karta kendiliğinden yazılır.</small>
+      <small className="call-window-hint">
+        Görüşmeyi telefonunuzdan yapar ve kapatırsınız; süre ve sonuç karta kendiliğinden yazılır.
+        {call.ext && (
+          <>
+            {" "}
+            Dahili {call.ext} ·{" "}
+            <button type="button" className="call-window-link" onClick={() => void changeExtension()}>
+              değiştir
+            </button>
+          </>
+        )}
+      </small>
     </div>
   );
 }
