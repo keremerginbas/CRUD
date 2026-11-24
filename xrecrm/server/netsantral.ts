@@ -302,7 +302,8 @@ export function netsantralCdrParties(
 ): { direction: "inbound" | "outbound"; phone: string; agent: string } | null {
   const arayan = field(body, "arayan");
   const aranan = field(body, "aranan");
-  const own = new Set([field(body, "santral"), cfg.pbxnum, cfg.trunk].map(last10).filter((v) => v.length === 10));
+  // Kendi hatlarımız: santral, dış hat ve "yalnız şu hatlar" ayarındaki numaralar müşteri sayılmaz.
+  const own = new Set([field(body, "santral"), cfg.pbxnum, cfg.trunk, ...netsantralOnlyList().numbers].map(last10).filter((v) => v.length === 10));
   const isOwn = (value: string) => /-queue-/i.test(value) || own.has(last10(value.match(/^\+?\d+/)?.[0] || ""));
   const valid = (value: string) => normalizePhone(value).length >= 10 && !isOwn(value);
   const callerExt = extOf(arayan);
@@ -589,6 +590,43 @@ export async function processNetsantralEvent(store: Store, owner: string, body: 
   return "ignored";
 }
 
+/** "Yalnız şu dahili/hatlar" ayarı: virgülle ayrılmış dahili (125) ve hat numaraları (5330000000). */
+export function netsantralOnlyList(): { exts: Set<string>; numbers: Set<string> } {
+  const items = env("NETSANTRAL_ONLY").split(/[,;\s]+/).map((v) => v.replace(/\D/g, "")).filter(Boolean);
+  return { exts: new Set(items.filter((v) => v.length <= 6)), numbers: new Set(items.filter((v) => v.length >= 7).map(last10)) };
+}
+/**
+ * Santral başka işler için de kullanılıyorsa (ör. ortak santralde tek dahiliyle deneme) yalnız seçilen
+ * dahili ya da hatların aramaları alınır. CRM'den başlatılmış (kaydı bulunan) aramalar her zaman alınır.
+ * Süzülen bildirim hiç saklanmaz; başka kişilerin numaraları bu CRM'e yazılmaz.
+ */
+export async function netsantralFilteredOut(store: Store, owner: string, body: Body): Promise<boolean> {
+  const only = netsantralOnlyList();
+  if (!only.exts.size && !only.numbers.size) return false;
+  const scenario = field(body, "scenario").toLowerCase();
+  if (!["inbound_call", "outbound_call", "answer", "hangup", "cdr"].includes(scenario)) return true;
+  const cdr = scenario === "cdr";
+  const parties = cdr ? netsantralCdrParties(body) : null;
+  const uid = normalizeNetsantralId(cdr ? field(body, "asteriskId", "unique_id", "uniqueid") : field(body, "unique_id"));
+  const customer = cdr ? parties?.phone || "" : netsantralPhone(field(body, "customer_num"));
+  const found = await findCall(store, owner, uid, {
+    phone: customer,
+    direction: cdr ? parties?.direction : scenario === "outbound_call" ? "outbound" : scenario === "inbound_call" ? "inbound" : undefined,
+    crmId: field(body, "crm_id"),
+    ...(cdr ? { commonId: short(field(body, "ortakkimlik", "commonid", "common_id"), 40).replace(/[^\w.:-]/g, ""), cdr: true } : {}),
+  });
+  if (found.record) return false;
+  // Müşteri numarası dışındaki alanlar: dahili, santral/hat numarası, dış hat.
+  const values = cdr
+    ? [parties?.agent || "", field(body, "trunk"), field(body, "dahili"), parties?.direction === "outbound" ? field(body, "arayan") : field(body, "aranan")]
+    : [field(body, "internal_num"), field(body, "pbx_num"), field(body, "trunk")];
+  return !values.some((value) => {
+    const digits = (value.match(/^\+?\d+/)?.[0] || "").replace(/\D/g, "");
+    if (!digits) return false;
+    return digits.length <= 6 ? only.exts.has(digits) : only.numbers.has(last10(digits));
+  });
+}
+
 /**
  * Olayın saklanan ve işlenen biçimi: yalnız düz alanlar, sınırlı uzunlukta.
  * İşleme de bu biçim üzerinden yapılır; böylece yarıda kalan bir olay saklanan
@@ -670,6 +708,7 @@ export function registerNetsantralWebhook(app: Express, store: Store, deps: Nets
           const owner = await deps.ownerScope(store);
           for (const raw of events) {
             const body = storedPayload(raw);
+            if (await netsantralFilteredOut(store, owner, body).catch(() => false)) continue;
             const key = `netsantral:${crypto.createHash("sha256").update(JSON.stringify(raw)).digest("hex")}`;
             const saved = await store.appendEvent(owner, key, { type: "webhook", provider: NETSANTRAL_PROVIDER, payload: body }, "received");
             // Aynı bildirim yeniden gelirse işlenmez; önceki deneme başarısızsa yeniden denenir.

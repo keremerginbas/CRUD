@@ -635,3 +635,41 @@ describe("Netsantral kurulum denetimi", () => {
     expect((await fetch(`${base}/api/pbx/netsantral`)).status).toBe(401);
   });
 });
+
+describe("Netsantral: yalnız seçilen dahili / hatlar", () => {
+  it("ortak santralde diğer dahililerin aramaları hiç kaydedilmez; seçilen dahili ve CRM'den başlatılan arama kaydedilir", async () => {
+    await fakeNetsantral();
+    process.env.NETSANTRAL_ONLY = "101, 5330000001";
+    const { hook, netsantralCalls, stored, base, headers, store } = await startApp();
+    const owner = (await store.resolveOwner())!;
+    const leadCount = async () => (await store.list("lead", owner)).length;
+    const before = await leadCount();
+
+    // Başka dahiliye gelen arama ve başka dahilinin görüşme sonu kaydı: kayıt da müşteri kartı da oluşmaz.
+    await hook({ scenario: "Inbound_call", pbx_num: "205", unique_id: "1700000201.1", customer_num: "05550000041" });
+    await hook({ scenario: "cdr", arayan: "205", aranan: "05550000042", sure: 30, asteriskId: "sip8-1700000202.1", santral: "8500000000" });
+    await hook({ scenario: "Queue", pbx_num: "8500000000", unique_id: "1700000203.1", customer_num: "05550000043" });
+    expect(await netsantralCalls()).toEqual([]);
+    expect(await leadCount()).toBe(before);
+    expect(await stored()).not.toMatch(/0555000004[123]/);
+
+    // Seçilen dahili: gelen arama kaydedilir.
+    await hook({ scenario: "Inbound_call", pbx_num: "101", unique_id: "1700000204.1", customer_num: "05550000044" });
+    // Seçilen hat numarasından çıkan görüşme (dahili bilgisi olmasa da) kaydedilir.
+    await hook({ scenario: "cdr", arayan: "5330000001", aranan: "05550000045", sure: 12, asteriskId: "sip8-1700000205.1", trunk: "5330000001" });
+    const calls = await netsantralCalls();
+    expect(calls.map((c: any) => c.phone).sort()).toEqual(["905550000044", "905550000045"]);
+
+    // CRM'den başlatılan arama: bildirimi başka dahiliden gelse de kendi kaydına yazılır.
+    const started = await (await fetch(`${base}/api/pbx/call`, { method: "POST", headers, body: JSON.stringify({ leadId: "lead-ns" }) })).json();
+    expect(started.ok).toBe(true);
+    await hook({ scenario: "cdr", arayan: "999", aranan: "05553000007", sure: 20, asteriskId: "sip3-1700000001.55" });
+    const own = (await store.get<any>("call", started.callId, owner))!.payload;
+    expect(own).toMatchObject({ status: "ended", durationSeconds: 20 });
+
+    // Süzgeç boşken eski davranış: her arama alınır.
+    delete process.env.NETSANTRAL_ONLY;
+    await hook({ scenario: "Inbound_call", pbx_num: "205", unique_id: "1700000206.1", customer_num: "05550000046" });
+    expect((await netsantralCalls()).some((c: any) => c.phone === "905550000046")).toBe(true);
+  });
+});
