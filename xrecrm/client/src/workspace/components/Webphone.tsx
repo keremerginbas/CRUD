@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowRightLeft,
   ArrowUpRight,
@@ -196,8 +197,9 @@ export default function Webphone({ onLead }: { onLead: (id: string) => void }) {
         <Phone size={16} />
         <i className={`wp-dot ${dot}`} />
       </button>
-      {open && (
-        <section className="wp-panel" aria-label="Tarayıcı telefonu">
+      {/* Üst çubuğun dışına çizilir: müşteri kartı açıkken de kartın üstünde görünür. Arama sırasında ortada durur. */}
+      {open && createPortal(
+        <section className={`wp-panel ${call ? "calling" : ""}`} aria-label="Tarayıcı telefonu">
           <header>
             <span className={`wp-dot ${dot}`} />
             <strong>{call ? "Görüşme" : STATUS_TEXT[state.status]}</strong>
@@ -383,7 +385,7 @@ export default function Webphone({ onLead }: { onLead: (id: string) => void }) {
             </div>
           )}
         </section>
-      )}
+      , document.querySelector(".app-shell") || document.body)}
     </div>
   );
 }

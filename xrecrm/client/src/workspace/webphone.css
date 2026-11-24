@@ -6,7 +6,7 @@
 .wp-dot.connecting, .wp-dot.other-tab { background: #d99a1c; }
 .wp-dot.error { background: #d64545; }
 .wp-dot.busy { background: #d64545; animation: wp-pulse 1.2s infinite; }
-.wp-panel { position: fixed; right: 20px; top: 64px; z-index: 160; width: min(300px, calc(100vw - 32px)); max-height: calc(100vh - 84px); overflow-y: auto; background: var(--xre-surface-raised, #fff); color: var(--xre-text, #152332); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28); animation: wp-in 0.2s ease-out; }
+.wp-panel { position: fixed; right: 20px; top: 64px; z-index: 400; width: min(300px, calc(100vw - 32px)); max-height: calc(100vh - 84px); overflow-y: auto; background: var(--xre-surface-raised, #fff); color: var(--xre-text, #152332); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28); animation: wp-in 0.2s ease-out; }
 .wp-panel > header { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--border); }
 .wp-panel > header strong { font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wp-panel > header small { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
@@ -44,3 +44,6 @@
 @keyframes wp-in { from { transform: translateY(-8px); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { .wp-panel, .wp-dot.busy, .wp-avatar.incoming { animation: none; } }
 @media (max-width: 640px) { .wp-panel { right: 16px; left: 16px; width: auto; } }
+
+/* Görüşme sırasında telefon ekranın ortasında durur */
+.wp-panel.calling { right: auto; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, calc(100vw - 32px)); }

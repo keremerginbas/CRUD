@@ -91,6 +91,12 @@ export async function start(): Promise<void> {
         },
       }),
     );
+    // Güncellemeden kalan eski derleme dosyası istenirse sayfa değil 404 döner:
+    // tarayıcı hatayı görür ve arayüz kendini yeniler (bkz. client/src/main.tsx).
+    app.get("/assets/*", (_req, res) => {
+      res.setHeader("cache-control", "no-store");
+      res.status(404).type("text/plain").send("Not found");
+    });
     app.get("*", (_req, res) => {
       noCache(res);
       res.sendFile(path.join(publicDir, "index.html"));

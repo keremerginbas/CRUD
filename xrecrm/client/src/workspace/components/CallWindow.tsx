@@ -1,6 +1,7 @@
 // Tıkla-ara sonrası açılan arama penceresi: kimin arandığını, aramanın durumunu ve süresini
 // gösterir; görüşme notu müşteri kartına yorum olarak düşer. Konuşma masa telefonundan yapılır.
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowUpRight, Phone, PhoneOff, X } from "lucide-react";
 import { toast } from "sonner";
 import { useStore } from "../store";
@@ -99,7 +100,8 @@ export default function CallWindow({ onLead }: { onLead: (id: string) => void })
     }
   };
   const duration = record?.durationSeconds ? clock(Math.round(record.durationSeconds)) : "";
-  return (
+  // Üst çubuğun dışına, ekranın ortasına çizilir; müşteri kartı açıkken de kartın üstünde kalır.
+  return createPortal(
     <div className={`call-window ${state.tone}`} role="dialog" aria-label="Arama penceresi">
       <header>
         <span className="call-window-icon" aria-hidden="true">
@@ -140,6 +142,7 @@ export default function CallWindow({ onLead }: { onLead: (id: string) => void })
           </>
         )}
       </small>
-    </div>
+    </div>,
+    document.querySelector(".app-shell") || document.body,
   );
 }

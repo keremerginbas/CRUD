@@ -1059,7 +1059,7 @@ function Workspace() {
         )}
         {callLead && (
           <CustomerCallDialog
-            key={callLead}
+            key={`call-${callLead}`}
             leadId={callLead}
             onClose={() => setCallLead(undefined)}
           />
@@ -1067,7 +1067,7 @@ function Workspace() {
         {meeting && (
           <Suspense fallback={null}>
             <OnlineMeeting
-              key={meeting.leadId || "new"}
+              key={`meet-${meeting.leadId || "new"}`}
               leadId={meeting.leadId}
               onClose={() => setMeeting(null)}
               onShare={(id, text) => {
