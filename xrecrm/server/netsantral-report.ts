@@ -268,19 +268,52 @@ export async function syncNetsantralReport(store: Store, deps: ReportDeps, now =
   return result;
 }
 
+/**
+ * Ses kaydı gelmiş ama henüz yazıya dökülmemiş son görüşmeleri işler. Kayıt rapordan da
+ * bildirim adresinden de gelmiş olabilir; ikisinde de analiz buradan başlar.
+ */
+export async function transcribePendingCalls(store: Store, deps: ReportDeps, now = new Date()): Promise<number> {
+  if (!callTranscribeEnabled()) return 0;
+  const owner = await deps.ownerScope(store);
+  const pending = (await store.list<CallRecord>("call", owner))
+    .map((r) => r.payload)
+    .filter(
+      (c) =>
+        c &&
+        typeof c.recording === "string" &&
+        c.recording &&
+        !(c.transcript || "").trim() &&
+        (Number(c.durationSeconds) || 0) >= 5 &&
+        (Number(c.providerMeta?.transcribeTries) || 0) < 2 &&
+        now.getTime() - Date.parse(String(c.startedAt || c.createdAt || "")) < 24 * 3_600_000,
+    )
+    .slice(0, 5);
+  let done = 0;
+  for (const call of pending) if ((await transcribeCall(store, owner, call.id, (callId) => deps.analyze(owner, callId))) === "done") done += 1;
+  return done;
+}
+
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 /** Üç dakikada bir rapor çeker (Netgsm sınırı: dakikada en çok 2 sorgu). */
 export function startNetsantralReportSync(store: Store, deps: ReportDeps): void {
   if (timer) return;
   const tick = async () => {
-    if (running || !netsantralConfigured() || /^(kapali|kapalı|0|off)$/i.test(env("NETSANTRAL_REPORT_SYNC"))) return;
+    if (running || !netsantralConfigured()) return;
     running = true;
     try {
-      const r = await syncNetsantralReport(store, deps);
-      if (r.matched || r.created || r.transcribed) console.info("Netsantral raporu işlendi:", JSON.stringify(r));
+      if (!/^(kapali|kapalı|0|off)$/i.test(env("NETSANTRAL_REPORT_SYNC"))) {
+        const r = await syncNetsantralReport(store, deps);
+        if (r.matched || r.created || r.transcribed) console.info("Netsantral raporu işlendi:", JSON.stringify(r));
+      }
     } catch (error) {
       console.warn("Netsantral raporu işlenemedi:", error instanceof Error ? error.message : "bilinmeyen hata");
+    }
+    try {
+      const done = await transcribePendingCalls(store, deps);
+      if (done) console.info("Görüşme yazıya döküldü ve analiz sıraya alındı:", done);
+    } catch (error) {
+      console.warn("Görüşme yazıya dökülemedi:", error instanceof Error ? error.message : "bilinmeyen hata");
     } finally {
       running = false;
     }
