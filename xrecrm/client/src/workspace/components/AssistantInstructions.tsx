@@ -11,7 +11,39 @@ const EXAMPLE = `Örnek:
 - Fiyat sorulursa aralık ver, kesin fiyat için randevu öner
 - Yeni müşteri 24 saat içinde aranmalı; aranmadıysa beni uyar`;
 
-export default function AssistantInstructions() {
+const ANALYSIS_EXAMPLE = `Örnek:
+- Temsilci ilk 10 saniyede adını ve firmayı söylemeli (söylemediyse 15 puan düş)
+- Müşterinin bütçesi, kaç oda istediği ve ne zaman almayı düşündüğü mutlaka sorulmalı
+- Görüşme randevu ya da ofis daveti ile bitmeli; teklif edilmediyse belirt
+- Fiyat telefonda kesin söylenmemeli, aralık verilmeli
+- Müşteri ilgisizse nedenini yaz (fiyat, konum, zamanlama)`;
+
+interface Props {
+  variant?: "assistant" | "analysis";
+}
+const VARIANTS = {
+  assistant: {
+    path: "/api/assistant/instructions",
+    title: "Asistan talimatları",
+    edit: "Asistanın her yanıtta bilmesini ve uymasını istediklerinizi yazın: projeler, fiyat aralıkları, üslup, satış kuralları.",
+    view: "Yöneticinizin asistana verdiği kalıcı talimatlar. Yalnız çalışma alanı sahibi değiştirebilir.",
+    saved: "Asistan talimatları kaydedildi. Sonraki sorudan itibaren geçerli.",
+    example: EXAMPLE,
+    rows: 9,
+  },
+  analysis: {
+    path: "/api/assistant/analysis-instructions",
+    title: "Görüşme analiz senaryosu",
+    edit: "Telefon görüşmeleri ve yazışmalar neye göre değerlendirilsin, puan neye göre verilsin? Kendi ölçütlerinizi yazın; boş bırakırsanız standart değerlendirme yapılır.",
+    view: "Yöneticinizin belirlediği görüşme değerlendirme ölçütleri. Yalnız çalışma alanı sahibi değiştirebilir.",
+    saved: "Analiz senaryosu kaydedildi. Bundan sonraki görüşmelerde geçerli.",
+    example: ANALYSIS_EXAMPLE,
+    rows: 8,
+  },
+};
+
+export default function AssistantInstructions({ variant = "assistant" }: Props) {
+  const v = VARIANTS[variant];
   const { demo, user, request } = useStore();
   const [text, setText] = useState("");
   const [saved, setSaved] = useState("");
@@ -19,7 +51,7 @@ export default function AssistantInstructions() {
   const [busy, setBusy] = useState(false);
   useEffect(() => {
     if (demo || !user) return;
-    request("/api/assistant/instructions")
+    request(v.path)
       .then((r: { text: string; canEdit: boolean; max: number; updatedAt: string | null; updatedBy: string | null }) => {
         setText(r.text);
         setSaved(r.text);
@@ -31,11 +63,11 @@ export default function AssistantInstructions() {
   const save = async () => {
     setBusy(true);
     try {
-      const r = await request("/api/assistant/instructions", { text }, "PUT");
+      const r = await request(v.path, { text }, "PUT");
       setSaved(r.text);
       setText(r.text);
       setInfo({ ...info, updatedAt: r.updatedAt, updatedBy: r.updatedBy });
-      toast.success("Asistan talimatları kaydedildi. Sonraki sorudan itibaren geçerli.");
+      toast.success(v.saved);
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -46,21 +78,21 @@ export default function AssistantInstructions() {
     <section className="panel ai-context-card ai-instructions">
       <header>
         <BookOpenText size={18} />
-        <strong>Asistan talimatları</strong>
+        <strong>{v.title}</strong>
       </header>
       <p>
         {info.canEdit
-          ? "Asistanın her yanıtta bilmesini ve uymasını istediklerinizi yazın: projeler, fiyat aralıkları, üslup, satış kuralları."
-          : "Yöneticinizin asistana verdiği kalıcı talimatlar. Yalnız çalışma alanı sahibi değiştirebilir."}
+          ? v.edit
+          : v.view}
       </p>
       <textarea
-        rows={9}
+        rows={v.rows}
         value={text}
         readOnly={!info.canEdit}
         maxLength={info.max}
         onChange={(e) => setText(e.target.value)}
-        placeholder={EXAMPLE}
-        aria-label="Asistan talimatları"
+        placeholder={v.example}
+        aria-label={v.title}
       />
       {info.canEdit && (
         <div className="ai-instructions-foot">

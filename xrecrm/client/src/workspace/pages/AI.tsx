@@ -54,6 +54,7 @@ export default function AI({
         </div>
         <aside className="ai-center-sidebar">
           <AssistantInstructions />
+          <AssistantInstructions variant="analysis" />
           <section className="panel ai-context-card">
             <header>
               <Sparkles size={18} />

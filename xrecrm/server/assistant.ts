@@ -282,6 +282,8 @@ interface ContextBundle {
 }
 const INSTRUCTIONS_KIND = "assistant_instructions";
 const MAX_INSTRUCTIONS = 6000;
+export const ANALYSIS_INSTRUCTIONS_KIND = "analysis_instructions";
+const MAX_ANALYSIS_INSTRUCTIONS = 3000;
 interface StoredInstructions {
   text: string;
   updatedAt: string;
@@ -1412,33 +1414,38 @@ export function registerAssistantRoutes(app: Express, store: Store): void {
       provider: "OpenAI",
     });
   });
-  // Firmaya özel asistan talimatları: herkes (asistan yetkisi olan) okur, yalnız sahip değiştirir.
-  app.get("/api/assistant/instructions", async (req, res) => {
-    try {
-      const auth = (req as AuthedRequest).auth!;
-      const saved = (await store.get<StoredInstructions>(INSTRUCTIONS_KIND, "main", ownerOf(req)))?.payload;
-      return res.json({ text: saved?.text || "", updatedAt: saved?.updatedAt || null, updatedBy: saved?.updatedBy || null, canEdit: Boolean(auth.isOwner), max: MAX_INSTRUCTIONS });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
-  app.put("/api/assistant/instructions", async (req, res) => {
-    try {
-      const auth = (req as AuthedRequest).auth!;
-      if (!auth.isOwner) throw new AssistantHttpError(403, "Asistan talimatlarını yalnız çalışma alanı sahibi değiştirebilir.");
-      const raw = typeof req.body?.text === "string" ? req.body.text : null;
-      if (raw === null) throw new AssistantHttpError(400, "Talimat metni gerekli.");
-      const clean = raw.replace(/\r\n?/g, "\n").trim();
-      if (clean.length > MAX_INSTRUCTIONS) throw new AssistantHttpError(400, `Talimatlar en fazla ${MAX_INSTRUCTIONS} karakter olabilir.`);
-      // Şifre ve anahtar gibi gizli bilgiler talimata yazılamaz (her soruda yapay zekâya gönderilir).
-      rejectSecretInput({ text: clean });
-      const payload: StoredInstructions = { text: clean, updatedAt: nowIso(), updatedBy: auth.displayName || auth.user.name || "" };
-      await store.put(INSTRUCTIONS_KIND, "main", payload, ownerOf(req));
-      return res.json({ ...payload, canEdit: true, max: MAX_INSTRUCTIONS });
-    } catch (error) {
-      return sendError(res, error);
-    }
-  });
+  // Firmaya özel kalıcı metinler: herkes (asistan yetkisi olan) okur, yalnız sahip değiştirir.
+  for (const [path, kind, max, label] of [
+    ["/api/assistant/instructions", INSTRUCTIONS_KIND, MAX_INSTRUCTIONS, "Asistan talimatlarını"],
+    ["/api/assistant/analysis-instructions", ANALYSIS_INSTRUCTIONS_KIND, MAX_ANALYSIS_INSTRUCTIONS, "Analiz senaryosunu"],
+  ] as const) {
+    app.get(path, async (req, res) => {
+      try {
+        const auth = (req as AuthedRequest).auth!;
+        const saved = (await store.get<StoredInstructions>(kind, "main", ownerOf(req)))?.payload;
+        return res.json({ text: saved?.text || "", updatedAt: saved?.updatedAt || null, updatedBy: saved?.updatedBy || null, canEdit: Boolean(auth.isOwner), max: max });
+      } catch (error) {
+        return sendError(res, error);
+      }
+    });
+    app.put(path, async (req, res) => {
+      try {
+        const auth = (req as AuthedRequest).auth!;
+        if (!auth.isOwner) throw new AssistantHttpError(403, `${label} yalnız çalışma alanı sahibi değiştirebilir.`);
+        const raw = typeof req.body?.text === "string" ? req.body.text : null;
+        if (raw === null) throw new AssistantHttpError(400, "Talimat metni gerekli.");
+        const clean = raw.replace(/\r\n?/g, "\n").trim();
+        if (clean.length > max) throw new AssistantHttpError(400, `Talimatlar en fazla ${max} karakter olabilir.`);
+        // Şifre ve anahtar gibi gizli bilgiler talimata yazılamaz (her soruda yapay zekâya gönderilir).
+        rejectSecretInput({ text: clean });
+        const payload: StoredInstructions = { text: clean, updatedAt: nowIso(), updatedBy: auth.displayName || auth.user.name || "" };
+        await store.put(kind, "main", payload, ownerOf(req));
+        return res.json({ ...payload, canEdit: true, max: max });
+      } catch (error) {
+        return sendError(res, error);
+      }
+    });
+  }
   app.get("/api/assistant/history", async (req, res) => {
     try {
       const owner = ownerOf(req);

@@ -152,6 +152,9 @@ const ImportRowSchema = UnitSchema.pick({
   .required({ unitNo: true })
   .strict();
 
+const CRM_OPTIONS_KIND = "crm_options";
+const DEFAULT_SOURCES = ["Reklam", "WhatsApp", "Telefon", "Web sitesi", "Referans", "manual"];
+
 export function registerProjectRoutes(app: Express, store: Store): void {
   const raw = rawStoreOf(store);
 
@@ -184,6 +187,50 @@ export function registerProjectRoutes(app: Express, store: Store): void {
     if (units.some((other) => other.id !== unit.id && unitKey(other.block, other.unitNo) === key))
       throw conflict(`Bu projede ${unit.block ? `${unit.block} blok ` : ""}${unit.unitNo} numaralı daire zaten var.`);
   };
+
+  // Kişi kartındaki Kaynak / Proje listeleri: yerleşik seçenekler + ekibin kendi ekledikleri.
+  // Proje listesine Projeler sayfasındaki (arşivlenmemiş) projeler kendiliğinden girer.
+  const optionLists = async (owner: string) => {
+    const saved = (await raw.get<{ sources?: string[]; projects?: string[] }>(CRM_OPTIONS_KIND, "main", owner))?.payload || {};
+    const projects = (await raw.list<Project>(PROJECT_KIND, owner)).map((r) => r.payload).filter((p) => !p.archived).map((p) => p.name);
+    const merge = (...lists: string[][]) => {
+      const seen = new Map<string, string>();
+      for (const v of lists.flat()) if (v && !seen.has(v.toLocaleLowerCase("tr"))) seen.set(v.toLocaleLowerCase("tr"), v);
+      return [...seen.values()];
+    };
+    return {
+      sources: merge(DEFAULT_SOURCES, saved.sources || []),
+      projects: merge(projects.sort((a, b) => a.localeCompare(b, "tr")), saved.projects || []),
+      custom: { sources: saved.sources || [], projects: saved.projects || [] },
+    };
+  };
+  app.get("/api/crm-options", read, async (req, res) => {
+    try {
+      const { sources, projects } = await optionLists(authOf(req).ownerOpenId);
+      res.json({ sources, projects });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
+  app.post("/api/crm-options", write, async (req, res) => {
+    try {
+      const owner = authOf(req).ownerOpenId;
+      const input = bodyOf(req);
+      const list = input.list === "sources" || input.list === "projects" ? input.list : null;
+      const value = typeof input.value === "string" ? input.value.replace(/\s+/g, " ").trim() : "";
+      if (!list) throw invalid("Liste adı geçersiz.");
+      if (value.length < 2 || value.length > 120) throw invalid("Seçenek adı 2-120 karakter olmalı.");
+      const current = await optionLists(owner);
+      if (!current[list].some((v) => v.toLocaleLowerCase("tr") === value.toLocaleLowerCase("tr"))) {
+        if (current.custom[list].length >= 200) throw invalid("Bu listeye en fazla 200 seçenek eklenebilir.");
+        await raw.put(CRM_OPTIONS_KIND, "main", { ...current.custom, [list]: [...current.custom[list], value] }, owner);
+      }
+      const { sources, projects } = await optionLists(owner);
+      res.json({ sources, projects });
+    } catch (error) {
+      sendError(res, error);
+    }
+  });
 
   app.get("/api/projects", read, async (req, res) => {
     try {

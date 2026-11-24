@@ -41,6 +41,7 @@ import {
   isOverdue,
 } from "../suite";
 import { useStore } from "../store";
+import { ADD_OPTION, useCrmOptions } from "../crm-options";
 import { Avatar, Badge } from "./ui";
 import { cleanPhoneInput } from "../../../../shared/phone";
 
@@ -62,6 +63,29 @@ export default function LeadDrawer({
   const { data, saveLead, moveLead, addNote, demo, saveRecord, user } = useStore();
   const current = data.leads.find((l) => l.id === lead.id) || lead;
   const [form, setForm] = useState<Lead>({ ...current });
+  const { options: crmOptions, add: addCrmOption } = useCrmOptions();
+  const projectValue =
+    String((form as Lead & { projectName?: string }).projectName || "") ||
+    (form.dealTitle && crmOptions.projects.includes(form.dealTitle) ? form.dealTitle : "");
+  const pickOption = async (list: "sources" | "projects", picked: string) => {
+    let value = picked;
+    if (picked === ADD_OPTION) {
+      const typed = window.prompt(list === "sources" ? "Yeni kaynağın adı:" : "Yeni projenin adı:");
+      if (!typed?.trim()) return;
+      try {
+        value = await addCrmOption(list, typed);
+      } catch (error) {
+        return void toast.error((error as Error).message);
+      }
+    }
+    if (list === "sources") return setForm((f) => ({ ...f, source: value }));
+    // Başlık boşsa ya da eski proje adıysa proje adıyla birlikte güncellenir.
+    setForm((f) => {
+      const old = String((f as Lead & { projectName?: string }).projectName || "");
+      const title = !f.dealTitle || f.dealTitle === old ? value : f.dealTitle;
+      return { ...f, dealTitle: title, ...({ projectName: value, projectId: "" } as object) };
+    });
+  };
   const [tab, setTab] = useState("timeline");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -488,23 +512,21 @@ export default function LeadDrawer({
               <h4>Kaynak ve randevu</h4>
               <label>
                 Kaynak
-                <select
-                  value={form.source}
-                  onChange={(e) => setForm({ ...form, source: e.target.value })}
-                >
-                  {[
-                    ...new Set([
-                      form.source,
-                      "Reklam",
-                      "WhatsApp",
-                      "Telefon",
-                      "Web sitesi",
-                      "Referans",
-                      "manual",
-                    ]),
-                  ].map((s) => (
+                <select value={form.source} onChange={(e) => pickOption("sources", e.target.value)}>
+                  {[...new Set([form.source, ...crmOptions.sources])].filter(Boolean).map((s) => (
                     <option key={s}>{s}</option>
                   ))}
+                  <option value={ADD_OPTION}>+ Yeni kaynak ekle…</option>
+                </select>
+              </label>
+              <label>
+                Proje
+                <select value={projectValue} onChange={(e) => pickOption("projects", e.target.value)}>
+                  <option value="">Proje seçilmedi</option>
+                  {[...new Set([projectValue, ...crmOptions.projects])].filter(Boolean).map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                  <option value={ADD_OPTION}>+ Yeni proje ekle…</option>
                 </select>
               </label>
               <label>
