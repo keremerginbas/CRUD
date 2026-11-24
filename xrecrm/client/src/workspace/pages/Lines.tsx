@@ -23,6 +23,7 @@ import { formatLineText, parseLineText, setLineInventory } from "../../../../sha
 import { useStore } from "../store";
 import { PageTitle, Badge, Modal, Empty } from "../components/ui";
 import LinePanel from "../components/LinePanel";
+import AssistantInstructions from "../components/AssistantInstructions";
 export default function Lines({
   calls = false,
   navigate,
@@ -294,6 +295,11 @@ export default function Lines({
           onBulkEdit={() => setEditor(formatLineText(lines))}
           onDetail={openDetail}
         />
+      )}
+      {calls && (
+        <div style={{ margin: "16px 0" }}>
+          <AssistantInstructions variant="analysis" />
+        </div>
       )}
       <div className="info-banner slim">
         <ShieldCheck size={18} />
