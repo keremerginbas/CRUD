@@ -59,11 +59,12 @@ export default function Employees({
   // Manus kimliği eşleştirmesi yalnız Manus girişi açık kurulumlarda anlamlıdır.
   const [manus, setManus] = useState(false);
   useEffect(() => {
+    if (demo) return;
     fetch("/api/auth/status")
       .then((r) => r.json())
       .then((s) => setManus(Boolean(s?.providers?.manus)))
       .catch(() => undefined);
-  }, []);
+  }, [demo]);
   const [busy, setBusy] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const isOwner = demo || Boolean(user?.isOwner);
