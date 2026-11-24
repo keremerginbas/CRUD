@@ -58,6 +58,7 @@
     animation: pulse 3s ease-in-out infinite;
   }
   .speaking .glow { animation: talk .18s ease-in-out infinite alternate; }
+  .speaking.live .glow { animation: none; transform: scale(calc(.92 + var(--lvl, 0) * .5)); filter: blur(2px) brightness(calc(1 + var(--lvl, 0) * 1.2)); }
   @keyframes pulse { 50% { transform: scale(1.08); opacity: .85; } }
   @keyframes talk  { from { transform: scale(.94); } to { transform: scale(1.16); } }
 
@@ -127,6 +128,8 @@
   @media (prefers-reduced-motion: reduce) { .spin, .spinR, .spinF, .glow { animation: none; } }
 </style>
 <script src="ayarlar.js"></script>
+<!-- robot-ses.js: meSpeak / eSpeak (GPL) Türkçe ses motoru, çevrimdışı çalışır -->
+<script src="robot-ses.js"></script>
 <!-- takvim.js açılış betiği tarafından her açılışta yeniden oluşturulur -->
 <script src="takvim.js"></script>
 </head>
@@ -189,6 +192,7 @@
     KAPANIS_OGLEN: "Kaldığımız yerden devam edelim. Hadi kodlamaya başlayalım.",
     KAPANIS_AKSAM: "Mesai uzun sürecek gibi. Hadi kodlamaya başlayalım.",
     SES_TERCIHI: ["Ahmet", "Tolga", "Yelda", "Emel", "tr-TR"],
+    SES_MODU: "robot", ROBOT_PERDE: 32, ROBOT_HIZ: 145, ROBOT_EFEKT: 0.6, ACILIS_SESLERI: true,
   }, window.JARVIS_AYARLAR || {});
 
   const $ = id => document.getElementById(id);
@@ -407,6 +411,7 @@
       const d = document.createElement("div");
       d.className = "ok"; d.textContent = "> " + lines[i++];
       $("bootlog").appendChild(d);
+      blip(900 + i * 120, 0.04, 0.03);
       setTimeout(add, 230);
     };
     add();
@@ -436,7 +441,106 @@
   };
 
   let voice = null, speech = "";
-  const speak = () => new Promise(res => {
+
+  // ---------- ROBOT SES (eSpeak + Web Audio efektleri) ----------
+  let ctx = null, current = null;
+  const audioOn = async () => {
+    try {
+      ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state !== "running") await withTimeout(ctx.resume(), 600);
+      return ctx.state === "running";
+    } catch (e) { return false; }
+  };
+
+  // Kısa arayüz bip sesi
+  const blip = (freq = 1400, dur = 0.05, vol = 0.05, when = 0) => {
+    if (!ctx || ctx.state !== "running" || !A.ACILIS_SESLERI) return;
+    const t = ctx.currentTime + when, o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + dur + 0.02);
+  };
+  // Açılış "güç yükleniyor" süpürmesi
+  const powerUp = () => {
+    if (!ctx || ctx.state !== "running" || !A.ACILIS_SESLERI) return;
+    const t = ctx.currentTime, o = ctx.createOscillator(), o2 = ctx.createOscillator(), g = ctx.createGain(), f = ctx.createBiquadFilter();
+    o.type = "sawtooth"; o2.type = "sine";
+    o.frequency.setValueAtTime(60, t); o.frequency.exponentialRampToValueAtTime(420, t + 1.4);
+    o2.frequency.setValueAtTime(120, t); o2.frequency.exponentialRampToValueAtTime(840, t + 1.4);
+    f.type = "lowpass"; f.frequency.setValueAtTime(300, t); f.frequency.exponentialRampToValueAtTime(3000, t + 1.4); f.Q.value = 6;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.06, t + 0.9); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
+    o.connect(f); o2.connect(f); f.connect(g).connect(ctx.destination);
+    o.start(t); o2.start(t); o.stop(t + 1.9); o2.stop(t + 1.9);
+  };
+
+  // Ses → [halka modülatör + metalik tarak + kuru] → parlaklık → kompresör → yankı → çıkış
+  const buildRobotChain = (c, input, out) => {
+    const fx = Math.max(0, Math.min(1, +A.ROBOT_EFEKT));
+    const hp = c.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 110;
+    input.connect(hp);
+    const mix = c.createGain();
+
+    const dry = c.createGain(); dry.gain.value = 1 - fx * 0.45;
+    hp.connect(dry).connect(mix);
+
+    const ring = c.createGain(); ring.gain.value = 0;               // sinyal × osilatör
+    const osc = c.createOscillator(); osc.frequency.value = 38; osc.start();
+    osc.connect(ring.gain);
+    const ringOut = c.createGain(); ringOut.gain.value = fx * 0.55;
+    hp.connect(ring).connect(ringOut).connect(mix);
+
+    const comb = c.createDelay(0.05); comb.delayTime.value = 0.0045; // metalik rezonans
+    const fb = c.createGain(); fb.gain.value = 0.62;
+    const combOut = c.createGain(); combOut.gain.value = fx * 0.4;
+    hp.connect(comb); comb.connect(fb).connect(comb); comb.connect(combOut).connect(mix);
+
+    const presence = c.createBiquadFilter(); presence.type = "peaking"; presence.frequency.value = 2600; presence.gain.value = 4; presence.Q.value = 0.9;
+    const comp = c.createDynamicsCompressor(); comp.threshold.value = -22; comp.ratio.value = 5;
+    mix.connect(presence).connect(comp);
+
+    const echo = c.createDelay(1); echo.delayTime.value = 0.11;     // kısa yankı (kask içi hissi)
+    const efb = c.createGain(); efb.gain.value = 0.22;
+    const ewet = c.createGain(); ewet.gain.value = 0.18 + fx * 0.12;
+    comp.connect(out); comp.connect(echo); echo.connect(efb).connect(echo); echo.connect(ewet).connect(out);
+    return () => osc.stop();
+  };
+
+  const speakRobot = () => new Promise(async res => {
+    if (!window.meSpeak || !(await audioOn())) return res(false);
+    try {
+      const text = speech.replace(/['’]/g, "").replace(/:/g, " ");   // "İstanbul'da" → "İstanbulda", "18:30" → "18 30"
+      const wav = meSpeak.speak(text, { voice: "tr", rawdata: "arraybuffer", pitch: A.ROBOT_PERDE, speed: A.ROBOT_HIZ, wordgap: 1 });
+      const buffer = await ctx.decodeAudioData(wav);
+      if (current) try { current.stop(); } catch (e) {}
+      const src = ctx.createBufferSource(); src.buffer = buffer; current = src;
+      const master = ctx.createGain(); master.gain.value = 1.1;
+      const an = ctx.createAnalyser(); an.fftSize = 512;
+      master.connect(an).connect(ctx.destination);
+      const stopFx = buildRobotChain(ctx, src, master);
+
+      const data = new Uint8Array(an.fftSize);
+      let live = true;
+      const meter = () => {
+        if (!live) return;
+        an.getByteTimeDomainData(data);
+        let s = 0; for (const v of data) s += (v - 128) * (v - 128);
+        stage.style.setProperty("--lvl", Math.min(1, Math.sqrt(s / data.length) / 40).toFixed(3));
+        requestAnimationFrame(meter);
+      };
+      stage.classList.add("speaking", "live"); meter();
+      blip(1800, 0.06, 0.05); blip(2400, 0.06, 0.04, 0.08);       // "mikrofon açıldı"
+      src.onended = () => {
+        live = false; stopFx(); stage.classList.remove("speaking", "live"); stage.style.removeProperty("--lvl");
+        blip(2400, 0.06, 0.04); blip(1600, 0.08, 0.04, 0.08);       // "mikrofon kapandı"
+        res(true);
+      };
+      src.start(ctx.currentTime + 0.2);
+    } catch (e) { res(false); }
+  });
+
+  const speak = () => (A.SES_MODU === "robot" && window.meSpeak) ? speakRobot() : speakNative();
+
+  const speakNative = () => new Promise(res => {
     if (!("speechSynthesis" in window)) return res(false);
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(speech);
@@ -452,6 +556,7 @@
   const run = async () => {
     const weatherP = withTimeout(getWeather(), 6000);
     const voicesP = getVoices();
+    if (A.SES_MODU === "robot" || A.ACILIS_SESLERI) { await audioOn(); powerUp(); }
     await boot();
     const agenda = getAgenda(); renderAgenda(agenda);
     const weather = await weatherP; renderWeather(weather);
@@ -471,12 +576,12 @@
 
   $("wake").addEventListener("click", async () => { $("wake").classList.remove("show"); await speak(); });
   addEventListener("keydown", e => {
-    if (e.key === "Escape") { speechSynthesis.cancel(); window.close(); }
+    if (e.key === "Escape") { try { speechSynthesis.cancel(); current && current.stop(); } catch (x) {} window.close(); }
     if (e.key === " ") { $("wake").classList.remove("show"); speak(); }
   });
 
   // test için: window.__jarvis
-  window.__jarvis = { todaysEvents, locSuffix, get speech() { return speech; } };
+  window.__jarvis = { todaysEvents, locSuffix, buildRobotChain, A, get speech() { return speech; } };
   setTimeout(run, 400);
 })();
 </script>

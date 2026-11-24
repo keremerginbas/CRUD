@@ -19,7 +19,15 @@ window.JARVIS_AYARLAR = {
   KAPANIS_OGLEN: "Kaldığımız yerden devam edelim. Hadi kodlamaya başlayalım.",
   KAPANIS_AKSAM: "Mesai uzun sürecek gibi. Hadi kodlamaya başlayalım.",
 
-  // Tercih edilen sesler (ilk bulunan kullanılır)
+  // Ses modu: "robot" = metalik JARVIS robot sesi (çevrimdışı çalışır)
+  //           "dogal" = tarayıcının doğal Türkçe sesi (Edge'de Ahmet)
+  SES_MODU: "robot",
+  ROBOT_PERDE: 32,     // 0–99: düşük = daha kalın ses
+  ROBOT_HIZ: 145,      // kelime/dakika (120 yavaş · 175 hızlı)
+  ROBOT_EFEKT: 0.6,    // 0 = sade · 1 = tam metalik robot
+  ACILIS_SESLERI: true, // açılıştaki bip ve güç yükleme sesleri
+
+  // "dogal" modda tercih edilen sesler (ilk bulunan kullanılır)
   // Windows/Edge: Ahmet (erkek, en JARVIS'e benzeyen) · Mac: Yelda
   SES_TERCIHI: ["Ahmet", "Tolga", "Yelda", "Emel", "tr-TR"],
 };

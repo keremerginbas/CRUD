@@ -7,6 +7,14 @@ selam verir, **hava durumunu** ve **bugünün takvimini** özetler:
 > 14 derece. Yağış ihtimali yüksek, şemsiyeni almayı unutma. Takviminde bugün 3 etkinlik var.
 > Sıradaki, saat 10:30 itibarıyla: Ekip toplantısı. Bugün bolca işimiz var. Hadi kodlamaya başlayalım."
 
+## Robot ses
+Varsayılan ses modu **robot**: Türkçe konuşma çevrimdışı üretilir (eSpeak / meSpeak, `robot-ses.js`)
+ve halka modülatörü, metalik rezonans ve yankıdan geçirilerek JARVIS tarzı robot sese çevrilir.
+Reaktör ışığı sesin şiddetine göre atar. `ayarlar.js` içinden kalınlık (`ROBOT_PERDE`), hız
+(`ROBOT_HIZ`) ve efekt miktarı (`ROBOT_EFEKT`) ayarlanır; `SES_MODU: "dogal"` eski doğal sese döner.
+
+`robot-ses.js`, GPL lisanslı meSpeak/eSpeak kütüphanesinin tarayıcı paketidir.
+
 ## Ayarlar — `ayarlar.js`
 - `HITAP` — sana nasıl hitap etsin ("patron")
 - `SEHIR` — hava durumu için şehir
