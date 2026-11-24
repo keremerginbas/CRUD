@@ -74,7 +74,7 @@ export async function saveLineInventory(store: Store, owner: string, next: Line[
 
 /**
  * Kendi hat listesi olmayan kurulumlarda 47 örnek hat yerine sade başlangıç listesi:
- * üç WhatsApp hattı + hâlihazırda bağlı olan hatlar. Kaydedilmez; sahip Hat yönetimi'nden
+ * iki WhatsApp hattı + hâlihazırda bağlı olan hatlar. Kaydedilmez; sahip Hat yönetimi'nden
  * kendi listesini kaydedince o geçerli olur.
  */
 export async function useStarterLines(store: Store): Promise<number> {
@@ -84,7 +84,7 @@ export async function useStarterLines(store: Store): Promise<number> {
   if (owner)
     for (const r of await raw.list<{ status?: string }>("connection", owner).catch(() => []))
       if (r.payload?.status === "connected") connected.add(r.id);
-  const starter = lines.filter((l, i) => i < 3 || connected.has(l.id)).map((l, i) => ({ ...l, ...(i < 3 ? { label: `WhatsApp ${i + 1}` } : {}) }));
+  const starter = lines.filter((l, i) => i < 2 || connected.has(l.id)).map((l, i) => ({ ...l, ...(i < 2 ? { label: `WhatsApp ${i + 1}` } : {}) }));
   setLineInventory(starter);
   return starter.length;
 }
