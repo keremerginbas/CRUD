@@ -125,7 +125,9 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
         text: callLine(c),
         type: "call",
         source: "",
-        recording: recordingUrl(c.recording),
+        // CRM'de saklanan kopya varsa o çalınır; Netgsm bağlantısı kısa süre sonra açılmayabiliyor.
+        recording: c.recordingFile ? `/api/calls/${encodeURIComponent(c.id)}/recording` : "",
+        recordingPending: !c.recordingFile && Boolean(recordingUrl(c.recording)),
       })),
     ...activities
       .filter((a) => a.completed)
@@ -428,6 +430,7 @@ export default function CustomerTimeline({ lead }: { lead: Lead }) {
                 <time>{dateTimeLabel(s.date)}</time>
               </header>
               <p>{s.text}</p>
+              {"recordingPending" in s && s.recordingPending && <small className="cx-call-recording-link">Ses kaydı hazırlanıyor…</small>}
               {"recording" in s && s.recording && (
                 <>
                   <audio className="cx-call-recording" controls preload="none" src={s.recording as string} />

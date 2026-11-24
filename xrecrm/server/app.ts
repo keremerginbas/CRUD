@@ -114,7 +114,7 @@ import {
   registerNetsantralWebhook,
   replayNetsantralEvent,
 } from "./netsantral.js";
-import { startNetsantralReportSync } from "./netsantral-report.js";
+import { registerRecordingRoute, startNetsantralReportSync } from "./netsantral-report.js";
 import { loadLineInventoryFromStore, registerLineInventoryRoutes } from "./line-inventory.js";
 import { STAGE_KIND, auditStore, registerAuditRoutes } from "./audit.js";
 import { registerBackupRoutes, startBackupScheduler } from "./backup.js";
@@ -259,6 +259,7 @@ function publicCall(call: Record<string, unknown>) {
     "phone",
     "agent",
     "recording",
+    "recordingFile",
   ]);
 }
 const RULE_LINE_FORBIDDEN = {
@@ -1866,6 +1867,7 @@ export function createApp(
   registerIntegrationSettingsRoutes(app, store);
   registerEmailRoutes(app, store);
   registerPbxRoutes(app, store);
+  registerRecordingRoute(app, store);
   registerLineInventoryRoutes(app, store);
   registerAuditRoutes(app, store);
   registerBackupRoutes(app, baseStore, async () => {

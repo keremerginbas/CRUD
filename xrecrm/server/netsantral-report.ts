@@ -1,6 +1,9 @@
 // Netsantral görüşme raporu (CDR): bildirim adresi başka bir yere bağlıyken de görüşmenin süresi ve
 // ses kaydı CRM'e gelsin diye birkaç dakikada bir Netgsm'in rapor servisinden çekilir.
 // İsteğe bağlı olarak kayıt yazıya dökülür ve mevcut görüşme analizi çalıştırılır.
+import fs from "node:fs/promises";
+import path from "node:path";
+import type { Express, Request } from "express";
 import type { Store } from "./db.js";
 import { assertSafeOutboundUrl, fetchWithTimeout, normalizePhone } from "./security.js";
 import {
@@ -148,6 +151,56 @@ async function downloadRecording(start: string): Promise<{ buffer: Buffer; mime:
   return null;
 }
 
+const recordingDir = () => path.join(path.resolve(env("XRE_DATA_DIR") || "data"), "call-recordings");
+const safeName = (callId: string) => callId.replace(/[^\w.-]/g, "_").slice(0, 150);
+const EXT_MIME: Record<string, string> = { mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg", m4a: "audio/mp4" };
+const extFor = (mime: string) => (/wav/.test(mime) ? "wav" : /ogg/.test(mime) ? "ogg" : /mp4|m4a/.test(mime) ? "m4a" : "mp3");
+
+/**
+ * Netgsm kayıt bağlantıları kısa süre sonra geçersiz kalabildiği için kayıt gelir gelmez indirilir
+ * ve CRM'in veri klasöründe saklanır. Dosya henüz hazır değilse sonraki turda yeniden denenir (en çok 6 kez).
+ */
+export async function storeRecording(store: Store, owner: string, callId: string): Promise<{ buffer: Buffer; mime: string } | null> {
+  const record = (await store.get<CallRecord>("call", callId, owner))?.payload;
+  if (!record?.recording) return null;
+  if (typeof record.recordingFile === "string" && record.recordingFile) {
+    const file = path.join(recordingDir(), path.basename(record.recordingFile));
+    const buffer = await fs.readFile(file).catch(() => null);
+    if (buffer) return { buffer, mime: EXT_MIME[file.split(".").pop() || ""] || "audio/mpeg" };
+  }
+  const meta = record.providerMeta || {};
+  const tries = Number(meta.downloadTries) || 0;
+  if (tries >= 6) return null;
+  const audio = await downloadRecording(String(record.recording)).catch(() => null);
+  if (!audio) {
+    await store.put("call", callId, { ...record, providerMeta: { ...meta, downloadTries: tries + 1 } }, owner);
+    return null;
+  }
+  const name = `${safeName(callId)}.${extFor(audio.mime)}`;
+  await fs.mkdir(recordingDir(), { recursive: true });
+  await fs.writeFile(path.join(recordingDir(), name), audio.buffer, { mode: 0o600 });
+  await store.put("call", callId, { ...record, recordingFile: name, providerMeta: { ...meta, downloadTries: tries + 1 }, updatedAt: new Date().toISOString() }, owner);
+  return audio;
+}
+
+/** Saklanan ses kaydını yalnız o görüşmeyi görebilen kullanıcıya verir. */
+export function registerRecordingRoute(app: Express, store: Store): void {
+  app.get("/api/calls/:id/recording", async (req: Request, res) => {
+    const auth = (req as Request & { auth: { ownerOpenId: string } }).auth;
+    const record = (await store.get<CallRecord>("call", String(req.params.id), auth.ownerOpenId).catch(() => null))?.payload;
+    const name = typeof record?.recordingFile === "string" ? path.basename(record.recordingFile) : "";
+    if (!name) return void res.status(404).json({ error: "NOT_FOUND", message: "Bu görüşmenin saklanmış ses kaydı yok." });
+    const file = path.join(recordingDir(), name);
+    const buffer = await fs.readFile(file).catch(() => null);
+    if (!buffer) return void res.status(404).json({ error: "NOT_FOUND", message: "Ses kaydı dosyası bulunamadı." });
+    res.setHeader("content-type", EXT_MIME[name.split(".").pop() || ""] || "audio/mpeg");
+    res.setHeader("cache-control", "private, max-age=3600");
+    res.setHeader("content-disposition", `inline; filename="gorusme.${name.split(".").pop()}"`);
+    res.setHeader("accept-ranges", "none");
+    res.end(buffer);
+  });
+}
+
 /** Kaydı yazıya döker ve görüşme analizini sıraya alır. En çok iki kez denenir. */
 export async function transcribeCall(store: Store, owner: string, callId: string, analyze: (callId: string) => Promise<unknown>): Promise<"done" | "skipped" | "failed"> {
   const record = (await store.get<CallRecord>("call", callId, owner))?.payload;
@@ -155,15 +208,17 @@ export async function transcribeCall(store: Store, owner: string, callId: string
   const meta = record.providerMeta || {};
   const tries = Number(meta.transcribeTries) || 0;
   if (tries >= 2) return "skipped";
-  const save = (patch: Partial<CallRecord>, extra: Record<string, unknown>) =>
-    store.put("call", callId, { ...record, ...patch, providerMeta: { ...meta, transcribeTries: tries + 1, ...extra }, updatedAt: new Date().toISOString() }, owner);
+  const save = async (patch: Partial<CallRecord>, extra: Record<string, unknown>) => {
+    // Kayıt bu arada güncellenmiş olabilir (ör. saklanan dosya adı); en güncel hâlinin üzerine yazılır.
+    const fresh = (await store.get<CallRecord>("call", callId, owner))?.payload || record;
+    return store.put("call", callId, { ...fresh, ...patch, providerMeta: { ...(fresh.providerMeta || {}), transcribeTries: tries + 1, ...extra }, updatedAt: new Date().toISOString() }, owner);
+  };
   try {
-    const audio = await downloadRecording(String(record.recording));
-    if (!audio) {
-      await save({}, { transcribeError: "kayıt indirilemedi" });
-      return "failed";
-    }
-    const ext = /wav/.test(audio.mime) ? "wav" : /ogg/.test(audio.mime) ? "ogg" : /mp4|m4a/.test(audio.mime) ? "m4a" : "mp3";
+    // Önce saklanan kopya kullanılır; yoksa indirilip saklanır.
+    const audio = await storeRecording(store, owner, callId);
+    // Dosya henüz hazır değilse deneme hakkı harcanmaz; sonraki turda yeniden bakılır.
+    if (!audio) return "skipped";
+    const ext = extFor(audio.mime);
     const textOut = await transcribe(audio.buffer, audio.mime, `gorusme.${ext}`, 20_000);
     if (!textOut) {
       await save({}, { transcribeError: "yazıya dökülemedi" });
@@ -273,8 +328,14 @@ export async function syncNetsantralReport(store: Store, deps: ReportDeps, now =
  * bildirim adresinden de gelmiş olabilir; ikisinde de analiz buradan başlar.
  */
 export async function transcribePendingCalls(store: Store, deps: ReportDeps, now = new Date()): Promise<number> {
-  if (!callTranscribeEnabled()) return 0;
   const owner = await deps.ownerScope(store);
+  // Yazıya dökme kapalı olsa da kayıtlar saklanır (bağlantı sonradan açılmayabiliyor).
+  const unsaved = (await store.list<CallRecord>("call", owner))
+    .map((r) => r.payload)
+    .filter((c) => c && typeof c.recording === "string" && c.recording && !c.recordingFile && (Number(c.providerMeta?.downloadTries) || 0) < 6 && now.getTime() - Date.parse(String(c.startedAt || c.createdAt || "")) < 24 * 3_600_000)
+    .slice(0, 8);
+  for (const call of unsaved) await storeRecording(store, owner, call.id).catch(() => null);
+  if (!callTranscribeEnabled()) return 0;
   const pending = (await store.list<CallRecord>("call", owner))
     .map((r) => r.payload)
     .filter(
