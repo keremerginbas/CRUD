@@ -7,8 +7,17 @@
  * JavaScript açıksa JSON döner, kapalıysa ilgili iletişim sayfasına
  * ?sent=1 / ?sent=0 ile geri yönlendirir.
  *
- * Sunucuda PHP mail() çalışmalıdır. Hosting SMTP zorunlu tutuyorsa
- * send_mail() fonksiyonunu PHPMailer vb. ile değiştirin.
+ * Gönderim: web kökünün bir üst klasöründe (ya da bu klasörde)
+ * form-smtp.php varsa mail Zoho SMTP ile, şifreyle giriş yapılarak gider
+ * (spama düşmez). Yoksa PHP mail() kullanılır. form-smtp.php örneği:
+ *
+ *   <?php return [
+ *       'host' => 'smtp.zoho.com',   // Avrupa hesabıysa smtp.zoho.eu
+ *       'port' => 465,
+ *       'user' => 'hesap@alanadi.com',
+ *       'pass' => 'Zoho uygulama şifresi',
+ *       'from' => 'hesap@alanadi.com', // hesabın kendisi ya da takma adı
+ *   ];
  */
 
 declare(strict_types=1);
@@ -21,6 +30,7 @@ const MAIL_FROM    = 'no-reply@romepharma.com'; // alan adınıza ait olmalı (S
 const MIN_SECONDS  = 3;    // formu bundan hızlı gönderen bot sayılır
 const RATE_LIMIT   = 5;    // aynı IP için saatlik en fazla gönderim
 const RATE_DIR     = __DIR__ . '/.form-rate';
+const SMTP_CONFIG_FILES = [__DIR__ . '/../form-smtp.php', __DIR__ . '/form-smtp.php'];
 const CV_MAX_BYTES = 5 * 1024 * 1024;
 const CV_TYPES     = [ // uzantı => izin verilen MIME türleri
     'pdf'  => ['application/pdf'],
@@ -119,27 +129,28 @@ function rate_limited(string $ip): bool
  */
 function send_mail(string $to, string $subject, string $body, string $replyTo, string $replyName, ?array $attachment = null): bool
 {
+    $smtp = smtp_config();
+    $from = $smtp['from'] ?? MAIL_FROM;
     $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
     $encodedName = '=?UTF-8?B?' . base64_encode($replyName) . '?=';
     $headers = [
         'MIME-Version: 1.0',
-        'From: Rome Pharma Web <' . MAIL_FROM . '>',
+        'From: Rome Pharma Web <' . $from . '>',
         'Reply-To: ' . $encodedName . ' <' . $replyTo . '>',
-        'X-Mailer: PHP/' . PHP_VERSION,
     ];
 
     if ($attachment === null) {
         $headers[] = 'Content-Type: text/plain; charset=UTF-8';
-        $headers[] = 'Content-Transfer-Encoding: 8bit';
-        $payload = $body;
+        $headers[] = 'Content-Transfer-Encoding: base64';
+        $payload = chunk_split(base64_encode($body));
     } else {
         $boundary = 'b_' . bin2hex(random_bytes(12));
         $headers[] = 'Content-Type: multipart/mixed; boundary="' . $boundary . '"';
         $fileName = '=?UTF-8?B?' . base64_encode($attachment['name']) . '?=';
         $payload = "--$boundary\r\n"
             . "Content-Type: text/plain; charset=UTF-8\r\n"
-            . "Content-Transfer-Encoding: 8bit\r\n\r\n"
-            . $body . "\r\n"
+            . "Content-Transfer-Encoding: base64\r\n\r\n"
+            . chunk_split(base64_encode($body))
             . "--$boundary\r\n"
             . 'Content-Type: ' . $attachment['type'] . '; name="' . $fileName . "\"\r\n"
             . "Content-Transfer-Encoding: base64\r\n"
@@ -147,7 +158,79 @@ function send_mail(string $to, string $subject, string $body, string $replyTo, s
             . chunk_split(base64_encode((string) file_get_contents($attachment['path'])))
             . "--$boundary--\r\n";
     }
+
+    if ($smtp !== null) {
+        return smtp_send($smtp, $from, $to, $encodedSubject, $headers, $payload);
+    }
     return mail($to, $encodedSubject, $payload, implode("\r\n", $headers), '-f' . MAIL_FROM);
+}
+
+/** form-smtp.php ayarlarını okur; dosya yoksa ya da eksikse null döner. */
+function smtp_config(): ?array
+{
+    foreach (SMTP_CONFIG_FILES as $file) {
+        if (is_file($file)) {
+            $c = include $file;
+            if (is_array($c) && !empty($c['host']) && !empty($c['user']) && !empty($c['pass'])) {
+                $c['port'] = (int) ($c['port'] ?? 465);
+                $c['from'] = $c['from'] ?? $c['user'];
+                return $c;
+            }
+        }
+    }
+    return null;
+}
+
+/** SMTP ile (SSL, port 465, AUTH LOGIN) tek alıcıya gönderir. */
+function smtp_send(array $c, string $from, string $to, string $encodedSubject, array $headers, string $payload): bool
+{
+    $fp = @stream_socket_client('ssl://' . $c['host'] . ':' . $c['port'], $errno, $errstr, 15);
+    if (!$fp) {
+        error_log("contact.php SMTP bağlantı hatası: $errstr ($errno)");
+        return false;
+    }
+    stream_set_timeout($fp, 15);
+
+    $expect = function (array $codes, string $step) use ($fp): bool {
+        $reply = '';
+        while (($line = fgets($fp, 515)) !== false) {
+            $reply .= $line;
+            if (strlen($line) < 4 || $line[3] === ' ') {
+                break;
+            }
+        }
+        if (!in_array((int) substr($reply, 0, 3), $codes, true)) {
+            error_log("contact.php SMTP $step hatası: " . trim($reply));
+            return false;
+        }
+        return true;
+    };
+    $send = function (string $cmd) use ($fp): void {
+        fwrite($fp, $cmd . "\r\n");
+    };
+
+    $host = $_SERVER['SERVER_NAME'] ?? 'localhost';
+    $message = 'Date: ' . date('r') . "\r\n"
+        . 'To: <' . $to . ">\r\n"
+        . 'Subject: ' . $encodedSubject . "\r\n"
+        . 'Message-ID: <' . bin2hex(random_bytes(12)) . '@' . $host . ">\r\n"
+        . implode("\r\n", $headers) . "\r\n\r\n"
+        . $payload;
+    $message = preg_replace('/\r?\n/', "\r\n", $message) ?? $message;
+    $message = preg_replace('/^\./m', '..', $message) ?? $message; // nokta ile başlayan satırlar
+
+    $ok = $expect([220], 'karşılama')
+        && ($send('EHLO ' . $host) || true) && $expect([250], 'EHLO')
+        && ($send('AUTH LOGIN') || true) && $expect([334], 'AUTH')
+        && ($send(base64_encode($c['user'])) || true) && $expect([334], 'kullanıcı')
+        && ($send(base64_encode($c['pass'])) || true) && $expect([235], 'şifre')
+        && ($send('MAIL FROM:<' . $from . '>') || true) && $expect([250], 'MAIL FROM')
+        && ($send('RCPT TO:<' . $to . '>') || true) && $expect([250, 251], 'RCPT TO')
+        && ($send('DATA') || true) && $expect([354], 'DATA')
+        && ($send(rtrim($message, "\r\n") . "\r\n.") || true) && $expect([250], 'gönderim');
+    $send('QUIT');
+    fclose($fp);
+    return $ok;
 }
 
 /**
