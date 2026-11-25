@@ -107,7 +107,7 @@ UI = {
         "cookie_accept": "Kabul et", "cookie_reject": "Yalnızca zorunlu",
         "logo_alt": "{} logosu", "all_events": "Tüm etkinlikler",
         "prev_event": "Önceki etkinlik", "next_event": "Sonraki etkinlik",
-        "year": "Yıl", "place": "Konum", "focus": "Odak", "drag": "Küreyi sürükleyerek çevirebilirsiniz",
+        "year": "Yıl", "place": "Konum", "focus": "Odak", "drag": "Küreyi sürükleyerek çevirebilirsiniz", "to_top": "Sayfanın başına dön",
     },
     "en": {
         "home": "Home", "company": "Company", "about": "About Us", "chairman": "Chairman's Message",
@@ -124,7 +124,7 @@ UI = {
         "cookie_accept": "Accept", "cookie_reject": "Essential only",
         "logo_alt": "{} logo", "all_events": "All events",
         "prev_event": "Previous event", "next_event": "Next event",
-        "year": "Year", "place": "Location", "focus": "Focus", "drag": "Drag the globe to turn it",
+        "year": "Year", "place": "Location", "focus": "Focus", "drag": "Drag the globe to turn it", "to_top": "Back to top",
     },
 }
 if BRAND_KEY == "rome":
@@ -318,7 +318,7 @@ def header(page, lang):
 
     return f"""
 <header class="site-header sticky top-0 z-50 border-b border-transparent bg-white transition-colors [&.scrolled]:border-line">
-  <div class="wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
+  <div class="header-row wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
     <a class="shrink-0" href="{href('home', lang)}"><img class="h-11 w-auto lg:h-16" src="{logo}" width="{w}" height="{h}" alt="{esc(u['logo_alt'].format(C['name']))}"></a>
     <nav class="main-nav lg:ml-auto" aria-label="{esc(u['menu'])}">
       <ul class="flex items-center gap-1">{''.join(items)}</ul>
@@ -331,6 +331,7 @@ def header(page, lang):
       </button>
     </div>
   </div>
+  <div class="read-progress" aria-hidden="true"></div>
 </header>"""
 
 
@@ -392,6 +393,7 @@ def footer(lang):
     </div>
   </div>
 </footer>
+<button class="to-top fixed bottom-[92px] right-6 z-40 grid h-11 w-11 place-items-center rounded-full border border-line bg-white text-ink shadow-[0_8px_20px_rgba(16,26,46,.15)] hover:border-ink" type="button" aria-label="{esc(u['to_top'])}">{icon('arrow', 'h-5 w-5 -rotate-90')}</button>
 <a class="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#1FA855] text-white shadow-[0_10px_24px_rgba(0,0,0,.18)] transition hover:bg-[#178A45]" href="{C['whatsapp']}" target="_blank" rel="noopener" aria-label="{esc(u['whatsapp'])}">{icon('chat', 'h-7 w-7')}</a>
 <div class="cookie-banner fixed bottom-3 left-3 right-3 z-[60] rounded-xl border border-line bg-white p-4 text-sm shadow-[0_18px_48px_rgba(16,26,46,.18)] sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-[420px] sm:p-5 sm:text-[15px]" role="dialog" aria-live="polite" aria-label="{esc(u['cookies'])}">
   <p class="mb-3">{u['cookie_text']}</p>
@@ -411,6 +413,10 @@ def marquee(lang):
     seq = "".join(f'<span class="flex items-center gap-10 px-5"><span>{esc(w)}</span><span class="h-2.5 w-2.5 rounded-full bg-accent"></span></span>' for w in words)
     return (f'<div class="border-b border-white/10 py-6" aria-hidden="true"><div class="marquee flex w-max whitespace-nowrap text-[clamp(28px,5vw,60px)] font-medium tracking-tight text-white/90">'
             f'{seq}{seq}</div></div>')
+
+
+# Uzun okuma sayfaları: üstte okuma ilerleme çubuğu gösterilir
+READING_PAGES = {"about", "chairman", "mission", "services", "privacy"}
 
 
 def csp(inline_scripts):
@@ -450,7 +456,7 @@ def head(page, lang, title, desc, extra=""):
                     '\n<script type="module" src="assets/js/capsules.js?v=__HASH_CAPSULES_JS__"></script>'
                     '\n<script type="module" src="assets/js/globe.js?v=__HASH_GLOBE_JS__"></script>')
     return f"""<!DOCTYPE html>
-<html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}">
+<html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}"{' data-progress' if page in READING_PAGES or page.startswith('event-') else ''}>
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="{csp(inline)}">

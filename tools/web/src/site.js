@@ -19,14 +19,20 @@
             success: "Teşekkürler! Mesajınız bize ulaştı, en kısa sürede dönüş yapacağız.",
             error: "Mesaj gönderilemedi. Lütfen tekrar deneyin veya bize e-posta gönderin.",
             invalid: "Lütfen zorunlu alanları doldurun ve KVKK onay kutusunu işaretleyin.",
-            tooBig: "CV dosyası en fazla 5 MB olabilir."
+            tooBig: "CV dosyası en fazla 5 MB olabilir.",
+            required: "Bu alanı doldurun.",
+            email: "Geçerli bir e-posta adresi yazın (ör. ad@firma.com).",
+            tooShort: "Biraz daha ayrıntı yazın."
         },
         en: {
             sending: "Sending...",
             success: "Thank you! Your message has been received. We will get back to you shortly.",
             error: "Your message could not be sent. Please try again or email us.",
             invalid: "Please fill in the required fields and tick the consent box.",
-            tooBig: "The CV file can be at most 5 MB."
+            tooBig: "The CV file can be at most 5 MB.",
+            required: "Please fill in this field.",
+            email: "Enter a valid email address (e.g. name@company.com).",
+            tooShort: "Please add a little more detail."
         }
     };
     var t = i18n[pageLang];
@@ -38,7 +44,27 @@
 
     /* Üst bar gölgesi */
     var header = $(".site-header");
-    function onScroll() { if (header) header.classList.toggle("scrolled", window.scrollY > 8); }
+    var toTop = $(".to-top");
+    var progress = root.hasAttribute("data-progress") ? $(".read-progress") : null;
+    function onScroll() {
+        var y = window.scrollY;
+        if (header) header.classList.toggle("scrolled", y > 8);
+        if (toTop) toTop.classList.toggle("show", y > window.innerHeight * 1.2);
+        if (progress) {
+            var max = document.documentElement.scrollHeight - window.innerHeight;
+            progress.style.setProperty("--read", max > 0 ? Math.min(1, y / max).toFixed(4) : "0");
+        }
+    }
+    if (toTop) toTop.addEventListener("click", function () {
+        var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+    });
+
+    /* Görseller yüklenince yumuşakça belirsin */
+    $$('img[loading="lazy"]').forEach(function (img) {
+        var done = function () { img.classList.add("is-loaded"); };
+        if (img.complete) done(); else { img.addEventListener("load", done); img.addEventListener("error", done); }
+    });
     window.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
 
@@ -107,6 +133,55 @@
             status.textContent = text;
         }
 
+        // Alan bazında hata mesajı (tarayıcının kendi dilindeki açıklamasıyla)
+        function markField(el) {
+            var box = el.closest(".field");
+            if (!box) return;
+            var msg = box.querySelector(".field-error");
+            if (el.validity.valid) {
+                el.removeAttribute("aria-invalid");
+                if (msg) msg.remove();
+                return;
+            }
+            el.setAttribute("aria-invalid", "true");
+            if (!msg) {
+                msg = document.createElement("p");
+                msg.className = "field-error";
+                msg.id = el.id + "-error";
+                box.appendChild(msg);
+                el.setAttribute("aria-describedby", msg.id);
+            }
+            var v = el.validity;
+            msg.textContent = v.valueMissing ? t.required : v.typeMismatch ? t.email : v.tooShort ? t.tooShort : el.validationMessage;
+        }
+        $$(".field input, .field textarea", form).forEach(function (el) {
+            el.addEventListener("blur", function () { if (el.value) markField(el); });
+            el.addEventListener("input", function () { if (el.getAttribute("aria-invalid")) markField(el); });
+        });
+
+        // Başarıdan sonra formun yerine teşekkür kartı
+        function done(text) {
+            var card = document.createElement("div");
+            card.className = "form-done";
+            card.setAttribute("role", "status");
+            card.innerHTML = '<span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><h3></h3><p></p><button type="button" class="link"></button>';
+            card.querySelector("h3").textContent = pageLang === "tr" ? "Teşekkürler!" : "Thank you!";
+            card.querySelector("p").textContent = text.replace(/^(Teşekkürler|Thank you)!\s*/, "");
+            var again = card.querySelector("button");
+            again.textContent = pageLang === "tr" ? "Yeni mesaj gönder" : "Send another message";
+            again.addEventListener("click", function () {
+                card.remove();
+                form.hidden = false;
+                status.className = "form-status";
+                openedAt = Date.now();
+                var first = form.querySelector("input:not([type=hidden]):not([tabindex='-1'])");
+                if (first) first.focus();
+            });
+            form.hidden = true;
+            form.parentNode.insertBefore(card, form.nextSibling);
+            again.focus();
+        }
+
         var cv = $(".cv-input", form);
         if (cv) {
             cv.addEventListener("change", function () {
@@ -123,14 +198,20 @@
             ev.preventDefault();
             if (!form.checkValidity()) {
                 show("error", t.invalid);
-                if (form.reportValidity) form.reportValidity();
+                var firstBad = null;
+                $$(".field input, .field textarea", form).forEach(function (el) {
+                    markField(el);
+                    if (!firstBad && !el.validity.valid) firstBad = el;
+                });
+                if (firstBad) firstBad.focus();
+                else if (form.reportValidity) form.reportValidity();
                 return;
             }
             // Bot koruması: formun açık kaldığı süre (saniye)
             form.querySelector("input[name=ts]").value = Math.floor((Date.now() - openedAt) / 1000);
-            var label = button.innerHTML;
             button.disabled = true;
-            button.textContent = t.sending;
+            button.classList.add("is-sending");
+            button.setAttribute("aria-label", t.sending);
             fetch(form.getAttribute("action"), {
                 method: "POST",
                 body: new FormData(form),
@@ -139,8 +220,9 @@
                 return res.json().catch(function () { return { ok: false }; });
             }).then(function (data) {
                 if (data && data.ok) {
-                    show("success", successText);
+                    status.className = "form-status";
                     form.reset();
+                    done(successText);
                     if (cv) $(".cv-name", form).textContent = "";
                     openedAt = Date.now();
                 } else {
@@ -150,7 +232,8 @@
                 show("error", t.error);
             }).then(function () {
                 button.disabled = false;
-                button.innerHTML = label;
+                button.classList.remove("is-sending");
+                button.removeAttribute("aria-label");
             });
         });
 

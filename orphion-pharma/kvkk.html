@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr" data-brand="orphion" data-storage="orphion">
+<html lang="tr" data-brand="orphion" data-storage="orphion" data-progress>
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-qOhFsq0QMV2REqNwk5hGH5bZE9SkX6gt6yeyKdYPv+U=' https://www.googletagmanager.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; font-src 'self'; media-src 'self'; connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com; frame-src https://maps.google.com https://www.google.com; form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests">
@@ -25,14 +25,14 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/images/fav-icon.png">
 <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/schibsted-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="assets/css/site.css?v=dabc4940">
+<link rel="stylesheet" href="assets/css/site.css?v=6b591973">
 <script>document.documentElement.classList.add("js")</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Ana Sayfa","item":"https://orphionpharma.com/"},{"@type":"ListItem","position":2,"name":"KVKK Aydınlatma Metni ve Çerez Politikası","item":"https://orphionpharma.com/kvkk.html"}]}]}</script>
 </head>
 <body>
 <a class="absolute -top-16 left-4 z-[100] rounded-md bg-ink px-4 py-2.5 text-white focus:top-3" href="#main">İçeriğe geç</a>
 <header class="site-header sticky top-0 z-50 border-b border-transparent bg-white transition-colors [&.scrolled]:border-line">
-  <div class="wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
+  <div class="header-row wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
     <a class="shrink-0" href="index.html"><img class="h-11 w-auto lg:h-16" src="assets/images/orphion-logo.webp" width="289" height="125" alt="Orphion Pharma logosu"></a>
     <nav class="main-nav lg:ml-auto" aria-label="Menü">
       <ul class="flex items-center gap-1"><li class="nav-item relative"><button class="nav-link nav-parent" type="button" aria-expanded="false">Kurumsal<svg class="chev h-3 w-3 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="about.html">Hakkımızda</a></li><li><a href="yk-baskani-mesaji.html">Başkanın Mesajı</a></li><li><a href="misyon-vizyon.html">Misyon ve Vizyon</a></li><li><a href="insan-kaynaklari.html">İnsan Kaynakları</a></li></ul></li><li><a class="nav-link" href="hizmetler.html">Hizmetlerimiz</a></li><li><a class="nav-link" href="etkinlikler.html">Etkinlikler</a></li><li class="nav-item relative"><button class="nav-link nav-parent" type="button" aria-expanded="false">Partnerler<svg class="chev h-3 w-3 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="m6 9 6 6 6-6"/></svg></button><ul class="submenu"><li><a href="partnerler.html">Partnerlerimiz</a></li><li><a href="partnerler.html#portfolio">Ürün Portföyümüz</a></li></ul></li><li><a class="nav-link" href="contact.html">İletişim</a></li><li class="mt-6 border-0 lg:hidden"><a class="btn w-full" href="contact.html#contact-form">Bizimle Çalışın</a></li></ul>
@@ -45,6 +45,7 @@
       </button>
     </div>
   </div>
+  <div class="read-progress" aria-hidden="true"></div>
 </header>
 <main id="main">
 <section class="relative overflow-hidden bg-ink pb-14 pt-14 text-on-dark md:pb-20 md:pt-24">
@@ -181,11 +182,12 @@
     </div>
   </div>
 </footer>
+<button class="to-top fixed bottom-[92px] right-6 z-40 grid h-11 w-11 place-items-center rounded-full border border-line bg-white text-ink shadow-[0_8px_20px_rgba(16,26,46,.15)] hover:border-ink" type="button" aria-label="Sayfanın başına dön"><svg class="h-5 w-5 -rotate-90" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></button>
 <a class="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#1FA855] text-white shadow-[0_10px_24px_rgba(0,0,0,.18)] transition hover:bg-[#178A45]" href="https://wa.me/905325691111" target="_blank" rel="noopener" aria-label="WhatsApp ile yazın"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M3 21l1.7-4.6A9 9 0 1 1 8 19.7Z"/><path d="M9.2 8.6c.3-.6.9-.7 1.2-.2l.7 1.3c.2.3.1.7-.2 1l-.5.5a5.5 5.5 0 0 0 2.4 2.4l.5-.5c.3-.3.7-.4 1-.2l1.3.7c.5.3.4.9-.2 1.2-.9.6-2 .6-3-.1a9.5 9.5 0 0 1-3-3c-.7-1-.7-2.1-.2-3.1Z"/></svg></a>
 <div class="cookie-banner fixed bottom-3 left-3 right-3 z-[60] rounded-xl border border-line bg-white p-4 text-sm shadow-[0_18px_48px_rgba(16,26,46,.18)] sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-[420px] sm:p-5 sm:text-[15px]" role="dialog" aria-live="polite" aria-label="Çerez ayarları">
   <p class="mb-3">Bu sitede yalnızca dil ve çerez tercihinizi hatırlamak için tarayıcınızda zorunlu kayıtlar tutulur. İzin verirseniz ziyaret istatistikleri için analitik çerezler de kullanılır. Ayrıntılar: <a class="underline" href="kvkk.html#cerezler">KVKK ve Çerez Politikası</a>.</p>
   <div class="flex gap-2.5"><button class="accept min-h-[42px] flex-1 rounded-md bg-ink px-4 font-semibold text-white" type="button">Kabul et</button><button class="reject min-h-[42px] flex-1 rounded-md border border-ink px-4 font-semibold text-ink" type="button">Yalnızca zorunlu</button></div>
 </div>
-<script type="module" src="assets/js/site.js?v=da3dacf6"></script>
+<script type="module" src="assets/js/site.js?v=fd72b87a"></script>
 </body>
 </html>
