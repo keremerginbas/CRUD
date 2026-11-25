@@ -46,3 +46,10 @@ Yayına alınacak dosyalar `rome-pharma/` klasöründedir (romepharma.com web k�
 
 Rome, aynı tasarımı kendi logosu, renkleri ve metinleriyle kullanır. İletişim kısmı
 (ofisler, telefonlar) Orphion ile aynıdır; e-posta `fevziaydin@rome-pharma.com`.
+
+## Sunucu ayarı (Türkticaret Plesk)
+Güvenlik başlıkları, yedek dosyası engeli ve www yönlendirmesi `.htaccess` içinde.
+Bunların statik dosyalara da uygulanması için iki sitede de Plesk → Barındırma ve DNS →
+**Apache ve nginx Ayarları** → **"Akıllı statik dosyaları işleme" kapalı** olmalı
+(Vekil Modu açık, "Statik dosyalara doğrudan nginx ile servis" kapalı).
+Kontrol: securityheaders.com → iki site de **A**.
