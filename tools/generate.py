@@ -368,6 +368,8 @@ def footer(lang):
                  ("partners", u["partners_page"]), ("hr", u["hr"]), ("contact", u["contact"])]
     links_html = "".join(f'<li><a class="font-medium text-on-dark no-underline hover:text-accent" href="{href(k, lang)}">{esc(l)}</a></li>'
                          for k, l in links)
+    links_html += "".join(f'<li><a class="font-medium text-on-dark no-underline hover:text-accent" href="{url}" target="_blank" rel="noopener me">LinkedIn</a></li>'
+                          for url in SAME_AS if "linkedin.com" in url)
     return f"""
 <footer class="overflow-hidden bg-ink-deep pb-8 text-base text-on-dark">
   {marquee(lang)}
@@ -541,7 +543,7 @@ def page_schema(page, lang):
 
 
 # Resmi sosyal medya profilleri (ör. LinkedIn şirket sayfası); eklenince schema'ya "sameAs" olarak girer.
-SAME_AS = []
+SAME_AS = {"orphion": ["https://www.linkedin.com/company/orphion-pharma-llc-fz/"], "rome": []}[BRAND_KEY]
 
 
 def llms_txt():
