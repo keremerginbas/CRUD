@@ -11,6 +11,10 @@ RewriteEngine On
 RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
 
+# www'lu adresi tek adrese topla (arama motorları için tek kanonik adres)
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
 # Dil yönlendirmesi YOK: GeoIP / IP tabanlı yönlendirme kaldırıldı.
 # - GeoIP modülü olmayan sunucuda herkesi (Türkiye dahil) İngilizceye atıyordu.
 # - Googlebot ABD IP'sinden geldiği için Türkçe ana sayfa indekslenmiyordu.
@@ -21,9 +25,14 @@ RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
 RewriteRule (^|/)\.(?!well-known/) - [F]
 
 # Kaynak / yardımcı dosyaları dışarı açma
-<FilesMatch "\.(md|py|sh|log|json)$">
+<FilesMatch "\.(md|py|sh|log|json|zip|tar|gz|sql|bak|old|ini|env)$">
     Require all denied
 </FilesMatch>
+# Form SMTP ayar dosyası (kullanılırsa) asla dışarıdan okunmasın
+<Files "form-smtp.php">
+    Require all denied
+</Files>
+ServerSignature Off
 
 # Özel 404 yoksa ana sayfaya düşmesin, varsayılan 404 kalsın.
 
@@ -34,7 +43,10 @@ RewriteRule (^|/)\.(?!well-known/) - [F]
     Header always set X-Content-Type-Options "nosniff"
     Header always set X-Frame-Options "SAMEORIGIN"
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
-    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    Header always set Strict-Transport-Security "max-age=31536000"
+    Header always set Cross-Origin-Opener-Policy "same-origin"
+    Header always unset X-Powered-By
 </IfModule>
 
 # ------------------------------------------------------------

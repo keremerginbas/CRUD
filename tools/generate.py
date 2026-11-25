@@ -11,6 +11,8 @@ tools/web/build.mjs yapar ve sayfalardaki ?v=__HASH__ işaretlerini doldurur.
 
 İçerik verileri: build_site.py (ortak), build_rome.py (Rome), site_texts.py.
 """
+import base64
+import hashlib
 import html
 import json
 import re
@@ -409,22 +411,49 @@ def marquee(lang):
             f'{seq}{seq}</div></div>')
 
 
+def csp(inline_scripts):
+    """İçerik Güvenlik Politikası: yalnızca kendi dosyalarımız ve izin verilen Google adresleri.
+    Satır içi betikler SHA-256 özetleriyle tek tek izinlidir; başka satır içi betik çalışmaz."""
+    hashes = " ".join(
+        "'sha256-" + base64.b64encode(hashlib.sha256(code.encode("utf-8")).digest()).decode() + "'"
+        for code in inline_scripts)
+    return ("default-src 'self'; "
+            f"script-src 'self' {hashes} https://www.googletagmanager.com; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com; "
+            "font-src 'self'; media-src 'self'; "
+            "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com "
+            "https://*.googletagmanager.com; "
+            "frame-src https://maps.google.com https://www.google.com; "
+            "form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests")
+
+
+JS_CLASS = 'document.documentElement.classList.add("js")'
+INTRO_ROME = 'document.documentElement.classList.add("intro-done")'
+INTRO_ORPHION = 'setTimeout(function(){document.documentElement.classList.add("intro-done")},8000)'
+
+
 def head(page, lang, title, desc, extra=""):
     other = "en" if lang == "tr" else "tr"
     og = s.SITE_URL + getattr(s, "OG_IMAGES", {}).get(page, "assets/images/og-image.jpg")
+    inline = [JS_CLASS]
     globe_js = ""
     if page == "home" and BRAND_KEY == "rome":
-        globe_js = ('\n<script>document.documentElement.classList.add("intro-done")</script>'
+        inline.append(INTRO_ROME)
+        globe_js = ('\n<script>' + INTRO_ROME + '</script>'
                     '\n<script type="module" src="assets/js/rome.js?v=__HASH_ROME_JS__"></script>')
     if page == "home" and BRAND_KEY == "orphion":
-        globe_js = ('\n<script>setTimeout(function(){document.documentElement.classList.add("intro-done")},8000)</script>'
+        inline.append(INTRO_ORPHION)
+        globe_js = ('\n<script>' + INTRO_ORPHION + '</script>'
                     '\n<script type="module" src="assets/js/capsules.js?v=__HASH_CAPSULES_JS__"></script>'
                     '\n<script type="module" src="assets/js/globe.js?v=__HASH_GLOBE_JS__"></script>')
     return f"""<!DOCTYPE html>
 <html lang="{lang}" data-brand="{BRAND_KEY}" data-storage="{BRAND_KEY}">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="{csp(inline)}">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <title>{esc(title)}</title>
 <meta name="description" content="{esc(desc)}">
 <meta name="theme-color" content="{THEME_COLOR}">
@@ -438,6 +467,7 @@ def head(page, lang, title, desc, extra=""):
 <meta property="og:description" content="{esc(desc)}">
 <meta property="og:url" content="{page_url(page, lang)}">
 <meta property="og:image" content="{og}">
+<meta property="og:image:alt" content="{esc(title)}">
 <meta property="og:locale" content="{'tr_TR' if lang == 'tr' else 'en_US'}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon-32.png">
@@ -445,13 +475,105 @@ def head(page, lang, title, desc, extra=""):
 <link rel="apple-touch-icon" href="assets/images/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/schibsted-normal-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/site.css?v=__HASH_SITE_CSS__">
-<script>document.documentElement.classList.add("js")</script>{globe_js}{extra}
+<script>{JS_CLASS}</script>{globe_js}{extra}
 </head>"""
+
+
+def ld_json(data):
+    return ('\n<script type="application/ld+json">'
+            + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "</script>")
+
+
+def office_address(o):
+    """OFFICES satırlarından schema.org PostalAddress (yaklaşık; ülke kodu satırlardan)."""
+    country = "AE" if o["key"] == "dubai" else "US" if o["key"] == "us" else "TR"
+    return {"@type": "PostalAddress", "streetAddress": ", ".join(o["lines"][:-1]) or o["lines"][0],
+            "addressLocality": o["lines"][-1], "addressCountry": country}
+
+
+def organization(lang):
+    org_id = s.SITE_URL + "#organization"
+    data = {
+        "@type": "Organization", "@id": org_id, "name": C["name"], "url": s.SITE_URL,
+        "logo": s.SITE_URL + s.BRAND["logo_png"], "image": s.SITE_URL + "assets/images/og-image.jpg",
+        "email": C["email"], "telephone": C["phone_tel"],
+        "description": DESCRIPTIONS["home"][lang],
+        "parentOrganization": {"@type": "Organization", "name": C["group"]},
+        "address": s.ORG_ADDRESS,
+        "location": [{"@type": "Place", "name": o["title"][lang], "address": office_address(o)} for o in s.OFFICES],
+        "areaServed": ["TR", "AE", "US"],
+        "contactPoint": {"@type": "ContactPoint", "contactType": "customer service", "email": C["email"],
+                         "telephone": C["phone_tel"], "availableLanguage": ["Turkish", "English"]},
+    }
+    if SAME_AS:
+        data["sameAs"] = SAME_AS
+    if BRAND_KEY == "orphion":
+        data["slogan"] = tagline(lang)
+        data["knowsAbout"] = [t[lang] for _i, t, _d in s.CAPABILITIES]
+        data["founder"] = {"@type": "Person", "name": s.CHAIRMAN["name"], "jobTitle": s.CHAIRMAN["role"]}
+    return data
+
+
+def page_schema(page, lang):
+    """Sayfaya göre JSON-LD: ana sayfada kuruluş + web sitesi, diğerlerinde içerik haritası (breadcrumb)."""
+    org_id = s.SITE_URL + "#organization"
+    if page == "home":
+        return ld_json({"@context": "https://schema.org", "@graph": [
+            organization(lang),
+            {"@type": "WebSite", "@id": s.SITE_URL + "#website", "url": s.SITE_URL, "name": C["name"],
+             "inLanguage": ["tr-TR", "en-US"], "publisher": {"@id": org_id}},
+        ]})
+    trail = [(UI[lang]["home"], page_url("home", lang))]
+    if page.startswith("event-"):
+        trail.append((UI[lang]["events"], page_url("events", lang)))
+    trail.append((TITLES[page][lang].split(" | ")[0], page_url(page, lang)))
+    graph = [{"@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": i + 1, "name": n, "item": u} for i, (n, u) in enumerate(trail)]}]
+    if page == "services" and BRAND_KEY == "orphion":
+        graph.append({"@type": "ItemList", "name": UI[lang]["services"], "itemListElement": [
+            {"@type": "ListItem", "position": i + 1, "item": {
+                "@type": "Service", "name": t[lang], "description": d[lang], "provider": {"@id": org_id},
+                "areaServed": "TR", "url": page_url("services", lang) + "#" + slug}}
+            for i, ((_ic, t, d), (slug, *_r)) in enumerate(zip(s.CAPABILITIES, SERVICES[lang]))]})
+    if page in ("about", "contact"):
+        graph.append(organization(lang))
+    return ld_json({"@context": "https://schema.org", "@graph": graph})
+
+
+# Resmi sosyal medya profilleri (ör. LinkedIn şirket sayfası); eklenince schema'ya "sameAs" olarak girer.
+SAME_AS = []
+
+
+def llms_txt():
+    """Yapay zekâ arama motorları için kısa site özeti (llmstxt.org biçimi)."""
+    lines = [f"# {C['name']}", "", f"> {DESCRIPTIONS['home']['en']}", ""]
+    if BRAND_KEY == "orphion":
+        lines += [f"Headquarters: {', '.join(s.OFFICES[0]['lines']).rstrip('.')}.",
+                  f"Offices: " + "; ".join(f"{o['title']['en']} ({o['lines'][-1]})" for o in s.OFFICES) + ".",
+                  f"Chairman & Managing Partner: {s.CHAIRMAN['name']}.", "",
+                  "## Capabilities", ""]
+        lines += [f"- {t['en']}: {d['en']}" for _ic, t, d in s.CAPABILITIES]
+        lines += ["", "## Events", ""]
+        lines += [f"- [{e['name']} ({e['place']['en']}, {e['year']})]({page_url('event-' + e['slug'], 'en')})"
+                  for e in EVENTS]
+    else:
+        lines += [f"Offices: " + "; ".join(f"{o['title']['en']} ({o['lines'][-1]})" for o in s.OFFICES) + ".",
+                  "", "## Business lines", ""]
+        lines += [f"- {l}" for l in s.BUSINESS_LINES["en"]]
+    lines += ["", "## Pages", ""]
+    for key in PAGES:
+        if key.startswith("event-") or key == "privacy":
+            continue
+        lines.append(f"- [{TITLES[key]['en'].split(' | ')[0]}]({page_url(key, 'en')}) "
+                     f"(Türkçe: {page_url(key, 'tr')})")
+    lines += ["", "## Contact", "", f"- Email: {C['email']}", f"- Phone: {C['phone_display']}",
+              f"- Contact form: {page_url('contact', 'en')}", ""]
+    return "\n".join(lines)
 
 
 def render(page, lang, body):
     u = UI[lang]
-    extra = s.organization_schema(lang) if page == "home" else ""
+    extra = page_schema(page, lang)
     return (head(page, lang, TITLES[page][lang], DESCRIPTIONS[page][lang], extra)
             + f'\n<body>\n<a class="absolute -top-16 left-4 z-[100] rounded-md bg-ink px-4 py-2.5 text-white focus:top-3" href="#main">{u["skip"]}</a>'
             + header(page, lang) + f'\n<main id="main">{body}\n</main>' + footer(lang) + "\n</body>\n</html>\n")
@@ -1369,6 +1491,7 @@ def main():
         for lang, filename in langs.items():
             (ROOT / filename).write_text(render(key, lang, BODIES[key](lang)), encoding="utf-8")
     (ROOT / "sitemap.xml").write_text(sitemap(), encoding="utf-8")
+    (ROOT / "llms.txt").write_text(llms_txt(), encoding="utf-8")
     (ROOT / "robots.txt").write_text(
         f"User-agent: *\nAllow: /\nDisallow: /contact.php\n\nSitemap: {s.SITE_URL}sitemap.xml\n", encoding="utf-8")
     print(f"{BRAND_KEY}: {sum(len(v) for v in PAGES.values())} sayfa -> {ROOT}")
