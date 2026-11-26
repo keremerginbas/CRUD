@@ -17,8 +17,10 @@ if [ "${1:-}" = kapat ]; then
   echo "Dışarıdan erişim kapatıldı. Panel yalnızca ofis ağından açılır."
   exit 0
 fi
-read -rsp "Cloudflare tunnel anahtarı (eyJ... ; ekranda görünmez): " T; echo
-[ ${#T} -gt 50 ] || { echo "Anahtar çok kısa; Cloudflare'daki 'token' değerinin tamamını yapıştırın."; exit 1; }
+read -rsp "Cloudflare'dan kopyaladığınız komutu ya da anahtarı yapıştırın (ekranda görünmez): " GIRDI; echo
+# Cloudflare anahtarı bir komutun içinde verir (docker run ... --token eyJ...); içinden yalnızca anahtarı al
+T=$(printf '%s' "$GIRDI" | grep -oE 'eyJ[A-Za-z0-9_=-]{40,}' | head -1 || true)
+[ -n "$T" ] || { echo "Yapıştırılan metinde anahtar bulunamadı. Cloudflare'da Docker'ı seçip çıkan komutu kopyalayın (içinde eyJ ile başlayan uzun bir bölüm olmalı)."; exit 1; }
 sed -i '/^TUNNEL_TOKEN=/d' .env
 echo "TUNNEL_TOKEN=$T" >> .env
 docker compose --profile tunel up -d tunel 2>&1 | tail -2
