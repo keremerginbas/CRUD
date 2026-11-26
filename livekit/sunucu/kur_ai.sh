@@ -76,7 +76,7 @@ cp -r "$BURASI/agent" "$BURASI/docker-compose.yml" "$HEDEF/"
 mkdir -p "$HEDEF/asistanlar" "$HEDEF/veri" && chmod 700 "$HEDEF/veri"
 for f in "$BURASI"/asistanlar/*.yaml; do [ -f "$HEDEF/asistanlar/$(basename "$f")" ] || cp "$f" "$HEDEF/asistanlar/"; done   # düzenlenmiş asistanların üzerine yazılmaz
 [ -f "$HEDEF/numaralar.yaml" ] || cp "$BURASI/numaralar.yaml" "$HEDEF/"
-cp "$BURASI/ai_ara.sh" "$BURASI/ses_analiz.sh" "$BURASI/guncelle.sh" "$BURASI/panel_sifre.sh" "$BURASI/disaridan_erisim.sh" "$HEDEF/" 2>/dev/null || true
+cp "$BURASI/ai_ara.sh" "$BURASI/ses_analiz.sh" "$BURASI/guncelle.sh" "$BURASI/panel_sifre.sh" "$BURASI/disaridan_erisim.sh" "$BURASI/trunk_ekle.sh" "$BURASI/trunk_dene.sh" "$HEDEF/" 2>/dev/null || true
 rm -rf "$HEDEF/asterisk" && cp -r "$BURASI/asterisk" "$HEDEF/"
 
 LK_KEY=$(eski LIVEKIT_API_KEY);    LK_KEY=${LK_KEY:-API$(openssl rand -hex 6)}

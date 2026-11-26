@@ -281,7 +281,8 @@ async function numaralar() {
   const satir = (n = {}) => {
     const g = (k, ph) => el("input", { type: "text", value: n[k] ?? "", placeholder: ph || "", "data-k": k, "aria-label": k, disabled: !yonetici });
     const s = el("select", { "data-k": "gelen_asistan", "aria-label": "Gelen arama asistanı", disabled: !yonetici }, el("option", { value: "" }, "—"), asist.map((a) => el("option", { value: a.id }, a.ad || a.id))); s.value = n.gelen_asistan || "";
-    const tr = el("tr", {}, el("td", {}, g("id", "motto-7116")), el("td", {}, g("ad", "Motto")), el("td", {}, g("numara", "+90533…")), el("td", {}, g("on_ek", "77")), el("td", {}, g("vapi_id")), el("td", {}, s),
+    const h = el("select", { "data-k": "hat", "aria-label": "Hat", disabled: !yonetici }, el("option", { value: "dahili" }, "Dahili"), el("option", { value: "trunk" }, "Trunk")); h.value = n.hat || "dahili";
+    const tr = el("tr", {}, el("td", {}, g("id", "motto-7116")), el("td", {}, g("ad", "Motto")), el("td", {}, g("numara", "+90533…")), el("td", {}, h), el("td", {}, g("on_ek", "77")), el("td", {}, g("vapi_id")), el("td", {}, s),
       el("td", {}, yonetici ? el("button", { class: "dugme tehlike", onclick: () => tr.remove() }, "Kaldır") : null));
     return tr;
   };
@@ -291,8 +292,8 @@ async function numaralar() {
     try { await api("numaralar", { method: "PUT", body: veri }); alert("Kaydedildi."); yonlendir(); } catch (h) { alert(h.message); }
   };
   $("#icerik").replaceChildren(baslik("Numaralar", yonetici ? el("button", { class: "dugme", onclick: () => govde.append(satir()) }, "Numara ekle") : null, yonetici ? el("button", { class: "dugme ana", onclick: kaydet }, "Kaydet") : null),
-    el("div", { class: "kart" }, el("div", { class: "aciklama" }, "Ön ek: NetSantral “Giden Çağrı” ekranındaki ön ek; arama o numaradan çıkar. Vapi kimliği: n8n akışlarında yazılı eski phoneNumberId. Gelen asistan: numara geri arandığında açan asistan."),
-      el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Kimlik", "Ad", "Numara", "Ön ek", "Vapi kimliği", "Gelen asistan", ""].map((b) => el("th", {}, b)))), govde))));
+    el("div", { class: "kart" }, el("div", { class: "aciklama" }, "Hat: Trunk = arama NetGSM trunk'ından çıkar ve müşteride bu numara görünür; Dahili = test dahilisinden çıkar. Ön ek: NetSantral “Giden Çağrı” ekranındaki ön ek; arama o numaradan çıkar. Vapi kimliği: n8n akışlarında yazılı eski phoneNumberId. Gelen asistan: numara geri arandığında açan asistan."),
+      el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Kimlik", "Ad", "Numara", "Hat", "Ön ek", "Vapi kimliği", "Gelen asistan", ""].map((b) => el("th", {}, b)))), govde))));
 }
 
 /* ---------- Kullanıcılar / Hesabım ---------- */

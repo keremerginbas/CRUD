@@ -247,7 +247,8 @@ class Gorusme:
                     sip_call_to=self.meta["aranacak"],
                     participant_identity=MUSTERI,
                     participant_name=self.meta.get("customer", {}).get("name") or "Müşteri",
-                    headers={"X-Cagri-Id": self.id},  # Asterisk ses kaydını bu kimlikle adlandırır (panelde dinlemek için)
+                    # X-Cagri-Id: ses kaydının adı · X-Hat/X-Arayan: hangi NetGSM hattından, hangi numara görünerek aranacağı
+                    headers={"X-Cagri-Id": self.id, "X-Hat": str(self.meta.get("hat") or "dahili"), "X-Arayan": str(self.meta.get("arayan") or "")},
                     wait_until_answered=True,
                     ringing_timeout=Duration(seconds=int(self.asistan.get("calma_suresi_sn", 40))),
                 ),

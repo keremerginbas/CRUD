@@ -116,7 +116,10 @@ async def arama_baslat(govde: dict):
     }
     await ortak.cagri_yaz(r, cagri)
     meta = {**cagri, "asistan": asistan, "variableValues": ov.get("variableValues") or {},
-            "aranacak": f"{hat.get('on_ek') or ''}{ortak.santral_numarasi(numara)}"}
+            "aranacak": f"{hat.get('on_ek') or ''}{ortak.santral_numarasi(numara)}",
+            "hat": hat.get("hat") or "dahili",
+            # NetSantral numaraları başında 0 olmadan gösteriyor (5337437116); trunk'ta arayan numara bu biçimde gönderilir
+            "arayan": str(hat.get("arayan") or ortak.santral_numarasi(hat.get("numara")).lstrip("0"))}
     try:
         async with lk() as l:
             await l.agent_dispatch.create_dispatch(api.CreateAgentDispatchRequest(

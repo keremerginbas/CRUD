@@ -348,7 +348,8 @@ async def numaralari_kaydet(request: Request, _k: dict = Depends(yonetici)):
         on_ek = str(n.get("on_ek") or "").strip()
         if on_ek and not on_ek.isdigit():
             raise HTTPException(400, "Ön ek yalnızca rakam olabilir")
-        out.append({"id": nid, "ad": str(n.get("ad") or ""), "numara": numara, "on_ek": on_ek,
+        hat = "trunk" if n.get("hat") == "trunk" else "dahili"
+        out.append({"id": nid, "ad": str(n.get("ad") or ""), "numara": numara, "on_ek": on_ek, "hat": hat,
                     "vapi_id": str(n.get("vapi_id") or ""), "gelen_asistan": str(n.get("gelen_asistan") or "")})
     yaml_yaz(ortak.AYAR_KLASORU / "numaralar.yaml", {"numaralar": out})
     return out
