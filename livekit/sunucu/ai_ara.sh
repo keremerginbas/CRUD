@@ -55,8 +55,14 @@ for satir in sys.stdin:
             print("Sonuç:", json.dumps(r["analysis"].get("structuredData") or {}, ensure_ascii=False))
         except Exception:
             print(m[:1500])
-    elif k.get("level") in ("ERROR", "WARNING") and "data channel" not in m:
-        print("[" + k["level"] + "]", m[:400])
+    elif m.startswith("GECIKME: "):
+        g = json.loads(m[9:])
+        if g:
+            print("\nGecikmeler (ortalama, saniye): cevap süresi ≈", g.get("cevap", "?"),
+                  "| söz bitti algısı", g.get("soz_bitti", "?"), "| yazıya çevirme", g.get("yaziya_cevirme", "?"),
+                  "| model", g.get("model", "?"), "| seslendirme", g.get("ses", "?"))
+    elif k.get("level") in ("ERROR", "WARNING") and not any(x in m for x in ("data channel", "deprecated", "failed to send session event", "unknown FFI handle")):
+        print("[" + k["level"] + "]", m.split("\n")[0][:300])
 '
 echo
 echo "Ses kalitesi: sudo bash ~/kalite.sh   ·   Kayıtlar: /var/spool/asterisk/kayit/"

@@ -12,6 +12,17 @@ K="$GECICI/livekit/sunucu"
 [ -f "$K/agent/agent.py" ] || { echo "İndirme başarısız."; exit 1; }
 rm -rf "$HEDEF/agent" && cp -r "$K/agent" "$K/docker-compose.yml" "$K/ai_ara.sh" "$K/guncelle.sh" "$HEDEF/"
 cp "$K/asistanlar/test.yaml" "$HEDEF/asistanlar/test.yaml"   # yalnızca deneme asistanı yenilenir
+# Deepgram'ın Avrupa sunucusu bu anahtarla çalışıyorsa onu kullan (Türkiye'den daha yakın)
+sed -i '/^DEEPGRAM_URL=/d' "$HEDEF/.env"
+DG=$(grep -E '^DEEPGRAM_API_KEY=' "$HEDEF/.env" | cut -d= -f2-)
+if [ "$(curl -s -o /dev/null -m 15 -w '%{http_code}' https://api.eu.deepgram.com/v1/projects -H "Authorization: Token $DG" || true)" = 200 ]; then
+  echo "DEEPGRAM_URL=https://api.eu.deepgram.com/v1/listen" >> "$HEDEF/.env"; echo "Ses tanıma: Deepgram Avrupa sunucusu kullanılacak."
+else
+  echo "Ses tanıma: Deepgram varsayılan sunucusu kullanılacak (Avrupa sunucusu bu anahtarı kabul etmedi)."
+fi
+for h in api.deepgram.com api.eu.deepgram.com api.openai.com api.elevenlabs.io; do
+  printf '  %-24s bağlantı süresi: %s sn\n' "$h" "$(curl -s -o /dev/null -m 10 -w '%{time_connect}' "https://$h" || echo '?')"
+done
 echo "== Yapay zekâ yeniden kuruluyor (1-2 dakika) =="
 cd "$HEDEF"
 docker compose up -d --build ajan api 2>&1 | tail -4

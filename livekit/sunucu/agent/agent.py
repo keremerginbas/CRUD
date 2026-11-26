@@ -65,6 +65,14 @@ class Gorusme:
         self.rapor_gitti = False
         self.acilis_bekliyor = False
         self.acilis_kesilebilir = True
+        self.gecikme: dict[str, list[float]] = {"soz_bitti": [], "yaziya_cevirme": [], "model": [], "ses": []}
+
+    def gecikme_ozeti(self) -> dict:
+        """Ortalama gecikmeler (saniye). cevap ≈ müşteri sustuktan sonra asistanın sesi duyulana kadar geçen süre."""
+        ort = {k: round(sum(v) / len(v), 2) for k, v in self.gecikme.items() if v}
+        if {"soz_bitti", "model", "ses"} <= ort.keys():
+            ort["cevap"] = round(ort["soz_bitti"] + ort["model"] + ort["ses"], 2)
+        return ort
 
     def acilis_soyle(self, metin: str) -> None:
         if not self.acilis_bekliyor or not self.session:
@@ -229,7 +237,10 @@ class Gorusme:
         a = self.asistan
         d = self.degiskenler
         session = AgentSession(
-            stt=deepgram.STT(model=a.get("stt_model", "nova-3"), language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 150))),
+            stt=deepgram.STT(
+                model=a.get("stt_model", "nova-3"), language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 150)),
+                **({"base_url": os.environ["DEEPGRAM_URL"]} if os.environ.get("DEEPGRAM_URL") else {}),  # Avrupa sunucusu: daha kısa yol
+            ),
             llm=openai.LLM(model=a.get("model", "gpt-4.1"), temperature=float(a.get("sicaklik", 0.4))),
             tts=elevenlabs.TTS(
                 voice_id=a.get("ses_id") or os.environ.get("ELEVEN_VOICE_ID", ""),
@@ -261,6 +272,18 @@ class Gorusme:
             else:
                 self.bitis_nedeni = "assistant-ended-call"
             ctx.shutdown(reason=self.bitis_nedeni)
+
+        @session.on("metrics_collected")
+        def olcum(ev) -> None:
+            m = ev.metrics
+            tip = type(m).__name__
+            if tip == "EOUMetrics":
+                self.gecikme["soz_bitti"].append(m.end_of_utterance_delay)
+                self.gecikme["yaziya_cevirme"].append(m.transcription_delay)
+            elif tip == "LLMMetrics" and not m.cancelled and m.ttft > 0:
+                self.gecikme["model"].append(m.ttft)
+            elif tip == "TTSMetrics" and not m.cancelled and m.ttfb > 0:
+                self.gecikme["ses"].append(m.ttfb)
 
         @session.on("user_state_changed")
         def sessizlik(ev) -> None:
@@ -355,6 +378,7 @@ class Gorusme:
             "transcript": transkript, "summary": analiz["summary"], "analysis": analiz,
             "startedAt": call["startedAt"], "endedAt": call["endedAt"], "durationSeconds": sure, "cost": 0,
         }}
+        log.info("GECIKME: %s", json.dumps(self.gecikme_ozeti()))
         await self.durum("ended", endedReason=neden, endedAt=ortak.simdi_iso(), durationSeconds=sure)
         url = self.asistan.get("sunucu_url")
         log.info("görüşme bitti id=%s neden=%s süre=%ss rapor=%s", self.id, neden, sure, url or "(URL yok)")
