@@ -121,7 +121,7 @@ exten => test,1,Answer()
  same => n,Hangup()
 
 [kalite]
-exten => s,1,System(echo "${STRFTIME(,,%F %T)}|${CALLERID(num)}|${CDR(billsec)}|${CHANNEL(rtpqos,audio,all)}" >> /var/log/asterisk/ses_kalitesi.log)
+exten => s,1,System(echo "${STRFTIME(,,%F %T)}|${CALLERID(num)}${CHANNEL(pjsip,target_uri)}|${CDR(billsec)}|${CHANNEL(rtcp,all)}" >> /var/log/asterisk/ses_kalitesi.log)
  same => n,Return()
 EOF
 
