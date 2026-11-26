@@ -64,6 +64,9 @@ for satir in sys.stdin:
             print("\nCevap süresi (müşteri sustu → asistanın sesi başladı): ortalama", g.get("cevap", "?"), "sn · en uzun", g.get("cevap_en_uzun", "?"), "sn")
             print("  parçalar: söz bitti algısı", g.get("soz_bitti", "?"), "| yazıya çevirme", g.get("yaziya_cevirme", "?"),
                   "| model (" + str(g.get("model_adi", "?")) + ")", g.get("model", "?"), "| seslendirme", g.get("ses", "?"))
+            for i, t in enumerate(g.get("turlar") or [], 1):
+                print("  cevap", i, ":", t.get("cevap"), "sn = söz bitti", t.get("soz_bitti"), "+ model ilk kelime", t.get("model_ilk"),
+                      "(ilk cümle", str(t.get("model_cumle")) + ")", "+ ses", t.get("ses"), "+ çalma", t.get("calma"), "|", t.get("metin"))
     elif k.get("level") in ("ERROR", "WARNING") and not any(x in m for x in ("data channel", "deprecated", "failed to send session event", "unknown FFI handle")):
         print("[" + k["level"] + "]", m.split("\n")[0][:300])
 '

@@ -123,6 +123,22 @@ class Gorusme:
             ort["cevap"] = round(sum(e2e) / len(e2e), 2)
             ort["cevap_en_uzun"] = round(max(e2e), 2)
         ort["model_adi"] = self.asistan.get("model", "gpt-4.1")
+        # Tur tur ayrıntı: hangi cevapta süre nereye gitti
+        turlar, onceki = [], {}
+        if self.session:
+            for it in self.session.history.items:
+                if getattr(it, "type", "") != "message":
+                    continue
+                m = dict(getattr(it, "metrics", None) or {})
+                if it.role == "user":
+                    onceki = m
+                elif it.role == "assistant" and m.get("e2e_latency"):
+                    y = lambda v: round(v, 2) if isinstance(v, (int, float)) else None  # noqa: E731
+                    turlar.append({"cevap": y(m.get("e2e_latency")), "soz_bitti": y(onceki.get("end_of_turn_delay")),
+                                   "yazi": y(onceki.get("transcription_delay")), "model_ilk": y(m.get("llm_node_ttft")),
+                                   "model_cumle": y(m.get("llm_node_ttfs")), "ses": y(m.get("tts_node_ttfb")),
+                                   "calma": y(m.get("playback_latency")), "metin": (it.text_content or "")[:40]})
+        ort["turlar"] = turlar
         return ort
 
     def acilis_soyle(self, metin: str) -> None:
@@ -292,7 +308,9 @@ class Gorusme:
                 model=a.get("stt_model", "nova-3"), language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 100)),
                 **({"base_url": os.environ["DEEPGRAM_URL"]} if os.environ.get("DEEPGRAM_URL") else {}),  # Avrupa sunucusu: daha kısa yol
             ),
-            llm=openai.LLM(model=a.get("model", "gpt-4.1"), temperature=float(a.get("sicaklik", 0.4))),
+            # prompt_cache_key: aynı asistanın uzun prompt'u OpenAI'da önbellekten okunur, cevap daha çabuk başlar
+            llm=openai.LLM(model=a.get("model", "gpt-4.1"), temperature=float(a.get("sicaklik", 0.4)),
+                           prompt_cache_key=f"xre-{a.get('id', 'asistan')}"),
             tts=elevenlabs.TTS(
                 voice_id=a.get("ses_id") or os.environ.get("ELEVEN_VOICE_ID", ""),
                 model=a.get("ses_modeli", "eleven_flash_v2_5"),
@@ -319,6 +337,8 @@ class Gorusme:
             min_interruption_words=int(a.get("soz_kesme_en_az_kelime", 1)),
             min_interruption_duration=float(a.get("soz_kesme_en_az_sn", 0.5)),
             resume_false_interruption=True,
+            # Müşteri susar susmaz cevabı (metin + ses) hazırlamaya başla; söz gerçekten bittiyse hemen çal
+            preemptive_generation={"enabled": True, "preemptive_tts": bool(a.get("on_seslendirme", True))},
             false_interruption_timeout=float(a.get("yanlis_kesme_bekleme_sn", 1.2)),
         )
         self.session = session
