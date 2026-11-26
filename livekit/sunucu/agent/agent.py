@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import os
+from datetime import datetime
 import time
 import uuid
 
@@ -330,6 +331,10 @@ class Gorusme:
                 language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 100)),
                 **({"base_url": os.environ["DEEPGRAM_URL"]} if os.environ.get("DEEPGRAM_URL") else {}),  # Avrupa sunucusu: daha kısa yol
             )
+            # Müşteri susunca (ses algılayıcı karar verince) Deepgram'dan yazıyı HEMEN iste. Bu olmadan Deepgram
+            # hattaki hafif uğultu yüzünden "konuşma bitti" demeyi 2-3 saniye geciktirebiliyor.
+            if a.get("stt_hizli_bitir", True):
+                ses_tanima.capabilities.manual_flush = True
         session = AgentSession(
             stt=ses_tanima,
             # prompt_cache_key: aynı asistanın uzun prompt'u OpenAI'da önbellekten okunur, cevap daha çabuk başlar
@@ -453,6 +458,8 @@ class Gorusme:
         istek = (
             "Aşağıda bir satış asistanı (AI) ile müşteri (User) arasındaki telefon görüşmesinin dökümü var.\n"
             f"{an.get('ozet_talimati', 'Görüşmeyi Türkçe iki-dört cümleyle özetle.')}\n"
+            f"Görüşmenin yapıldığı an (Türkiye saati): {datetime.now(ortak.TR).strftime('%Y-%m-%d %H:%M, %A')}. "
+            "\"Bugün\", \"yarın\", \"haftaya\" gibi ifadeleri bu tarihe göre hesapla; tarih alanlarını +03:00 ile yaz.\n"
             "Yalnızca şu biçimde JSON döndür: {\"summary\": \"...\", \"structuredData\": {...}}\n"
             f"structuredData şu JSON şemasına uymalı (şema boşsa boş nesne döndür):\n{json.dumps(sema, ensure_ascii=False)}\n"
             f"{an.get('talimat', '')}\n\nDÖKÜM:\n{transkript}"

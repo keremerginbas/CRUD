@@ -313,7 +313,7 @@ const aramaSatiri = (c) => el("tr", { class: "tikla", tabindex: 0, onclick: () =
   el("td", {}, tarih(c.createdAt)), el("td", {}, c.type === "inboundPhoneCall" ? "Gelen" : "Giden"),
   el("td", {}, numaraYaz(c.customer && c.customer.number), c.customer && c.customer.name ? el("div", { class: "ikincil" }, c.customer.name) : null),
   el("td", {}, c.asistanAdi || c.assistantId || "-"), el("td", {}, nedenEtiketi(c)), el("td", { class: "sayi" }, sure(c.durationSeconds)),
-  el("td", {}, c.sonuc && c.sonuc.sonuc ? el("span", { class: "etiket" + (c.sonuc.sonuc === "randevu" ? " iyi" : "") }, SONUC_ADI[c.sonuc.sonuc] || c.sonuc.sonuc) : ""));
+  el("td", {}, c.sonucAdi && c.sonucAdi !== "belirsiz" ? el("span", { class: "etiket" + (c.sonucAdi === "randevu" ? " iyi" : "") }, SONUC_ADI[c.sonucAdi] || c.sonucAdi) : ""));
 const aramaTablosu = (liste) => el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Zaman", "Yön", "Müşteri", "Asistan", "Durum"].map((b) => el("th", {}, b)), el("th", { class: "sayi" }, "Süre"), el("th", {}, "Sonuç"))), el("tbody", {}, liste.map(aramaSatiri))));
 
 /* ---------- Genel bakış ---------- */

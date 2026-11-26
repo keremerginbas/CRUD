@@ -469,10 +469,33 @@ async def _kayitlari_oku(r, idler: list[str]) -> list[dict | None]:
 
 
 def _sonuc_adi(c: dict) -> str:
+    """Görüşme sonucunu bulur. Asistanların şemaları farklıdır: sonuc, arama_sonucu, bir üst başlığın içinde vb.
+    Adında "sonuc" geçen ilk metin alanı alınır (anahtarlardaki fazladan boşluklar yok sayılır)."""
     sn = c.get("sonuc")
     if isinstance(sn, str) and sn.strip():
         return sn.strip()[:40]
-    return str((sn.get("sonuc") if isinstance(sn, dict) else None) or "belirsiz")
+
+    def ara(d, derinlik=0):
+        if not isinstance(d, dict) or derinlik > 2:
+            return None
+        duz = {str(k).strip().lower(): v for k, v in d.items()}
+        for ad in ("sonuc", "arama_sonucu", "gorusme_sonucu"):
+            if isinstance(duz.get(ad), str) and duz[ad].strip():
+                return duz[ad].strip()
+        for k, v in duz.items():
+            if ("sonuc" in k or "sonuç" in k) and isinstance(v, str) and v.strip():
+                return v.strip()
+        for v in duz.values():
+            r = ara(v, derinlik + 1)
+            if r:
+                return r
+        return None
+
+    return (ara(sn) or "belirsiz")[:40]
+
+
+def _liste_satiri(c: dict) -> dict:
+    return {**{k: c.get(k) for k in LISTE_ALANLARI}, "sonucAdi": _sonuc_adi(c) if c.get("sonuc") else ""}
 
 
 def _ulasildi(c: dict) -> bool:
@@ -493,7 +516,7 @@ async def arama_listesi(limit: int = 50, atla: int = 0, q: str = "", durum: str 
         alt = time.time() - SAKLAMA_SN
         if not q.strip() and not durum:
             idler = await r.zrevrangebyscore("cagrilar", "+inf", alt, start=atla, num=limit)
-            out = [{k: c.get(k) for k in LISTE_ALANLARI} for c in await _kayitlari_oku(r, idler) if c]
+            out = [_liste_satiri(c) for c in await _kayitlari_oku(r, idler) if c]
             return {"toplam": await r.zcount("cagrilar", alt, "+inf"), "aramalar": out, "eslesen": None}
         # Arama / süzgeç: saklanan bütün aramalar taranır, yalnızca ilk 200 değil
         aranan = _duz(q)
@@ -516,7 +539,7 @@ async def arama_listesi(limit: int = 50, atla: int = 0, q: str = "", durum: str 
                     continue
             eslesen += 1
             if eslesen > atla and len(out) < limit:
-                out.append({k: c.get(k) for k in LISTE_ALANLARI})
+                out.append(_liste_satiri(c))
         return {"toplam": await r.zcount("cagrilar", alt, "+inf"), "aramalar": out, "eslesen": eslesen}
     finally:
         await r.aclose()
