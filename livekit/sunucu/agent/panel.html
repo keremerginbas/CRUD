@@ -67,7 +67,9 @@ label{display:block;font-weight:600;font-size:13.5px;margin-bottom:5px}
 #giris .marka-yuzu img{width:230px;height:auto;position:relative;z-index:1}
 #g-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .6s}
 #giris .marka-yuzu.videolu #g-video{opacity:1}
-#giris .marka-yuzu.videolu::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(26,36,69,.72),rgba(26,36,69,.35) 45%,rgba(26,36,69,.85))}
+#g-video{object-position:45% 50%}
+#giris:has(.videolu){grid-template-columns:minmax(0,1fr) minmax(360px,460px)}
+#giris .marka-yuzu.videolu::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(14,20,40,.6),rgba(14,20,40,0) 22%,rgba(14,20,40,0) 68%,rgba(14,20,40,.78))}
 #giris .marka-yuzu.videolu::after{display:none}
 #g-slogan .kelime{display:inline-block;overflow:hidden;vertical-align:bottom;padding-bottom:.08em}
 #g-slogan .kelime>span{display:inline-block;transform:translateY(110%);opacity:0;transition:transform .55s cubic-bezier(.2,.8,.2,1),opacity .4s}
@@ -168,7 +170,7 @@ dialog h2{margin-bottom:8px;font-size:17px}dialog p{color:var(--soluk);margin:0 
 dialog .eylemler{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
 
 @media (max-width:900px){
-  #giris{grid-template-columns:1fr}#giris .marka-yuzu{padding:28px;min-height:170px}#giris .marka-yuzu p{font-size:20px}#giris .marka-yuzu::after{display:none}
+  #giris,#giris:has(.videolu){grid-template-columns:1fr}#giris .marka-yuzu{padding:28px;min-height:170px}#giris .marka-yuzu.videolu{min-height:240px}#giris .marka-yuzu p{font-size:20px}#giris .marka-yuzu::after{display:none}
   #uygulama{grid-template-columns:1fr;grid-template-rows:auto 1fr}
   nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 12px;gap:2px}
   nav .logo{padding:4px 10px 4px 4px}nav .logo img{width:110px}nav .grup{display:none}
@@ -185,7 +187,7 @@ dialog .eylemler{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
   <div class="marka-yuzu">
     <video id="g-video" muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1"></video>
     <img src="/panel/varlik/logo_beyaz.png" alt="XRE Software" width="520" height="82">
-    <p id="g-slogan" aria-label="Yapay zekâ arama merkezi">Yapay zekâ arama merkezi</p>
+    <p id="g-slogan" aria-label="XRE Software AI">XRE Software AI</p>
   </div>
   <div class="form-yuzu">
     <form id="giris-form">
@@ -249,7 +251,7 @@ async function api(yol, secenek = {}) {
 const dene_ = async (is) => { try { return await is(); } catch (h) { bildir(h.message, true); } };
 
 // Giriş ekranı: sırayla değişen yazı ve (yüklendiyse) arka plan videosu
-const SLOGANLAR = ["Yapay zekâ arama merkezi", "Asistanlarınız tek ekranda", "Her görüşmenin kaydı ve dökümü"];
+const SLOGANLAR = ["XRE Software AI", "Yapay zekâ arama merkezi", "Asistanlarınız tek ekranda", "Her görüşmenin kaydı ve dökümü"];
 let sloganSayaci = null;
 function sloganBaslat() {
   const p = $("#g-slogan"); clearInterval(sloganSayaci);
