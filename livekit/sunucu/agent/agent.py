@@ -12,8 +12,7 @@ import uuid
 import httpx
 from google.protobuf.duration_pb2 import Duration
 from livekit import api, rtc
-from livekit.agents import Agent, AgentSession, JobContext, WorkerOptions, cli, function_tool, room_io
-from livekit.agents.beta.tools import EndCallTool
+from livekit.agents import Agent, AgentSession, JobContext, RunContext, StopResponse, WorkerOptions, cli, function_tool, room_io
 from livekit.agents.voice.events import CloseEvent, CloseReason
 from livekit.plugins import deepgram, elevenlabs, openai, silero
 
@@ -26,8 +25,26 @@ MUSTERI = "musteri"
 KAPATMA_NOTU = """
 
 # GÖRÜŞMEYİ KAPATMA (teknik kural)
-Görüşmeyi bitireceğin zaman kapanış/vedalaşma cümleni SÖYLEMEDEN doğrudan end_call aracını çağır.
-Araç senden kapanış cümleni söylemeni isteyecek; o cümleyi yalnızca bir kez söyle. Araç adını müşteriye söyleme."""
+Görüşmeyi bitireceğin zaman kapanış/vedalaşma cümleni kendin SÖYLEME; end_call aracını çağır ve cümleyi
+aracın kapanis_cumlesi alanına yaz. Sistem o cümleyi müşteriye seslendirir ve telefonu kapatır.
+Yalnızca görüşme gerçekten bittiğinde çağır: müşteri vedalaştığında ya da prompt görüşmeyi kapatmanı söylediğinde.
+Sorduğun bir soruya müşterinin cevabı anlamsızsa, konuyla ilgisizse ya da tek kelimelik belirsiz bir şeyse
+(telefonda ses yanlış anlaşılmış olabilir) görüşmeyi KAPATMA; "Pardon, tam duyamadım, tekrar eder misiniz?" de."""
+
+
+class Asistan(Agent):
+    """ilk_mesaj_modu = musteri_bekle ise: müşterinin ilk sözünden ("alo") sonra açılış cümlesini
+    modele sormadan, olduğu gibi söyler."""
+
+    def __init__(self, *, gorusme: "Gorusme", ilk_mesaj: str, **kw):
+        super().__init__(**kw)
+        self._g = gorusme
+        self._ilk = ilk_mesaj
+
+    async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
+        if self._g.acilis_bekliyor and self._ilk:
+            self._g.acilis_soyle(self._ilk)
+            raise StopResponse()
 
 
 class Gorusme:
@@ -46,6 +63,14 @@ class Gorusme:
         self.asistan_kapatti = False
         self.session: AgentSession | None = None
         self.rapor_gitti = False
+        self.acilis_bekliyor = False
+        self.acilis_kesilebilir = True
+
+    def acilis_soyle(self, metin: str) -> None:
+        if not self.acilis_bekliyor or not self.session:
+            return
+        self.acilis_bekliyor = False
+        self.session.say(metin, allow_interruptions=self.acilis_kesilebilir)
 
     # ---------- Vapi biçimli "call" nesnesi ----------
     def call_nesnesi(self) -> dict:
@@ -72,18 +97,37 @@ class Gorusme:
         for t in self.asistan.get("araclar") or []:
             araclar.append(self._webhook_araci(t))
 
-        async def kapatildi(_ev) -> None:
-            self.asistan_kapatti = True
-
-        araclar.append(
-            EndCallTool(
-                extra_description="Görüşme bittiğinde, müşteri vedalaştığında ya da prompt görüşmeyi kapatmanı söylediğinde çağır.",
-                end_instructions="Prompttaki kapanış/vedalaşma cümleni şimdi tek seferde söyle. Başka hiçbir şey ekleme, soru sorma.",
-                delete_room=True,
-                on_tool_called=kapatildi,
-            )
+        @function_tool(
+            name="end_call",
+            description="Görüşmeyi bitirir: kapanis_cumlesi müşteriye seslendirilir, ardından telefon kapanır. "
+            "Kapanış cümlesini kendin söyleme, buraya yaz.",
         )
+        async def end_call(ctx: RunContext, kapanis_cumlesi: str) -> None:
+            """
+            Args:
+                kapanis_cumlesi: Müşteriye söylenecek son cümle (prompttaki kapanış/vedalaşma cümlesi).
+            """
+            if self.asistan_kapatti:
+                return None
+            self.asistan_kapatti = True
+            # Bu konuşma sırası bitince (araç çağrısı dahil) vedalaş ve kapat
+            ctx.speech_handle.add_done_callback(lambda _h: asyncio.create_task(self._vedalas_kapat(kapanis_cumlesi)))
+            return None  # None = model ayrıca cevap üretmez
+
+        araclar.append(end_call)
         return araclar
+
+    async def _vedalas_kapat(self, cumle: str) -> None:
+        try:
+            cumle = (cumle or "").strip()
+            son = next((m["message"] for m in reversed(self._mesajlar()) if m["role"] == "bot"), "")
+            if cumle and cumle[:25].lower() not in son.lower():  # model cümleyi zaten söylediyse tekrarlama
+                await self.session.say(cumle, allow_interruptions=False)
+        except Exception as e:
+            log.warning("kapanış cümlesi söylenemedi: %s", e)
+        finally:
+            self.bitis_nedeni = self.bitis_nedeni or "assistant-ended-call"
+            await self.ctx.delete_room()
 
     def _webhook_araci(self, t: dict):
         ad = t["ad"]
@@ -137,7 +181,7 @@ class Gorusme:
         except api.TwirpError as e:
             kod = e.metadata.get("sip_status_code") or e.metadata.get("sip_status")
             self.bitis_nedeni = ortak.sip_bitis_nedeni(kod, e.message)
-            log.info("arama bağlanmadı: sip=%s %s → %s", kod, e.message, self.bitis_nedeni)
+            log.warning("arama bağlanmadı: SIP kodu=%s (%s) → %s", kod, e.message, self.bitis_nedeni)
             return False
         except Exception as e:
             self.bitis_nedeni = "call.in-progress.error-sip-outbound-call-failed-to-connect"
@@ -191,6 +235,7 @@ class Gorusme:
                 voice_id=a.get("ses_id") or os.environ.get("ELEVEN_VOICE_ID", ""),
                 model=a.get("ses_modeli", "eleven_flash_v2_5"),
                 language=a.get("dil", "tr"),
+                encoding=a.get("ses_kodlama", "pcm_24000"),  # sıkıştırmasız; mp3 telefonda boğuk duyuluyor
                 voice_settings=elevenlabs.VoiceSettings(
                     stability=float(a.get("ses_kararlilik", 0.5)), similarity_boost=float(a.get("ses_benzerlik", 0.75)), speed=float(a.get("ses_hizi", 1.0))
                 ),
@@ -205,6 +250,7 @@ class Gorusme:
         @session.on("close")
         def kapandi(ev: CloseEvent) -> None:
             if self.bitis_nedeni:
+                ctx.shutdown(reason=self.bitis_nedeni)
                 return
             if self.asistan_kapatti:
                 self.bitis_nedeni = "assistant-ended-call"
@@ -231,14 +277,26 @@ class Gorusme:
         sinir = asyncio.create_task(sure_siniri())
         ctx.add_shutdown_callback(lambda: _iptal(sinir))
 
-        ajan = Agent(instructions=ortak.sablon_doldur(a.get("prompt", ""), d) + KAPATMA_NOTU, tools=self.araclari_kur())
+        ilk = ortak.sablon_doldur(a.get("ilk_mesaj", ""), d).strip()
+        bekle = a.get("ilk_mesaj_modu", "asistan") == "musteri_bekle"
+        self.acilis_kesilebilir = bool(a.get("ilk_mesaj_kesilebilir", True))
+        self.acilis_bekliyor = bool(ilk)
+        ajan = Asistan(gorusme=self, ilk_mesaj=ilk if bekle else "",
+                       instructions=ortak.sablon_doldur(a.get("prompt", ""), d) + KAPATMA_NOTU, tools=self.araclari_kur())
         await session.start(
             ajan, room=ctx.room,
             room_options=room_io.RoomOptions(participant_identity=katilimci.identity, close_on_disconnect=True),
         )
-        ilk = ortak.sablon_doldur(a.get("ilk_mesaj", ""), d).strip()
-        if ilk and a.get("ilk_mesaj_modu", "asistan") == "asistan":
-            await session.say(ilk, allow_interruptions=bool(a.get("ilk_mesaj_kesilebilir", False)))
+        if ilk and not bekle:
+            self.acilis_soyle(ilk)
+        elif ilk:
+            # Müşteri "alo" demezse sonsuza dek susmayalım: kısa bir beklemeden sonra açılışı söyle
+            async def sessiz_acilis() -> None:
+                await asyncio.sleep(float(a.get("alo_bekleme_sn", 3.5)))
+                self.acilis_soyle(ilk)
+
+            gecikmeli = asyncio.create_task(sessiz_acilis())
+            ctx.add_shutdown_callback(lambda: _iptal(gecikmeli))
 
     # ---------- çağrı sonu raporu ----------
     def _mesajlar(self) -> list[dict]:
