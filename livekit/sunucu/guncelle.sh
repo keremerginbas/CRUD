@@ -10,7 +10,7 @@ echo "== Son sürüm indiriliyor =="
 curl -sL https://github.com/keremerginbas/CRUD/archive/refs/heads/claude/tender-cori-xgh6nr.tar.gz | tar xz --strip-components=1 -C "$GECICI"
 K="$GECICI/livekit/sunucu"
 [ -f "$K/agent/agent.py" ] || { echo "İndirme başarısız."; exit 1; }
-rm -rf "$HEDEF/agent" "$HEDEF/asterisk" && cp -r "$K/agent" "$K/asterisk" "$K/docker-compose.yml" "$K/ai_ara.sh" "$K/ses_analiz.sh" "$K/guncelle.sh" "$K/panel_sifre.sh" "$K/disaridan_erisim.sh" "$K/trunk_ekle.sh" "$K/trunk_dene.sh" "$HEDEF/"
+rm -rf "$HEDEF/agent" "$HEDEF/asterisk" && cp -r "$K/agent" "$K/asterisk" "$K/docker-compose.yml" "$K/ai_ara.sh" "$K/ses_analiz.sh" "$K/guncelle.sh" "$K/panel_sifre.sh" "$K/disaridan_erisim.sh" "$K/trunk_ekle.sh" "$K/trunk_dene.sh" "$K/vapi_trunk_al.sh" "$HEDEF/"
 cp "$K/asistanlar/test.yaml" "$HEDEF/asistanlar/test.yaml"   # yalnızca deneme asistanı yenilenir
 # Asterisk arama planını son sürümle değiştir (NetGSM kaydına dokunmaz)
 GELEN_NUMARA=$(awk -F'"' '/numara:/{print $2; exit}' "$HEDEF/numaralar.yaml")

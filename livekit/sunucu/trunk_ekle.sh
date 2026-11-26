@@ -5,9 +5,14 @@
 set -euo pipefail
 [ "$(id -u)" -eq 0 ] || { echo "root olarak çalıştırın (sudo)."; exit 1; }
 PJSIP=/etc/asterisk/pjsip.conf
-read -rp "SIP sunucusu [sip8.netsantral.com]: " HOST; HOST=${HOST:-sip8.netsantral.com}
-read -rp "Trunk kullanıcı adı [8503465993]: " KUL; KUL=${KUL:-8503465993}
-read -rsp "Trunk şifresi (ekranda görünmez): " SIFRE; echo
+# TRUNK_HOST / TRUNK_KUL / TRUNK_SIFRE ortam değişkenleri verilmişse sormadan onları kullanır (vapi_trunk_al.sh böyle çağırır)
+if [ -n "${TRUNK_SIFRE:-}" ]; then
+  HOST=${TRUNK_HOST:-sip8.netsantral.com}; KUL=${TRUNK_KUL:-8503465993}; SIFRE=$TRUNK_SIFRE
+else
+  read -rp "SIP sunucusu [sip8.netsantral.com]: " HOST; HOST=${HOST:-sip8.netsantral.com}
+  read -rp "Trunk kullanıcı adı [8503465993]: " KUL; KUL=${KUL:-8503465993}
+  read -rsp "Trunk şifresi (ekranda görünmez): " SIFRE; echo
+fi
 [ -n "$SIFRE" ] || { echo "Şifre boş olamaz."; exit 1; }
 cp "$PJSIP" "$PJSIP.trunk-oncesi"
 sed -i '/^; ---- NETGSM TRUNK BASLANGIC ----$/,/^; ---- NETGSM TRUNK BITIS ----$/d' "$PJSIP"
