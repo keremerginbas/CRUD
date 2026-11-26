@@ -172,12 +172,14 @@ exten => s,1,Goto(gelen-ai,s,1)
 ; ses testi (ara.sh): söylediğinizi geri yankılar
 exten => test,1,Answer()
  same => n,Set(CHANNEL(hangup_handler_push)=kalite,s,1)
+ same => n,Set(DENOISE(rx)=on)
  same => n,Playback(demo-echotest)
  same => n,Echo()
  same => n,Hangup()
 
 [gelen-ai]
 exten => s,1,Set(CHANNEL(hangup_handler_push)=kalite,s,1)
+ same => n,Set(DENOISE(rx)=on)
  same => n,MixMonitor(/var/spool/asterisk/kayit/${STRFTIME(,,%Y%m%d-%H%M%S)}-gelen-${CALLERID(num)}.wav,r(/var/spool/asterisk/kayit/son-musteri.wav)t(/var/spool/asterisk/kayit/son-asistan.wav))
  same => n,Dial(PJSIP/${GELEN_NUMARA}@livekit,30)
  same => n,Hangup()
@@ -191,6 +193,7 @@ exten => _X.,1,NoOp(Yapay zekâ arıyor: ${EXTEN})
 
 [kalite-ekle]
 exten => s,1,Set(CHANNEL(hangup_handler_push)=kalite,s,1)
+ same => n,Set(DENOISE(rx)=on)
  same => n,Return()
 
 [kalite]

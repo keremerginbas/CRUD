@@ -18,6 +18,11 @@ if ! grep -q 'son-asistan.wav' "$E"; then
   sed -i 's#-gelen-${CALLERID(num)}.wav)#-gelen-${CALLERID(num)}.wav,r(/var/spool/asterisk/kayit/son-musteri.wav)t(/var/spool/asterisk/kayit/son-asistan.wav))#; s#-giden-${EXTEN}.wav)#-giden-${EXTEN}.wav,r(/var/spool/asterisk/kayit/son-asistan.wav)t(/var/spool/asterisk/kayit/son-musteri.wav))#' "$E"
   asterisk -rx "dialplan reload" >/dev/null && echo "Asterisk: ayrı ses kaydı açıldı."
 fi
+# Asterisk: müşteriden gelen seste gürültü azaltma (uğultu, trafik, rüzgâr)
+if ! grep -q 'DENOISE(rx)=on' "$E"; then
+  sed -i '/Set(CHANNEL(hangup_handler_push)=kalite,s,1)/a\ same => n,Set(DENOISE(rx)=on)' "$E"
+  asterisk -rx "dialplan reload" >/dev/null && echo "Asterisk: gürültü azaltma açıldı."
+fi
 # Deepgram'ın Avrupa sunucusu bu anahtarla çalışıyorsa onu kullan (Türkiye'den daha yakın)
 sed -i '/^DEEPGRAM_URL=/d' "$HEDEF/.env"
 DG=$(grep -E '^DEEPGRAM_API_KEY=' "$HEDEF/.env" | cut -d= -f2-)

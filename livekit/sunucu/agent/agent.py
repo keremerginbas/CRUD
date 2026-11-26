@@ -29,7 +29,12 @@ Görüşmeyi bitireceğin zaman kapanış/vedalaşma cümleni kendin SÖYLEME; e
 aracın kapanis_cumlesi alanına yaz. Sistem o cümleyi müşteriye seslendirir ve telefonu kapatır.
 Yalnızca görüşme gerçekten bittiğinde çağır: müşteri vedalaştığında ya da prompt görüşmeyi kapatmanı söylediğinde.
 Sorduğun bir soruya müşterinin cevabı anlamsızsa, konuyla ilgisizse ya da tek kelimelik belirsiz bir şeyse
-(telefonda ses yanlış anlaşılmış olabilir) görüşmeyi KAPATMA; "Pardon, tam duyamadım, tekrar eder misiniz?" de."""
+(telefonda ses yanlış anlaşılmış olabilir) görüşmeyi KAPATMA; "Pardon, tam duyamadım, tekrar eder misiniz?" de.
+
+# ARKA PLAN SESLERİ (teknik kural)
+Müşterinin yanında televizyon, radyo ya da başka insanlar konuşuyor olabilir ve bunlar sana müşterinin sözü gibi gelebilir.
+Konuşmayla ilgisi olmayan, sana hitap etmeyen, yarım ya da anlamsız cümlelere cevap verme ve konu değiştirme;
+kaldığın yerden devam et ya da son sorunu kısaca tekrarla."""
 
 
 ACILIS_NOTU = """
@@ -52,6 +57,12 @@ class Asistan(Agent):
 
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
         g = self._g
+        # Ses tanımanın emin olmadığı kısa sözler çoğunlukla arka plan sesidir (televizyon, yandaki kişi): yok say
+        guven = getattr(new_message, "transcript_confidence", None)
+        metin = (getattr(new_message, "text_content", "") or "").strip()
+        if guven is not None and guven < g.guven_esigi and len(metin.split()) <= 4:
+            log.info("düşük güvenli söz yok sayıldı (%.2f): %s", guven, metin)
+            raise StopResponse()
         if g.acilis_bekliyor and self._ilk and g.bekle_modu:
             g.acilis_soyle(self._ilk)
             raise StopResponse()
@@ -93,6 +104,7 @@ class Gorusme:
         self.acilis_bekliyor = False
         self.acilis_kesilebilir = True
         self.bekle_modu = False
+        self.guven_esigi = 0.45
         self.acilis_handle = None
         self.acilis_tekrar = 0
         self.gecikme: dict[str, list[float]] = {"soz_bitti": [], "yaziya_cevirme": [], "model": [], "ses": []}
@@ -292,13 +304,22 @@ class Gorusme:
             ),
             # Müşteri sustuktan sonra "sözü bitti" demek için beklenen süreler. Kısaltınca cevap hızlanır,
             # fazla kısaltınca müşteri cümle ortasında duraksadığında asistan araya girer.
-            vad=silero.VAD.load(min_silence_duration=float(a.get("sessizlik_esigi_sn", 0.3))),
+            # ses_esigi: bir sesin "konuşma" sayılması için gereken güven (0-1). Yükseltince arka plan sesleri
+            # (televizyon, trafik, uzaktaki konuşmalar) daha az algılanır; fazla yükseltince kısık konuşan müşteri kaçar.
+            vad=silero.VAD.load(
+                min_silence_duration=float(a.get("sessizlik_esigi_sn", 0.3)),
+                activation_threshold=float(a.get("ses_esigi", 0.65)),
+                min_speech_duration=float(a.get("en_kisa_konusma_sn", 0.12)),
+            ),
             min_endpointing_delay=float(a.get("soz_bitti_bekleme_sn", 0.3)),
             max_endpointing_delay=float(a.get("soz_bitti_azami_sn", 3.0)),
             user_away_timeout=float(a.get("sessizlik_sn", 20)),
-            # Müşteri konuşunca asistan susar ("alo" dahil). Açılış bu yüzden kesilirse Asistan sınıfı baştan söyler.
-            min_interruption_words=int(a.get("soz_kesme_en_az_kelime", 0)),
-            min_interruption_duration=float(a.get("soz_kesme_en_az_sn", 0.4)),
+            # Asistanın sözünü yalnızca gerçekten anlaşılan bir kelime keser ("alo" dahil); gürültü, öksürük, kapı sesi kesmez.
+            # Kesildikten sonra anlamlı bir söz gelmezse asistan kaldığı yerden devam eder.
+            min_interruption_words=int(a.get("soz_kesme_en_az_kelime", 1)),
+            min_interruption_duration=float(a.get("soz_kesme_en_az_sn", 0.5)),
+            resume_false_interruption=True,
+            false_interruption_timeout=float(a.get("yanlis_kesme_bekleme_sn", 1.2)),
         )
         self.session = session
 
@@ -349,6 +370,7 @@ class Gorusme:
         self.acilis_kesilebilir = bool(a.get("ilk_mesaj_kesilebilir", True))
         self.acilis_bekliyor = bool(ilk)
         self.bekle_modu = bekle
+        self.guven_esigi = float(a.get("soz_guven_esigi", 0.45))
         ajan = Asistan(gorusme=self, ilk_mesaj=ilk,
                        instructions=ortak.sablon_doldur(a.get("prompt", ""), d) + (ACILIS_NOTU.format(ilk=ilk) if ilk else "") + KAPATMA_NOTU,
                        tools=self.araclari_kur())
