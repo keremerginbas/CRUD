@@ -6,7 +6,7 @@ model: gpt-4.1
 ses_id: ""            # boşsa .env içindeki ELEVEN_VOICE_ID kullanılır
 ses_modeli: eleven_flash_v2_5
 ses_hizi: 1.0
-ilk_mesaj_modu: musteri_bekle  # asistan = açınca hemen konuşur · musteri_bekle = müşteri "alo" diyene kadar bekler
+ilk_mesaj_modu: asistan        # asistan = açınca hemen konuşur · musteri_bekle = müşteri "alo" diyene kadar bekler
 ilk_mesaj_kesilebilir: true
 ilk_mesaj: "Merhabalar, ben İksre Project'ten Selin. Ankara Ankaport AVM'de üç yüz yetmiş beş bin lira peşinatla hisse sahibi olmak ister misiniz?"
 sunucu_url: ""

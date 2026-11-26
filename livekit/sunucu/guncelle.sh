@@ -10,8 +10,14 @@ echo "== Son sürüm indiriliyor =="
 curl -sL https://github.com/keremerginbas/CRUD/archive/refs/heads/claude/tender-cori-xgh6nr.tar.gz | tar xz --strip-components=1 -C "$GECICI"
 K="$GECICI/livekit/sunucu"
 [ -f "$K/agent/agent.py" ] || { echo "İndirme başarısız."; exit 1; }
-rm -rf "$HEDEF/agent" && cp -r "$K/agent" "$K/docker-compose.yml" "$K/ai_ara.sh" "$K/guncelle.sh" "$HEDEF/"
+rm -rf "$HEDEF/agent" && cp -r "$K/agent" "$K/docker-compose.yml" "$K/ai_ara.sh" "$K/ses_analiz.sh" "$K/guncelle.sh" "$HEDEF/"
 cp "$K/asistanlar/test.yaml" "$HEDEF/asistanlar/test.yaml"   # yalnızca deneme asistanı yenilenir
+# Asterisk: asistanın ve müşterinin sesini ayrı ayrı da kaydet (ses_analiz.sh için)
+E=/etc/asterisk/extensions.conf
+if ! grep -q 'son-asistan.wav' "$E"; then
+  sed -i 's#-gelen-${CALLERID(num)}.wav)#-gelen-${CALLERID(num)}.wav,r(/var/spool/asterisk/kayit/son-musteri.wav)t(/var/spool/asterisk/kayit/son-asistan.wav))#; s#-giden-${EXTEN}.wav)#-giden-${EXTEN}.wav,r(/var/spool/asterisk/kayit/son-asistan.wav)t(/var/spool/asterisk/kayit/son-musteri.wav))#' "$E"
+  asterisk -rx "dialplan reload" >/dev/null && echo "Asterisk: ayrı ses kaydı açıldı."
+fi
 # Deepgram'ın Avrupa sunucusu bu anahtarla çalışıyorsa onu kullan (Türkiye'den daha yakın)
 sed -i '/^DEEPGRAM_URL=/d' "$HEDEF/.env"
 DG=$(grep -E '^DEEPGRAM_API_KEY=' "$HEDEF/.env" | cut -d= -f2-)

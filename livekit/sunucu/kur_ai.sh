@@ -76,7 +76,7 @@ cp -r "$BURASI/agent" "$BURASI/docker-compose.yml" "$HEDEF/"
 mkdir -p "$HEDEF/asistanlar"
 for f in "$BURASI"/asistanlar/*.yaml; do [ -f "$HEDEF/asistanlar/$(basename "$f")" ] || cp "$f" "$HEDEF/asistanlar/"; done   # düzenlenmiş asistanların üzerine yazılmaz
 [ -f "$HEDEF/numaralar.yaml" ] || cp "$BURASI/numaralar.yaml" "$HEDEF/"
-cp "$BURASI/ai_ara.sh" "$HEDEF/" 2>/dev/null || true
+cp "$BURASI/ai_ara.sh" "$BURASI/ses_analiz.sh" "$BURASI/guncelle.sh" "$HEDEF/" 2>/dev/null || true
 
 LK_KEY=$(eski LIVEKIT_API_KEY);    LK_KEY=${LK_KEY:-API$(openssl rand -hex 6)}
 LK_SECRET=$(eski LIVEKIT_API_SECRET); LK_SECRET=${LK_SECRET:-$(openssl rand -hex 24)}
@@ -178,14 +178,14 @@ exten => test,1,Answer()
 
 [gelen-ai]
 exten => s,1,Set(CHANNEL(hangup_handler_push)=kalite,s,1)
- same => n,MixMonitor(/var/spool/asterisk/kayit/${STRFTIME(,,%Y%m%d-%H%M%S)}-gelen-${CALLERID(num)}.wav)
+ same => n,MixMonitor(/var/spool/asterisk/kayit/${STRFTIME(,,%Y%m%d-%H%M%S)}-gelen-${CALLERID(num)}.wav,r(/var/spool/asterisk/kayit/son-musteri.wav)t(/var/spool/asterisk/kayit/son-asistan.wav))
  same => n,Dial(PJSIP/${GELEN_NUMARA}@livekit,30)
  same => n,Hangup()
 
 ; ---- Yapay zekânın başlattığı aramalar → NetGSM ----
 [livekit-giden]
 exten => _X.,1,NoOp(Yapay zekâ arıyor: ${EXTEN})
- same => n,MixMonitor(/var/spool/asterisk/kayit/${STRFTIME(,,%Y%m%d-%H%M%S)}-giden-${EXTEN}.wav)
+ same => n,MixMonitor(/var/spool/asterisk/kayit/${STRFTIME(,,%Y%m%d-%H%M%S)}-giden-${EXTEN}.wav,r(/var/spool/asterisk/kayit/son-asistan.wav)t(/var/spool/asterisk/kayit/son-musteri.wav))
  same => n,Dial(PJSIP/${EXTEN}@netgsm,45,b(kalite-ekle^s^1))
  same => n,Hangup(${HANGUPCAUSE})
 
