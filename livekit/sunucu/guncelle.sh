@@ -2,6 +2,9 @@
 # Yapay zekâ sunucusunu en son sürüme günceller. Anahtarlara, numaralara ve kendi asistanlarınıza dokunmaz.
 #   curl -sL https://raw.githubusercontent.com/keremerginbas/CRUD/claude/tender-cori-xgh6nr/livekit/sunucu/guncelle.sh | sudo bash
 set -euo pipefail
+# Betik çalışırken kendi dosyasını da yeniler. Bash dosyayı parça parça okuduğu için gövde tek blok içinde:
+# böylece tamamı baştan okunur, dosya değişse de yarıda bozulmaz.
+{
 [ "$(id -u)" -eq 0 ] || { echo "root olarak çalıştırın (sudo)."; exit 1; }
 HEDEF=/opt/xre-ai
 [ -f "$HEDEF/.env" ] || { echo "Önce kurulum (kur_ai.sh) yapılmalı."; exit 1; }
@@ -42,3 +45,5 @@ echo
 echo "Yönetim paneli: http://$LAN_IP:8080/panel"
 ILK=$(docker compose logs api 2>&1 | grep -o "PANEL İLK GİRİŞ.*" | tail -1 || true)
 [ -n "$ILK" ] && echo "$ILK" || echo "Şifrenizi unuttuysanız: sudo bash $HEDEF/panel_sifre.sh"
+exit 0
+}
