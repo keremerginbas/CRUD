@@ -4,6 +4,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 COPY *.py *.html ./
+COPY varlik ./varlik
 # Ses algılama (VAD) modelini imaja göm; çalışırken indirmesin
 RUN python agent.py download-files
 CMD ["python", "agent.py", "start"]

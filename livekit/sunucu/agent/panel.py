@@ -145,6 +145,79 @@ async def sayfa():
     return HTMLResponse(SAYFA.read_text(encoding="utf-8"), headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY"})
 
 
+VARLIKLAR = {"logo_beyaz.png", "logo_lacivert.png", "isaret_beyaz.png", "isaret_lacivert.png", "chart.umd.js"}  # chart.umd.js: Chart.js 4.4.1 (MIT)
+
+
+@router.get("/panel/varlik/{ad}")
+async def varlik(ad: str):
+    if ad not in VARLIKLAR:
+        raise HTTPException(404, "Bulunamadı")
+    return FileResponse(Path(__file__).with_name("varlik") / ad, media_type="text/javascript" if ad.endswith(".js") else "image/png", headers={"Cache-Control": "public, max-age=86400"})
+
+
+# Giriş ekranının arka plan videosu: yönetici panelden yükler, /ayar/veri altında durur.
+VIDEO_TURLERI = {"mp4": "video/mp4", "webm": "video/webm"}
+VIDEO_SINIRI = 40 * 1024 * 1024
+
+
+def _giris_videosu() -> Path | None:
+    for uz in VIDEO_TURLERI:
+        yol = ortak.AYAR_KLASORU / "veri" / f"giris_video.{uz}"
+        if yol.is_file():
+            return yol
+    return None
+
+
+@router.get("/panel/giris-video")
+async def giris_video():
+    yol = _giris_videosu()
+    if not yol:
+        raise HTTPException(404, "Video yok")
+    return FileResponse(yol, media_type=VIDEO_TURLERI[yol.suffix[1:]], headers={"Cache-Control": "no-cache"})
+
+
+@router.get("/panel/api/giris-video")
+async def giris_video_durum(_k: dict = Depends(yonetici)):
+    yol = _giris_videosu()
+    return {"var": bool(yol), "boyut": yol.stat().st_size if yol else 0}
+
+
+@router.post("/panel/api/giris-video")
+async def giris_video_yukle(request: Request, _k: dict = Depends(yonetici)):
+    klasor = ortak.AYAR_KLASORU / "veri"
+    klasor.mkdir(parents=True, exist_ok=True)
+    gecici = klasor / f"giris_video.{secrets.token_hex(4)}.yukleniyor"
+    boyut, bas = 0, b""
+    try:
+        with gecici.open("wb") as f:
+            async for parca in request.stream():
+                boyut += len(parca)
+                if boyut > VIDEO_SINIRI:
+                    raise HTTPException(413, "Video 40 MB'tan büyük olamaz. Daha kısa ya da daha düşük çözünürlüklü bir video yükleyin.")
+                if len(bas) < 12:
+                    bas += parca[: 12 - len(bas)]
+                f.write(parca)
+        if bas[4:8] == b"ftyp":
+            uz = "mp4"
+        elif bas[:4] == b"\x1a\x45\xdf\xa3":
+            uz = "webm"
+        else:
+            raise HTTPException(400, "Bu dosya MP4 ya da WebM video değil.")
+        for eski in VIDEO_TURLERI:
+            (klasor / f"giris_video.{eski}").unlink(missing_ok=True)
+        gecici.replace(klasor / f"giris_video.{uz}")
+    finally:
+        gecici.unlink(missing_ok=True)
+    return {"var": True, "boyut": boyut}
+
+
+@router.delete("/panel/api/giris-video")
+async def giris_video_sil(_k: dict = Depends(yonetici)):
+    for uz in VIDEO_TURLERI:
+        (ortak.AYAR_KLASORU / "veri" / f"giris_video.{uz}").unlink(missing_ok=True)
+    return {"var": False}
+
+
 @router.post("/panel/api/giris")
 async def giris(request: Request, response: Response):
     govde = await request.json()
@@ -370,6 +443,45 @@ async def arama_listesi(limit: int = 50, atla: int = 0, _k: dict = Depends(oturu
         return {"toplam": await r.zcard("cagrilar"), "aramalar": out}
     finally:
         await r.aclose()
+
+
+ULASILDI = {"customer-ended-call", "assistant-ended-call", "silence-timed-out", "exceeded-max-duration"}
+
+
+@router.get("/panel/api/ozet")
+async def ozet(gun: int = 14, _k: dict = Depends(oturum)):
+    """Genel bakış için günlük sayılar (Türkiye saatiyle) ve son `gun` günün sonuç dağılımı."""
+    from datetime import datetime, timedelta
+
+    gun = max(1, min(gun, 14))
+    simdi = datetime.now(ortak.TR)
+    bas = (simdi - timedelta(days=gun - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    gunler = {(bas + timedelta(days=i)).strftime("%Y-%m-%d"): {"toplam": 0, "ulasilan": 0, "randevu": 0, "konusma_sn": 0} for i in range(gun)}
+    sonuclar: dict[str, int] = {}
+    r = ortak.redis_baglan()
+    try:
+        idler = await r.zrangebyscore("cagrilar", bas.timestamp(), "+inf", withscores=True)
+        for cid, t in idler[-5000:]:
+            c = await ortak.cagri_oku(r, cid)
+            if not c or c.get("status") != "ended":
+                continue
+            g = gunler.get(datetime.fromtimestamp(t, ortak.TR).strftime("%Y-%m-%d"))
+            if g is None:
+                continue
+            g["toplam"] += 1
+            if c.get("endedReason") in ULASILDI and (c.get("durationSeconds") or 0) > 0:
+                g["ulasilan"] += 1
+                g["konusma_sn"] += c.get("durationSeconds") or 0
+                s_ = str((c.get("sonuc") or {}).get("sonuc") or "belirsiz")
+                sonuclar[s_] = sonuclar.get(s_, 0) + 1
+                if s_ == "randevu":
+                    g["randevu"] += 1
+            else:
+                ad = {"customer-did-not-answer": "açmadı", "customer-busy": "meşgul"}.get(c.get("endedReason"), "bağlanamadı")
+                sonuclar[ad] = sonuclar.get(ad, 0) + 1
+    finally:
+        await r.aclose()
+    return {"gunler": [{"gun": k, **v} for k, v in gunler.items()], "sonuclar": sonuclar}
 
 
 @router.get("/panel/api/aramalar/{cid}")
