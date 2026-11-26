@@ -91,6 +91,8 @@ async def arama_baslat(govde: dict):
         asistan = {**asistan, "ilk_mesaj": ov["firstMessage"]}
     if (ov.get("voice") or {}).get("voiceId"):  # Vapi'deki gibi: tek arama için ses değiştirme
         asistan = {**asistan, "ses_id": ov["voice"]["voiceId"]}
+    if (ov.get("model") or {}).get("model"):
+        asistan = {**asistan, "model": ov["model"]["model"]}
     cid = str(uuid.uuid4())
     cagri = {
         "id": cid, "type": "outboundPhoneCall", "status": "queued", "createdAt": ortak.simdi_iso(),

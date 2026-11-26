@@ -100,8 +100,17 @@ class Gorusme:
     def gecikme_ozeti(self) -> dict:
         """Ortalama gecikmeler (saniye). cevap ≈ müşteri sustuktan sonra asistanın sesi duyulana kadar geçen süre."""
         ort = {k: round(sum(v) / len(v), 2) for k, v in self.gecikme.items() if v}
-        if {"soz_bitti", "model", "ses"} <= ort.keys():
-            ort["cevap"] = round(ort["soz_bitti"] + ort["model"] + ort["ses"], 2)
+        # Gerçek cevap süresi: müşteri sustuktan asistanın sesi başlayana kadar (LiveKit'in kendi ölçümü)
+        e2e = []
+        if self.session:
+            for it in self.session.history.items:
+                v = (getattr(it, "metrics", None) or {}).get("e2e_latency") if getattr(it, "type", "") == "message" else None
+                if v:
+                    e2e.append(v)
+        if e2e:
+            ort["cevap"] = round(sum(e2e) / len(e2e), 2)
+            ort["cevap_en_uzun"] = round(max(e2e), 2)
+        ort["model_adi"] = self.asistan.get("model", "gpt-4.1")
         return ort
 
     def acilis_soyle(self, metin: str) -> None:
@@ -268,7 +277,7 @@ class Gorusme:
         d = self.degiskenler
         session = AgentSession(
             stt=deepgram.STT(
-                model=a.get("stt_model", "nova-3"), language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 150)),
+                model=a.get("stt_model", "nova-3"), language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 100)),
                 **({"base_url": os.environ["DEEPGRAM_URL"]} if os.environ.get("DEEPGRAM_URL") else {}),  # Avrupa sunucusu: daha kısa yol
             ),
             llm=openai.LLM(model=a.get("model", "gpt-4.1"), temperature=float(a.get("sicaklik", 0.4))),
@@ -281,8 +290,10 @@ class Gorusme:
                     stability=float(a.get("ses_kararlilik", 0.5)), similarity_boost=float(a.get("ses_benzerlik", 0.75)), speed=float(a.get("ses_hizi", 1.0))
                 ),
             ),
-            vad=silero.VAD.load(),
-            min_endpointing_delay=float(a.get("soz_bitti_bekleme_sn", 0.5)),
+            # Müşteri sustuktan sonra "sözü bitti" demek için beklenen süreler. Kısaltınca cevap hızlanır,
+            # fazla kısaltınca müşteri cümle ortasında duraksadığında asistan araya girer.
+            vad=silero.VAD.load(min_silence_duration=float(a.get("sessizlik_esigi_sn", 0.3))),
+            min_endpointing_delay=float(a.get("soz_bitti_bekleme_sn", 0.3)),
             max_endpointing_delay=float(a.get("soz_bitti_azami_sn", 3.0)),
             user_away_timeout=float(a.get("sessizlik_sn", 20)),
             # Müşteri konuşunca asistan susar ("alo" dahil). Açılış bu yüzden kesilirse Asistan sınıfı baştan söyler.

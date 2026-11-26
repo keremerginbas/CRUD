@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Yapay zekâ deneme araması: verilen numarayı arar, görüşme bitince sonucu gösterir.
-# Kullanım: sudo bash ai_ara.sh 05XXXXXXXXX [ses-id]
+# Kullanım: sudo bash ai_ara.sh 05XXXXXXXXX [ses-id] [model]
+#   model verilirse yalnızca bu arama o modelle yapılır, ör:  sudo bash ai_ara.sh 05XXXXXXXXX "" gpt-4.1
 #   ses-id verilirse yalnızca bu arama o ElevenLabs sesiyle yapılır (sesleri karşılaştırmak için).
 #   Başka asistan/numara için:  ASISTAN=motto HAT=motto-7116 sudo -E bash ai_ara.sh 05XXXXXXXXX
 set -euo pipefail
@@ -9,7 +10,9 @@ NUMARA=${1:?Kullanım: sudo bash ai_ara.sh 05XXXXXXXXX [ses-id]}
 SES=${2:-}
 ASISTAN=${ASISTAN:-test}
 HAT=${HAT:-}
+MODEL=${3:-}
 SES_JSON=""; [ -n "$SES" ] && SES_JSON=",\"voice\":{\"voiceId\":\"$SES\"}"
+[ -n "$MODEL" ] && SES_JSON="$SES_JSON,\"model\":{\"model\":\"$MODEL\"}"
 ANAHTAR=$(grep -E '^API_ANAHTARI=' "$HEDEF/.env" | cut -d= -f2-)
 API=http://127.0.0.1:8080
 BASLA=$(date -u +%Y-%m-%dT%H:%M:%S)
@@ -58,9 +61,9 @@ for satir in sys.stdin:
     elif m.startswith("GECIKME: "):
         g = json.loads(m[9:])
         if g:
-            print("\nGecikmeler (ortalama, saniye): cevap süresi ≈", g.get("cevap", "?"),
-                  "| söz bitti algısı", g.get("soz_bitti", "?"), "| yazıya çevirme", g.get("yaziya_cevirme", "?"),
-                  "| model", g.get("model", "?"), "| seslendirme", g.get("ses", "?"))
+            print("\nCevap süresi (müşteri sustu → asistanın sesi başladı): ortalama", g.get("cevap", "?"), "sn · en uzun", g.get("cevap_en_uzun", "?"), "sn")
+            print("  parçalar: söz bitti algısı", g.get("soz_bitti", "?"), "| yazıya çevirme", g.get("yaziya_cevirme", "?"),
+                  "| model (" + str(g.get("model_adi", "?")) + ")", g.get("model", "?"), "| seslendirme", g.get("ses", "?"))
     elif k.get("level") in ("ERROR", "WARNING") and not any(x in m for x in ("data channel", "deprecated", "failed to send session event", "unknown FFI handle")):
         print("[" + k["level"] + "]", m.split("\n")[0][:300])
 '
