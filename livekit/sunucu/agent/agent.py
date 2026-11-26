@@ -51,9 +51,27 @@ class Asistan(Agent):
         self._ilk = ilk_mesaj
 
     async def on_user_turn_completed(self, turn_ctx, new_message) -> None:
-        if self._g.acilis_bekliyor and self._ilk:
-            self._g.acilis_soyle(self._ilk)
+        g = self._g
+        if g.acilis_bekliyor and self._ilk and g.bekle_modu:
+            g.acilis_soyle(self._ilk)
             raise StopResponse()
+        # Açılış cümlesi müşterinin "alo / efendim" demesiyle kesildiyse: sus, dinle, sonra açılışı baştan söyle
+        h = g.acilis_handle
+        if h is not None and h.interrupted and g.acilis_tekrar < 2 and _selamlama(getattr(new_message, "text_content", "") or ""):
+            g.acilis_tekrar += 1
+            g.acilis_handle = g.session.say(self._ilk, allow_interruptions=g.acilis_kesilebilir)
+            raise StopResponse()
+        g.acilis_handle = None  # müşteri gerçek bir şey söyledi; bundan sonrası modelin işi
+
+
+_SELAM = {"alo", "efendim", "buyurun", "buyrun", "buyur", "evet", "merhaba", "merhabalar", "selam", "tamam", "dinliyorum",
+          "söyleyin", "soyleyin", "hı", "hıhı", "he", "pardon", "ne", "nasıl", "anlamadım", "duyamadım", "kimsiniz", "kim", "o"}
+
+
+def _selamlama(metin: str) -> bool:
+    """Kısa, içeriksiz karşılama mı? ("Alo", "Efendim?", "Alo buyurun" ...)"""
+    k = [w for w in "".join(c if c.isalpha() or c.isspace() else " " for c in metin.lower().replace("I", "ı")).split() if w]
+    return 0 < len(k) <= 3 and all(w in _SELAM for w in k)
 
 
 class Gorusme:
@@ -74,6 +92,9 @@ class Gorusme:
         self.rapor_gitti = False
         self.acilis_bekliyor = False
         self.acilis_kesilebilir = True
+        self.bekle_modu = False
+        self.acilis_handle = None
+        self.acilis_tekrar = 0
         self.gecikme: dict[str, list[float]] = {"soz_bitti": [], "yaziya_cevirme": [], "model": [], "ses": []}
 
     def gecikme_ozeti(self) -> dict:
@@ -87,7 +108,7 @@ class Gorusme:
         if not self.acilis_bekliyor or not self.session:
             return
         self.acilis_bekliyor = False
-        self.session.say(metin, allow_interruptions=self.acilis_kesilebilir)
+        self.acilis_handle = self.session.say(metin, allow_interruptions=self.acilis_kesilebilir)
 
     # ---------- Vapi biçimli "call" nesnesi ----------
     def call_nesnesi(self) -> dict:
@@ -264,9 +285,9 @@ class Gorusme:
             min_endpointing_delay=float(a.get("soz_bitti_bekleme_sn", 0.5)),
             max_endpointing_delay=float(a.get("soz_bitti_azami_sn", 3.0)),
             user_away_timeout=float(a.get("sessizlik_sn", 20)),
-            # Müşterinin tek kelimelik "alo / efendim / evet / hı hı" demesi asistanın sözünü kesmesin
-            min_interruption_words=int(a.get("soz_kesme_en_az_kelime", 2)),
-            min_interruption_duration=float(a.get("soz_kesme_en_az_sn", 0.6)),
+            # Müşteri konuşunca asistan susar ("alo" dahil). Açılış bu yüzden kesilirse Asistan sınıfı baştan söyler.
+            min_interruption_words=int(a.get("soz_kesme_en_az_kelime", 0)),
+            min_interruption_duration=float(a.get("soz_kesme_en_az_sn", 0.4)),
         )
         self.session = session
 
@@ -316,7 +337,8 @@ class Gorusme:
         bekle = a.get("ilk_mesaj_modu", "asistan") == "musteri_bekle"
         self.acilis_kesilebilir = bool(a.get("ilk_mesaj_kesilebilir", True))
         self.acilis_bekliyor = bool(ilk)
-        ajan = Asistan(gorusme=self, ilk_mesaj=ilk if bekle else "",
+        self.bekle_modu = bekle
+        ajan = Asistan(gorusme=self, ilk_mesaj=ilk,
                        instructions=ortak.sablon_doldur(a.get("prompt", ""), d) + (ACILIS_NOTU.format(ilk=ilk) if ilk else "") + KAPATMA_NOTU,
                        tools=self.araclari_kur())
         await session.start(
