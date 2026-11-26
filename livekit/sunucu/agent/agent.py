@@ -6,7 +6,6 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
 import time
 import uuid
 
@@ -420,7 +419,7 @@ class Gorusme:
         self.bekle_modu = bekle
         self.guven_esigi = float(a.get("soz_guven_esigi", 0.45))
         ajan = Asistan(gorusme=self, ilk_mesaj=ilk,
-                       instructions=ortak.sablon_doldur(a.get("prompt", ""), d) + (ACILIS_NOTU.format(ilk=ilk) if ilk else "") + KAPATMA_NOTU,
+                       instructions=ortak.sablon_doldur(a.get("prompt", ""), d) + (ACILIS_NOTU.format(ilk=ilk) if ilk else "") + ortak.tarih_notu() + KAPATMA_NOTU,
                        tools=self.araclari_kur())
         await session.start(
             ajan, room=ctx.room,
@@ -458,8 +457,7 @@ class Gorusme:
         istek = (
             "Aşağıda bir satış asistanı (AI) ile müşteri (User) arasındaki telefon görüşmesinin dökümü var.\n"
             f"{an.get('ozet_talimati', 'Görüşmeyi Türkçe iki-dört cümleyle özetle.')}\n"
-            f"Görüşmenin yapıldığı an (Türkiye saati): {datetime.now(ortak.TR).strftime('%Y-%m-%d %H:%M, %A')}. "
-            "\"Bugün\", \"yarın\", \"haftaya\" gibi ifadeleri bu tarihe göre hesapla; tarih alanlarını +03:00 ile yaz.\n"
+            f"Görüşme şu tarihte yapıldı; tarih alanlarını buna göre doldur ve +03:00 ile yaz.{ortak.tarih_notu()}"
             "Yalnızca şu biçimde JSON döndür: {\"summary\": \"...\", \"structuredData\": {...}}\n"
             f"structuredData şu JSON şemasına uymalı (şema boşsa boş nesne döndür):\n{json.dumps(sema, ensure_ascii=False)}\n"
             f"{an.get('talimat', '')}\n\nDÖKÜM:\n{transkript}"

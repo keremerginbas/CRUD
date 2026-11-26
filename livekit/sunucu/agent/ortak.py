@@ -20,6 +20,26 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 TR = ZoneInfo("Europe/Istanbul")
 
 
+GUNLER = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
+AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
+
+
+def tarih_notu(simdi: datetime | None = None) -> str:
+    """Asistanın bugünün tarihini, gününü ve saatini bilmesi için metne eklenen bölüm (Türkiye saati).
+    Önümüzdeki günler tek tek yazılır; model gün hesabı yapmak zorunda kalmaz, yanlış güne randevu vermez."""
+    from datetime import timedelta
+
+    s = simdi or datetime.now(TR)
+    yaz = lambda g: f"{g.day} {AYLAR[g.month - 1]} {g.year} {GUNLER[g.weekday()]}"  # noqa: E731
+    ad = {0: "Bugün", 1: "Yarın", 2: "Öbür gün"}
+    satirlar = [f"{ad.get(i, str(i) + ' gün sonra')}: {yaz(s + timedelta(days=i))} ({(s + timedelta(days=i)).strftime('%Y-%m-%d')})" for i in range(8)]
+    return ("\n\nTARİH VE SAAT\n"
+            f"Şu an Türkiye saatiyle {yaz(s)}, saat {s.strftime('%H:%M')}.\n"
+            + "\n".join(satirlar) + "\n"
+            "\"Bugün\", \"yarın\", \"haftaya salı\", \"cumartesi\" gibi ifadeleri bu takvime göre anla. Tarih ya da gün söylerken bu takvimi kullan, "
+            "geçmiş bir tarihe randevu verme. Araç çağırırken, aracın açıklaması başka bir biçim istemiyorsa tarihleri YYYY-MM-DD, saatleri SS:DD biçiminde gönder; saat dilimi +03:00.\n")
+
+
 def simdi_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
