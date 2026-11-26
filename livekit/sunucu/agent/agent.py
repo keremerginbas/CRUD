@@ -32,6 +32,15 @@ Sorduğun bir soruya müşterinin cevabı anlamsızsa, konuyla ilgisizse ya da t
 (telefonda ses yanlış anlaşılmış olabilir) görüşmeyi KAPATMA; "Pardon, tam duyamadım, tekrar eder misiniz?" de."""
 
 
+ACILIS_NOTU = """
+
+# AÇILIŞ CÜMLESİ (teknik kural)
+Açılış cümlen görüşmenin başında sistem tarafından söylenir: "{ilk}"
+Konuşma geçmişinde bu cümle TAM görünüyorsa tekrar etme, müşterinin cevabına göre devam et.
+Yarıda kesilmiş görünüyorsa (müşteri araya girdiyse) müşteri teklifi duymamıştır: söylediğine çok kısa cevap ver,
+sonra açılış cümlesindeki teklifi baştan, eksiksiz söyle. Teklifi duymamış müşteriye isim ya da başka soru sorma."""
+
+
 class Asistan(Agent):
     """ilk_mesaj_modu = musteri_bekle ise: müşterinin ilk sözünden ("alo") sonra açılış cümlesini
     modele sormadan, olduğu gibi söyler."""
@@ -255,6 +264,9 @@ class Gorusme:
             min_endpointing_delay=float(a.get("soz_bitti_bekleme_sn", 0.5)),
             max_endpointing_delay=float(a.get("soz_bitti_azami_sn", 3.0)),
             user_away_timeout=float(a.get("sessizlik_sn", 20)),
+            # Müşterinin tek kelimelik "alo / efendim / evet / hı hı" demesi asistanın sözünü kesmesin
+            min_interruption_words=int(a.get("soz_kesme_en_az_kelime", 2)),
+            min_interruption_duration=float(a.get("soz_kesme_en_az_sn", 0.6)),
         )
         self.session = session
 
@@ -305,7 +317,8 @@ class Gorusme:
         self.acilis_kesilebilir = bool(a.get("ilk_mesaj_kesilebilir", True))
         self.acilis_bekliyor = bool(ilk)
         ajan = Asistan(gorusme=self, ilk_mesaj=ilk if bekle else "",
-                       instructions=ortak.sablon_doldur(a.get("prompt", ""), d) + KAPATMA_NOTU, tools=self.araclari_kur())
+                       instructions=ortak.sablon_doldur(a.get("prompt", ""), d) + (ACILIS_NOTU.format(ilk=ilk) if ilk else "") + KAPATMA_NOTU,
+                       tools=self.araclari_kur())
         await session.start(
             ajan, room=ctx.room,
             room_options=room_io.RoomOptions(participant_identity=katilimci.identity, close_on_disconnect=True),
