@@ -1,0 +1,9 @@
+# Arayan numaralar. n8n'deki "phoneNumberId" buradaki id ya da vapi_id ile eşleşir.
+#   on_ek         : NetSantral "Giden Çağrı" ekranındaki ön ek (boşsa dahilinin kendi numarasından arar)
+#   gelen_asistan : bu numara arandığında açacak asistanın id'si
+numaralar:
+  - id: test-113
+    ad: Test dahilisi (113)
+    numara: "+905337437144"
+    on_ek: ""
+    gelen_asistan: test

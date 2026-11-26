@@ -1,0 +1,54 @@
+# XRE yapay zekâ arama sunucusu. Hepsi makinenin kendi ağında (host) çalışır.
+#   redis    : çağrı kayıtları ve LiveKit eşgüdümü
+#   livekit  : ses odaları
+#   sip      : telefon ↔ oda köprüsü (Asterisk ile yerelde konuşur; dışarıya açık değil)
+#   ajan     : yapay zekâ (Deepgram + OpenAI + ElevenLabs)
+#   api      : n8n'in arama başlattığı adres (8080)
+services:
+  redis:
+    image: redis:7-alpine
+    network_mode: host
+    restart: unless-stopped
+    command: ["redis-server", "--bind", "127.0.0.1", "--save", "60", "1", "--appendonly", "no"]
+    volumes: ["redis-veri:/data"]
+
+  livekit:
+    image: livekit/livekit-server:v1.13
+    network_mode: host
+    restart: unless-stopped
+    command: ["--config", "/livekit.yaml"]
+    volumes: ["./livekit.yaml:/livekit.yaml:ro"]
+    depends_on: [redis]
+
+  sip:
+    image: livekit/sip:v1.26.0
+    network_mode: host
+    restart: unless-stopped
+    volumes: ["./sip.yaml:/sip/config.yaml:ro"]
+    depends_on: [livekit]
+
+  ajan:
+    build: ./agent
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      LIVEKIT_URL: ws://127.0.0.1:7880
+      AYAR_KLASORU: /ayar
+    volumes: ["./asistanlar:/ayar/asistanlar:ro", "./numaralar.yaml:/ayar/numaralar.yaml:ro"]
+    depends_on: [livekit]
+
+  api:
+    build: ./agent
+    network_mode: host
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      LIVEKIT_URL: http://127.0.0.1:7880
+      AYAR_KLASORU: /ayar
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080"]
+    volumes: ["./asistanlar:/ayar/asistanlar:ro", "./numaralar.yaml:/ayar/numaralar.yaml:ro"]
+    depends_on: [livekit]
+
+volumes:
+  redis-veri:
