@@ -14,7 +14,7 @@ from google.protobuf.duration_pb2 import Duration
 from livekit import api, rtc
 from livekit.agents import Agent, AgentSession, JobContext, RunContext, StopResponse, WorkerOptions, cli, function_tool, room_io
 from livekit.agents.voice.events import CloseEvent, CloseReason
-from livekit.plugins import deepgram, elevenlabs, openai, silero
+from livekit.plugins import deepgram, elevenlabs, openai, silero, soniox
 
 import ortak
 
@@ -247,6 +247,7 @@ class Gorusme:
                     sip_call_to=self.meta["aranacak"],
                     participant_identity=MUSTERI,
                     participant_name=self.meta.get("customer", {}).get("name") or "Müşteri",
+                    headers={"X-Cagri-Id": self.id},  # Asterisk ses kaydını bu kimlikle adlandırır (panelde dinlemek için)
                     wait_until_answered=True,
                     ringing_timeout=Duration(seconds=int(self.asistan.get("calma_suresi_sn", 40))),
                 ),
@@ -303,11 +304,18 @@ class Gorusme:
 
         a = self.asistan
         d = self.degiskenler
-        session = AgentSession(
-            stt=deepgram.STT(
-                model=a.get("stt_model", "nova-3"), language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 100)),
+        if a.get("stt_saglayici") == "soniox" and os.environ.get("SONIOX_API_KEY"):
+            ses_tanima = soniox.STT(params=soniox.STTOptions(
+                model=a.get("stt_model") if str(a.get("stt_model", "")).startswith("stt-") else "stt-rt-v5",
+                language_hints=[a.get("dil", "tr")], enable_language_identification=False))
+        else:
+            ses_tanima = deepgram.STT(
+                model=a.get("stt_model") if not str(a.get("stt_model", "")).startswith("stt-") and a.get("stt_model") else "nova-3",
+                language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 100)),
                 **({"base_url": os.environ["DEEPGRAM_URL"]} if os.environ.get("DEEPGRAM_URL") else {}),  # Avrupa sunucusu: daha kısa yol
-            ),
+            )
+        session = AgentSession(
+            stt=ses_tanima,
             # prompt_cache_key: aynı asistanın uzun prompt'u OpenAI'da önbellekten okunur, cevap daha çabuk başlar
             llm=openai.LLM(model=a.get("model", "gpt-4.1"), temperature=float(a.get("sicaklik", 0.4)),
                            prompt_cache_key=f"xre-{a.get('id', 'asistan')}"),
@@ -467,7 +475,9 @@ class Gorusme:
             "startedAt": call["startedAt"], "endedAt": call["endedAt"], "durationSeconds": sure, "cost": 0,
         }}
         log.info("GECIKME: %s", json.dumps(self.gecikme_ozeti()))
-        await self.durum("ended", endedReason=neden, endedAt=ortak.simdi_iso(), durationSeconds=sure)
+        await self.durum("ended", endedReason=neden, endedAt=ortak.simdi_iso(), durationSeconds=sure, asistanAdi=self.asistan.get("ad"),
+                         customer=call["customer"], phoneNumber=call["phoneNumber"],
+                         mesajlar=mesajlar, ozet=analiz["summary"], sonuc=analiz["structuredData"], gecikme=self.gecikme_ozeti())
         url = self.asistan.get("sunucu_url")
         log.info("görüşme bitti id=%s neden=%s süre=%ss rapor=%s", self.id, neden, sure, url or "(URL yok)")
         if not url:

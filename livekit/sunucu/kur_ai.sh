@@ -73,14 +73,17 @@ fi
 # ---------- 2) Dosyalar ve gizli anahtarlar ----------
 echo "== Dosyalar $HEDEF klasörüne kuruluyor =="
 cp -r "$BURASI/agent" "$BURASI/docker-compose.yml" "$HEDEF/"
-mkdir -p "$HEDEF/asistanlar"
+mkdir -p "$HEDEF/asistanlar" "$HEDEF/veri" && chmod 700 "$HEDEF/veri"
 for f in "$BURASI"/asistanlar/*.yaml; do [ -f "$HEDEF/asistanlar/$(basename "$f")" ] || cp "$f" "$HEDEF/asistanlar/"; done   # düzenlenmiş asistanların üzerine yazılmaz
 [ -f "$HEDEF/numaralar.yaml" ] || cp "$BURASI/numaralar.yaml" "$HEDEF/"
-cp "$BURASI/ai_ara.sh" "$BURASI/ses_analiz.sh" "$BURASI/guncelle.sh" "$HEDEF/" 2>/dev/null || true
+cp "$BURASI/ai_ara.sh" "$BURASI/ses_analiz.sh" "$BURASI/guncelle.sh" "$BURASI/panel_sifre.sh" "$BURASI/disaridan_erisim.sh" "$HEDEF/" 2>/dev/null || true
+rm -rf "$HEDEF/asterisk" && cp -r "$BURASI/asterisk" "$HEDEF/"
 
 LK_KEY=$(eski LIVEKIT_API_KEY);    LK_KEY=${LK_KEY:-API$(openssl rand -hex 6)}
 LK_SECRET=$(eski LIVEKIT_API_SECRET); LK_SECRET=${LK_SECRET:-$(openssl rand -hex 24)}
 API_ANAHTARI=$(eski API_ANAHTARI); API_ANAHTARI=${API_ANAHTARI:-xre_$(openssl rand -hex 20)}
+PANEL_GIZLI=$(eski PANEL_GIZLI); PANEL_GIZLI=${PANEL_GIZLI:-$(openssl rand -hex 32)}
+DEEPGRAM_URL_SATIRI=$(grep -E '^(DEEPGRAM_URL|SONIOX_API_KEY|TUNNEL_TOKEN)=' "$ENV" 2>/dev/null || true)
 umask 077
 cat > "$ENV" <<EOF
 LIVEKIT_API_KEY=$LK_KEY
@@ -93,6 +96,8 @@ ELEVEN_VOICE_ID=$ELEVEN_VOICE_ID
 ASTERISK_ADRES=127.0.0.1:$AST_PORT
 ASTERISK_IPLERI=127.0.0.1,$LAN_IP
 VARSAYILAN_GELEN_ASISTAN=test
+PANEL_GIZLI=$PANEL_GIZLI
+$DEEPGRAM_URL_SATIRI
 EOF
 cat > "$HEDEF/livekit.yaml" <<EOF
 port: 7880
@@ -156,51 +161,7 @@ fi
 GELEN_NUMARA=$(awk -F'"' '/numara:/{print $2; exit}' "$HEDEF/numaralar.yaml")
 mkdir -p /var/spool/asterisk/kayit /var/spool/asterisk/test && chown asterisk:asterisk /var/spool/asterisk/kayit /var/spool/asterisk/test
 cp -n /etc/asterisk/extensions.conf /etc/asterisk/extensions.conf.ai-oncesi || true
-cat > /etc/asterisk/extensions.conf <<'EOF'
-[general]
-static=yes
-writeprotect=yes
-
-[globals]
-GELEN_NUMARA=__GELEN_NUMARA__
-
-; ---- NetGSM'den gelen aramalar → yapay zekâ ----
-[gelen]
-exten => _X.,1,Goto(gelen-ai,s,1)
-exten => _+X.,1,Goto(gelen-ai,s,1)
-exten => s,1,Goto(gelen-ai,s,1)
-; ses testi (ara.sh): söylediğinizi geri yankılar
-exten => test,1,Answer()
- same => n,Set(CHANNEL(hangup_handler_push)=kalite,s,1)
- same => n,Set(DENOISE(rx)=on)
- same => n,Playback(demo-echotest)
- same => n,Echo()
- same => n,Hangup()
-
-[gelen-ai]
-exten => s,1,Set(CHANNEL(hangup_handler_push)=kalite,s,1)
- same => n,Set(DENOISE(rx)=on)
- same => n,MixMonitor(/var/spool/asterisk/kayit/${STRFTIME(,,%Y%m%d-%H%M%S)}-gelen-${CALLERID(num)}.wav,r(/var/spool/asterisk/kayit/son-musteri.wav)t(/var/spool/asterisk/kayit/son-asistan.wav))
- same => n,Dial(PJSIP/${GELEN_NUMARA}@livekit,30)
- same => n,Hangup()
-
-; ---- Yapay zekânın başlattığı aramalar → NetGSM ----
-[livekit-giden]
-exten => _X.,1,NoOp(Yapay zekâ arıyor: ${EXTEN})
- same => n,MixMonitor(/var/spool/asterisk/kayit/${STRFTIME(,,%Y%m%d-%H%M%S)}-giden-${EXTEN}.wav,r(/var/spool/asterisk/kayit/son-asistan.wav)t(/var/spool/asterisk/kayit/son-musteri.wav))
- same => n,Dial(PJSIP/${EXTEN}@netgsm,45,b(kalite-ekle^s^1))
- same => n,Hangup(${HANGUPCAUSE})
-
-[kalite-ekle]
-exten => s,1,Set(CHANNEL(hangup_handler_push)=kalite,s,1)
- same => n,Set(DENOISE(rx)=on)
- same => n,Return()
-
-[kalite]
-exten => s,1,System(echo "${STRFTIME(,,%F %T)}|${CALLERID(num)}${CHANNEL(pjsip,target_uri)}|${CDR(billsec)}|${CHANNEL(rtcp,all)}" >> /var/log/asterisk/ses_kalitesi.log)
- same => n,Return()
-EOF
-sed -i "s|__GELEN_NUMARA__|$GELEN_NUMARA|" /etc/asterisk/extensions.conf
+sed "s|__GELEN_NUMARA__|$GELEN_NUMARA|" "$BURASI/asterisk/extensions.conf" > /etc/asterisk/extensions.conf
 systemctl restart asterisk
 
 # ---------- 4) Güvenlik duvarı ve Docker ----------
@@ -221,4 +182,7 @@ echo
 echo "KURULUM BİTTİ."
 echo "  Deneme araması (yapay zekâ sizi arar):   sudo bash $HEDEF/ai_ara.sh 05XXXXXXXXX"
 echo "  n8n için API adresi:  http://$LAN_IP:8080     anahtar: sudo grep API_ANAHTARI $ENV"
-echo "  Asistan metinleri:    $HEDEF/asistanlar/      (düzenleyince yeniden başlatmak gerekmez)"
+echo "  Yönetim paneli:       http://$LAN_IP:8080/panel"
+ILK=$(docker compose logs api 2>&1 | grep -o "PANEL İLK GİRİŞ.*" | tail -1 || true)
+[ -n "$ILK" ] && echo "  $ILK"
+echo "  Panel şifresini sıfırlamak için:  sudo bash $HEDEF/panel_sifre.sh"

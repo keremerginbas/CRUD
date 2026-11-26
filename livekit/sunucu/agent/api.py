@@ -14,6 +14,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from livekit import api
 
 import ortak
+import panel
 
 LK_URL = os.environ.get("LIVEKIT_URL", "http://127.0.0.1:7880")
 API_ANAHTARI = os.environ["API_ANAHTARI"]
@@ -54,10 +55,14 @@ async def yasam(_app: FastAPI):
         except Exception as e:  # livekit henüz açılmamış olabilir
             print(f"LiveKit bekleniyor ({i + 1}/30): {e}", flush=True)
             time.sleep(2)
+    sifre = panel.ilk_yonetici()
+    if sifre:
+        print(f"PANEL İLK GİRİŞ → kullanıcı: yonetici  şifre: {sifre}  (girişten sonra değiştirin)", flush=True)
     yield
 
 
-app = FastAPI(title="XRE Arama API", lifespan=yasam)
+app = FastAPI(title="XRE Arama API", lifespan=yasam, docs_url=None, redoc_url=None, openapi_url=None)
+app.include_router(panel.router)
 
 
 def yetki(authorization: str = Header(default="")) -> None:
@@ -72,6 +77,14 @@ def disari(c: dict) -> dict:
 @app.get("/saglik")
 async def saglik():
     return {"durum": "ok"}
+
+
+@app.post("/panel/api/dene", status_code=201)
+async def panelden_dene(govde: dict, _k: dict = Depends(panel.oturum)):
+    """Panelin "Dene" düğmesi: seçilen asistanı verilen numaraya aratır."""
+    return await arama_baslat({"assistantId": govde.get("asistan"), "phoneNumberId": govde.get("hat") or "",
+                               "customer": {"number": govde.get("numara"), "name": govde.get("ad") or ""},
+                               "assistantOverrides": {"variableValues": govde.get("degiskenler") or {}}})
 
 
 @app.post("/call", dependencies=[Depends(yetki)], status_code=201)
@@ -99,7 +112,7 @@ async def arama_baslat(govde: dict):
         "assistantId": govde.get("assistantId"), "phoneNumberId": govde.get("phoneNumberId") or hat.get("vapi_id") or hat.get("id"),
         "customer": {"number": numara, **({"name": musteri["name"]} if musteri.get("name") else {})},
         "phoneNumber": {"number": ortak.e164(hat.get("numara"))},
-        "metadata": govde.get("metadata") or {}, "name": govde.get("name"),
+        "metadata": govde.get("metadata") or {}, "name": govde.get("name"), "asistanAdi": asistan.get("ad"),
     }
     await ortak.cagri_yaz(r, cagri)
     meta = {**cagri, "asistan": asistan, "variableValues": ov.get("variableValues") or {},

@@ -46,9 +46,24 @@ services:
     environment:
       LIVEKIT_URL: http://127.0.0.1:7880
       AYAR_KLASORU: /ayar
-    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080"]
-    volumes: ["./asistanlar:/ayar/asistanlar:ro", "./numaralar.yaml:/ayar/numaralar.yaml:ro"]
+      KAYIT_KLASORU: /kayit
+    command: ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8080", "--proxy-headers", "--forwarded-allow-ips", "127.0.0.1"]
+    volumes:
+      - ./asistanlar:/ayar/asistanlar
+      - ./numaralar.yaml:/ayar/numaralar.yaml
+      - ./veri:/ayar/veri
+      - /var/spool/asterisk/kayit:/kayit:ro
     depends_on: [livekit]
+
+  # Yalnızca disaridan_erisim.sh çalıştırılınca başlar: paneli Cloudflare üzerinden https ile dışarıya açar
+  tunel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunel"]
+    network_mode: host
+    restart: unless-stopped
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
 
 volumes:
   redis-veri:

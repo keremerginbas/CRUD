@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XRE Arama Paneli</title>
+<style>
+:root{--bg:#f6f7f9;--kart:#fff;--cizgi:#e3e6eb;--yazi:#17202b;--soluk:#647084;--ana:#0f766e;--ana-yazi:#fff;--ana-soluk:#e6f4f2;--kirmizi:#b42318;--sari:#b54708;--yesil:#067647;--golge:0 1px 2px rgba(16,24,40,.06)}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1318;--kart:#171c23;--cizgi:#2a323d;--yazi:#e8ecf1;--soluk:#93a0b3;--ana:#2dd4bf;--ana-yazi:#04211e;--ana-soluk:#12302d;--kirmizi:#f97066;--sari:#fdb022;--yesil:#47cd89;--golge:none}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--yazi);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+h1{font-size:20px;margin:0}h2{font-size:15px;margin:0 0 12px;letter-spacing:.01em}
+.gizli{display:none!important}
+.dugme{border:1px solid var(--cizgi);background:var(--kart);border-radius:8px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.dugme:hover{border-color:var(--soluk)}
+.dugme.ana{background:var(--ana);border-color:var(--ana);color:var(--ana-yazi);font-weight:600}
+.dugme.tehlike{color:var(--kirmizi)}
+.dugme:disabled{opacity:.5;cursor:default}
+.dugme:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:2px solid var(--ana);outline-offset:2px}
+input[type=text],input[type=password],input[type=number],input[type=tel],select,textarea{width:100%;border:1px solid var(--cizgi);background:var(--kart);border-radius:8px;padding:8px 10px}
+textarea{resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13.5px;line-height:1.55}
+label{display:block;font-weight:600;font-size:13.5px;margin-bottom:4px}
+.aciklama{color:var(--soluk);font-size:13px;margin:2px 0 6px}
+.alan{margin-bottom:16px}
+/* giriş */
+#giris{min-height:100vh;display:grid;place-items:center;padding:16px}
+#giris form{width:100%;max-width:360px;background:var(--kart);border:1px solid var(--cizgi);border-radius:14px;padding:28px;box-shadow:var(--golge)}
+#giris h1{margin-bottom:4px}#giris p{color:var(--soluk);margin:0 0 20px}
+.hata{color:var(--kirmizi);font-size:13.5px;min-height:20px;margin-top:8px}
+/* iskelet */
+#uygulama{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+nav{background:var(--kart);border-right:1px solid var(--cizgi);padding:18px 12px;display:flex;flex-direction:column;gap:4px;position:sticky;top:0;height:100vh}
+nav .marka{font-weight:700;padding:4px 10px 14px;font-size:16px}
+nav a{display:block;padding:9px 10px;border-radius:8px;color:var(--yazi);text-decoration:none;cursor:pointer}
+nav a:hover{background:var(--bg)}nav a.secili{background:var(--ana-soluk);color:var(--ana);font-weight:600}
+nav .alt{margin-top:auto;font-size:13px;color:var(--soluk);padding:10px}
+main{padding:24px 28px 80px;min-width:0}
+.baslik{display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.baslik .bosluk{flex:1}
+.kart{background:var(--kart);border:1px solid var(--cizgi);border-radius:12px;padding:18px;margin-bottom:16px;box-shadow:var(--golge)}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12.5px;color:var(--soluk);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--cizgi);white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--cizgi);vertical-align:top}
+tr.tikla{cursor:pointer}tr.tikla:hover td{background:var(--bg)}
+.tablo-kutu{overflow-x:auto}
+.etiket{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12.5px;background:var(--bg);border:1px solid var(--cizgi);white-space:nowrap}
+.etiket.iyi{color:var(--yesil)}.etiket.kotu{color:var(--kirmizi)}.etiket.orta{color:var(--sari)}
+.izgara{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 20px}
+.kaydirici{display:grid;grid-template-columns:1fr 84px;gap:10px;align-items:center}
+.kaydirici input[type=range]{width:100%;accent-color:var(--ana)}
+.kaydet-cubugu{position:sticky;bottom:0;background:var(--kart);border:1px solid var(--cizgi);border-radius:12px;padding:12px 16px;display:flex;gap:10px;align-items:center;box-shadow:0 -4px 16px rgba(0,0,0,.08)}
+.kaydet-cubugu .durum{flex:1;color:var(--soluk);font-size:13.5px}
+.balon{max-width:78%;padding:9px 12px;border-radius:12px;margin:6px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.balon.ai{background:var(--ana-soluk)}.balon.user{background:var(--bg);border:1px solid var(--cizgi);margin-left:auto}
+.kim{font-size:12px;color:var(--soluk);margin-top:10px}.kim.sag{text-align:right}
+audio{width:100%;margin-top:6px}
+.satir{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.satir>*{flex:1;min-width:150px}.satir>.dar{flex:0 0 auto;min-width:0}
+@media (max-width:760px){#uygulama{grid-template-columns:1fr;grid-template-rows:auto 1fr}nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center;padding:10px 12px;border-right:0;border-bottom:1px solid var(--cizgi)}nav a{padding:7px 10px}nav .marka,nav .alt{display:none}main{padding:16px}}
+</style>
+</head>
+<body>
+<section id="giris" class="gizli">
+  <form id="giris-form">
+    <h1>XRE Arama Paneli</h1><p>Devam etmek için giriş yapın.</p>
+    <div class="alan"><label for="g-ad">Kullanıcı adı</label><input id="g-ad" type="text" autocomplete="username" required></div>
+    <div class="alan"><label for="g-sifre">Şifre</label><input id="g-sifre" type="password" autocomplete="current-password" required></div>
+    <button class="dugme ana" style="width:100%">Giriş yap</button>
+    <div class="hata" id="g-hata" role="alert"></div>
+  </form>
+</section>
+
+<div id="uygulama" class="gizli">
+  <nav>
+    <div class="marka">XRE Arama</div>
+    <a data-sayfa="asistanlar">Asistanlar</a>
+    <a data-sayfa="aramalar">Aramalar</a>
+    <a data-sayfa="numaralar">Numaralar</a>
+    <a data-sayfa="kullanicilar" id="nav-kullanicilar">Kullanıcılar</a>
+    <a data-sayfa="hesabim">Hesabım</a>
+    <div class="alt"><span id="kim"></span><br><a id="cikis" style="padding:0;display:inline;color:var(--soluk);text-decoration:underline">Çıkış yap</a></div>
+  </nav>
+  <main id="icerik"></main>
+</div>
+
+<script>
+"use strict";
+const $ = (s, k = document) => k.querySelector(s);
+const el = (ad, oz = {}, ...cocuk) => { const e = document.createElement(ad); for (const [k, v] of Object.entries(oz)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } for (const c of cocuk.flat()) if (c != null) e.append(c.nodeType ? c : document.createTextNode(c)); return e; };
+let BEN = null;
+
+async function api(yol, secenek = {}) {
+  const y = await fetch("/panel/api/" + yol, { credentials: "same-origin", ...secenek,
+    headers: { "Content-Type": "application/json", "X-Panel": "1", ...(secenek.headers || {}) },
+    body: secenek.body !== undefined ? JSON.stringify(secenek.body) : undefined });
+  if (y.status === 401 && yol !== "giris") { girisGoster(); throw new Error("Oturum kapandı"); }
+  const veri = await y.json().catch(() => ({}));
+  if (!y.ok) throw new Error(veri.detail || "İşlem başarısız (" + y.status + ")");
+  return veri;
+}
+function girisGoster() { $("#uygulama").classList.add("gizli"); $("#giris").classList.remove("gizli"); $("#g-ad").focus(); }
+$("#giris-form").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("#g-hata").textContent = "";
+  try { await api("giris", { method: "POST", body: { kullanici: $("#g-ad").value, sifre: $("#g-sifre").value } }); $("#g-sifre").value = ""; baslat(); }
+  catch (h) { $("#g-hata").textContent = h.message; }
+});
+$("#cikis").addEventListener("click", async () => { await api("cikis", { method: "POST" }).catch(() => {}); girisGoster(); });
+document.querySelectorAll("nav a[data-sayfa]").forEach((a) => a.addEventListener("click", () => { location.hash = a.dataset.sayfa; }));
+window.addEventListener("hashchange", yonlendir);
+
+async function baslat() {
+  try { BEN = await api("ben"); } catch { return; }
+  $("#giris").classList.add("gizli"); $("#uygulama").classList.remove("gizli");
+  $("#kim").textContent = BEN.ad + (BEN.rol === "yonetici" ? " · yönetici" : "");
+  $("#nav-kullanicilar").classList.toggle("gizli", BEN.rol !== "yonetici");
+  yonlendir();
+}
+function yonlendir() {
+  const [sayfa, arg] = (location.hash.slice(1) || "asistanlar").split("/");
+  document.querySelectorAll("nav a[data-sayfa]").forEach((a) => a.classList.toggle("secili", a.dataset.sayfa === sayfa));
+  const s = { asistanlar: arg ? () => asistanDuzenle(arg) : asistanlar, aramalar: arg ? () => aramaDetay(arg) : aramalar, numaralar, kullanicilar, hesabim }[sayfa] || asistanlar;
+  const ic = $("#icerik"); ic.replaceChildren(el("p", { class: "aciklama" }, "Yükleniyor…"));
+  s().catch((h) => ic.replaceChildren(el("div", { class: "kart hata" }, h.message)));
+}
+const baslik = (metin, ...sag) => el("div", { class: "baslik" }, el("h1", {}, metin), el("div", { class: "bosluk" }), ...sag);
+const tarih = (iso) => iso ? new Date(iso).toLocaleString("tr-TR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "-";
+const sure = (sn) => sn ? (sn >= 60 ? Math.floor(sn / 60) + " dk " + Math.round(sn % 60) + " sn" : Math.round(sn) + " sn") : "-";
+const NEDEN = { "customer-ended-call": ["Müşteri kapattı", ""], "assistant-ended-call": ["Asistan kapattı", ""], "customer-did-not-answer": ["Açmadı", "orta"], "customer-busy": ["Meşgul", "orta"], "silence-timed-out": ["Sessizlik", "orta"], "exceeded-max-duration": ["Süre doldu", "orta"] };
+function nedenEtiketi(c) {
+  if (c.status !== "ended") return el("span", { class: "etiket iyi" }, { queued: "Sırada", ringing: "Çalıyor", "in-progress": "Görüşmede" }[c.status] || c.status);
+  const n = NEDEN[c.endedReason]; return el("span", { class: "etiket " + (n ? n[1] : "kotu") }, n ? n[0] : (c.endedReason || "Bitti"));
+}
+
+/* ---------- Asistanlar ---------- */
+async function asistanlar() {
+  const liste = await api("asistanlar");
+  const govde = el("tbody", {}, liste.map((a) => el("tr", { class: "tikla", tabindex: 0, onclick: () => (location.hash = "asistanlar/" + a.id), onkeydown: (e) => e.key === "Enter" && (location.hash = "asistanlar/" + a.id) },
+    el("td", {}, el("strong", {}, a.ad || a.id), el("div", { class: "aciklama" }, a.id)), el("td", {}, a.model || "gpt-4.1"),
+    el("td", {}, a.ilk_mesaj_modu === "musteri_bekle" ? "Müşteriyi bekler" : "Hemen konuşur"),
+    el("td", {}, a.sunucu_url ? el("span", { class: "etiket iyi" }, "n8n bağlı") : el("span", { class: "etiket orta" }, "Deneme")))));
+  $("#icerik").replaceChildren(baslik("Asistanlar", el("button", { class: "dugme ana", onclick: yeniAsistan }, "Yeni asistan")),
+    el("div", { class: "kart tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Asistan", "Model", "Açılış", "Sonuç bildirimi"].map((b) => el("th", {}, b)))), govde),
+      liste.length ? null : el("p", { class: "aciklama" }, "Henüz asistan yok.")));
+}
+async function yeniAsistan() {
+  const id = (prompt("Yeni asistanın kimliği (küçük harf, rakam, tire). Örnek: motto-outbound") || "").trim().toLowerCase();
+  if (!id) return;
+  try {
+    await api("asistanlar/" + id, { method: "PUT", body: { ad: id, model: "gpt-4.1-mini", ilk_mesaj_modu: "asistan", ilk_mesaj_kesilebilir: true, ilk_mesaj: "Merhabalar.", prompt: "Sen ... asistanısın." } });
+    location.hash = "asistanlar/" + id;
+  } catch (h) { alert(h.message); }
+}
+const ALANLAR = [
+  ["Genel", [
+    ["ad", "Asistanın adı", "metin", "Listede görünen ad. n8n akışı asistanı bu adla da bulabilir."],
+    ["vapi_id", "Vapi kimliği (isteğe bağlı)", "metin", "n8n akışlarında yazılı eski Vapi assistantId. Girerseniz akışları değiştirmeden çalışır."],
+  ]],
+  ["Açılış", [
+    ["ilk_mesaj", "İlk mesaj", "alan3", "Telefon açılınca söylenen cümle. {{musteri_adi}} gibi değişkenler kullanılabilir."],
+    ["ilk_mesaj_modu", "Ne zaman söylesin", "secim", "", [["asistan", "Telefon açılır açılmaz"], ["musteri_bekle", "Müşteri “alo” deyince"]]],
+    ["ilk_mesaj_kesilebilir", "Müşteri araya girince sussun", "onay", "Kapalıysa açılış cümlesi kesintisiz söylenir."],
+    ["alo_bekleme_sn", "“Alo” gelmezse kaç saniye sonra başlasın", "kay", "Yalnızca “müşteri alo deyince” modunda.", [0.5, 15, 0.5, 3.5]],
+  ]],
+  ["Asistan metni (prompt)", [["prompt", "Asistanın görevi ve konuşma kuralları", "alan22", "Görüşmeyi kapatma, açılışı tekrar etmeme ve arka plan sesleri kuralları sistem tarafından otomatik eklenir."]]],
+  ["Model", [
+    ["model", "Dil modeli", "liste", "Küçük model daha hızlı cevap verir, büyük model kuralları daha titiz izler.", ["gpt-4.1-mini", "gpt-4.1", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini"]],
+    ["sicaklik", "Yaratıcılık", "kay", "Düşük = metne sadık, yüksek = daha serbest.", [0, 1.2, 0.1, 0.4]],
+  ]],
+  ["Ses (ElevenLabs)", [
+    ["ses_id", "Ses kimliği", "metin", "Boş bırakılırsa sunucudaki varsayılan ses kullanılır."],
+    ["ses_modeli", "Ses modeli", "liste", "flash en hızlısı; turbo ve multilingual daha doğal ama daha yavaş.", ["eleven_flash_v2_5", "eleven_turbo_v2_5", "eleven_multilingual_v2"]],
+    ["ses_hizi", "Konuşma hızı", "kay", "", [0.7, 1.2, 0.05, 1.0]],
+    ["ses_kararlilik", "Kararlılık", "kay", "Yüksek = daha düz ve tutarlı, düşük = daha duygulu.", [0, 1, 0.05, 0.5]],
+    ["ses_benzerlik", "Benzerlik", "kay", "", [0, 1, 0.05, 0.75]],
+  ]],
+  ["Ses tanıma", [
+    ["stt_saglayici", "Sağlayıcı", "secim", "Soniox için sunucuda Soniox anahtarı tanımlı olmalı; yoksa Deepgram kullanılır.", [["deepgram", "Deepgram"], ["soniox", "Soniox"]]],
+    ["dil", "Dil", "liste", "", ["tr", "en"]],
+    ["soz_guven_esigi", "Emin olunmayan kısa sözleri yok say", "kay", "Bu güvenin altındaki kısa sözler arka plan sesi sayılır. 0 = kapalı.", [0, 0.9, 0.05, 0.45]],
+  ]],
+  ["Söz sırası: asistan ne zaman konuşsun", [
+    ["sessizlik_esigi_sn", "Müşteri sustuktan sonra bekleme", "kay", "Kısa = hızlı cevap; fazla kısa olursa cümle ortasındaki duraksamada araya girer.", [0.1, 1.5, 0.05, 0.3]],
+    ["soz_bitti_bekleme_sn", "Söz bitti sayılması için en az süre", "kay", "", [0, 2, 0.05, 0.3]],
+    ["soz_bitti_azami_sn", "En fazla bekleme", "kay", "", [0.5, 6, 0.1, 3]],
+    ["on_seslendirme", "Cevabı önceden hazırla", "onay", "Müşteri susar susmaz cevap hazırlanır; daha hızlı ama biraz daha fazla seslendirme harcar."],
+  ]],
+  ["Söz kesme: asistan ne zaman sussun", [
+    ["soz_kesme_en_az_kelime", "Kaç kelimeden sonra sussun", "kay", "0 = her seste susar (gürültüye duyarlı), 1 = anlaşılan ilk kelimede.", [0, 5, 1, 1]],
+    ["soz_kesme_en_az_sn", "En az konuşma süresi", "kay", "", [0, 2, 0.1, 0.5]],
+    ["yanlis_kesme_bekleme_sn", "Boşuna durduysa kaç saniye sonra devam etsin", "kay", "", [0.3, 5, 0.1, 1.2]],
+    ["ses_esigi", "Arka plan sesi filtresi", "kay", "Yüksek = arka plan sesleri daha az algılanır; fazla yüksek olursa kısık konuşan müşteri duyulmaz.", [0.3, 0.9, 0.05, 0.65]],
+  ]],
+  ["Görüşme sınırları", [
+    ["calma_suresi_sn", "Telefon kaç saniye çalsın", "kay", "", [10, 90, 5, 40]],
+    ["sessizlik_sn", "Sessizlikte kapatma", "kay", "İki taraf da bu kadar saniye susarsa görüşme kapanır.", [5, 120, 5, 20]],
+    ["azami_sure_sn", "En uzun görüşme", "kay", "", [30, 1800, 30, 420]],
+  ]],
+  ["n8n bağlantısı", [["sunucu_url", "Sunucu adresi (webhook)", "metin", "Görüşme sonucu ve araç çağrıları buraya gönderilir. Boşsa asistan deneme modunda çalışır, hiçbir yere bildirim gitmez."]]],
+];
+async function asistanDuzenle(id) {
+  const a = await api("asistanlar/" + id);
+  const deger = {};
+  const kutu = (k, etiket, tur, aciklama, ek) => {
+    const kimlik = "a-" + k; let giris;
+    const mevcut = a[k];
+    if (tur === "metin") giris = el("input", { id: kimlik, type: "text", value: mevcut ?? "" });
+    else if (tur.startsWith("alan")) { giris = el("textarea", { id: kimlik, rows: tur.slice(4), spellcheck: "false" }); giris.value = mevcut ?? ""; }
+    else if (tur === "secim") { giris = el("select", { id: kimlik }, ek.map(([v, t]) => el("option", { value: v }, t))); giris.value = mevcut ?? ek[0][0]; }
+    else if (tur === "liste") { const dl = el("datalist", { id: kimlik + "-l" }, ek.map((v) => el("option", { value: v }))); giris = el("input", { id: kimlik, type: "text", list: kimlik + "-l", value: mevcut ?? ek[0] }); deger[k] = () => giris.value.trim(); return el("div", { class: "alan" }, el("label", { for: kimlik }, etiket), aciklama ? el("div", { class: "aciklama" }, aciklama) : null, giris, dl); }
+    else if (tur === "onay") { giris = el("input", { id: kimlik, type: "checkbox" }); giris.checked = mevcut ?? true; deger[k] = () => giris.checked; return el("div", { class: "alan" }, el("label", { for: kimlik, style: "display:flex;gap:8px;align-items:center;font-weight:600" }, giris, etiket), aciklama ? el("div", { class: "aciklama" }, aciklama) : null); }
+    else if (tur === "kay") {
+      const [alt, ust, adim, vars] = ek; const v = mevcut ?? vars;
+      const r = el("input", { type: "range", min: alt, max: ust, step: adim, value: v, "aria-label": etiket }); const n = el("input", { id: kimlik, type: "number", min: alt, max: ust, step: adim, value: v });
+      r.addEventListener("input", () => (n.value = r.value)); n.addEventListener("input", () => (r.value = n.value));
+      deger[k] = () => (n.value === "" ? null : Number(n.value));
+      return el("div", { class: "alan" }, el("label", { for: kimlik }, etiket), aciklama ? el("div", { class: "aciklama" }, aciklama) : null, el("div", { class: "kaydirici" }, r, n));
+    }
+    deger[k] = () => giris.value;
+    return el("div", { class: "alan" }, el("label", { for: kimlik }, etiket), aciklama ? el("div", { class: "aciklama" }, aciklama) : null, giris);
+  };
+  const bolumler = ALANLAR.map(([ad, alanlar]) => el("div", { class: "kart" }, el("h2", {}, ad), el("div", { class: alanlar.length > 1 && !alanlar.some((x) => x[2].startsWith("alan")) ? "izgara" : "" }, alanlar.map((x) => kutu(...x)))));
+  const araclar = el("textarea", { id: "a-araclar", rows: 10, spellcheck: "false" }); araclar.value = JSON.stringify(a.araclar || [], null, 2);
+  const analiz = el("textarea", { id: "a-analiz", rows: 10, spellcheck: "false" }); analiz.value = JSON.stringify(a.analiz || {}, null, 2);
+  const durum = el("span", { class: "durum" }, "");
+  const kaydet = async () => {
+    durum.textContent = "Kaydediliyor…";
+    try {
+      const govde = { ...a }; for (const [k, f] of Object.entries(deger)) govde[k] = f();
+      try { govde.araclar = JSON.parse(araclar.value || "[]"); govde.analiz = JSON.parse(analiz.value || "{}"); } catch { throw new Error("Araçlar ya da analiz alanındaki JSON hatalı"); }
+      await api("asistanlar/" + id, { method: "PUT", body: govde });
+      durum.textContent = "Kaydedildi · " + new Date().toLocaleTimeString("tr-TR") + " · Sonraki aramadan itibaren geçerli.";
+    } catch (h) { durum.textContent = ""; alert(h.message); }
+  };
+  const numara = el("input", { type: "tel", placeholder: "05XX XXX XX XX", "aria-label": "Aranacak numara" });
+  const deneSonuc = el("div", { class: "aciklama" });
+  const dene = async () => {
+    deneSonuc.textContent = "Arama başlatılıyor…";
+    try { const c = await api("dene", { method: "POST", body: { asistan: id, numara: numara.value } }); deneSonuc.replaceChildren("Arama başlatıldı. ", el("a", { href: "#aramalar/" + c.id }, "Sonucu gör")); }
+    catch (h) { deneSonuc.textContent = h.message; }
+  };
+  $("#icerik").replaceChildren(
+    baslik(a.ad || id, el("button", { class: "dugme", onclick: async () => { const y = (prompt("Kopyanın kimliği:", id + "-kopya") || "").trim().toLowerCase(); if (!y) return; try { await api("asistanlar/" + id + "/kopyala", { method: "POST", body: { id: y } }); location.hash = "asistanlar/" + y; } catch (h) { alert(h.message); } } }, "Kopyala"),
+      BEN.rol === "yonetici" ? el("button", { class: "dugme tehlike", onclick: async () => { if (!confirm("“" + (a.ad || id) + "” asistanı silinsin mi?")) return; try { await api("asistanlar/" + id, { method: "DELETE" }); location.hash = "asistanlar"; } catch (h) { alert(h.message); } } }, "Sil") : null),
+    el("div", { class: "kart" }, el("h2", {}, "Dene"), el("div", { class: "aciklama" }, "Kaydettikten sonra asistanı bir numaraya aratın."), el("div", { class: "satir" }, numara, el("button", { class: "dugme dar", onclick: dene }, "Ara")), deneSonuc),
+    ...bolumler,
+    el("div", { class: "kart" }, el("h2", {}, "Araçlar"), el("div", { class: "aciklama" }, "Asistanın görüşme sırasında çağırabildiği işlemler (ör. randevu_olustur). Görüşmeyi kapatma aracı hazır gelir. Her araç: ad, aciklama, parametreler (JSON şeması), isteğe bağlı url."), araclar),
+    el("div", { class: "kart" }, el("h2", {}, "Görüşme sonu analizi"), el("div", { class: "aciklama" }, "Görüşme bitince çıkarılan özet ve alanlar. yapilandirilmis: n8n'e gönderilen structuredData şeması."), analiz),
+    el("div", { class: "kaydet-cubugu" }, durum, el("button", { class: "dugme", onclick: () => (location.hash = "asistanlar") }, "Listeye dön"), el("button", { class: "dugme ana", onclick: kaydet }, "Kaydet")));
+}
+
+/* ---------- Aramalar ---------- */
+async function aramalar() {
+  const v = await api("aramalar?limit=100");
+  const govde = el("tbody", {}, v.aramalar.map((c) => el("tr", { class: "tikla", tabindex: 0, onclick: () => (location.hash = "aramalar/" + c.id), onkeydown: (e) => e.key === "Enter" && (location.hash = "aramalar/" + c.id) },
+    el("td", {}, tarih(c.createdAt)), el("td", {}, c.type === "inboundPhoneCall" ? "Gelen" : "Giden"), el("td", {}, (c.customer && c.customer.number) || "-", c.customer && c.customer.name ? el("div", { class: "aciklama" }, c.customer.name) : null),
+    el("td", {}, c.asistanAdi || c.assistantId || "-"), el("td", {}, nedenEtiketi(c)), el("td", {}, sure(c.durationSeconds)),
+    el("td", {}, c.sonuc && c.sonuc.sonuc ? el("span", { class: "etiket" }, c.sonuc.sonuc) : ""))));
+  $("#icerik").replaceChildren(baslik("Aramalar", el("span", { class: "aciklama" }, "Toplam " + v.toplam + " · son 14 gün"), el("button", { class: "dugme", onclick: yonlendir }, "Yenile")),
+    el("div", { class: "kart tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Zaman", "Yön", "Müşteri", "Asistan", "Durum", "Süre", "Sonuç"].map((b) => el("th", {}, b)))), govde), v.aramalar.length ? null : el("p", { class: "aciklama" }, "Henüz arama yok.")));
+}
+async function aramaDetay(id) {
+  const c = await api("aramalar/" + id);
+  const g = c.gecikme || {};
+  const konusma = (c.mesajlar || []).flatMap((m) => [el("div", { class: "kim" + (m.role === "user" ? " sag" : "") }, m.role === "user" ? "Müşteri" : "Asistan"), el("div", { class: "balon " + (m.role === "user" ? "user" : "ai") }, m.message)]);
+  $("#icerik").replaceChildren(
+    baslik((c.customer && c.customer.number) || "Arama", nedenEtiketi(c), el("button", { class: "dugme", onclick: () => (location.hash = "aramalar") }, "Listeye dön")),
+    el("div", { class: "kart izgara" }, ...[["Zaman", tarih(c.createdAt)], ["Yön", c.type === "inboundPhoneCall" ? "Gelen" : "Giden"], ["Asistan", c.asistanAdi || c.assistantId || "-"], ["Arayan numara", (c.phoneNumber && c.phoneNumber.number) || "-"], ["Süre", sure(c.durationSeconds)], ["Bitiş nedeni", c.endedReason || "-"]].map(([k, d]) => el("div", { class: "alan" }, el("label", {}, k), el("div", {}, d)))),
+    el("div", { class: "kart" }, el("h2", {}, "Özet"), el("p", { style: "margin:0 0 8px" }, c.ozet || "—"), c.sonuc && Object.keys(c.sonuc).length ? el("pre", { style: "margin:0;white-space:pre-wrap;font-size:13px" }, JSON.stringify(c.sonuc, null, 2)) : null),
+    el("div", { class: "kart" }, el("h2", {}, "Ses kaydı"), c.kayitVar ? el("audio", { controls: true, preload: "none", src: "/panel/api/aramalar/" + id + "/kayit" }) : el("p", { class: "aciklama", style: "margin:0" }, "Bu aramanın ses kaydı yok.")),
+    el("div", { class: "kart" }, el("h2", {}, "Konuşma"), konusma.length ? konusma : el("p", { class: "aciklama", style: "margin:0" }, "Konuşma yok.")),
+    g.turlar && g.turlar.length ? el("div", { class: "kart tablo-kutu" }, el("h2", {}, "Cevap süreleri"), el("div", { class: "aciklama" }, "Müşteri sustuktan asistanın sesi başlayana kadar geçen süre. Ortalama " + (g.cevap ?? "?") + " sn · en uzun " + (g.cevap_en_uzun ?? "?") + " sn · model " + (g.model_adi || "?")),
+      el("table", {}, el("thead", {}, el("tr", {}, ["Cevap", "Toplam", "Söz bitti", "Model", "Ses", "Asistanın sözü"].map((b) => el("th", {}, b)))),
+        el("tbody", {}, g.turlar.map((t, i) => el("tr", {}, el("td", {}, i + 1), el("td", {}, el("strong", {}, (t.cevap ?? "-") + " sn")), el("td", {}, t.soz_bitti ?? "-"), el("td", {}, t.model_ilk ?? "-"), el("td", {}, t.ses ?? "-"), el("td", {}, t.metin || "")))))) : null);
+}
+
+/* ---------- Numaralar ---------- */
+async function numaralar() {
+  const [liste, asist] = await Promise.all([api("numaralar"), api("asistanlar")]);
+  const yonetici = BEN.rol === "yonetici";
+  const govde = el("tbody");
+  const satir = (n = {}) => {
+    const g = (k, ph) => el("input", { type: "text", value: n[k] ?? "", placeholder: ph || "", "data-k": k, "aria-label": k, disabled: !yonetici });
+    const s = el("select", { "data-k": "gelen_asistan", "aria-label": "Gelen arama asistanı", disabled: !yonetici }, el("option", { value: "" }, "—"), asist.map((a) => el("option", { value: a.id }, a.ad || a.id))); s.value = n.gelen_asistan || "";
+    const tr = el("tr", {}, el("td", {}, g("id", "motto-7116")), el("td", {}, g("ad", "Motto")), el("td", {}, g("numara", "+90533…")), el("td", {}, g("on_ek", "77")), el("td", {}, g("vapi_id")), el("td", {}, s),
+      el("td", {}, yonetici ? el("button", { class: "dugme tehlike", onclick: () => tr.remove() }, "Kaldır") : null));
+    return tr;
+  };
+  liste.forEach((n) => govde.append(satir(n)));
+  const kaydet = async () => {
+    const veri = [...govde.children].map((tr) => Object.fromEntries([...tr.querySelectorAll("[data-k]")].map((i) => [i.dataset.k, i.value.trim()])));
+    try { await api("numaralar", { method: "PUT", body: veri }); alert("Kaydedildi."); yonlendir(); } catch (h) { alert(h.message); }
+  };
+  $("#icerik").replaceChildren(baslik("Numaralar", yonetici ? el("button", { class: "dugme", onclick: () => govde.append(satir()) }, "Numara ekle") : null, yonetici ? el("button", { class: "dugme ana", onclick: kaydet }, "Kaydet") : null),
+    el("div", { class: "kart" }, el("div", { class: "aciklama" }, "Ön ek: NetSantral “Giden Çağrı” ekranındaki ön ek; arama o numaradan çıkar. Vapi kimliği: n8n akışlarında yazılı eski phoneNumberId. Gelen asistan: numara geri arandığında açan asistan."),
+      el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Kimlik", "Ad", "Numara", "Ön ek", "Vapi kimliği", "Gelen asistan", ""].map((b) => el("th", {}, b)))), govde))));
+}
+
+/* ---------- Kullanıcılar / Hesabım ---------- */
+async function kullanicilar() {
+  const liste = await api("kullanicilar");
+  const ad = el("input", { type: "text", placeholder: "kullanıcı adı", "aria-label": "Kullanıcı adı" }), sifre = el("input", { type: "password", placeholder: "şifre (en az 10 karakter)", "aria-label": "Şifre", autocomplete: "new-password" });
+  const rol = el("select", { "aria-label": "Rol" }, el("option", { value: "kullanici" }, "Kullanıcı"), el("option", { value: "yonetici" }, "Yönetici"));
+  const ekle = async () => { try { await api("kullanicilar", { method: "POST", body: { ad: ad.value, sifre: sifre.value, rol: rol.value } }); yonlendir(); } catch (h) { alert(h.message); } };
+  $("#icerik").replaceChildren(baslik("Kullanıcılar"),
+    el("div", { class: "kart tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Kullanıcı", "Rol", ""].map((b) => el("th", {}, b)))), el("tbody", {}, liste.map((u) => el("tr", {}, el("td", {}, u.ad), el("td", {}, u.rol === "yonetici" ? "Yönetici" : "Kullanıcı"),
+      el("td", {}, u.ad === BEN.ad ? "" : el("button", { class: "dugme tehlike", onclick: async () => { if (confirm(u.ad + " silinsin mi?")) { await api("kullanicilar/" + u.ad, { method: "DELETE" }); yonlendir(); } } }, "Sil"))))))),
+    el("div", { class: "kart" }, el("h2", {}, "Kullanıcı ekle ya da şifresini değiştir"), el("div", { class: "aciklama" }, "Kullanıcı: asistanları düzenler, aramaları görür. Yönetici: ayrıca numaraları ve kullanıcıları yönetir, asistan siler."), el("div", { class: "satir" }, ad, sifre, rol, el("button", { class: "dugme ana dar", onclick: ekle }, "Kaydet"))));
+}
+async function hesabim() {
+  const eski = el("input", { id: "h-eski", type: "password", autocomplete: "current-password" }), yeni = el("input", { id: "h-yeni", type: "password", autocomplete: "new-password" });
+  const degistir = async () => { try { await api("sifrem", { method: "POST", body: { eski: eski.value, yeni: yeni.value } }); alert("Şifreniz değişti."); eski.value = yeni.value = ""; } catch (h) { alert(h.message); } };
+  $("#icerik").replaceChildren(baslik("Hesabım"), el("div", { class: "kart", style: "max-width:420px" }, el("h2", {}, "Şifre değiştir"),
+    el("div", { class: "alan" }, el("label", { for: "h-eski" }, "Mevcut şifre"), eski), el("div", { class: "alan" }, el("label", { for: "h-yeni" }, "Yeni şifre (en az 10 karakter)"), yeni), el("button", { class: "dugme ana", onclick: degistir }, "Değiştir")));
+}
+baslat();
+</script>
+</body>
+</html>
