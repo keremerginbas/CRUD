@@ -383,6 +383,67 @@ async def asistan_getir(aid: str, _k: dict = Depends(oturum)):
     return a
 
 
+@router.get("/panel/api/asistanlar-disari")
+async def asistanlari_indir(_k: dict = Depends(yonetici)):
+    """Bütün asistanları tek zip dosyası olarak verir (toplu düzenleme ve yedek için)."""
+    import io
+    import zipfile
+
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted((ortak.AYAR_KLASORU / "asistanlar").glob("*.yaml")):
+            z.write(f, f.name)
+    ad = f"asistanlar-{time.strftime('%Y%m%d-%H%M')}.zip"
+    return Response(tampon.getvalue(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{ad}"', "Cache-Control": "no-store"})
+
+
+@router.post("/panel/api/asistanlar-iceri")
+async def asistanlari_yukle(request: Request, _k: dict = Depends(yonetici)):
+    """Zip içindeki asistan dosyalarını yükler. Hepsi önce denetlenir; biri bile hatalıysa hiçbiri yazılmaz.
+    Üzerine yazılan dosyaların eski hâli veri/yedek altında saklanır. Zipte olmayan asistanlara dokunulmaz."""
+    import io
+    import zipfile
+
+    ham = await request.body()
+    if len(ham) > 5 * 1024 * 1024:
+        raise HTTPException(413, "Dosya 5 MB'tan büyük olamaz")
+    try:
+        z = zipfile.ZipFile(io.BytesIO(ham))
+    except zipfile.BadZipFile:
+        raise HTTPException(400, "Bu dosya zip değil. Panelden indirdiğiniz asistanlar zip dosyasını yükleyin.")
+    hazir: list[tuple[Path, dict]] = []
+    for bilgi in z.infolist():
+        ad = Path(bilgi.filename).name
+        if bilgi.is_dir() or not ad.endswith((".yaml", ".yml")) or ad.startswith("."):
+            continue
+        if bilgi.file_size > 1024 * 1024 or len(hazir) >= 200:
+            raise HTTPException(400, f"{ad}: dosya çok büyük ya da zipte çok fazla dosya var")
+        try:
+            veri = yaml.safe_load(z.read(bilgi).decode("utf-8"))
+        except Exception as e:
+            raise HTTPException(400, f"{ad}: dosya okunamadı ({str(e)[:120]})")
+        if not isinstance(veri, dict):
+            raise HTTPException(400, f"{ad}: içerik asistan dosyası değil")
+        aid = str(veri.get("id") or Path(ad).stem).strip().lower()
+        try:
+            hazir.append((_asistan_dosyasi(aid), _asistan_temizle(veri, aid)))
+        except HTTPException as e:
+            raise HTTPException(400, f"{ad}: {e.detail}")
+    if not hazir:
+        raise HTTPException(400, "Zipte asistan dosyası (.yaml) bulunamadı")
+    yedek = ortak.AYAR_KLASORU / "veri" / "yedek" / time.strftime("%Y%m%d-%H%M%S")
+    yeni = guncel = 0
+    for dosya, veri in hazir:
+        if dosya.exists():
+            yedek.mkdir(parents=True, exist_ok=True)
+            (yedek / dosya.name).write_bytes(dosya.read_bytes())
+            guncel += 1
+        else:
+            yeni += 1
+        yaml_yaz(dosya, veri)
+    return {"guncellenen": guncel, "yeni": yeni, "yedek": yedek.name if guncel else ""}
+
+
 @router.put("/panel/api/asistanlar/{aid}")
 async def asistan_kaydet(aid: str, request: Request, _k: dict = Depends(oturum)):
     f = _asistan_dosyasi(aid)

@@ -382,7 +382,16 @@ async function asistanlar() {
     el("td", {}, el("strong", {}, a.ad || a.id), el("div", { class: "ikincil" }, a.id)), el("td", {}, a.model || "gpt-4.1"),
     el("td", {}, a.ilk_mesaj_modu === "musteri_bekle" ? "Müşteriyi bekler" : "Hemen konuşur"),
     el("td", {}, a.sunucu_url ? el("span", { class: "etiket iyi" }, "n8n bağlı") : el("span", { class: "etiket orta" }, "Deneme modu")))));
-  $("#icerik").replaceChildren(baslik("Asistanlar", liste.length + " asistan", el("button", { class: "dugme ana", onclick: yeniAsistan }, "Yeni asistan")),
+  const dosya = el("input", { type: "file", accept: ".zip,application/zip", class: "gizli", "aria-label": "Asistanlar zip dosyası" });
+  dosya.addEventListener("change", () => dene_(async () => {
+    const f = dosya.files[0]; dosya.value = ""; if (!f) return;
+    if (!await pencere({ baslik: "Asistanlar topluca yüklensin mi?", metin: "“" + f.name + "” içindeki asistanlar aynı kimlikli mevcut asistanların üzerine yazılır. Eski hâlleri sunucuda yedeklenir. Dosyada olmayan asistanlara dokunulmaz.", tamam: "Yükle" })) return;
+    const y = await fetch("/panel/api/asistanlar-iceri", { method: "POST", credentials: "same-origin", headers: { "X-Panel": "1", "Content-Type": "application/zip" }, body: f });
+    const v = await y.json().catch(() => ({})); if (!y.ok) throw new Error(v.detail || "Yüklenemedi (" + y.status + ")");
+    bildir(v.guncellenen + " asistan güncellendi" + (v.yeni ? ", " + v.yeni + " yeni asistan eklendi" : "")); yonlendir();
+  }));
+  const toplu = BEN.rol === "yonetici" ? [el("a", { class: "dugme", href: "/panel/api/asistanlar-disari", download: "" }, "Tümünü indir"), el("button", { class: "dugme", onclick: () => dosya.click() }, "Toplu yükle"), dosya] : [];
+  $("#icerik").replaceChildren(baslik("Asistanlar", liste.length + " asistan", ...toplu, el("button", { class: "dugme ana", onclick: yeniAsistan }, "Yeni asistan")),
     el("div", { class: "kart sikisik" }, liste.length ? el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Asistan", "Model", "Açılış", "Sonuç bildirimi"].map((b) => el("th", {}, b)))), govde)) : el("div", { class: "bos" }, "Henüz asistan yok. “Yeni asistan” ile ilkini oluşturun.")));
 }
 async function yeniAsistan() {
