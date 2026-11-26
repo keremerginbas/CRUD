@@ -19,6 +19,21 @@ from livekit.plugins import deepgram, elevenlabs, openai, silero, soniox
 import ortak
 
 log = logging.getLogger("xre-ajan")
+def model_secenekleri(a: dict) -> dict:
+    """Modele özel ayarlar. asistan_kontrol.sh her modeli gerçek istekle sınar ve çalışan en hızlı ayarı
+    model_ayari olarak kaydeder (düşünen modeller sıcaklık kabul etmez, düşünme düzeyi ister).
+    Kayıt yoksa ya da model sonradan değiştirildiyse eski davranış: yalnızca sıcaklık gönderilir."""
+    ayar = a.get("model_ayari") if isinstance(a.get("model_ayari"), dict) else {}
+    if ayar.get("model") != a.get("model", "gpt-4.1"):
+        return {"temperature": float(a.get("sicaklik", 0.4))}
+    out: dict = {}
+    if ayar.get("sicaklik"):
+        out["temperature"] = float(a.get("sicaklik", 0.4))
+    if ayar.get("dusunme"):
+        out["reasoning_effort"] = ayar["dusunme"]
+    return out
+
+
 KURU_MOD = os.environ.get("KURU_MOD") == "1"  # yalnızca hat/altyapı testi: yapay zekâ çalışmaz
 MUSTERI = "musteri"
 
@@ -318,8 +333,7 @@ class Gorusme:
         session = AgentSession(
             stt=ses_tanima,
             # prompt_cache_key: aynı asistanın uzun prompt'u OpenAI'da önbellekten okunur, cevap daha çabuk başlar
-            llm=openai.LLM(model=a.get("model", "gpt-4.1"), temperature=float(a.get("sicaklik", 0.4)),
-                           prompt_cache_key=f"xre-{a.get('id', 'asistan')}"),
+            llm=openai.LLM(model=a.get("model", "gpt-4.1"), prompt_cache_key=f"xre-{a.get('id', 'asistan')}", **model_secenekleri(a)),
             tts=elevenlabs.TTS(
                 voice_id=a.get("ses_id") or os.environ.get("ELEVEN_VOICE_ID", ""),
                 model=a.get("ses_modeli", "eleven_flash_v2_5"),
