@@ -475,6 +475,12 @@ class Gorusme:
             "transcript": transkript, "summary": analiz["summary"], "analysis": analiz,
             "startedAt": call["startedAt"], "endedAt": call["endedAt"], "durationSeconds": sure, "cost": 0,
         }}
+        # Vapi'nin "structured outputs" biçimi: n8n akışları sonucu artifact.structuredOutputs[<kimlik>].result altından okur
+        sd = analiz["structuredData"]
+        ciktilar = {str(c.get("id")): {"name": c.get("ad") or "", "result": (sd.get(c["alan"]) if isinstance(sd, dict) else None) if c.get("alan") else sd}
+                    for c in (self.asistan.get("vapi_ciktilari") or []) if isinstance(c, dict) and c.get("id")}
+        if ciktilar:
+            rapor["message"]["artifact"]["structuredOutputs"] = ciktilar
         log.info("GECIKME: %s", json.dumps(self.gecikme_ozeti()))
         await self.durum("ended", endedReason=neden, endedAt=ortak.simdi_iso(), durationSeconds=sure, asistanAdi=self.asistan.get("ad"),
                          customer=call["customer"], phoneNumber=call["phoneNumber"],
