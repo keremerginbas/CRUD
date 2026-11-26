@@ -280,6 +280,34 @@ class Gorusme:
             log.error("arama hatası: %s", e)
             return False
 
+    async def hatti_bekle(self) -> bool:
+        """Dahili hattı aynı anda tek görüşme taşır. Hat doluyken gelen yeni arama reddedilip kaybolmasın diye
+        sıraya girer ve hat boşalınca arar. Kendi trunk'ı olan numaralar (hat: trunk) beklemez."""
+        if str(self.meta.get("hat") or "dahili") != "dahili":
+            return True
+        anahtar, azami = "hat-kilit:dahili", int(os.environ.get("HAT_BEKLEME_SN", "300"))
+        sure = int(self.asistan.get("azami_sure_sn", 420)) + 120   # kilit en geç bu kadar sonra kendiliğinden kalkar
+        basla = time.time()
+
+        async def birak() -> None:
+            try:
+                if await self.r.get(anahtar) == self.id:
+                    await self.r.delete(anahtar)
+            except Exception as e:
+                log.warning("hat kilidi bırakılamadı: %s", e)
+
+        while True:
+            if await self.r.set(anahtar, self.id, nx=True, ex=sure):
+                self.ctx.add_shutdown_callback(birak)
+                if time.time() - basla > 2:
+                    log.info("hat boşaldı, %s sn bekledikten sonra aranıyor", round(time.time() - basla))
+                return True
+            if time.time() - basla > azami:
+                self.bitis_nedeni = "call.start.error-hat-mesgul"
+                log.warning("hat %s sn boyunca boşalmadı, arama yapılamadı", azami)
+                return False
+            await asyncio.sleep(2)
+
     # ---------- ana akış ----------
     async def calistir(self) -> None:
         ctx = self.ctx
@@ -287,6 +315,10 @@ class Gorusme:
         await ctx.connect()
 
         if self.tur == "outboundPhoneCall":
+            if not await self.hatti_bekle():
+                await self.durum("ended", endedReason=self.bitis_nedeni, endedAt=ortak.simdi_iso())
+                ctx.shutdown(reason=self.bitis_nedeni)
+                return
             if not await self.musteriyi_ara():
                 await self.durum("ended", endedReason=self.bitis_nedeni, endedAt=ortak.simdi_iso())
                 ctx.shutdown(reason=self.bitis_nedeni)
