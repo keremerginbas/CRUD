@@ -28,7 +28,18 @@ for c in trunklar:
         print("TAMAM|%s|%s|%s" % (gw[0] if gw else "sip8.netsantral.com", kul, sifre)); sys.exit()
 c = trunklar[0]
 plan = c.get("outboundAuthenticationPlan") or {}
-print("YOK|Vapi şifreyi geri vermiyor. Kayıttaki alanlar: " + ", ".join(sorted(c.keys())) + " | kimlik planı alanları: " + ", ".join(sorted(plan.keys())))
+def ozet(d):
+    # Değerleri GÖSTERMEDEN yalnızca alan adı ve biçimini yazar (şifre ekrana düşmesin)
+    out = []
+    for k, v in sorted(d.items()):
+        if isinstance(v, str):
+            out.append("%s(metin, %d karakter%s)" % (k, len(v), ", yıldızlı" if "*" in v else ""))
+        elif isinstance(v, dict):
+            out.append("%s{%s}" % (k, ozet(v)))
+        else:
+            out.append("%s(%s)" % (k, type(v).__name__))
+    return "; ".join(out)
+print("YOK|Vapi şifreyi düz olarak vermedi. Kimlik planı: " + (ozet(plan) or "boş") + " // geçit: " + "; ".join(ozet(g) for g in (c.get("gateways") or [])))
 ')
 IFS='|' read -r DURUM A B C <<< "$SONUC"
 case "$DURUM" in
