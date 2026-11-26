@@ -14,7 +14,7 @@ numaralar:
   # ---- Natura Paryal ----
   - {id: natura-6902,    ad: "Natura Paryal",          numara: "+905337436902", hat: dahili, on_ek: "66", vapi_id: "ed454647-1123-47f7-a723-4bbbf39fcb39", gelen_asistan: ""}   # MEVCUT
   - {id: natura-5613,    ad: "Natura Paryal",          numara: "+905337435613", hat: dahili, on_ek: "55", vapi_id: "181ba234-aeda-4624-8538-ece1e2626698", gelen_asistan: ""}   # MEVCUT
-  - {id: natura-6848,    ad: "Natura Paryal (eski)",   numara: "+905337436848", hat: dahili, on_ek: "67", vapi_id: "af5f733b-f525-4b73-96e1-1f32d22e2026", gelen_asistan: ""}   # YENİ
+  - {id: natura-6848,    ad: "Natura Paryal",          numara: "+905337436848", hat: dahili, on_ek: "67", vapi_id: "af5f733b-f525-4b73-96e1-1f32d22e2026", gelen_asistan: ""}   # YENİ
   # ---- Ankaport Hisse ----
   - {id: ankaport-5966,  ad: "Ankaport Hisse",         numara: "+905337435966", hat: dahili, on_ek: "21", vapi_id: "568b0026-0667-4372-a075-f4c268ff2e7e", gelen_asistan: ""}   # YENİ
   - {id: ankaport-5965,  ad: "Ankaport Hisse",         numara: "+905337435965", hat: dahili, on_ek: "22", vapi_id: "23c707db-ba33-45ab-a2bc-38df030b620d", gelen_asistan: ""}   # YENİ
