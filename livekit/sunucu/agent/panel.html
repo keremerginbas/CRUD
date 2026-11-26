@@ -222,7 +222,7 @@ dialog .eylemler{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
 "use strict";
 const $ = (s, k = document) => k.querySelector(s);
 const el = (ad, oz = {}, ...cocuk) => { const e = document.createElement(ad); for (const [k, v] of Object.entries(oz)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } for (const c of cocuk.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c)); return e; };
-let BEN = null, yenileme = null;
+let BEN = null, yenileme = null, gezinti = 0;   // gezinti: sayfa değişince artar, yarım kalan yüklemeler eski sayfayı çizmesin
 
 function bildir(metin, hata = false) {
   const t = el("div", { class: "tost" + (hata ? " hata-tost" : ""), role: hata ? "alert" : "status" }, metin);
@@ -268,11 +268,11 @@ function sloganBaslat() {
 function girisVideosu() {
   const v = $("#g-video"), yuz = v.parentElement;
   if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  v.onloadeddata = () => { yuz.classList.add("videolu"); v.play().catch(() => {}); };
+  v.onplaying = () => { if (!$("#giris").classList.contains("gizli")) yuz.classList.add("videolu"); };
   v.onerror = () => yuz.classList.remove("videolu");
-  v.src = "/panel/giris-video?" + Date.now();
+  v.src = "/panel/giris-video"; v.play().catch(() => {});   // iOS, oynatma istenmeden veri indirmez
 }
-function girisGoster() { clearInterval(yenileme); $("#uygulama").classList.add("gizli"); $("#giris").classList.remove("gizli"); $("#g-ad").focus(); sloganBaslat(); girisVideosu(); }
+function girisGoster() { clearInterval(yenileme); gezinti++; $("#uygulama").classList.add("gizli"); $("#giris").classList.remove("gizli"); $("#g-ad").focus(); sloganBaslat(); girisVideosu(); }
 $("#giris-form").addEventListener("submit", async (e) => {
   e.preventDefault(); $("#g-hata").textContent = "";
   try { await api("giris", { method: "POST", body: { kullanici: $("#g-ad").value, sifre: $("#g-sifre").value } }); $("#g-sifre").value = ""; baslat(); }
@@ -284,13 +284,14 @@ window.addEventListener("hashchange", yonlendir);
 
 async function baslat() {
   try { BEN = await api("ben"); } catch { return; }
-  $("#giris").classList.add("gizli"); $("#uygulama").classList.remove("gizli"); clearInterval(sloganSayaci); $("#g-video").pause(); $("#g-video").removeAttribute("src");
+  $("#giris").classList.add("gizli"); $("#uygulama").classList.remove("gizli"); clearInterval(sloganSayaci);
+  { const v = $("#g-video"); v.onplaying = v.onerror = null; v.pause(); v.removeAttribute("src"); v.load(); v.parentElement.classList.remove("videolu"); }   // load(): süren indirmeyi de keser
   $("#kim").textContent = BEN.ad; $("#kim-rol").textContent = BEN.rol === "yonetici" ? "Yönetici" : "Kullanıcı";
   $("#nav-kullanicilar").classList.toggle("gizli", BEN.rol !== "yonetici");
   yonlendir();
 }
 function yonlendir() {
-  clearInterval(yenileme);
+  clearInterval(yenileme); gezinti++;
   const [sayfa, arg] = (location.hash.slice(1) || "genel").split("/");
   document.querySelectorAll("nav a[data-sayfa]").forEach((a) => { const s = a.dataset.sayfa === sayfa; a.classList.toggle("secili", s); s ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"); });
   const s = { genel, asistanlar: arg ? () => asistanDuzenle(arg) : asistanlar, aramalar: arg ? () => aramaDetay(arg) : aramalar, numaralar, kullanicilar, hesabim }[sayfa] || genel;
@@ -303,7 +304,7 @@ const sure = (sn) => sn ? (sn >= 60 ? Math.floor(sn / 60) + " dk " + Math.round(
 const numaraYaz = (n) => { const m = /^\+90(\d{3})(\d{3})(\d{2})(\d{2})$/.exec(n || ""); return m ? `0${m[1]} ${m[2]} ${m[3]} ${m[4]}` : (n || "-"); };
 const NEDEN = { "customer-ended-call": ["Müşteri kapattı", ""], "assistant-ended-call": ["Asistan kapattı", ""], "customer-did-not-answer": ["Açmadı", "orta"], "customer-busy": ["Meşgul", "orta"], "silence-timed-out": ["Sessizlik", "orta"], "exceeded-max-duration": ["Süre doldu", "orta"] };
 const SONUC_ADI = { randevu: "Randevu", ilgilenmiyor: "İlgilenmiyor", aranmak_istemiyor: "Aranmak istemiyor", tekrar_ara: "Tekrar aranacak", yanlis_kisi: "Yanlış kişi", ulasilamadi: "Ulaşılamadı", belirsiz: "Belirsiz", "açmadı": "Açmadı", "meşgul": "Meşgul", "bağlanamadı": "Bağlanamadı" };
-const ulasildi = (c) => c.status === "ended" && ["customer-ended-call", "assistant-ended-call", "silence-timed-out", "exceeded-max-duration"].includes(c.endedReason) && c.durationSeconds > 0;
+const ulasildi = (c) => c.status === "ended" && ["customer-ended-call", "assistant-ended-call", "silence-timed-out", "exceeded-max-duration", "call.in-progress.error-pipeline"].includes(c.endedReason) && c.durationSeconds > 0;
 function nedenEtiketi(c) {
   if (c.status !== "ended") return el("span", { class: "etiket canli" }, { queued: "Sırada", ringing: "Çalıyor", "in-progress": "Görüşmede" }[c.status] || c.status);
   const n = NEDEN[c.endedReason]; return el("span", { class: "etiket " + (n ? n[1] : "kotu") }, n ? n[0] : "Bağlanamadı");
@@ -334,18 +335,19 @@ function gunlukGrafik(tuval, gunler) {
   return true;
 }
 async function genel() {
+  const benim = gezinti;
   const ciz = async () => {
-    const [v, oz] = await Promise.all([api("aramalar?limit=200"), api("ozet?gun=14")]);
-    const bugun = new Date().toDateString();
-    const gunluk = v.aramalar.filter((c) => c.createdAt && new Date(c.createdAt).toDateString() === bugun);
-    const canli = v.aramalar.filter((c) => c.status !== "ended");
-    const ulasilan = gunluk.filter(ulasildi), randevu = gunluk.filter((c) => c.sonuc && c.sonuc.sonuc === "randevu");
-    const konusma = ulasilan.reduce((t, c) => t + (c.durationSeconds || 0), 0);
+    const [v, oz] = await Promise.all([api("aramalar?limit=50"), api("ozet?gun=14")]);
+    if (benim !== gezinti) return;   // kullanıcı bu arada başka sayfaya geçti
+    const tabloAcik = !!($("#icerik details.tablo-gorunum") || {}).open;
+    const bg = oz.gunler[oz.gunler.length - 1] || { toplam: 0, ulasilan: 0, randevu: 0, konusma_sn: 0 };   // bugün (Türkiye saati), sunucuda sayılır
+    const canli = v.aramalar.filter((c) => c.status !== "ended" && Date.now() - new Date(c.createdAt) < 1800000);
+    const gunluk = { length: bg.toplam + oz.suren }, ulasilan = { length: bg.ulasilan }, randevu = { length: bg.randevu }, konusma = bg.konusma_sn;
     const olcum = (ad, deger, not) => el("div", { class: "olcum" }, el("div", { class: "ad" }, ad), el("div", { class: "deger" }, deger), not ? el("div", { class: "not" }, not) : null);
     $("#icerik").replaceChildren(
       baslik("Genel bakış", new Date().toLocaleDateString("tr-TR", { weekday: "long", day: "numeric", month: "long" }), el("a", { class: "dugme", href: "#asistanlar" }, "Asistanları yönet")),
       el("div", { class: "olcumler" },
-        olcum("Bugünkü arama", gunluk.length, canli.length ? canli.length + " arama şu an sürüyor" : "Şu an süren arama yok"),
+        olcum("Bugünkü arama", gunluk.length, oz.suren ? oz.suren + " arama şu an sürüyor" : "Şu an süren arama yok"),
         olcum("Ulaşılan müşteri", ulasilan.length, gunluk.length ? "Aramaların %" + Math.round(100 * ulasilan.length / gunluk.length) + "'i" : ""),
         olcum("Randevu", randevu.length, ulasilan.length ? "Ulaşılanların %" + Math.round(100 * randevu.length / ulasilan.length) + "'i" : ""),
         olcum("Toplam konuşma", konusma >= 60 ? Math.round(konusma / 60) + " dk" : Math.round(konusma) + " sn", ulasilan.length ? "Görüşme başına " + sure(konusma / ulasilan.length) : "")),
@@ -356,18 +358,21 @@ async function genel() {
         const sirali = Object.entries(oz.sonuclar).sort((a, b) => b[1] - a[1]), enCok = sirali.length ? sirali[0][1] : 1;
         const sol = el("div", { class: "kart" }, el("h2", {}, "Günlük aramalar"), el("div", { class: "lejant" }, el("span", {}, el("i", { style: "background:var(--seri-1)" }), "Ulaşılan"), el("span", {}, el("i", { style: "background:var(--seri-2)" }), "Ulaşılamayan")),
           toplam ? el("div", { class: "grafik-kutu" }, tuval) : el("div", { class: "bos" }, "Son 14 günde arama yok."),
-          toplam ? el("details", { class: "tablo-gorunum" }, el("summary", {}, "Tablo olarak göster"), el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Gün"), ["Arama", "Ulaşılan", "Randevu"].map((b) => el("th", { class: "sayi" }, b)))),
+          oz.eksik_gun ? el("p", { class: "aciklama" }, new Date(oz.eksik_gun + "T12:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" }) + " ve öncesi eksik sayılmıştır: bu dönemde gösterilebilecek olandan çok arama var.") : null,
+          toplam ? el("details", { class: "tablo-gorunum", ...(tabloAcik ? { open: "" } : {}) }, el("summary", {}, "Tablo olarak göster"), el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Gün"), ["Arama", "Ulaşılan", "Randevu"].map((b) => el("th", { class: "sayi" }, b)))),
             el("tbody", {}, oz.gunler.filter((g) => g.toplam).map((g) => el("tr", {}, el("td", {}, new Date(g.gun + "T12:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "long" })), el("td", { class: "sayi" }, g.toplam), el("td", { class: "sayi" }, g.ulasilan), el("td", { class: "sayi" }, g.randevu)))))) : null);
         const sag = el("div", { class: "kart" }, el("h2", {}, "Sonuçlar"), el("p", { class: "aciklama" }, "Son 14 gün"),
           sirali.length ? el("div", { class: "cubuklar" }, sirali.flatMap(([ad, n]) => [el("span", {}, SONUC_ADI[ad] || ad), el("span", { class: "iz" }, el("i", { style: "width:" + Math.max(3, Math.round(100 * n / enCok)) + "%" })), el("span", { class: "sayi" }, n)])) : el("div", { class: "bos" }, "Henüz sonuç yok."));
-        if (toplam) setTimeout(() => { if (!gunlukGrafik(tuval, oz.gunler)) sol.querySelector("details").open = true, tuval.parentElement.remove(); }, window.Chart ? 0 : 900);
+        if (toplam) setTimeout(() => { if (benim !== gezinti || !tuval.isConnected) return; if (!gunlukGrafik(tuval, oz.gunler)) sol.querySelector("details").open = true, tuval.parentElement.remove(); }, window.Chart ? 0 : 900);
         return el("div", { class: "cift" }, sol, sag);
       })(),
       el("div", { class: "kart sikisik" }, el("h2", { style: "padding-bottom:12px" }, "Son aramalar"),
         v.aramalar.length ? aramaTablosu(v.aramalar.slice(0, 12)) : el("div", { class: "bos" }, "Henüz arama yapılmadı. Bir asistan açıp “Dene” bölümünden kendinizi aratabilirsiniz.")));
   };
   await ciz();
-  yenileme = setInterval(() => { if (!document.hidden && !$("#pencere").open) ciz().catch(() => {}); }, 15000);
+  if (benim !== gezinti) return;
+  // Kullanıcı sayfada bir satırdayken ya da grafiğin üstündeyken yenileme yapılmaz (odak ve açık ipucu kaybolmasın)
+  yenileme = setInterval(() => { const ic = $("#icerik"); if (!document.hidden && !$("#pencere").open && !ic.contains(document.activeElement) && !ic.querySelector(".grafik-kutu:hover")) ciz().catch(() => {}); }, 15000);
 }
 
 /* ---------- Asistanlar ---------- */
@@ -490,23 +495,24 @@ async function asistanDuzenle(id) {
 
 /* ---------- Aramalar ---------- */
 async function aramalar() {
-  const v = await api("aramalar?limit=200");
-  const ara = el("input", { type: "text", placeholder: "Numara, ad ya da asistan ara", "aria-label": "Aramalarda ara" });
+  const benim = gezinti;
+  const ara = el("input", { type: "search", placeholder: "Numara, ad ya da asistan ara", "aria-label": "Aramalarda ara" });
   const durumSec = el("select", { "aria-label": "Duruma göre süz" }, [["", "Tüm durumlar"], ["ulasilan", "Ulaşılanlar"], ["ulasilamayan", "Ulaşılamayanlar"], ["randevu", "Randevular"]].map(([d, t]) => el("option", { value: d }, t)));
-  const kutu = el("div", { class: "kart sikisik" });
-  const suz = () => {
-    const q = ara.value.trim().toLocaleLowerCase("tr-TR").replace(/\s+/g, ""), d = durumSec.value;
-    const liste = v.aramalar.filter((c) => {
-      const metin = [(c.customer && c.customer.number) || "", numaraYaz(c.customer && c.customer.number), (c.customer && c.customer.name) || "", c.asistanAdi || ""].join(" ").toLocaleLowerCase("tr-TR").replace(/\s+/g, "");
-      if (q && !metin.includes(q)) return false;
-      if (d === "ulasilan") return ulasildi(c); if (d === "ulasilamayan") return c.status === "ended" && !ulasildi(c); if (d === "randevu") return c.sonuc && c.sonuc.sonuc === "randevu";
-      return true;
-    });
-    kutu.replaceChildren(liste.length ? aramaTablosu(liste) : el("div", { class: "bos" }, v.aramalar.length ? "Bu aramayla eşleşen kayıt yok. Süzgeci değiştirin." : "Henüz arama yapılmadı."));
+  const kutu = el("div", { class: "kart sikisik" }), alt = el("div", { class: "alt" }, "…"), bilgi = el("p", { class: "aciklama", "aria-live": "polite", style: "margin:10px 2px 0" });
+  let sira = 0, bekle = null;
+  const getir = async () => {   // arama sunucuda yapılır: saklanan bütün aramalar taranır
+    const benimSira = ++sira, q = ara.value.trim(), d = durumSec.value;
+    const v = await api("aramalar?limit=200&q=" + encodeURIComponent(q) + "&durum=" + encodeURIComponent(d));
+    if (benim !== gezinti || benimSira !== sira) return;
+    alt.textContent = "Son 14 günde " + v.toplam + " arama";
+    kutu.replaceChildren(v.aramalar.length ? aramaTablosu(v.aramalar) : el("div", { class: "bos" }, q || d ? "Bu aramayla eşleşen kayıt yok. Süzgeci değiştirin." : "Henüz arama yapılmadı."));
+    const eslesen = v.eslesen == null ? v.toplam : v.eslesen;
+    bilgi.textContent = eslesen > v.aramalar.length ? eslesen + " kayıttan en yeni " + v.aramalar.length + " tanesi gösteriliyor. Daha eskisi için aramayı daraltın." : (q || d ? eslesen + " kayıt bulundu." : "");
   };
-  ara.addEventListener("input", suz); durumSec.addEventListener("change", suz);
-  $("#icerik").replaceChildren(baslik("Aramalar", "Son 14 günde " + v.toplam + " arama", el("button", { class: "dugme", onclick: yonlendir }, "Yenile")), el("div", { class: "arac-cubugu" }, ara, durumSec), kutu);
-  suz();
+  const tetikle = () => { clearTimeout(bekle); bekle = setTimeout(() => dene_(getir), 300); };
+  ara.addEventListener("input", tetikle); durumSec.addEventListener("change", () => dene_(getir));
+  $("#icerik").replaceChildren(el("div", { class: "baslik" }, el("div", {}, el("h1", {}, "Aramalar"), alt), el("div", { class: "bosluk" }), el("button", { class: "dugme", onclick: () => dene_(getir) }, "Yenile")), el("div", { class: "arac-cubugu" }, ara, durumSec), kutu, bilgi);
+  await getir();
 }
 async function aramaDetay(id) {
   const c = await api("aramalar/" + id);
@@ -569,7 +575,14 @@ async function hesabim() {
   const tazele = () => dene_(async () => { const d = await api("giris-video"); durum.textContent = d.var ? "Yüklü video: " + (d.boyut / 1048576).toFixed(1) + " MB" : "Henüz video yüklenmedi; giriş ekranında hareketli yazı görünüyor."; kaldir.classList.toggle("gizli", !d.var); });
   const yukle = el("button", { class: "dugme ana", onclick: () => dene_(async () => {
     const f = dosya.files[0]; if (!f) throw new Error("Önce bir video dosyası seçin");
-    if (f.size > 40 * 1048576) throw new Error("Video 40 MB'tan büyük olamaz");
+    if (f.size > 20 * 1048576) throw new Error("Video 20 MB'tan büyük olamaz");
+    await new Promise((tamam, olmadi) => {   // tarayıcı bu videoyu oynatabiliyor mu?
+      const d = document.createElement("video"), u = URL.createObjectURL(f), bitir = (is) => { clearTimeout(z); URL.revokeObjectURL(u); is(); };
+      const z = setTimeout(() => bitir(tamam), 8000);
+      d.muted = true; d.preload = "auto"; d.onloadeddata = () => bitir(tamam);
+      d.onerror = () => bitir(() => olmadi(new Error("Tarayıcı bu videoyu oynatamıyor. MP4 (H.264) ya da WebM olarak dışa aktarıp yeniden yükleyin.")));
+      d.src = u; d.load();
+    });
     yukle.disabled = true; yukle.textContent = "Yükleniyor…";
     try {
       const y = await fetch("/panel/api/giris-video", { method: "POST", credentials: "same-origin", headers: { "X-Panel": "1", "Content-Type": "application/octet-stream" }, body: f });
@@ -578,7 +591,7 @@ async function hesabim() {
     } finally { yukle.disabled = false; yukle.textContent = "Videoyu yükle"; }
   }) }, "Videoyu yükle");
   $("#icerik").append(el("div", { class: "kart", style: "max-width:440px" }, el("h2", {}, "Giriş ekranı videosu"),
-    el("p", { class: "aciklama" }, "Giriş ekranının sol yanında sessiz ve döngülü oynar. MP4 ya da WebM, en çok 40 MB; 10–20 saniyelik bir video yeterlidir."), durum,
+    el("p", { class: "aciklama" }, "Giriş ekranının sol yanında sessiz ve döngülü oynar. MP4 ya da WebM, en çok 20 MB; 10–20 saniyelik bir video yeterlidir. Yeni video giriş ekranında birkaç dakika içinde görünür."), durum,
     el("div", { class: "alan" }, dosya), el("div", { style: "display:flex;gap:10px;flex-wrap:wrap" }, yukle, kaldir)));
   tazele();
 }

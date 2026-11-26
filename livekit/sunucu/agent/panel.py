@@ -157,7 +157,8 @@ async def varlik(ad: str):
 
 # Giriş ekranının arka plan videosu: yönetici panelden yükler, /ayar/veri altında durur.
 VIDEO_TURLERI = {"mp4": "video/mp4", "webm": "video/webm"}
-VIDEO_SINIRI = 40 * 1024 * 1024
+VIDEO_SINIRI = 20 * 1024 * 1024
+MP4_OLMAYAN = (b"qt  ", b"heic", b"heix", b"hevc", b"heim", b"heis", b"avif", b"avis", b"mif1", b"msf1", b"M4A ", b"M4B ")
 
 
 def _giris_videosu() -> Path | None:
@@ -169,11 +170,22 @@ def _giris_videosu() -> Path | None:
 
 
 @router.get("/panel/giris-video")
-async def giris_video():
+async def giris_video(request: Request):
     yol = _giris_videosu()
     if not yol:
         raise HTTPException(404, "Video yok")
-    return FileResponse(yol, media_type=VIDEO_TURLERI[yol.suffix[1:]], headers={"Cache-Control": "no-cache"})
+    # Oturumsuz açık bir uç: aynı adresten dakikada en çok 30 istek (bant genişliğini korur)
+    r = ortak.redis_baglan()
+    try:
+        anahtar = f"video:{_istemci_ip(request)}"
+        if await r.incr(anahtar) == 1:
+            await r.expire(anahtar, 60)
+        elif int(await r.get(anahtar) or 0) > 30:
+            raise HTTPException(429, "Çok fazla istek")
+    finally:
+        await r.aclose()
+    return FileResponse(yol, media_type=VIDEO_TURLERI[yol.suffix[1:]],
+                        headers={"Cache-Control": "public, max-age=300", "X-Content-Type-Options": "nosniff"})
 
 
 @router.get("/panel/api/giris-video")
@@ -186,6 +198,9 @@ async def giris_video_durum(_k: dict = Depends(yonetici)):
 async def giris_video_yukle(request: Request, _k: dict = Depends(yonetici)):
     klasor = ortak.AYAR_KLASORU / "veri"
     klasor.mkdir(parents=True, exist_ok=True)
+    for artik in klasor.glob("giris_video.*.yukleniyor"):   # yarıda kalmış eski yüklemeler
+        if time.time() - artik.stat().st_mtime > 600:
+            artik.unlink(missing_ok=True)
     gecici = klasor / f"giris_video.{secrets.token_hex(4)}.yukleniyor"
     boyut, bas = 0, b""
     try:
@@ -193,10 +208,12 @@ async def giris_video_yukle(request: Request, _k: dict = Depends(yonetici)):
             async for parca in request.stream():
                 boyut += len(parca)
                 if boyut > VIDEO_SINIRI:
-                    raise HTTPException(413, "Video 40 MB'tan büyük olamaz. Daha kısa ya da daha düşük çözünürlüklü bir video yükleyin.")
+                    raise HTTPException(413, "Video 20 MB'tan büyük olamaz. Daha kısa ya da daha düşük çözünürlüklü bir video yükleyin.")
                 if len(bas) < 12:
                     bas += parca[: 12 - len(bas)]
                 f.write(parca)
+        if bas[4:8] == b"ftyp" and bas[8:12] in MP4_OLMAYAN:
+            raise HTTPException(400, "Bu dosya MP4 değil (MOV, HEIC ya da ses dosyası). Videoyu MP4 (H.264) olarak dışa aktarıp yeniden yükleyin.")
         if bas[4:8] == b"ftyp":
             uz = "mp4"
         elif bas[:4] == b"\x1a\x45\xdf\xa3":
@@ -429,23 +446,83 @@ async def numaralari_kaydet(request: Request, _k: dict = Depends(yonetici)):
 
 
 # ---------- aramalar ----------
+LISTE_ALANLARI = ("id", "type", "status", "createdAt", "endedReason", "durationSeconds", "customer", "phoneNumber", "assistantId", "asistanAdi", "ozet", "sonuc")
+ULASILDI = {"customer-ended-call", "assistant-ended-call", "silence-timed-out", "exceeded-max-duration", "call.in-progress.error-pipeline"}
+TARAMA_SINIRI = 20000   # tek istekte okunacak en çok arama kaydı
+SAKLAMA_SN = 14 * 86400
+
+
+async def _kayitlari_oku(r, idler: list[str]) -> list[dict | None]:
+    """Arama kayıtlarını 200'lük gruplar halinde okur (tek tek okumaktan çok daha hızlı)."""
+    import asyncio
+
+    out: list[dict | None] = []
+    for i in range(0, len(idler), 200):
+        for v in await r.mget([f"cagri:{c}" for c in idler[i:i + 200]]):
+            try:
+                k = json.loads(v) if v else None
+            except ValueError:
+                k = None
+            out.append(k if isinstance(k, dict) else None)
+        await asyncio.sleep(0)
+    return out
+
+
+def _sonuc_adi(c: dict) -> str:
+    sn = c.get("sonuc")
+    if isinstance(sn, str) and sn.strip():
+        return sn.strip()[:40]
+    return str((sn.get("sonuc") if isinstance(sn, dict) else None) or "belirsiz")
+
+
+def _ulasildi(c: dict) -> bool:
+    return c.get("status") == "ended" and c.get("endedReason") in ULASILDI and (c.get("durationSeconds") or 0) > 0
+
+
+def _duz(s: str) -> str:
+    """Aramada büyük/küçük harf ve Türkçe i/ı farkını yok sayar, boşlukları atar."""
+    s = str(s or "").replace("İ", "i").replace("I", "i").lower().replace("ı", "i").replace("i̇", "i")
+    return re.sub(r"\s+", "", s)
+
+
 @router.get("/panel/api/aramalar")
-async def arama_listesi(limit: int = 50, atla: int = 0, _k: dict = Depends(oturum)):
+async def arama_listesi(limit: int = 50, atla: int = 0, q: str = "", durum: str = "", _k: dict = Depends(oturum)):
+    limit, atla = max(1, min(limit, 200)), max(0, atla)
     r = ortak.redis_baglan()
     try:
-        idler = await r.zrevrange("cagrilar", atla, atla + max(1, min(limit, 200)) - 1)
-        out = []
-        for cid in idler:
-            c = await ortak.cagri_oku(r, cid)
-            if c:
-                out.append({k: c.get(k) for k in ("id", "type", "status", "createdAt", "endedReason", "durationSeconds", "customer",
-                                                  "phoneNumber", "assistantId", "asistanAdi", "ozet", "sonuc")})
-        return {"toplam": await r.zcard("cagrilar"), "aramalar": out}
+        alt = time.time() - SAKLAMA_SN
+        if not q.strip() and not durum:
+            idler = await r.zrevrangebyscore("cagrilar", "+inf", alt, start=atla, num=limit)
+            out = [{k: c.get(k) for k in LISTE_ALANLARI} for c in await _kayitlari_oku(r, idler) if c]
+            return {"toplam": await r.zcount("cagrilar", alt, "+inf"), "aramalar": out, "eslesen": None}
+        # Arama / süzgeç: saklanan bütün aramalar taranır, yalnızca ilk 200 değil
+        aranan = _duz(q)
+        rakam = re.sub(r"\D", "", q).lstrip("0")
+        idler = await r.zrevrangebyscore("cagrilar", "+inf", alt, start=0, num=TARAMA_SINIRI)
+        out, eslesen = [], 0
+        for c in await _kayitlari_oku(r, idler):
+            if not c:
+                continue
+            if durum == "ulasilan" and not _ulasildi(c):
+                continue
+            if durum == "ulasilamayan" and (c.get("status") != "ended" or _ulasildi(c)):
+                continue
+            if durum == "randevu" and _sonuc_adi(c) != "randevu":
+                continue
+            if aranan:
+                m = c.get("customer") if isinstance(c.get("customer"), dict) else {}
+                metin = _duz(" ".join(str(x or "") for x in (m.get("name"), m.get("number"), c.get("asistanAdi"))))
+                if aranan not in metin and not (len(rakam) >= 3 and rakam in re.sub(r"\D", "", str(m.get("number") or ""))):
+                    continue
+            eslesen += 1
+            if eslesen > atla and len(out) < limit:
+                out.append({k: c.get(k) for k in LISTE_ALANLARI})
+        return {"toplam": await r.zcount("cagrilar", alt, "+inf"), "aramalar": out, "eslesen": eslesen}
     finally:
         await r.aclose()
 
 
-ULASILDI = {"customer-ended-call", "assistant-ended-call", "silence-timed-out", "exceeded-max-duration"}
+_ozet_onbellek: dict[int, tuple[float, dict]] = {}
 
 
 @router.get("/panel/api/ozet")
@@ -454,34 +531,48 @@ async def ozet(gun: int = 14, _k: dict = Depends(oturum)):
     from datetime import datetime, timedelta
 
     gun = max(1, min(gun, 14))
+    onceki = _ozet_onbellek.get(gun)
+    if onceki and time.time() - onceki[0] < 12:      # 15 sn'lik yenileme ve birden çok sekme aynı hesabı kullanır
+        return onceki[1]
     simdi = datetime.now(ortak.TR)
     bas = (simdi - timedelta(days=gun - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
     gunler = {(bas + timedelta(days=i)).strftime("%Y-%m-%d"): {"toplam": 0, "ulasilan": 0, "randevu": 0, "konusma_sn": 0} for i in range(gun)}
     sonuclar: dict[str, int] = {}
+    suren, eksik_gun = 0, None
     r = ortak.redis_baglan()
     try:
         idler = await r.zrangebyscore("cagrilar", bas.timestamp(), "+inf", withscores=True)
-        for cid, t in idler[-5000:]:
-            c = await ortak.cagri_oku(r, cid)
-            if not c or c.get("status") != "ended":
-                continue
-            g = gunler.get(datetime.fromtimestamp(t, ortak.TR).strftime("%Y-%m-%d"))
-            if g is None:
-                continue
-            g["toplam"] += 1
-            if c.get("endedReason") in ULASILDI and (c.get("durationSeconds") or 0) > 0:
-                g["ulasilan"] += 1
-                g["konusma_sn"] += c.get("durationSeconds") or 0
-                s_ = str((c.get("sonuc") or {}).get("sonuc") or "belirsiz")
-                sonuclar[s_] = sonuclar.get(s_, 0) + 1
-                if s_ == "randevu":
-                    g["randevu"] += 1
-            else:
-                ad = {"customer-did-not-answer": "açmadı", "customer-busy": "meşgul"}.get(c.get("endedReason"), "bağlanamadı")
-                sonuclar[ad] = sonuclar.get(ad, 0) + 1
+        if len(idler) > TARAMA_SINIRI:               # çok yoğun dönem: en eski günler eksik sayılır, bunu açıkça bildir
+            idler = idler[-TARAMA_SINIRI:]
+            eksik_gun = datetime.fromtimestamp(idler[0][1], ortak.TR).strftime("%Y-%m-%d")
+        kayitlar = await _kayitlari_oku(r, [cid for cid, _ in idler])
     finally:
         await r.aclose()
-    return {"gunler": [{"gun": k, **v} for k, v in gunler.items()], "sonuclar": sonuclar}
+    for (_cid, t), c in zip(idler, kayitlar):
+        if not c:
+            continue
+        if c.get("status") != "ended":
+            if time.time() - t <= 1800:
+                suren += 1
+                continue
+            c = {**c, "status": "ended", "endedReason": "call.in-progress.error-zaman-asimi", "durationSeconds": 0}   # yarım saattir bitmemiş: takılmış
+        g = gunler.get(datetime.fromtimestamp(t, ortak.TR).strftime("%Y-%m-%d"))
+        if g is None:
+            continue
+        g["toplam"] += 1
+        if _ulasildi(c):
+            g["ulasilan"] += 1
+            g["konusma_sn"] += c.get("durationSeconds") or 0
+            s_ = _sonuc_adi(c)
+            sonuclar[s_] = sonuclar.get(s_, 0) + 1
+            if s_ == "randevu":
+                g["randevu"] += 1
+        else:
+            ad = {"customer-did-not-answer": "açmadı", "customer-busy": "meşgul"}.get(c.get("endedReason"), "bağlanamadı")
+            sonuclar[ad] = sonuclar.get(ad, 0) + 1
+    sonuc = {"gunler": [{"gun": k, **v} for k, v in gunler.items()], "sonuclar": sonuclar, "suren": suren, "eksik_gun": eksik_gun}
+    _ozet_onbellek[gun] = (time.time(), sonuc)
+    return sonuc
 
 
 @router.get("/panel/api/aramalar/{cid}")
