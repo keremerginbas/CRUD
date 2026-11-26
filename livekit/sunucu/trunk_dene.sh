@@ -4,9 +4,10 @@
 #   sudo bash trunk_dene.sh <görünecek-numara> <aranacak-numara>
 #   örnek: sudo bash trunk_dene.sh 5337437116 05061288930
 set -euo pipefail
-ARAYAN=$(echo "${1:?Kullanım: trunk_dene.sh <görünecek-numara> <aranacak-numara>}" | tr -cd '0-9')
+ARAYAN=$(echo "${1:?Kullanım: trunk_dene.sh <görünecek-numara> <aranacak-numara>}" | tr -cd '0-9' | sed -E 's/^(90|0)//')
+asterisk -rx "pjsip show endpoint trunk-$ARAYAN" | grep -qE "Endpoint: +trunk-$ARAYAN" || { echo "0$ARAYAN için trunk tanımlı değil. Önce: sudo bash /opt/xre-ai/trunk_ekle.sh"; exit 1; }
 HEDEF=$(echo "${2:?Kullanım: trunk_dene.sh <görünecek-numara> <aranacak-numara>}" | tr -cd '0-9')
-SUNUCU=$(awk -F'sip:' '/^contact=sip:/{print $2; exit}' /etc/asterisk/pjsip.conf)
+SUNUCU=$(awk -v n="[trunk-$ARAYAN-aor]" -F'sip:' '$0==n{b=1} b&&/^contact=sip:/{print $2; exit}' /etc/asterisk/pjsip.conf)
 IP=$(dig +short A "$SUNUCU" | grep -E '^[0-9.]+$' | head -1)
 echo "Görünecek numara: $ARAYAN → aranan: $HEDEF   (NetGSM: $SUNUCU $IP)"
 ( timeout 25 tcpdump -ni any -A -s0 udp and host "$IP" 2>/dev/null | grep --line-buffered -E "^SIP/2.0 [0-9]{3}|^INVITE sip:" | awk '!g[$0]++' | sed 's/^/  NetGSM ile: /' ) &
