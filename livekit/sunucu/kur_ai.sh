@@ -46,7 +46,7 @@ echo "== API anahtarları (yazarken ekranda görünmez) =="
 sor OPENAI_API_KEY   "OpenAI API anahtarı (sk-...)"
 sor DEEPGRAM_API_KEY "Deepgram API anahtarı"
 sor ELEVEN_API_KEY   "ElevenLabs API anahtarı"
-VARSAYILAN_SES=$(eski ELEVEN_VOICE_ID); VARSAYILAN_SES=${VARSAYILAN_SES:-mBUB5zYuPwfVE6DTcEjf}
+VARSAYILAN_SES=$(eski ELEVEN_VOICE_ID); VARSAYILAN_SES=${VARSAYILAN_SES:-R0D8QjgVyRju4HRoCrIC}
 read -rp "ElevenLabs ses ID'si [$VARSAYILAN_SES]: " ELEVEN_VOICE_ID; ELEVEN_VOICE_ID=${ELEVEN_VOICE_ID:-$VARSAYILAN_SES}
 
 echo "== Anahtarlar deneniyor =="
