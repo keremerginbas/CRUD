@@ -3,15 +3,17 @@
 n8n'de yalnızca adres (https://api.vapi.ai → http://SUNUCU:8080) ve anahtar değişir."""
 from __future__ import annotations
 
+import hashlib
 import hmac
 import json
 import os
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from livekit import api
 
 import ortak
@@ -71,10 +73,19 @@ app.include_router(panel.router)
 ANAHTARLAR = [API_ANAHTARI] + [k.strip() for k in os.environ.get("EK_API_ANAHTARLARI", "").split(",") if len(k.strip()) >= 16]
 
 
-def yetki(authorization: str = Header(default="")) -> None:
-    gelen = authorization.removeprefix("Bearer ").strip()
-    if not any(hmac.compare_digest(gelen.encode(), k.encode()) for k in ANAHTARLAR):
-        raise HTTPException(401, "Geçersiz API anahtarı")
+async def yetki(request: Request, authorization: str = Header(default="")) -> None:
+    gelen = re.sub(r"^bearer\s+", "", authorization.strip(), flags=re.I).strip().strip("\"'")
+    if any(hmac.compare_digest(gelen.encode(), k.encode()) for k in ANAHTARLAR):
+        return
+    # Reddedilen anahtar 15 dakika saklanır: n8n farklı bir anahtar gönderiyorsa yönetici onu
+    # n8n_anahtar_ekle.sh ile (maskeli hâlini görüp onaylayarak) tanıtabilir.
+    if 16 <= len(gelen) <= 200:
+        try:
+            ozet = hashlib.sha256(gelen.encode()).hexdigest()[:16]
+            await r.set(f"red-anahtar:{ozet}", json.dumps({"anahtar": gelen, "ip": panel._istemci_ip(request), "yol": request.url.path, "zaman": ortak.simdi_iso()}), ex=900)
+        except Exception:
+            pass
+    raise HTTPException(401, "Geçersiz API anahtarı")
 
 
 def disari(c: dict) -> dict:
