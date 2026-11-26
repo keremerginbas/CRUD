@@ -362,9 +362,10 @@ class Gorusme:
                 language=a.get("dil", "tr"), endpointing_ms=int(a.get("stt_bekleme_ms", 100)),
                 **({"base_url": os.environ["DEEPGRAM_URL"]} if os.environ.get("DEEPGRAM_URL") else {}),  # Avrupa sunucusu: daha kısa yol
             )
-            # Müşteri susunca (ses algılayıcı karar verince) Deepgram'dan yazıyı HEMEN iste. Bu olmadan Deepgram
-            # hattaki hafif uğultu yüzünden "konuşma bitti" demeyi 2-3 saniye geciktirebiliyor.
-            if a.get("stt_hizli_bitir", True):
+            # DENEYSEL, varsayılan KAPALI: müşteri susunca Deepgram'dan yazıyı hemen iste.
+            # Gerçek hatta denendiğinde Deepgram kesin yazıyı hiç göndermedi ve asistan sustu (26.11.2026);
+            # o yüzden yalnızca asistan dosyasında stt_hizli_bitir: true yazılırsa açılır.
+            if a.get("stt_hizli_bitir", False):
                 ses_tanima.capabilities.manual_flush = True
         session = AgentSession(
             stt=ses_tanima,
