@@ -3,6 +3,7 @@
 n8n'de yalnızca adres (https://api.vapi.ai → http://SUNUCU:8080) ve anahtar değişir."""
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import time
@@ -65,8 +66,14 @@ app = FastAPI(title="XRE Arama API", lifespan=yasam, docs_url=None, redoc_url=No
 app.include_router(panel.router)
 
 
+# EK_API_ANAHTARLARI: virgülle ayrılmış ek anahtarlar. n8n'deki mevcut "Vapi" kimlik bilgisi değiştirilmeden
+# çalışsın diye eski Vapi anahtarı buraya yazılabilir (n8n_baglan.sh).
+ANAHTARLAR = [API_ANAHTARI] + [k.strip() for k in os.environ.get("EK_API_ANAHTARLARI", "").split(",") if len(k.strip()) >= 16]
+
+
 def yetki(authorization: str = Header(default="")) -> None:
-    if authorization.removeprefix("Bearer ").strip() != API_ANAHTARI:
+    gelen = authorization.removeprefix("Bearer ").strip()
+    if not any(hmac.compare_digest(gelen.encode(), k.encode()) for k in ANAHTARLAR):
         raise HTTPException(401, "Geçersiz API anahtarı")
 
 
@@ -102,6 +109,8 @@ async def arama_baslat(govde: dict):
     ov = govde.get("assistantOverrides") or {}
     if ov.get("firstMessage"):
         asistan = {**asistan, "ilk_mesaj": ov["firstMessage"]}
+    if isinstance(ov.get("firstMessageInterruptionsEnabled"), bool):
+        asistan = {**asistan, "ilk_mesaj_kesilebilir": ov["firstMessageInterruptionsEnabled"]}
     if (ov.get("voice") or {}).get("voiceId"):  # Vapi'deki gibi: tek arama için ses değiştirme
         asistan = {**asistan, "ses_id": ov["voice"]["voiceId"]}
     if (ov.get("model") or {}).get("model"):
@@ -130,24 +139,45 @@ async def arama_baslat(govde: dict):
     return disari(cagri)
 
 
+def _zaman(deger: str | None, ad: str) -> float | None:
+    if not deger:
+        return None
+    try:
+        return datetime.fromisoformat(deger.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        raise HTTPException(400, f"{ad} ISO tarih olmalı")
+
+
 @app.get("/call", dependencies=[Depends(yetki)])
-async def aramalar(createdAtGt: str | None = Query(default=None), limit: int = 100):
-    alt = 0.0
-    if createdAtGt:
-        try:
-            alt = datetime.fromisoformat(createdAtGt.replace("Z", "+00:00")).timestamp()
-        except ValueError:
-            raise HTTPException(400, "createdAtGt ISO tarih olmalı")
-    idler = await r.zrevrangebyscore("cagrilar", "+inf", alt, start=0, num=max(1, min(limit, 1000)))
+async def aramalar(createdAtGt: str | None = None, createdAtGe: str | None = None, createdAtLt: str | None = None, createdAtLe: str | None = None,
+                   assistantId: str | None = None, phoneNumberId: str | None = None, limit: int = 100):
+    """Vapi'nin GET /call süzgeçleri: oluşturulma zamanı aralığı, asistan, numara. En yeni önce."""
+    alt = _zaman(createdAtGt, "createdAtGt") or _zaman(createdAtGe, "createdAtGe") or 0.0
+    ust = _zaman(createdAtLt, "createdAtLt") or _zaman(createdAtLe, "createdAtLe")
+    asistan = ortak.asistan_bul(assistantId) if assistantId else None
+    asistan_idleri = {assistantId, (asistan or {}).get("id"), (asistan or {}).get("vapi_id")} - {None, ""}
+    limit = max(1, min(limit, 1000))
+    idler = await r.zrevrangebyscore("cagrilar", ust if ust is not None else "+inf", alt, start=0, num=5000, withscores=True)
     out = []
-    for cid in idler:
-        c = await ortak.cagri_oku(r, cid)
-        if not c:
-            continue
-        # 30 dakikadan eski "bitmemiş" kayıt hattı sonsuza dek meşgul göstermesin
-        if c.get("status") != "ended" and time.time() - (await r.zscore("cagrilar", cid) or 0) > 1800:
-            c["status"], c["endedReason"] = "ended", "call.in-progress.error-zaman-asimi"
-        out.append(disari(c))
+    for i in range(0, len(idler), 200):
+        parca = idler[i:i + 200]
+        for (cid, puan), ham in zip(parca, await r.mget([f"cagri:{c}" for c, _ in parca])):
+            try:
+                c = json.loads(ham) if ham else None
+            except ValueError:
+                c = None
+            if not isinstance(c, dict):
+                continue
+            if asistan_idleri and c.get("assistantId") not in asistan_idleri:
+                continue
+            if phoneNumberId and c.get("phoneNumberId") != phoneNumberId:
+                continue
+            # 30 dakikadan eski "bitmemiş" kayıt hattı sonsuza dek meşgul göstermesin
+            if c.get("status") != "ended" and time.time() - puan > 1800:
+                c["status"], c["endedReason"] = "ended", "call.in-progress.error-zaman-asimi"
+            out.append(disari(c))
+            if len(out) >= limit:
+                return out
     return out
 
 

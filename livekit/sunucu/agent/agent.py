@@ -436,6 +436,23 @@ class Gorusme:
             gecikmeli = asyncio.create_task(sessiz_acilis())
             ctx.add_shutdown_callback(lambda: _iptal(gecikmeli))
 
+    def _vapi_mesajlari(self) -> list[dict]:
+        """Vapi'nin artifact.messages biçimi: konuşma + araç çağrıları (n8n akışları randevu aracının çağrıldığını buradan anlar)."""
+        out = []
+        if not self.session:
+            return out
+        for it in self.session.history.items:
+            tur = getattr(it, "type", "")
+            if tur == "message" and it.role in ("user", "assistant"):
+                metin = (it.text_content or "").strip()
+                if metin:
+                    out.append({"role": "user" if it.role == "user" else "bot", "message": metin})
+            elif tur == "function_call" and it.name != "end_call":
+                out.append({"role": "tool_calls", "message": "", "toolCalls": [{"id": it.call_id, "type": "function", "function": {"name": it.name, "arguments": it.arguments}}]})
+            elif tur == "function_call_output" and it.name != "end_call":
+                out.append({"role": "tool_call_result", "name": it.name, "toolCallId": it.call_id, "result": it.output})
+        return out
+
     # ---------- çağrı sonu raporu ----------
     def _mesajlar(self) -> list[dict]:
         out = []
@@ -490,7 +507,7 @@ class Gorusme:
         rapor = {"message": {
             "type": "end-of-call-report", "endedReason": neden, "call": call,
             "customer": call["customer"], "phoneNumber": call["phoneNumber"],
-            "artifact": {"messages": mesajlar, "transcript": transkript},
+            "artifact": {"messages": self._vapi_mesajlari(), "transcript": transkript},
             "transcript": transkript, "summary": analiz["summary"], "analysis": analiz,
             "startedAt": call["startedAt"], "endedAt": call["endedAt"], "durationSeconds": sure, "cost": 0,
         }}
@@ -500,10 +517,18 @@ class Gorusme:
                     for c in (self.asistan.get("vapi_ciktilari") or []) if isinstance(c, dict) and c.get("id")}
         if ciktilar:
             rapor["message"]["artifact"]["structuredOutputs"] = ciktilar
+        # Ses kaydı: yalnızca müşteri açtıysa vardır. Vapi'nin kullandığı bütün alan adlarına yazılır.
+        kayit = ortak.kayit_adresi(self.id) if self.baslangic else ""
+        if kayit:
+            rapor["message"]["recordingUrl"] = rapor["message"]["artifact"]["recordingUrl"] = call["recordingUrl"] = kayit
+            rapor["message"]["artifact"]["recording"] = {"mono": {"combinedUrl": kayit}}
         log.info("GECIKME: %s", json.dumps(self.gecikme_ozeti()))
         await self.durum("ended", endedReason=neden, endedAt=ortak.simdi_iso(), durationSeconds=sure, asistanAdi=self.asistan.get("ad"),
                          customer=call["customer"], phoneNumber=call["phoneNumber"],
-                         mesajlar=mesajlar, ozet=analiz["summary"], sonuc=analiz["structuredData"], gecikme=self.gecikme_ozeti())
+                         mesajlar=mesajlar, ozet=analiz["summary"], sonuc=analiz["structuredData"], gecikme=self.gecikme_ozeti(),
+                         # GET /call cevabı Vapi'ninkiyle aynı alanları taşısın (n8n günlük raporları bunları okur)
+                         startedAt=call["startedAt"], analysis=analiz, summary=analiz["summary"], transcript=transkript, cost=0,
+                         artifact=rapor["message"]["artifact"], recordingUrl=kayit)
         url = self.asistan.get("sunucu_url")
         log.info("görüşme bitti id=%s neden=%s süre=%ss rapor=%s", self.id, neden, sure, url or "(URL yok)")
         if not url:

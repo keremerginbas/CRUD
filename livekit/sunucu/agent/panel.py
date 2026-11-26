@@ -611,6 +611,21 @@ async def arama_getir(cid: str, _k: dict = Depends(oturum)):
     return c
 
 
+@router.get("/kayit/{cid}.wav")
+async def kayit_disaridan(cid: str, imza: str = ""):
+    """n8n ve Bitrix notlarındaki kayıt bağlantısı: oturum gerekmez, adresin içindeki imza doğrulanır."""
+    try:
+        uuid.UUID(cid)
+    except ValueError:
+        raise HTTPException(404, "Bulunamadı")
+    if not os.environ.get("PANEL_GIZLI") or not hmac.compare_digest(imza, ortak.kayit_imzasi(cid)):
+        raise HTTPException(403, "Bağlantı geçersiz")
+    f = KAYIT_KLASORU / f"{cid}.wav"
+    if not f.exists():
+        raise HTTPException(404, "Bu aramanın ses kaydı yok ya da silinmiş")
+    return FileResponse(f, media_type="audio/wav", filename=f"{cid}.wav")
+
+
 @router.get("/panel/api/aramalar/{cid}/kayit")
 async def arama_kaydi(cid: str, _k: dict = Depends(oturum)):
     try:

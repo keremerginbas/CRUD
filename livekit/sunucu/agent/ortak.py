@@ -20,6 +20,20 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 TR = ZoneInfo("Europe/Istanbul")
 
 
+def kayit_imzasi(cid: str) -> str:
+    import hashlib
+    import hmac
+    return hmac.new(os.environ.get("PANEL_GIZLI", "").encode(), f"kayit:{cid}".encode(), hashlib.sha256).hexdigest()[:40]
+
+
+def kayit_adresi(cid: str) -> str:
+    """Ses kaydının dışarıdan (n8n, Bitrix notu) açılabilen imzalı adresi. DIS_ADRES tanımlı değilse boş döner."""
+    taban = os.environ.get("DIS_ADRES", "").rstrip("/")
+    if not taban or not os.environ.get("PANEL_GIZLI"):
+        return ""
+    return f"{taban}/kayit/{cid}.wav?imza={kayit_imzasi(cid)}"
+
+
 GUNLER = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
 AYLAR = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"]
 
