@@ -4,6 +4,8 @@
 #   sudo bash /opt/xre-ai/trunk_ekle.sh            → sırayla sorar; başka numara ekleyip eklemeyeceğinizi de sorar
 #   sudo bash /opt/xre-ai/trunk_ekle.sh toplu      → NetGSM'in gönderdiği listeyi (e-posta metnini) yapıştırırsınız, hepsini ekler
 #   sudo bash /opt/xre-ai/trunk_ekle.sh liste      → tanımlı trunk'ları gösterir
+#   sudo bash /opt/xre-ai/trunk_ekle.sh hat dahili → bütün numaraları eski dahili hatta geri alır (trunk'lar silinmez)
+#   sudo bash /opt/xre-ai/trunk_ekle.sh hat trunk  → trunk'ı tanımlı numaraları yeniden kendi trunk'larına alır
 #   sudo bash /opt/xre-ai/trunk_ekle.sh sil 5337437116
 set -euo pipefail
 trunk_var() { local c; c=$(asterisk -rx "pjsip show endpoint trunk-$1" 2>&1 || true); grep -qE "Endpoint: +trunk-$1" <<< "$c"; }
@@ -18,6 +20,24 @@ if [ "${1:-}" = liste ]; then
     trunk_var "$N" && echo "  ✓ 0$N yüklü" || echo "  ✗ 0$N dosyada var ama santrale yüklenmemiş"
   done
   grep -q '^; ---- TRUNK ' "$PJSIP" || echo "  (tanımlı trunk yok)"
+  exit 0
+fi
+if [ "${1:-}" = hat ]; then   # bütün numaraları tek seferde dahili hatta ya da kendi trunk'larına alır
+  YON=${2:-}; case "$YON" in dahili|trunk) ;; *) echo "Kullanım: trunk_ekle.sh hat dahili   ya da   trunk_ekle.sh hat trunk"; exit 1 ;; esac
+  python3 - "$HEDEF/numaralar.yaml" "$YON" "$PJSIP" <<'PY'
+import re, sys, yaml
+yol, yon, pjsip = sys.argv[1:4]
+tanimli = set(re.findall(r"^; ---- TRUNK (\d+) BASLANGIC", open(pjsip, encoding="utf-8").read(), re.M))
+d = yaml.safe_load(open(yol, encoding="utf-8")) or {}; n = 0
+for k in d.get("numaralar") or []:
+    son10 = re.sub(r"\D", "", str(k.get("numara") or ""))[-10:]
+    if yon == "trunk" and son10 not in tanimli:
+        continue
+    if k.get("hat") != yon and (yon == "trunk" or k.get("on_ek")):   # dahiliye dönüş yalnızca ön eki olan numaralar için mümkün
+        k["hat"] = yon; n += 1
+yaml.safe_dump(d, open(yol, "w", encoding="utf-8"), allow_unicode=True, sort_keys=False)
+print(f"{n} numara '{yon}' hattına alındı. Yeni aramalardan itibaren geçerli.")
+PY
   exit 0
 fi
 if [ "${1:-}" = sil ]; then
