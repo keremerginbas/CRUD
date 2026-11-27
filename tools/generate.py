@@ -320,7 +320,7 @@ def header(page, lang):
     return f"""
 <header class="site-header sticky top-0 z-50 border-b border-transparent bg-white transition-colors [&.scrolled]:border-line">
   <div class="header-row wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
-    <a class="shrink-0" href="{href('home', lang)}"><img class="h-11 w-auto lg:h-16" src="{logo}" width="{w}" height="{h}" alt="{esc(u['logo_alt'].format(C['name']))}"></a>
+    <a class="shrink-0" href="{href('home', lang)}"><img class="{'h-[60px] lg:h-[74px]' if BRAND_KEY == 'rome' else 'h-11 lg:h-16'} w-auto" src="{logo}" width="{w}" height="{h}" alt="{esc(u['logo_alt'].format(C['name']))}"></a>
     <nav class="main-nav lg:ml-auto" aria-label="{esc(u['menu'])}">
       <ul class="flex items-center gap-1">{''.join(items)}</ul>
     </nav>
@@ -351,8 +351,18 @@ def offices_html(lang, dark=False, cols=3):
         top = "border-accent" if i == 0 else ("border-white/20" if dark else "border-line")
         title = "text-white" if dark else "text-ink"
         text = "text-on-dark" if dark else "text-body"
+        if dark:
+            li = f'<li class="border-t-2 {top} pt-5" data-reveal data-reveal-delay="{i + 1}">'
+            pin = ""
+        else:
+            hq = " ring-1 ring-accent/40" if i == 0 else ""
+            li = (f'<li class="office-card relative rounded-2xl border border-line bg-white p-6 shadow-[0_10px_30px_-20px_rgb(var(--ink)/.35)] '
+                  f'transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_44px_-22px_rgb(var(--ink)/.4)]{hq}" data-reveal data-reveal-delay="{i + 1}">')
+            pin = (f'<span class="mb-5 grid h-11 w-11 place-items-center rounded-xl {"bg-accent text-accent-on" if i == 0 else "bg-mist text-ink"}">'
+                   '<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                   '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>')
         out.append(f"""
-      <li class="border-t-2 {top} pt-5" data-reveal data-reveal-delay="{i + 1}">
+      {li}{pin}
         <h3 class="mb-2.5 text-lg {title}">{esc(o['title'][lang])}</h3>
         <address class="mb-3 not-italic"><a class="no-underline hover:underline {text}" href="{maps_link(o)}" target="_blank" rel="noopener">{'<br>'.join(esc(l) for l in o['lines'])}</a></address>{phones_html(o, dark)}
       </li>""")
@@ -396,9 +406,9 @@ def footer(lang):
 </footer>
 <button class="to-top fixed bottom-[92px] right-6 z-40 grid h-11 w-11 place-items-center rounded-full border border-line bg-white text-ink shadow-[0_8px_20px_rgba(16,26,46,.15)] hover:border-ink" type="button" aria-label="{esc(u['to_top'])}">{icon('arrow', 'h-5 w-5 -rotate-90')}</button>
 <a class="fixed bottom-5 right-5 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#1FA855] text-white shadow-[0_10px_24px_rgba(0,0,0,.18)] transition hover:bg-[#178A45]" href="{C['whatsapp']}" target="_blank" rel="noopener" aria-label="{esc(u['whatsapp'])}">{icon('chat', 'h-7 w-7')}</a>
-<div class="cookie-banner fixed bottom-3 left-3 right-3 z-[60] rounded-xl border border-line bg-white p-4 text-sm shadow-[0_18px_48px_rgba(16,26,46,.18)] sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-[420px] sm:p-5 sm:text-[15px]" role="dialog" aria-live="polite" aria-label="{esc(u['cookies'])}">
-  <p class="mb-3">{u['cookie_text']}</p>
-  <div class="flex gap-2.5"><button class="accept min-h-[42px] flex-1 rounded-md bg-ink px-4 font-semibold text-white" type="button">{esc(u['cookie_accept'])}</button><button class="reject min-h-[42px] flex-1 rounded-md border border-ink px-4 font-semibold text-ink" type="button">{esc(u['cookie_reject'])}</button></div>
+<div class="cookie-banner fixed bottom-3 left-3 right-[84px] z-[60] rounded-xl border border-line bg-white/95 p-3.5 text-[13px] leading-snug shadow-[0_18px_48px_rgba(16,26,46,.18)] sm:bottom-5 sm:left-5 sm:right-auto sm:max-w-[360px] sm:p-4 sm:text-sm" role="dialog" aria-live="polite" aria-label="{esc(u['cookies'])}">
+  <p class="mb-3 text-body">{u['cookie_text']}</p>
+  <div class="flex gap-2"><button class="accept min-h-[38px] flex-1 whitespace-nowrap rounded-md bg-ink px-4 font-semibold text-white" type="button">{esc(u['cookie_accept'])}</button><button class="reject min-h-[38px] flex-1 whitespace-nowrap rounded-md border border-ink px-3 font-semibold text-ink" type="button">{esc(u['cookie_reject'])}</button></div>
 </div>
 <script type="module" src="assets/js/site.js?v=__HASH_SITE_JS__"></script>"""
 
@@ -698,7 +708,7 @@ def hr_form(lang):
 def cap_list(items):
     """items: (ikon, başlık html, açıklama)"""
     rows = "".join(f"""
-      <li class="group grid grid-cols-[48px_1fr] gap-x-5 gap-y-1.5 border-b border-line py-6" data-reveal>
+      <li class="group -mx-4 grid grid-cols-[48px_1fr] gap-x-5 gap-y-1.5 rounded-xl border-b border-line px-4 py-6 transition-colors duration-300 hover:border-transparent hover:bg-mist/70" data-reveal>
         <span class="row-span-2 grid h-12 w-12 place-items-center rounded-xl bg-mist text-ink transition-colors duration-300 group-hover:bg-ink group-hover:text-white">{icon(ic)}</span>
         <h3 class="mt-1 text-xl">{title}</h3>
         <p class="m-0 text-base text-muted">{esc(desc)}</p>
@@ -924,7 +934,7 @@ def story_html(lang):
       </div>
       <div class="pointer-events-auto rounded-2xl border border-white/60 bg-white/85 p-5 shadow-[0_14px_40px_-16px_rgb(var(--ink)/.3)] md:w-[300px]" data-intro style="--d:.36s">
         <p class="m-0 text-[17px] font-medium leading-snug text-ink">{esc(st['aside'])}</p>
-        <p class="mt-5 flex items-center gap-2 text-sm font-semibold text-muted motion-safe:animate-pulse">{icon('chev', 'h-4 w-4')} {esc(st['scroll'])}</p>
+        <p class="mt-5 flex items-center gap-2 text-sm font-semibold text-muted">{icon('chev', 'h-4 w-4 motion-safe:animate-bounce')} {esc(st['scroll'])}</p>
       </div>
     </div>
   </section>
@@ -932,8 +942,8 @@ def story_html(lang):
   <section class="pointer-events-none flex min-h-[100svh] items-center">
     <div class="wrap grid items-start gap-10 py-28 lg:grid-cols-12 lg:gap-16">
       <div class="pointer-events-auto lg:col-span-7">
-        <h2 class="h-section m-0 text-[clamp(38px,5.4vw,76px)] leading-[0.98]" data-reveal>{lines_html(st['drop_h'])}</h2>
-        <p class="lead mt-8 max-w-lg" data-reveal data-reveal-delay="1">{esc(st['drop_p'])}</p>
+        <h2 class="halo h-section m-0 w-fit text-[clamp(38px,5.4vw,76px)] leading-[0.98]" data-reveal>{lines_html(st['drop_h'])}</h2>
+        <p class="halo lead mt-8 max-w-lg" data-reveal data-reveal-delay="1">{esc(st['drop_p'])}</p>
       </div>
       <ul class="pointer-events-auto grid gap-3.5 lg:col-span-5 lg:pt-3" data-reveal data-reveal-delay="2">{facts}
       </ul>
@@ -942,18 +952,18 @@ def story_html(lang):
 
   <section class="pointer-events-none flex min-h-[100svh] flex-col justify-between">
     <div class="wrap pt-28">
-      <h2 class="h-section m-0 max-w-2xl text-[clamp(38px,5.4vw,76px)] leading-[0.98]" data-reveal>{lines_html(st['heart_h'])}</h2>
+      <h2 class="halo h-section m-0 w-fit max-w-2xl text-[clamp(38px,5.4vw,76px)] leading-[0.98]" data-reveal>{lines_html(st['heart_h'])}</h2>
     </div>
     <div class="wrap flex justify-end pb-28">
       <div class="pointer-events-auto max-w-sm md:text-right">
-        <p class="text-[17px] leading-relaxed text-body" data-reveal>{esc(st['heart_p'])}</p>
+        <p class="halo text-[17px] leading-relaxed text-body" data-reveal>{esc(st['heart_p'])}</p>
         <p class="mt-6 inline-flex items-center gap-2 rounded-full border border-white/60 bg-white/85 px-4 py-2.5 text-sm font-semibold text-ink" data-reveal data-reveal-delay="2">{icon('arrow', 'h-4 w-4')} {esc(st['heart_hint'])}</p>
       </div>
     </div>
   </section>
 
   <section class="pointer-events-none flex min-h-[100svh] items-center justify-center text-center">
-    <div class="wrap pointer-events-auto max-w-3xl py-28">
+    <div class="halo halo-wide wrap pointer-events-auto max-w-3xl py-28">
       <h2 class="h-section m-0 text-[clamp(42px,6vw,88px)] leading-[0.95]" data-reveal>{lines_html(st['release_h'])}</h2>
       <p class="lead mx-auto mt-8 max-w-md" data-reveal data-reveal-delay="1">{esc(st['release_p'])}</p>
     </div>
@@ -1344,7 +1354,7 @@ def rome_stage(lang):
     st = ROME_STAGE[lang]
     lines = dict(zip(("supply", "consult"), s.BUSINESS_LINES[lang]))
     cards = "".join(f"""
-        <button class="group w-[150px] rounded-[26px] border border-white/15 bg-white/[.08] p-4 pt-5 text-left transition duration-300 hover:-translate-y-1 hover:bg-white/[.12] aria-pressed:border-accent aria-pressed:bg-white/[.1]" type="button" data-theme-card="{key}" aria-pressed="{'true' if key == 'supply' else 'false'}">
+        <button class="group w-[150px] rounded-[26px] border border-white/15 bg-ink-deep/75 p-4 pt-5 text-left shadow-[0_18px_40px_-18px_rgba(0,0,0,.6)] transition duration-300 hover:-translate-y-1 hover:border-white/30 aria-pressed:border-accent aria-pressed:shadow-[0_0_0_1px_rgb(var(--accent)),0_18px_40px_-18px_rgba(0,0,0,.6)]" type="button" data-theme-card="{key}" aria-pressed="{'true' if key == 'supply' else 'false'}">
           <span class="mb-6 grid h-12 w-12 place-items-center rounded-2xl {'bg-[#2DCE98]' if key == 'supply' else 'bg-[#38A8F5]'} text-[#0F2A40] transition-transform duration-500 group-hover:-rotate-12 group-hover:scale-110">{icon('pill' if key == 'supply' else 'handshake', 'h-6 w-6')}</span>
           <span class="block text-[15px] font-semibold leading-tight text-white">{esc(title)}</span>
           <span class="mt-1 block text-xs leading-snug text-on-dark">{esc(sub)}</span>
@@ -1361,7 +1371,7 @@ def rome_stage(lang):
     <div class="flex flex-col gap-7">
       <p class="m-0 text-[15px] font-semibold text-accent" data-intro>{esc(st['eyebrow'])}</p>
       <h1 class="h-display m-0 max-w-[12ch] text-[clamp(40px,5.4vw,78px)] text-white" data-intro style="--d:.1s">{esc(R['h1'])}</h1>
-      <p class="m-0 max-w-[40ch] text-lg leading-relaxed text-on-dark" data-intro style="--d:.2s">{esc(R['lead'])}</p>
+      <p class="halo halo-dark m-0 max-w-[40ch] text-lg leading-relaxed text-on-dark" data-intro style="--d:.2s">{esc(R['lead'])}</p>
       <a class="group inline-flex w-fit items-center gap-5 rounded-full bg-black/40 py-1.5 pl-6 pr-1.5 font-bold text-white no-underline transition hover:-translate-y-0.5 hover:bg-black/60" href="{href('contact', lang, '#contact-form')}" data-intro style="--d:.3s">{esc(UI[lang]['cta'])}
         <span class="grid h-10 w-10 place-items-center rounded-full bg-accent text-2xl font-black leading-none text-accent-on transition-transform duration-300 group-hover:rotate-90">+</span></a>
       <div class="mt-auto flex items-center gap-4 pt-6" data-intro style="--d:.4s">
@@ -1375,8 +1385,8 @@ def rome_stage(lang):
         <div class="flex gap-3">{cards}
         </div>
       </div>
-      <p class="m-0 max-w-[34ch] text-[15px] leading-relaxed text-on-dark transition duration-300" data-swap {swap_text}>{esc(lines['supply'])}</p>
-      <h2 class="m-0 mt-auto text-[clamp(44px,6vw,92px)] font-bold leading-[.92] tracking-[-0.03em] text-white transition duration-300" data-swap {swap_side}>{st['side']['supply']}</h2>
+      <p class="halo halo-dark m-0 max-w-[34ch] text-[15px] leading-relaxed text-on-dark transition duration-300" data-swap {swap_text}>{esc(lines['supply'])}</p>
+      <h2 class="halo halo-dark m-0 mt-auto text-[clamp(44px,6vw,92px)] font-bold leading-[.92] tracking-[-0.03em] text-white transition duration-300" data-swap {swap_side}>{st['side']['supply']}</h2>
     </div>
   </div>
 </section>"""

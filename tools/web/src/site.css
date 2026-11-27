@@ -203,6 +203,7 @@
 @media (min-width: 1024px) {
   .site-header.scrolled .header-row { height: 68px; }
   .site-header.scrolled .header-row img { height: 52px; }
+  [data-brand="rome"] .site-header.scrolled .header-row img { height: 62px; }
 }
 .read-progress {
   position: absolute; left: 0; right: 0; bottom: -1px; height: 3px;
@@ -232,6 +233,15 @@
   .menu-open .main-nav > ul > li:nth-child(6) { animation-delay: .2s; }
 }
 @keyframes rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+
+/* Hareketli 3D sahnenin üstündeki metinler: arkalarında yumuşak bir ışık hâlesi (bulanıklaştırma yok, hızlı) */
+.halo { position: relative; isolation: isolate; }
+.halo::before {
+  content: ""; position: absolute; inset: -22% -10%; z-index: -1; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(255 255 255 / .93), rgb(255 255 255 / .72) 55%, rgb(255 255 255 / 0));
+}
+.halo-wide::before { inset: 4% -6%; }
+.halo-dark::before { background: radial-gradient(closest-side, rgb(var(--ink-deep) / .78), rgb(var(--ink-deep) / .45) 55%, rgb(var(--ink-deep) / 0)); }
 
 /* Yukarı çık */
 .to-top { opacity: 0; visibility: hidden; transform: translateY(12px); transition: opacity .3s ease, transform .3s ease, visibility .3s, border-color .2s ease; }
