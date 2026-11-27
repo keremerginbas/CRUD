@@ -2,6 +2,7 @@
 # NetGSM SIP trunk'larını bu sunucuya tanıtır. NetGSM'de her GSM numarasının AYRI trunk'ı (kullanıcı adı + şifre) vardır;
 # bu betik her numara için bir kez çalıştırılır. Vapi'ye ve gelen aramalara DOKUNMAZ.
 #   sudo bash /opt/xre-ai/trunk_ekle.sh            → sırayla sorar; başka numara ekleyip eklemeyeceğinizi de sorar
+#   sudo bash /opt/xre-ai/trunk_ekle.sh toplu      → NetGSM'in gönderdiği listeyi (e-posta metnini) yapıştırırsınız, hepsini ekler
 #   sudo bash /opt/xre-ai/trunk_ekle.sh liste      → tanımlı trunk'ları gösterir
 #   sudo bash /opt/xre-ai/trunk_ekle.sh sil 5337437116
 set -euo pipefail
@@ -46,6 +47,7 @@ allow=alaw,ulaw
 outbound_auth=trunk-$N-auth
 aors=trunk-$N-aor
 from_domain=${HOST}
+from_user=${KUL}
 direct_media=no
 rtp_symmetric=yes
 force_rport=yes
@@ -55,8 +57,8 @@ send_pai=yes
 trust_id_outbound=yes
 ; ---- TRUNK $N BITIS ----
 EOT
-  yukle
-  if asterisk -rx "pjsip show endpoint trunk-$N" | grep -qE "Endpoint: +trunk-$N"; then
+  [ "${SESSIZ:-}" = 1 ] || yukle
+  if [ "${SESSIZ:-}" = 1 ] || asterisk -rx "pjsip show endpoint trunk-$N" | grep -qE "Endpoint: +trunk-$N"; then
     echo "✓ 0$N için trunk tanımlandı."
   else
     echo "✗ Trunk yüklenemedi; eski ayar geri alınıyor."; cp "$PJSIP.trunk-oncesi" "$PJSIP"; yukle; return 1
@@ -77,6 +79,37 @@ else:
     print("  Uyarı: bu numara panelde kayıtlı değil. Panel → Numaralar'dan ekleyin (hat: trunk).")
 PY
 }
+
+if [ "${1:-}" = toplu ]; then
+  echo "NetGSM'in gönderdiği listeyi (\"Kullanıcı adı : +90... / Şifre : ...\" satırlarını) buraya yapıştırın."
+  echo "Yapıştırdıktan sonra Enter'a, ardından Ctrl ve D tuşlarına birlikte basın."
+  G=$(mktemp); trap 'rm -f "$G" "$G.c"' EXIT; chmod 600 "$G"
+  cat > "$G"
+  # Metinden (kullanıcı adı, şifre) çiftlerini çıkar; şifreleri ekrana yazma
+  python3 - "$G" > "$G.c" <<'PY'
+import re, sys
+t = open(sys.argv[1], encoding="utf-8", errors="ignore").read()
+host = (re.search(r"SIP Sunucu adresi\s*:\s*([A-Za-z0-9.-]+)", t) or [None, "sip8.netsantral.com"])[1]
+for kul, sifre in re.findall(r"Kullan[ıi]c[ıi]\s*ad[ıi]\s*:\s*(\+?\d{10,13})\s*[\r\n ]+\s*[ŞS]ifre\s*:\s*(\S+)", t):
+    print(host, kul, sifre)
+PY
+  ADET=$(wc -l < "$G.c")
+  [ "$ADET" -gt 0 ] || { echo "Listede kullanıcı adı / şifre çifti bulunamadı."; exit 1; }
+  echo "$ADET numara bulundu, ekleniyor..."
+  cp "$PJSIP" "$PJSIP.toplu-oncesi"
+  while read -r HOST KUL SIFRE; do
+    N=$(rakam "$KUL"); [ ${#N} -eq 10 ] || { echo "  ! $KUL atlandı (numara 10 haneli değil)"; continue; }
+    SESSIZ=1 ekle "$N" "$HOST" "$KUL" "$SIFRE" || true
+  done < "$G.c"
+  yukle
+  TAMAM=0
+  while read -r HOST KUL SIFRE; do
+    N=$(rakam "$KUL"); asterisk -rx "pjsip show endpoint trunk-$N" | grep -qE "Endpoint: +trunk-$N" && TAMAM=$((TAMAM + 1)) || echo "  ✗ 0$N yüklenemedi"
+  done < "$G.c"
+  echo "$TAMAM / $ADET trunk yüklendi."
+  echo "Denemek için:  sudo bash /opt/xre-ai/trunk_dene.sh 05337437116 <kendi cep numaranız>"
+  exit 0
+fi
 
 while true; do
   read -rp "GSM numarası (müşteride görünecek, ör. 05337437116): " NUM; N=$(rakam "$NUM")

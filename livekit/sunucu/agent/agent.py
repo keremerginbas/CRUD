@@ -281,11 +281,12 @@ class Gorusme:
             return False
 
     async def hatti_bekle(self) -> bool:
-        """Dahili hattı aynı anda tek görüşme taşır. Hat doluyken gelen yeni arama reddedilip kaybolmasın diye
-        sıraya girer ve hat boşalınca arar. Kendi trunk'ı olan numaralar (hat: trunk) beklemez."""
-        if str(self.meta.get("hat") or "dahili") != "dahili":
-            return True
-        anahtar, azami = "hat-kilit:dahili", int(os.environ.get("HAT_BEKLEME_SN", "300"))
+        """Her hat aynı anda tek görüşme taşır: dahili hat da, numaraların kendi trunk'ları da (NetGSM FCT hatları).
+        Hat doluyken gelen yeni arama reddedilip kaybolmasın diye sıraya girer ve hat boşalınca arar.
+        Farklı numaralar birbirini beklemez; aynı numaradan ikinci arama birincinin bitmesini bekler."""
+        hat = str(self.meta.get("hat") or "dahili")
+        anahtar = "hat-kilit:dahili" if hat == "dahili" else f"hat-kilit:trunk:{self.meta.get('arayan') or ''}"
+        azami = int(os.environ.get("HAT_BEKLEME_SN", "300"))
         sure = int(self.asistan.get("azami_sure_sn", 420)) + 120   # kilit en geç bu kadar sonra kendiliğinden kalkar
         basla = time.time()
 
