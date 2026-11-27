@@ -68,7 +68,8 @@ KEEP_IMAGES = [
     "assets/images/orphion-logo.webp", "assets/images/orphion-logo-white.webp", "assets/images/orphion-logo.png",
     "assets/images/rome-logo.webp", "assets/images/rome-logo-white.webp", "assets/images/rome-logo.png",
     "assets/images/favicon-32.png", "assets/images/fav-icon.png", "assets/images/apple-touch-icon.png",
-    "assets/images/og-image.jpg", "assets/images/chairman-fevzi-aydin.webp",
+    "assets/images/og-image.jpg", "assets/images/og-tr.jpg", "assets/images/og-en.jpg",
+    "assets/images/chairman-fevzi-aydin.webp",
     "assets/images/bg/hero-medicines.webp", "assets/images/bg/hero-medicines-sm.webp",
 ]
 
@@ -443,7 +444,9 @@ INTRO_ORPHION = 'setTimeout(function(){document.documentElement.classList.add("i
 
 def head(page, lang, title, desc, extra=""):
     other = "en" if lang == "tr" else "tr"
-    og = s.SITE_URL + getattr(s, "OG_IMAGES", {}).get(page, "assets/images/og-image.jpg")
+    og_rel = getattr(s, "OG_IMAGES", {}).get(page) if page.startswith("event-") else None
+    og = s.SITE_URL + (og_rel or f"assets/images/og-{lang}.jpg")
+    og_size = "" if og_rel else '\n<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="630">' 
     inline = [JS_CLASS]
     globe_js = ""
     if page == "home" and BRAND_KEY == "rome":
@@ -475,7 +478,7 @@ def head(page, lang, title, desc, extra=""):
 <meta property="og:description" content="{esc(desc)}">
 <meta property="og:url" content="{page_url(page, lang)}">
 <meta property="og:image" content="{og}">
-<meta property="og:image:alt" content="{esc(title)}">
+<meta property="og:image:alt" content="{esc(title)}">{og_size}
 <meta property="og:locale" content="{'tr_TR' if lang == 'tr' else 'en_US'}">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" type="image/png" sizes="32x32" href="assets/images/favicon-32.png">
@@ -503,7 +506,7 @@ def organization(lang):
     org_id = s.SITE_URL + "#organization"
     data = {
         "@type": "Organization", "@id": org_id, "name": C["name"], "url": s.SITE_URL,
-        "logo": s.SITE_URL + s.BRAND["logo_png"], "image": s.SITE_URL + "assets/images/og-image.jpg",
+        "logo": s.SITE_URL + s.BRAND["logo_png"], "image": s.SITE_URL + f"assets/images/og-{lang}.jpg",
         "email": C["email"], "telephone": C["phone_tel"],
         "description": DESCRIPTIONS["home"][lang],
         "parentOrganization": {"@type": "Organization", "name": C["group"]},
@@ -785,9 +788,24 @@ def hero(lang, h1, lead, actions, legend, video=None):
 </section>"""
 
 
+_SIZES = {}
+
+
+def dims(src):
+    """Görselin gerçek genişlik/yükseklik öznitelikleri (tarayıcı yer ayırsın, sayfa zıplamasın)."""
+    if src not in _SIZES:
+        try:
+            from PIL import Image
+            with Image.open(ROOT / src) as im:
+                _SIZES[src] = f' width="{im.width}" height="{im.height}"'
+        except Exception:
+            _SIZES[src] = ""
+    return _SIZES[src]
+
+
 def photo(src, alt, extra_cls="aspect-[4/3]", pos="center", lazy=True):
     return (f'<figure class="m-0 overflow-hidden rounded-lg bg-mist {extra_cls}"><img class="h-full w-full object-cover" '
-            f'src="{src}" alt="{esc(alt)}" style="object-position:{pos}"{" loading=" + chr(34) + "lazy" + chr(34) if lazy else ""}></figure>')
+            f'src="{src}"{dims(src)} alt="{esc(alt)}" style="object-position:{pos}"{" loading=" + chr(34) + "lazy" + chr(34) if lazy else ""}></figure>')
 
 
 # ---------------------------------------------------------------------------
@@ -804,13 +822,13 @@ def event_card(e, lang, big=False, delay=1):
     if big:
         return f"""
       <a class="group block no-underline" href="{href('event-' + e['slug'], lang)}" data-reveal>
-        <span class="block aspect-[16/10] overflow-hidden rounded-lg bg-mist"><img class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" src="{src}" alt="{esc(C['name'])}, {esc(e['name'])}" loading="lazy" style="object-position:{pos}"></span>
+        <span class="block aspect-[16/10] overflow-hidden rounded-lg bg-mist"><img class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" src="{src}"{dims(src)} alt="{esc(C['name'])}, {esc(e['name'])}" loading="lazy" style="object-position:{pos}"></span>
         <h3 class="mb-2 mt-5 text-[28px] group-hover:text-accent-ink" lang="en">{esc(e['name'])}</h3>
         <p class="m-0 text-muted"><span class="font-semibold text-accent-ink">{esc(e['place'][lang])}, {e['year']}</span><br>{esc(e['summary'][lang])}</p>
       </a>"""
     return f"""
       <a class="group block no-underline" href="{href('event-' + e['slug'], lang)}" data-reveal data-reveal-delay="{delay}">
-        <span class="block aspect-[4/3] overflow-hidden rounded-lg bg-mist"><img class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" src="{src}" alt="{esc(C['name'])}, {esc(e['name'])}" loading="lazy" style="object-position:{pos}"></span>
+        <span class="block aspect-[4/3] overflow-hidden rounded-lg bg-mist"><img class="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]" src="{src}"{dims(src)} alt="{esc(C['name'])}, {esc(e['name'])}" loading="lazy" style="object-position:{pos}"></span>
         <h3 class="mb-1.5 mt-4 text-[21px] group-hover:text-accent-ink" lang="en">{esc(e['name'])}</h3>
         <p class="m-0 text-base text-muted"><span class="font-semibold text-accent-ink">{esc(e['place'][lang])}, {e['year']}</span><br>{esc(e['summary'][lang])}</p>
       </a>"""
@@ -1141,6 +1159,7 @@ def orphion_events(lang):
             "world to identify innovative therapies and build the partnerships that bring them to patients in Türkiye.")
     return page_hero(lang, u["events"], esc(lead)) + f"""
 <section class="section">
+  <h2 class="sr-only">{'Katıldığımız etkinlikler' if tr else 'Events we attended'}</h2>
   <div class="wrap grid gap-x-8 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">{cards}
   </div>
 </section>"""
@@ -1150,7 +1169,7 @@ def orphion_event(e, lang):
     u = UI[lang]
     i = EVENTS.index(e)
     gallery = "".join(
-        f'<figure class="m-0 overflow-hidden rounded-lg bg-mist"><img class="max-h-[760px] w-full object-cover" src="assets/images/events/{p}" '
+        f'<figure class="m-0 overflow-hidden rounded-lg bg-mist"><img class="max-h-[760px] w-full object-cover" src="assets/images/events/{p}"{dims("assets/images/events/" + p)} '
         f'alt="{esc(C["name"])}, {esc(e["name"])}" style="object-position:{pos}"{" loading=" + chr(34) + "lazy" + chr(34) if n else ""}></figure>'
         for n, (p, pos) in enumerate(e["photos"]))
     paras = "".join(f"<p>{esc(p)}</p>" for p in e["body"][lang])
@@ -1480,6 +1499,91 @@ else:
     BODIES = {"home": rome_home, "about": rome_about, "contact": contact_page, "privacy": privacy_page}
 
 
+def seo(page, tr=None, en=None, title_tr=None, title_en=None):
+    if title_tr or title_en:
+        TITLES[page] = {"tr": title_tr or TITLES[page]["tr"], "en": title_en or TITLES[page]["en"]}
+    if tr or en:
+        DESCRIPTIONS[page] = {"tr": tr or DESCRIPTIONS[page]["tr"], "en": en or DESCRIPTIONS[page]["en"]}
+
+
+_N = C["name"]
+_CH = (getattr(s, "CHAIRMAN", None) or {}).get("name", "")
+seo("privacy", title_tr=f"KVKK ve Çerez Politikası | {_N}",
+    tr=f"{_N} KVKK aydınlatma metni ve çerez politikası: kişisel verilerinizi hangi amaçlarla işlediğimiz, haklarınız ve çerez tercihleriniz.",
+    en=f"{_N} privacy notice and cookie policy: how we process your personal data, your rights and how to manage your cookie preferences.")
+if BRAND_KEY == "orphion":
+    seo("home", title_tr="Orphion Pharma | Türkiye'de Yenilikçi İlaç Erişimi",
+        title_en="Orphion Pharma | Innovative Medicine Access in Türkiye",
+        tr="Dubai merkezli Orphion Pharma; isimli hasta erişimi, kamu tedariki ve pazar erişimiyle yenilikçi ve nadir hastalık ilaçlarını Türkiye'deki hastalara ulaştırır.",
+        en="Dubai-based Orphion Pharma brings innovative and rare disease medicines to patients in Türkiye through named patient access, public supply and market access.")
+    seo("about",
+        tr="Orphion Pharma, ciddi ve nadir hastalıklarda yenilikçi tedavilere hasta erişimini hızlandıran Dubai merkezli bir ilaç ve hasta erişim şirketidir.",
+        en="Orphion Pharma is a Dubai-based pharmaceutical and patient-access company accelerating access to innovative therapies for serious and rare diseases.")
+    seo("contact",
+        tr="Orphion Pharma ile iletişime geçin: Dubai merkez, Türkiye irtibat ve ABD ofisleri. Hasta erişimi, tedarik ve pazara giriş talepleriniz için bize yazın.")
+    seo("services",
+        tr="Orphion Pharma hizmetleri: isimli hasta erişimi, kamu tedariki, pazar erişimi ve geri ödeme, regülasyon desteği, distribütörlük ve nadir hastalık ilaçları.",
+        en="Orphion Pharma capabilities: named patient access, public supply, market access and reimbursement, regulatory support, distribution and rare disease medicines.")
+    seo("chairman",
+        tr=f"Orphion Pharma Yönetim Kurulu Başkanı {_CH}'ın mesajı: yenilikçi tedavileri Türkiye'deki hastalara ulaştırma vizyonumuz ve değerlerimiz.",
+        en=f"A message from {_CH}, Chairman of Orphion Pharma, on our vision of bringing innovative therapies to patients in Türkiye.")
+    seo("hr", tr="Orphion Pharma'da kariyer: özgeçmişinizi gönderin, yenilikçi ilaçları Türkiye'deki hastalara ulaştıran uluslararası ekibimize katılın.",
+        en="Careers at Orphion Pharma: send your CV and join an international team bringing innovative medicines to patients in Türkiye.")
+    seo("partners", en="Orphion Pharma partners and product portfolio: the companies we work with and their therapies. Email us to learn more about our products.")
+    for _e in EVENTS:
+        _k = "event-" + _e["slug"]
+        for _l in LANGS:
+            if len(TITLES[_k][_l]) > 60:
+                TITLES[_k][_l] = TITLES[_k][_l].replace(" | " + _N, "")
+else:
+    seo("home", title_tr="Rome Pharma | İlaç Tedariki ve Pazar Danışmanlığı",
+        title_en="Rome Pharma | Pharma Supply & Turkish Market Entry",
+        tr="Rome Pharma; ilaç tedariki, devlet ihaleleri, Yurt Dışı İlaç Programı ve pazara giriş danışmanlığıyla ilaç firmalarının Türkiye pazarına erişimini sağlar.",
+        en="Rome Pharma helps international pharmaceutical companies enter the Turkish market via direct supply, government tenders, named patient programs and consulting.")
+    seo("contact",
+        tr="Rome Pharma ile iletişime geçin: Ankara merkez ofis, Dubai ve ABD ofislerimiz. İlaç tedariki ve pazara giriş için e-posta ya da formla bize ulaşın.",
+        en="Contact Rome Pharma: our Ankara main office, Dubai and US offices. Reach us by email or the contact form about supply and Turkish market entry.")
+
+
+# ---------------------------------------------------------------------------
+# 404 sayfası (iki dilli, arama motorlarına kapalı)
+# ---------------------------------------------------------------------------
+
+def not_found_page():
+    tr_t, en_t = "Sayfa bulunamadı", "Page not found"
+    html_head = head("contact", "tr", f"{tr_t} | {C['name']}",
+                     "Aradığınız sayfa taşınmış ya da kaldırılmış olabilir. / The page you are looking for may have moved.")
+    # Yanlış adreslerde göreli yollar bozulmasın diye kök adres; 404 dizine eklenmez
+    html_head = re.sub(r'\n<link rel="(canonical|alternate)"[^>]*>', "", html_head)
+    html_head = re.sub(r'\n<meta property="og:url"[^>]*>', "", html_head)
+    html_head = html_head.replace('<meta charset="UTF-8">', '<meta charset="UTF-8">\n<base href="/">', 1)
+    html_head = html_head.replace('<meta name="theme-color"', '<meta name="robots" content="noindex">\n<meta name="theme-color"', 1)
+    links = [("home", "Ana Sayfa", "Home"), ("about", "Hakkımızda", "About us"), ("contact", "İletişim", "Contact")]
+    if BRAND_KEY == "orphion":
+        links.insert(2, ("services", "Hizmetlerimiz", "Capabilities"))
+    tr_links = "".join(f'<li><a class="link" href="{href(k, "tr")}">{t}</a></li>' for k, t, _e in links)
+    en_links = "".join(f'<li><a class="link" href="{href(k, "en")}">{e}</a></li>' for k, _t, e in links)
+    body = f"""
+<section class="relative overflow-hidden bg-ink py-24 text-on-dark md:py-36">
+  <div class="wrap relative">
+    <p class="m-0 font-serif text-[120px] leading-none text-accent md:text-[180px]" aria-hidden="true">404</p>
+    <h1 class="mt-6 text-[40px] leading-tight text-white md:text-[56px]">{tr_t}</h1>
+    <p class="lead text-on-dark">Aradığınız sayfa taşınmış ya da kaldırılmış olabilir. Aşağıdaki bağlantılardan devam edebilirsiniz.</p>
+    <p class="mt-2 text-on-dark-muted" lang="en">{en_t}. The page you are looking for may have moved or no longer exists.</p>
+    <div class="mt-10 flex flex-wrap gap-3.5"><a class="btn" href="{href('home', 'tr')}">Ana sayfaya dön</a><a class="btn btn-ghost" href="{href('home', 'en')}" lang="en">Go to homepage</a></div>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap grid gap-10 sm:grid-cols-2">
+    <nav aria-label="Türkçe sayfalar"><h2 class="text-[22px]">Sık ziyaret edilenler</h2><ul class="mt-4 grid gap-2">{tr_links}</ul></nav>
+    <nav aria-label="English pages" lang="en"><h2 class="text-[22px]">Popular pages</h2><ul class="mt-4 grid gap-2">{en_links}</ul></nav>
+  </div>
+</section>"""
+    u = UI["tr"]
+    return (html_head + f'\n<body>\n<a class="absolute -top-16 left-4 z-[100] rounded-md bg-ink px-4 py-2.5 text-white focus:top-3" href="#main">{u["skip"]}</a>'
+            + header("home", "tr") + f'\n<main id="main">{body}\n</main>' + footer("tr") + "\n</body>\n</html>\n")
+
+
 def sitemap():
     urls = []
     for key, langs in PAGES.items():
@@ -1498,6 +1602,7 @@ def main():
     for key, langs in PAGES.items():
         for lang, filename in langs.items():
             (ROOT / filename).write_text(render(key, lang, BODIES[key](lang)), encoding="utf-8")
+    (ROOT / "404.html").write_text(not_found_page(), encoding="utf-8")
     (ROOT / "sitemap.xml").write_text(sitemap(), encoding="utf-8")
     (ROOT / "llms.txt").write_text(llms_txt(), encoding="utf-8")
     (ROOT / "robots.txt").write_text(

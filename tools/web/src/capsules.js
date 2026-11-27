@@ -41,7 +41,16 @@ const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 const control = { progress: 0, started: false };
 const mouse = { x: 99, y: 99, down: false };
 
-if (host && story) start();
+
+// Ağır 3D kurulumunu sayfa ilk çizildikten sonra, tarayıcı boşta kalınca başlat
+function whenIdle(fn, timeout) {
+  const go = () => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, 60));
+  if (document.readyState === "complete") go(); else window.addEventListener("load", go, { once: true });
+}
+// Telefonlarda piksel oranı 1 (pil ve akıcılık), diğerlerinde en fazla 1.5
+const PIXEL_RATIO = window.innerWidth < 768 ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
+
+if (host && story) whenIdle(start, 900);
 
 function start() {
   let renderer;
@@ -53,7 +62,7 @@ function start() {
   }
   const canvas = renderer.domElement;
   host.appendChild(canvas);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(PIXEL_RATIO);
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.1;
 
@@ -396,8 +405,8 @@ if (loader && loader.isConnected) {
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-    // WebGL hiç hazır olmazsa (ör. çok yavaş cihaz) 6 saniyede yine de aç
-    setTimeout(() => { sceneIsReady = true; }, 6000);
+    // WebGL hiç hazır olmazsa (ör. çok yavaş cihaz) 3,5 saniyede yine de aç
+    setTimeout(() => { sceneIsReady = true; }, 3500);
   }
 } else if (!loader) {
   control.started = true;

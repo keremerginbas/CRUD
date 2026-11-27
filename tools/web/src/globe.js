@@ -13,7 +13,16 @@ import {
 import LAND from "./land.json";
 
 const host = document.querySelector("[data-globe]");
-if (host) start(host);
+// Küre yalnızca ofisler bölümüne yaklaşınca kurulur (ana sayfanın ilk yüklemesini hafifletir)
+const PIXEL_RATIO = window.innerWidth < 768 ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
+if (host) {
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((en) => {
+      if (en.some((e) => e.isIntersecting)) { io.disconnect(); start(host); }
+    }, { rootMargin: "600px 0px" });
+    io.observe(host);
+  } else start(host);
+}
 
 function rgbVar(name) {
   const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim().split(/\s+/).map(Number);
@@ -39,7 +48,7 @@ function start(el) {
   const onDark = rgbVar("--on-dark");
   const ink = rgbVar("--ink");
 
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(PIXEL_RATIO);
   el.appendChild(renderer.domElement);
   const scene = new Scene();
   const camera = new PerspectiveCamera(32, 1, 0.1, 50);

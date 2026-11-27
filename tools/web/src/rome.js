@@ -39,7 +39,16 @@ function tween(duration, onUpdate, easing = (t) => t) {
   });
 }
 
-if (hero) init();
+
+// Ağır 3D kurulumunu sayfa ilk çizildikten sonra, tarayıcı boşta kalınca başlat
+function whenIdle(fn, timeout) {
+  const go = () => ("requestIdleCallback" in window ? requestIdleCallback(fn, { timeout }) : setTimeout(fn, 60));
+  if (document.readyState === "complete") go(); else window.addEventListener("load", go, { once: true });
+}
+// Telefonlarda piksel oranı 1 (pil ve akıcılık), diğerlerinde en fazla 1.5
+const PIXEL_RATIO = window.innerWidth < 768 ? 1 : Math.min(window.devicePixelRatio || 1, 1.5);
+
+if (hero) whenIdle(init, 1200);
 
 function init() {
   const host = hero.querySelector("[data-rome-scene]");
@@ -51,7 +60,7 @@ function init() {
     wireCards(null);
     return;
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setPixelRatio(PIXEL_RATIO);
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.05;
   host.appendChild(renderer.domElement);

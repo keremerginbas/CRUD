@@ -34,6 +34,9 @@ RewriteRule (^|/)\.(?!well-known/) - [F]
 </Files>
 ServerSignature Off
 
+# Bulunamayan adresler için özel sayfa
+ErrorDocument 404 /404.html
+
 # Özel 404 yoksa ana sayfaya düşmesin, varsayılan 404 kalsın.
 
 # ------------------------------------------------------------
