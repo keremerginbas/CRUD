@@ -233,6 +233,8 @@ yedek() {
 
 calistir() {
   veritabani
+  # Veri klasörünü yalnız root okur (yüklenen dosyalar, ses kayıtları, oturum anahtarı).
+  chmod 700 "$DATA" 2>/dev/null || true
   whatsapp
   docker rm -f "$NAME" >/dev/null 2>&1 || true
   # Bellek sınırı: aşırı yükte bütün makine değil yalnız CRM yeniden başlar.

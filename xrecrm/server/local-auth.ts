@@ -66,8 +66,12 @@ export async function verifyPassword(password: string, stored: string): Promise<
  * böylece kurulum için .env düzenlemek gerekmez.
  */
 export function ensureSessionSecret(projectRoot: string): string {
-  if (process.env.MANUS_JWT_SECRET?.trim() || process.env.XRE_SESSION_SECRET?.trim())
+  const given = process.env.MANUS_JWT_SECRET?.trim() || process.env.XRE_SESSION_SECRET?.trim();
+  if (given) {
+    // Kısa oturum anahtarı tahmin edilip sahte oturum üretilebilir; kayıtlı ayarların şifresi de buna bağlıdır.
+    if (given.length < 32) console.warn("GÜVENLİK UYARISI: XRE_SESSION_SECRET 32 karakterden kısa. Uzun, rastgele bir değer kullanın (ör. openssl rand -hex 48).");
     return "env";
+  }
   const dir = path.resolve(projectRoot, process.env.XRE_DATA_DIR || "data");
   const file = path.join(dir, "session-secret");
   try {

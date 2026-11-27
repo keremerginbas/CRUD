@@ -65,7 +65,7 @@ export function logRestCall(entry: RestLogEntry) {
       params: sanitize(entry.params),
       ...(entry.result !== undefined ? { result: sanitize(entry.result) } : {}),
     });
-    fs.appendFile(path.join(dir(), `${new Date(now).toISOString().slice(0, 10)}.log`), `${line}\n`, () => undefined);
+    fs.appendFile(path.join(dir(), `${new Date(now).toISOString().slice(0, 10)}.log`), `${line}\n`, { mode: 0o600 }, () => undefined);
     cleanup(now);
   } catch {
     /* yok say */

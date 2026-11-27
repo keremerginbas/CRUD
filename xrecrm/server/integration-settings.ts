@@ -110,7 +110,8 @@ export async function ensureGeneratedSecret(store: Store, ownerOpenId: string, k
 
 function preview(k: string, value: string): string {
   if (!SECRET_KEYS.has(k)) return value.length > 120 ? `${value.slice(0, 117)}…` : value;
-  return value.length > 8 ? `••••${value.slice(-4)}` : "••••";
+  // Kısa şifrelerde son 4 hane şifrenin büyük kısmını ele verir; yalnız uzun anahtarlarda gösterilir.
+  return value.length >= 20 ? `••••${value.slice(-4)}` : "••••";
 }
 
 export function settingsStatus(): SettingStatus[] {

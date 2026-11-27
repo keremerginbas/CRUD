@@ -786,7 +786,7 @@ export class FileStore extends MemoryStore {
     this.timer = setTimeout(() => {
       this.timer = null;
       const tmp = `${this.file}.tmp`;
-      fs.writeFile(tmp, this.snapshot())
+      fs.writeFile(tmp, this.snapshot(), { mode: 0o600 })
         .then(() => fs.rename(tmp, this.file))
         .catch((error) => console.error("Yerel veritabanı yazılamadı:", error));
       // Dosyanın tamamı yazıldığı için art arda kayıtlar (toplu içe aktarma) tek yazımda toplanır.
@@ -797,7 +797,7 @@ export class FileStore extends MemoryStore {
     this.timer = null;
     if (!this.loaded) return;
     const tmp = `${this.file}.tmp`;
-    fsSync.writeFileSync(tmp, this.snapshot());
+    fsSync.writeFileSync(tmp, this.snapshot(), { mode: 0o600 });
     fsSync.renameSync(tmp, this.file);
   }
   async put<T = unknown>(kind: string, id: string, payload: T, ownerOpenId: string) {

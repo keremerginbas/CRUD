@@ -127,7 +127,7 @@ export const ActivitySchema = z
     assignee: safeString(191).default(""),
     cancelled: z.boolean().optional(),
     appointmentLinked: z.boolean().optional(),
-    meetingUrl: z.string().max(2048).optional(),
+    meetingUrl: z.string().max(2048).refine((v) => !v || /^https?:\/\//i.test(v), "Toplantı bağlantısı http(s) ile başlamalı.").optional(),
     provider: z.enum(["google", "manual"]).optional(),
     meetingProvider: z.enum(["google", "manual"]).optional(),
     googleEventId: safeString(1024).optional(),

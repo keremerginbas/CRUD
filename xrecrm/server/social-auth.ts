@@ -212,6 +212,7 @@ interface QrSession {
   pollSecretHash: string;
   code: string;
   createdAt: number;
+  ip?: string;
   approvedAccountId?: string;
   approvedBy?: string;
   /** Onaylayan kullanıcının çalışma alanı: hesap bu alanda aranır. */
@@ -291,10 +292,15 @@ export function registerSocialAuthRoutes(app: Express, store: Store) {
   app.post("/api/auth/qr/start", async (req, res) => {
     sweepQr();
     if (qrSessions.size > 500) return res.status(429).json({ error: "BUSY", message: "Çok fazla bekleyen QR isteği." });
+    // Tek adres bekleyen oturumları doldurup QR girişini herkese kapatamaz.
+    const ip = String(req.ip || "");
+    let mine = 0;
+    for (const s of qrSessions.values()) if (s.ip === ip) mine += 1;
+    if (mine >= 8) return res.status(429).json({ error: "BUSY", message: "Çok fazla bekleyen QR isteği. Biraz sonra tekrar deneyin." });
     const id = crypto.randomBytes(12).toString("base64url");
     const pollSecret = crypto.randomBytes(24).toString("base64url");
     const code = crypto.randomBytes(18).toString("base64url");
-    qrSessions.set(id, { id, pollSecretHash: sha(pollSecret), code, createdAt: Date.now() });
+    qrSessions.set(id, { id, pollSecretHash: sha(pollSecret), code, createdAt: Date.now(), ip });
     const approveUrl = `${origin(req)}/qr-onay?c=${code}`;
     const qr = await QRCode.toDataURL(approveUrl, { margin: 1, width: 240 });
     res.json({ id, pollSecret, qr, expiresInSeconds: QR_TTL_MS / 1000 });

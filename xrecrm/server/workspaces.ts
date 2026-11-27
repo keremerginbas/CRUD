@@ -182,6 +182,7 @@ export function registerWorkspacePublicRoutes(app: Express, store: Store) {
   app.post("/api/workspaces/signup", json, async (req, res) => {
     if (!signupEnabled()) return res.status(404).json({ error: "SIGNUP_DISABLED", message: "Yeni kayıt şu an kapalı." });
     const ip = String(req.ip || "");
+    if (signupAttempts.size > 5000) for (const [k, v] of signupAttempts) if (Date.now() - v.first > 60 * 60_000) signupAttempts.delete(k);
     const a = signupAttempts.get(ip);
     if (a && a.count >= 5 && Date.now() - a.first < 60 * 60_000)
       return res.status(429).json({ error: "TOO_MANY", message: "Çok fazla kayıt denemesi. Bir saat sonra tekrar deneyin." });
