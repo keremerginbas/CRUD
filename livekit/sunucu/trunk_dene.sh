@@ -13,14 +13,14 @@ IP=$(dig +short A "$SUNUCU" | grep -E '^[0-9.]+$' | head -1)
 echo "Görünecek numara: $ARAYAN → aranan: $HEDEF   (NetGSM: $SUNUCU $IP)"
 ( timeout 25 tcpdump -ni any -A -s0 udp and host "$IP" 2>/dev/null | grep --line-buffered -aoE "SIP/2\.0 [0-9]{3} [A-Za-z ]{2,30}|INVITE sip:[^ ]+" | awk '!g[$0]++' | sed 's/^/  NetGSM ile: /' ) &
 sleep 1
-GUNLUK=/var/log/asterisk/trunk_dene.log; touch "$GUNLUK"; ONCE=$(wc -l < "$GUNLUK")
+GUNLUK=/var/log/asterisk/trunk_dene.log; touch "$GUNLUK"; chown asterisk:asterisk "$GUNLUK" 2>/dev/null || chmod 666 "$GUNLUK"; ONCE=$(wc -l < "$GUNLUK")
 asterisk -rx "channel originate Local/${ARAYAN}*${HEDEF}@trunk-dene extension test@gelen" >/dev/null
 echo "Arama gönderildi. Telefon çalarsa açın; ekranda görünen numarayı not edin."
 wait
 echo
 echo "Santralin kaydı:"
 SATIRLAR=$(tail -n +"$((ONCE + 1))" "$GUNLUK")
-if [ -z "$SATIRLAR" ]; then echo "  (kayıt yok: arama santralden hiç çıkmadı)"
+if [ -z "$SATIRLAR" ]; then echo "  (santral kayıt düşmedi; yukarıdaki 'NetGSM ile' satırlarına bakın)"
 elif ! grep -q "ACILMADI" <<< "$SATIRLAR"; then echo "  Arama NetGSM'e gönderildi ve 'açılmadı' kaydı düşmedi: telefon çaldıysa/açtıysanız hat çalışıyor demektir."
 else sed 's/^/  /' <<< "$SATIRLAR"; fi
 echo
