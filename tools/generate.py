@@ -108,7 +108,7 @@ UI = {
         "cookie_accept": "Kabul et", "cookie_reject": "Yalnızca zorunlu",
         "logo_alt": "{} logosu", "all_events": "Tüm etkinlikler",
         "prev_event": "Önceki etkinlik", "next_event": "Sonraki etkinlik",
-        "year": "Yıl", "place": "Konum", "focus": "Odak", "drag": "Küreyi sürükleyerek çevirebilirsiniz", "to_top": "Sayfanın başına dön",
+        "year": "Yıl", "place": "Konum", "focus": "Odak", "drag": "Küreyi sürükleyerek çevirebilirsiniz", "to_top": "Sayfanın başına dön", "theme": "Koyu / açık tema",
     },
     "en": {
         "home": "Home", "company": "Company", "about": "About Us", "chairman": "Chairman's Message",
@@ -125,7 +125,7 @@ UI = {
         "cookie_accept": "Accept", "cookie_reject": "Essential only",
         "logo_alt": "{} logo", "all_events": "All events",
         "prev_event": "Previous event", "next_event": "Next event",
-        "year": "Year", "place": "Location", "focus": "Focus", "drag": "Drag the globe to turn it", "to_top": "Back to top",
+        "year": "Year", "place": "Location", "focus": "Focus", "drag": "Drag the globe to turn it", "to_top": "Back to top", "theme": "Dark / light theme",
     },
 }
 if BRAND_KEY == "rome":
@@ -165,6 +165,10 @@ ICON_PATHS = {
     "truck": ('<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/>'
               '<path d="M19 18h2a1 1 0 0 0 1-1v-3.6a1 1 0 0 0-.2-.6l-3.5-4.4a1 1 0 0 0-.8-.4H14"/>'
               '<circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>'),
+    "shield": '<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1Z"/><path d="m9 12 2 2 4-4"/>',
+    "check": '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+    "eye": '<path d="M2.1 12.3a1 1 0 0 1 0-.6 10.8 10.8 0 0 1 19.8 0 1 1 0 0 1 0 .6 10.8 10.8 0 0 1-19.8 0"/><circle cx="12" cy="12" r="3"/>',
+    "heart": '<path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/>',
     "pill": '<path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/>',
 }
 FA_TO_ICON = {
@@ -320,11 +324,15 @@ def header(page, lang):
     return f"""
 <header class="site-header sticky top-0 z-50 border-b border-transparent bg-white transition-colors [&.scrolled]:border-line">
   <div class="header-row wrap flex h-[72px] items-center gap-4 lg:h-[84px] lg:gap-7">
-    <a class="shrink-0" href="{href('home', lang)}"><img class="{'h-[60px] lg:h-[74px]' if BRAND_KEY == 'rome' else 'h-11 lg:h-16'} w-auto" src="{logo}" width="{w}" height="{h}" alt="{esc(u['logo_alt'].format(C['name']))}"></a>
+    <a class="shrink-0" href="{href('home', lang)}"><img class="logo-light {'h-[60px] lg:h-[74px]' if BRAND_KEY == 'rome' else 'h-11 lg:h-16'} w-auto" src="{logo}" width="{w}" height="{h}" alt="{esc(u['logo_alt'].format(C['name']))}"><img class="logo-dark {'h-[60px] lg:h-[74px]' if BRAND_KEY == 'rome' else 'h-11 lg:h-16'} w-auto" src="{LOGO['footer'][0]}" width="{LOGO['footer'][1]}" height="{LOGO['footer'][2]}" alt="{esc(u['logo_alt'].format(C['name']))}" loading="lazy"></a>
     <nav class="main-nav lg:ml-auto" aria-label="{esc(u['menu'])}">
       <ul class="flex items-center gap-1">{''.join(items)}</ul>
     </nav>
     <div class="ml-auto flex items-center gap-3 lg:ml-0">
+      <button class="theme-toggle grid h-11 w-11 place-items-center rounded-md border border-line text-ink hover:border-ink" type="button" aria-pressed="false" aria-label="{esc(u['theme'])}" title="{esc(u['theme'])}">
+        <svg class="icon-moon h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="icon-sun h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
       <div class="flex rounded-md border border-line p-[3px]" role="group" aria-label="{esc(u['lang'])}">{lang_link('tr')}{lang_link('en')}</div>
       <a class="btn hidden min-h-[44px] px-4 text-[15px] xl:inline-flex" href="{href('contact', lang, '#contact-form')}">{esc(u['cta'])}</a>
       <button class="menu-toggle grid h-11 w-11 place-items-center rounded-md border border-line bg-white lg:hidden" type="button" aria-expanded="false" aria-label="{esc(u['menu'])}">
@@ -447,7 +455,8 @@ def csp(inline_scripts):
             "form-action 'self'; base-uri 'self'; object-src 'none'; upgrade-insecure-requests")
 
 
-JS_CLASS = 'document.documentElement.classList.add("js")'
+JS_CLASS = ('document.documentElement.classList.add("js");'
+            'try{if(localStorage.getItem("theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}')
 INTRO_ROME = 'document.documentElement.classList.add("intro-done")'
 INTRO_ORPHION = 'setTimeout(function(){document.documentElement.classList.add("intro-done")},8000)'
 
@@ -716,13 +725,14 @@ def cap_list(items):
     return f'<ul class="border-t border-line">{rows}\n    </ul>'
 
 
-def pathway(lang):
+def pathway(lang, flow=None):
+    flow = flow or s.ACCESS_FLOW
     steps = "".join(f"""
       <li class="relative pr-7 pt-9" data-reveal data-reveal-delay="{i + 1}">
         <span class="absolute -top-4 left-0 grid h-8 w-8 place-items-center rounded-full bg-accent text-[15px] font-bold text-accent-on">{i + 1}</span>
         <h3 class="mb-2 text-[21px] text-white">{esc(t[lang])}</h3>
         <p class="m-0 max-w-[30ch] text-base text-on-dark">{esc(d[lang])}</p>
-      </li>""" for i, (t, d) in enumerate(s.ACCESS_FLOW))
+      </li>""" for i, (t, d) in enumerate(flow))
     return f"""
     <div class="relative mt-14">
       <div class="absolute left-0 right-0 top-0 hidden h-0.5 bg-white/15 md:block"><div class="pathway-track h-full bg-accent"></div></div>
@@ -1058,6 +1068,7 @@ def orphion_about(lang):
     </div>
   </div>
 </section>
+{stats_band(lang)}
 <section class="section bg-mist">
   <div class="wrap grid items-start gap-12 lg:grid-cols-[5fr_7fr] lg:gap-24">
     <h2 class="h-section lg:sticky lg:top-32" data-reveal>{esc(a['more_title'])}</h2>
@@ -1133,14 +1144,15 @@ def orphion_services(lang):
     index, blocks = [], []
     for (fa, title, _d), (slug, summary, detail, ticks) in zip(s.CAPABILITIES, SERVICES[lang]):
         index.append(f'<li><a class="block border-l-2 border-line px-3.5 py-2.5 font-medium text-muted no-underline hover:border-accent hover:text-ink [&.active]:border-accent [&.active]:text-ink" href="#{slug}">{esc(title[lang])}</a></li>')
-        tick_html = "".join(f'<li class="relative pl-7 before:absolute before:left-1 before:top-[.55em] before:h-[7px] before:w-3 before:-rotate-45 before:border-b-2 before:border-l-2 before:border-accent-ink before:content-[\'\']">{esc(t)}</li>' for t in ticks)
+        tick_html = "".join(f'<li class="relative rounded-lg bg-mist py-2.5 pl-10 pr-3 text-[15px] leading-snug before:absolute before:left-4 before:top-[1.05em] before:h-[7px] before:w-3 before:-rotate-45 before:border-b-2 before:border-l-2 before:border-accent-ink before:content-[\'\']">{esc(t)}</li>' for t in ticks)
         blocks.append(f"""
-      <section class="mb-14 scroll-mt-28 border-b border-line pb-14 last:mb-0 last:border-0 last:pb-0" id="{slug}" data-reveal>
-        <span class="mb-5 grid h-14 w-14 place-items-center rounded-xl bg-ink text-white">{icon(FA_TO_ICON[fa], 'h-[26px] w-[26px]')}</span>
-        <h2 class="text-[clamp(28px,2.6vw,36px)]">{esc(title[lang])}</h2>
-        <p class="text-xl text-ink">{esc(summary)}</p>
-        <p>{esc(detail)}</p>
-        <ul class="mt-5 grid gap-2.5">{tick_html}</ul>
+      <section class="service-card group relative mb-6 scroll-mt-28 overflow-hidden rounded-2xl border border-line bg-white p-7 shadow-[0_14px_40px_-28px_rgb(var(--ink)/.45)] transition duration-300 last:mb-0 hover:border-accent/50 hover:shadow-[0_24px_50px_-28px_rgb(var(--ink)/.5)] md:p-10" id="{slug}" data-reveal>
+        <span class="pointer-events-none absolute -right-2 -top-6 select-none font-sans text-[120px] font-bold leading-none text-mist transition-colors duration-300 group-hover:text-accent/15" aria-hidden="true">{len(blocks) + 1:02d}</span>
+        <span class="relative mb-6 grid h-14 w-14 place-items-center rounded-2xl bg-ink text-white transition-colors duration-300 group-hover:bg-accent group-hover:text-accent-on">{icon(FA_TO_ICON[fa], 'h-[26px] w-[26px]')}</span>
+        <h2 class="relative text-[clamp(26px,2.4vw,34px)]">{esc(title[lang])}</h2>
+        <p class="relative text-xl text-ink">{esc(summary)}</p>
+        <p class="relative">{esc(detail)}</p>
+        <ul class="relative mt-6 grid gap-2.5 sm:grid-cols-2">{tick_html}</ul>
       </section>""")
     return page_hero(lang, u["services"], esc(HOME[lang]["caps_p"])) + f"""
 <section class="section">
@@ -1392,6 +1404,64 @@ def rome_stage(lang):
 </section>"""
 
 
+STATS = {
+    "orphion": {
+        "tr": [(3, "", "Ofis", "Dubai, Ankara ve Ohio"), (7, "", "Uzmanlık alanı", "Hasta erişiminden distribütörlüğe"),
+               (5, "", "Uluslararası kongre", "2025–2026, ABD ve Avrupa")],
+        "en": [(3, "", "Offices", "Dubai, Ankara and Ohio"), (7, "", "Areas of expertise", "From patient access to distribution"),
+               (5, "", "International congresses", "2025–2026, USA and Europe")],
+    },
+    "rome": {
+        "tr": [(3, "", "Ofis", "Ankara, Dubai ve ABD"), (2, "", "İş kolu", "İlaç tedariki ve danışmanlık"),
+               (3, "", "Erişim kanalı", "Doğrudan tedarik, ihaleler, Yurt Dışı İlaç Programı")],
+        "en": [(3, "", "Offices", "Ankara, Dubai and the USA"), (2, "", "Business lines", "Pharmaceutical supply and consulting"),
+               (3, "", "Access channels", "Direct supply, tenders, named patient programs")],
+    },
+}[BRAND_KEY]
+
+ROME_STORY = {
+    "tr": {
+        "flow_h": "Nasıl çalışıyoruz?", "flow_p": "Ürününüzün Türkiye'deki hastaya ulaşma süreci dört adımda ilerler; her adımda yanınızdayız.",
+        "flow": [("Ön görüşme ve analiz", "Ürününüzü, hedeflerinizi ve Türkiye'deki ihtiyacı birlikte değerlendiriyoruz."),
+                 ("Erişim yol haritası", "Ruhsat, Yurt Dışı İlaç Programı ve ihale seçeneklerinden en uygun yolu belirliyoruz."),
+                 ("Tedarik ve ihaleler", "Kamu kurumları ve hastanelere mevzuata uygun, kesintisiz tedarik sağlıyoruz."),
+                 ("Yerel temsil", "Türkiye'deki yerel ortağınız olarak süreci uzun vadede yönetiyoruz.")],
+        "values_h": "Değerlerimiz",
+        "values": [("shield", "Güvenilirlik", "Verdiğimiz sözü zamanında ve eksiksiz yerine getiririz."),
+                   ("check", "Mevzuata uyum", "Her adımı Türk sağlık mevzuatına uygun yürütürüz."),
+                   ("eye", "Şeffaflık", "İş ortaklarımızı sürecin her aşamasında bilgilendiririz."),
+                   ("heart", "Hasta odaklılık", "Her kararın sonunda bir hasta olduğunu unutmayız.")],
+    },
+    "en": {
+        "flow_h": "How we work", "flow_p": "Bringing your product to patients in Türkiye takes four steps, and we are with you at each one.",
+        "flow": [("Discovery and analysis", "We assess your product, your goals and the need in Türkiye together."),
+                 ("Access roadmap", "We choose the best route among registration, named patient programs and tenders."),
+                 ("Supply and tenders", "We deliver compliant, uninterrupted supply to public institutions and hospitals."),
+                 ("Local representation", "As your local partner in Türkiye, we manage the process for the long term.")],
+        "values_h": "Our values",
+        "values": [("shield", "Reliability", "We deliver on our commitments, on time and in full."),
+                   ("check", "Compliance", "Every step follows Turkish health regulations."),
+                   ("eye", "Transparency", "We keep our partners informed at every stage."),
+                   ("heart", "Patient focus", "We never forget there is a patient behind every decision.")],
+    },
+}
+
+
+def stats_band(lang):
+    items = "".join(f"""
+      <li class="border-l-2 border-white/15 pl-6" data-reveal data-reveal-delay="{i + 1}">
+        <p class="m-0 font-sans text-[clamp(48px,5.4vw,72px)] font-bold leading-none tracking-[-0.03em] text-white"><span data-count="{n}">{n}</span><span class="text-accent">{suf}</span></p>
+        <p class="mb-1 mt-4 text-lg font-semibold text-white">{esc(t)}</p>
+        <p class="m-0 text-[15px] text-on-dark-muted">{esc(d)}</p>
+      </li>""" for i, (n, suf, t, d) in enumerate(STATS[lang]))
+    return f"""
+<section class="stats-band relative overflow-hidden bg-ink-deep py-16 md:py-20" aria-label="{'Rakamlarla' if lang == 'tr' else 'At a glance'} {esc(C['name'])}">
+  <div class="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-accent/10 blur-3xl" aria-hidden="true"></div>
+  <ul class="wrap relative grid gap-10 sm:grid-cols-3">{items}
+  </ul>
+</section>"""
+
+
 def video_cta(lang, text, video):
     return f"""
 <section class="relative isolate overflow-hidden py-28 md:py-36">
@@ -1410,7 +1480,7 @@ def rome_home(lang):
     actions = (f'<a class="btn" href="{href("contact", lang, "#contact-form")}">{esc(UI[lang]["cta"])}</a>'
                f'<a class="btn btn-ghost" href="{href("about", lang)}">{esc(R["cta2"])}</a>')
     why_t = re.sub("<[^>]+>", "", A["why_t"])
-    return rome_stage(lang) + f"""
+    return rome_stage(lang) + stats_band(lang) + f"""
 
 <section class="section">
   <div class="wrap grid items-start gap-12 lg:grid-cols-[5fr_7fr] lg:gap-24">
@@ -1446,7 +1516,14 @@ def rome_about(lang):
     block = lambda t, x, d: (f'<div data-reveal data-reveal-delay="{d}"><h2 class="mb-3.5 text-[22px] text-accent-ink">{esc(t)}</h2>'
                              f'<p class="m-0 font-serif text-[clamp(22px,2.2vw,28px)] leading-[1.4] text-ink">{esc(x)}</p></div>')
     why_t = re.sub("<[^>]+>", "", A["why_t"])
-    return page_hero(lang, u["about"], esc(R["about_lead"])) + f"""
+    RS = ROME_STORY[lang]
+    values = "".join(f"""
+      <li class="group rounded-2xl border border-line bg-white p-7 transition duration-300 hover:-translate-y-1 hover:border-accent/50 hover:shadow-[0_22px_44px_-24px_rgb(var(--ink)/.4)]" data-reveal data-reveal-delay="{i + 1}">
+        <span class="mb-6 grid h-12 w-12 place-items-center rounded-xl bg-accent/15 text-accent-ink transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">{icon(ic, 'h-6 w-6')}</span>
+        <h3 class="mb-2 text-xl">{esc(t)}</h3>
+        <p class="m-0 text-base text-muted">{esc(d)}</p>
+      </li>""" for i, (ic, t, d) in enumerate(RS["values"]))
+    return page_hero(lang, u["about"], esc(R["about_lead"])) + stats_band(lang) + f"""
 <section class="section">
   <div class="wrap grid items-start gap-12 lg:grid-cols-[5fr_7fr] lg:gap-24">
     <div class="lg:sticky lg:top-32" data-reveal><h2 class="h-section">{esc(R['lines_h'])}</h2><p class="lead">{esc(R['lines_p'])}</p></div>
@@ -1460,9 +1537,22 @@ def rome_about(lang):
   </div>
 </section>
 <section class="section bg-ink">
+  <div class="wrap">
+    {section_head(RS['flow_h'], f'<p class="m-0 text-on-dark">{esc(RS["flow_p"])}</p>', dark=True)}
+    {pathway(lang, [({lang: t}, {lang: d}) for t, d in RS['flow']])}
+  </div>
+</section>
+<section class="section">
+  <div class="wrap">
+    {section_head(RS['values_h'])}
+    <ul class="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{values}
+    </ul>
+  </div>
+</section>
+<section class="section bg-mist">
   <div class="wrap" data-reveal>
-    <h2 class="h-section text-white">{esc(why_t)}</h2>
-    <p class="m-0 max-w-[36ch] font-serif text-[clamp(26px,3vw,40px)] leading-[1.3] text-white">{esc(A['why'])}</p>
+    <h2 class="h-section">{esc(why_t)}</h2>
+    <p class="m-0 max-w-[48ch] font-serif text-[clamp(22px,2.2vw,30px)] leading-[1.45] text-ink">{esc(A['why'])}</p>
   </div>
 </section>
 <section class="section">

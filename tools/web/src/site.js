@@ -362,4 +362,40 @@
 
     /* Telif yılı */
     $$("[data-current-year]").forEach(function (el) { el.textContent = new Date().getFullYear(); });
+
+    /* ---------- Koyu / açık tema ---------- */
+    $$(".theme-toggle").forEach(function (btn) {
+        var sync = function () { btn.setAttribute("aria-pressed", root.dataset.theme === "dark" ? "true" : "false"); };
+        sync();
+        btn.addEventListener("click", function () {
+            var dark = root.dataset.theme !== "dark";
+            root.classList.add("theme-anim");
+            if (dark) root.setAttribute("data-theme", "dark"); else root.removeAttribute("data-theme");
+            try { localStorage.setItem("theme", dark ? "dark" : "light"); } catch (e) { /* gizli sekme */ }
+            sync();
+            setTimeout(function () { root.classList.remove("theme-anim"); }, 400);
+        });
+    });
+
+    /* ---------- Rakamlar: ekrana gelince sıfırdan sayar ---------- */
+    var counters = $$("[data-count]");
+    var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (counters.length && "IntersectionObserver" in window && !still) {
+        var countIO = new IntersectionObserver(function (entries) {
+            entries.forEach(function (en) {
+                if (!en.isIntersecting) return;
+                countIO.unobserve(en.target);
+                var el = en.target, end = parseInt(el.dataset.count, 10) || 0, t0 = null;
+                var step = function (now) {
+                    if (t0 === null) t0 = now;
+                    var k = Math.min(1, (now - t0) / 1400);
+                    el.textContent = String(Math.round(end * (1 - Math.pow(1 - k, 3))));
+                    if (k < 1) requestAnimationFrame(step);
+                };
+                el.textContent = "0";
+                requestAnimationFrame(step);
+            });
+        }, { threshold: 0.6 });
+        counters.forEach(function (el) { countIO.observe(el); });
+    }
 })();
