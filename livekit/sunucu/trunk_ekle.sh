@@ -4,6 +4,7 @@
 #   sudo bash /opt/xre-ai/trunk_ekle.sh            → sırayla sorar; başka numara ekleyip eklemeyeceğinizi de sorar
 #   sudo bash /opt/xre-ai/trunk_ekle.sh toplu      → NetGSM'in gönderdiği listeyi (e-posta metnini) yapıştırırsınız, hepsini ekler
 #   sudo bash /opt/xre-ai/trunk_ekle.sh liste      → tanımlı trunk'ları gösterir
+#   sudo bash /opt/xre-ai/trunk_ekle.sh yazim 90   → bütün trunk'larda kullanıcı adını 90533… biçimine çevirir (+90, 90, 0, yalin)
 #   sudo bash /opt/xre-ai/trunk_ekle.sh hat dahili → bütün numaraları eski dahili hatta geri alır (trunk'lar silinmez)
 #   sudo bash /opt/xre-ai/trunk_ekle.sh hat trunk  → trunk'ı tanımlı numaraları yeniden kendi trunk'larına alır
 #   sudo bash /opt/xre-ai/trunk_ekle.sh sil 5337437116
@@ -39,6 +40,25 @@ yaml.safe_dump(d, open(yol, "w", encoding="utf-8"), allow_unicode=True, sort_key
 print(f"{n} numara '{yon}' hattına alındı. Yeni aramalardan itibaren geçerli.")
 PY
   exit 0
+fi
+if [ "${1:-}" = yazim ]; then   # bütün trunk'larda kullanıcı adının yazımını değiştirir (şifrelere dokunmaz)
+  case "${2:-}" in "+90"|"90"|"0"|"yalin") ;; *) echo "Kullanım: trunk_ekle.sh yazim 90     (seçenekler: +90, 90, 0, yalin)"; exit 1 ;; esac
+  cp "$PJSIP" "$PJSIP.yazim-oncesi"
+  python3 - "$PJSIP" "$2" <<'PY'
+import re, sys
+yol, on = sys.argv[1], ("" if sys.argv[2] == "yalin" else sys.argv[2])
+t = open(yol, encoding="utf-8").read(); n = 0
+def blok(m):
+    global n
+    num, govde = m.group(1), m.group(0)
+    govde = re.sub(r"^username=.*$", "username=" + on + num, govde, flags=re.M)
+    govde = re.sub(r"^from_user=.*$", "from_user=" + on + num, govde, flags=re.M)
+    n += 1; return govde
+t = re.sub(r"^; ---- TRUNK (\d+) BASLANGIC ----$.*?^; ---- TRUNK \1 BITIS ----$", blok, t, flags=re.M | re.S)
+open(yol, "w", encoding="utf-8").write(t)
+print(f"{n} trunk'ta kullanıcı adı '{on}533…' biçimine çevrildi.")
+PY
+  yukle; exit 0
 fi
 if [ "${1:-}" = sil ]; then
   N=$(rakam "${2:?Kullanım: trunk_ekle.sh sil <numara>}")
