@@ -6,6 +6,7 @@
 #   sudo bash /opt/xre-ai/trunk_ekle.sh liste      → tanımlı trunk'ları gösterir
 #   sudo bash /opt/xre-ai/trunk_ekle.sh sil 5337437116
 set -euo pipefail
+trunk_var() { local c; c=$(asterisk -rx "pjsip show endpoint trunk-$1" 2>&1 || true); grep -qE "Endpoint: +trunk-$1" <<< "$c"; }
 [ "$(id -u)" -eq 0 ] || { echo "root olarak çalıştırın (sudo)."; exit 1; }
 PJSIP=/etc/asterisk/pjsip.conf
 HEDEF=/opt/xre-ai
@@ -13,7 +14,9 @@ rakam() { echo "$1" | tr -cd '0-9' | sed -E 's/^(90|0)//'; }          # 0533.. /
 yukle() { asterisk -rx "module reload res_pjsip.so" >/dev/null; sleep 2; }
 
 if [ "${1:-}" = liste ]; then
-  grep -oE '^; ---- TRUNK [0-9]+ BASLANGIC' "$PJSIP" | awk '{print "  0" $4}' || true
+  for N in $(grep -oE '^; ---- TRUNK [0-9]+ BASLANGIC' "$PJSIP" | awk '{print $4}' || true); do
+    trunk_var "$N" && echo "  ✓ 0$N yüklü" || echo "  ✗ 0$N dosyada var ama santrale yüklenmemiş"
+  done
   grep -q '^; ---- TRUNK ' "$PJSIP" || echo "  (tanımlı trunk yok)"
   exit 0
 fi
@@ -58,7 +61,7 @@ trust_id_outbound=yes
 ; ---- TRUNK $N BITIS ----
 EOT
   [ "${SESSIZ:-}" = 1 ] || yukle
-  if [ "${SESSIZ:-}" = 1 ] || asterisk -rx "pjsip show endpoint trunk-$N" | grep -qE "Endpoint: +trunk-$N"; then
+  if [ "${SESSIZ:-}" = 1 ] || trunk_var "$N"; then
     echo "✓ 0$N için trunk tanımlandı."
   else
     echo "✗ Trunk yüklenemedi; eski ayar geri alınıyor."; cp "$PJSIP.trunk-oncesi" "$PJSIP"; yukle; return 1
@@ -104,7 +107,7 @@ PY
   yukle
   TAMAM=0
   while read -r HOST KUL SIFRE; do
-    N=$(rakam "$KUL"); asterisk -rx "pjsip show endpoint trunk-$N" | grep -qE "Endpoint: +trunk-$N" && TAMAM=$((TAMAM + 1)) || echo "  ✗ 0$N yüklenemedi"
+    N=$(rakam "$KUL"); trunk_var "$N" && TAMAM=$((TAMAM + 1)) || echo "  ✗ 0$N yüklenemedi"
   done < "$G.c"
   echo "$TAMAM / $ADET trunk yüklendi."
   echo "Denemek için:  sudo bash /opt/xre-ai/trunk_dene.sh 05337437116 <kendi cep numaranız>"
