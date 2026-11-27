@@ -7,6 +7,7 @@
 #   sudo bash /opt/xre-ai/trunk_ekle.sh yazim 90   → bütün trunk'larda kullanıcı adını 90533… biçimine çevirir (+90, 90, 0, yalin)
 #   sudo bash /opt/xre-ai/trunk_ekle.sh hat dahili → bütün numaraları eski dahili hatta geri alır (trunk'lar silinmez)
 #   sudo bash /opt/xre-ai/trunk_ekle.sh hat trunk  → trunk'ı tanımlı numaraları yeniden kendi trunk'larına alır
+#   sudo bash /opt/xre-ai/trunk_ekle.sh hat trunk 05337437116  → yalnızca bu numarayı trunk'a alır (dahili için de aynı)
 #   sudo bash /opt/xre-ai/trunk_ekle.sh sil 5337437116
 set -euo pipefail
 trunk_var() { local c; c=$(asterisk -rx "pjsip show endpoint trunk-$1" 2>&1 || true); grep -qE "Endpoint: +trunk-$1" <<< "$c"; }
@@ -25,13 +26,15 @@ if [ "${1:-}" = liste ]; then
 fi
 if [ "${1:-}" = hat ]; then   # bütün numaraları tek seferde dahili hatta ya da kendi trunk'larına alır
   YON=${2:-}; case "$YON" in dahili|trunk) ;; *) echo "Kullanım: trunk_ekle.sh hat dahili   ya da   trunk_ekle.sh hat trunk"; exit 1 ;; esac
-  python3 - "$HEDEF/numaralar.yaml" "$YON" "$PJSIP" <<'PY'
+  python3 - "$HEDEF/numaralar.yaml" "$YON" "$PJSIP" "$(echo "${3:-}" | tr -cd '0-9' | sed -E 's/^(90|0)//')" <<'PY'
 import re, sys, yaml
-yol, yon, pjsip = sys.argv[1:4]
+yol, yon, pjsip, yalniz = sys.argv[1:5]
 tanimli = set(re.findall(r"^; ---- TRUNK (\d+) BASLANGIC", open(pjsip, encoding="utf-8").read(), re.M))
 d = yaml.safe_load(open(yol, encoding="utf-8")) or {}; n = 0
 for k in d.get("numaralar") or []:
     son10 = re.sub(r"\D", "", str(k.get("numara") or ""))[-10:]
+    if yalniz and son10 != yalniz:
+        continue
     if yon == "trunk" and son10 not in tanimli:
         continue
     if k.get("hat") != yon and (yon == "trunk" or k.get("on_ek")):   # dahiliye dönüş yalnızca ön eki olan numaralar için mümkün
