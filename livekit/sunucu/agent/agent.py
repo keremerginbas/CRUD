@@ -505,7 +505,23 @@ class Gorusme:
         if not transkript or KURU_MOD:
             return {"summary": "", "structuredData": {}}
         sema = an.get("yapilandirilmis") or {}
+        # Dökümden anlaşılamayan gerçekler analize açıkça verilir (aramanın yönü, müşterinin konuşup konuşmadığı, nasıl bittiği)
+        giden = self.tur == "outboundPhoneCall"
+        musteri_soz = sum(1 for satir in transkript.split("\n") if satir.startswith("User:"))
+        sure = round(time.time() - self.baslangic) if self.baslangic else 0
+        gercekler = (
+            "GÖRÜŞME HAKKINDA KESİN BİLGİLER (dökümle çelişirse bunlar doğrudur):\n"
+            f"- Aramanın yönü: {'GİDEN (asistan müşteriyi aradı)' if giden else 'GELEN (müşteri bizi aradı)'}. "
+            f"Arama türü / yönü soran alanlara yalnızca \"{'Giden' if giden else 'Gelen'}\" yaz.\n"
+            f"- Görüşme süresi: {sure} saniye. Müşterinin konuştuğu söz sayısı: {musteri_soz}. Bitiş nedeni: {self.bitis_nedeni or 'müşteri kapattı'}.\n"
+            + ("- Müşteri hiç konuşmadı: anlamlı bir görüşme OLMADI. Başarı / anlamlı görüşme soran alanlara false yaz; bilgi aldı, randevu ya da ilgileniyor "
+               "gibi bir sonuç SEÇME, izin verilen değerler içinde ulaşılamadı / müsait değil anlamına en yakın olanı seç; özet olarak müşterinin konuşmadan kapattığını yaz.\n"
+               if musteri_soz == 0 else
+               "- Müşteri yalnızca selam verdiyse ya da tanıtım bitmeden kapattıysa bunu bilgi aldı ya da başarılı görüşme sayma.\n")
+            + "- Dökümde geçmeyen isim, tarih, saat ya da niyet uydurma.\n\n"
+        )
         istek = (
+            gercekler +
             "Aşağıda bir satış asistanı (AI) ile müşteri (User) arasındaki telefon görüşmesinin dökümü var.\n"
             f"{an.get('ozet_talimati', 'Görüşmeyi Türkçe iki-dört cümleyle özetle.')}\n"
             f"Görüşme şu tarihte yapıldı; tarih alanlarını buna göre doldur ve +03:00 ile yaz.{ortak.tarih_notu()}"
