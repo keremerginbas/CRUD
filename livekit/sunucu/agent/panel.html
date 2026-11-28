@@ -405,7 +405,7 @@ async function asistanlar() {
     const v = await y.json().catch(() => ({})); if (!y.ok) throw new Error(v.detail || "Yüklenemedi (" + y.status + ")");
     bildir(v.guncellenen + " asistan güncellendi" + (v.yeni ? ", " + v.yeni + " yeni asistan eklendi" : "")); yonlendir();
   }));
-  const toplu = BEN.rol === "yonetici" ? [el("a", { class: "dugme", href: "/panel/api/asistanlar-disari", download: "" }, "Tümünü indir"), el("button", { class: "dugme", onclick: () => dosya.click() }, "Toplu yükle"), dosya] : [];
+  const toplu = BEN.rol === "yonetici" ? [el("a", { class: "dugme", href: "/panel/api/asistanlar-disari", download: "" }, "Tümünü indir"), el("a", { class: "dugme", href: "/panel/api/denetim?gun=7", download: "", title: "Asistan ayarları ve son 7 günün görüşmeleri (inceleme için)" }, "Denetim dosyası"), el("button", { class: "dugme", onclick: () => dosya.click() }, "Toplu yükle"), dosya] : [];
   $("#icerik").replaceChildren(baslik("Asistanlar", liste.length + " asistan", ...toplu, el("button", { class: "dugme ana", onclick: yeniAsistan }, "Yeni asistan")),
     el("div", { class: "kart sikisik" }, liste.length ? el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Asistan", "Model", "Açılış", "Sonuç bildirimi"].map((b) => el("th", {}, b)))), govde)) : el("div", { class: "bos" }, "Henüz asistan yok. “Yeni asistan” ile ilkini oluşturun.")));
 }

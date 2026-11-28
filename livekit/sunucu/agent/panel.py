@@ -397,6 +397,58 @@ async def asistanlari_indir(_k: dict = Depends(yonetici)):
     return Response(tampon.getvalue(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{ad}"', "Cache-Control": "no-store"})
 
 
+_GIZLI_ALAN = re.compile(r"auth|token|secret|sifre|şifre|password|parola|api[_-]?key|anahtar", re.I)
+
+
+def _denetim_maskele(v, anahtar: str = ""):
+    """Denetim dosyası dışarı verildiği için: gizli alanların değerleri ve metinlerdeki telefon numaraları gizlenir."""
+    if isinstance(v, dict):
+        return {k: _denetim_maskele(x, str(k)) for k, x in v.items()}
+    if isinstance(v, list):
+        return [_denetim_maskele(x, anahtar) for x in v]
+    if isinstance(v, str):
+        if anahtar and _GIZLI_ALAN.search(anahtar) and v:
+            return "***"
+        return re.sub(r"(?<!\d)(\+?9?0?5\d{2})[ .-]?\d{3}[ .-]?(\d{2})[ .-]?(\d{2})(?!\d)", lambda m: "05** *** " + m.group(2) + " " + m.group(3), v)
+    return v
+
+
+@router.get("/panel/api/denetim")
+async def denetim_dosyasi(gun: int = 7, _k: dict = Depends(yonetici)):
+    """Asistan ayarlarını ve son günlerin görüşmelerini (konuşma metni, bitiş nedeni, gecikmeler) tek zipte verir.
+    Amaç: takılan/kesilen/yanlış bilgi veren asistanları toplu incelemek. Müşteri numaraları ve gizli alanlar maskelenir."""
+    import io
+    import zipfile
+
+    gun = max(1, min(int(gun), 30))
+    r = ortak.redis_baglan()
+    try:
+        idler = await r.zrevrangebyscore("cagrilar", "+inf", time.time() - gun * 86400, start=0, num=1500)
+        kayitlar = [c for c in await _kayitlari_oku(r, idler) if c]
+    finally:
+        await r.aclose()
+    aramalar = []
+    for c in kayitlar:
+        aramalar.append(_denetim_maskele({
+            "id": c.get("id"), "zaman": c.get("createdAt"), "tur": c.get("type"), "asistan": c.get("asistanAdi") or c.get("assistantId"),
+            "bizim_numara": (c.get("phoneNumber") or {}).get("number"), "durum": c.get("status"), "bitis_nedeni": c.get("endedReason"),
+            "sure_sn": c.get("durationSeconds"), "gecikme": c.get("gecikme"), "ozet": c.get("ozet") or c.get("summary"),
+            "sonuc": c.get("sonuc"), "mesajlar": c.get("mesajlar"), "maliyet_tl": c.get("maliyetTl"),
+        }))
+    tampon = io.BytesIO()
+    with zipfile.ZipFile(tampon, "w", zipfile.ZIP_DEFLATED) as z:
+        for f in sorted((ortak.AYAR_KLASORU / "asistanlar").glob("*.yaml")):
+            try:
+                veri = yaml.safe_load(f.read_text(encoding="utf-8"))
+                z.writestr(f"asistanlar/{f.name}", yaml.safe_dump(_denetim_maskele(veri), allow_unicode=True, sort_keys=False, width=10**6))
+            except Exception as e:
+                z.writestr(f"asistanlar/{f.name}.HATA.txt", str(e)[:300])
+        z.writestr("numaralar.json", json.dumps([{k: n.get(k) for k in ("id", "ad", "numara", "hat", "gelen_asistan")} for n in ortak.numaralari_oku()], ensure_ascii=False, indent=1))
+        z.writestr("aramalar.json", json.dumps(aramalar, ensure_ascii=False, indent=1))
+    ad = f"denetim-{time.strftime('%Y%m%d-%H%M')}.zip"
+    return Response(tampon.getvalue(), media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{ad}"', "Cache-Control": "no-store"})
+
+
 @router.post("/panel/api/asistanlar-iceri")
 async def asistanlari_yukle(request: Request, _k: dict = Depends(yonetici)):
     """Zip içindeki asistan dosyalarını yükler. Hepsi önce denetlenir; biri bile hatalıysa hiçbiri yazılmaz.
