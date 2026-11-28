@@ -482,9 +482,16 @@ async function asistanDuzenle(id) {
     durum.textContent = "Kaydedildi, " + new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" }); bildir("Asistan kaydedildi");
   });
   const numara = el("input", { type: "tel", placeholder: "05XX XXX XX XX", "aria-label": "Aranacak numara" });
+  // Deneme araması hangi numaramızdan çıksın: varsayılan, adı asistanın adıyla eşleşen (aynı projenin) numara
+  const hatlar = await api("numaralar").catch(() => []);
+  const duzAd = (x) => String(x || "").toLocaleLowerCase("tr-TR").replace(/[ıİ]/g, "i").replace(/[^a-z0-9çğöşü]+/g, " ").trim();
+  const asistanAdi = duzAd(a.ad || id) + " " + duzAd(id);
+  const uygun = hatlar.find((h) => h.gelen_asistan === id) || hatlar.find((h) => duzAd(h.ad) && asistanAdi.includes(duzAd(h.ad))) || hatlar.find((h) => duzAd(h.ad).split(" ").filter((k) => k.length > 3).some((k) => asistanAdi.includes(k)));
+  const hatSec = el("select", { "aria-label": "Aramanın çıkacağı numaramız" }, hatlar.map((h) => el("option", { value: h.id }, numaraYaz(h.numara) + " — " + (h.ad || h.id))));
+  if (uygun) hatSec.value = uygun.id;
   const deneSonuc = el("p", { class: "aciklama", style: "margin:10px 0 0" });
   const dene = () => dene_(async () => {
-    const c = await api("dene", { method: "POST", body: { asistan: id, numara: numara.value } });
+    const c = await api("dene", { method: "POST", body: { asistan: id, numara: numara.value, hat: hatSec.value } });
     deneSonuc.replaceChildren("Arama başlatıldı, telefonunuz birazdan çalacak. ", el("a", { href: "#aramalar/" + c.id }, "Aramanın sonucunu aç"));
   });
   const ekBolumler = [["Dene", null], ...ALANLAR.map(([ad]) => [ad, cipa(ad)]), ["Araçlar", "b-araclar"], ["Analiz", "b-analiz"]];
@@ -495,7 +502,9 @@ async function asistanDuzenle(id) {
     el("div", { class: "duzen" },
       el("div", { class: "bolumler", role: "navigation", "aria-label": "Bölümler" }, ekBolumler.map(([ad, c]) => el("a", { href: "#", onclick: (e) => { e.preventDefault(); (c ? document.getElementById(c) : $("#b-dene")).scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }); } }, ad))),
       el("div", {},
-        el("section", { class: "kart", id: "b-dene" }, el("h2", {}, "Dene"), el("p", { class: "aciklama" }, "Önce kaydedin, sonra asistanı kendi numaranıza aratın."), el("div", { class: "satir" }, numara, el("button", { class: "dugme ana dar", onclick: dene }, "Beni ara")), deneSonuc),
+        el("section", { class: "kart", id: "b-dene" }, el("h2", {}, "Dene"), el("p", { class: "aciklama" }, "Önce kaydedin, sonra asistanı kendi numaranıza aratın. Arama aşağıda seçili numaramızdan çıkar."),
+          el("div", { class: "alan" }, el("label", { for: "d-hat" }, "Arayan numaramız"), (hatSec.id = "d-hat", hatSec)),
+          el("div", { class: "satir" }, numara, el("button", { class: "dugme ana dar", onclick: dene }, "Beni ara")), deneSonuc),
         ...bolumler,
         el("section", { class: "kart", id: "b-araclar" }, el("h2", {}, "Araçlar"), el("p", { class: "aciklama" }, "Asistanın görüşme sırasında çağırabildiği işlemler, örneğin randevu_olustur. Görüşmeyi kapatma aracı hazır gelir. Her araç için: ad, aciklama, parametreler (JSON şeması) ve isteğe bağlı url."), araclar),
         el("section", { class: "kart", id: "b-analiz" }, el("h2", {}, "Görüşme sonu analizi"), el("p", { class: "aciklama" }, "Görüşme bitince çıkarılan özet ve alanlar. “yapilandirilmis” bölümü n8n'e gönderilen structuredData şemasıdır."), analiz),
