@@ -76,14 +76,14 @@ cp -r "$BURASI/agent" "$BURASI/docker-compose.yml" "$HEDEF/"
 mkdir -p "$HEDEF/asistanlar" "$HEDEF/veri" && chmod 700 "$HEDEF/veri"
 for f in "$BURASI"/asistanlar/*.yaml; do [ -f "$HEDEF/asistanlar/$(basename "$f")" ] || cp "$f" "$HEDEF/asistanlar/"; done   # düzenlenmiş asistanların üzerine yazılmaz
 [ -f "$HEDEF/numaralar.yaml" ] || cp "$BURASI/numaralar.yaml" "$HEDEF/"
-cp "$BURASI/ai_ara.sh" "$BURASI/ses_analiz.sh" "$BURASI/guncelle.sh" "$BURASI/panel_sifre.sh" "$BURASI/disaridan_erisim.sh" "$BURASI/trunk_ekle.sh" "$BURASI/trunk_dene.sh" "$BURASI/vapi_trunk_al.sh" "$BURASI/numaralari_yukle.sh" "$BURASI/numaralar_xre.yaml" "$HEDEF/" 2>/dev/null || true
+cp "$BURASI/ai_ara.sh" "$BURASI/ses_analiz.sh" "$BURASI/guncelle.sh" "$BURASI/panel_sifre.sh" "$BURASI/disaridan_erisim.sh" "$BURASI/trunk_ekle.sh" "$BURASI/trunk_dene.sh" "$BURASI/vapi_trunk_al.sh" "$BURASI/ses_anahtar.sh" "$BURASI/numaralari_yukle.sh" "$BURASI/numaralar_xre.yaml" "$HEDEF/" 2>/dev/null || true
 rm -rf "$HEDEF/asterisk" && cp -r "$BURASI/asterisk" "$HEDEF/"
 
 LK_KEY=$(eski LIVEKIT_API_KEY);    LK_KEY=${LK_KEY:-API$(openssl rand -hex 6)}
 LK_SECRET=$(eski LIVEKIT_API_SECRET); LK_SECRET=${LK_SECRET:-$(openssl rand -hex 24)}
 API_ANAHTARI=$(eski API_ANAHTARI); API_ANAHTARI=${API_ANAHTARI:-xre_$(openssl rand -hex 20)}
 PANEL_GIZLI=$(eski PANEL_GIZLI); PANEL_GIZLI=${PANEL_GIZLI:-$(openssl rand -hex 32)}
-DEEPGRAM_URL_SATIRI=$(grep -E '^(DEEPGRAM_URL|SONIOX_API_KEY|TUNNEL_TOKEN)=' "$ENV" 2>/dev/null || true)
+DEEPGRAM_URL_SATIRI=$(grep -E '^(DEEPGRAM_URL|SONIOX_API_KEY|TUNNEL_TOKEN|AZURE_SPEECH_KEY|AZURE_SPEECH_REGION|GOOGLE_TTS_KEY|CARTESIA_API_KEY|CARTESIA_SES_IDLERI)=' "$ENV" 2>/dev/null || true)
 umask 077
 cat > "$ENV" <<EOF
 LIVEKIT_API_KEY=$LK_KEY

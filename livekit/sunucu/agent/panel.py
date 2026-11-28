@@ -2,6 +2,7 @@
 Sayfa /panel adresinde açılır; /panel/api/... uçları oturum çerezi ister."""
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import hmac
@@ -12,7 +13,9 @@ import secrets
 import time
 import uuid
 from pathlib import Path
+from xml.sax.saxutils import escape as _xml_kacis
 
+import httpx
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse, HTMLResponse
@@ -871,3 +874,201 @@ async def arama_kaydi(cid: str, _k: dict = Depends(oturum)):
     if not f.exists():
         raise HTTPException(404, "Bu aramanın ses kaydı yok")
     return FileResponse(f, media_type="audio/wav", filename=f"{cid}.wav")
+
+
+# ---------- ses karşılaştırma (yalnız yönetici) ----------
+# Aynı cümle birkaç seslendirme sağlayıcısında üretilir; panelde yan yana dinlenir ve ilk sesin kaç ms'de geldiği görülür.
+# Anahtarlar sunucudaki .env dosyasında durur (ses_anahtar.sh ekler); panele hiçbir zaman gönderilmez.
+# İstek biçimleri sağlayıcıların belgelerine göre yazıldı ama gerçek sunucularda denenmedi; sağlayıcı bir şeyi farklı
+# bekliyorsa hata metni panelde ilgili satırda görünür. Her sağlayıcı kendi küçük işlevinde, model/sürüm adları
+# aşağıdaki sabitlerde durur.
+SES_METIN_SINIRI = 400          # karakter
+SES_ZAMAN_ASIMI = 30            # saniye (bağlantı + tüm ses)
+SES_BOYUT_SINIRI = 8 * 1024 * 1024
+SES_DAKIKA_SINIRI = 40          # kullanıcı başına dakikada en çok deneme
+SES_TURU = "audio/mpeg"         # dört sağlayıcıdan da MP3 istenir
+SES_KOMUTU = "sudo bash /opt/xre-ai/ses_anahtar.sh"
+
+ELEVEN_URL = "https://api.elevenlabs.io"
+ELEVEN_MODEL = "eleven_flash_v2_5"                 # asistanların şu an kullandığı model: karşılaştırmanın ölçüsü
+ELEVEN_BICIM = "mp3_44100_128"
+ELEVEN_SESLER = [("R0D8QjgVyRju4HRoCrIC", "İrem (şu anki ses)"), ("uvU9jrgGLWNPeNA4NgNT", "Franchise sesi")]
+
+AZURE_URL = "https://{bolge}.tts.speech.microsoft.com"
+AZURE_BICIM = "audio-24khz-48kbitrate-mono-mp3"
+AZURE_SESLER = [("tr-TR-EmelNeural", "Emel"), ("tr-TR-AhmetNeural", "Ahmet (erkek, kıyas için)"),
+                ("tr-TR-Elif:MAI-Voice-2-Flash", "Elif (önizleme, çalışmayabilir)")]
+
+GOOGLE_URL = "https://texttospeech.googleapis.com"
+GOOGLE_SESLER = [("tr-TR-Chirp3-HD-Leda", "Leda (Chirp 3 HD)"), ("tr-TR-Chirp3-HD-Kore", "Kore (Chirp 3 HD)"),
+                 ("tr-TR-Chirp3-HD-Aoede", "Aoede (Chirp 3 HD)"), ("tr-TR-Chirp3-HD-Zephyr", "Zephyr (Chirp 3 HD)"),
+                 ("tr-TR-Wavenet-D", "Wavenet D")]
+
+CARTESIA_URL = "https://api.cartesia.ai"
+CARTESIA_SURUM = "2025-04-16"                      # Cartesia-Version başlığı; Cartesia bu sürümü reddederse güncellenmeli
+CARTESIA_MODEL = "sonic-3"
+
+# Yaklaşık liste fiyatları: ABD doları / 1 milyon karakter (panelde "yaklaşık" diye gösterilir)
+SES_FIYAT = {"elevenlabs": 40.0, "azure": 15.0, "google": 30.0, "google_wavenet": 16.0, "cartesia": 38.0}
+
+
+class SesHatasi(Exception):
+    """Sağlayıcı 200 dışında bir cevap verdi (durum: HTTP kodu) ya da cevabı anlaşılamadı (durum: 0)."""
+
+    def __init__(self, durum: int, metin: str):
+        super().__init__(metin)
+        self.durum, self.metin = durum, metin
+
+
+def _cartesia_sesleri() -> list[tuple[str, str]]:
+    """CARTESIA_SES_IDLERI: virgülle ayrılmış ad=kimlik çiftleri (ör. Selin=a1b2...,Deniz=c3d4...)."""
+    out = []
+    for parca in os.environ.get("CARTESIA_SES_IDLERI", "").split(","):
+        ad, _, kimlik = parca.partition("=")
+        ad, kimlik = ad.strip(), kimlik.strip()
+        if ad and re.fullmatch(r"[A-Za-z0-9_-]{8,64}", kimlik):
+            out.append((kimlik, ad[:40]))
+    return out
+
+
+def _ses_saglayicilari() -> list[dict]:
+    """Sağlayıcıların o anki durumu. 'anahtar' ve 'bolge' yalnızca sunucu içinde kullanılır, panele verilmez."""
+    def ortam(ad: str) -> str:
+        return os.environ.get(ad, "").strip()
+
+    anahtar_yok = f"Anahtar girilmemiş. Sunucuda şu komutu çalıştırın: {SES_KOMUTU}"
+    bolge = ortam("AZURE_SPEECH_REGION").lower()
+    azure_tamam = bool(ortam("AZURE_SPEECH_KEY")) and bool(re.fullmatch(r"[a-z0-9]{3,30}", bolge))
+    cartesia = _cartesia_sesleri()
+    return [
+        {"id": "elevenlabs", "ad": "ElevenLabs", "anahtar": ortam("ELEVEN_API_KEY"), "hazir": bool(ortam("ELEVEN_API_KEY")),
+         "eksik": "ElevenLabs anahtarı bulunamadı. Kurulumu yeniden çalıştırın: sudo bash kur_ai.sh",
+         "fiyat_usd_1m": SES_FIYAT["elevenlabs"], "sesler": [{"id": i, "ad": a} for i, a in ELEVEN_SESLER]},
+        {"id": "azure", "ad": "Azure Speech", "anahtar": ortam("AZURE_SPEECH_KEY"), "bolge": bolge, "hazir": azure_tamam,
+         "eksik": anahtar_yok if not ortam("AZURE_SPEECH_KEY") else f"Azure bölgesi eksik ya da hatalı. Yeniden girin: {SES_KOMUTU}",
+         "fiyat_usd_1m": SES_FIYAT["azure"], "sesler": [{"id": i, "ad": a} for i, a in AZURE_SESLER]},
+        {"id": "google", "ad": "Google Cloud", "anahtar": ortam("GOOGLE_TTS_KEY"), "hazir": bool(ortam("GOOGLE_TTS_KEY")),
+         "eksik": anahtar_yok, "fiyat_usd_1m": SES_FIYAT["google"],
+         "sesler": [{"id": i, "ad": a, **({"fiyat_usd_1m": SES_FIYAT["google_wavenet"]} if "Wavenet" in i else {})} for i, a in GOOGLE_SESLER]},
+        {"id": "cartesia", "ad": "Cartesia", "anahtar": ortam("CARTESIA_API_KEY"), "hazir": bool(ortam("CARTESIA_API_KEY")) and bool(cartesia),
+         "eksik": anahtar_yok if not ortam("CARTESIA_API_KEY") else f"Ses kimliği eklenmemiş. Şu komutu çalıştırıp Cartesia'yı seçin ve ses kimliklerini girin: {SES_KOMUTU}",
+         "fiyat_usd_1m": SES_FIYAT["cartesia"], "sesler": [{"id": i, "ad": a} for i, a in cartesia]},
+    ]
+
+
+async def _ses_iste(url: str, basliklar: dict, *, govde: dict | None = None, icerik: bytes | None = None) -> tuple[bytes, float]:
+    """Sağlayıcıya POST atar, cevabı akış olarak okur. (ses baytları, ilk bayta kadar geçen saniye) döner."""
+    bas = time.perf_counter()
+    ilk, parcalar, boyut = None, [], 0
+    async with httpx.AsyncClient(timeout=SES_ZAMAN_ASIMI) as c:
+        async with c.stream("POST", url, headers=basliklar, json=govde, content=icerik) as y:
+            if y.status_code != 200:
+                raise SesHatasi(y.status_code, (await y.aread())[:4000].decode("utf-8", "replace"))
+            async for parca in y.aiter_bytes():
+                if not parca:
+                    continue
+                if ilk is None:
+                    ilk = time.perf_counter() - bas
+                boyut += len(parca)
+                if boyut > SES_BOYUT_SINIRI:
+                    raise SesHatasi(0, "cevap beklenenden büyük")
+                parcalar.append(parca)
+    if ilk is None:
+        raise SesHatasi(0, "boş cevap döndü")
+    return b"".join(parcalar), ilk
+
+
+async def _ses_elevenlabs(s: dict, ses: str, metin: str) -> tuple[bytes, float]:
+    # language_code: asistanlar da Türkçe (tr) ile çalışıyor; aynı ayarla kıyaslansın
+    return await _ses_iste(f"{ELEVEN_URL}/v1/text-to-speech/{ses}/stream?output_format={ELEVEN_BICIM}",
+                           {"xi-api-key": s["anahtar"]}, govde={"text": metin, "model_id": ELEVEN_MODEL, "language_code": "tr"})
+
+
+async def _ses_azure(s: dict, ses: str, metin: str) -> tuple[bytes, float]:
+    ssml = (f"<speak version='1.0' xml:lang='tr-TR'><voice name='{_xml_kacis(ses, {chr(39): '&apos;'})}'>"
+            f"{_xml_kacis(metin)}</voice></speak>")
+    return await _ses_iste(f"{AZURE_URL.format(bolge=s['bolge'])}/cognitiveservices/v1",
+                           {"Ocp-Apim-Subscription-Key": s["anahtar"], "Content-Type": "application/ssml+xml",
+                            "X-Microsoft-OutputFormat": AZURE_BICIM, "User-Agent": "xre-panel"}, icerik=ssml.encode("utf-8"))
+
+
+async def _ses_google(s: dict, ses: str, metin: str) -> tuple[bytes, float]:
+    # Anahtar adres satırında (?key=) değil başlıkta gider: adresler günlüklere yazılabilir, başlıklar yazılmaz.
+    ham, _ilk = await _ses_iste(f"{GOOGLE_URL}/v1/text:synthesize", {"X-Goog-Api-Key": s["anahtar"]},
+                                govde={"input": {"text": metin}, "voice": {"languageCode": "tr-TR", "name": ses}, "audioConfig": {"audioEncoding": "MP3"}})
+    try:
+        ses_verisi = base64.b64decode(json.loads(ham)["audioContent"], validate=True)
+    except Exception:
+        raise SesHatasi(0, "cevapta ses bulunamadı")
+    if not ses_verisi:
+        raise SesHatasi(0, "cevapta ses bulunamadı")
+    # Google sesi akıtmaz, tamamını tek JSON içinde (base64) verir: ilk ses ancak cevabın tamamı gelince çalınabilir.
+    # Bu yüzden "ilk ses" süresi olarak toplam süre kullanılır (-1: çağıran toplam süreyi yazar).
+    return ses_verisi, -1.0
+
+
+async def _ses_cartesia(s: dict, ses: str, metin: str) -> tuple[bytes, float]:
+    return await _ses_iste(f"{CARTESIA_URL}/tts/bytes", {"X-API-Key": s["anahtar"], "Cartesia-Version": CARTESIA_SURUM},
+                           govde={"model_id": CARTESIA_MODEL, "transcript": metin, "voice": {"mode": "id", "id": ses}, "language": "tr",
+                                  "output_format": {"container": "mp3", "sample_rate": 44100, "bit_rate": 128000}})
+
+
+SES_ISLEVLERI = {"elevenlabs": _ses_elevenlabs, "azure": _ses_azure, "google": _ses_google, "cartesia": _ses_cartesia}
+
+
+def _ses_hata_metni(s: dict, metin: str) -> str:
+    """Sağlayıcının hata metni: tek satır, en çok 200 karakter; içinde anahtar geçiyorsa silinir."""
+    metin = re.sub(r"\s+", " ", metin or "").strip()
+    if len(s["anahtar"]) >= 4:
+        metin = metin.replace(s["anahtar"], "***")
+    return metin[:200]
+
+
+@router.get("/panel/api/ses-secenekleri")
+async def ses_secenekleri(_k: dict = Depends(yonetici)):
+    return [{k: v for k, v in s.items() if k not in ("anahtar", "bolge")} for s in _ses_saglayicilari()]
+
+
+@router.post("/panel/api/ses-dene")
+async def ses_dene(request: Request, k: dict = Depends(yonetici)):
+    g = await request.json()
+    if not isinstance(g, dict):
+        raise HTTPException(400, "Geçersiz istek")
+    metin = re.sub(r"[\x00-\x1f\x7f]+", " ", str(g.get("metin", ""))).strip()
+    if not metin:
+        raise HTTPException(400, "Seslendirilecek metni yazın")
+    if len(metin) > SES_METIN_SINIRI:
+        raise HTTPException(400, f"Metin en çok {SES_METIN_SINIRI} karakter olabilir")
+    s = next((x for x in _ses_saglayicilari() if x["id"] == g.get("saglayici")), None)
+    if not s:
+        raise HTTPException(400, "Bilinmeyen sağlayıcı")
+    if not s["hazir"]:
+        raise HTTPException(400, f"{s['ad']}: {s['eksik']}")
+    ses = str(g.get("ses", ""))
+    if ses not in [x["id"] for x in s["sesler"]]:   # yalnızca listedeki sesler: adrese ve SSML'e dışarıdan metin girmez
+        raise HTTPException(400, "Bilinmeyen ses")
+    # Her deneme sağlayıcıda ücretlidir: kullanıcı başına dakikada sınırlı
+    r = ortak.redis_baglan()
+    try:
+        anahtar = f"ses-dene:{k['ad']}"
+        n = await r.incr(anahtar)
+        if n == 1:
+            await r.expire(anahtar, 60)
+        if n > SES_DAKIKA_SINIRI:
+            raise HTTPException(429, "Çok fazla deneme. Bir dakika sonra tekrar deneyin.")
+    finally:
+        await r.aclose()
+    bas = time.perf_counter()
+    try:
+        veri, ilk = await asyncio.wait_for(SES_ISLEVLERI[s["id"]](s, ses, metin), SES_ZAMAN_ASIMI)
+    except SesHatasi as h:
+        ek = _ses_hata_metni(s, h.metin)
+        raise HTTPException(502, f"{s['ad']} hata verdi (HTTP {h.durum}): {ek}" if h.durum else f"{s['ad']} cevabı anlaşılamadı: {ek}")
+    except (asyncio.TimeoutError, httpx.TimeoutException):
+        raise HTTPException(502, f"{s['ad']} {SES_ZAMAN_ASIMI} saniye içinde cevap vermedi")
+    except httpx.HTTPError as h:   # ayrıntı yazılmaz: hata metninde adres ya da başlık geçebilir
+        raise HTTPException(502, f"{s['ad']} sunucusuna bağlanılamadı ({type(h).__name__})")
+    toplam = time.perf_counter() - bas
+    return Response(veri, media_type=SES_TURU, headers={
+        "X-Ilk-Ses-Ms": str(round((toplam if ilk < 0 else ilk) * 1000)), "X-Toplam-Ms": str(round(toplam * 1000)),
+        "X-Karakter": str(len(metin)), "Cache-Control": "no-store"})

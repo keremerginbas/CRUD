@@ -244,6 +244,18 @@ audio{width:100%;display:block}
 .ham-dugme{margin-top:var(--b3)}
 pre.veri{margin:var(--b2) 0 0;white-space:pre-wrap;overflow-wrap:anywhere;font:var(--y-xs)/1.55 var(--tek-yazi);background:var(--kart-2);border:1px solid var(--cizgi);border-radius:var(--r-k);padding:var(--b3);max-height:360px;overflow:auto}
 
+/* ses karşılaştırma */
+#ses-metin{font-family:var(--govde-yazi);font-size:var(--y-m);line-height:1.5;min-height:84px}
+.ses-eylem{display:flex;align-items:center;gap:var(--b3) var(--b5);flex-wrap:wrap;margin-top:var(--b3)}
+.ses-ust{display:flex;align-items:center;gap:var(--b1) var(--b3);flex-wrap:wrap;padding:var(--b4) var(--b5) var(--b3)}
+.ses-ust .ikincil{flex:1 1 260px;text-align:right;font-variant-numeric:tabular-nums}
+.ses-satir{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.6fr);gap:var(--b2) var(--b4);align-items:center;padding:var(--b3) var(--b5);border-top:1px solid var(--cizgi)}
+.ses-satir .ad{min-width:0;font-weight:600;overflow-wrap:anywhere}.ses-satir .ad .ikincil{display:block;font-weight:400}
+.ses-satir .dugme{min-width:112px}
+.ses-sonuc{min-width:0}.ses-sonuc:empty{display:none}.ses-sonuc audio+.ikincil{margin-top:var(--b1);font-variant-numeric:tabular-nums}
+.ses-hata{color:var(--kirmizi);font-size:var(--y-s);line-height:1.45;overflow-wrap:anywhere}
+@media (max-width:700px){.ses-satir{grid-template-columns:minmax(0,1fr) auto}.ses-sonuc{grid-column:1/-1}.ses-ust .ikincil{text-align:left;flex-basis:100%}}
+
 /* bildirim ve pencere */
 #bildirim{position:fixed;right:var(--b4);top:var(--b4);display:flex;flex-direction:column;gap:var(--b2);z-index:50;max-width:calc(100vw - 32px)}
 .tost{background:var(--ipucu-zemin);color:var(--ipucu-yazi);border-radius:10px;padding:11px var(--b4);max-width:380px;box-shadow:var(--golge-2);font-size:14px;border-left:4px solid var(--kehribar)}
@@ -271,6 +283,7 @@ dialog .eylemler{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
   h1{font-size:20px}
   .kart{padding:var(--b4)}.kart.sikisik>h2{padding:var(--b4) var(--b4) 0}.kart.sikisik>.aciklama{padding:0 var(--b4) var(--b2)}
   th:first-child,td:first-child{padding-left:var(--b4)}th:last-child,td:last-child{padding-right:var(--b4)}
+  .ses-ust,.ses-satir{padding-left:var(--b4);padding-right:var(--b4)}
   .olcumler{grid-template-columns:repeat(2,minmax(0,1fr))}.olcum{padding:var(--b3) 14px}.olcum .deger{font-size:22px}
   .duzen{grid-template-columns:minmax(0,1fr);gap:var(--b3)}
   .duzen section{scroll-margin-top:112px}
@@ -320,6 +333,7 @@ dialog .eylemler{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
       <a class="oge" data-sayfa="aramalar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>Aramalar</a>
       <a class="oge" data-sayfa="maliyet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Maliyet</a>
       <a class="oge" data-sayfa="numaralar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>Numaralar</a>
+      <a class="oge gizli" data-sayfa="ses" id="nav-ses"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg>Ses karşılaştır</a>
       <div class="grup">Hesap</div>
       <a class="oge" data-sayfa="kullanicilar" id="nav-kullanicilar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 4a4 4 0 0 1 0 8M22 21a6 6 0 0 0-4-5.7"/></svg>Kullanıcılar</a>
       <a class="oge" data-sayfa="hesabim"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Hesabım</a>
@@ -339,6 +353,7 @@ const el = (ad, oz = {}, ...cocuk) => { const e = document.createElement(ad); fo
 { const asil = Element.prototype.replaceChildren; Element.prototype.replaceChildren = function (...c) { return asil.apply(this, c.filter((x) => x != null && x !== false)); }; }
 let BEN = null, yenileme = null, gezinti = 0;   // gezinti: sayfa değişince artar, yarım kalan yüklemeler eski sayfayı çizmesin
 let grafik = null, maliyetGrafigi = null, bolumIzleyici = null;
+let sayfaKapat = null;   // açık sayfanın bırakırken yapacağı temizlik (ör. çalan sesi durdurmak)
 
 // Tema: seçim tarayıcıda saklanır; seçilmemişse işletim sisteminin ayarı geçerlidir
 const temaRenk = (ad) => getComputedStyle(document.documentElement).getPropertyValue(ad).trim();
@@ -427,7 +442,7 @@ function girisVideosu() {
   v.onerror = () => yuz.classList.remove("videolu");
   v.src = "/panel/giris-video"; v.play().catch(() => {});   // iOS, oynatma istenmeden veri indirmez
 }
-function girisGoster() { clearInterval(yenileme); gezinti++; $("#uygulama").classList.add("gizli"); $("#giris").classList.remove("gizli"); $("#g-ad").focus(); sloganBaslat(); girisVideosu(); }
+function girisGoster() { clearInterval(yenileme); gezinti++; if (sayfaKapat) { sayfaKapat(); sayfaKapat = null; } $("#uygulama").classList.add("gizli"); $("#giris").classList.remove("gizli"); $("#g-ad").focus(); sloganBaslat(); girisVideosu(); }
 $("#giris-form").addEventListener("submit", async (e) => {
   e.preventDefault(); $("#g-hata").textContent = "";
   try { await api("giris", { method: "POST", body: { kullanici: $("#g-ad").value, sifre: $("#g-sifre").value } }); $("#g-sifre").value = ""; baslat(); }
@@ -442,15 +457,16 @@ async function baslat() {
   $("#giris").classList.add("gizli"); $("#uygulama").classList.remove("gizli"); clearInterval(sloganSayaci);
   { const v = $("#g-video"); v.onplaying = v.onerror = null; v.pause(); v.removeAttribute("src"); v.load(); v.parentElement.classList.remove("videolu"); }   // load(): süren indirmeyi de keser
   $("#kim").textContent = BEN.ad; $("#kim-harf").textContent = String(BEN.ad || "?").slice(0, 1); $("#kim-rol").textContent = BEN.rol === "yonetici" ? "Yönetici" : "Kullanıcı";
-  $("#nav-kullanicilar").classList.toggle("gizli", BEN.rol !== "yonetici");
+  $("#nav-kullanicilar").classList.toggle("gizli", BEN.rol !== "yonetici"); $("#nav-ses").classList.toggle("gizli", BEN.rol !== "yonetici");
   yonlendir();
 }
 function yonlendir() {
   clearInterval(yenileme); gezinti++; menuAyarla(false);
   if (bolumIzleyici) { window.removeEventListener("scroll", bolumIzleyici); bolumIzleyici = null; }
+  if (sayfaKapat) { sayfaKapat(); sayfaKapat = null; }
   const [sayfa, arg] = (location.hash.slice(1) || "genel").split("/");
   document.querySelectorAll("nav a[data-sayfa]").forEach((a) => { const s = a.dataset.sayfa === sayfa; a.classList.toggle("secili", s); s ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"); });
-  const s = { genel, asistanlar: arg ? () => asistanDuzenle(arg) : asistanlar, aramalar: arg ? () => aramaDetay(arg) : aramalar, maliyet, numaralar, kullanicilar, hesabim }[sayfa] || genel;
+  const s = { genel, asistanlar: arg ? () => asistanDuzenle(arg) : asistanlar, aramalar: arg ? () => aramaDetay(arg) : aramalar, maliyet, numaralar, ses: sesKarsilastir, kullanicilar, hesabim }[sayfa] || genel;
   s().catch((h) => $("#icerik").replaceChildren(el("div", { class: "kart" }, el("h2", {}, "Sayfa açılamadı"), el("p", { class: "aciklama" }, h.message))));
   window.scrollTo(0, 0);
 }
@@ -847,6 +863,103 @@ async function numaralar() {
   $("#icerik").replaceChildren(baslik("Numaralar", liste.length + " numara", yonetici ? el("button", { class: "dugme", onclick: () => govde.append(satir()) }, "Numara ekle") : null, yonetici ? el("button", { class: "dugme ana", onclick: kaydet }, "Kaydet") : null),
     el("div", { class: "kart" }, el("p", { class: "aciklama", style: "margin:0" }, "Ön ek, NetSantral'daki “Giden Çağrı” ön ekidir; arama o numaradan çıkar. Hat “Trunk” seçilirse arama NetGSM trunk'ından çıkar. Vapi kimliği, n8n akışlarında yazılı eski phoneNumberId'dir. Gelen asistan, numara geri arandığında açan asistandır.")),
     el("div", { class: "kart sikisik" }, el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, ["Kimlik", "Ad", "Numara", "Hat", "Ön ek", "Vapi kimliği", "Gelen asistan", ""].map((b) => el("th", {}, b)))), govde))));
+}
+
+/* ---------- Ses karşılaştırma ---------- */
+const SES_ORNEK = "Merhabalar, ben İksre Project'ten Selin. Ankara Ankaport AVM'de üç yüz yetmiş beş bin lira peşinatla hisse sahibi olmak ister misiniz?";
+const SES_SINIR = 400;
+const dolar = (v) => "$" + v.toLocaleString("tr-TR", v > 0 && v < 1 ? { minimumFractionDigits: 4, maximumFractionDigits: 4 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+async function sesKarsilastir() {
+  const benim = gezinti, saglayicilar = await api("ses-secenekleri");
+  if (benim !== gezinti) return;
+  const satirlar = [], fiyatYazilari = [];
+  // Telefon hattı benzetimi: ses 300–3400 Hz arasına sıkıştırılır. Kutu ilk işaretlendiğinde kurulur;
+  // tarayıcı desteklemiyorsa sessizce vazgeçilir ve ses olağan hâliyle çalar.
+  let ortam = null, kuru = null, hat = null, hatGiris = null, hatAcik = false;
+  const bagli = new WeakSet();
+  const hatAyarla = () => { if (ortam) { kuru.gain.value = hatAcik ? 0 : 1; hat.gain.value = hatAcik ? 1 : 0; } };
+  const hatKur = () => {
+    if (ortam) return true;
+    try {
+      const O = window.AudioContext || window.webkitAudioContext; if (!O) return false;
+      const o = new O(), suzgec = (tur, hz) => { const f = o.createBiquadFilter(); f.type = tur; f.frequency.value = hz; f.Q.value = 0.707; return f; };
+      const zincir = [suzgec("highpass", 300), suzgec("highpass", 300), suzgec("lowpass", 3400), suzgec("lowpass", 3400)];
+      const k = o.createGain(), h = o.createGain(); zincir.reduce((a, b) => (a.connect(b), b)).connect(h); h.connect(o.destination); k.connect(o.destination);
+      ortam = o; kuru = k; hat = h; hatGiris = zincir[0]; hatAyarla(); return true;
+    } catch { ortam = null; return false; }
+  };
+  const hataBagla = (a) => {   // çaları süzgeç zincirine bağlar (çalar başına bir kez)
+    if (!ortam || bagli.has(a)) return;
+    try { const k = ortam.createMediaElementSource(a); k.connect(kuru); k.connect(hatGiris); bagli.add(a); } catch { /* bağlanamadıysa olağan çalar */ }
+  };
+  const calarlar = () => satirlar.map((s) => s.calar).filter(Boolean);
+  const hatKutu = el("input", { type: "checkbox", id: "ses-hat", onchange: () => { hatAcik = hatKutu.checked; if (hatAcik && hatKur()) { calarlar().forEach(hataBagla); ortam.resume().catch(() => {}); } hatAyarla(); } });
+
+  const metin = el("textarea", { id: "ses-metin", rows: 3, maxlength: SES_SINIR, "aria-describedby": "ses-sayac" }, SES_ORNEK);
+  const sayac = el("span", { class: "ikincil", id: "ses-sayac", style: "margin-left:auto;font-variant-numeric:tabular-nums" });
+  const sayacYaz = () => {
+    const n = metin.value.length; sayac.textContent = n + " / " + SES_SINIR + " karakter";
+    fiyatYazilari.forEach(([e, fiyat]) => { e.textContent = "yaklaşık " + dolar(fiyat) + " / 1M karakter · bu cümle yaklaşık " + dolar(n * fiyat / 1e6) + " (1.000 kez: " + dolar(n * fiyat / 1e3) + ")"; });
+  };
+  metin.addEventListener("input", sayacYaz);
+
+  const uret = async (s) => {
+    const m = metin.value.trim();
+    if (!m) { bildir("Önce seslendirilecek cümleyi yazın", true); metin.focus(); return; }
+    s.dugme.disabled = true; s.dugme.textContent = "Üretiliyor…"; s.sonuc.setAttribute("aria-busy", "true");
+    try {
+      const y = await fetch("/panel/api/ses-dene", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "X-Panel": "1" }, body: JSON.stringify({ saglayici: s.saglayici, ses: s.ses, metin: m }) });
+      if (y.status === 401) { girisGoster(); return; }
+      if (!y.ok) { const v = await y.json().catch(() => ({})); throw new Error(v.detail || "Ses üretilemedi (" + y.status + ")"); }
+      const veri = await y.blob();
+      if (benim !== gezinti) return;
+      if (s.adres) URL.revokeObjectURL(s.adres);
+      s.adres = URL.createObjectURL(veri);
+      s.calar = el("audio", { controls: true, preload: "auto", src: s.adres, "aria-label": s.etiket + " sesi" });
+      s.calar.addEventListener("play", () => { if (ortam) ortam.resume().catch(() => {}); calarlar().forEach((c) => c !== s.calar && c.pause()); });
+      hataBagla(s.calar);
+      const ilk = y.headers.get("X-Ilk-Ses-Ms"), toplam = y.headers.get("X-Toplam-Ms");
+      s.sonuc.replaceChildren(s.calar, el("div", { class: "ikincil" }, "İlk ses: " + (ilk ?? "?") + " ms · Toplam: " + (toplam ?? "?") + " ms"));
+      s.dugme.textContent = "Yeniden üret";
+    } catch (h) {
+      if (benim !== gezinti) return;
+      if (s.adres) { URL.revokeObjectURL(s.adres); s.adres = null; } s.calar = null;
+      s.sonuc.replaceChildren(el("div", { class: "ses-hata", role: "alert" }, h.message || "Ses üretilemedi"));
+      if (s.dugme.textContent === "Üretiliyor…") s.dugme.textContent = "Yeniden dene";
+    } finally { s.dugme.disabled = false; s.sonuc.removeAttribute("aria-busy"); }
+  };
+  // Hepsi sırayla üretilir: aynı anda istek atmak hem sağlayıcının sınırına takılır hem süre ölçümünü bozar
+  const hepsi = el("button", { class: "dugme ana", type: "button", onclick: async () => {
+    if (!metin.value.trim()) { bildir("Önce seslendirilecek cümleyi yazın", true); metin.focus(); return; }
+    const sira = satirlar.filter((s) => s.hazir);
+    if (!sira.length) { bildir("Hazır sağlayıcı yok. Önce sunucuda anahtar ekleyin.", true); return; }
+    hepsi.disabled = true;
+    try { for (let i = 0; i < sira.length && benim === gezinti; i++) { hepsi.textContent = "Üretiliyor… (" + (i + 1) + "/" + sira.length + ")"; await uret(sira[i]); } }
+    finally { hepsi.disabled = false; hepsi.textContent = "Hepsini üret"; }
+  } }, "Hepsini üret");
+
+  const kartlar = saglayicilar.map((p) => {
+    const fiyat = el("span", { class: "ikincil" }); fiyatYazilari.push([fiyat, p.fiyat_usd_1m]);
+    const durum = p.hazir ? el("span", { class: "etiket iyi" }, "Hazır") : el("span", { class: "etiket orta" }, /^Anahtar girilmemiş/.test(p.eksik || "") ? "Anahtar girilmemiş" : "Ayar eksik");
+    return el("section", { class: "kart sikisik", "aria-label": p.ad, "data-saglayici": p.id }, el("div", { class: "ses-ust" }, el("h2", {}, p.ad), durum, fiyat),
+      p.hazir ? null : el("p", { class: "aciklama" }, p.eksik),
+      p.sesler.map((v) => {
+        const s = { saglayici: p.id, ses: v.id, etiket: p.ad + " " + v.ad, hazir: p.hazir, adres: null, calar: null };
+        s.sonuc = el("div", { class: "ses-sonuc", "aria-live": "polite" }, p.hazir ? el("span", { class: "ikincil" }, "Henüz üretilmedi") : null);
+        s.dugme = el("button", { class: "dugme kucuk", type: "button", disabled: !p.hazir, "aria-label": s.etiket + ": üret", onclick: () => uret(s) }, "Üret");
+        satirlar.push(s);
+        return el("div", { class: "ses-satir" }, el("div", { class: "ad" }, v.ad, v.fiyat_usd_1m != null && v.fiyat_usd_1m !== p.fiyat_usd_1m ? el("span", { class: "ikincil" }, "yaklaşık " + dolar(v.fiyat_usd_1m) + " / 1M karakter") : null), s.dugme, s.sonuc);
+      }));
+  });
+  sayfaKapat = () => { satirlar.forEach((s) => { if (s.calar) s.calar.pause(); if (s.adres) URL.revokeObjectURL(s.adres); s.adres = s.calar = null; }); if (ortam) ortam.close().catch(() => {}); ortam = null; };
+  $("#icerik").replaceChildren(baslik("Ses karşılaştır", "Aynı cümleyi farklı seslerle dinleyin, hızını ve fiyatını yan yana görün"),
+    el("div", { class: "kart" },
+      el("div", { style: "display:flex;align-items:baseline;gap:var(--b3);flex-wrap:wrap" }, el("label", { for: "ses-metin", style: "margin:0" }, "Seslendirilecek cümle"), sayac),
+      el("p", { class: "aciklama" }, "Bütün sesler bu cümleyi okur. Müşteriye söylenen gerçek bir cümle yazın; en çok " + SES_SINIR + " karakter."), metin,
+      el("div", { class: "ses-eylem" }, hepsi, el("label", { class: "onay", for: "ses-hat" }, hatKutu, "Telefon hattındaki gibi dinlet")),
+      el("p", { class: "aciklama", style: "margin:var(--b4) 0 0" }, "Tarayıcıda duyduğunuz ses, müşterinin telefonda duyduğundan daha temizdir: telefon hattı sesin tiz ve bas kısmını keser. “Telefon hattındaki gibi dinlet” kutusunu işaretleyince sesler müşterinin duyacağına yakın çalar. “İlk ses”, sunucunun sağlayıcıdan sesi almaya başlama süresidir; ne kadar kısaysa asistan o kadar çabuk konuşmaya başlar. Fiyatlar yaklaşık liste fiyatıdır. Yeni bir sağlayıcının anahtarı sunucuda şu komutla eklenir: ", el("code", {}, "sudo bash /opt/xre-ai/ses_anahtar.sh"))),
+    ...kartlar);
+  sayacYaz();
 }
 
 /* ---------- Kullanıcılar / Hesabım ---------- */
