@@ -19,12 +19,12 @@ temizle() { rm -f "$IZ"; sed -i '/^; ---- GECICI DENEME BASLANGIC ----$/,/^; ---
 trap temizle EXIT
 KULLANICI=$(awk -v n="[trunk-$N-auth]" '$0==n{b=1} b&&/^username=/{sub(/^username=/,""); print; exit}' "$PJSIP")
 H10=$(echo "$HEDEF" | sed -E 's/^(90|0)//')
-echo "0$N trunk'ı (kullanıcı adı $KULLANICI) farklı numara yazımlarıyla deneniyor (her deneme yaklaşık 12 saniye)."
-echo "Telefonunuz çalarsa AÇMAYIN; çalması yeterli."
+echo "0$N trunk'ı (kullanıcı adı $KULLANICI) farklı numara yazımlarıyla deneniyor (her deneme en çok 35 saniye)."
+echo "Telefonunuz çalarsa AÇMAYIN; çalması yeterli. Çalan denemede betik kendiliğinden kapatır."
 echo
 BULUNDU=""
 # her satır: aranan numaranın yazımı | arayan kimliği ek başlığı (P-Asserted-Identity) gönderilsin mi
-for D in "90$H10|hayir" "0$H10|hayir" "$H10|hayir"; do
+for D in "0$H10|hayir" "+90$H10|hayir" "$H10|hayir"; do
   IFS='|' read -r ARANAN PAI <<< "$D"
   TASIMA=transport-udp; KUL=$KULLANICI
   sed -i '/^; ---- GECICI DENEME BASLANGIC ----$/,/^; ---- GECICI DENEME BITIS ----$/d' "$PJSIP"
@@ -59,7 +59,7 @@ send_pai=$([ "$PAI" = evet ] && echo yes || echo no)
 EOT
   asterisk -rx "module reload res_pjsip.so" >/dev/null; sleep 3
   : > "$IZ"
-  ( timeout 9 tcpdump -ni any -A -s0 udp and host "$IP" > "$IZ" 2>/dev/null || true ) &
+  ( timeout 32 tcpdump -ni any -A -s0 udp and host "$IP" > "$IZ" 2>/dev/null || true ) &
   sleep 1
   asterisk -rx "channel originate Local/0000000001*${ARANAN}@trunk-dene extension test@gelen" >/dev/null
   wait
@@ -75,15 +75,16 @@ kodlar, port = [], ""
 for p in paketler:
     if baslik(p, "Call-ID") not in idler: continue
     m = re.search(r"SIP/2\.0 (\d{3}) ([^\r\n]*)", p)
-    if m and "INVITE" in baslik(p, "CSeq"): kodlar.append(m.group(1) + " " + m.group(2).strip())
+    if m and "INVITE" in baslik(p, "CSeq"):
+        neden = re.search(r"cause=(\d+)", baslik(p, "Reason"))
+        kodlar.append(m.group(1) + " " + m.group(2).strip() + (" (cause=" + neden.group(1) + ")" if neden else ""))
     v = re.search(r"^Via:.*?;rport=(\d+)", p, re.M)
     if v: port = v.group(1)
 print(("|".join(dict.fromkeys(kodlar)) or "CEVAP YOK") + "#" + port)
 PY
 )
   KODLAR=${CEVAP%%#*}
-  # başarılı: çalıyor/açıldı (180/200) ya da ilerleme var (183) ve ardından hata (4xx/5xx/6xx) gelmedi
-  if echo "$KODLAR" | grep -qE "(^|\|)(180|200) " || { echo "$KODLAR" | grep -qE "(^|\|)183 " && ! echo "$KODLAR" | grep -qE "(^|\|)[456][0-9]{2} "; }; then
+  if echo "$KODLAR" | grep -qE "(^|\|)(180|200) "; then
     printf '  ✓ aranan %-14s ek kimlik başlığı: %-5s → %s\n' "$ARANAN" "$PAI" "$KODLAR"; BULUNDU="$ARANAN|$PAI"; break
   else
     printf '  ✗ aranan %-14s ek kimlik başlığı: %-5s → %s\n' "$ARANAN" "$PAI" "$KODLAR"
