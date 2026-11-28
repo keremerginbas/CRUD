@@ -20,6 +20,11 @@ GELEN_NUMARA=$(awk -F'"' '/numara:/{print $2; exit}' "$HEDEF/numaralar.yaml")
 [ -n "$GELEN_NUMARA" ] || GELEN_NUMARA=$(awk '/numara:/{print $2; exit}' "$HEDEF/numaralar.yaml" | tr -d "'\"")
 sed "s|__GELEN_NUMARA__|$GELEN_NUMARA|" "$K/asterisk/extensions.conf" > /etc/asterisk/extensions.conf
 asterisk -rx "dialplan reload" >/dev/null && echo "Asterisk arama planı güncellendi."
+# Trunk'larda ek arayan kimliği başlığı (P-Asserted-Identity) gönderilmez: NetGSM kimliği From başlığından alıyor
+if grep -qE '^(send_pai|trust_id_outbound)=' /etc/asterisk/pjsip.conf && grep -q '^; ---- TRUNK ' /etc/asterisk/pjsip.conf; then
+  sed -i '/^; ---- TRUNK [0-9]* BASLANGIC ----$/,/^; ---- TRUNK [0-9]* BITIS ----$/{/^send_pai=/d;/^trust_id_outbound=/d}' /etc/asterisk/pjsip.conf
+  asterisk -rx "module reload res_pjsip.so" >/dev/null && echo "Trunk ayarları güncellendi."
+fi
 # Panel için gizli anahtar ve veri klasörü
 grep -q '^PANEL_GIZLI=' "$HEDEF/.env" || echo "PANEL_GIZLI=$(openssl rand -hex 32)" >> "$HEDEF/.env"
 mkdir -p "$HEDEF/veri" && chmod 700 "$HEDEF/veri"

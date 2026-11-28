@@ -99,8 +99,6 @@ rtp_symmetric=yes
 force_rport=yes
 rewrite_contact=yes
 dtmf_mode=rfc4733
-send_pai=yes
-trust_id_outbound=yes
 ; ---- TRUNK $N BITIS ----
 EOT
   [ "${SESSIZ:-}" = 1 ] || yukle
