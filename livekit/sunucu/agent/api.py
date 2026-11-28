@@ -136,9 +136,9 @@ async def arama_baslat(govde: dict):
     }
     await ortak.cagri_yaz(r, cagri)
     meta = {**cagri, "asistan": asistan, "variableValues": ov.get("variableValues") or {},
-            # Trunk'ta aranan numara Vapi'nin gönderdiği gibi 90XXXXXXXXXX biçiminde gider (0XXX… biçimi NetGSM'de 500 veriyordu);
-            # dahili hatta NetSantral'ın beklediği "ön ek + 0XXXXXXXXXX" biçimi kullanılır.
-            "aranacak": (numara.lstrip("+") if (hat.get("hat") or "dahili") == "trunk" else f"{hat.get('on_ek') or ''}{ortak.santral_numarasi(numara)}"),
+            # Aranan numara her iki hatta da 0XXXXXXXXXX biçiminde gider (gerçek hatta denendi: trunk'ta 90XXX… biçimi
+            # 25 sn sonra "500, cause=127" veriyor, 0XXX… biçimi bağlanıyor). Dahili hatta başına NetSantral ön eki eklenir.
+            "aranacak": ("" if (hat.get("hat") or "dahili") == "trunk" else str(hat.get("on_ek") or "")) + ortak.santral_numarasi(numara),
             "hat": hat.get("hat") or "dahili",
             # NetSantral numaraları başında 0 olmadan gösteriyor (5337437116); trunk'ta arayan numara bu biçimde gönderilir
             "arayan": str(hat.get("arayan") or ortak.santral_numarasi(hat.get("numara")).lstrip("0"))}

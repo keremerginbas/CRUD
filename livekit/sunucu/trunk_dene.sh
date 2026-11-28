@@ -8,7 +8,7 @@ trunk_var() { local c; c=$(asterisk -rx "pjsip show endpoint trunk-$1" 2>&1 || t
 ARAYAN=$(echo "${1:?Kullanım: trunk_dene.sh <görünecek-numara> <aranacak-numara>}" | tr -cd '0-9' | sed -E 's/^(90|0)//')
 trunk_var "$ARAYAN" || { echo "0$ARAYAN için trunk tanımlı değil. Önce: sudo bash /opt/xre-ai/trunk_ekle.sh"; exit 1; }
 HEDEF=$(echo "${2:?Kullanım: trunk_dene.sh <görünecek-numara> <aranacak-numara>}" | tr -cd '0-9')
-HEDEF=90$(echo "$HEDEF" | sed -E 's/^(90|0)//')   # trunk'ta aranan numara 90XXXXXXXXXX biçiminde gider
+HEDEF=0$(echo "$HEDEF" | sed -E 's/^(90|0)//')   # trunk'ta aranan numara 0XXXXXXXXXX biçiminde gider (90… biçimi NetGSM'de bağlanmıyor)
 SUNUCU=$(awk -v n="[trunk-$ARAYAN-aor]" -F'sip:' '$0==n{b=1} b&&/^contact=sip:/{print $2; exit}' /etc/asterisk/pjsip.conf)
 IP=$(dig +short A "$SUNUCU" | grep -E '^[0-9.]+$' | head -1)
 echo "Görünecek numara: $ARAYAN → aranan: $HEDEF   (NetGSM: $SUNUCU $IP)"
