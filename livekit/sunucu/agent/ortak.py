@@ -20,6 +20,96 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://127.0.0.1:6379/0")
 TR = ZoneInfo("Europe/Istanbul")
 
 
+# ---------- kullanım ve maliyet ----------
+# Birim fiyatlar: 2026 Kasım'ında herkese açık fiyat listelerinden alınan BAŞLANGIÇ değerleri. Panelde (Maliyet → Birim
+# fiyatlar) değiştirilebilir; gerçek tutar her zaman servisin kendi faturasıdır.
+VARSAYILAN_FIYATLAR = {
+    "llm": {  # ABD doları / 1 milyon token
+        "gpt-5.6-terra": {"girdi": 2.0, "onbellek": 0.20, "cikti": 12.0},
+        "gpt-5.6-luna": {"girdi": 0.20, "onbellek": 0.02, "cikti": 1.20},
+        "gpt-5-mini": {"girdi": 0.25, "onbellek": 0.025, "cikti": 2.0},
+        "gpt-4.1-mini": {"girdi": 0.40, "onbellek": 0.10, "cikti": 1.60},
+        "gpt-4.1": {"girdi": 2.0, "onbellek": 0.50, "cikti": 8.0},
+    },
+    "stt": {"nova-3": 0.0077},              # ABD doları / dakika (Deepgram, canlı)
+    "tts": {"eleven_flash_v2_5": 0.04},     # ABD doları / 1000 karakter (ElevenLabs)
+    "tel": {"giden_tl_dk": 0.0, "gelen_tl_dk": 0.0},   # NetGSM dakika ücreti (TL); paketiniz dakikayı içeriyorsa 0
+    "sabit": [],                            # aylık sabit giderler: [{"ad": "...", "tutar": 0, "birim": "TL" | "USD"}]
+    "kur": 0.0,                             # 1 USD kaç TL; 0 = Merkez Bankası'ndan otomatik
+}
+SAGLAYICI = {"llm": "OpenAI", "stt": "Deepgram", "tts": "ElevenLabs", "tel": "NetGSM"}
+
+
+async def fiyatlari_oku(r: aioredis.Redis) -> dict:
+    """Kayıtlı birim fiyatlar; kayıt yoksa ya da eksikse varsayılanlarla tamamlanır."""
+    try:
+        kayitli = json.loads(await r.get("fiyatlar") or "{}")
+    except ValueError:
+        kayitli = {}
+    out = json.loads(json.dumps(VARSAYILAN_FIYATLAR))
+    for k, v in (kayitli if isinstance(kayitli, dict) else {}).items():
+        if isinstance(v, dict) and isinstance(out.get(k), dict):
+            out[k].update(v)
+        else:
+            out[k] = v
+    return out
+
+
+def maliyet_hesapla(kullanim: dict, fiyat: dict) -> dict:
+    """kullanim: {"llm|model|girdi": token, "stt|model|sn": saniye, "tts|model|karakter": adet, "tel|giden|sn": saniye, …}
+    Döner: {"usd": toplam dolar, "tl": NetGSM dakika ücreti (TL), "kalemler": [...], "fiyatsiz": [fiyatı tanımsız modeller]}"""
+    kalemler, fiyatsiz, usd, tl = {}, set(), 0.0, 0.0
+    for anahtar, miktar in (kullanim or {}).items():
+        try:
+            tur, model, olcu = anahtar.split("|", 2)
+            miktar = float(miktar)
+        except (ValueError, TypeError):
+            continue
+        if tur == "llm":
+            f = (fiyat.get("llm") or {}).get(model)
+            k = kalemler.setdefault(("llm", model), {"tur": "llm", "saglayici": "OpenAI", "model": model, "girdi": 0, "onbellek": 0, "cikti": 0, "usd": 0.0, "tl": 0.0})
+            k[olcu] = k.get(olcu, 0) + miktar
+            if f is None:
+                fiyatsiz.add(model)
+            else:
+                k["usd"] += miktar * float(f.get(olcu) or 0) / 1e6
+        elif tur == "stt":
+            f = (fiyat.get("stt") or {}).get(model)
+            k = kalemler.setdefault(("stt", model), {"tur": "stt", "saglayici": "Deepgram", "model": model, "dakika": 0.0, "usd": 0.0, "tl": 0.0})
+            k["dakika"] += miktar / 60
+            if f is None:
+                fiyatsiz.add(model)
+            else:
+                k["usd"] += miktar / 60 * float(f)
+        elif tur == "tts":
+            f = (fiyat.get("tts") or {}).get(model)
+            k = kalemler.setdefault(("tts", model), {"tur": "tts", "saglayici": "ElevenLabs", "model": model, "karakter": 0, "usd": 0.0, "tl": 0.0})
+            k["karakter"] += miktar
+            if f is None:
+                fiyatsiz.add(model)
+            else:
+                k["usd"] += miktar / 1000 * float(f)
+        elif tur == "tel":
+            k = kalemler.setdefault(("tel", model), {"tur": "tel", "saglayici": "NetGSM", "model": model, "dakika": 0.0, "usd": 0.0, "tl": 0.0})
+            k["dakika"] += miktar / 60
+            k["tl"] += miktar / 60 * float((fiyat.get("tel") or {}).get(f"{model}_tl_dk") or 0)
+    for k in kalemler.values():
+        usd += k["usd"]
+        tl += k["tl"]
+    return {"usd": round(usd, 6), "tl": round(tl, 4), "kalemler": sorted(kalemler.values(), key=lambda x: (["llm", "stt", "tts", "tel"].index(x["tur"]), x["model"])), "fiyatsiz": sorted(fiyatsiz)}
+
+
+async def kullanim_ekle(r: aioredis.Redis, asistan_id: str, kullanim: dict) -> None:
+    """Günlük toplamlara ekler (Türkiye günü). Arama kayıtları 14 günde silinir; bu toplamlar 400 gün kalır,
+    böylece aylık maliyet geçmişe dönük görülebilir."""
+    gun = datetime.now(TR).strftime("%Y-%m-%d")
+    for anahtar in (f"kullanim:{gun}", f"kullanim:{gun}:a:{asistan_id or '-'}"):
+        for alan, miktar in kullanim.items():
+            if miktar:
+                await r.hincrbyfloat(anahtar, alan, float(miktar))
+        await r.expire(anahtar, 400 * 86400)
+
+
 def kayit_imzasi(cid: str) -> str:
     import hashlib
     import hmac

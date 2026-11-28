@@ -520,11 +520,41 @@ class Gorusme:
                 model=an.get("model", "gpt-4.1-mini"), temperature=0, response_format={"type": "json_object"},
                 messages=[{"role": "user", "content": istek}],
             )
+            try:   # analiz isteğinin token kullanımı da maliyete sayılır
+                u, m = y.usage, an.get("model", "gpt-4.1-mini")
+                onb = int(getattr(getattr(u, "prompt_tokens_details", None), "cached_tokens", 0) or 0)
+                self.analiz_kullanimi = {f"llm|{m}|girdi": max(0, int(u.prompt_tokens) - onb), f"llm|{m}|onbellek": onb, f"llm|{m}|cikti": int(u.completion_tokens)}
+            except Exception:
+                pass
             v = json.loads(y.choices[0].message.content or "{}")
             return {"summary": str(v.get("summary", "")), "structuredData": v.get("structuredData") or {}}
         except Exception as e:
             log.error("analiz başarısız: %s", e)
             return {"summary": "", "structuredData": {}}
+
+    def kullanim(self, sure: float) -> dict:
+        """Bu aramada hangi servisten ne kadar kullanıldı (maliyet hesabı için)."""
+        k: dict[str, float] = {"arama|adet|adet": 1, f"tel|{'gelen' if self.tur != 'outboundPhoneCall' else 'giden'}|sn": float(sure or 0)}
+        if sure:
+            k["arama|baglanan|adet"] = 1
+        def ekle(alan: str, deger) -> None:
+            if deger:
+                k[alan] = k.get(alan, 0) + float(deger)
+        try:
+            for u in (self.session.usage.model_usage if self.session else []):
+                tur, model = getattr(u, "type", ""), str(getattr(u, "model", "") or "bilinmiyor")
+                if tur == "llm_usage":
+                    onb = int(u.input_cached_tokens or 0)
+                    ekle(f"llm|{model}|girdi", max(0, int(u.input_tokens or 0) - onb)); ekle(f"llm|{model}|onbellek", onb); ekle(f"llm|{model}|cikti", u.output_tokens)
+                elif tur == "stt_usage":
+                    ekle(f"stt|{model}|sn", u.audio_duration)
+                elif tur == "tts_usage":
+                    ekle(f"tts|{model}|karakter", u.characters_count)
+        except Exception as e:
+            log.warning("kullanım okunamadı: %s", e)
+        for alan, deger in (getattr(self, "analiz_kullanimi", None) or {}).items():
+            ekle(alan, deger)
+        return k
 
     async def rapor_gonder(self, *_a) -> None:
         if self.rapor_gitti:
@@ -551,6 +581,14 @@ class Gorusme:
                     for c in (self.asistan.get("vapi_ciktilari") or []) if isinstance(c, dict) and c.get("id")}
         if ciktilar:
             rapor["message"]["artifact"]["structuredOutputs"] = ciktilar
+        # Kullanım ve maliyet: günlük toplamlara eklenir; aramanın tahmini maliyeti (ABD doları) rapora "cost" olarak yazılır
+        kullanim, maliyet = self.kullanim(sure), {"usd": 0.0, "tl": 0.0}
+        try:
+            maliyet = ortak.maliyet_hesapla(kullanim, await ortak.fiyatlari_oku(self.r))
+            await ortak.kullanim_ekle(self.r, str(self.asistan.get("id") or ""), kullanim)
+        except Exception as e:
+            log.warning("kullanım kaydedilemedi: %s", e)
+        rapor["message"]["cost"] = round(maliyet["usd"], 4)
         # Ses kaydı: yalnızca müşteri açtıysa vardır. Vapi'nin kullandığı bütün alan adlarına yazılır.
         kayit = ortak.kayit_adresi(self.id) if self.baslangic else ""
         if kayit:
@@ -561,7 +599,8 @@ class Gorusme:
                          customer=call["customer"], phoneNumber=call["phoneNumber"],
                          mesajlar=mesajlar, ozet=analiz["summary"], sonuc=analiz["structuredData"], gecikme=self.gecikme_ozeti(),
                          # GET /call cevabı Vapi'ninkiyle aynı alanları taşısın (n8n günlük raporları bunları okur)
-                         startedAt=call["startedAt"], analysis=analiz, summary=analiz["summary"], transcript=transkript, cost=0,
+                         startedAt=call["startedAt"], analysis=analiz, summary=analiz["summary"], transcript=transkript,
+                         cost=round(maliyet["usd"], 4), kullanim=kullanim, maliyetTl=maliyet["tl"],
                          artifact=rapor["message"]["artifact"], recordingUrl=kayit)
         url = self.asistan.get("sunucu_url")
         log.info("görüşme bitti id=%s neden=%s süre=%ss rapor=%s", self.id, neden, sure, url or "(URL yok)")

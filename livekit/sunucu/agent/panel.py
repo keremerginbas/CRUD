@@ -478,6 +478,128 @@ async def asistan_sil(aid: str, _k: dict = Depends(yonetici)):
     return {}
 
 
+# ---------- maliyet ----------
+_kur_onbellek: tuple[float, float] = (0.0, 0.0)   # (okunma zamanı, 1 USD kaç TL)
+
+
+async def _kur(fiyat: dict) -> tuple[float, str]:
+    """1 ABD doları kaç TL: panelde elle girildiyse o, yoksa Merkez Bankası'nın günlük döviz satış kuru (6 saat önbellek)."""
+    global _kur_onbellek
+    elle = float(fiyat.get("kur") or 0)
+    if elle > 0:
+        return elle, "elle girildi"
+    if _kur_onbellek[1] and time.time() - _kur_onbellek[0] < 6 * 3600:
+        return _kur_onbellek[1], "Merkez Bankası"
+    try:
+        import httpx
+
+        async with httpx.AsyncClient(timeout=8) as c:
+            xml = (await c.get("https://www.tcmb.gov.tr/kurlar/today.xml")).text
+        m = re.search(r'CurrencyCode="USD".*?<ForexSelling>([0-9.]+)</ForexSelling>', xml, re.S)
+        if m and float(m.group(1)) > 0:
+            _kur_onbellek = (time.time(), float(m.group(1)))
+            return _kur_onbellek[1], "Merkez Bankası"
+    except Exception:
+        pass
+    return (_kur_onbellek[1], "Merkez Bankası (eski)") if _kur_onbellek[1] else (0.0, "alınamadı")
+
+
+def _fiyat_temizle(g: dict) -> dict:
+    def sayi(v, ad):
+        try:
+            x = float(v or 0)
+        except (TypeError, ValueError):
+            raise HTTPException(400, f"{ad} sayı olmalı")
+        if not 0 <= x <= 1e6:
+            raise HTTPException(400, f"{ad} sıfır ya da daha büyük olmalı")
+        return x
+
+    ad_ok = re.compile(r"^[A-Za-z0-9._:-]{1,60}$")
+    out: dict = {"llm": {}, "stt": {}, "tts": {}, "tel": {}, "sabit": [], "kur": sayi(g.get("kur"), "Kur")}
+    for model, f in (g.get("llm") or {}).items():
+        if ad_ok.match(str(model)) and isinstance(f, dict):
+            out["llm"][model] = {k: sayi(f.get(k), f"{model} {k}") for k in ("girdi", "onbellek", "cikti")}
+    for tur in ("stt", "tts"):
+        for model, f in (g.get(tur) or {}).items():
+            if ad_ok.match(str(model)):
+                out[tur][model] = sayi(f, model)
+    for k in ("giden_tl_dk", "gelen_tl_dk"):
+        out["tel"][k] = sayi((g.get("tel") or {}).get(k), "Dakika ücreti")
+    for x in (g.get("sabit") or [])[:30]:
+        if isinstance(x, dict) and str(x.get("ad") or "").strip():
+            out["sabit"].append({"ad": str(x["ad"]).strip()[:60], "tutar": sayi(x.get("tutar"), "Sabit gider"), "birim": "USD" if x.get("birim") == "USD" else "TL"})
+    return out
+
+
+@router.get("/panel/api/fiyatlar")
+async def fiyat_getir(_k: dict = Depends(oturum)):
+    r = ortak.redis_baglan()
+    try:
+        return await ortak.fiyatlari_oku(r)
+    finally:
+        await r.aclose()
+
+
+@router.put("/panel/api/fiyatlar")
+async def fiyat_kaydet(request: Request, _k: dict = Depends(yonetici)):
+    veri = _fiyat_temizle(await request.json())
+    r = ortak.redis_baglan()
+    try:
+        await r.set("fiyatlar", json.dumps(veri, ensure_ascii=False))
+    finally:
+        await r.aclose()
+    return veri
+
+
+@router.get("/panel/api/maliyet")
+async def maliyet(bas: str = "", bit: str = "", _k: dict = Depends(oturum)):
+    """Seçilen tarih aralığında (Türkiye günü, uçlar dahil) servis servis kullanım ve tahmini tutar."""
+    from datetime import date, datetime, timedelta
+
+    bugun = datetime.now(ortak.TR).date()
+    try:
+        b1 = date.fromisoformat(bas) if bas else bugun.replace(day=1)
+        b2 = date.fromisoformat(bit) if bit else bugun
+    except ValueError:
+        raise HTTPException(400, "Tarih YYYY-AA-GG biçiminde olmalı")
+    if b2 < b1 or (b2 - b1).days > 400:
+        raise HTTPException(400, "Tarih aralığı geçersiz (en çok 400 gün)")
+    gunler = [(b1 + timedelta(days=i)).isoformat() for i in range((b2 - b1).days + 1)]
+    r = ortak.redis_baglan()
+    try:
+        fiyat = await ortak.fiyatlari_oku(r)
+        toplam: dict[str, float] = {}
+        gunluk, asistan_kul = [], {}
+        for g in gunler:
+            h = await r.hgetall(f"kullanim:{g}")
+            for k, v in h.items():
+                toplam[k] = toplam.get(k, 0) + float(v)
+            m = ortak.maliyet_hesapla(h, fiyat)
+            gunluk.append({"gun": g, "usd": m["usd"], "tl": m["tl"], "arama": int(float(h.get("arama|adet|adet", 0)))})
+            async for anahtar in r.scan_iter(f"kullanim:{g}:a:*", count=200):
+                aid = anahtar.split(":a:", 1)[1]
+                hedef = asistan_kul.setdefault(aid, {})
+                for k, v in (await r.hgetall(anahtar)).items():
+                    hedef[k] = hedef.get(k, 0) + float(v)
+    finally:
+        await r.aclose()
+    kur, kur_kaynak = await _kur(fiyat)
+    genel = ortak.maliyet_hesapla(toplam, fiyat)
+    adlar = {a["id"]: a.get("ad") for a in ortak.asistanlari_oku()}
+    asistanlar = []
+    for aid, k in asistan_kul.items():
+        m = ortak.maliyet_hesapla(k, fiyat)
+        sn = float(k.get("tel|giden|sn", 0)) + float(k.get("tel|gelen|sn", 0))
+        asistanlar.append({"id": aid, "ad": adlar.get(aid) or aid, "arama": int(k.get("arama|adet|adet", 0)), "baglanan": int(k.get("arama|baglanan|adet", 0)),
+                           "dakika": round(sn / 60, 1), "usd": m["usd"], "tl": m["tl"]})
+    asistanlar.sort(key=lambda x: -(x["usd"] * (kur or 1) + x["tl"]))
+    sn = float(toplam.get("tel|giden|sn", 0)) + float(toplam.get("tel|gelen|sn", 0))
+    return {"bas": gunler[0], "bit": gunler[-1], "kur": kur, "kurKaynak": kur_kaynak, "usd": genel["usd"], "tl": genel["tl"],
+            "kalemler": genel["kalemler"], "fiyatsiz": genel["fiyatsiz"], "gunluk": gunluk, "asistanlar": asistanlar,
+            "arama": int(toplam.get("arama|adet|adet", 0)), "baglanan": int(toplam.get("arama|baglanan|adet", 0)), "dakika": round(sn / 60, 1),
+            "sabit": fiyat.get("sabit") or [], "fiyat": fiyat}
+
+
 # ---------- numaralar ----------
 @router.get("/panel/api/numaralar")
 async def numara_listesi(_k: dict = Depends(oturum)):

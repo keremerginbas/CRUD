@@ -130,6 +130,16 @@ td.sayi,th.sayi{text-align:right;font-variant-numeric:tabular-nums}
 .olcum .not{color:var(--soluk);font-size:12.5px;margin-top:4px}
 
 select[data-k="hat"]{min-width:104px}
+.kart h3{font-size:15px;margin:22px 0 10px}.kart h3:first-of-type{margin-top:6px}
+.donem{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}.donem input[type=date]{width:auto}
+.donem .dugme.secili{background:var(--ana-soluk);border-color:var(--ana);font-weight:600}
+td.para,th.para{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.toplam td{font-weight:700;border-top:2px solid var(--cizgi)}
+.fiyat-izgara{display:grid;grid-template-columns:minmax(150px,1.4fr) repeat(3,minmax(84px,1fr)) auto;gap:8px 10px;align-items:center;font-size:14px}
+.fiyat-izgara .bas{color:var(--soluk);font-size:12.5px;font-weight:600}
+.fiyat-izgara.iki{grid-template-columns:minmax(150px,1.4fr) minmax(84px,1fr) auto}
+.fiyat-izgara input{min-width:0}
+@media (max-width:700px){.fiyat-izgara,.fiyat-izgara.iki{grid-template-columns:repeat(3,minmax(0,1fr))!important}.fiyat-izgara .bas{display:none}.fiyat-izgara input[data-tur]{grid-column:1/-1}.donem input[type=date]{flex:1;min-width:130px}}
 .cift{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,3fr);gap:18px;margin-bottom:18px}.cift>.kart{margin:0}
 .grafik-kutu{position:relative;height:250px}
 .lejant{display:flex;gap:18px;font-size:13px;color:var(--soluk);margin:-4px 0 12px}
@@ -208,6 +218,7 @@ dialog .eylemler{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
     <a class="oge" data-sayfa="genel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Genel bakış</a>
     <a class="oge" data-sayfa="asistanlar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>Asistanlar</a>
     <a class="oge" data-sayfa="aramalar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>Aramalar</a>
+    <a class="oge" data-sayfa="maliyet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>Maliyet</a>
     <a class="oge" data-sayfa="numaralar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16M4 15h16M10 3 8 21M16 3l-2 18"/></svg>Numaralar</a>
     <div class="grup">Hesap</div>
     <a class="oge" data-sayfa="kullanicilar" id="nav-kullanicilar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0M16 4a4 4 0 0 1 0 8M22 21a6 6 0 0 0-4-5.7"/></svg>Kullanıcılar</a>
@@ -297,7 +308,7 @@ function yonlendir() {
   clearInterval(yenileme); gezinti++;
   const [sayfa, arg] = (location.hash.slice(1) || "genel").split("/");
   document.querySelectorAll("nav a[data-sayfa]").forEach((a) => { const s = a.dataset.sayfa === sayfa; a.classList.toggle("secili", s); s ? a.setAttribute("aria-current", "page") : a.removeAttribute("aria-current"); });
-  const s = { genel, asistanlar: arg ? () => asistanDuzenle(arg) : asistanlar, aramalar: arg ? () => aramaDetay(arg) : aramalar, numaralar, kullanicilar, hesabim }[sayfa] || genel;
+  const s = { genel, asistanlar: arg ? () => asistanDuzenle(arg) : asistanlar, aramalar: arg ? () => aramaDetay(arg) : aramalar, maliyet, numaralar, kullanicilar, hesabim }[sayfa] || genel;
   s().catch((h) => $("#icerik").replaceChildren(el("div", { class: "kart" }, el("h2", {}, "Sayfa açılamadı"), el("p", { class: "aciklama" }, h.message))));
   window.scrollTo(0, 0);
 }
@@ -552,6 +563,100 @@ async function aramaDetay(id) {
 }
 
 /* ---------- Numaralar ---------- */
+// ---------- maliyet ----------
+const tl = (x) => (x || 0).toLocaleString("tr-TR", { style: "currency", currency: "TRY", maximumFractionDigits: (x || 0) < 100 ? 2 : 0 });
+const usd = (x) => "$" + (x || 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: (x || 0) < 1 ? 4 : 2 });
+const adet = (x) => Math.round(x || 0).toLocaleString("tr-TR");
+const gunYaz = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+let maliyetGrafigi = null, maliyetDonemi = "ay";
+async function maliyet() {
+  const benim = gezinti, simdi = new Date();
+  const donemler = { bugun: ["Bugün", gunYaz(simdi), gunYaz(simdi)], ay: ["Bu ay", gunYaz(new Date(simdi.getFullYear(), simdi.getMonth(), 1)), gunYaz(simdi)],
+    gecen: ["Geçen ay", gunYaz(new Date(simdi.getFullYear(), simdi.getMonth() - 1, 1)), gunYaz(new Date(simdi.getFullYear(), simdi.getMonth(), 0))],
+    otuz: ["Son 30 gün", gunYaz(new Date(simdi - 29 * 864e5)), gunYaz(simdi)] };
+  const bas = el("input", { type: "date", "aria-label": "Başlangıç tarihi" }), bit = el("input", { type: "date", "aria-label": "Bitiş tarihi" });
+  const govde = el("div", {});
+  const dugmeler = Object.entries(donemler).map(([k, [ad]]) => el("button", { class: "dugme", "data-d": k, onclick: () => { maliyetDonemi = k; getir(); } }, ad));
+  const getir = () => dene_(async () => {
+    if (donemler[maliyetDonemi]) { bas.value = donemler[maliyetDonemi][1]; bit.value = donemler[maliyetDonemi][2]; }
+    dugmeler.forEach((d) => d.classList.toggle("secili", d.dataset.d === maliyetDonemi));
+    const v = await api("maliyet?bas=" + bas.value + "&bit=" + bit.value);
+    if (benim !== gezinti) return;
+    ciz(v);
+  });
+  [bas, bit].forEach((i) => i.addEventListener("change", () => { maliyetDonemi = "ozel"; getir(); }));
+  const ciz = (v) => {
+    const kur = v.kur || 0, toplamTl = v.usd * kur + v.tl, olcum = (ad, deger, not) => el("div", { class: "olcum" }, el("div", { class: "ad" }, ad), el("div", { class: "deger" }, deger), not ? el("div", { class: "not" }, not) : null);
+    const para = (u, t) => kur ? tl(u * kur + (t || 0)) : usd(u) + (t ? " + " + tl(t) : "");
+    const gunSayisi = v.gunluk.length, ayinGunu = new Date(simdi.getFullYear(), simdi.getMonth() + 1, 0).getDate();
+    const sabitTl = v.sabit.reduce((t, x) => t + (x.birim === "USD" ? x.tutar * kur : x.tutar), 0);
+    const tahmin = maliyetDonemi === "ay" ? toplamTl / Math.max(1, simdi.getDate()) * ayinGunu + sabitTl : null;
+    const kullanimYaz = (k) => k.tur === "llm" ? adet(k.girdi) + " girdi · " + adet(k.onbellek) + " önbellekli · " + adet(k.cikti) + " çıktı token"
+      : k.tur === "tts" ? adet(k.karakter) + " karakter" : adet(k.dakika) + " dakika" + (k.tur === "tel" ? (k.model === "gelen" ? " (gelen arama)" : " (giden arama)") : "");
+    const saglayicilar = {}; v.kalemler.forEach((k) => { const s = saglayicilar[k.saglayici] = saglayicilar[k.saglayici] || { usd: 0, tl: 0 }; s.usd += k.usd; s.tl += k.tl; });
+    const tuval = el("canvas", { role: "img", "aria-label": "Seçilen dönemde günlük tahmini maliyet" });
+    govde.replaceChildren(
+      el("div", { class: "olcumler" },
+        olcum("Tahmini kullanım tutarı", kur ? tl(toplamTl) : usd(v.usd), kur ? usd(v.usd) + (v.tl ? " + " + tl(v.tl) : "") + " · 1 $ = " + kur.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) + " TL (" + v.kurKaynak + ")" : "Kur alınamadı; birim fiyatlardan kuru elle girin"),
+        olcum("Arama başına", v.baglanan ? para(v.usd / v.baglanan, v.tl / v.baglanan) : "-", v.arama + " arama, " + v.baglanan + " tanesi bağlandı"),
+        olcum("Konuşma dakikası başına", v.dakika ? para(v.usd / v.dakika, v.tl / v.dakika) : "-", adet(v.dakika) + " dakika konuşma"),
+        tahmin != null ? olcum("Ay sonu tahmini", kur ? tl(tahmin) : "-", "Bu ayın günlük ortalamasıyla" + (sabitTl ? ", sabit giderler dahil" : "")) : olcum("Dönem", gunSayisi + " gün", v.bas.split("-").reverse().join(".") + " – " + v.bit.split("-").reverse().join("."))),
+      v.fiyatsiz.length ? el("div", { class: "kart" }, el("p", { class: "aciklama", style: "margin:0" }, "Şu modellerin birim fiyatı tanımlı değil, tutara dahil edilmedi: " + v.fiyatsiz.join(", ") + ". Aşağıdaki “Birim fiyatlar” bölümünden ekleyin.")) : null,
+      el("div", { class: "kart sikisik" }, el("h2", { style: "padding-bottom:4px" }, "Hangi servise ne kadar"), el("p", { class: "aciklama", style: "padding:0 22px 10px" }, "Her servis faturasını ayrı keser. Buradaki tutarlar kullanımınıza ve aşağıdaki birim fiyatlara göre tahmindir; kesin tutar servisin kendi faturasıdır."),
+        v.kalemler.length ? el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Servis"), el("th", {}, "Ne için"), el("th", {}, "Kullanım"), el("th", { class: "para" }, "Tutar"), el("th", { class: "para" }, "TL karşılığı"))),
+          el("tbody", {}, v.kalemler.map((k) => el("tr", {}, el("td", {}, el("strong", {}, k.saglayici)), el("td", {}, k.tur === "llm" ? "Yapay zekâ modeli (" + k.model + ")" : k.tur === "stt" ? "Konuşmayı yazıya çevirme (" + k.model + ")" : k.tur === "tts" ? "Seslendirme (" + k.model + ")" : "Telefon hattı"),
+            el("td", {}, kullanimYaz(k)), el("td", { class: "para" }, k.tur === "tel" ? tl(k.tl) : usd(k.usd)), el("td", { class: "para" }, kur ? tl(k.usd * kur + k.tl) : "-"))),
+            Object.entries(saglayicilar).map(([ad, t]) => el("tr", { class: "toplam" }, el("td", { colspan: 3 }, ad + " toplamı"), el("td", { class: "para" }, t.usd ? usd(t.usd) : tl(t.tl)), el("td", { class: "para" }, kur ? tl(t.usd * kur + t.tl) : "-"))),
+            el("tr", { class: "toplam" }, el("td", { colspan: 3 }, "Genel toplam (kullanım)"), el("td", { class: "para" }, usd(v.usd) + (v.tl ? " + " + tl(v.tl) : "")), el("td", { class: "para" }, kur ? tl(toplamTl) : "-")))))
+          : el("div", { class: "bos" }, "Bu dönemde kayıtlı kullanım yok. Kullanım, bu sürüm kurulduktan sonraki aramalardan itibaren kaydedilir.")),
+      v.sabit.length ? el("div", { class: "kart sikisik" }, el("h2", { style: "padding-bottom:12px" }, "Aylık sabit giderler"), el("div", { class: "tablo-kutu" }, el("table", {}, el("tbody", {}, v.sabit.map((x) => el("tr", {}, el("td", {}, x.ad), el("td", { class: "para" }, x.birim === "USD" ? usd(x.tutar) : tl(x.tutar)), el("td", { class: "para" }, x.birim === "USD" && kur ? tl(x.tutar * kur) : ""))),
+        el("tr", { class: "toplam" }, el("td", {}, "Aylık sabit toplam"), el("td", {}), el("td", { class: "para" }, kur || !v.sabit.some((x) => x.birim === "USD") ? tl(sabitTl) : "-")))))) : null,
+      v.gunluk.length > 1 && v.gunluk.some((g) => g.usd || g.tl) ? el("div", { class: "kart" }, el("h2", {}, "Günlük tutar"), el("div", { class: "grafik-kutu" }, tuval)) : null,
+      v.asistanlar.length ? el("div", { class: "kart sikisik" }, el("h2", { style: "padding-bottom:12px" }, "Asistana göre"), el("div", { class: "tablo-kutu" }, el("table", {}, el("thead", {}, el("tr", {}, el("th", {}, "Asistan"), el("th", { class: "para" }, "Arama"), el("th", { class: "para" }, "Bağlanan"), el("th", { class: "para" }, "Dakika"), el("th", { class: "para" }, "Tutar"), el("th", { class: "para" }, "Bağlanan arama başına"))),
+        el("tbody", {}, v.asistanlar.map((a) => el("tr", {}, el("td", {}, a.ad), el("td", { class: "para" }, a.arama), el("td", { class: "para" }, a.baglanan), el("td", { class: "para" }, adet(a.dakika)), el("td", { class: "para" }, para(a.usd, a.tl)), el("td", { class: "para" }, a.baglanan ? para(a.usd / a.baglanan, a.tl / a.baglanan) : "-"))))))) : null,
+      fiyatDuzenle(v.fiyat));
+    if (tuval.isConnected && window.Chart) {
+      const stil = getComputedStyle(document.documentElement), renk = (ad) => stil.getPropertyValue(ad).trim();
+      if (maliyetGrafigi) maliyetGrafigi.destroy();
+      maliyetGrafigi = new Chart(tuval, { type: "bar", data: { labels: v.gunluk.map((g) => new Date(g.gun + "T12:00:00").toLocaleDateString("tr-TR", { day: "numeric", month: "short" })),
+        datasets: [{ label: kur ? "Tutar (TL)" : "Tutar ($)", data: v.gunluk.map((g) => kur ? +(g.usd * kur + g.tl).toFixed(2) : g.usd), backgroundColor: renk("--seri-1"), borderRadius: 4, maxBarThickness: 22 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (o) => (kur ? tl(o.parsed.y) : usd(o.parsed.y)) + " · " + v.gunluk[o.dataIndex].arama + " arama" } } },
+          scales: { x: { grid: { display: false }, ticks: { color: renk("--soluk"), maxRotation: 0, autoSkipPadding: 12 } }, y: { beginAtZero: true, grid: { color: renk("--cizgi") }, border: { display: false }, ticks: { color: renk("--soluk"), maxTicksLimit: 5 } } } } });
+    }
+  };
+  const fiyatDuzenle = (f) => {
+    const yon = BEN.rol === "yonetici", sayi = (v, ad) => el("input", { type: "number", step: "any", min: "0", value: v ?? 0, "aria-label": ad, disabled: !yon });
+    const llm = el("div", { class: "fiyat-izgara" }, ["Model", "Girdi", "Önbellekli girdi", "Çıktı", ""].map((b) => el("div", { class: "bas" }, b)));
+    const llmSatir = (m, x) => { const ad = el("input", { type: "text", value: m, "aria-label": "Model adı", disabled: !yon }), g = sayi(x.girdi, "Girdi"), o = sayi(x.onbellek, "Önbellekli girdi"), c = sayi(x.cikti, "Çıktı");
+      const sil = yon ? el("button", { class: "dugme dar", onclick: () => [ad, g, o, c, sil].forEach((n) => n.remove()) }, "Kaldır") : el("span", {}); ad.dataset.tur = "llm"; ad._deger = () => ({ girdi: g.value, onbellek: o.value, cikti: c.value }); llm.append(ad, g, o, c, sil); };
+    Object.entries(f.llm || {}).forEach(([m, x]) => llmSatir(m, x));
+    const tek = (tur, baslikAd, birim) => { const kutu = el("div", { class: "fiyat-izgara iki" }, [baslikAd, birim, ""].map((b) => el("div", { class: "bas" }, b)));
+      const satir = (m, x) => { const ad = el("input", { type: "text", value: m, "aria-label": "Model adı", disabled: !yon }), d = sayi(x, birim); const sil = yon ? el("button", { class: "dugme dar", onclick: () => [ad, d, sil].forEach((n) => n.remove()) }, "Kaldır") : el("span", {}); ad.dataset.tur = tur; ad._deger = () => d.value; kutu.append(ad, d, sil); };
+      Object.entries(f[tur] || {}).forEach(([m, x]) => satir(m, x)); kutu._ekle = () => satir("", 0); return kutu; };
+    const stt = tek("stt", "Yazıya çevirme modeli", "$ / dakika"), tts = tek("tts", "Seslendirme modeli", "$ / 1000 karakter");
+    const giden = sayi((f.tel || {}).giden_tl_dk, "Giden arama dakika ücreti"), gelen = sayi((f.tel || {}).gelen_tl_dk, "Gelen arama dakika ücreti"), kurG = sayi(f.kur, "Dolar kuru");
+    const sabit = el("div", { class: "fiyat-izgara", style: "grid-template-columns:minmax(150px,1.6fr) minmax(84px,1fr) 96px auto" }, ["Gider", "Aylık tutar", "Para birimi", ""].map((b) => el("div", { class: "bas" }, b)));
+    const sabitSatir = (x) => { const ad = el("input", { type: "text", value: x.ad || "", placeholder: "ör. NetGSM hat ücretleri", "aria-label": "Gider adı", disabled: !yon }), t = sayi(x.tutar, "Aylık tutar"), b = el("select", { "aria-label": "Para birimi", disabled: !yon }, el("option", { value: "TL" }, "TL"), el("option", { value: "USD" }, "USD")); b.value = x.birim || "TL";
+      const sil = yon ? el("button", { class: "dugme dar", onclick: () => [ad, t, b, sil].forEach((n) => n.remove()) }, "Kaldır") : el("span", {}); ad.dataset.tur = "sabit"; ad._deger = () => ({ tutar: t.value, birim: b.value }); sabit.append(ad, t, b, sil); };
+    (f.sabit || []).forEach(sabitSatir);
+    const kart = el("div", { class: "kart" }, el("h2", {}, "Birim fiyatlar"), el("p", { class: "aciklama" }, "Tutarlar bu fiyatlarla hesaplanır. Başlangıç değerleri herkese açık fiyat listelerinden alınmıştır; kendi faturanızdaki fiyat farklıysa burada düzeltin. Fiyatı değiştirince geçmiş dönemler de yeni fiyatla yeniden hesaplanır."),
+      el("h3", {}, "OpenAI — yapay zekâ modelleri ($ / 1 milyon token)"), llm, yon ? el("p", {}, el("button", { class: "dugme dar", onclick: () => llmSatir("", { girdi: 0, onbellek: 0, cikti: 0 }) }, "Model ekle")) : null,
+      el("h3", {}, "Deepgram — konuşmayı yazıya çevirme"), stt, yon ? el("p", {}, el("button", { class: "dugme dar", onclick: () => stt._ekle() }, "Model ekle")) : null,
+      el("h3", {}, "ElevenLabs — seslendirme"), tts, yon ? el("p", {}, el("button", { class: "dugme dar", onclick: () => tts._ekle() }, "Model ekle")) : null,
+      el("h3", {}, "NetGSM — telefon hattı"), el("div", { class: "izgara" }, el("div", { class: "alan" }, el("label", {}, "Giden arama dakika ücreti (TL)"), el("p", { class: "aciklama" }, "Paketiniz dakikaları içeriyorsa 0 bırakın."), giden), el("div", { class: "alan" }, el("label", {}, "Gelen arama dakika ücreti (TL)"), gelen)),
+      el("h3", {}, "Aylık sabit giderler"), el("p", { class: "aciklama" }, "Kullanıma bağlı olmayan ödemeler: NetGSM hat ve paket ücretleri, ElevenLabs aboneliği gibi. Ay sonu tahminine eklenir."), sabit, yon ? el("p", {}, el("button", { class: "dugme dar", onclick: () => sabitSatir({}) }, "Gider ekle")) : null,
+      el("h3", {}, "Dolar kuru"), el("div", { class: "alan", style: "max-width:260px" }, el("label", {}, "1 ABD doları kaç TL"), el("p", { class: "aciklama" }, "0 bırakırsanız Merkez Bankası'nın günlük kuru kullanılır."), kurG),
+      yon ? el("button", { class: "dugme ana", onclick: () => dene_(async () => {
+        const g = { llm: {}, stt: {}, tts: {}, tel: { giden_tl_dk: giden.value, gelen_tl_dk: gelen.value }, sabit: [], kur: kurG.value };
+        kart.querySelectorAll("input[data-tur]").forEach((ad) => { const a = ad.value.trim(); if (!a) return; if (ad.dataset.tur === "sabit") g.sabit.push({ ad: a, ...ad._deger() }); else g[ad.dataset.tur][a] = ad._deger(); });
+        await api("fiyatlar", { method: "PUT", body: g }); bildir("Birim fiyatlar kaydedildi"); getir();
+      }) }, "Fiyatları kaydet") : null);
+    return kart;
+  };
+  $("#icerik").replaceChildren(baslik("Maliyet", "Hangi servise ne kadar ödeyeceğinizin tahmini"), el("div", { class: "donem" }, dugmeler, bas, el("span", { class: "ikincil" }, "–"), bit), govde);
+  getir();
+}
+
 async function numaralar() {
   const [liste, asist] = await Promise.all([api("numaralar"), api("asistanlar")]);
   const yonetici = BEN.rol === "yonetici";
