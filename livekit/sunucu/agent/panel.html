@@ -129,6 +129,7 @@ td.sayi,th.sayi{text-align:right;font-variant-numeric:tabular-nums}
 .olcum .deger{font:700 28px/1.15 var(--baslik-yazi);margin-top:6px;font-variant-numeric:tabular-nums}
 .olcum .not{color:var(--soluk);font-size:12.5px;margin-top:4px}
 
+select[data-k="hat"]{min-width:104px}
 .cift{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,3fr);gap:18px;margin-bottom:18px}.cift>.kart{margin:0}
 .grafik-kutu{position:relative;height:250px}
 .lejant{display:flex;gap:18px;font-size:13px;color:var(--soluk);margin:-4px 0 12px}
@@ -222,6 +223,8 @@ dialog .eylemler{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
 "use strict";
 const $ = (s, k = document) => k.querySelector(s);
 const el = (ad, oz = {}, ...cocuk) => { const e = document.createElement(ad); for (const [k, v] of Object.entries(oz)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v !== false && v != null) e.setAttribute(k, v === true ? "" : v); } for (const c of cocuk.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(c)); return e; };
+// replaceChildren'a verilen boş (null/false) parçalar ekrana "null" diye yazılmasın
+{ const asil = Element.prototype.replaceChildren; Element.prototype.replaceChildren = function (...c) { return asil.apply(this, c.filter((x) => x != null && x !== false)); }; }
 let BEN = null, yenileme = null, gezinti = 0;   // gezinti: sayfa değişince artar, yarım kalan yüklemeler eski sayfayı çizmesin
 
 function bildir(metin, hata = false) {

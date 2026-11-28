@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# NetGSM trunk'ı "401" veriyorsa nedenini daraltır: aynı şifreyle, iki farklı kullanıcı adı yazımını
-# hem mevcut bağlantı noktasından (5070) hem de ayrı bir bağlantı noktasından (5072) dener.
+# NetGSM trunk'ı aramayı kabul edip sonra "500" veriyorsa nedenini daraltır: aranan numarayı farklı
+# yazımlarla (90506…, 0506…, 506…) ve ek kimlik başlığı açık/kapalı olarak dener.
 # NetGSM'in gerçek cevabına bakar. Asıl ayarlara dokunmaz; geçici deneme hattını sonunda siler.
 #   sudo bash /opt/xre-ai/trunk_bicim_dene.sh 05337437116 05061288930
 set -euo pipefail
@@ -17,22 +17,19 @@ YEREL=$(awk '/^\[transport-udp\]/{b=1} b&&/^local_net=/{sub(/^[^=]*=/,""); print
 IZ=$(mktemp)
 temizle() { rm -f "$IZ"; sed -i '/^; ---- GECICI DENEME BASLANGIC ----$/,/^; ---- GECICI DENEME BITIS ----$/d' "$PJSIP"; asterisk -rx "module reload res_pjsip.so" >/dev/null 2>&1 || true; }
 trap temizle EXIT
-echo "0$N trunk'ı deneniyor (her deneme yaklaşık 12 saniye). Telefonunuz çalarsa AÇMAYIN; çalması yeterli."
+KULLANICI=$(awk -v n="[trunk-$N-auth]" '$0==n{b=1} b&&/^username=/{sub(/^username=/,""); print; exit}' "$PJSIP")
+H10=$(echo "$HEDEF" | sed -E 's/^(90|0)//')
+echo "0$N trunk'ı (kullanıcı adı $KULLANICI) farklı numara yazımlarıyla deneniyor (her deneme yaklaşık 12 saniye)."
+echo "Telefonunuz çalarsa AÇMAYIN; çalması yeterli."
 echo
 BULUNDU=""
-for D in "transport-udp|+90$N" "transport-udp|90$N" "transport-deneme|+90$N" "transport-deneme|90$N"; do
-  IFS='|' read -r TASIMA KUL <<< "$D"
+# her satır: aranan numaranın yazımı | arayan kimliği ek başlığı (P-Asserted-Identity) gönderilsin mi
+for D in "90$H10|hayir" "0$H10|hayir" "$H10|hayir"; do
+  IFS='|' read -r ARANAN PAI <<< "$D"
+  TASIMA=transport-udp; KUL=$KULLANICI
   sed -i '/^; ---- GECICI DENEME BASLANGIC ----$/,/^; ---- GECICI DENEME BITIS ----$/d' "$PJSIP"
   cat >> "$PJSIP" <<EOT
 ; ---- GECICI DENEME BASLANGIC ----
-[transport-deneme]
-type=transport
-protocol=udp
-bind=0.0.0.0:5072
-external_media_address=${DIS}
-external_signaling_address=${DIS}
-local_net=${YEREL}
-
 [trunk-0000000001-auth]
 type=auth
 auth_type=userpass
@@ -57,16 +54,17 @@ direct_media=no
 rtp_symmetric=yes
 force_rport=yes
 rewrite_contact=yes
+send_pai=$([ "$PAI" = evet ] && echo yes || echo no)
 ; ---- GECICI DENEME BITIS ----
 EOT
   asterisk -rx "module reload res_pjsip.so" >/dev/null; sleep 3
   : > "$IZ"
   ( timeout 9 tcpdump -ni any -A -s0 udp and host "$IP" > "$IZ" 2>/dev/null || true ) &
   sleep 1
-  asterisk -rx "channel originate Local/0000000001*${HEDEF}@trunk-dene extension test@gelen" >/dev/null
+  asterisk -rx "channel originate Local/0000000001*${ARANAN}@trunk-dene extension test@gelen" >/dev/null
   wait
   for K in $(asterisk -rx "core show channels concise" 2>/dev/null | grep "0000000001" | cut -d'!' -f1 || true); do asterisk -rx "channel request hangup $K" >/dev/null 2>&1 || true; done
-  CEVAP=$(python3 - "$IZ" "$HEDEF" <<'PY'
+  CEVAP=$(python3 - "$IZ" "$ARANAN" <<'PY'
 import re, sys
 ham = open(sys.argv[1], encoding="utf-8", errors="ignore").read(); hedef = sys.argv[2]
 paketler = re.split(r"\n(?=\d\d:\d\d:\d\d\.\d+ )", ham)
@@ -83,12 +81,12 @@ for p in paketler:
 print(("|".join(dict.fromkeys(kodlar)) or "CEVAP YOK") + "#" + port)
 PY
 )
-  KODLAR=${CEVAP%%#*}; DISPORT=${CEVAP##*#}
-  AD=$([ "$TASIMA" = transport-udp ] && echo "mevcut bağlantı noktası (5070)" || echo "ayrı bağlantı noktası (5072)")
-  if echo "$KODLAR" | grep -qE "(^|\|)(180|183|200) "; then
-    printf '  ✓ %-32s kullanıcı adı %-14s → %s%s\n' "$AD" "$KUL" "$KODLAR" "${DISPORT:+  (NetGSM bizi $DISPORT numaralı kapıdan gördü)}"; BULUNDU="$TASIMA|$KUL"; break
+  KODLAR=${CEVAP%%#*}
+  # başarılı: çalıyor/açıldı (180/200) ya da ilerleme var (183) ve ardından hata (4xx/5xx/6xx) gelmedi
+  if echo "$KODLAR" | grep -qE "(^|\|)(180|200) " || { echo "$KODLAR" | grep -qE "(^|\|)183 " && ! echo "$KODLAR" | grep -qE "(^|\|)[456][0-9]{2} "; }; then
+    printf '  ✓ aranan %-14s ek kimlik başlığı: %-5s → %s\n' "$ARANAN" "$PAI" "$KODLAR"; BULUNDU="$ARANAN|$PAI"; break
   else
-    printf '  ✗ %-32s kullanıcı adı %-14s → %s%s\n' "$AD" "$KUL" "$KODLAR" "${DISPORT:+  (NetGSM bizi $DISPORT numaralı kapıdan gördü)}"
+    printf '  ✗ aranan %-14s ek kimlik başlığı: %-5s → %s\n' "$ARANAN" "$PAI" "$KODLAR"
   fi
 done
 echo
