@@ -908,6 +908,13 @@ CARTESIA_URL = "https://api.cartesia.ai"
 CARTESIA_SURUM = "2025-04-16"                      # Cartesia-Version başlığı; Cartesia bu sürümü reddederse güncellenmeli
 CARTESIA_MODEL = "sonic-3"
 
+# Kendi sunucumuzdaki ses modeli (ses/ klasörü; yalnızca ses_kur.sh ile açılır). Panel makinenin kendi ağında
+# çalıştığı için servise makine içi kapıdan ulaşır (docker-compose.yml'de 127.0.0.1:8090).
+SES_SUNUCU_URL = os.environ.get("SES_SUNUCU_URL", "http://127.0.0.1:8090").rstrip("/")
+SES_SUNUCU_KOMUTU = "sudo bash /opt/xre-ai/ses_kur.sh"
+SES_SUNUCU_ZAMAN_ASIMI = 150    # saniye: sırada bekleme (en çok 60) + üretim; model bulut sağlayıcılardan yavaş olabilir
+VOXCPM_SESLER = [("nefes", "Nefes sesi (kadın)"), ("varsayilan", "Modelin kendi sesi")]
+
 # Yaklaşık liste fiyatları: ABD doları / 1 milyon karakter (panelde "yaklaşık" diye gösterilir)
 SES_FIYAT = {"elevenlabs": 40.0, "azure": 15.0, "google": 30.0, "google_wavenet": 16.0, "cartesia": 38.0}
 
@@ -956,14 +963,42 @@ def _ses_saglayicilari() -> list[dict]:
     ]
 
 
-async def _ses_iste(url: str, basliklar: dict, *, govde: dict | None = None, icerik: bytes | None = None) -> tuple[bytes, float]:
-    """Sağlayıcıya POST atar, cevabı akış olarak okur. (ses baytları, ilk bayta kadar geçen saniye) döner."""
+async def _ses_kendi_sunucu() -> dict:
+    """Kendi sunucumuzdaki modelin (VoxCPM2) o anki durumu, diğer sağlayıcılarla aynı biçimde. Servis 2 saniyede
+    cevap vermezse kapalı sayılır. 'durum' ve 'yerel' panele de gider: kart buna göre yazılır."""
+    v = None
+    try:
+        async with httpx.AsyncClient(timeout=2) as c:
+            y = await asyncio.wait_for(c.get(f"{SES_SUNUCU_URL}/saglik"), 2)
+        v = y.json() if y.status_code == 200 else None
+    except Exception:
+        v = None
+    if not isinstance(v, dict):
+        durum, eksik = "kapali", f"Kurulu değil ya da kapalı. Sunucuda şu komutu çalıştırın: {SES_SUNUCU_KOMUTU}"
+    elif v.get("hazir") is True:
+        durum, eksik = "hazir", ""
+    elif v.get("durum") == "hata":
+        ayrinti = re.sub(r"\s+", " ", str(v.get("hata") or "")).strip()[:200]
+        durum, eksik = "hata", f"Model yüklenemedi: {ayrinti or 'bilinmeyen hata'}. Yeniden denemek için sunucuda: {SES_SUNUCU_KOMUTU}"
+    else:
+        durum, eksik = "yukleniyor", "Model yükleniyor… Birkaç dakika sürebilir; sonra sayfayı yenileyin."
+    var = v.get("sesler") if isinstance(v, dict) and durum == "hazir" and isinstance(v.get("sesler"), list) else None
+    return {"id": "voxcpm", "ad": "Kendi sunucumuz (VoxCPM2)", "anahtar": "", "hazir": durum == "hazir", "eksik": eksik, "fiyat_usd_1m": 0.0,
+            "sesler": [{"id": i, "ad": a} for i, a in VOXCPM_SESLER if var is None or i in var], "durum": durum, "yerel": True}
+
+
+async def _ses_iste(url: str, basliklar: dict, *, govde: dict | None = None, icerik: bytes | None = None,
+                    cevap_basliklari: dict | None = None, zaman_asimi: float | None = None) -> tuple[bytes, float]:
+    """Sağlayıcıya POST atar, cevabı akış olarak okur. (ses baytları, ilk bayta kadar geçen saniye) döner.
+    cevap_basliklari verilirse cevabın başlıkları içine yazılır; zaman_asimi verilmezse SES_ZAMAN_ASIMI geçerlidir."""
     bas = time.perf_counter()
     ilk, parcalar, boyut = None, [], 0
-    async with httpx.AsyncClient(timeout=SES_ZAMAN_ASIMI) as c:
+    async with httpx.AsyncClient(timeout=SES_ZAMAN_ASIMI if zaman_asimi is None else zaman_asimi) as c:
         async with c.stream("POST", url, headers=basliklar, json=govde, content=icerik) as y:
             if y.status_code != 200:
                 raise SesHatasi(y.status_code, (await y.aread())[:4000].decode("utf-8", "replace"))
+            if cevap_basliklari is not None:
+                cevap_basliklari.update(y.headers)
             async for parca in y.aiter_bytes():
                 if not parca:
                     continue
@@ -1013,7 +1048,40 @@ async def _ses_cartesia(s: dict, ses: str, metin: str) -> tuple[bytes, float]:
                                   "output_format": {"container": "mp3", "sample_rate": 44100, "bit_rate": 128000}})
 
 
-SES_ISLEVLERI = {"elevenlabs": _ses_elevenlabs, "azure": _ses_azure, "google": _ses_google, "cartesia": _ses_cartesia}
+async def _ses_voxcpm(s: dict, ses: str, metin: str) -> tuple[bytes, float]:
+    """Kendi sunucumuz: ses üretildikçe akar; servis cevaba ilk ses parçası hazır olunca başlar (ilk bayt = ilk ses).
+    Ses süresi ve hız (üretim süresi / ses süresi) cevap bittikten sonra servisin /son ucundan alınır ve
+    s["ek_basliklar"] içine konur."""
+    gelen: dict = {}
+    try:
+        ham, ilk = await _ses_iste(f"{SES_SUNUCU_URL}/ses", {}, govde={"metin": metin, "ses": ses}, cevap_basliklari=gelen,
+                                   zaman_asimi=SES_SUNUCU_ZAMAN_ASIMI)
+    except SesHatasi as h:
+        try:                                   # servis hatayı {"detail": "..."} olarak verir: yalnızca açıklaması gösterilsin
+            ayrinti = json.loads(h.metin).get("detail")
+        except Exception:
+            ayrinti = None
+        raise SesHatasi(h.durum, str(ayrinti)) if ayrinti else h
+    if len(ham) <= 44 or ham[:4] != b"RIFF" or ham[8:12] != b"WAVE":
+        raise SesHatasi(0, "cevapta ses bulunamadı")
+    son = None
+    try:
+        async with httpx.AsyncClient(timeout=2) as c:
+            y = await asyncio.wait_for(c.get(f"{SES_SUNUCU_URL}/son"), 2)
+        son = y.json() if y.status_code == 200 else None
+    except Exception:
+        son = None
+    # Ölçüm gerçekten bu isteğe aitse kullanılır (araya başka bir üretim girmiş olabilir)
+    if isinstance(son, dict) and str(son.get("istek_no")) == gelen.get("x-istek-no", ""):
+        if son.get("hata"):                    # ses yarıda kesildi: eksik sesi sağlam gibi dinletme
+            raise SesHatasi(0, f"ses yarıda kesildi ({son['hata']})")
+        if isinstance(son.get("rtf"), (int, float)) and isinstance(son.get("ses_suresi_sn"), (int, float)):
+            s["ek_basliklar"] = {"X-Rtf": f"{son['rtf']:.3f}", "X-Ses-Suresi": f"{son['ses_suresi_sn']:.2f}"}
+    # Servis uzunluğu baştan bilemediği için WAV başlığına "bilinmiyor" yazar; tarayıcı çalabilsin diye gerçek boy yazılır
+    return ham[:4] + (len(ham) - 8).to_bytes(4, "little") + ham[8:40] + (len(ham) - 44).to_bytes(4, "little") + ham[44:], ilk
+
+
+SES_ISLEVLERI = {"elevenlabs": _ses_elevenlabs, "azure": _ses_azure, "google": _ses_google, "cartesia": _ses_cartesia, "voxcpm": _ses_voxcpm}
 
 
 def _ses_hata_metni(s: dict, metin: str) -> str:
@@ -1026,7 +1094,7 @@ def _ses_hata_metni(s: dict, metin: str) -> str:
 
 @router.get("/panel/api/ses-secenekleri")
 async def ses_secenekleri(_k: dict = Depends(yonetici)):
-    return [{k: v for k, v in s.items() if k not in ("anahtar", "bolge")} for s in _ses_saglayicilari()]
+    return [{k: v for k, v in s.items() if k not in ("anahtar", "bolge")} for s in _ses_saglayicilari() + [await _ses_kendi_sunucu()]]
 
 
 @router.post("/panel/api/ses-dene")
@@ -1039,7 +1107,8 @@ async def ses_dene(request: Request, k: dict = Depends(yonetici)):
         raise HTTPException(400, "Seslendirilecek metni yazın")
     if len(metin) > SES_METIN_SINIRI:
         raise HTTPException(400, f"Metin en çok {SES_METIN_SINIRI} karakter olabilir")
-    s = next((x for x in _ses_saglayicilari() if x["id"] == g.get("saglayici")), None)
+    yerel = g.get("saglayici") == "voxcpm"       # kendi sunucumuz: durumu ağdan sorulur, yalnızca istenince bakılır
+    s = await _ses_kendi_sunucu() if yerel else next((x for x in _ses_saglayicilari() if x["id"] == g.get("saglayici")), None)
     if not s:
         raise HTTPException(400, "Bilinmeyen sağlayıcı")
     if not s["hazir"]:
@@ -1058,17 +1127,18 @@ async def ses_dene(request: Request, k: dict = Depends(yonetici)):
             raise HTTPException(429, "Çok fazla deneme. Bir dakika sonra tekrar deneyin.")
     finally:
         await r.aclose()
+    sinir = SES_SUNUCU_ZAMAN_ASIMI if yerel else SES_ZAMAN_ASIMI
     bas = time.perf_counter()
     try:
-        veri, ilk = await asyncio.wait_for(SES_ISLEVLERI[s["id"]](s, ses, metin), SES_ZAMAN_ASIMI)
+        veri, ilk = await asyncio.wait_for(SES_ISLEVLERI[s["id"]](s, ses, metin), sinir)
     except SesHatasi as h:
         ek = _ses_hata_metni(s, h.metin)
         raise HTTPException(502, f"{s['ad']} hata verdi (HTTP {h.durum}): {ek}" if h.durum else f"{s['ad']} cevabı anlaşılamadı: {ek}")
     except (asyncio.TimeoutError, httpx.TimeoutException):
-        raise HTTPException(502, f"{s['ad']} {SES_ZAMAN_ASIMI} saniye içinde cevap vermedi")
+        raise HTTPException(502, f"{s['ad']} {sinir} saniye içinde cevap vermedi")
     except httpx.HTTPError as h:   # ayrıntı yazılmaz: hata metninde adres ya da başlık geçebilir
         raise HTTPException(502, f"{s['ad']} sunucusuna bağlanılamadı ({type(h).__name__})")
     toplam = time.perf_counter() - bas
-    return Response(veri, media_type=SES_TURU, headers={
+    return Response(veri, media_type="audio/wav" if yerel else SES_TURU, headers={
         "X-Ilk-Ses-Ms": str(round((toplam if ilk < 0 else ilk) * 1000)), "X-Toplam-Ms": str(round(toplam * 1000)),
-        "X-Karakter": str(len(metin)), "Cache-Control": "no-store"})
+        "X-Karakter": str(len(metin)), "Cache-Control": "no-store", **s.get("ek_basliklar", {})})

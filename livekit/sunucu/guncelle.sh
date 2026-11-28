@@ -13,7 +13,7 @@ echo "== Son sürüm indiriliyor =="
 curl -sL https://github.com/keremerginbas/CRUD/archive/refs/heads/claude/tender-cori-xgh6nr.tar.gz | tar xz --strip-components=1 -C "$GECICI"
 K="$GECICI/livekit/sunucu"
 [ -f "$K/agent/agent.py" ] || { echo "İndirme başarısız."; exit 1; }
-rm -rf "$HEDEF/agent" "$HEDEF/asterisk" && cp -r "$K/agent" "$K/asterisk" "$K/docker-compose.yml" "$K/ai_ara.sh" "$K/ses_analiz.sh" "$K/guncelle.sh" "$K/panel_sifre.sh" "$K/disaridan_erisim.sh" "$K/trunk_ekle.sh" "$K/trunk_dene.sh" "$K/trunk_bicim_dene.sh" "$K/dahili.sh" "$K/gelen_esle.sh" "$K/vapi_trunk_al.sh" "$K/vapi_asistan_al.sh" "$K/vapi_asistan_cevir.py" "$K/asistan_kontrol.sh" "$K/asistan_kontrol.py" "$K/n8n_baglan.sh" "$K/n8n_anahtar_ekle.sh" "$K/ses_anahtar.sh" "$K/numaralari_yukle.sh" "$K/numaralar_xre.yaml" "$HEDEF/"
+rm -rf "$HEDEF/agent" "$HEDEF/asterisk" "$HEDEF/ses" && cp -r "$K/agent" "$K/asterisk" "$K/ses" "$K/ses_kur.sh" "$K/docker-compose.yml" "$K/ai_ara.sh" "$K/ses_analiz.sh" "$K/guncelle.sh" "$K/panel_sifre.sh" "$K/disaridan_erisim.sh" "$K/trunk_ekle.sh" "$K/trunk_dene.sh" "$K/trunk_bicim_dene.sh" "$K/dahili.sh" "$K/gelen_esle.sh" "$K/vapi_trunk_al.sh" "$K/vapi_asistan_al.sh" "$K/vapi_asistan_cevir.py" "$K/asistan_kontrol.sh" "$K/asistan_kontrol.py" "$K/n8n_baglan.sh" "$K/n8n_anahtar_ekle.sh" "$K/ses_anahtar.sh" "$K/numaralari_yukle.sh" "$K/numaralar_xre.yaml" "$HEDEF/"
 cp "$K/asistanlar/test.yaml" "$HEDEF/asistanlar/test.yaml"   # yalnızca deneme asistanı yenilenir
 # Asterisk arama planını son sürümle değiştir (NetGSM kaydına dokunmaz)
 GELEN_NUMARA=$(awk -F'"' '/numara:/{print $2; exit}' "$HEDEF/numaralar.yaml")

@@ -1,0 +1,16 @@
+XRE ses sunucusu — üçüncü taraf bileşenler (hiçbiri bu depoda ya da imajda dağıtılmaz; ilk açılışta
+kendi depolarından indirilir ve sunucudaki "ses-veri" biriminde durur)
+
+- VoxCPM2 (openbmb/VoxCPM2) ve voxcpm Python paketi — © OpenBMB / VoxCPM Team, Apache License 2.0.
+  https://huggingface.co/openbmb/VoxCPM2 · https://github.com/OpenBMB/VoxCPM
+  Model sahiplerinin koşulu: taklit, dolandırıcılık ve yanıltma amacıyla kullanılamaz; yapay zekâ ile
+  üretilen ses olduğu belirtilmelidir.
+
+- Nefes 0.5 ses örneği (alicangunduz/nefes-0.5, voice/nefes.wav) — © 2026 Ali Can Gündüz, Apache License 2.0.
+  https://huggingface.co/alicangunduz/nefes-0.5
+  Yapay (sentetik) bir kadın sesidir; Maya1 (maya-research/maya1, Apache License 2.0) ile tasarlanmıştır,
+  gerçek bir kişiye ait değildir. Burada yalnızca VoxCPM2'ye örnek ses (reference_wav_path) olarak verilir;
+  Nefes'in kendi kodu ve diğer dosyaları kullanılmaz. Deponun LICENSE ve NOTICE dosyaları ses kaydıyla
+  birlikte indirilir. Kayıt başka bir yere kopyalanır ya da dağıtılırsa bu iki dosya da yanında verilmelidir.
+
+Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0

@@ -1,0 +1,18 @@
+# Sürümler sabit: bu küme birlikte kurulup denenmiştir (Python 3.12, voxcpm 2.0.3 ile içe aktarma ve küçük modelle üretim).
+# torch 2.8.0'ın PyPI tekerleği CUDA 12.8 kitaplıklarını ve triton'u (torch.compile için) kendisi getirir;
+# sunucuda yalnızca NVIDIA sürücüsü (570 ve üstü; bizde 580) ve nvidia-container-toolkit gerekir.
+# voxcpm ayrıca ve bağımlılıksız kurulur (Dockerfile): kendi listesindeki gradio, funasr, modelscope, datasets…
+# yalnızca demo arayüzü, gürültü giderici ve eğitim içindir; ses üretimi için aşağıdakiler yeter.
+torch==2.8.0
+torchaudio==2.8.0
+transformers==5.24.1
+einops==0.8.2
+pydantic==2.14.4
+tqdm==4.70.1
+safetensors==0.8.0
+librosa==1.0.1
+soundfile==0.14.0
+huggingface-hub==2.5.0
+numpy==2.5.5
+fastapi==0.165.0
+uvicorn==0.55.0

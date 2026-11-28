@@ -4,6 +4,7 @@
 #   sip      : telefon ↔ oda köprüsü (Asterisk ile yerelde konuşur; dışarıya açık değil)
 #   ajan     : yapay zekâ (Deepgram + OpenAI + ElevenLabs)
 #   api      : n8n'in arama başlattığı adres (8080)
+#   ses      : (isteğe bağlı, yalnızca ses_kur.sh ile) kendi ekran kartımızda ses üretimi; panelde karşılaştırma için
 services:
   redis:
     image: redis:7-alpine
@@ -65,5 +66,38 @@ services:
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
 
+  # Yalnızca ses_kur.sh çalıştırılınca başlar ("ses" profili): olağan "docker compose up" ve guncelle.sh buna dokunmaz.
+  # Açık kaynak VoxCPM2 modelini ekran kartında çalıştırır; şimdilik yalnızca paneldeki "Ses karşılaştır" sayfası kullanır.
+  ses:
+    build: ./ses
+    profiles: ["ses"]
+    restart: unless-stopped
+    # Diğer servisler makinenin kendi ağında (host) çalıştığı için bu servise ad ile (http://ses:8000) ulaşamazlar.
+    # Kapı yalnızca makinenin kendisine açılır (127.0.0.1:8090 → kapsayıcıda 8000); dışarıdan erişilemez.
+    # Kapsayıcı ayrı ağda kalır: indirilen model kodu makinedeki redis/livekit'e uzanamaz.
+    ports: ["127.0.0.1:8090:8000"]
+    environment:
+      SES_YARIM_HASSASIYET: ${SES_YARIM_HASSASIYET:-1}
+      SES_DERLE: ${SES_DERLE:-1}
+      SES_AZ_RAM: ${SES_AZ_RAM:-1}
+    volumes: ["ses-veri:/veri"]     # model (yaklaşık 5 GB) ve ses örneği burada kalır; yeniden kurulumda tekrar inmez
+    # Bellek sınırı: makinede 8 GB RAM var ve aynı makinede canlı aramalar (ajan, livekit, sip, redis, api, Asterisk;
+    # birlikte yaklaşık 2-3 GB) çalışıyor. Model ekran kartının belleğinde durur; bu süreç yüklenirken ölçüme göre
+    # 2-3,5 GB, çalışırken daha azını kullanır. 5 GB sınır hem buna yeter hem de bir şey ters giderse (ör. modelin
+    # olağan yolla yüklenmesi 10 GB'tan fazla ister) Linux'un arama servislerini değil yalnızca bu kapsayıcıyı
+    # durdurmasını sağlar. Takas alanı kullanılmaz (memswap = mem): diske taşma aramaların sesini bozar.
+    mem_limit: 5g
+    memswap_limit: 5g
+    # 4 çekirdekten en çok 2'si: model yüklenirken/derlenirken aramalara işlemci kalsın
+    cpus: 2.0
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
 volumes:
   redis-veri:
+  ses-veri:

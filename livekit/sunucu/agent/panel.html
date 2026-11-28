@@ -919,7 +919,11 @@ async function sesKarsilastir() {
       s.calar.addEventListener("play", () => { if (ortam) ortam.resume().catch(() => {}); calarlar().forEach((c) => c !== s.calar && c.pause()); });
       hataBagla(s.calar);
       const ilk = y.headers.get("X-Ilk-Ses-Ms"), toplam = y.headers.get("X-Toplam-Ms");
-      s.sonuc.replaceChildren(s.calar, el("div", { class: "ikincil" }, "İlk ses: " + (ilk ?? "?") + " ms · Toplam: " + (toplam ?? "?") + " ms"));
+      // Kendi sunucumuz: ayrıca hız (üretim süresi / sesin süresi). 1'in altı, sesi konuşma hızından çabuk ürettiğini gösterir.
+      const hiz = s.yerel ? parseFloat(y.headers.get("X-Rtf")) : NaN, sure = s.yerel ? parseFloat(y.headers.get("X-Ses-Suresi")) : NaN;
+      const hizYazi = !s.yerel ? "" : " · Hız: " + (hiz > 0 ? hiz.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "× gerçek zaman (1'den küçük olmalı)" : "ölçülemedi");
+      s.sonuc.replaceChildren(s.calar, el("div", { class: "ikincil" }, "İlk ses: " + (ilk ?? "?") + " ms · Toplam: " + (toplam ?? "?") + " ms" + hizYazi),
+        s.yerel ? el("div", { class: "ikincil" }, "Hız 1'den küçükse model sesi konuşma hızından çabuk üretir, yani canlı aramada konuşmaya yetişir" + (sure > 0 ? " (bu ses " + sure.toLocaleString("tr-TR", { maximumFractionDigits: 1 }) + " saniye)." : ".")) : null);
       s.dugme.textContent = "Yeniden üret";
     } catch (h) {
       if (benim !== gezinti) return;
@@ -939,12 +943,14 @@ async function sesKarsilastir() {
   } }, "Hepsini üret");
 
   const kartlar = saglayicilar.map((p) => {
-    const fiyat = el("span", { class: "ikincil" }); fiyatYazilari.push([fiyat, p.fiyat_usd_1m]);
-    const durum = p.hazir ? el("span", { class: "etiket iyi" }, "Hazır") : el("span", { class: "etiket orta" }, /^Anahtar girilmemiş/.test(p.eksik || "") ? "Anahtar girilmemiş" : "Ayar eksik");
+    const fiyat = el("span", { class: "ikincil" });
+    if (p.yerel) fiyat.textContent = "karakter başına ücret yok · kendi ekran kartımızda çalışır"; else fiyatYazilari.push([fiyat, p.fiyat_usd_1m]);
+    const durum = p.hazir ? el("span", { class: "etiket iyi" }, "Hazır") : el("span", { class: "etiket orta" }, p.yerel ? ({ yukleniyor: "Yükleniyor", hata: "Hata" }[p.durum] || "Kurulu değil") : /^Anahtar girilmemiş/.test(p.eksik || "") ? "Anahtar girilmemiş" : "Ayar eksik");
     return el("section", { class: "kart sikisik", "aria-label": p.ad, "data-saglayici": p.id }, el("div", { class: "ses-ust" }, el("h2", {}, p.ad), durum, fiyat),
       p.hazir ? null : el("p", { class: "aciklama" }, p.eksik),
+      p.yerel ? el("p", { class: "aciklama" }, "Açık kaynak bir model; ses başka bir şirkete gitmeden kendi sunucumuzda üretilir. Bu ekran kartında aynı anda tek konuşma üretebilir (aynı anda tek arama). Şimdilik yalnızca deneme içindir, canlı aramalarda kullanılmıyor.") : null,
       p.sesler.map((v) => {
-        const s = { saglayici: p.id, ses: v.id, etiket: p.ad + " " + v.ad, hazir: p.hazir, adres: null, calar: null };
+        const s = { saglayici: p.id, ses: v.id, etiket: p.ad + " " + v.ad, hazir: p.hazir, yerel: !!p.yerel, adres: null, calar: null };
         s.sonuc = el("div", { class: "ses-sonuc", "aria-live": "polite" }, p.hazir ? el("span", { class: "ikincil" }, "Henüz üretilmedi") : null);
         s.dugme = el("button", { class: "dugme kucuk", type: "button", disabled: !p.hazir, "aria-label": s.etiket + ": üret", onclick: () => uret(s) }, "Üret");
         satirlar.push(s);
