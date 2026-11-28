@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import logging
 import os
 import time
@@ -61,6 +62,15 @@ Yarıda kesilmiş görünüyorsa (müşteri araya girdiyse) müşteri teklifi du
 sonra açılış cümlesindeki teklifi baştan, eksiksiz söyle. Teklifi duymamış müşteriye isim ya da başka soru sorma."""
 
 
+# Hat gürültüsünden (çalma tonu, kapanış sesi, yankı) ses tanımanın ürettiği, gerçekte söylenmemiş kalıplar.
+# Gerçek aramalarda defalarca görüldü: müşteri hiçbir şey demeden kapattığı hâlde dökümde bu sözler çıkıyor.
+_HAYALET = {"sınırı yoktur", "yoktur", "umarım iyisinizdir", "iyisinizdir", "ıyisinizdir", "ederiz", "teşekkür ederiz", "merhaba ederiz", "zamankinden dur"}
+
+
+def hayalet_mi(metin: str) -> bool:
+    return re.sub(r"[^a-zçğıöşü ]", "", str(metin or "").replace("İ", "i").replace("I", "ı").lower()).strip() in _HAYALET
+
+
 class Asistan(Agent):
     """ilk_mesaj_modu = musteri_bekle ise: müşterinin ilk sözünden ("alo") sonra açılış cümlesini
     modele sormadan, olduğu gibi söyler."""
@@ -77,6 +87,9 @@ class Asistan(Agent):
         metin = (getattr(new_message, "text_content", "") or "").strip()
         if guven is not None and guven < g.guven_esigi and len(metin.split()) <= 4:
             log.info("düşük güvenli söz yok sayıldı (%.2f): %s", guven, metin)
+            raise StopResponse()
+        if hayalet_mi(metin):
+            log.info("hat gürültüsü sayılan söz yok sayıldı: %s", metin)
             raise StopResponse()
         if g.acilis_bekliyor and self._ilk and g.bekle_modu:
             g.acilis_soyle(self._ilk)
@@ -391,12 +404,12 @@ class Gorusme:
                 min_speech_duration=float(a.get("en_kisa_konusma_sn", 0.12)),
             ),
             min_endpointing_delay=float(a.get("soz_bitti_bekleme_sn", 0.3)),
-            max_endpointing_delay=float(a.get("soz_bitti_azami_sn", 3.0)),
+            max_endpointing_delay=float(a.get("soz_bitti_azami_sn", 1.8)),
             user_away_timeout=float(a.get("sessizlik_sn", 20)),
             # Asistanın sözünü yalnızca gerçekten anlaşılan bir kelime keser ("alo" dahil); gürültü, öksürük, kapı sesi kesmez.
             # Kesildikten sonra anlamlı bir söz gelmezse asistan kaldığı yerden devam eder.
             min_interruption_words=int(a.get("soz_kesme_en_az_kelime", 1)),
-            min_interruption_duration=float(a.get("soz_kesme_en_az_sn", 0.5)),
+            min_interruption_duration=float(a.get("soz_kesme_en_az_sn", 0.7)),
             resume_false_interruption=True,
             # Müşteri susar susmaz cevabı (metin + ses) hazırlamaya başla; söz gerçekten bittiyse hemen çal
             preemptive_generation={"enabled": True, "preemptive_tts": bool(a.get("on_seslendirme", True))},
@@ -447,6 +460,7 @@ class Gorusme:
         ctx.add_shutdown_callback(lambda: _iptal(sinir))
 
         ilk = ortak.sablon_doldur(a.get("ilk_mesaj", ""), d).strip()
+        ilk = re.sub(r"\bXRE(?=[\s'’.,!?]|$)", "iksre", ilk)  # seslendirme "XRE"yi harf harf okuyor; n8n'den gelen açılışlarda da düzelsin
         bekle = a.get("ilk_mesaj_modu", "asistan") == "musteri_bekle"
         self.acilis_kesilebilir = bool(a.get("ilk_mesaj_kesilebilir", True))
         self.acilis_bekliyor = bool(ilk)
@@ -507,7 +521,9 @@ class Gorusme:
         sema = an.get("yapilandirilmis") or {}
         # Dökümden anlaşılamayan gerçekler analize açıkça verilir (aramanın yönü, müşterinin konuşup konuşmadığı, nasıl bittiği)
         giden = self.tur == "outboundPhoneCall"
-        musteri_soz = sum(1 for satir in transkript.split("\n") if satir.startswith("User:"))
+        musteri_satir = [satir[5:].strip() for satir in transkript.split("\n") if satir.startswith("User:")]
+        gurultu = [x for x in musteri_satir if hayalet_mi(x)]
+        musteri_soz = len(musteri_satir) - len(gurultu)
         sure = round(time.time() - self.baslangic) if self.baslangic else 0
         gercekler = (
             "GÖRÜŞME HAKKINDA KESİN BİLGİLER (dökümle çelişirse bunlar doğrudur):\n"
@@ -518,6 +534,7 @@ class Gorusme:
                "gibi bir sonuç SEÇME, izin verilen değerler içinde ulaşılamadı / müsait değil anlamına en yakın olanı seç; özet olarak müşterinin konuşmadan kapattığını yaz.\n"
                if musteri_soz == 0 else
                "- Müşteri yalnızca selam verdiyse ya da tanıtım bitmeden kapattıysa bunu bilgi aldı ya da başarılı görüşme sayma.\n")
+            + (f"- Dökümdeki şu müşteri satırları hat gürültüsüdür, müşteri bunları SÖYLEMEDİ, yok say: {'; '.join(sorted(set(gurultu)))}\n" if gurultu else "")
             + "- Dökümde geçmeyen isim, tarih, saat ya da niyet uydurma.\n\n"
         )
         istek = (
