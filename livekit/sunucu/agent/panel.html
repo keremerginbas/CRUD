@@ -47,7 +47,8 @@ a.dugme{text-decoration:none;color:inherit}
 .dugme:disabled{opacity:.5;cursor:default}
 
 /* form */
-input[type=text],input[type=password],input[type=number],input[type=tel],select,textarea{width:100%;border:1px solid var(--cizgi-koyu);background:var(--kart);border-radius:8px;padding:9px 11px}
+@media (prefers-color-scheme:dark){:root{color-scheme:dark}}
+input[type=text],input[type=password],input[type=number],input[type=tel],input[type=date],input[type=search],select,textarea{width:100%;border:1px solid var(--cizgi-koyu);background:var(--kart);border-radius:8px;padding:9px 11px}
 input:hover,select:hover,textarea:hover{border-color:var(--soluk)}
 textarea{resize:vertical;font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-size:13.5px;line-height:1.6}
 label{display:block;font-weight:600;font-size:13.5px;margin-bottom:5px}
